@@ -16,11 +16,9 @@
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             app:title="Tailscale Terminal"
-            app:titleTextAppearance="@style/TextAppearance.Material3.TitleMedium"
             app:navigationIcon="@drawable/ic_baseline_arrow_back" />
     </com.google.android.material.appbar.AppBarLayout>
 
-    <!-- КОНСОЛЬНЫЙ ВЫВОД -->
     <ScrollView
         android:id="@+id/scroll_view"
         android:layout_width="match_parent"
@@ -36,7 +34,6 @@
             android:fontFamily="monospace"
             android:textColor="#E6E1E5"
             android:textSize="14sp"
-            android:lineSpacingExtra="2dp"
             android:textIsSelectable="true"
             android:text="$ "/>
     </ScrollView>
@@ -48,7 +45,6 @@
         android:indeterminate="true"
         android:visibility="invisible" />
 
-    <!-- ПАНЕЛЬ ПРЕСЕТОВ -->
     <HorizontalScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -59,19 +55,16 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:paddingHorizontal="16dp"
-            android:paddingVertical="8dp">
+            android:padding="8dp">
             <Button
                 android:id="@+id/btn_add_preset"
                 style="@style/Widget.Material3.Button.TextButton"
                 android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:text="+ Add"
-                android:textColor="?attr/colorPrimary"/>
+                android:layout_height="wrap_content"
+                android:text="+ Add" />
         </LinearLayout>
     </HorizontalScrollView>
 
-    <!-- ПАНЕЛЬ ВВОДА (M3 Style) -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -80,14 +73,13 @@
         android:padding="8dp"
         android:background="?attr/colorSurface">
 
-        <IconButton
+        <ImageButton
             android:id="@+id/btn_history_up"
-            style="@style/Widget.Material3.Button.IconButton"
             android:layout_width="48dp"
             android:layout_height="48dp"
-            android:src="@drawable/ic_history_24"
-            app:tint="?attr/colorOnSurfaceVariant"
-            android:tooltipText="History Up"/>
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_menu_recent_history"
+            app:tint="?attr/colorOnSurfaceVariant"/>
             
         <com.google.android.material.card.MaterialCardView
             android:layout_width="0dp"
@@ -97,40 +89,32 @@
             app:cardBackgroundColor="?attr/colorSurfaceContainerHigh"
             app:strokeWidth="0dp"
             android:layout_marginHorizontal="8dp">
-            
             <EditText
                 android:id="@+id/input_command"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:background="@android:color/transparent"
-                android:hint="Type command..."
-                android:textColorHint="?attr/colorOutline"
-                android:textColor="?attr/colorOnSurface"
+                android:hint="Command..."
                 android:fontFamily="monospace"
-                android:textSize="14sp"
                 android:imeOptions="actionDone"
                 android:inputType="textNoSuggestions"
-                android:paddingHorizontal="16dp"
-                android:paddingVertical="12dp"
-                android:maxLines="1"/>
+                android:padding="12dp"/>
         </com.google.android.material.card.MaterialCardView>
 
-        <IconButton
+        <ImageButton
             android:id="@+id/btn_run"
-            style="@style/Widget.Material3.Button.IconButton.Filled.Tonal"
             android:layout_width="48dp"
             android:layout_height="48dp"
-            android:src="@drawable/ic_send_24"
-            app:tint="?attr/colorOnSecondaryContainer"
-            android:tooltipText="Run"/>
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_media_play"
+            app:tint="?attr/colorPrimary"/>
 
-        <IconButton
+        <ImageButton
             android:id="@+id/btn_clear_console"
-            style="@style/Widget.Material3.Button.IconButton"
             android:layout_width="48dp"
             android:layout_height="48dp"
-            android:src="@drawable/ic_delete_outline_24"
-            app:tint="?attr/colorError"
-            android:tooltipText="Clear"/>
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_menu_delete"
+            app:tint="?attr/colorError"/>
     </LinearLayout>
 </LinearLayout>

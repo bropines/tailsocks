@@ -8,8 +8,7 @@
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        app:liftOnScroll="true">
+        android:layout_height="wrap_content">
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
@@ -27,178 +26,44 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingBottom="80dp">
+            android:padding="16dp">
 
-            <!-- Banner Card -->
-            <com.google.android.material.card.MaterialCardView
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/switch_force_bg"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_margin="16dp"
-                app:cardBackgroundColor="?attr/colorSurfaceContainer"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="0dp">
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:padding="16dp"
-                    android:gravity="center_vertical">
-                     <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switch_force_bg"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/force_bg_title" 
-                        android:textStyle="bold"/>
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+                android:text="@string/force_bg_title"
+                android:padding="16dp"/>
 
-            <!-- GENERAL -->
-            <TextView
-                android:id="@+id/header_general"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="General"
-                android:textColor="?attr/colorPrimary"
-                android:textAppearance="@style/TextAppearance.Material3.LabelLarge"
-                android:paddingHorizontal="24dp"
-                android:paddingTop="16dp"
-                android:paddingBottom="8dp"/>
-
-            <LinearLayout
-                android:id="@+id/container_general"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:paddingHorizontal="16dp">
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/auth_key_layout"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="@string/auth_key"
-                    app:endIconMode="custom"
-                    app:boxBackgroundColor="?attr/colorSurface"
-                    android:layout_marginBottom="8dp">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/auth_key"
-                        android:inputType="text"/>
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="@string/hostname"
-                    app:boxBackgroundColor="?attr/colorSurface"
-                    android:layout_marginBottom="8dp">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/hostname"
-                        android:inputType="text"/>
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="@string/login_server"
-                    app:boxBackgroundColor="?attr/colorSurface"
-                    app:helperText="Optional (Headscale)">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/login_server"
-                        android:inputType="textUri"/>
-                </com.google.android.material.textfield.TextInputLayout>
+            <!-- General Section -->
+            <TextView android:id="@+id/header_general" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="General" android:padding="8dp" android:textColor="?attr/colorPrimary" />
+            <LinearLayout android:id="@+id/container_general" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+                <com.google.android.material.textfield.TextInputLayout android:id="@+id/auth_key_layout" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/auth_key" app:endIconMode="custom"><com.google.android.material.textfield.TextInputEditText android:id="@+id/auth_key" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="text"/></com.google.android.material.textfield.TextInputLayout>
+                <com.google.android.material.textfield.TextInputLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/hostname"><com.google.android.material.textfield.TextInputEditText android:id="@+id/hostname" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="text"/></com.google.android.material.textfield.TextInputLayout>
+                <com.google.android.material.textfield.TextInputLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/login_server"><com.google.android.material.textfield.TextInputEditText android:id="@+id/login_server" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="textUri"/></com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
-            <com.google.android.material.divider.MaterialDivider
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:layout_marginVertical="16dp"
-                app:dividerColor="?attr/colorOutlineVariant"
-                android:alpha="0.5"/>
-
-            <!-- NETWORK -->
-            <TextView
-                android:id="@+id/header_network"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Routing"
-                android:textColor="?attr/colorPrimary"
-                android:textAppearance="@style/TextAppearance.Material3.LabelLarge"
-                android:paddingHorizontal="24dp"
-                android:paddingBottom="8dp"/>
-
-            <LinearLayout
-                android:id="@+id/container_network"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:paddingHorizontal="16dp">
-
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/sw_accept_routes"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/sw_accept_routes" 
-                    android:paddingVertical="8dp"/>
-
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/sw_accept_dns"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/sw_accept_dns"
-                    android:paddingVertical="8dp"/>
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="@string/socks5_addr"
-                    app:boxBackgroundColor="?attr/colorSurface"
-                    android:layout_marginTop="8dp">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/socks5_addr"
-                        android:inputType="text"/>
-                </com.google.android.material.textfield.TextInputLayout>
+            <!-- Network Section -->
+            <TextView android:id="@+id/header_network" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Network" android:padding="8dp" android:textColor="?attr/colorPrimary" />
+            <LinearLayout android:id="@+id/container_network" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/sw_accept_routes" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/sw_accept_routes" />
+                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/sw_accept_dns" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/sw_accept_dns" />
+                <com.google.android.material.textfield.TextInputLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/socks5_addr"><com.google.android.material.textfield.TextInputEditText android:id="@+id/socks5_addr" android:layout_width="match_parent" android:layout_height="wrap_content"/></com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
-            <com.google.android.material.divider.MaterialDivider
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:layout_marginVertical="16dp"
-                app:dividerColor="?attr/colorOutlineVariant"
-                android:alpha="0.5"/>
+            <!-- Exit Node Section -->
+            <TextView android:id="@+id/header_exit_node" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Exit Node" android:padding="8dp" android:textColor="?attr/colorPrimary" />
+            <LinearLayout android:id="@+id/container_exit_node" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/sw_advertise_exit_node" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/sw_advertise_exit_node" />
+                <com.google.android.material.textfield.TextInputLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/exit_node_ip"><com.google.android.material.textfield.TextInputEditText android:id="@+id/exit_node_ip" android:layout_width="match_parent" android:layout_height="wrap_content"/></com.google.android.material.textfield.TextInputLayout>
+                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/sw_allow_lan" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/sw_allow_lan" />
+            </LinearLayout>
 
-            <!-- EXIT NODE -->
-            <TextView
-                android:id="@+id/header_exit_node"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Exit Node"
-                android:textColor="?attr/colorPrimary"
-                android:textAppearance="@style/TextAppearance.Material3.LabelLarge"
-                android:paddingHorizontal="24dp"
-                android:paddingBottom="8dp"/>
-
-            <LinearLayout
-                android:id="@+id/container_exit_node"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:paddingHorizontal="16dp">
-
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/sw_advertise_exit_node"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/sw_advertise_exit_node"
-                    android:paddingVertical="8dp"/>
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="@string/exit_node_ip"
-                    app:boxBackgroundColor="?attr/colorSurface"
-                    android:layout_marginTop="8dp">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/exit_node_ip"
-                        android:inputType="text"/>
-                </com.google.android.material.textfield.TextInputLayout>
+            <!-- Advanced Section -->
+            <TextView android:id="@+id/header_advanced" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Advanced" android:padding="8dp" android:textColor="?attr/colorPrimary" />
+            <LinearLayout android:id="@+id/container_advanced" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+                <com.google.android.material.textfield.TextInputLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/ssh_addr"><com.google.android.material.textfield.TextInputEditText android:id="@+id/ssh_addr" android:layout_width="match_parent" android:layout_height="wrap_content"/></com.google.android.material.textfield.TextInputLayout>
+                <com.google.android.material.textfield.TextInputLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/extra_args"><com.google.android.material.textfield.TextInputEditText android:id="@+id/extra_args" android:layout_width="match_parent" android:layout_height="wrap_content"/></com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
         </LinearLayout>
@@ -209,10 +74,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
-        android:layout_margin="24dp"
-        android:src="@drawable/ic_history_24"
-        android:contentDescription="Restart Service"
-        app:backgroundTint="?attr/colorPrimaryContainer"
-        app:tint="?attr/colorOnPrimaryContainer"/>
+        android:layout_margin="16dp"
+        android:src="@android:drawable/ic_popup_sync" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
