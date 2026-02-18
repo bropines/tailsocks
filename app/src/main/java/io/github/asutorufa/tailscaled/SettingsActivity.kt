@@ -47,10 +47,11 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun setupMultiKeyLogic() {
-        // Заменяем обычное поведение поля AuthKey, добавляем иконку
-        binding.authKey.setEndIconOnClickListener {
+        // ИСПРАВЛЕНИЕ ЗДЕСЬ: обращаемся к layout, а не к edit text
+        binding.authKeyLayout.setEndIconOnClickListener {
             showKeysDialog()
         }
+        
         // Меняем иконку на список
         binding.authKeyLayout.setEndIconDrawable(android.R.drawable.ic_menu_sort_by_size)
         binding.authKeyLayout.setEndIconContentDescription("Select Saved Key")
