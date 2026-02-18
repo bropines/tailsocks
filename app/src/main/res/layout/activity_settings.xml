@@ -39,10 +39,11 @@
                 android:layout_marginBottom="8dp"/>
 
             <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/auth_key_layout" 
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:hint="@string/auth_key"
-                app:endIconMode="clear_text"
+                app:endIconMode="custom"
                 android:layout_marginBottom="12dp">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/auth_key"

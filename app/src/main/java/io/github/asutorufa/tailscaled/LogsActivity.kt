@@ -10,10 +10,12 @@ import android.os.Looper
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import appctr.Appctr
 import io.github.asutorufa.tailscaled.databinding.ActivityLogsBinding
+import java.io.OutputStreamWriter
 
 class LogsActivity : AppCompatActivity() {
 
@@ -21,6 +23,22 @@ class LogsActivity : AppCompatActivity() {
     private val adapter = LogsAdapter()
     private val handler = Handler(Looper.getMainLooper())
     private var isAutoScroll = true
+
+    // File Saver Contract
+    private val saveFileLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
+        uri?.let {
+            try {
+                contentResolver.openOutputStream(it)?.use { os ->
+                    OutputStreamWriter(os).use { writer ->
+                        writer.write(Appctr.getLogs())
+                    }
+                }
+                Toast.makeText(this, "Logs saved successfully", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(this, "Error saving logs: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 
     private val refreshRunnable = object : Runnable {
         override fun run() {
@@ -45,7 +63,6 @@ class LogsActivity : AppCompatActivity() {
         }
         binding.recyclerView.layoutManager = layoutManager
         binding.recyclerView.adapter = adapter
-        // Отключаем анимацию для логов, чтобы не мерцало при обновлении
         binding.recyclerView.itemAnimator = null 
 
         binding.recyclerView.setOnScrollListener(object : androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
@@ -91,8 +108,8 @@ class LogsActivity : AppCompatActivity() {
                 shareLogs()
                 true
             }
-            R.id.action_clear -> {
-                clearLogs()
+            R.id.action_save_file -> { // NEW ITEM
+                saveFileLauncher.launch("tailscaled_logs_${System.currentTimeMillis()}.txt")
                 true
             }
             else -> super.onOptionsItemSelected(item)
@@ -124,7 +141,7 @@ class LogsActivity : AppCompatActivity() {
 
     private fun clearLogs() {
         Appctr.clearLogs()
-        adapter.submitList(emptyList()) // Мгновенно очищаем список в UI
+        adapter.submitList(emptyList()) 
         Toast.makeText(this, getString(R.string.clear_logs), Toast.LENGTH_SHORT).show()
     }
 

@@ -5,7 +5,9 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.widget.ArrayAdapter
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.widget.doAfterTextChanged
@@ -14,6 +16,7 @@ import io.github.asutorufa.tailscaled.databinding.ActivitySettingsBinding
 class SettingsActivity : AppCompatActivity() {
     private lateinit var binding: ActivitySettingsBinding
     private val prefs by lazy { getSharedPreferences("appctr", Context.MODE_PRIVATE) }
+    private val keyPrefs by lazy { getSharedPreferences("auth_keys_store", Context.MODE_PRIVATE) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -25,6 +28,7 @@ class SettingsActivity : AppCompatActivity() {
 
         loadSettings()
         setupListeners()
+        setupMultiKeyLogic()
 
         binding.fabRestart.setOnClickListener {
             val stopIntent = Intent(this, TailscaledService::class.java).apply {
@@ -40,6 +44,62 @@ class SettingsActivity : AppCompatActivity() {
                 Toast.makeText(this, "Service Restarted", Toast.LENGTH_SHORT).show()
             }, 500)
         }
+    }
+
+    private fun setupMultiKeyLogic() {
+        // Заменяем обычное поведение поля AuthKey, добавляем иконку
+        binding.authKey.setEndIconOnClickListener {
+            showKeysDialog()
+        }
+        // Меняем иконку на список
+        binding.authKeyLayout.setEndIconDrawable(android.R.drawable.ic_menu_sort_by_size)
+        binding.authKeyLayout.setEndIconContentDescription("Select Saved Key")
+    }
+
+    private fun showKeysDialog() {
+        val keysSet = keyPrefs.getStringSet("keys_list", emptySet()) ?: emptySet()
+        val keysList = keysSet.toList().sorted()
+        
+        val adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, keysList)
+
+        AlertDialog.Builder(this)
+            .setTitle("Manage Auth Keys")
+            .setAdapter(adapter) { _, which ->
+                val selectedKey = keysList[which]
+                binding.authKey.setText(selectedKey)
+                saveStr("authkey", selectedKey)
+            }
+            .setPositiveButton("Add New") { _, _ ->
+                showAddKeyDialog()
+            }
+            .setNeutralButton("Clear All") { _, _ ->
+                keyPrefs.edit().clear().apply()
+                Toast.makeText(this, "All saved keys cleared", Toast.LENGTH_SHORT).show()
+            }
+            .show()
+    }
+
+    private fun showAddKeyDialog() {
+        val input = com.google.android.material.textfield.TextInputEditText(this)
+        input.hint = "tskey-auth-..."
+        
+        AlertDialog.Builder(this)
+            .setTitle("Add Auth Key")
+            .setView(input)
+            .setPositiveButton("Save") { _, _ ->
+                val newKey = input.text.toString().trim()
+                if (newKey.isNotEmpty()) {
+                    val current = keyPrefs.getStringSet("keys_list", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
+                    current.add(newKey)
+                    keyPrefs.edit().putStringSet("keys_list", current).apply()
+                    
+                    // Auto set current
+                    binding.authKey.setText(newKey)
+                    saveStr("authkey", newKey)
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun loadSettings() {
