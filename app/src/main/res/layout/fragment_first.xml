@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.core.widget.NestedScrollView 
+<androidx.core.widget.NestedScrollView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -12,158 +12,163 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:padding="24dp"
+        android:clipToPadding="false"
         android:gravity="center_horizontal">
 
-        <!-- Status Card -->
+        <!-- BIG STATUS CARD (Toggle) -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/status_card"
-            android:layout_width="120dp"
-            android:layout_height="120dp"
-            android:layout_marginTop="32dp"
-            android:layout_marginBottom="24dp"
-            app:cardCornerRadius="60dp"
-            app:cardElevation="0dp"
-            app:strokeWidth="0dp"
-            app:cardBackgroundColor="?attr/colorSurfaceContainerHigh">
-            <ImageView
-                android:id="@+id/status_icon"
-                android:layout_width="64dp"
-                android:layout_height="64dp"
-                android:layout_gravity="center"
-                android:src="@android:drawable/ic_lock_idle_lock"
-                app:tint="?attr/colorOnSurfaceVariant" />
-        </com.google.android.material.card.MaterialCardView>
-
-        <TextView
-            android:id="@+id/status_text"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/status_stopped"
-            android:textAppearance="@style/TextAppearance.Material3.HeadlineMedium"
-            android:textColor="?attr/colorOnSurface"
-            android:layout_marginBottom="32dp" />
-
-        <!-- Console -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/card_console"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="12dp"
-            android:clickable="true"
-            android:focusable="true"
-            app:cardBackgroundColor="?attr/colorSurfaceContainer">
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Console / Sandbox"
-                    android:textAppearance="@style/TextAppearance.Material3.TitleMedium"/>
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Run manual commands"
-                    android:textAppearance="@style/TextAppearance.Material3.BodySmall"
-                    android:alpha="0.7"/>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Peers (Devices) -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/card_peers"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="12dp"
-            android:clickable="true"
-            android:focusable="true"
-            app:cardBackgroundColor="?attr/colorSurfaceContainer">
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Network Devices"
-                    android:textAppearance="@style/TextAppearance.Material3.TitleMedium"/>
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="View and ping connected peers"
-                    android:textAppearance="@style/TextAppearance.Material3.BodySmall"
-                    android:alpha="0.7"/>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Logs -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/card_logs"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="12dp"
-            android:clickable="true"
-            android:focusable="true"
-            app:cardBackgroundColor="?attr/colorSurfaceContainer">
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/btn_logs"
-                    android:textAppearance="@style/TextAppearance.Material3.TitleMedium"/>
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/desc_logs"
-                    android:textAppearance="@style/TextAppearance.Material3.BodySmall"
-                    android:alpha="0.7"/>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Settings -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/card_settings"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="160dp"
+            android:layout_marginTop="12dp"
             android:layout_marginBottom="32dp"
             android:clickable="true"
             android:focusable="true"
-            app:cardBackgroundColor="?attr/colorSurfaceContainer">
+            app:cardCornerRadius="28dp"
+            app:cardElevation="4dp"
+            app:cardBackgroundColor="?attr/colorSurfaceContainerHigh">
+
             <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="match_parent"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:gravity="center">
+
+                <ImageView
+                    android:id="@+id/status_icon"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:src="@drawable/ic_launcher_foreground"
+                    app:tint="?attr/colorOnSurfaceVariant"
+                    android:layout_marginBottom="16dp"/>
+
                 <TextView
+                    android:id="@+id/status_title"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/btn_settings"
-                    android:textAppearance="@style/TextAppearance.Material3.TitleMedium"/>
+                    android:text="Stopped"
+                    android:textSize="24sp"
+                    android:textStyle="bold"
+                    android:textColor="?attr/colorOnSurface"/>
+
                 <TextView
+                    android:id="@+id/status_subtitle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/desc_settings"
-                    android:textAppearance="@style/TextAppearance.Material3.BodySmall"
-                    android:alpha="0.7"/>
+                    android:text="Tap to connect"
+                    android:alpha="0.6"
+                    android:layout_marginTop="4dp"
+                    android:textColor="?attr/colorOnSurface"/>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <View android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="1" />
-
-        <Button
-            android:id="@+id/btn_action"
+        <!-- Grid for actions -->
+        <GridLayout
             android:layout_width="match_parent"
-            android:layout_height="72dp"
-            android:text="@string/action_start"
-            android:textSize="18sp"
-            style="@style/Widget.Material3.Button.TonalButton"/>
+            android:layout_height="wrap_content"
+            android:columnCount="2"
+            android:rowCount="2"
+            android:alignmentMode="alignMargins"
+            android:columnOrderPreserved="false"
+            android:useDefaultMargins="true">
+
+            <!-- Console -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_console"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_columnWeight="1"
+                android:layout_margin="8dp"
+                app:cardBackgroundColor="?attr/colorSurfaceContainer"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp"
+                    android:gravity="center">
+                    <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@android:drawable/ic_media_play" app:tint="?attr/colorPrimary"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Console" android:layout_marginTop="8dp" android:textStyle="bold"/>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Peers -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_peers"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_columnWeight="1"
+                android:layout_margin="8dp"
+                app:cardBackgroundColor="?attr/colorSurfaceContainer"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp"
+                    android:gravity="center">
+                    <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@android:drawable/ic_menu_share" app:tint="?attr/colorPrimary"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Peers" android:layout_marginTop="8dp" android:textStyle="bold"/>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Logs -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_logs"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_columnWeight="1"
+                android:layout_margin="8dp"
+                app:cardBackgroundColor="?attr/colorSurfaceContainer"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp"
+                    android:gravity="center">
+                    <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@android:drawable/ic_menu_info_details" app:tint="?attr/colorPrimary"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Logs" android:layout_marginTop="8dp" android:textStyle="bold"/>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Settings -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_settings"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_columnWeight="1"
+                android:layout_margin="8dp"
+                app:cardBackgroundColor="?attr/colorSurfaceContainer"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp"
+                    android:gravity="center">
+                    <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@android:drawable/ic_menu_preferences" app:tint="?attr/colorPrimary"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Settings" android:layout_marginTop="8dp" android:textStyle="bold"/>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+        </GridLayout>
+
+        <!-- About Button -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_about"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="About &amp; Licenses"
+            app:icon="@android:drawable/ic_menu_help"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            app:iconTint="?attr/colorOnSurfaceVariant"/>
 
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

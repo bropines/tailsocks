@@ -22,6 +22,10 @@ class ConsoleActivity : AppCompatActivity() {
     private lateinit var binding: ActivityConsoleBinding
     private val prefs: SharedPreferences by lazy { getSharedPreferences("console_presets", Context.MODE_PRIVATE) }
     private val historyFile by lazy { File(filesDir, "console_history.dat") }
+    
+    // История команд
+    private val commandHistory = mutableListOf<String>()
+    private var historyPointer = -1
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,26 +35,21 @@ class ConsoleActivity : AppCompatActivity() {
         setSupportActionBar(binding.toolbar)
         binding.toolbar.setNavigationOnClickListener { finish() }
 
-        // Восстановление истории из файла
+        // Восстановление текста консоли
         if (historyFile.exists()) {
-            try {
-                binding.outputText.text = historyFile.readText()
-                scrollToBottom()
-            } catch (e: Exception) {
-                binding.outputText.text = "Welcome to Tailscale Sandbox...\n$ "
-            }
+            try { binding.outputText.text = historyFile.readText() } catch (e: Exception) {}
+            scrollToBottom()
         }
 
-        // Обработка ввода с клавиатуры (Enter)
+        // Обработка Enter на клавиатуре
         binding.inputCommand.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_DONE) {
                 runCommand()
                 true
-            } else {
-                false
-            }
+            } else false
         }
 
+        // Кнопки управления
         binding.btnRun.setOnClickListener { runCommand() }
         
         binding.btnClearConsole.setOnClickListener {
@@ -59,14 +58,31 @@ class ConsoleActivity : AppCompatActivity() {
         }
         
         binding.btnAddPreset.setOnClickListener { showAddPresetDialog() }
+        
+        // --- ЛОГИКА КНОПКИ ВВЕРХ (ИСТОРИЯ) ---
+        binding.btnHistoryUp.setOnClickListener {
+            if (commandHistory.isNotEmpty()) {
+                // Если указатель еще не активен, берем последнюю команду
+                if (historyPointer == -1) {
+                    historyPointer = commandHistory.size - 1
+                } else if (historyPointer > 0) {
+                    // Иначе двигаемся назад
+                    historyPointer--
+                }
+                
+                val cmd = commandHistory[historyPointer]
+                binding.inputCommand.setText(cmd)
+                binding.inputCommand.setSelection(cmd.length) // Курсор в конец строки
+            }
+        }
 
         loadPresets()
-        
-        // Проверяем, не пришли ли мы сюда из списка устройств с командой (например, ping)
         handleIntent(intent)
+        
+        // Фокус при запуске
+        binding.inputCommand.requestFocus()
     }
 
-    // Это нужно, если консоль уже открыта, и мы нажали "Ping" в списке устройств еще раз
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -78,7 +94,6 @@ class ConsoleActivity : AppCompatActivity() {
             if (cmd.isNotEmpty()) {
                 binding.inputCommand.setText(cmd)
                 execute(cmd)
-                // Удаляем экстра, чтобы команда не выполнялась повторно при смене темы или повороте
                 intent.removeExtra("CMD")
             }
         }
@@ -86,49 +101,32 @@ class ConsoleActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        // Сохраняем историю при выходе
-        try {
-            historyFile.writeText(binding.outputText.text.toString())
-        } catch (e: Exception) {
-            // ignore
-        }
+        try { historyFile.writeText(binding.outputText.text.toString()) } catch (e: Exception) {}
     }
 
     private fun loadPresets() {
         val childCount = binding.presetsContainer.childCount
-        if (childCount > 1) {
-            binding.presetsContainer.removeViews(0, childCount - 1)
-        }
-
+        if (childCount > 1) binding.presetsContainer.removeViews(0, childCount - 1)
+        
+        // Базовые пресеты
         addPresetButton("status")
         addPresetButton("netcheck")
         addPresetButton("ping 8.8.8.8")
-        addPresetButton("--help")
-
+        
+        // Пользовательские пресеты
         val saved = prefs.getStringSet("commands", emptySet()) ?: emptySet()
-        saved.sorted().forEach { cmd ->
-            addPresetButton(cmd, isCustom = true)
-        }
+        saved.sorted().forEach { addPresetButton(it, true) }
     }
 
     private fun addPresetButton(command: String, isCustom: Boolean = false) {
         val btn = Button(ContextThemeWrapper(this, com.google.android.material.R.style.Widget_Material3_Button_TonalButton), null, 0).apply {
             text = command
             setOnClickListener { 
-                execute(command) 
-                binding.inputCommand.requestFocus()
+                execute(command)
+                binding.inputCommand.requestFocus() // Возвращаем фокус
             }
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, 
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { marginEnd = 8 }
-            
-            if (isCustom) {
-                setOnLongClickListener {
-                    deletePreset(command)
-                    true
-                }
-            }
+            layoutParams = LinearLayout.LayoutParams(-2, -2).apply { marginEnd = 8 }
+            if (isCustom) setOnLongClickListener { deletePreset(command); true }
         }
         binding.presetsContainer.addView(btn, binding.presetsContainer.childCount - 1)
     }
@@ -136,39 +134,33 @@ class ConsoleActivity : AppCompatActivity() {
     private fun showAddPresetDialog() {
         val input = EditText(this)
         input.hint = "e.g. up --ssh"
-        AlertDialog.Builder(this)
-            .setTitle("New Command Preset")
-            .setView(input)
+        AlertDialog.Builder(this).setTitle("New Preset").setView(input)
             .setPositiveButton("Save") { _, _ ->
                 val cmd = input.text.toString().trim()
-                if (cmd.isNotEmpty()) savePreset(cmd)
-            }
-            .setNegativeButton("Cancel", null).show()
-    }
-
-    private fun savePreset(cmd: String) {
-        val current = prefs.getStringSet("commands", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
-        current.add(cmd)
-        prefs.edit().putStringSet("commands", current).apply()
-        loadPresets()
+                if (cmd.isNotEmpty()) {
+                    val current = prefs.getStringSet("commands", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
+                    current.add(cmd); prefs.edit().putStringSet("commands", current).apply(); loadPresets()
+                }
+            }.setNegativeButton("Cancel", null).show()
     }
 
     private fun deletePreset(cmd: String) {
-        AlertDialog.Builder(this)
-            .setTitle("Delete Preset")
-            .setMessage("Delete '$cmd'?")
+        AlertDialog.Builder(this).setTitle("Delete?").setMessage(cmd)
             .setPositiveButton("Yes") { _, _ ->
                 val current = prefs.getStringSet("commands", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
-                current.remove(cmd)
-                prefs.edit().putStringSet("commands", current).apply()
-                loadPresets()
-            }
-            .setNegativeButton("No", null).show()
+                current.remove(cmd); prefs.edit().putStringSet("commands", current).apply(); loadPresets()
+            }.setNegativeButton("No", null).show()
     }
 
     private fun runCommand() {
         val cmd = binding.inputCommand.text.toString().trim()
         if (cmd.isNotEmpty()) {
+            // Добавляем в историю только уникальные подряд идущие команды
+            if (commandHistory.isEmpty() || commandHistory.last() != cmd) {
+                commandHistory.add(cmd)
+            }
+            historyPointer = -1 // Сброс указателя истории
+
             execute(cmd)
             binding.inputCommand.text.clear()
             binding.inputCommand.requestFocus()
@@ -177,32 +169,26 @@ class ConsoleActivity : AppCompatActivity() {
 
     private fun execute(command: String) {
         binding.progressIndicator.isVisible = true
-        appendToLog("$ tailscale $command")
+        binding.outputText.append("\n$ tailscale $command")
+        scrollToBottom() // Скролл сразу после ввода
         
         Thread {
-            val result = try {
-                Appctr.runTailscaleCmd(command)
-            } catch (e: Exception) {
-                "Error: ${e.message}"
-            }
-
+            val result = try { Appctr.runTailscaleCmd(command) } catch (e: Exception) { "Error: ${e.message}" }
             runOnUiThread {
                 if (!isDestroyed) {
-                    appendToLog(result)
+                    binding.outputText.append("\n$result\n$ ")
                     binding.progressIndicator.isVisible = false
-                    scrollToBottom()
+                    
+                    scrollToBottom() // Скролл после получения ответа
+                    binding.inputCommand.requestFocus() // Держим фокус
                 }
             }
         }.start()
     }
 
-    private fun appendToLog(text: String) {
-        binding.outputText.append("\n$text\n$ ")
-    }
-    
     private fun scrollToBottom() {
-        binding.scrollView.post {
-            binding.scrollView.fullScroll(View.FOCUS_DOWN)
+        binding.scrollView.post { 
+            binding.scrollView.fullScroll(View.FOCUS_DOWN) 
         }
     }
 }

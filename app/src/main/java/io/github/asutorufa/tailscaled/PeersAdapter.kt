@@ -1,12 +1,10 @@
 package io.github.asutorufa.tailscaled
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.ViewGroup
-import android.widget.Toast
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
@@ -14,7 +12,7 @@ import io.github.asutorufa.tailscaled.databinding.ItemPeerBinding
 
 class PeersAdapter(
     private val onPingClick: (String) -> Unit,
-    private val onDetailsClick: (PeerData) -> Unit // Новый колбэк
+    private val onDetailsClick: (PeerData) -> Unit
 ) : ListAdapter<PeerData, PeersAdapter.PeerViewHolder>(PeerDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PeerViewHolder {
@@ -33,39 +31,37 @@ class PeersAdapter(
     ) : RecyclerView.ViewHolder(binding.root) {
 
         fun bind(peer: PeerData) {
-            // Отображаем Имя из веб-панели
+            // Имя
             binding.peerName.text = peer.getDisplayName()
             
-            // Если имя хоста отличается, пишем его мелко рядом (или в IP поле)
+            // IP и DNS
             if (peer.hostName != peer.getDisplayName()) {
                 binding.peerIp.text = "${peer.getPrimaryIp()} • ${peer.hostName}"
             } else {
                 binding.peerIp.text = peer.getPrimaryIp()
             }
             
+            // OS Icon Text
             binding.peerOs.text = peer.os?.take(2)?.uppercase() ?: "??"
             
-            val color = if (peer.isOnline()) Color.parseColor("#4CAF50") else Color.GRAY
-            binding.statusDot.setBackgroundColor(color)
+            // --- ФИКС ИНДИКАТОРА ---
+            // Если online == null или false -> Серый. Только если true -> Зеленый.
+            val isOnline = peer.online == true 
+            
+            val statusColor = if (isOnline) {
+                 Color.parseColor("#4CAF50") // Яркий зеленый
+            } else {
+                 Color.parseColor("#9E9E9E") // Серый (Material Grey 500)
+            }
+            binding.statusDot.setBackgroundColor(statusColor)
 
-            // Клик по всей карте - детали
+            // Клик по всей карточке -> Детали
             binding.root.setOnClickListener { onDetailsClick(peer) }
-
-            binding.btnCopyIp.setOnClickListener {
-                val clipboard = itemView.context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                val clip = ClipData.newPlainText("Tailscale IP", peer.getPrimaryIp())
-                clipboard.setPrimaryClip(clip)
-                Toast.makeText(itemView.context, "IP Copied", Toast.LENGTH_SHORT).show()
-            }
-
-            binding.btnPingPeer.setOnClickListener {
-                onPingClick(peer.getPrimaryIp())
-            }
         }
     }
 
     class PeerDiffCallback : DiffUtil.ItemCallback<PeerData>() {
-        override fun areItemsTheSame(oldItem: PeerData, newItem: PeerData) = oldItem.getDisplayName() == newItem.getDisplayName()
+        override fun areItemsTheSame(oldItem: PeerData, newItem: PeerData) = oldItem.id == newItem.id
         override fun areContentsTheSame(oldItem: PeerData, newItem: PeerData) = oldItem == newItem
     }
 }
