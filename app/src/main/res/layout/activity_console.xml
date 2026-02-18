@@ -1,47 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="?android:colorBackground"
+    android:background="#000000"
     android:fitsSystemWindows="true">
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="?android:colorBackground">
+        android:background="#000000">
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            app:title="Terminal"
-            app:titleTextColor="?attr/colorOnBackground"
+            app:title="Tailscale Terminal"
+            app:titleTextColor="#00FF00"
             app:navigationIcon="@drawable/ic_baseline_arrow_back"
-            app:navigationIconTint="?attr/colorOnBackground"/>
+            app:navigationIconTint="#00FF00"/>
     </com.google.android.material.appbar.AppBarLayout>
 
-    <!-- Output Area -->
     <ScrollView
         android:id="@+id/scroll_view"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
         android:padding="8dp"
-        android:scrollbars="vertical"
         android:fillViewport="true">
-        
         <TextView
             android:id="@+id/output_text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:fontFamily="monospace"
-            android:textColor="?attr/colorOnSurface"
-            android:textSize="12sp"
+            android:textColor="#00FF00"
+            android:textSize="13sp"
             android:textIsSelectable="true"
-            android:text="Welcome to Tailscale Sandbox...\n$ "/>
+            android:text="$ "/>
     </ScrollView>
 
     <com.google.android.material.progressindicator.LinearProgressIndicator
@@ -50,14 +45,12 @@
         android:layout_height="wrap_content"
         android:indeterminate="true"
         android:visibility="invisible"
-        app:indicatorColor="?attr/colorPrimary"
-        app:trackColor="?attr/colorSurfaceContainer"/>
+        app:indicatorColor="#00FF00" />
 
-    <!-- Quick Actions / Presets -->
     <HorizontalScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="?attr/colorSurfaceContainer"
+        android:background="#121212"
         android:scrollbars="none">
         <LinearLayout
             android:id="@+id/presets_container"
@@ -65,34 +58,33 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:padding="4dp">
-            <!-- Dynamic buttons will be added here -->
             <Button
                 android:id="@+id/btn_add_preset"
                 style="@style/Widget.Material3.Button.TextButton"
                 android:layout_width="wrap_content"
                 android:layout_height="36dp"
                 android:text="+ Preset"
-                android:textColor="?attr/colorOnSurfaceVariant"/>
+                android:textColor="#888888"/>
         </LinearLayout>
     </HorizontalScrollView>
 
-    <!-- Input Area -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:padding="8dp"
-        android:background="?attr/colorSurface">
+        android:padding="4dp"
+        android:background="#1A1A1A">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="$ "
-            android:fontFamily="monospace"
-            android:textColor="?attr/colorPrimary"
-            android:textSize="16sp"
-            android:textStyle="bold"/>
+        <!-- Кнопка истории, которой не хватало -->
+        <ImageButton
+            android:id="@+id/btn_history_up"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/arrow_up_float"
+            app:tint="#00FF00"
+            android:contentDescription="History Up"/>
 
         <EditText
             android:id="@+id/input_command"
@@ -100,14 +92,13 @@
             android:layout_weight="1"
             android:layout_height="wrap_content"
             android:background="@null"
-            android:hint="type command..."
-            android:textColorHint="?attr/colorOutline"
-            android:textColor="?attr/colorOnSurface"
+            android:hint="command..."
+            android:textColorHint="#444444"
+            android:textColor="#FFFFFF"
             android:fontFamily="monospace"
             android:imeOptions="actionDone"
             android:inputType="textNoSuggestions"
-            android:maxLines="1"
-            android:padding="8dp"/>
+            android:padding="12dp"/>
 
         <ImageButton
             android:id="@+id/btn_run"
@@ -115,15 +106,16 @@
             android:layout_height="48dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/ic_media_play"
-            app:tint="?attr/colorPrimary"/>
-            
+            app:tint="#00FF00"
+            android:contentDescription="Run"/>
+
         <ImageButton
             android:id="@+id/btn_clear_console"
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/ic_menu_delete"
-            app:tint="?attr/colorError"/>
+            app:tint="#FF5555"
+            android:contentDescription="Clear"/>
     </LinearLayout>
-
 </LinearLayout>

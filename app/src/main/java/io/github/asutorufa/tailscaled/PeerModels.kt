@@ -22,27 +22,24 @@ data class PeerData(
     @SerializedName("Relay") val relay: String?,
     @SerializedName("LastSeen") val lastSeen: String?,
     @SerializedName("KeyExpiry") val keyExpiry: String?,
-    @SerializedName("ExitNode") val isExitNode: Boolean? = false
+    @SerializedName("Version") val version: String?
 ) {
     fun getPrimaryIp(): String = tailscaleIPs?.firstOrNull() ?: "0.0.0.0"
-    fun isOnline(): Boolean = online == true || active == true
     
-    // Имя из веб-панели обычно в DNSName (до первой точки)
-    fun getDisplayName(): String {
-        val dnsShort = dnsName?.split(".")?.firstOrNull()
-        return if (!dnsShort.isNullOrEmpty()) dnsShort else hostName ?: "Unknown"
-    }
+    fun getDisplayName(): String = dnsName?.split(".")?.firstOrNull() ?: hostName ?: "Unknown"
 
-    // Полная информация строкой для копирования
-    fun getFullDetails(): String {
-        return """
-            Hostname: $hostName
-            DNS Name: $dnsName
-            OS: $os
-            IPs: ${tailscaleIPs?.joinToString(", ")}
-            Online: ${isOnline()}
-            Relay: ${relay ?: "Direct"}
-            Key Expiry: ${keyExpiry ?: "No expiry"}
-        """.trimIndent()
+    // Метод, которого не хватало для сборки
+    fun getDetailsList(): List<Pair<String, String>> {
+        return listOf(
+            "Machine Name" to getDisplayName(),
+            "OS" to (os ?: "Unknown"),
+            "IPv4" to getPrimaryIp(),
+            "IPv6" to (tailscaleIPs?.getOrNull(1) ?: "N/A"),
+            "Tailscale Version" to (version ?: "Unknown"),
+            "Node ID" to (id ?: "N/A"),
+            "Relay" to (relay ?: "Direct"),
+            "Key Expiry" to (keyExpiry?.split("T")?.firstOrNull() ?: "No expiry"),
+            "Last Seen" to (lastSeen?.replace("T", " ")?.split(".")?.firstOrNull() ?: "Just now")
+        )
     }
 }
