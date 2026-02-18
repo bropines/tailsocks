@@ -117,7 +117,12 @@
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
-            <com.google.android.material.divider.MaterialDivider android:layout_marginTop="8dp" android:layout_marginBottom="8dp"/>
+            <!-- ИСПРАВЛЕННЫЙ DIVIDER -->
+            <com.google.android.material.divider.MaterialDivider
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="8dp"/>
 
             <!-- GROUP 2: Network -->
             <TextView
@@ -166,7 +171,12 @@
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
-            <com.google.android.material.divider.MaterialDivider android:layout_marginTop="8dp" android:layout_marginBottom="8dp"/>
+            <!-- ИСПРАВЛЕННЫЙ DIVIDER -->
+            <com.google.android.material.divider.MaterialDivider
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="8dp"/>
 
             <!-- GROUP 3: Exit Node -->
             <TextView
@@ -215,7 +225,12 @@
                     android:layout_marginTop="8dp"/>
             </LinearLayout>
 
-            <com.google.android.material.divider.MaterialDivider android:layout_marginTop="8dp" android:layout_marginBottom="8dp"/>
+            <!-- ИСПРАВЛЕННЫЙ DIVIDER -->
+            <com.google.android.material.divider.MaterialDivider
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="8dp"/>
 
             <!-- GROUP 4: Advanced -->
             <TextView

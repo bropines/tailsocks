@@ -19,3 +19,15 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Rules for Gson
+-keepattributes Signature
+-keepattributes *Annotation*
+-keep class com.google.gson.** { *; }
+
+# Keep our data models for JSON parsing
+-keep class io.github.asutorufa.tailscaled.StatusResponse { *; }
+-keep class io.github.asutorufa.tailscaled.PeerData { *; }
+
+# Keep Appctr bridge just in case
+-keep class appctr.** { *; }
