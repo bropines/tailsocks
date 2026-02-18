@@ -45,6 +45,8 @@ class LogsActivity : AppCompatActivity() {
         }
         binding.recyclerView.layoutManager = layoutManager
         binding.recyclerView.adapter = adapter
+        // Отключаем анимацию для логов, чтобы не мерцало при обновлении
+        binding.recyclerView.itemAnimator = null 
 
         binding.recyclerView.setOnScrollListener(object : androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: androidx.recyclerview.widget.RecyclerView, dx: Int, dy: Int) {
@@ -56,6 +58,10 @@ class LogsActivity : AppCompatActivity() {
         binding.swipeRefresh.setOnRefreshListener { 
             loadLogs() 
             isAutoScroll = true
+        }
+
+        binding.fabClear.setOnClickListener {
+            clearLogs()
         }
     }
 
@@ -86,8 +92,7 @@ class LogsActivity : AppCompatActivity() {
                 true
             }
             R.id.action_clear -> {
-                Appctr.clearLogs()
-                loadLogs()
+                clearLogs()
                 true
             }
             else -> super.onOptionsItemSelected(item)
@@ -99,7 +104,12 @@ class LogsActivity : AppCompatActivity() {
         
         Thread {
             val logsString = try { Appctr.getLogs() } catch (e: Exception) { "" }
-            val logsList = logsString.split("\n").filter { it.isNotEmpty() }
+            
+            val logsList = if (logsString.isEmpty()) {
+                emptyList()
+            } else {
+                logsString.split("\n").filter { it.isNotEmpty() }
+            }
             
             runOnUiThread {
                 adapter.submitList(logsList) {
@@ -110,6 +120,12 @@ class LogsActivity : AppCompatActivity() {
                 binding.swipeRefresh.isRefreshing = false
             }
         }.start()
+    }
+
+    private fun clearLogs() {
+        Appctr.clearLogs()
+        adapter.submitList(emptyList()) // Мгновенно очищаем список в UI
+        Toast.makeText(this, getString(R.string.clear_logs), Toast.LENGTH_SHORT).show()
     }
 
     private fun copyLogs() {

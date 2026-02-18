@@ -3,6 +3,8 @@ package appctr
 import (
 	"bufio"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -41,6 +43,7 @@ func (lm *LogManager) AddLog(entry string) {
 	lm.mu.Lock()
 	defer lm.mu.Unlock()
 	if len(lm.logs) >= lm.maxSize {
+		// Очищаем старую половину, чтобы не текла память
 		lm.logs = lm.logs[len(lm.logs)/2:]
 	}
 	lm.logs = append(lm.logs, entry)
@@ -55,6 +58,7 @@ func (lm *LogManager) GetLogs() string {
 func (lm *LogManager) ClearLogs() {
 	lm.mu.Lock()
 	defer lm.mu.Unlock()
+	// Полный сброс слайса
 	lm.logs = make([]string, 0, lm.maxSize)
 }
 
@@ -137,7 +141,6 @@ type StartOptions struct {
 
 func Start(opt *StartOptions) {
 	Stop()
-	
 	time.Sleep(500 * time.Millisecond)
 
 	if opt.SocketPath != "" {
@@ -153,8 +156,14 @@ func Start(opt *StartOptions) {
 	if opt.SSHServer != "" {
 		go func() {
 			time.Sleep(1 * time.Second)
-			if err := startSshServer(opt.SSHServer, PC); err != nil {
-				slog.Error("ssh server", "err", err)
+			// Генерируем или читаем ключ динамически
+			keyData, err := ensureHostKey(PC.DataDir())
+			if err != nil {
+				slog.Error("failed to ensure host key", "err", err)
+				return
+			}
+			if err := startSshServer(opt.SSHServer, PC, keyData); err != nil {
+				slog.Error("ssh server failed", "err", err)
 			}
 		}()
 	}
@@ -162,9 +171,10 @@ func Start(opt *StartOptions) {
 	go func() {
 		err := tailscaledCmd(PC, opt.Socks5Server)
 		if err != nil {
-			slog.Error("tailscaled cmd", "err", err)
+			slog.Error("tailscaled cmd crashed", "err", err)
 		}
 
+		// Если процесс умер, стопаем всё остальное
 		Stop()
 
 		if opt.CloseCallBack != nil {
@@ -175,38 +185,120 @@ func Start(opt *StartOptions) {
 	go registerMachineWithAuthKey(PC, opt)
 }
 
+// ensureHostKey generates a new RSA key if one doesn't exist at path
+func ensureHostKey(dir string) ([]byte, error) {
+	keyPath := filepath.Join(dir, "ssh_host_key")
+	
+	// Try to read existing
+	if data, err := os.ReadFile(keyPath); err == nil {
+		return data, nil
+	}
+
+	slog.Info("Generating new SSH host key...")
+	
+	// Generate new
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, err
+	}
+
+	// Encode to PEM
+	privateKeyPEM := &pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
+	}
+	
+	var pemBuf strings.Builder
+	if err := pem.Encode(&pemBuf, privateKeyPEM); err != nil {
+		return nil, err
+	}
+	
+	data := []byte(pemBuf.String())
+	if err := os.WriteFile(keyPath, data, 0600); err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
+
+// RunTailscaleCmd executes arbitrary commands against the running daemon (sandbox support)
+func RunTailscaleCmd(commandStr string) string {
+	if !IsRunning() {
+		return "Error: Tailscaled service is not running."
+	}
+
+	// Simple tokenizer, supports quotes roughly
+	parts := strings.Fields(commandStr)
+	if len(parts) == 0 {
+		return ""
+	}
+
+	// Always inject socket
+	args := []string{"--socket", PC.Socket()}
+	args = append(args, parts...)
+
+	cmd := exec.Command(PC.Tailscale(), args...)
+	output, err := cmd.CombinedOutput()
+	
+	result := string(output)
+	if err != nil {
+		result += fmt.Sprintf("\nError: %v", err)
+	}
+	return result
+}
+
 func registerMachineWithAuthKey(PC pathControl, opt *StartOptions) {
 	count := 0
-	for count <= 15 {
-		_, err := os.Stat(PC.Socket())
-		if err != nil {
+	// Увеличил интервал и уменьшил спам, но пробуем подольше
+	maxRetries := 30 
+	
+	for count < maxRetries {
+		// Ждем пока сокет появится
+		if _, err := os.Stat(PC.Socket()); err != nil {
 			count++
 			time.Sleep(1 * time.Second)
 			continue
 		}
 
+		// Формируем команду up
 		args := []string{"--socket", PC.Socket(), "up", "--timeout", "15s"}
 
+		// AuthKey добавляем только если он есть. 
+		// Если его нет, tailscale up попытается использовать существующий логин или даст URL.
 		if opt.AuthKey != "" {
 			args = append(args, "--auth-key", opt.AuthKey)
 		}
 
 		if opt.ExtraUpArgs != "" {
+			// Разбиваем аргументы из строки
 			customFlags := strings.Fields(opt.ExtraUpArgs)
 			args = append(args, customFlags...)
 		}
 
-		slog.Info("Running tailscale up", "args", args)
+		slog.Info("Running tailscale up", "try", count+1)
 
-		data, err := exec.Command(PC.Tailscale(), args...).CombinedOutput()
-		slog.Info("tailscale up result", "output", string(data), "err", err)
+		cmd := exec.Command(PC.Tailscale(), args...)
+		data, err := cmd.CombinedOutput()
+		output := string(data)
 
+		// Логируем результат
 		if err != nil {
+			slog.Info("tailscale up failed", "output", output, "err", err)
+			
+			// Если ошибка "API key does not exist", значит ключ протух или невалиден.
+			// Нет смысла долбить сервер бесконечно с битым ключом.
+			if strings.Contains(output, "invalid key") || strings.Contains(output, "API key does not exist") {
+				slog.Error("Critical Auth Error: Invalid Auth Key. Please check settings.")
+				return // Выходим из цикла, чтобы не спамить
+			}
+
 			count++
-			time.Sleep(2 * time.Second)
+			// Делаем паузу больше, чтобы не забивать CPU и сеть
+			time.Sleep(5 * time.Second)
 			continue
 		}
 
+		slog.Info("tailscale up success", "output", output)
 		break
 	}
 }
@@ -337,9 +429,15 @@ func tailscaledCmd(p pathControl, socks5host string) error {
 
 // --- SSH PART ---
 
-func startSshServer(addr string, pc pathControl) error {
-	p, _ := pem.Decode([]byte(PrivateKey))
-	key, _ := x509.ParsePKCS1PrivateKey(p.Bytes)
+func startSshServer(addr string, pc pathControl, keyData []byte) error {
+	p, _ := pem.Decode(keyData)
+	if p == nil {
+		return fmt.Errorf("failed to decode pem")
+	}
+	key, err := x509.ParsePKCS1PrivateKey(p.Bytes)
+	if err != nil {
+		return err
+	}
 	signer, err := gossh.NewSignerFromKey(key)
 	if err != nil {
 		return err
@@ -418,31 +516,3 @@ func sftpHandler(sess ssh.Session) {
 	}
 	slog.Info("sftp session exited")
 }
-
-var PrivateKey = `-----BEGIN RSA PRIVATE KEY-----
-MIIEpQIBAAKCAQEA0ludCFgG93sH//e/5CxAFG/PTjclfTDKaXpl2EBZQmoZSfJE
-/4UCy/tUynYEovEbBT3PDyw7LmVnnyktetV4ra3OtBM0iNdZnZeIvW0kQaC7alGe
-3sHzNfTxT60w3drrjLzOX+Wd9E/WZ4ScXzhgJ8kzqtRBbGgSukTSxgPgz89XiIDI
-P+j721TrQYgOOnje4+SGEWL3TTAENDayk6RWom/58LstYz42TdaBFWHz+W2nG+Dw
-EkzywnKGuMpccdNOvEnaoxVUZ+6OC7qOGfjSKBJIDmj39+XaVeduLMbjAy8cGAl4
-n3HFTBMPupRqC6sbSrgpZ4MiNfrElF4cDXrBWQIDAQABAoIBAF6klVxhrpC+K/VA
-VHemaRZIz+6S5S0UPJ2EUjofiYlWDxa0B9Mm1wFLjPSicKeW7t9G1dgvwFi5iwuT
-DUFMtkT+BBgE5AgFS+6ZdQ41ArD8ThYhrubuQCywjbmZZHkMvBnQANIojw6StRZS
-FcDJrol3/uUHJoBNus9Pk70/lXApOfgy+Yg3RTIPy+AMHr4exSGEGATFMFrOyiit
-+xYBSnHFQzt63UsLUL5zWDFcljH5SmQJAkoCtrN3oiZRBb4v3TWYzSvDIR8BTuoD
-Fj/EI9kWFyzx0MBpfOcU+ggNw1KSX+fsyRrMnirFg7HB7F7wL9MiJbihUVnbxDs8
-Fy4vr2ECgYEA+tCmmr258UQcdxll0GgNz/WcY03HJlcZkfnnUpJKyb+K3Lpc5ekz
-BrXKYNZ0A4gm8/8P55ykIPbWH2mi6/cDIkvsoGYOCac5P2Nf+W54wWtFzjuKx+x6
-aoIKOCoQr69XM+KrbwZoku8g6VatRsJ1oMupZM3ucaTOBCm0hKVPAy0CgYEA1rTb
-f/F7K8eJUbmX7dK3tdUuDxDMnf9Zp47JGZOJFuwZvHhZ7nOPw2HntSwVIk651pxc
-kZfOWswPPHRxLztnEtBnwskM8e8RHMJHTeLalpHkdBoWT7KQq+uIU0KhiuRiqPcu
-I16tZr0ciCgn9QmmtCJH+bpATMy5ZpDTfNHpQl0CgYEA4pzUeulC8F8WzPDwkb0C
-BcwnMX3bmqOFoePGAk/VLLVYNJhZSQ1LIhvsL1Rz26EPeNMSPrTDglkjG5ypLEOw
-3DL3J/Eta8FgMwqJc2dByZgvqOcZPAtIi6TUsOwoyWNGCcYaGKUUpPVTqh+7TTxz
-ZQW+FisN7jX2QcKgrFxjqD0CgYEAgALAxB2T1FxZcRJ4lOEHizAZD/5yINl3+MDX
-AZrHJ5WJGqee5t6bnmAnKAuqZhQOFPiQ8HVUISp9Awxh10lRgRQkaSw5vZ1N1Jm4
-raVNsmw1i0tqdgX+36HEW+/kJM1aTWdiaNAwDos+EafvetdQPyIZS7lSUPfWqmI6
-1bbJnjkCgYEA6M9HYlnaVPAHfguDugSeLJOia46Ui7aJh43znLlU/PoUdRRoBUmi
-hUwJg5EHLSdbFj6vtwhqdnUwcH8v3HYK4vbUVamvCYF6kKCRmL2lyz9SH6yxHcPJ
-zeMifjk2UYMZK8A0Ik7GxsHfseOx9QeWRbX8VR9QPuuwpGMVdQkeBgA=
------END RSA PRIVATE KEY-----`

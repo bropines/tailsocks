@@ -42,6 +42,9 @@ class FirstFragment : Fragment() {
         binding.cardSettings.setOnClickListener {
             startActivity(Intent(requireContext(), SettingsActivity::class.java))
         }
+        binding.cardConsole.setOnClickListener {
+            startActivity(Intent(requireContext(), ConsoleActivity::class.java))
+        }
 
         binding.btnAction.setOnClickListener {
             val isRunning = ProxyState.isActualRunning()
@@ -83,7 +86,7 @@ class FirstFragment : Fragment() {
         }
     }
 
-private fun updateUiState(isRunning: Boolean) {
+    private fun updateUiState(isRunning: Boolean) {
         binding.btnAction.isEnabled = true
         
         if (isRunning) {

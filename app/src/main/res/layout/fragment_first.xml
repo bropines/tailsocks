@@ -43,7 +43,37 @@
             android:text="@string/status_stopped"
             android:textAppearance="@style/TextAppearance.Material3.HeadlineMedium"
             android:textColor="?attr/colorOnSurface"
-            android:layout_marginBottom="48dp" />
+            android:layout_marginBottom="32dp" />
+
+        <!-- Menu: Console (New) -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/card_console"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:clickable="true"
+            android:focusable="true"
+            app:cardBackgroundColor="?attr/colorSurfaceContainer">
+            
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+                
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Console / Sandbox"
+                    android:textAppearance="@style/TextAppearance.Material3.TitleMedium"/>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Run manual commands (ping, status, etc)"
+                    android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+                    android:alpha="0.7"/>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
         <!-- Menu: Logs -->
         <com.google.android.material.card.MaterialCardView
