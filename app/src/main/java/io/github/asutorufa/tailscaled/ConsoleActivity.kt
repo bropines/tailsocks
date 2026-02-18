@@ -1,6 +1,7 @@
 package io.github.asutorufa.tailscaled
 
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Bundle
 import android.view.ContextThemeWrapper
@@ -22,7 +23,7 @@ class ConsoleActivity : AppCompatActivity() {
     private val prefs: SharedPreferences by lazy { getSharedPreferences("console_presets", Context.MODE_PRIVATE) }
     private val historyFile by lazy { File(filesDir, "console_history.dat") }
 
-override fun onCreate(savedInstanceState: Bundle?) {
+    override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityConsoleBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -30,11 +31,17 @@ override fun onCreate(savedInstanceState: Bundle?) {
         setSupportActionBar(binding.toolbar)
         binding.toolbar.setNavigationOnClickListener { finish() }
 
+        // Восстановление истории из файла
         if (historyFile.exists()) {
-            binding.outputText.text = historyFile.readText()
-            scrollToBottom()
+            try {
+                binding.outputText.text = historyFile.readText()
+                scrollToBottom()
+            } catch (e: Exception) {
+                binding.outputText.text = "Welcome to Tailscale Sandbox...\n$ "
+            }
         }
 
+        // Обработка ввода с клавиатуры (Enter)
         binding.inputCommand.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_DONE) {
                 runCommand()
@@ -45,18 +52,21 @@ override fun onCreate(savedInstanceState: Bundle?) {
         }
 
         binding.btnRun.setOnClickListener { runCommand() }
+        
         binding.btnClearConsole.setOnClickListener {
             binding.outputText.text = "$ "
             if (historyFile.exists()) historyFile.delete()
         }
+        
         binding.btnAddPreset.setOnClickListener { showAddPresetDialog() }
 
         loadPresets()
         
-        // ПРОВЕРКА ИНТЕНТА ПРИ СОЗДАНИИ
+        // Проверяем, не пришли ли мы сюда из списка устройств с командой (например, ping)
         handleIntent(intent)
     }
 
+    // Это нужно, если консоль уже открыта, и мы нажали "Ping" в списке устройств еще раз
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -65,17 +75,23 @@ override fun onCreate(savedInstanceState: Bundle?) {
 
     private fun handleIntent(intent: Intent?) {
         intent?.getStringExtra("CMD")?.let { cmd ->
-            binding.inputCommand.setText(cmd)
-            execute(cmd)
-            // Очищаем интент, чтобы не выполнялось повторно при повороте экрана
-            intent.removeExtra("CMD")
+            if (cmd.isNotEmpty()) {
+                binding.inputCommand.setText(cmd)
+                execute(cmd)
+                // Удаляем экстра, чтобы команда не выполнялась повторно при смене темы или повороте
+                intent.removeExtra("CMD")
+            }
         }
     }
 
     override fun onPause() {
         super.onPause()
-        // Save history
-        historyFile.writeText(binding.outputText.text.toString())
+        // Сохраняем историю при выходе
+        try {
+            historyFile.writeText(binding.outputText.text.toString())
+        } catch (e: Exception) {
+            // ignore
+        }
     }
 
     private fun loadPresets() {
@@ -100,7 +116,6 @@ override fun onCreate(savedInstanceState: Bundle?) {
             text = command
             setOnClickListener { 
                 execute(command) 
-                // Возвращаем фокус на поле ввода, но не открываем клавиатуру принудительно, если не надо
                 binding.inputCommand.requestFocus()
             }
             layoutParams = LinearLayout.LayoutParams(
@@ -117,6 +132,7 @@ override fun onCreate(savedInstanceState: Bundle?) {
         }
         binding.presetsContainer.addView(btn, binding.presetsContainer.childCount - 1)
     }
+
     private fun showAddPresetDialog() {
         val input = EditText(this)
         input.hint = "e.g. up --ssh"
@@ -155,7 +171,6 @@ override fun onCreate(savedInstanceState: Bundle?) {
         if (cmd.isNotEmpty()) {
             execute(cmd)
             binding.inputCommand.text.clear()
-            // Keep focus active
             binding.inputCommand.requestFocus()
         }
     }
@@ -182,7 +197,7 @@ override fun onCreate(savedInstanceState: Bundle?) {
     }
 
     private fun appendToLog(text: String) {
-        binding.outputText.append("\n$text")
+        binding.outputText.append("\n$text\n$ ")
     }
     
     private fun scrollToBottom() {
