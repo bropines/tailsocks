@@ -127,7 +127,7 @@ class FirstFragment : Fragment() {
             binding.statusCard.setCardBackgroundColor(ColorStateList.valueOf(activeColor))
             binding.statusTitle.text = "Active"
             binding.statusTitle.setTextColor(activeText)
-            binding.statusSubtitle.text = "VPN is running • Tap to stop"
+            binding.statusSubtitle.text = "Proxy is running • Tap to stop"
             binding.statusSubtitle.setTextColor(activeText)
             binding.statusIcon.setColorFilter(activeText)
             

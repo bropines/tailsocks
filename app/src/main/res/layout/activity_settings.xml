@@ -8,7 +8,8 @@
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        app:liftOnScroll="true">
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
@@ -26,56 +27,48 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp"
             android:paddingBottom="80dp">
 
-            <!-- Force Background -->
+            <!-- Banner Card -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                app:cardBackgroundColor="?attr/colorSurfaceContainerHigh"
-                app:cardCornerRadius="12dp"
+                android:layout_margin="16dp"
+                app:cardBackgroundColor="?attr/colorSurfaceContainer"
+                app:cardCornerRadius="16dp"
                 app:cardElevation="0dp">
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:padding="16dp"
-                    android:orientation="vertical">
-                    <com.google.android.material.materialswitch.MaterialSwitch
+                    android:gravity="center_vertical">
+                     <com.google.android.material.materialswitch.MaterialSwitch
                         android:id="@+id/switch_force_bg"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="@string/force_bg_title" />
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/force_bg_subtitle"
-                        android:textAppearance="?attr/textAppearanceBodySmall"
-                        android:alpha="0.7"/>
+                        android:text="@string/force_bg_title" 
+                        android:textStyle="bold"/>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- GROUP 1: General -->
+            <!-- GENERAL -->
             <TextView
                 android:id="@+id/header_general"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="General &amp; Authorization"
+                android:text="General"
                 android:textColor="?attr/colorPrimary"
-                android:textStyle="bold"
-                android:padding="12dp"
-                android:drawableEnd="@android:drawable/arrow_down_float"
-                android:background="?attr/selectableItemBackground"
-                android:clickable="true"
-                android:focusable="true"/>
+                android:textAppearance="@style/TextAppearance.Material3.LabelLarge"
+                android:paddingHorizontal="24dp"
+                android:paddingTop="16dp"
+                android:paddingBottom="8dp"/>
 
             <LinearLayout
                 android:id="@+id/container_general"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:visibility="visible">
+                android:paddingHorizontal="16dp">
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/auth_key_layout"
@@ -83,199 +76,128 @@
                     android:layout_height="wrap_content"
                     android:hint="@string/auth_key"
                     app:endIconMode="custom"
-                    android:layout_marginBottom="12dp">
+                    app:boxBackgroundColor="?attr/colorSurface"
+                    android:layout_marginBottom="8dp">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/auth_key"
-                        android:inputType="text"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"/>
+                        android:inputType="text"/>
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:hint="@string/hostname"
-                    android:layout_marginBottom="12dp">
+                    app:boxBackgroundColor="?attr/colorSurface"
+                    android:layout_marginBottom="8dp">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/hostname"
-                        android:inputType="text"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"/>
+                        android:inputType="text"/>
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:hint="@string/login_server"
-                    app:helperText="Optional (Headscale)"
-                    android:layout_marginBottom="12dp">
+                    app:boxBackgroundColor="?attr/colorSurface"
+                    app:helperText="Optional (Headscale)">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/login_server"
-                        android:inputType="textUri"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"/>
+                        android:inputType="textUri"/>
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
-            <!-- ИСПРАВЛЕННЫЙ DIVIDER -->
             <com.google.android.material.divider.MaterialDivider
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:layout_marginBottom="8dp"/>
+                android:layout_height="1dp"
+                android:layout_marginVertical="16dp"
+                app:dividerColor="?attr/colorOutlineVariant"
+                android:alpha="0.5"/>
 
-            <!-- GROUP 2: Network -->
+            <!-- NETWORK -->
             <TextView
                 android:id="@+id/header_network"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Network &amp; Routing"
+                android:text="Routing"
                 android:textColor="?attr/colorPrimary"
-                android:textStyle="bold"
-                android:padding="12dp"
-                android:drawableEnd="@android:drawable/arrow_down_float"
-                android:background="?attr/selectableItemBackground"
-                android:clickable="true"
-                android:focusable="true"/>
+                android:textAppearance="@style/TextAppearance.Material3.LabelLarge"
+                android:paddingHorizontal="24dp"
+                android:paddingBottom="8dp"/>
 
             <LinearLayout
                 android:id="@+id/container_network"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:visibility="gone">
+                android:paddingHorizontal="16dp">
 
                 <com.google.android.material.materialswitch.MaterialSwitch
                     android:id="@+id/sw_accept_routes"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="@string/sw_accept_routes" />
+                    android:text="@string/sw_accept_routes" 
+                    android:paddingVertical="8dp"/>
 
                 <com.google.android.material.materialswitch.MaterialSwitch
                     android:id="@+id/sw_accept_dns"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/sw_accept_dns"
-                    android:layout_marginTop="8dp"/>
+                    android:paddingVertical="8dp"/>
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:hint="@string/socks5_addr"
-                    android:layout_marginTop="12dp">
+                    app:boxBackgroundColor="?attr/colorSurface"
+                    android:layout_marginTop="8dp">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/socks5_addr"
-                        android:inputType="text"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"/>
+                        android:inputType="text"/>
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
-            <!-- ИСПРАВЛЕННЫЙ DIVIDER -->
             <com.google.android.material.divider.MaterialDivider
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:layout_marginBottom="8dp"/>
+                android:layout_height="1dp"
+                android:layout_marginVertical="16dp"
+                app:dividerColor="?attr/colorOutlineVariant"
+                android:alpha="0.5"/>
 
-            <!-- GROUP 3: Exit Node -->
+            <!-- EXIT NODE -->
             <TextView
                 android:id="@+id/header_exit_node"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Exit Node Settings"
+                android:text="Exit Node"
                 android:textColor="?attr/colorPrimary"
-                android:textStyle="bold"
-                android:padding="12dp"
-                android:drawableEnd="@android:drawable/arrow_down_float"
-                android:background="?attr/selectableItemBackground"
-                android:clickable="true"
-                android:focusable="true"/>
+                android:textAppearance="@style/TextAppearance.Material3.LabelLarge"
+                android:paddingHorizontal="24dp"
+                android:paddingBottom="8dp"/>
 
             <LinearLayout
                 android:id="@+id/container_exit_node"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:visibility="gone">
+                android:paddingHorizontal="16dp">
 
                 <com.google.android.material.materialswitch.MaterialSwitch
                     android:id="@+id/sw_advertise_exit_node"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="@string/sw_advertise_exit_node" />
+                    android:text="@string/sw_advertise_exit_node"
+                    android:paddingVertical="8dp"/>
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:hint="@string/exit_node_ip"
-                    android:layout_marginTop="12dp">
+                    app:boxBackgroundColor="?attr/colorSurface"
+                    android:layout_marginTop="8dp">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/exit_node_ip"
-                        android:inputType="text"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"/>
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/sw_allow_lan"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/sw_allow_lan"
-                    android:layout_marginTop="8dp"/>
-            </LinearLayout>
-
-            <!-- ИСПРАВЛЕННЫЙ DIVIDER -->
-            <com.google.android.material.divider.MaterialDivider
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:layout_marginBottom="8dp"/>
-
-            <!-- GROUP 4: Advanced -->
-            <TextView
-                android:id="@+id/header_advanced"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Advanced &amp; CLI"
-                android:textColor="?attr/colorPrimary"
-                android:textStyle="bold"
-                android:padding="12dp"
-                android:drawableEnd="@android:drawable/arrow_down_float"
-                android:background="?attr/selectableItemBackground"
-                android:clickable="true"
-                android:focusable="true"/>
-
-            <LinearLayout
-                android:id="@+id/container_advanced"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:visibility="gone">
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="@string/ssh_addr"
-                    android:layout_marginBottom="12dp">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/ssh_addr"
-                        android:inputType="text"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"/>
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="@string/extra_args"
-                    app:helperText="e.g. --shields-up"
-                    android:layout_marginBottom="16dp">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/extra_args"
-                        android:inputType="text"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"/>
+                        android:inputType="text"/>
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
@@ -287,9 +209,9 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
-        android:layout_margin="16dp"
-        android:src="@android:drawable/ic_popup_sync"
-        android:contentDescription="Restart"
+        android:layout_margin="24dp"
+        android:src="@drawable/ic_history_24"
+        android:contentDescription="Restart Service"
         app:backgroundTint="?attr/colorPrimaryContainer"
         app:tint="?attr/colorOnPrimaryContainer"/>
 

@@ -4,37 +4,39 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#000000"
+    android:background="?attr/colorSurface"
     android:fitsSystemWindows="true">
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#000000">
+        android:background="?attr/colorSurface">
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             app:title="Tailscale Terminal"
-            app:titleTextColor="#00FF00"
-            app:navigationIcon="@drawable/ic_baseline_arrow_back"
-            app:navigationIconTint="#00FF00"/>
+            app:titleTextAppearance="@style/TextAppearance.Material3.TitleMedium"
+            app:navigationIcon="@drawable/ic_baseline_arrow_back" />
     </com.google.android.material.appbar.AppBarLayout>
 
+    <!-- КОНСОЛЬНЫЙ ВЫВОД -->
     <ScrollView
         android:id="@+id/scroll_view"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:padding="8dp"
+        android:padding="16dp"
+        android:background="#1C1B1F" 
         android:fillViewport="true">
         <TextView
             android:id="@+id/output_text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:fontFamily="monospace"
-            android:textColor="#00FF00"
-            android:textSize="13sp"
+            android:textColor="#E6E1E5"
+            android:textSize="14sp"
+            android:lineSpacingExtra="2dp"
             android:textIsSelectable="true"
             android:text="$ "/>
     </ScrollView>
@@ -44,78 +46,91 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:indeterminate="true"
-        android:visibility="invisible"
-        app:indicatorColor="#00FF00" />
+        android:visibility="invisible" />
 
+    <!-- ПАНЕЛЬ ПРЕСЕТОВ -->
     <HorizontalScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#121212"
+        android:background="?attr/colorSurfaceContainer"
         android:scrollbars="none">
         <LinearLayout
             android:id="@+id/presets_container"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:padding="4dp">
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="8dp">
             <Button
                 android:id="@+id/btn_add_preset"
                 style="@style/Widget.Material3.Button.TextButton"
                 android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:text="+ Preset"
-                android:textColor="#888888"/>
+                android:layout_height="40dp"
+                android:text="+ Add"
+                android:textColor="?attr/colorPrimary"/>
         </LinearLayout>
     </HorizontalScrollView>
 
+    <!-- ПАНЕЛЬ ВВОДА (M3 Style) -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:padding="4dp"
-        android:background="#1A1A1A">
+        android:padding="8dp"
+        android:background="?attr/colorSurface">
 
-        <!-- Кнопка истории, которой не хватало -->
-        <ImageButton
+        <IconButton
             android:id="@+id/btn_history_up"
+            style="@style/Widget.Material3.Button.IconButton"
             android:layout_width="48dp"
             android:layout_height="48dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/arrow_up_float"
-            app:tint="#00FF00"
-            android:contentDescription="History Up"/>
-
-        <EditText
-            android:id="@+id/input_command"
+            android:src="@drawable/ic_history_24"
+            app:tint="?attr/colorOnSurfaceVariant"
+            android:tooltipText="History Up"/>
+            
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="0dp"
-            android:layout_weight="1"
             android:layout_height="wrap_content"
-            android:background="@null"
-            android:hint="command..."
-            android:textColorHint="#444444"
-            android:textColor="#FFFFFF"
-            android:fontFamily="monospace"
-            android:imeOptions="actionDone"
-            android:inputType="textNoSuggestions"
-            android:padding="12dp"/>
+            android:layout_weight="1"
+            app:cardCornerRadius="24dp"
+            app:cardBackgroundColor="?attr/colorSurfaceContainerHigh"
+            app:strokeWidth="0dp"
+            android:layout_marginHorizontal="8dp">
+            
+            <EditText
+                android:id="@+id/input_command"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@android:color/transparent"
+                android:hint="Type command..."
+                android:textColorHint="?attr/colorOutline"
+                android:textColor="?attr/colorOnSurface"
+                android:fontFamily="monospace"
+                android:textSize="14sp"
+                android:imeOptions="actionDone"
+                android:inputType="textNoSuggestions"
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="12dp"
+                android:maxLines="1"/>
+        </com.google.android.material.card.MaterialCardView>
 
-        <ImageButton
+        <IconButton
             android:id="@+id/btn_run"
+            style="@style/Widget.Material3.Button.IconButton.Filled.Tonal"
             android:layout_width="48dp"
             android:layout_height="48dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_media_play"
-            app:tint="#00FF00"
-            android:contentDescription="Run"/>
+            android:src="@drawable/ic_send_24"
+            app:tint="?attr/colorOnSecondaryContainer"
+            android:tooltipText="Run"/>
 
-        <ImageButton
+        <IconButton
             android:id="@+id/btn_clear_console"
+            style="@style/Widget.Material3.Button.IconButton"
             android:layout_width="48dp"
             android:layout_height="48dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_menu_delete"
-            app:tint="#FF5555"
-            android:contentDescription="Clear"/>
+            android:src="@drawable/ic_delete_outline_24"
+            app:tint="?attr/colorError"
+            android:tooltipText="Clear"/>
     </LinearLayout>
 </LinearLayout>
