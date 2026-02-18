@@ -6,7 +6,7 @@ import com.google.gson.annotations.SerializedName
 @Keep
 data class StatusResponse(
     @SerializedName("Self") val self: PeerData,
-    @SerializedName("Peers") val peers: Map<String, PeerData>?,
+    @SerializedName("Peer") val peers: Map<String, PeerData>?,
     @SerializedName("MagicDNSSuffix") val magicDnsSuffix: String?
 )
 
