@@ -1,0 +1,36 @@
+name: Repomix - LLM Context
+
+on:
+  workflow_dispatch: # Запуск кнопкой
+  push:
+    branches: [ "main" ]
+    paths-ignore:
+      - '**.so'
+      - '**.aar'
+
+jobs:
+  repomix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run Repomix
+        run: |
+          # npx позволяет запустить repomix без установки в репозиторий
+          # --include: какие файлы берем
+          # --ignore: что точно пропускаем (хотя он и так смотрит .gitignore)
+          npx repomix \
+            --include "**/*.kt,**/*.go,**/*.kts,**/*.xml,**/*.sh,**/*.gradle,**/*.mod,**/*.sum" \
+            --ignore "**/build/**,**/.gradle/**,**/.idea/**,**/*.so,**/*.aar,cobase.txt" \
+            --output repomix-output.txt
+
+      - name: Upload Context
+        uses: actions/upload-artifact@v4
+        with:
+          name: repomix-context
+          path: repomix-output.txt
