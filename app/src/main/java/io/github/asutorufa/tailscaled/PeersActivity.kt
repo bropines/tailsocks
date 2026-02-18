@@ -3,6 +3,8 @@ package io.github.asutorufa.tailscaled
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
+import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import appctr.Appctr
@@ -12,13 +14,21 @@ import io.github.asutorufa.tailscaled.databinding.ActivityPeersBinding
 class PeersActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityPeersBinding
-    private val adapter = PeersAdapter { ip ->
-        // Open Console and run ping
-        val intent = Intent(this, ConsoleActivity::class.java)
-        intent.putExtra("CMD", "ping $ip")
-        startActivity(intent)
-    }
     private val gson = Gson()
+    
+    private val adapter = PeersAdapter(
+        onPingClick = { ip ->
+            val intent = Intent(this, ConsoleActivity::class.java).apply {
+                putExtra("CMD", "ping $ip")
+                // Важно: флаг чтобы не плодить окна консоли
+                addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+            }
+            startActivity(intent)
+        },
+        onDetailsClick = { peer ->
+            showPeerDetails(peer)
+        }
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,11 +41,22 @@ class PeersActivity : AppCompatActivity() {
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
 
-        binding.swipeRefresh.setOnRefreshListener {
-            loadPeers()
-        }
-
+        binding.swipeRefresh.setOnRefreshListener { loadPeers() }
         loadPeers()
+    }
+
+    private fun showPeerDetails(peer: PeerData) {
+        val details = peer.getFullDetails()
+        
+        AlertDialog.Builder(this)
+            .setTitle(peer.getDisplayName())
+            .setMessage(details)
+            .setPositiveButton("Copy All") { _, _ ->
+                val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Peer Details", details))
+            }
+            .setNegativeButton("Close", null)
+            .show()
     }
 
     private fun loadPeers() {
@@ -44,26 +65,23 @@ class PeersActivity : AppCompatActivity() {
 
         Thread {
             try {
-                // 1. Run command
                 val jsonOutput = Appctr.runTailscaleCmd("status --json")
-                
-                // 2. Parse
                 val status = gson.fromJson(jsonOutput, StatusResponse::class.java)
                 
-                // 3. Convert Map to List & Sort (Online first, then by name)
+                // ВАЖНО: берем peers (Map), превращаем в List
                 val peersList = status.peers?.values?.toList() ?: emptyList()
+                
                 val sortedList = peersList.sortedWith(
                     compareByDescending<PeerData> { it.isOnline() }
-                        .thenBy { it.hostName }
+                        .thenBy { it.getDisplayName() }
                 )
 
                 runOnUiThread {
                     if (!isDestroyed) {
                         adapter.submitList(sortedList)
                         binding.swipeRefresh.isRefreshing = false
-                        
                         if (sortedList.isEmpty()) {
-                            binding.errorText.text = "No peers found or Tailscale is stopped."
+                            binding.errorText.text = "No peers found or service offline."
                             binding.errorText.visibility = View.VISIBLE
                         }
                     }
@@ -72,7 +90,7 @@ class PeersActivity : AppCompatActivity() {
                 runOnUiThread {
                     if (!isDestroyed) {
                         binding.swipeRefresh.isRefreshing = false
-                        binding.errorText.text = "Error parsing status: ${e.message}"
+                        binding.errorText.text = "Error: ${e.message}"
                         binding.errorText.visibility = View.VISIBLE
                     }
                 }

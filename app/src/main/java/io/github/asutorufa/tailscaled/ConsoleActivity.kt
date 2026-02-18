@@ -22,7 +22,7 @@ class ConsoleActivity : AppCompatActivity() {
     private val prefs: SharedPreferences by lazy { getSharedPreferences("console_presets", Context.MODE_PRIVATE) }
     private val historyFile by lazy { File(filesDir, "console_history.dat") }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
+override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityConsoleBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -30,13 +30,11 @@ class ConsoleActivity : AppCompatActivity() {
         setSupportActionBar(binding.toolbar)
         binding.toolbar.setNavigationOnClickListener { finish() }
 
-        // Restore history
         if (historyFile.exists()) {
             binding.outputText.text = historyFile.readText()
             scrollToBottom()
         }
 
-        // Input handling
         binding.inputCommand.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_DONE) {
                 runCommand()
@@ -47,15 +45,31 @@ class ConsoleActivity : AppCompatActivity() {
         }
 
         binding.btnRun.setOnClickListener { runCommand() }
-        
         binding.btnClearConsole.setOnClickListener {
             binding.outputText.text = "$ "
             if (historyFile.exists()) historyFile.delete()
         }
-        
         binding.btnAddPreset.setOnClickListener { showAddPresetDialog() }
 
         loadPresets()
+        
+        // ПРОВЕРКА ИНТЕНТА ПРИ СОЗДАНИИ
+        handleIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        intent?.getStringExtra("CMD")?.let { cmd ->
+            binding.inputCommand.setText(cmd)
+            execute(cmd)
+            // Очищаем интент, чтобы не выполнялось повторно при повороте экрана
+            intent.removeExtra("CMD")
+        }
     }
 
     override fun onPause() {

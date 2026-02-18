@@ -12,12 +12,14 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import io.github.asutorufa.tailscaled.databinding.ItemPeerBinding
 
-class PeersAdapter(private val onPingClick: (String) -> Unit) : 
-    ListAdapter<PeerData, PeersAdapter.PeerViewHolder>(PeerDiffCallback()) {
+class PeersAdapter(
+    private val onPingClick: (String) -> Unit,
+    private val onDetailsClick: (PeerData) -> Unit // Новый колбэк
+) : ListAdapter<PeerData, PeersAdapter.PeerViewHolder>(PeerDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PeerViewHolder {
         val binding = ItemPeerBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return PeerViewHolder(binding, onPingClick)
+        return PeerViewHolder(binding, onPingClick, onDetailsClick)
     }
 
     override fun onBindViewHolder(holder: PeerViewHolder, position: Int) {
@@ -26,20 +28,28 @@ class PeersAdapter(private val onPingClick: (String) -> Unit) :
 
     class PeerViewHolder(
         private val binding: ItemPeerBinding,
-        private val onPingClick: (String) -> Unit
+        private val onPingClick: (String) -> Unit,
+        private val onDetailsClick: (PeerData) -> Unit
     ) : RecyclerView.ViewHolder(binding.root) {
 
         fun bind(peer: PeerData) {
-            binding.peerName.text = peer.hostName
-            binding.peerIp.text = peer.getPrimaryIp()
+            // Отображаем Имя из веб-панели
+            binding.peerName.text = peer.getDisplayName()
             
-            // OS Badge
+            // Если имя хоста отличается, пишем его мелко рядом (или в IP поле)
+            if (peer.hostName != peer.getDisplayName()) {
+                binding.peerIp.text = "${peer.getPrimaryIp()} • ${peer.hostName}"
+            } else {
+                binding.peerIp.text = peer.getPrimaryIp()
+            }
+            
             binding.peerOs.text = peer.os?.take(2)?.uppercase() ?: "??"
             
-            // Online Status
-            val isOnline = peer.isOnline()
-            val color = if (isOnline) Color.GREEN else Color.GRAY
+            val color = if (peer.isOnline()) Color.parseColor("#4CAF50") else Color.GRAY
             binding.statusDot.setBackgroundColor(color)
+
+            // Клик по всей карте - детали
+            binding.root.setOnClickListener { onDetailsClick(peer) }
 
             binding.btnCopyIp.setOnClickListener {
                 val clipboard = itemView.context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -55,7 +65,7 @@ class PeersAdapter(private val onPingClick: (String) -> Unit) :
     }
 
     class PeerDiffCallback : DiffUtil.ItemCallback<PeerData>() {
-        override fun areItemsTheSame(oldItem: PeerData, newItem: PeerData) = oldItem.hostName == newItem.hostName
+        override fun areItemsTheSame(oldItem: PeerData, newItem: PeerData) = oldItem.getDisplayName() == newItem.getDisplayName()
         override fun areContentsTheSame(oldItem: PeerData, newItem: PeerData) = oldItem == newItem
     }
 }
