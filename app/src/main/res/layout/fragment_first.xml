@@ -2,7 +2,6 @@
 <androidx.core.widget.NestedScrollView 
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true"
@@ -15,7 +14,7 @@
         android:padding="24dp"
         android:gravity="center_horizontal">
 
-        <!-- Status Icon/Card -->
+        <!-- Status Card -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/status_card"
             android:layout_width="120dp"
@@ -26,7 +25,6 @@
             app:cardElevation="0dp"
             app:strokeWidth="0dp"
             app:cardBackgroundColor="?attr/colorSurfaceContainerHigh">
-            
             <ImageView
                 android:id="@+id/status_icon"
                 android:layout_width="64dp"
@@ -45,7 +43,7 @@
             android:textColor="?attr/colorOnSurface"
             android:layout_marginBottom="32dp" />
 
-        <!-- Menu: Console (New) -->
+        <!-- Console -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/card_console"
             android:layout_width="match_parent"
@@ -54,13 +52,11 @@
             android:clickable="true"
             android:focusable="true"
             app:cardBackgroundColor="?attr/colorSurfaceContainer">
-            
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:padding="16dp">
-                
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -69,13 +65,41 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Run manual commands (ping, status, etc)"
+                    android:text="Run manual commands"
                     android:textAppearance="@style/TextAppearance.Material3.BodySmall"
                     android:alpha="0.7"/>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Menu: Logs -->
+        <!-- Peers (Devices) -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/card_peers"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:clickable="true"
+            android:focusable="true"
+            app:cardBackgroundColor="?attr/colorSurfaceContainer">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Network Devices"
+                    android:textAppearance="@style/TextAppearance.Material3.TitleMedium"/>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="View and ping connected peers"
+                    android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+                    android:alpha="0.7"/>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Logs -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/card_logs"
             android:layout_width="match_parent"
@@ -84,13 +108,11 @@
             android:clickable="true"
             android:focusable="true"
             app:cardBackgroundColor="?attr/colorSurfaceContainer">
-            
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:padding="16dp">
-                
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -105,7 +127,7 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Menu: Settings -->
+        <!-- Settings -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/card_settings"
             android:layout_width="match_parent"
@@ -114,13 +136,11 @@
             android:clickable="true"
             android:focusable="true"
             app:cardBackgroundColor="?attr/colorSurfaceContainer">
-
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:padding="16dp">
-
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -135,12 +155,8 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <View
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            android:layout_weight="1" />
+        <View android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="1" />
 
-        <!-- Main Action Button -->
         <Button
             android:id="@+id/btn_action"
             android:layout_width="match_parent"

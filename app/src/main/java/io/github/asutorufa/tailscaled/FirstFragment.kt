@@ -4,8 +4,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.res.ColorStateList
-import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -33,19 +31,31 @@ class FirstFragment : Fragment() {
         return binding.root
     }
 
+    // ВОТ ЗДЕСЬ ВСЕ ОБРАБОТЧИКИ КЛИКОВ
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        binding.cardLogs.setOnClickListener {
-            startActivity(Intent(requireContext(), LogsActivity::class.java))
-        }
-        binding.cardSettings.setOnClickListener {
-            startActivity(Intent(requireContext(), SettingsActivity::class.java))
-        }
+        // 1. Кнопка консоли
         binding.cardConsole.setOnClickListener {
             startActivity(Intent(requireContext(), ConsoleActivity::class.java))
         }
 
+        // 2. НОВАЯ Кнопка устройств (Peers) - ВОТ ОНА
+        binding.cardPeers.setOnClickListener {
+            startActivity(Intent(requireContext(), PeersActivity::class.java))
+        }
+
+        // 3. Кнопка логов
+        binding.cardLogs.setOnClickListener {
+            startActivity(Intent(requireContext(), LogsActivity::class.java))
+        }
+        
+        // 4. Кнопка настроек
+        binding.cardSettings.setOnClickListener {
+            startActivity(Intent(requireContext(), SettingsActivity::class.java))
+        }
+
+        // 5. Главная кнопка старт/стоп
         binding.btnAction.setOnClickListener {
             val isRunning = ProxyState.isActualRunning()
             val intent = Intent(requireContext(), TailscaledService::class.java)
