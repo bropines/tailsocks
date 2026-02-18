@@ -23,8 +23,8 @@ go.work
 
 app/src/main/jniLibs/**/*.so
 app/src/main/jniLibs/**/*.a
-tailscale
-tailscaled
+/tailscale
+/tailscaled
 
 # --- [ IDE (Android Studio / IntelliJ / VS Code) ] ---
 .idea/
