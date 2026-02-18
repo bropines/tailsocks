@@ -6,21 +6,21 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#1E1E1E"
+    android:background="?android:colorBackground"
     android:fitsSystemWindows="true">
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#1E1E1E">
+        android:background="?android:colorBackground">
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             app:title="Terminal"
-            app:titleTextColor="#FFFFFF"
+            app:titleTextColor="?attr/colorOnBackground"
             app:navigationIcon="@drawable/ic_baseline_arrow_back"
-            app:navigationIconTint="#FFFFFF"/>
+            app:navigationIconTint="?attr/colorOnBackground"/>
     </com.google.android.material.appbar.AppBarLayout>
 
     <!-- Output Area -->
@@ -38,7 +38,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:fontFamily="monospace"
-            android:textColor="#00FF00"
+            android:textColor="?attr/colorOnSurface"
             android:textSize="12sp"
             android:textIsSelectable="true"
             android:text="Welcome to Tailscale Sandbox...\n$ "/>
@@ -50,14 +50,14 @@
         android:layout_height="wrap_content"
         android:indeterminate="true"
         android:visibility="invisible"
-        app:indicatorColor="#00FF00"
-        app:trackColor="#1E1E1E"/>
+        app:indicatorColor="?attr/colorPrimary"
+        app:trackColor="?attr/colorSurfaceContainer"/>
 
     <!-- Quick Actions / Presets -->
     <HorizontalScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#252525"
+        android:background="?attr/colorSurfaceContainer"
         android:scrollbars="none">
         <LinearLayout
             android:id="@+id/presets_container"
@@ -71,8 +71,8 @@
                 style="@style/Widget.Material3.Button.TextButton"
                 android:layout_width="wrap_content"
                 android:layout_height="36dp"
-                android:text="+ Add Preset"
-                android:textColor="#AAAAAA"/>
+                android:text="+ Preset"
+                android:textColor="?attr/colorOnSurfaceVariant"/>
         </LinearLayout>
     </HorizontalScrollView>
 
@@ -83,14 +83,14 @@
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:padding="8dp"
-        android:background="#2D2D2D">
+        android:background="?attr/colorSurface">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="$ "
             android:fontFamily="monospace"
-            android:textColor="#00FF00"
+            android:textColor="?attr/colorPrimary"
             android:textSize="16sp"
             android:textStyle="bold"/>
 
@@ -101,8 +101,8 @@
             android:layout_height="wrap_content"
             android:background="@null"
             android:hint="type command..."
-            android:textColorHint="#555555"
-            android:textColor="#FFFFFF"
+            android:textColorHint="?attr/colorOutline"
+            android:textColor="?attr/colorOnSurface"
             android:fontFamily="monospace"
             android:imeOptions="actionDone"
             android:inputType="textNoSuggestions"
@@ -115,7 +115,15 @@
             android:layout_height="48dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/ic_media_play"
-            app:tint="#00FF00"/>
+            app:tint="?attr/colorPrimary"/>
+            
+        <ImageButton
+            android:id="@+id/btn_clear_console"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_menu_delete"
+            app:tint="?attr/colorError"/>
     </LinearLayout>
 
 </LinearLayout>
