@@ -3,8 +3,6 @@ package io.github.asutorufa.tailscaled
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
-import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import appctr.Appctr
@@ -20,13 +18,13 @@ class PeersActivity : AppCompatActivity() {
         onPingClick = { ip ->
             val intent = Intent(this, ConsoleActivity::class.java).apply {
                 putExtra("CMD", "ping $ip")
-                // Важно: флаг чтобы не плодить окна консоли
                 addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
             }
             startActivity(intent)
         },
         onDetailsClick = { peer ->
-            showPeerDetails(peer)
+            val sheet = PeerDetailsSheet(peer)
+            sheet.show(supportFragmentManager, "peer_details")
         }
     )
 
@@ -45,20 +43,6 @@ class PeersActivity : AppCompatActivity() {
         loadPeers()
     }
 
-    private fun showPeerDetails(peer: PeerData) {
-        val details = peer.getFullDetails()
-        
-        AlertDialog.Builder(this)
-            .setTitle(peer.getDisplayName())
-            .setMessage(details)
-            .setPositiveButton("Copy All") { _, _ ->
-                val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Peer Details", details))
-            }
-            .setNegativeButton("Close", null)
-            .show()
-    }
-
     private fun loadPeers() {
         binding.swipeRefresh.isRefreshing = true
         binding.errorText.visibility = View.GONE
@@ -66,13 +50,16 @@ class PeersActivity : AppCompatActivity() {
         Thread {
             try {
                 val jsonOutput = Appctr.runTailscaleCmd("status --json")
-                val status = gson.fromJson(jsonOutput, StatusResponse::class.java)
                 
-                // ВАЖНО: берем peers (Map), превращаем в List
+                if (jsonOutput.isEmpty() || jsonOutput.startsWith("Error")) {
+                    throw Exception("Daemon not running or returned error")
+                }
+
+                val status = gson.fromJson(jsonOutput, StatusResponse::class.java)
                 val peersList = status.peers?.values?.toList() ?: emptyList()
                 
                 val sortedList = peersList.sortedWith(
-                    compareByDescending<PeerData> { it.isOnline() }
+                    compareByDescending<PeerData> { it.online == true }
                         .thenBy { it.getDisplayName() }
                 )
 
@@ -81,7 +68,7 @@ class PeersActivity : AppCompatActivity() {
                         adapter.submitList(sortedList)
                         binding.swipeRefresh.isRefreshing = false
                         if (sortedList.isEmpty()) {
-                            binding.errorText.text = "No peers found or service offline."
+                            binding.errorText.text = "No peers found."
                             binding.errorText.visibility = View.VISIBLE
                         }
                     }
@@ -90,7 +77,7 @@ class PeersActivity : AppCompatActivity() {
                 runOnUiThread {
                     if (!isDestroyed) {
                         binding.swipeRefresh.isRefreshing = false
-                        binding.errorText.text = "Error: ${e.message}"
+                        binding.errorText.text = "Error: ${e.message}\nMake sure Tailscale is running."
                         binding.errorText.visibility = View.VISIBLE
                     }
                 }

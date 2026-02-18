@@ -1,7 +1,5 @@
 @file:Suppress("UNUSED_EXPRESSION")
 
-import com.android.build.api.dsl.Packaging
-
 plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.kotlinAndroid)
@@ -17,65 +15,40 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.4"
-
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildFeatures {
+        viewBinding = true
+        buildConfig = true 
     }
 
     splits {
         abi {
             isEnable = true
-
-            // Resets the list of ABIs that Gradle should create APKs for to none.
             reset()
-
             include("x86_64", "arm64-v8a")
         }
     }
 
     signingConfigs {
-            create("releaseConfig") {
-                val keystorePath = System.getenv("KEYSTORE_FILE") ?: "debug.keystore"
-                storeFile = file(keystorePath)
-                storePassword = System.getenv("KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("KEY_ALIAS")
-                keyPassword = System.getenv("KEY_PASSWORD")
-            }
+        create("releaseConfig") {
+            val keystorePath = System.getenv("KEYSTORE_FILE") ?: "debug.keystore"
+            storeFile = file(keystorePath)
+            storePassword = System.getenv("KEYSTORE_PASSWORD")
+            keyAlias = System.getenv("KEY_ALIAS")
+            keyPassword = System.getenv("KEY_PASSWORD")
         }
-
-        buildTypes {
-            release {
-                isMinifyEnabled = true
-                isShrinkResources = true
-                proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-                
-                signingConfig = signingConfigs.getByName("releaseConfig")
-            }
-        }
-
-    this.buildOutputs.all {
-        val variantOutputImpl = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-        val variantName: String = variantOutputImpl.name
-        variantOutputImpl.outputFileName = "tailscaled-${variantName}.apk"
     }
 
     buildTypes {
         release {
-            // Enables code shrinking, obfuscation, and optimization for only
-            // your project's release build type.
             isMinifyEnabled = true
-
-            // Enables resource shrinking, which is performed by the
-            // Android Gradle plugin.
             isShrinkResources = true
-
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-
-
-            if (System.getenv("KEYSTORE_PATH") != null)
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (System.getenv("KEYSTORE_PASSWORD") != null) {
                 signingConfig = signingConfigs.getByName("releaseConfig")
+            }
         }
     }
     compileOptions {
@@ -83,15 +56,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_1_8
     }
     packaging {
-        jniLibs {
-            useLegacyPackaging = true
-        }
+        jniLibs { useLegacyPackaging = true }
     }
     kotlinOptions {
         jvmTarget = "1.8"
-    }
-    buildFeatures {
-        viewBinding = true
     }
 }
 

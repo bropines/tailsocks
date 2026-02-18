@@ -28,7 +28,6 @@ data class PeerData(
     
     fun getDisplayName(): String = dnsName?.split(".")?.firstOrNull() ?: hostName ?: "Unknown"
 
-    // Метод, которого не хватало для сборки
     fun getDetailsList(): List<Pair<String, String>> {
         return listOf(
             "Machine Name" to getDisplayName(),
