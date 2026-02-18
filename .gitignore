@@ -1,21 +1,55 @@
-*.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
-/build
-/appctr/build
-/appctr/appctr.aar
-/appctr/appctr-sources.jar
-/captures
-.externalNativeBuild
-.cxx
+# --- [ Android / Gradle ] ---
+.gradle/
+build/
+app/build/
+appctr/build/
 local.properties
-.idea
-app/src/main/jniLibs/arm64-v8a/libtailscaled.so
-app/src/main/jniLibs/x86_64/libtailscaled.so
+.externalNativeBuild/
+.cxx/
+*.apk
+*.ap_
+*.dex
+*.class
+captures/
+output-metadata.json
+
+# --- [ Go / Gomobile ] ---
+appctr/appctr.aar
+appctr/appctr-sources.jar
+go.work
+# vendor/
+
+# --- [ Native Binaries (Tailscale) ] ---
+
+app/src/main/jniLibs/**/*.so
+app/src/main/jniLibs/**/*.a
+tailscale
+tailscaled
+
+# --- [ IDE (Android Studio / IntelliJ / VS Code) ] ---
+.idea/
+*.iml
+.idea/caches
+.idea/libraries
+.idea/modules.xml
+.idea/workspace.xml
+.idea/navEditor.xml
+.idea/assetWizardSettings.xml
+.idea/deploymentTargetSelector.xml
+.vscode/
+*.swp
+*~
+
+# --- [ Signing & Secrets ] ---
+*.jks
+*.keystore
+# !debug.keystore
+
+# --- [ OS Specific ] ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- [ Logs & Dumps ] ---
+*.log
+cobase.txt
