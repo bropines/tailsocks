@@ -3,6 +3,7 @@
 plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.kotlinAndroid)
+    alias(libs.plugins.compose.compiler)
 }
 
 android {
@@ -21,6 +22,7 @@ android {
     buildFeatures {
         viewBinding = true
         buildConfig = true 
+        compose = true
     }
 
     splits {
@@ -72,8 +74,22 @@ dependencies {
     implementation(libs.material)
     implementation(libs.constraintlayout)
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
+    
+    // Compose
+    val composeBom = platform(libs.compose.bom)
+    implementation(composeBom)
+    implementation(libs.ui)
+    implementation(libs.ui.graphics)
+    implementation(libs.ui.tooling.preview)
+    implementation(libs.material3)
+    implementation(libs.activity.compose)
+    implementation(libs.lifecycle.runtime.ktx)
+    debugImplementation(libs.ui.tooling)
+
+    // Old Navigation (Пока оставляем для непереведенных активити)
     implementation(libs.navigation.fragment.ktx)
     implementation(libs.navigation.ui.ktx)
+    
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.espresso.core)

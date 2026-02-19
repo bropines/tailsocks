@@ -5,148 +5,368 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.transition.AutoTransition
-import android.transition.TransitionManager
-import android.view.View
-import android.view.ViewGroup
-import android.widget.ArrayAdapter
-import android.widget.TextView
-import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
-import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.core.widget.doAfterTextChanged
-import io.github.asutorufa.tailscaled.databinding.ActivitySettingsBinding
+import appctr.Appctr
+import com.google.gson.Gson
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
-class SettingsActivity : AppCompatActivity() {
-    private lateinit var binding: ActivitySettingsBinding
-    private val prefs by lazy { getSharedPreferences("appctr", Context.MODE_PRIVATE) }
-    private val keyPrefs by lazy { getSharedPreferences("auth_keys_store", Context.MODE_PRIVATE) }
-
+class SettingsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivitySettingsBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-
-        setSupportActionBar(binding.toolbar)
-        binding.toolbar.setNavigationOnClickListener { finish() }
-
-        loadSettings()
-        setupListeners()
-        setupMultiKeyLogic()
-        setupExpandableSections()
-        setupFabRestart()
-    }
-
-    private fun setupExpandableSections() {
-        // Явно указываем типы Map<TextView, ViewGroup>
-        val sections = mapOf<TextView, ViewGroup>(
-            binding.headerGeneral to binding.containerGeneral,
-            binding.headerNetwork to binding.containerNetwork,
-            binding.headerExitNode to binding.containerExitNode,
-            binding.headerAdvanced to binding.containerAdvanced
-        )
-
-        sections.forEach { (header, container) ->
-            header.setOnClickListener {
-                toggleSection(header, container)
+        setContent {
+            MaterialTheme(
+                colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()
+            ) {
+                SettingsScreen(onBack = { finish() })
             }
         }
     }
+}
 
-    private fun toggleSection(header: TextView, container: ViewGroup) {
-        TransitionManager.beginDelayedTransition(binding.root as ViewGroup, AutoTransition())
-        if (container.visibility == View.VISIBLE) {
-            container.visibility = View.GONE
-            header.setCompoundDrawablesWithIntrinsicBounds(0, 0, android.R.drawable.arrow_down_float, 0)
-        } else {
-            container.visibility = View.VISIBLE
-            header.setCompoundDrawablesWithIntrinsicBounds(0, 0, android.R.drawable.arrow_up_float, 0)
-        }
-    }
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsScreen(onBack: () -> Unit) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("appctr", Context.MODE_PRIVATE) }
+    val keyPrefs = remember { context.getSharedPreferences("auth_keys_store", Context.MODE_PRIVATE) }
 
-    private fun setupMultiKeyLogic() {
-        binding.authKeyLayout.setEndIconOnClickListener { showKeysDialog() }
-    }
+    fun saveStr(key: String, value: String) = prefs.edit().putString(key, value).apply()
+    fun saveBool(key: String, value: Boolean) = prefs.edit().putBoolean(key, value).apply()
 
-    private fun showKeysDialog() {
-        val keysSet = keyPrefs.getStringSet("keys_list", emptySet()) ?: emptySet()
-        val keysList = keysSet.toList().sorted()
-        val adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, keysList)
+    // Стейты полей
+    var forceBg by remember { mutableStateOf(prefs.getBoolean("force_bg", false)) }
+    var authKey by remember { mutableStateOf(prefs.getString("authkey", "") ?: "") }
+    var hostname by remember { mutableStateOf(prefs.getString("hostname", "") ?: "") }
+    var loginServer by remember { mutableStateOf(prefs.getString("login_server", "") ?: "") }
+    
+    var acceptRoutes by remember { mutableStateOf(prefs.getBoolean("accept_routes", false)) }
+    var acceptDns by remember { mutableStateOf(prefs.getBoolean("accept_dns", true)) }
+    var socks5Addr by remember { mutableStateOf(prefs.getString("socks5", "127.0.0.1:1055") ?: "") }
+    
+    var advertiseExitNode by remember { mutableStateOf(prefs.getBoolean("advertise_exit_node", false)) }
+    var exitNodeIp by remember { mutableStateOf(prefs.getString("exit_node_ip", "") ?: "") }
+    var allowLan by remember { mutableStateOf(prefs.getBoolean("exit_node_allow_lan", false)) }
+    
+    var sshAddr by remember { mutableStateOf(prefs.getString("sshserver", "127.0.0.1:1056") ?: "") }
+    var extraArgs by remember { mutableStateOf(prefs.getString("extra_args_raw", "") ?: "") }
 
-        AlertDialog.Builder(this)
-            .setTitle("Manage Auth Keys")
-            .setAdapter(adapter) { _, which ->
-                val selectedKey = keysList[which]
-                binding.authKey.setText(selectedKey)
-            }
-            .setPositiveButton("Add New") { _, _ -> showAddKeyDialog() }
-            .setNeutralButton("Clear All") { _, _ -> keyPrefs.edit().clear().apply() }
-            .show()
-    }
+    // Стейты раскрытия секций
+    var generalExpanded by remember { mutableStateOf(true) }
+    var networkExpanded by remember { mutableStateOf(true) }
+    var exitNodeExpanded by remember { mutableStateOf(true) }
+    var advancedExpanded by remember { mutableStateOf(true) }
 
-    private fun showAddKeyDialog() {
-        val input = com.google.android.material.textfield.TextInputEditText(this)
-        AlertDialog.Builder(this).setTitle("Add Auth Key").setView(input)
-            .setPositiveButton("Save") { _, _ ->
-                val newKey = input.text.toString().trim()
-                if (newKey.isNotEmpty()) {
-                    val current = keyPrefs.getStringSet("keys_list", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
-                    current.add(newKey)
-                    keyPrefs.edit().putStringSet("keys_list", current).apply()
-                    binding.authKey.setText(newKey)
+    // Данные для Exit Nodes
+    var availableExitNodes by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
+    var exitNodeDropdownExpanded by remember { mutableStateOf(false) }
+
+    // Диалоги для ключей
+    var showKeysDialog by remember { mutableStateOf(false) }
+    var showAddKeyDialog by remember { mutableStateOf(false) }
+    var newKeyInput by remember { mutableStateOf("") }
+
+    // Запрашиваем доступные exit nodes в фоне
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
+            try {
+                if (Appctr.isRunning()) {
+                    val jsonOutput = Appctr.runTailscaleCmd("status --json")
+                    val status = Gson().fromJson(jsonOutput, StatusResponse::class.java)
+                    val nodes = status.peers?.values?.filter { it.exitNodeOption == true }?.map {
+                        (it.getDisplayName()) to it.getPrimaryIp()
+                    } ?: emptyList()
+                    availableExitNodes = nodes
                 }
-            }.show()
-    }
-
-    private fun loadSettings() {
-        val hostNameFilter = InputFilter { source, _, _, _, _, _ ->
-            source.filter { it.toString().matches(Regex("^[a-zA-Z0-9]*$")) }
-        }
-        binding.hostname.filters = arrayOf(hostNameFilter)
-        
-        binding.authKey.setText(prefs.getString("authkey", ""))
-        binding.hostname.setText(prefs.getString("hostname", ""))
-        binding.loginServer.setText(prefs.getString("login_server", ""))
-        binding.switchForceBg.isChecked = prefs.getBoolean("force_bg", false)
-        binding.socks5Addr.setText(prefs.getString("socks5", "127.0.0.1:1055"))
-        binding.swAcceptRoutes.isChecked = prefs.getBoolean("accept_routes", false)
-        binding.swAcceptDns.isChecked = prefs.getBoolean("accept_dns", true)
-        binding.swAdvertiseExitNode.isChecked = prefs.getBoolean("advertise_exit_node", false)
-        binding.exitNodeIp.setText(prefs.getString("exit_node_ip", ""))
-        binding.swAllowLan.isChecked = prefs.getBoolean("exit_node_allow_lan", false)
-        binding.sshAddr.setText(prefs.getString("sshserver", "127.0.0.1:1056"))
-        binding.extraArgs.setText(prefs.getString("extra_args_raw", ""))
-    }
-
-    private fun setupListeners() {
-        binding.authKey.doAfterTextChanged { saveStr("authkey", it.toString()) }
-        binding.hostname.doAfterTextChanged { saveStr("hostname", it.toString()) }
-        binding.loginServer.doAfterTextChanged { saveStr("login_server", it.toString()) }
-        binding.socks5Addr.doAfterTextChanged { saveStr("socks5", it.toString()) }
-        binding.exitNodeIp.doAfterTextChanged { saveStr("exit_node_ip", it.toString()) }
-        binding.sshAddr.doAfterTextChanged { saveStr("sshserver", it.toString()) }
-        binding.extraArgs.doAfterTextChanged { saveStr("extra_args_raw", it.toString()) }
-        binding.switchForceBg.setOnCheckedChangeListener { _, v -> saveBool("force_bg", v) }
-        binding.swAcceptRoutes.setOnCheckedChangeListener { _, v -> saveBool("accept_routes", v) }
-        binding.swAcceptDns.setOnCheckedChangeListener { _, v -> saveBool("accept_dns", v) }
-        binding.swAdvertiseExitNode.setOnCheckedChangeListener { _, v -> saveBool("advertise_exit_node", v) }
-        binding.swAllowLan.setOnCheckedChangeListener { _, v -> saveBool("exit_node_allow_lan", v) }
-    }
-
-    private fun setupFabRestart() {
-        binding.fabRestart.setOnClickListener {
-            it.isEnabled = false
-            val stopIntent = Intent(this, TailscaledService::class.java).apply { action = "STOP_ACTION" }
-            startService(stopIntent)
-            Handler(Looper.getMainLooper()).postDelayed({
-                val startIntent = Intent(this, TailscaledService::class.java).apply { action = "START_ACTION" }
-                ContextCompat.startForegroundService(this, startIntent)
-                it.isEnabled = true
-            }, 800)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
-    private fun saveStr(key: String, value: String) { prefs.edit().putString(key, value).apply() }
-    private fun saveBool(key: String, value: Boolean) { prefs.edit().putBoolean(key, value).apply() }
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Settings") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = {
+                val stopIntent = Intent(context, TailscaledService::class.java).apply { action = "STOP_ACTION" }
+                context.startService(stopIntent)
+                Handler(Looper.getMainLooper()).postDelayed({
+                    val startIntent = Intent(context, TailscaledService::class.java).apply { action = "START_ACTION" }
+                    ContextCompat.startForegroundService(context, startIntent)
+                }, 800)
+            }) {
+                Icon(Icons.Default.Refresh, contentDescription = "Restart Service")
+            }
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp)
+        ) {
+            // Переключатель Force Background
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Force Background Run", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Switch(
+                    checked = forceBg,
+                    onCheckedChange = { forceBg = it; saveBool("force_bg", it) }
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // --- GENERAL SECTION ---
+            SectionHeader(title = "General", expanded = generalExpanded) { generalExpanded = !generalExpanded }
+            AnimatedVisibility(visible = generalExpanded) {
+                Column(modifier = Modifier.padding(bottom = 16.dp)) {
+                    OutlinedTextField(
+                        value = authKey,
+                        onValueChange = { authKey = it; saveStr("authkey", it) },
+                        label = { Text("Auth Key") },
+                        modifier = Modifier.fillMaxWidth(),
+                        trailingIcon = {
+                            IconButton(onClick = { showKeysDialog = true }) {
+                                Icon(Icons.Default.List, contentDescription = "Keys")
+                            }
+                        }
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = hostname,
+                        onValueChange = { newValue ->
+                            // ЗАДАЧА 5: Только латиница и цифры
+                            val filtered = newValue.filter { it.isLetterOrDigit() }
+                            hostname = filtered
+                            saveStr("hostname", filtered)
+                        },
+                        label = { Text("Device Hostname") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = loginServer,
+                        onValueChange = { loginServer = it; saveStr("login_server", it) },
+                        label = { Text("Login Server (Headscale)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+
+            // --- NETWORK SECTION ---
+            SectionHeader(title = "Network", expanded = networkExpanded) { networkExpanded = !networkExpanded }
+            AnimatedVisibility(visible = networkExpanded) {
+                Column(modifier = Modifier.padding(bottom = 16.dp)) {
+                    RowItemSwitch("Accept Routes", acceptRoutes) { acceptRoutes = it; saveBool("accept_routes", it) }
+                    RowItemSwitch("Accept DNS", acceptDns) { acceptDns = it; saveBool("accept_dns", it) }
+                    OutlinedTextField(
+                        value = socks5Addr,
+                        onValueChange = { socks5Addr = it; saveStr("socks5", it) },
+                        label = { Text("Socks5 Address") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+
+            // --- EXIT NODE SECTION ---
+            SectionHeader(title = "Exit Node", expanded = exitNodeExpanded) { exitNodeExpanded = !exitNodeExpanded }
+            AnimatedVisibility(visible = exitNodeExpanded) {
+                Column(modifier = Modifier.padding(bottom = 16.dp)) {
+                    RowItemSwitch("Advertise Exit Node", advertiseExitNode) { advertiseExitNode = it; saveBool("advertise_exit_node", it) }
+                    
+                    // ЗАДАЧА 2: Дропдаун для Exit Node
+                    ExposedDropdownMenuBox(
+                        expanded = exitNodeDropdownExpanded,
+                        onExpandedChange = { exitNodeDropdownExpanded = it }
+                    ) {
+                        OutlinedTextField(
+                            value = exitNodeIp,
+                            onValueChange = { exitNodeIp = it; saveStr("exit_node_ip", it) },
+                            label = { Text("Use Exit Node (IP)") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(),
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = exitNodeDropdownExpanded) },
+                            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
+                        )
+                        if (availableExitNodes.isNotEmpty()) {
+                            ExposedDropdownMenu(
+                                expanded = exitNodeDropdownExpanded,
+                                onDismissRequest = { exitNodeDropdownExpanded = false }
+                            ) {
+                                availableExitNodes.forEach { (name, ip) ->
+                                    DropdownMenuItem(
+                                        text = { Text("$name ($ip)") },
+                                        onClick = {
+                                            exitNodeIp = ip
+                                            saveStr("exit_node_ip", ip)
+                                            exitNodeDropdownExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    RowItemSwitch("Allow LAN Access", allowLan) { allowLan = it; saveBool("exit_node_allow_lan", it) }
+                }
+            }
+
+            // --- ADVANCED SECTION ---
+            SectionHeader(title = "Advanced", expanded = advancedExpanded) { advancedExpanded = !advancedExpanded }
+            AnimatedVisibility(visible = advancedExpanded) {
+                Column(modifier = Modifier.padding(bottom = 32.dp)) {
+                    OutlinedTextField(
+                        value = sshAddr,
+                        onValueChange = { sshAddr = it; saveStr("sshserver", it) },
+                        label = { Text("SSH Server Address") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = extraArgs,
+                        onValueChange = { extraArgs = it; saveStr("extra_args_raw", it) },
+                        label = { Text("Extra Arguments (Raw)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+    }
+
+    // Диалоги управления ключами
+    if (showKeysDialog) {
+        val keysList = keyPrefs.getStringSet("keys_list", emptySet())?.toList()?.sorted() ?: emptyList()
+        AlertDialog(
+            onDismissRequest = { showKeysDialog = false },
+            title = { Text("Manage Auth Keys") },
+            text = {
+                Column {
+                    if (keysList.isEmpty()) {
+                        Text("No saved keys.")
+                    } else {
+                        keysList.forEach { key ->
+                            Text(
+                                text = key,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        authKey = key
+                                        saveStr("authkey", key)
+                                        showKeysDialog = false
+                                    }
+                                    .padding(vertical = 12.dp),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showAddKeyDialog = true }) { Text("Add New") }
+            },
+            dismissButton = {
+                TextButton(onClick = { keyPrefs.edit().clear().apply(); showKeysDialog = false }) { Text("Clear All") }
+            }
+        )
+    }
+
+    if (showAddKeyDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddKeyDialog = false },
+            title = { Text("Add Auth Key") },
+            text = {
+                OutlinedTextField(
+                    value = newKeyInput,
+                    onValueChange = { newKeyInput = it },
+                    label = { Text("New Key") },
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (newKeyInput.isNotBlank()) {
+                        val current = keyPrefs.getStringSet("keys_list", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
+                        current.add(newKeyInput.trim())
+                        keyPrefs.edit().putStringSet("keys_list", current).apply()
+                        
+                        authKey = newKeyInput.trim()
+                        saveStr("authkey", authKey)
+                        newKeyInput = ""
+                    }
+                    showAddKeyDialog = false
+                    showKeysDialog = false
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddKeyDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+}
+
+@Composable
+fun SectionHeader(title: String, expanded: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(title, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+        Icon(
+            imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary
+        )
+    }
+}
+
+@Composable
+fun RowItemSwitch(text: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(text)
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
 }
