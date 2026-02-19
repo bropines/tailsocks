@@ -25,7 +25,6 @@ class TailscaledService : Service() {
     private lateinit var prefs: SharedPreferences
     private var wakeLock: PowerManager.WakeLock? = null
     
-    // Network Monitoring
     private lateinit var connectivityManager: ConnectivityManager
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
@@ -48,7 +47,6 @@ class TailscaledService : Service() {
     override fun onCreate() {
         super.onCreate()
         
-        // ФИКС ВРЕМЕНИ: Пробрасываем часовой пояс Android в Go
         try {
             android.system.Os.setenv("TZ", java.util.TimeZone.getDefault().id, true)
         } catch (e: Exception) {
@@ -128,8 +126,6 @@ class TailscaledService : Service() {
 
         val rawArgs = prefs.getString("extra_args_raw", "")
         if (!rawArgs.isNullOrEmpty()) argsBuilder.append("$rawArgs")
-
-        Log.d(TAG, "Generated Args: $argsBuilder")
 
         val options = StartOptions().apply {
             socks5Server = prefs.getString("socks5", "127.0.0.1:1055")

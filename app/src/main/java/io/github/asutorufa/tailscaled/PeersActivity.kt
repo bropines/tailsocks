@@ -3,10 +3,13 @@ package io.github.asutorufa.tailscaled
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -31,9 +34,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import appctr.Appctr
 import com.google.gson.Gson
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 
 class PeersActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,6 +56,7 @@ class PeersActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PeersScreen(onBack: () -> Unit) {
+    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     
     var isRefreshing by remember { mutableStateOf(false) }
@@ -59,6 +65,18 @@ fun PeersScreen(onBack: () -> Unit) {
     var selfPeer by remember { mutableStateOf<PeerData?>(null) }
     var peersList by remember { mutableStateOf<List<PeerData>>(emptyList()) }
     var selectedPeer by remember { mutableStateOf<PeerData?>(null) }
+    
+    // Стейт для понимания, кому мы сейчас отправляем файл
+    var peerForFileDrop by remember { mutableStateOf<PeerData?>(null) }
+
+    // Лаунчер для выбора файла
+    val filePickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        val targetPeer = peerForFileDrop
+        if (uri != null && targetPeer != null) {
+            sendFileToPeer(context, uri, targetPeer, coroutineScope)
+        }
+        peerForFileDrop = null // Сбрасываем стейт
+    }
 
     fun loadPeers() {
         isRefreshing = true
@@ -67,19 +85,15 @@ fun PeersScreen(onBack: () -> Unit) {
             withContext(Dispatchers.IO) {
                 try {
                     val jsonOutput = Appctr.runTailscaleCmd("status --json")
-                    
                     if (jsonOutput.isEmpty() || jsonOutput.startsWith("Error")) {
                         throw Exception("Daemon not running or returned error")
                     }
-
                     val status = Gson().fromJson(jsonOutput, StatusResponse::class.java)
-                    
                     val parsedPeers = status.peers?.values?.toList() ?: emptyList()
                     val sortedList = parsedPeers.sortedWith(
                         compareByDescending<PeerData> { it.online == true }
                             .thenBy { it.getDisplayName() }
                     )
-
                     withContext(Dispatchers.Main) {
                         selfPeer = status.self
                         peersList = sortedList
@@ -164,8 +178,42 @@ fun PeersScreen(onBack: () -> Unit) {
         if (selectedPeer != null) {
             PeerDetailsModal(
                 peer = selectedPeer!!,
-                onDismiss = { selectedPeer = null }
+                onDismiss = { selectedPeer = null },
+                onSendFileClick = {
+                    peerForFileDrop = selectedPeer
+                    filePickerLauncher.launch("*/*") // Открываем выбор любых файлов
+                }
             )
+        }
+    }
+}
+
+// Функция отправки файла
+private fun sendFileToPeer(context: Context, fileUri: Uri, peer: PeerData, coroutineScope: CoroutineScope) {
+    Toast.makeText(context, "Sending to ${peer.getDisplayName()}...", Toast.LENGTH_SHORT).show()
+    coroutineScope.launch(Dispatchers.IO) {
+        try {
+            val tempFile = File(context.cacheDir, "drop_${System.currentTimeMillis()}")
+            context.contentResolver.openInputStream(fileUri)?.use { input ->
+                tempFile.outputStream().use { output -> input.copyTo(output) }
+            }
+            
+            val targetName = peer.hostName ?: peer.getDisplayName()
+            val cmd = "file cp ${tempFile.absolutePath} ${targetName}:"
+            
+            // Выполняем команду и собираем лог
+            val res = Appctr.runTailscaleCmd(cmd)
+            tempFile.delete()
+            
+            withContext(Dispatchers.Main) {
+                // Если res пустой - значит команда выполнилась успешно и молча
+                val msg = if (res.trim().isEmpty()) "Success!" else "Result: $res"
+                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+            }
+        } catch (e: Exception) {
+            withContext(Dispatchers.Main) {
+                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+            }
         }
     }
 }
@@ -237,12 +285,11 @@ fun PeerItem(peer: PeerData, isSelf: Boolean, onClick: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PeerDetailsModal(peer: PeerData, onDismiss: () -> Unit) {
+fun PeerDetailsModal(peer: PeerData, onDismiss: () -> Unit, onSendFileClick: () -> Unit) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    // Стейты для инлайн-пинга
     var isPinging by remember { mutableStateOf(false) }
     var pingResult by remember { mutableStateOf<String?>(null) }
 
@@ -256,45 +303,57 @@ fun PeerDetailsModal(peer: PeerData, onDismiss: () -> Unit) {
                 .fillMaxWidth()
                 .padding(bottom = 32.dp)
         ) {
-            // Заголовок и инлайн-пинг
+            // Заголовок
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp)) {
+                Text(
+                    text = peer.getDisplayName(),
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                if (pingResult != null) {
+                    Text(
+                        text = pingResult!!,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 14.sp,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+            }
+
+            // Кнопки действий
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .padding(bottom = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = 24.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = peer.getDisplayName(),
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    // Показываем результат пинга прямо под именем
-                    if (pingResult != null) {
-                        Text(
-                            text = pingResult!!,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontSize = 14.sp,
-                            fontFamily = FontFamily.Monospace
-                        )
-                    }
-                }
-                Button(onClick = {
-                    if (isPinging) return@Button
-                    isPinging = true
-                    pingResult = "Pinging..."
-                    coroutineScope.launch(Dispatchers.IO) {
-                        val out = try { Appctr.runTailscaleCmd("ping ${peer.getPrimaryIp()}") } catch (e: Exception) { "Error" }
-                        val lines = out.split("\n")
-                        val pongLine = lines.find { it.contains("pong from") } ?: "Ping failed or timeout"
-                        withContext(Dispatchers.Main) {
-                            pingResult = pongLine.trim()
-                            isPinging = false
+                Button(
+                    modifier = Modifier.weight(1f),
+                    onClick = {
+                        if (isPinging) return@Button
+                        isPinging = true
+                        pingResult = "Pinging..."
+                        coroutineScope.launch(Dispatchers.IO) {
+                            val out = try { Appctr.runTailscaleCmd("ping ${peer.getPrimaryIp()}") } catch (e: Exception) { "Error" }
+                            val lines = out.split("\n")
+                            val pongLine = lines.find { it.contains("pong from") } ?: "Ping failed or timeout"
+                            withContext(Dispatchers.Main) {
+                                pingResult = pongLine.trim()
+                                isPinging = false
+                            }
                         }
                     }
-                }) {
+                ) {
                     Text(if (isPinging) "..." else "Ping")
+                }
+
+                // НОВАЯ КНОПКА ОТПРАВКИ ФАЙЛА
+                FilledTonalButton(
+                    modifier = Modifier.weight(1f),
+                    onClick = onSendFileClick
+                ) {
+                    Text("Send File")
                 }
             }
 

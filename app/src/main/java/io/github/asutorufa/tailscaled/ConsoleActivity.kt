@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -33,6 +34,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
 import appctr.Appctr
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -42,6 +44,9 @@ import java.io.File
 class ConsoleActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // ФИКС КЛАВИАТУРЫ: Говорим Android, что Compose сам разберется с отступами
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        
         val initialCmd = intent?.getStringExtra("CMD") ?: ""
         
         setContent {
@@ -64,7 +69,9 @@ class ConsoleActivity : ComponentActivity() {
 fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val scrollState = rememberScrollState()
+    
+    val verticalScrollState = rememberScrollState()
+    val horizontalScrollState = rememberScrollState() // Для горизонтального скролла
     val focusRequester = remember { FocusRequester() }
 
     val prefs = remember { context.getSharedPreferences("console_presets", Context.MODE_PRIVATE) }
@@ -89,7 +96,7 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
     LaunchedEffect(Unit) {
         if (historyFile.exists()) {
             try { outputText = historyFile.readText() } catch (e: Exception) {}
-            scrollState.animateScrollTo(scrollState.maxValue)
+            verticalScrollState.animateScrollTo(verticalScrollState.maxValue)
         }
         if (initialCmd.isNotEmpty()) currentCommand = initialCmd
         focusRequester.requestFocus()
@@ -114,13 +121,17 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
                 outputText += "\n$result\n$ "
                 isExecuting = false
                 currentCommand = ""
-                scrollState.animateScrollTo(scrollState.maxValue)
+                verticalScrollState.animateScrollTo(verticalScrollState.maxValue)
                 focusRequester.requestFocus()
             }
         }
     }
 
     Scaffold(
+        // ФИКС КЛАВИАТУРЫ: системные бары и клавиатура (imePadding)
+        modifier = Modifier
+            .systemBarsPadding()
+            .imePadding(),
         topBar = {
             Column {
                 TopAppBar(
@@ -186,9 +197,11 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
                 color = Color(0xFFE6E1E5),
                 fontFamily = FontFamily.Monospace,
                 fontSize = (14 * scale).sp,
+                softWrap = false, // <-- ФИКС ТЕРМИНАЛА: Отключаем перенос строк
                 modifier = Modifier
                     .fillMaxSize()
-                    .verticalScroll(scrollState)
+                    .horizontalScroll(horizontalScrollState) // <-- Добавляем скролл вбок
+                    .verticalScroll(verticalScrollState)
                     .padding(16.dp)
             )
         }
