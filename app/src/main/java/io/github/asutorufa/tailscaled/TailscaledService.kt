@@ -30,10 +30,11 @@ class TailscaledService : Service() {
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
             Log.d(TAG, "Network Available")
-            // Если сервис запущен, обновляем статус
-            if (Appctr.isRunning()) {
-                updateNotification("Active")
-            }
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                if (Appctr.isRunning()) {
+                    updateNotification("Active")
+                }
+            }, 1500)
         }
 
         override fun onLost(network: Network) {

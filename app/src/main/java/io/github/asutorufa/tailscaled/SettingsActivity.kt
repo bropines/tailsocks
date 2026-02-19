@@ -100,6 +100,11 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun loadSettings() {
+        val hostNameFilter = InputFilter { source, _, _, _, _, _ ->
+            source.filter { it.toString().matches(Regex("^[a-zA-Z0-9]*$")) }
+        }
+        binding.hostname.filters = arrayOf(hostNameFilter)
+        
         binding.authKey.setText(prefs.getString("authkey", ""))
         binding.hostname.setText(prefs.getString("hostname", ""))
         binding.loginServer.setText(prefs.getString("login_server", ""))

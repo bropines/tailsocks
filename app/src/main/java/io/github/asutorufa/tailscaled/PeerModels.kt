@@ -22,7 +22,8 @@ data class PeerData(
     @SerializedName("Relay") val relay: String?,
     @SerializedName("LastSeen") val lastSeen: String?,
     @SerializedName("KeyExpiry") val keyExpiry: String?,
-    @SerializedName("Version") val version: String?
+    @SerializedName("Version") val version: String?,
+    @SerializedName("ExitNodeOption") val exitNodeOption: Boolean?
 ) {
     fun getPrimaryIp(): String = tailscaleIPs?.firstOrNull() ?: "0.0.0.0"
     
