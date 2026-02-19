@@ -47,16 +47,22 @@ class TailscaledService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        
+        // ФИКС ВРЕМЕНИ: Пробрасываем часовой пояс Android в Go
+        try {
+            android.system.Os.setenv("TZ", java.util.TimeZone.getDefault().id, true)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to set TZ env", e)
+        }
+
         prefs = getSharedPreferences("appctr", Context.MODE_PRIVATE)
         connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Tailscaled::WakeLock").apply {
-            // Держим лок 10 минут гарантированно, дальше надеемся на Foreground Service
             acquire(10*60*1000L) 
         }
 
-        // Автозапуск если разрешено и форсировано
         if (ProxyState.isUserLetRunning(this) && !Appctr.isRunning()) {
              if (prefs.getBoolean("force_bg", false)) {
                  startTailscale()
@@ -65,7 +71,6 @@ class TailscaledService : Service() {
              }
         }
         
-        // Start Network Monitoring
         try {
             val networkRequest = NetworkRequest.Builder()
                 .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
@@ -100,19 +105,15 @@ class TailscaledService : Service() {
     private fun startTailscale() {
         val argsBuilder = StringBuilder()
 
-        // 1. Hostname
         val hostname = prefs.getString("hostname", "")
         if (!hostname.isNullOrEmpty()) argsBuilder.append("--hostname=$hostname ")
 
-        // 2. Login Server (Headscale)
         val loginServer = prefs.getString("login_server", "")
         if (!loginServer.isNullOrEmpty()) argsBuilder.append("--login-server=$loginServer ")
 
-        // 3. Routing & DNS
         if (prefs.getBoolean("accept_routes", false)) argsBuilder.append("--accept-routes ")
         if (!prefs.getBoolean("accept_dns", true)) argsBuilder.append("--accept-dns=false ")
 
-        // 4. Exit Node (Client)
         val exitNodeIp = prefs.getString("exit_node_ip", "")
         if (!exitNodeIp.isNullOrEmpty()) {
             argsBuilder.append("--exit-node=$exitNodeIp ")
@@ -121,12 +122,10 @@ class TailscaledService : Service() {
             }
         }
 
-        // 5. Advertise Exit Node (Server)
         if (prefs.getBoolean("advertise_exit_node", false)) {
             argsBuilder.append("--advertise-exit-node ")
         }
 
-        // 6. Raw Extra Args
         val rawArgs = prefs.getString("extra_args_raw", "")
         if (!rawArgs.isNullOrEmpty()) argsBuilder.append("$rawArgs")
 
@@ -187,7 +186,6 @@ class TailscaledService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Интент для кнопки Stop в уведомлении
         val stopIntent = Intent(this, TailscaledService::class.java).apply { action = "STOP_ACTION" }
         val stopPendingIntent = PendingIntent.getService(
             this, 0, stopIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE

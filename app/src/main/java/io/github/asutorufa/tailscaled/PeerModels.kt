@@ -30,6 +30,9 @@ data class PeerData(
     fun getDisplayName(): String = dnsName?.split(".")?.firstOrNull() ?: hostName ?: "Unknown"
 
     fun getDetailsList(): List<Pair<String, String>> {
+        val seen = lastSeen?.replace("T", " ")?.split(".")?.firstOrNull() ?: "Just now"
+        val displaySeen = if (seen.startsWith("0001-01-01")) "Active now" else seen
+
         return listOf(
             "Machine Name" to getDisplayName(),
             "OS" to (os ?: "Unknown"),
@@ -39,7 +42,7 @@ data class PeerData(
             "Node ID" to (id ?: "N/A"),
             "Relay" to (relay ?: "Direct"),
             "Key Expiry" to (keyExpiry?.split("T")?.firstOrNull() ?: "No expiry"),
-            "Last Seen" to (lastSeen?.replace("T", " ")?.split(".")?.firstOrNull() ?: "Just now")
+            "Last Seen" to displaySeen
         )
     }
 }

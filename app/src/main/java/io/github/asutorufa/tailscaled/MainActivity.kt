@@ -32,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import java.lang.Runtime
 
 class MainActivity : ComponentActivity() {
 
@@ -41,6 +42,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         checkNotificationPermission()
+        handleAppStartup() // <-- ЗОМБИ И УМНЫЙ АВТОЗАПУСК
 
         setContent {
             MaterialTheme(
@@ -48,6 +50,30 @@ class MainActivity : ComponentActivity() {
             ) {
                 MainScreen()
             }
+        }
+    }
+
+    private fun handleAppStartup() {
+        val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+        try {
+            val packageInfo = packageManager.getPackageInfo(packageName, 0)
+            val currentUpdateTime = packageInfo.lastUpdateTime
+            val savedUpdateTime = prefs.getLong("last_update_time", 0)
+
+            // Если время обновления не совпадает, значит прилу только что поставили/обновили
+            if (savedUpdateTime != currentUpdateTime) {
+                // Принудительно гасим старые зомби-процессы tailscaled
+                Runtime.getRuntime().exec("killall tailscaled")
+                prefs.edit().putLong("last_update_time", currentUpdateTime).apply()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        // Если при последнем выходе прокси был включен пользователем, запускаем
+        if (ProxyState.isUserLetRunning(this) && !ProxyState.isActualRunning()) {
+            val intent = Intent(this, TailscaledService::class.java).apply { action = "START_ACTION" }
+            ContextCompat.startForegroundService(this, intent)
         }
     }
 
@@ -69,7 +95,7 @@ fun MainScreen() {
     var isRunning by remember { mutableStateOf(ProxyState.isActualRunning()) }
     var showAboutDialog by remember { mutableStateOf(false) }
     
-    // Считываем IP exit node для Задачи 3
+    // Считываем IP exit node
     var exitNodeIp by remember { mutableStateOf(prefs.getString("exit_node_ip", "") ?: "") }
 
     DisposableEffect(context) {
@@ -118,7 +144,7 @@ fun MainScreen() {
         ) {
             Spacer(modifier = Modifier.height(12.dp))
 
-            // ЗАДАЧА 3: Плашка о перенаправлении трафика на Exit Node
+            // Плашка о перенаправлении трафика на Exit Node
             if (isRunning && exitNodeIp.isNotEmpty()) {
                 Surface(
                     color = MaterialTheme.colorScheme.secondaryContainer,

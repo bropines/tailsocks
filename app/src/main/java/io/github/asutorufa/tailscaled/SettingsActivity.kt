@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp // <-- ДОБАВЛЕН ИМПОРТ ДЛЯ РАЗМЕРА ШРИФТА
 import androidx.core.content.ContextCompat
 import appctr.Appctr
 import com.google.gson.Gson
@@ -167,8 +168,8 @@ fun SettingsScreen(onBack: () -> Unit) {
                     OutlinedTextField(
                         value = hostname,
                         onValueChange = { newValue ->
-                            // ЗАДАЧА 5: Только латиница и цифры
-                            val filtered = newValue.filter { it.isLetterOrDigit() }
+                            // ЗАДАЧА 5 + ФИКС: Буквы, цифры и тире
+                            val filtered = newValue.filter { it.isLetterOrDigit() || it == '-' }
                             hostname = filtered
                             saveStr("hostname", filtered)
                         },
@@ -206,7 +207,6 @@ fun SettingsScreen(onBack: () -> Unit) {
                 Column(modifier = Modifier.padding(bottom = 16.dp)) {
                     RowItemSwitch("Advertise Exit Node", advertiseExitNode) { advertiseExitNode = it; saveBool("advertise_exit_node", it) }
                     
-                    // ЗАДАЧА 2: Дропдаун для Exit Node
                     ExposedDropdownMenuBox(
                         expanded = exitNodeDropdownExpanded,
                         onExpandedChange = { exitNodeDropdownExpanded = it }

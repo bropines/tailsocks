@@ -17,6 +17,7 @@ import (
 	"sync"
 	"syscall"
 	"time"
+	_ "time/tzdata"
 	"unsafe"
 
 	"github.com/creack/pty"
@@ -43,7 +44,6 @@ func (lm *LogManager) AddLog(entry string) {
 	lm.mu.Lock()
 	defer lm.mu.Unlock()
 	if len(lm.logs) >= lm.maxSize {
-		// Очищаем старую половину, чтобы не текла память
 		lm.logs = lm.logs[len(lm.logs)/2:]
 	}
 	lm.logs = append(lm.logs, entry)
@@ -58,7 +58,6 @@ func (lm *LogManager) GetLogs() string {
 func (lm *LogManager) ClearLogs() {
 	lm.mu.Lock()
 	defer lm.mu.Unlock()
-	// Полный сброс слайса
 	lm.logs = make([]string, 0, lm.maxSize)
 }
 
@@ -80,7 +79,8 @@ func newDualHandler() *dualHandler {
 func (h *dualHandler) Enabled(ctx context.Context, level slog.Level) bool { return true }
 
 func (h *dualHandler) Handle(ctx context.Context, r slog.Record) error {
-	timestamp := r.Time.Format("15:04:05")
+	// ФИКС ВРЕМЕНИ: Конвертируем в Local Time
+	timestamp := r.Time.Local().Format("15:04:05")
 	level := r.Level.String()
 
 	var sb strings.Builder
@@ -156,7 +156,6 @@ func Start(opt *StartOptions) {
 	if opt.SSHServer != "" {
 		go func() {
 			time.Sleep(1 * time.Second)
-			// Генерируем или читаем ключ динамически
 			keyData, err := ensureHostKey(PC.DataDir())
 			if err != nil {
 				slog.Error("failed to ensure host key", "err", err)
@@ -173,10 +172,7 @@ func Start(opt *StartOptions) {
 		if err != nil {
 			slog.Error("tailscaled cmd crashed", "err", err)
 		}
-
-		// Если процесс умер, стопаем всё остальное
 		Stop()
-
 		if opt.CloseCallBack != nil {
 			opt.CloseCallBack.Close()
 		}
@@ -185,24 +181,18 @@ func Start(opt *StartOptions) {
 	go registerMachineWithAuthKey(PC, opt)
 }
 
-// ensureHostKey generates a new RSA key if one doesn't exist at path
 func ensureHostKey(dir string) ([]byte, error) {
 	keyPath := filepath.Join(dir, "ssh_host_key")
-	
-	// Try to read existing
 	if data, err := os.ReadFile(keyPath); err == nil {
 		return data, nil
 	}
 
 	slog.Info("Generating new SSH host key...")
-	
-	// Generate new
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return nil, err
 	}
 
-	// Encode to PEM
 	privateKeyPEM := &pem.Block{
 		Type:  "RSA PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
@@ -221,19 +211,16 @@ func ensureHostKey(dir string) ([]byte, error) {
 	return data, nil
 }
 
-// RunTailscaleCmd executes arbitrary commands against the running daemon (sandbox support)
 func RunTailscaleCmd(commandStr string) string {
 	if !IsRunning() {
 		return "Error: Tailscaled service is not running."
 	}
 
-	// Simple tokenizer, supports quotes roughly
 	parts := strings.Fields(commandStr)
 	if len(parts) == 0 {
 		return ""
 	}
 
-	// Always inject socket
 	args := []string{"--socket", PC.Socket()}
 	args = append(args, parts...)
 
@@ -249,28 +236,22 @@ func RunTailscaleCmd(commandStr string) string {
 
 func registerMachineWithAuthKey(PC pathControl, opt *StartOptions) {
 	count := 0
-	// Увеличил интервал и уменьшил спам, но пробуем подольше
 	maxRetries := 30 
 	
 	for count < maxRetries {
-		// Ждем пока сокет появится
 		if _, err := os.Stat(PC.Socket()); err != nil {
 			count++
 			time.Sleep(1 * time.Second)
 			continue
 		}
 
-		// Формируем команду up
 		args := []string{"--socket", PC.Socket(), "up", "--timeout", "15s"}
 
-		// AuthKey добавляем только если он есть. 
-		// Если его нет, tailscale up попытается использовать существующий логин или даст URL.
 		if opt.AuthKey != "" {
 			args = append(args, "--auth-key", opt.AuthKey)
 		}
 
 		if opt.ExtraUpArgs != "" {
-			// Разбиваем аргументы из строки
 			customFlags := strings.Fields(opt.ExtraUpArgs)
 			args = append(args, customFlags...)
 		}
@@ -281,19 +262,13 @@ func registerMachineWithAuthKey(PC pathControl, opt *StartOptions) {
 		data, err := cmd.CombinedOutput()
 		output := string(data)
 
-		// Логируем результат
 		if err != nil {
 			slog.Info("tailscale up failed", "output", output, "err", err)
-			
-			// Если ошибка "API key does not exist", значит ключ протух или невалиден.
-			// Нет смысла долбить сервер бесконечно с битым ключом.
 			if strings.Contains(output, "invalid key") || strings.Contains(output, "API key does not exist") {
 				slog.Error("Critical Auth Error: Invalid Auth Key. Please check settings.")
-				return // Выходим из цикла, чтобы не спамить
+				return 
 			}
-
 			count++
-			// Делаем паузу больше, чтобы не забивать CPU и сеть
 			time.Sleep(5 * time.Second)
 			continue
 		}

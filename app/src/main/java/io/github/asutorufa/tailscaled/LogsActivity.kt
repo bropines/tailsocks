@@ -5,161 +5,164 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
-import android.view.Menu
-import android.view.MenuItem
 import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
-import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import appctr.Appctr
-import io.github.asutorufa.tailscaled.databinding.ActivityLogsBinding
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.OutputStreamWriter
 
-class LogsActivity : AppCompatActivity() {
-
-    private lateinit var binding: ActivityLogsBinding
-    private val adapter = LogsAdapter()
-    private val handler = Handler(Looper.getMainLooper())
-    private var isAutoScroll = true
-
-    // File Saver Contract
-    private val saveFileLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
-        uri?.let {
-            try {
-                contentResolver.openOutputStream(it)?.use { os ->
-                    OutputStreamWriter(os).use { writer ->
-                        writer.write(Appctr.getLogs())
-                    }
-                }
-                Toast.makeText(this, "Logs saved successfully", Toast.LENGTH_SHORT).show()
-            } catch (e: Exception) {
-                Toast.makeText(this, "Error saving logs: ${e.message}", Toast.LENGTH_LONG).show()
-            }
-        }
-    }
-
-    private val refreshRunnable = object : Runnable {
-        override fun run() {
-            if (!isDestroyed && !isFinishing) {
-                loadLogs(isAutoRefresh = true)
-                handler.postDelayed(this, 2000)
-            }
-        }
-    }
-    
+class LogsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityLogsBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-
-        setSupportActionBar(binding.toolbar)
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        binding.toolbar.setNavigationOnClickListener { finish() }
-
-        val layoutManager = LinearLayoutManager(this).apply {
-            stackFromEnd = true
-        }
-        binding.recyclerView.layoutManager = layoutManager
-        binding.recyclerView.adapter = adapter
-        binding.recyclerView.itemAnimator = null 
-
-        binding.recyclerView.setOnScrollListener(object : androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
-            override fun onScrolled(recyclerView: androidx.recyclerview.widget.RecyclerView, dx: Int, dy: Int) {
-                if (dy < 0) isAutoScroll = false
-                if (!recyclerView.canScrollVertically(1)) isAutoScroll = true
+        setContent {
+            MaterialTheme(
+                colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()
+            ) {
+                LogsScreen(onBack = { finish() })
             }
-        })
-
-        binding.swipeRefresh.setOnRefreshListener { 
-            loadLogs() 
-            isAutoScroll = true
-        }
-
-        binding.fabClear.setOnClickListener {
-            clearLogs()
         }
     }
+}
 
-    override fun onResume() {
-        super.onResume()
-        loadLogs()
-        handler.post(refreshRunnable)
-    }
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LogsScreen(onBack: () -> Unit) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    
+    var logs by remember { mutableStateOf<List<String>>(emptyList()) }
+    var isAutoScroll by remember { mutableStateOf(true) }
+    var isRefreshing by remember { mutableStateOf(false) }
+    
+    // ЗУМ
+    var scale by remember { mutableFloatStateOf(1f) }
+    val listState = rememberLazyListState()
 
-    override fun onPause() {
-        super.onPause()
-        handler.removeCallbacks(refreshRunnable)
-    }
-
-    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-        menuInflater.inflate(R.menu.logs_menu, menu)
-        return true
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        return when (item.itemId) {
-            R.id.action_copy -> {
-                copyLogs()
-                true
-            }
-            R.id.action_share -> {
-                shareLogs()
-                true
-            }
-            R.id.action_save_file -> { // NEW ITEM
-                saveFileLauncher.launch("tailscaled_logs_${System.currentTimeMillis()}.txt")
-                true
-            }
-            else -> super.onOptionsItemSelected(item)
-        }
-    }
-
-    private fun loadLogs(isAutoRefresh: Boolean = false) {
-        if (!isAutoRefresh) binding.swipeRefresh.isRefreshing = true
-        
-        Thread {
-            val logsString = try { Appctr.getLogs() } catch (e: Exception) { "" }
-            
-            val logsList = if (logsString.isEmpty()) {
-                emptyList()
-            } else {
-                logsString.split("\n").filter { it.isNotEmpty() }
-            }
-            
-            runOnUiThread {
-                adapter.submitList(logsList) {
-                     if (isAutoScroll && logsList.isNotEmpty()) {
-                         binding.recyclerView.scrollToPosition(logsList.size - 1)
-                     }
+    val saveFileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
+        uri?.let {
+            coroutineScope.launch(Dispatchers.IO) {
+                try {
+                    context.contentResolver.openOutputStream(it)?.use { os ->
+                        OutputStreamWriter(os).use { writer -> writer.write(Appctr.getLogs()) }
+                    }
+                    withContext(Dispatchers.Main) { Toast.makeText(context, "Logs saved successfully", Toast.LENGTH_SHORT).show() }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) { Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show() }
                 }
-                binding.swipeRefresh.isRefreshing = false
             }
-        }.start()
-    }
-
-    private fun clearLogs() {
-        Appctr.clearLogs()
-        adapter.submitList(emptyList()) 
-        Toast.makeText(this, getString(R.string.clear_logs), Toast.LENGTH_SHORT).show()
-    }
-
-    private fun copyLogs() {
-        val logs = Appctr.getLogs()
-        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val clip = ClipData.newPlainText("Tailscale Logs", logs)
-        clipboard.setPrimaryClip(clip)
-        Toast.makeText(this, getString(R.string.logs_copied), Toast.LENGTH_SHORT).show()
-    }
-
-    private fun shareLogs() {
-        val logs = Appctr.getLogs()
-        val sendIntent: Intent = Intent().apply {
-            action = Intent.ACTION_SEND
-            putExtra(Intent.EXTRA_TEXT, logs)
-            type = "text/plain"
         }
-        startActivity(Intent.createChooser(sendIntent, "Share logs via"))
+    }
+
+    fun loadLogsData() {
+        coroutineScope.launch(Dispatchers.IO) {
+            val logsString = try { Appctr.getLogs() } catch (e: Exception) { "" }
+            val logsList = if (logsString.isEmpty()) emptyList() else logsString.split("\n").filter { it.isNotEmpty() }
+            withContext(Dispatchers.Main) {
+                logs = logsList
+                isRefreshing = false
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            loadLogsData()
+            delay(2000)
+        }
+    }
+
+    LaunchedEffect(logs.size) {
+        if (isAutoScroll && logs.isNotEmpty()) listState.animateScrollToItem(logs.size - 1)
+    }
+
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (listState.isScrollInProgress) {
+            val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()
+            isAutoScroll = lastVisibleItem?.index == listState.layoutInfo.totalItemsCount - 1
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            Column {
+                TopAppBar(
+                    title = { Text("System Logs") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+                    },
+                    actions = {
+                        IconButton(onClick = { 
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            clipboard.setPrimaryClip(ClipData.newPlainText("Tailscale Logs", Appctr.getLogs()))
+                            Toast.makeText(context, "Logs copied", Toast.LENGTH_SHORT).show()
+                        }) { Icon(Icons.Default.List, contentDescription = "Copy") }
+                        
+                        IconButton(onClick = { saveFileLauncher.launch("tailscaled_logs_${System.currentTimeMillis()}.txt") }) { Icon(Icons.Default.Done, contentDescription = "Save File") }
+                        
+                        IconButton(onClick = {
+                            val sendIntent = Intent().apply {
+                                action = Intent.ACTION_SEND
+                                putExtra(Intent.EXTRA_TEXT, Appctr.getLogs())
+                                type = "text/plain"
+                            }
+                            context.startActivity(Intent.createChooser(sendIntent, "Share logs"))
+                        }) { Icon(Icons.Default.Share, contentDescription = "Share") }
+                    }
+                )
+                if (isRefreshing) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = {
+                Appctr.clearLogs()
+                logs = emptyList()
+                Toast.makeText(context, "Logs cleared", Toast.LENGTH_SHORT).show()
+            }) { Icon(Icons.Default.Delete, contentDescription = "Clear Logs") }
+        }
+    ) { padding ->
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 8.dp)
+                .pointerInput(Unit) {
+                    detectTransformGestures { _, _, zoom, _ ->
+                        scale = (scale * zoom).coerceIn(0.5f, 4f)
+                    }
+                }
+        ) {
+            items(logs) { logLine ->
+                Text(
+                    text = logLine,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = (12 * scale).sp,
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+            }
+        }
     }
 }
