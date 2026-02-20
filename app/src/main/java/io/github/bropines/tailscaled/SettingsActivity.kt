@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.widget.Toast // <-- ДОБАВЛЕН ИМПОРТ TOAST
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
@@ -14,7 +15,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.* // <-- ИСПОЛЬЗУЕМ СТАНДАРТНЫЕ ИКОНКИ
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,7 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp // <-- ДОБАВЛЕН ИМПОРТ ДЛЯ РАЗМЕРА ШРИФТА
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import appctr.Appctr
 import com.google.gson.Gson
@@ -69,22 +70,18 @@ fun SettingsScreen(onBack: () -> Unit) {
     var sshAddr by remember { mutableStateOf(prefs.getString("sshserver", "127.0.0.1:1056") ?: "") }
     var extraArgs by remember { mutableStateOf(prefs.getString("extra_args_raw", "") ?: "") }
 
-    // Стейты раскрытия секций
     var generalExpanded by remember { mutableStateOf(true) }
     var networkExpanded by remember { mutableStateOf(true) }
     var exitNodeExpanded by remember { mutableStateOf(true) }
     var advancedExpanded by remember { mutableStateOf(true) }
 
-    // Данные для Exit Nodes
     var availableExitNodes by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
     var exitNodeDropdownExpanded by remember { mutableStateOf(false) }
 
-    // Диалоги для ключей
     var showKeysDialog by remember { mutableStateOf(false) }
     var showAddKeyDialog by remember { mutableStateOf(false) }
     var newKeyInput by remember { mutableStateOf("") }
 
-    // Запрашиваем доступные exit nodes в фоне
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
             try {
@@ -96,25 +93,24 @@ fun SettingsScreen(onBack: () -> Unit) {
                     } ?: emptyList()
                     availableExitNodes = nodes
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+            } catch (e: Exception) {}
         }
     }
 
-Scaffold(
+    Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Settings") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
         },
         floatingActionButton = {
             FloatingActionButton(onClick = {
+                // ВАЛИДАЦИЯ В НАСТРОЙКАХ
                 val currentAuthKey = prefs.getString("authkey", "") ?: ""
                 if (currentAuthKey.isBlank()) {
                     Toast.makeText(context, "🚫 Ошибка: Нельзя перезапустить без Auth Key!", Toast.LENGTH_LONG).show()
@@ -139,7 +135,6 @@ Scaffold(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
-            // Переключатель Force Background
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -155,7 +150,6 @@ Scaffold(
             }
             Spacer(modifier = Modifier.height(8.dp))
 
-            // --- GENERAL SECTION ---
             SectionHeader(title = "General", expanded = generalExpanded) { generalExpanded = !generalExpanded }
             AnimatedVisibility(visible = generalExpanded) {
                 Column(modifier = Modifier.padding(bottom = 16.dp)) {
@@ -174,7 +168,6 @@ Scaffold(
                     OutlinedTextField(
                         value = hostname,
                         onValueChange = { newValue ->
-                            // ЗАДАЧА 5 + ФИКС: Буквы, цифры и тире
                             val filtered = newValue.filter { it.isLetterOrDigit() || it == '-' }
                             hostname = filtered
                             saveStr("hostname", filtered)
@@ -192,7 +185,6 @@ Scaffold(
                 }
             }
 
-            // --- NETWORK SECTION ---
             SectionHeader(title = "Network", expanded = networkExpanded) { networkExpanded = !networkExpanded }
             AnimatedVisibility(visible = networkExpanded) {
                 Column(modifier = Modifier.padding(bottom = 16.dp)) {
@@ -207,7 +199,6 @@ Scaffold(
                 }
             }
 
-            // --- EXIT NODE SECTION ---
             SectionHeader(title = "Exit Node", expanded = exitNodeExpanded) { exitNodeExpanded = !exitNodeExpanded }
             AnimatedVisibility(visible = exitNodeExpanded) {
                 Column(modifier = Modifier.padding(bottom = 16.dp)) {
@@ -251,7 +242,6 @@ Scaffold(
                 }
             }
 
-            // --- ADVANCED SECTION ---
             SectionHeader(title = "Advanced", expanded = advancedExpanded) { advancedExpanded = !advancedExpanded }
             AnimatedVisibility(visible = advancedExpanded) {
                 Column(modifier = Modifier.padding(bottom = 32.dp)) {
@@ -273,7 +263,6 @@ Scaffold(
         }
     }
 
-    // Диалоги управления ключами
     if (showKeysDialog) {
         val keysList = keyPrefs.getStringSet("keys_list", emptySet())?.toList()?.sorted() ?: emptyList()
         AlertDialog(
