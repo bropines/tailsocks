@@ -1,4 +1,4 @@
-package io.github.asutorufa.tailscaled
+package io.github.bropines.tailscaled
 
 import android.app.*
 import android.content.ComponentName
@@ -131,9 +131,7 @@ class TailscaledService : Service() {
             socks5Server = prefs.getString("socks5", "127.0.0.1:1055")
             sshServer = prefs.getString("sshserver", "127.0.0.1:1056")
             authKey = prefs.getString("authkey", "")
-            
             extraUpArgs = argsBuilder.toString()
-            
             execPath = "${applicationInfo.nativeLibraryDir}/libtailscaled.so"
             socketPath = "${applicationInfo.dataDir}/tailscaled.sock"
             statePath = "${applicationInfo.dataDir}/state"
@@ -155,6 +153,7 @@ class TailscaledService : Service() {
     private fun stopMe() {
         ProxyState.setUserState(this, false)
         Appctr.stop()
+        
         if (wakeLock?.isHeld == true) wakeLock?.release()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -190,7 +189,7 @@ class TailscaledService : Service() {
         return NotificationCompat.Builder(this, channelId)
             .setContentTitle("Tailscaled")
             .setContentText(status)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(android.R.drawable.ic_secure) // ФИКС: Используем гарантированную системную иконку
             .setOngoing(true)
             .setContentIntent(pendingIntent)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", stopPendingIntent)
@@ -200,9 +199,7 @@ class TailscaledService : Service() {
     override fun onDestroy() {
         try {
             connectivityManager.unregisterNetworkCallback(networkCallback)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to unregister callback", e)
-        }
+        } catch (e: Exception) {}
         
         if (wakeLock?.isHeld == true) wakeLock?.release()
         super.onDestroy()

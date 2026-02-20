@@ -1,4 +1,4 @@
-package io.github.asutorufa.tailscaled
+package io.github.bropines.tailscaled
 
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4

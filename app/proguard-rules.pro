@@ -26,8 +26,8 @@
 -keep class com.google.gson.** { *; }
 
 # Keep our data models for JSON parsing
--keep class io.github.asutorufa.tailscaled.StatusResponse { *; }
--keep class io.github.asutorufa.tailscaled.PeerData { *; }
+-keep class io.github.bropines.tailscaled.StatusResponse { *; }
+-keep class io.github.bropines.tailscaled.PeerData { *; }
 
 # Keep Appctr bridge just in case
 -keep class appctr.** { *; }

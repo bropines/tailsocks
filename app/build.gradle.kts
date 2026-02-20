@@ -7,15 +7,15 @@ plugins {
 }
 
 android {
-    namespace = "io.github.asutorufa.tailscaled"
+    namespace = "io.github.bropines.tailscaled"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "io.github.asutorufa.tailscaled"
+        applicationId = "io.github.bropines.tailscaled"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
-        versionName = "1.4"
+        versionName = "2.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

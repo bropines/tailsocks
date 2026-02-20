@@ -1,4 +1,4 @@
-package io.github.asutorufa.tailscaled
+package io.github.bropines.tailscaled
 
 import androidx.annotation.Keep
 import com.google.gson.annotations.SerializedName

@@ -1,4 +1,4 @@
-package io.github.asutorufa.tailscaled
+package io.github.bropines.tailscaled
 
 import android.content.Intent
 import android.net.Uri

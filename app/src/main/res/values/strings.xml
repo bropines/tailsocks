@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Tailscaled</string>
+    <string name="app_name">TailSocks</string>
     <string name="first_fragment_label">Home</string>
     <string name="back">Back</string>
 
