@@ -113,7 +113,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                 // ВАЛИДАЦИЯ В НАСТРОЙКАХ
                 val currentAuthKey = prefs.getString("authkey", "") ?: ""
                 if (currentAuthKey.isBlank()) {
-                    Toast.makeText(context, "🚫 Ошибка: Нельзя перезапустить без Auth Key!", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "🚫 Error: Cannot restart without Auth Key!", Toast.LENGTH_LONG).show()
                     return@FloatingActionButton
                 }
 

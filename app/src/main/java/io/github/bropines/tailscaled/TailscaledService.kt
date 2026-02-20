@@ -187,7 +187,7 @@ class TailscaledService : Service() {
         )
 
         return NotificationCompat.Builder(this, channelId)
-            .setContentTitle("Tailscaled")
+            .setContentTitle("TailSocks")
             .setContentText(status)
             .setSmallIcon(android.R.drawable.ic_secure) // ФИКС: Используем гарантированную системную иконку
             .setOngoing(true)

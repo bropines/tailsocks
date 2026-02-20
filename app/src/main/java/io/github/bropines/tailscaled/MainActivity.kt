@@ -129,7 +129,7 @@ fun MainScreen() {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Tailscaled") },
+                title = { Text("TailSocks") },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         }
@@ -172,13 +172,13 @@ fun MainScreen() {
                     // ЖЕСТКАЯ ВАЛИДАЦИЯ ПЕРЕД ЗАПУСКОМ
                     val currentAuthKey = prefs.getString("authkey", "") ?: ""
                     if (currentAuthKey.isBlank()) {
-                        Toast.makeText(context, "🚫 Ошибка: Укажите Auth Key в настройках!", Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, "🚫 Error: Please enter your Auth Key in the settings!", Toast.LENGTH_LONG).show()
                         return@StatusCard
                     }
                     
-                    val currentSocks = prefs.getString("socks5", "") ?: ""
+                    val currentSocks = prefs.getString("socks5", "127.0.0.1:1055") ?: "127.0.0.1:1055"
                     if (currentSocks.isBlank()) {
-                        Toast.makeText(context, "🚫 Ошибка: SOCKS5 адрес не может быть пустым!", Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, "🚫 Error: SOCKS5 address cannot be empty!", Toast.LENGTH_LONG).show()
                         return@StatusCard
                     }
 
