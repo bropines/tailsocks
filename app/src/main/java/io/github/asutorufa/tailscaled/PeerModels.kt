@@ -30,10 +30,10 @@ data class PeerData(
     fun getDisplayName(): String = dnsName?.split(".")?.firstOrNull() ?: hostName ?: "Unknown"
 
     fun getDetailsList(): List<Pair<String, String>> {
-        val displaySeen = if (lastSeen == null || lastSeen.contains("0001-01-01")) {
+        val displaySeen = if (lastSeen != null && lastSeen.contains("0001-01-01")) {
             "Active now"
         } else {
-            lastSeen.replace("T", " ").substringBefore(".").removeSuffix("Z")
+            lastSeen?.replace("T", " ")?.substringBefore(".")?.removeSuffix("Z") ?: "Unknown"
         }
 
         return listOf(
