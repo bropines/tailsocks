@@ -1,4 +1,4 @@
-package io.github.bropines.tailscaled // <-- ПРОВЕРЬ СВОЙ ПАКЕТ ЗДЕСЬ!
+package io.github.bropines.tailscaled
 
 import android.Manifest
 import android.content.BroadcastReceiver
@@ -9,7 +9,6 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -43,7 +42,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         checkNotificationPermission()
-        handleAppStartup()
+        handleAppStartup() // <-- ЗОМБИ И УМНЫЙ АВТОЗАПУСК
 
         setContent {
             MaterialTheme(
@@ -56,28 +55,25 @@ class MainActivity : ComponentActivity() {
 
     private fun handleAppStartup() {
         val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-        val appctrPrefs = getSharedPreferences("appctr", Context.MODE_PRIVATE)
-        
         try {
             val packageInfo = packageManager.getPackageInfo(packageName, 0)
             val currentUpdateTime = packageInfo.lastUpdateTime
             val savedUpdateTime = prefs.getLong("last_update_time", 0)
 
+            // Если время обновления не совпадает, значит прилу только что поставили/обновили
             if (savedUpdateTime != currentUpdateTime) {
+                // Принудительно гасим старые зомби-процессы tailscaled
                 Runtime.getRuntime().exec("killall tailscaled")
                 prefs.edit().putLong("last_update_time", currentUpdateTime).apply()
             }
-        } catch (e: Exception) {}
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
 
+        // Если при последнем выходе прокси был включен пользователем, запускаем
         if (ProxyState.isUserLetRunning(this) && !ProxyState.isActualRunning()) {
-            // ВАЛИДАЦИЯ ПРИ АВТОЗАПУСКЕ: Не стартуем зомби без ключа
-            val authKey = appctrPrefs.getString("authkey", "") ?: ""
-            if (authKey.isNotBlank()) {
-                val intent = Intent(this, TailscaledService::class.java).apply { action = "START_ACTION" }
-                ContextCompat.startForegroundService(this, intent)
-            } else {
-                ProxyState.setUserState(this, false)
-            }
+            val intent = Intent(this, TailscaledService::class.java).apply { action = "START_ACTION" }
+            ContextCompat.startForegroundService(this, intent)
         }
     }
 
@@ -98,6 +94,8 @@ fun MainScreen() {
     
     var isRunning by remember { mutableStateOf(ProxyState.isActualRunning()) }
     var showAboutDialog by remember { mutableStateOf(false) }
+    
+    // Считываем IP exit node
     var exitNodeIp by remember { mutableStateOf(prefs.getString("exit_node_ip", "") ?: "") }
 
     DisposableEffect(context) {
@@ -129,8 +127,10 @@ fun MainScreen() {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Tailscaled") },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+                title = { Text("Tailsocks") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
             )
         }
     ) { paddingValues ->
@@ -144,65 +144,86 @@ fun MainScreen() {
         ) {
             Spacer(modifier = Modifier.height(12.dp))
 
+            // Плашка о перенаправлении трафика на Exit Node
             if (isRunning && exitNodeIp.isNotEmpty()) {
                 Surface(
                     color = MaterialTheme.colorScheme.secondaryContainer,
                     shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
                 ) {
                     Row(
                         modifier = Modifier.padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
-                            Text("Traffic is routed", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                            Text("Via exit node: $exitNodeIp", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                            Text(
+                                text = "Traffic is routed",
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                            Text(
+                                text = "Via exit node: $exitNodeIp",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
                         }
                     }
                 }
             }
 
+            // Главная карточка статуса (Toggle)
             StatusCard(isRunning = isRunning) {
+                val intent = Intent(context, TailscaledService::class.java)
                 if (ProxyState.isActualRunning()) {
-                    val intent = Intent(context, TailscaledService::class.java).apply { action = "STOP_ACTION" }
+                    intent.action = "STOP_ACTION"
                     context.startService(intent)
                 } else {
-                    // ЖЕСТКАЯ ВАЛИДАЦИЯ ПЕРЕД ЗАПУСКОМ
-                    val currentAuthKey = prefs.getString("authkey", "") ?: ""
-                    if (currentAuthKey.isBlank()) {
-                        Toast.makeText(context, "🚫 Ошибка: Укажите Auth Key в настройках!", Toast.LENGTH_LONG).show()
-                        return@StatusCard
-                    }
-                    
-                    val currentSocks = prefs.getString("socks5", "") ?: ""
-                    if (currentSocks.isBlank()) {
-                        Toast.makeText(context, "🚫 Ошибка: SOCKS5 адрес не может быть пустым!", Toast.LENGTH_LONG).show()
-                        return@StatusCard
-                    }
-
-                    val intent = Intent(context, TailscaledService::class.java).apply { action = "START_ACTION" }
+                    intent.action = "START_ACTION"
                     ContextCompat.startForegroundService(context, intent)
                 }
             }
 
             Spacer(modifier = Modifier.height(32.dp))
 
+            // Сетка меню навигации
             Row(modifier = Modifier.fillMaxWidth()) {
-                MenuCard(title = "Console", icon = Icons.Default.PlayArrow, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                MenuCard(
+                    title = "Console",
+                    icon = Icons.Default.PlayArrow,
+                    modifier = Modifier.weight(1f).padding(end = 8.dp)
+                ) {
                     context.startActivity(Intent(context, ConsoleActivity::class.java))
                 }
-                MenuCard(title = "Peers", icon = Icons.Default.Share, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                MenuCard(
+                    title = "Peers",
+                    icon = Icons.Default.Share,
+                    modifier = Modifier.weight(1f).padding(start = 8.dp)
+                ) {
                     context.startActivity(Intent(context, PeersActivity::class.java))
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
             Row(modifier = Modifier.fillMaxWidth()) {
-                MenuCard(title = "Logs", icon = Icons.Default.Info, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                MenuCard(
+                    title = "Logs",
+                    icon = Icons.Default.Info,
+                    modifier = Modifier.weight(1f).padding(end = 8.dp)
+                ) {
                     context.startActivity(Intent(context, LogsActivity::class.java))
                 }
-                MenuCard(title = "Settings", icon = Icons.Default.Settings, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                MenuCard(
+                    title = "Settings",
+                    icon = Icons.Default.Settings,
+                    modifier = Modifier.weight(1f).padding(start = 8.dp)
+                ) {
                     context.startActivity(Intent(context, SettingsActivity::class.java))
                 }
             }
@@ -221,14 +242,20 @@ fun MainScreen() {
         AlertDialog(
             onDismissRequest = { showAboutDialog = false },
             title = { Text("Tailscaled for Android") },
-            text = { Text("Proxy running via official Tailscale core.\n\nDeveloper: BroPines\n\nLicense: BSD-3-Clause") },
+            text = { Text("Proxy is running via official Tailscale core.\n\nApp Developer: Bropines\n\nCore Developer: Asutorufa\n\nLicense: BSD-3-Clause") },
             confirmButton = {
                 TextButton(onClick = {
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Asutorufa/tailscale")))
                     showAboutDialog = false
-                }) { Text("GitHub") }
+                }) {
+                    Text("GitHub")
+                }
             },
-            dismissButton = { TextButton(onClick = { showAboutDialog = false }) { Text("Close") } }
+            dismissButton = {
+                TextButton(onClick = { showAboutDialog = false }) {
+                    Text("Close")
+                }
+            }
         )
     }
 }
@@ -264,7 +291,7 @@ fun StatusCard(isRunning: Boolean, onToggle: () -> Unit) {
                 color = if (isRunning) Color.Black else MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = if (isRunning) "Service is running • Tap to stop" else "Tap to connect",
+                text = if (isRunning) "Proxy is running • Tap to stop" else "Tap to connect",
                 modifier = Modifier.alpha(0.6f).padding(top = 4.dp),
                 color = if (isRunning) Color.Black else MaterialTheme.colorScheme.onSurface
             )
@@ -283,9 +310,18 @@ fun MenuCard(title: String, icon: ImageVector, modifier: Modifier = Modifier, on
             modifier = Modifier.padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Icon(imageVector = icon, contentDescription = title, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+            Icon(
+                imageVector = icon,
+                contentDescription = title,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
             Spacer(modifier = Modifier.height(8.dp))
-            Text(text = title, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+            Text(
+                text = title,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
         }
     }
 }

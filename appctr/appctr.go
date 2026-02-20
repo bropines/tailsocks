@@ -245,7 +245,7 @@ func registerMachineWithAuthKey(PC pathControl, opt *StartOptions) {
 			continue
 		}
 
-		args := []string{"--socket", PC.Socket(), "up", "--timeout", "15s"}
+		args := []string{"--socket", PC.Socket(), "up", "--reset", "--timeout", "15s"}
 
 		if opt.AuthKey != "" {
 			args = append(args, "--auth-key", opt.AuthKey)

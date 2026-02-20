@@ -102,19 +102,25 @@ fun SettingsScreen(onBack: () -> Unit) {
         }
     }
 
-    Scaffold(
+Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Settings") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
         },
         floatingActionButton = {
             FloatingActionButton(onClick = {
+                val currentAuthKey = prefs.getString("authkey", "") ?: ""
+                if (currentAuthKey.isBlank()) {
+                    Toast.makeText(context, "🚫 Ошибка: Нельзя перезапустить без Auth Key!", Toast.LENGTH_LONG).show()
+                    return@FloatingActionButton
+                }
+
                 val stopIntent = Intent(context, TailscaledService::class.java).apply { action = "STOP_ACTION" }
                 context.startService(stopIntent)
                 Handler(Looper.getMainLooper()).postDelayed({
