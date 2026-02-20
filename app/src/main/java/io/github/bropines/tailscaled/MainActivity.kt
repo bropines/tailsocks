@@ -221,7 +221,7 @@ fun MainScreen() {
         AlertDialog(
             onDismissRequest = { showAboutDialog = false },
             title = { Text("Tailscaled for Android") },
-            text = { Text("Proxy running via official Tailscale core.\n\nDeveloper: BroPines\n\nLicense: BSD-3-Clause") },
+            text = { Text("Proxy is running via official Tailscale core.\n\nApp Developer: Bropines\n\nCore Developer: Asutorufa\n\nLicense: BSD-3-Clause") },
             confirmButton = {
                 TextButton(onClick = {
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Asutorufa/tailscale")))
