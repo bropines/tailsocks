@@ -17,12 +17,12 @@ To build this project, you will need **Go** and the **Android NDK**.
 
 1. Clone the repository:
    ```bash
-   git clone [https://github.com/bropines/tailscaled-socks5-android.git](https://github.com/bropines/tailscaled-socks5-android.git)
+   git clone https://github.com/bropines/tailscaled-socks5-android.git
    cd tailscaled-socks5-android
 
-```
 
 2. Compile the Go core (`libtailscaled.so`):
+
 ```bash
 cd appctr
 sh build.sh
@@ -36,8 +36,6 @@ cd ..
 ./gradlew app:assembleDebug
 
 ```
-
-
 
 ## ⚠️ Known Limitations & Technical Debt
 
