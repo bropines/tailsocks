@@ -16,12 +16,13 @@ Unlike the official application, TailSocks does not use the Android `VpnService`
 To build this project, you will need **Go** and the **Android NDK**.
 
 1. Clone the repository:
-   ```bash
-   git clone https://github.com/bropines/tailscaled-socks5-android.git
-   cd tailscaled-socks5-android
 
+```bash
+git clone https://github.com/bropines/tailscaled-socks5-android.git
+cd tailscaled-socks5-android
+```
 
-2. Compile the Go core (`libtailscaled.so`):
+3. Compile the Go core (`libtailscaled.so`):
 
 ```bash
 cd appctr
@@ -34,7 +35,6 @@ cd ..
 3. Build the Android APK:
 ```bash
 ./gradlew app:assembleDebug
-
 ```
 
 ## ⚠️ Known Limitations & Technical Debt
