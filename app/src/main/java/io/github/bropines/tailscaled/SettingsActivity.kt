@@ -118,10 +118,12 @@ fun SettingsScreen(onBack: () -> Unit) {
 
                 val stopIntent = Intent(context, TailscaledService::class.java).apply { action = "STOP_ACTION" }
                 context.startService(stopIntent)
+                
                 Handler(Looper.getMainLooper()).postDelayed({
                     val startIntent = Intent(context, TailscaledService::class.java).apply { action = "START_ACTION" }
                     ContextCompat.startForegroundService(context, startIntent)
-                }, 1200) // Увеличенная задержка для корректного перезапуска
+                    Toast.makeText(context, "Restarting service...", Toast.LENGTH_SHORT).show()
+                }, 1200) 
             }) {
                 Icon(Icons.Default.Refresh, contentDescription = "Restart Service")
             }
@@ -187,10 +189,11 @@ fun SettingsScreen(onBack: () -> Unit) {
                 Column(modifier = Modifier.padding(bottom = 16.dp)) {
                     RowItemSwitch("Accept Routes", acceptRoutes) { acceptRoutes = it; saveBool("accept_routes", it) }
                     RowItemSwitch("Accept DNS", acceptDns) { acceptDns = it; saveBool("accept_dns", it) }
+                    
                     OutlinedTextField(
                         value = socks5Addr,
                         onValueChange = { socks5Addr = it; saveStr("socks5", it) },
-                        label = { Text("Socks5 Address") },
+                        label = { Text("SOCKS5 Address") },
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(8.dp))
@@ -265,7 +268,6 @@ fun SettingsScreen(onBack: () -> Unit) {
         }
     }
 
-    // Диалоги для ключей (остаются без изменений)
     if (showKeysDialog) {
         val keysList = keyPrefs.getStringSet("keys_list", emptySet())?.toList()?.sorted() ?: emptyList()
         AlertDialog(
