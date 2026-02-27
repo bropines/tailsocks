@@ -96,7 +96,6 @@ class TailscaledService : Service() {
             updateNotification("Active")
         }
         
-        applicationContext.sendBroadcast(Intent("START"))
         return START_STICKY
     }
 
@@ -129,6 +128,7 @@ class TailscaledService : Service() {
 
         val options = StartOptions().apply {
             socks5Server = prefs.getString("socks5", "127.0.0.1:1055")
+            httpProxy = prefs.getString("httpproxy", "127.0.0.1:1057") // Настраиваемый HTTP порт
             sshServer = prefs.getString("sshserver", "127.0.0.1:1056")
             authKey = prefs.getString("authkey", "")
             extraUpArgs = argsBuilder.toString()
@@ -140,7 +140,21 @@ class TailscaledService : Service() {
 
         Thread {
             try {
+                applicationContext.sendBroadcast(Intent("STARTING"))
+                updateNotification("Starting daemon...")
+
+                try {
+                    val process = Runtime.getRuntime().exec("killall tailscaled")
+                    process.waitFor()
+                    Log.d(TAG, "Killall tailscaled executed")
+                } catch (e: Exception) {
+                    Log.w(TAG, "killall failed (maybe no processes found)")
+                }
+
+                Thread.sleep(1000)
+
                 Appctr.start(options)
+                
                 updateNotification("Active")
                 applicationContext.sendBroadcast(Intent("START"))
             } catch (e: Exception) {
@@ -189,7 +203,7 @@ class TailscaledService : Service() {
         return NotificationCompat.Builder(this, channelId)
             .setContentTitle("TailSocks")
             .setContentText(status)
-            .setSmallIcon(android.R.drawable.ic_secure) // ФИКС: Используем гарантированную системную иконку
+            .setSmallIcon(android.R.drawable.ic_secure) 
             .setOngoing(true)
             .setContentIntent(pendingIntent)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", stopPendingIntent)

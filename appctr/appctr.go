@@ -79,7 +79,6 @@ func newDualHandler() *dualHandler {
 func (h *dualHandler) Enabled(ctx context.Context, level slog.Level) bool { return true }
 
 func (h *dualHandler) Handle(ctx context.Context, r slog.Record) error {
-	// ФИКС ВРЕМЕНИ: Конвертируем в Local Time
 	timestamp := r.Time.Local().Format("15:04:05")
 	level := r.Level.String()
 
@@ -134,6 +133,7 @@ type StartOptions struct {
 	SocketPath   string
 	StatePath    string
 	Socks5Server string
+	HttpProxy    string
 	CloseCallBack Closer
 	AuthKey      string
 	ExtraUpArgs  string
@@ -148,8 +148,12 @@ func Start(opt *StartOptions) {
 	}
 
 	if opt.Socks5Server == "" {
-		opt.Socks5Server = ":1055"
+		opt.Socks5Server = "127.0.0.1:1055"
 	}
+    
+    if opt.HttpProxy == "" {
+        opt.HttpProxy = "127.0.0.1:1057"
+    }
 
 	PC = newPathControl(opt.ExecPath, opt.SocketPath, opt.StatePath)
 
@@ -168,7 +172,7 @@ func Start(opt *StartOptions) {
 	}
 
 	go func() {
-		err := tailscaledCmd(PC, opt.Socks5Server)
+		err := tailscaledCmd(PC, opt.Socks5Server, opt.HttpProxy)
 		if err != nil {
 			slog.Error("tailscaled cmd crashed", "err", err)
 		}
@@ -354,7 +358,7 @@ func (p pathControl) DataDir(s ...string) string {
 func (p pathControl) Socket() string { return p.socketPath }
 func (p *pathControl) State() string { return p.statePath }
 
-func tailscaledCmd(p pathControl, socks5host string) error {
+func tailscaledCmd(p pathControl, socks5host string, httphost string) error {
 	rm(p.Tailscale(), p.Tailscaled())
 	ln(p.TailscaledSo(), p.Tailscale())
 	ln(p.TailscaledSo(), p.Tailscaled())
@@ -363,7 +367,7 @@ func tailscaledCmd(p pathControl, socks5host string) error {
 		p.Tailscaled(),
 		"--tun=userspace-networking",
 		"--socks5-server="+socks5host,
-		"--outbound-http-proxy-listen=:1057",
+		"--outbound-http-proxy-listen="+httphost,
 		fmt.Sprintf("--statedir=%s", p.State()),
 		fmt.Sprintf("--socket=%s", p.Socket()),
 	)

@@ -5,7 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.widget.Toast // <-- ДОБАВЛЕН ИМПОРТ TOAST
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.* // <-- ИСПОЛЬЗУЕМ СТАНДАРТНЫЕ ИКОНКИ
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -53,7 +53,6 @@ fun SettingsScreen(onBack: () -> Unit) {
     fun saveStr(key: String, value: String) = prefs.edit().putString(key, value).apply()
     fun saveBool(key: String, value: Boolean) = prefs.edit().putBoolean(key, value).apply()
 
-    // Стейты полей
     var forceBg by remember { mutableStateOf(prefs.getBoolean("force_bg", false)) }
     var authKey by remember { mutableStateOf(prefs.getString("authkey", "") ?: "") }
     var hostname by remember { mutableStateOf(prefs.getString("hostname", "") ?: "") }
@@ -62,6 +61,7 @@ fun SettingsScreen(onBack: () -> Unit) {
     var acceptRoutes by remember { mutableStateOf(prefs.getBoolean("accept_routes", false)) }
     var acceptDns by remember { mutableStateOf(prefs.getBoolean("accept_dns", true)) }
     var socks5Addr by remember { mutableStateOf(prefs.getString("socks5", "127.0.0.1:1055") ?: "") }
+    var httpProxyAddr by remember { mutableStateOf(prefs.getString("httpproxy", "127.0.0.1:1057") ?: "") }
     
     var advertiseExitNode by remember { mutableStateOf(prefs.getBoolean("advertise_exit_node", false)) }
     var exitNodeIp by remember { mutableStateOf(prefs.getString("exit_node_ip", "") ?: "") }
@@ -110,7 +110,6 @@ fun SettingsScreen(onBack: () -> Unit) {
         },
         floatingActionButton = {
             FloatingActionButton(onClick = {
-                // ВАЛИДАЦИЯ В НАСТРОЙКАХ
                 val currentAuthKey = prefs.getString("authkey", "") ?: ""
                 if (currentAuthKey.isBlank()) {
                     Toast.makeText(context, "🚫 Error: Cannot restart without Auth Key!", Toast.LENGTH_LONG).show()
@@ -122,7 +121,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                 Handler(Looper.getMainLooper()).postDelayed({
                     val startIntent = Intent(context, TailscaledService::class.java).apply { action = "START_ACTION" }
                     ContextCompat.startForegroundService(context, startIntent)
-                }, 800)
+                }, 1200) // Увеличенная задержка для корректного перезапуска
             }) {
                 Icon(Icons.Default.Refresh, contentDescription = "Restart Service")
             }
@@ -136,9 +135,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                 .padding(16.dp)
         ) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -196,6 +193,13 @@ fun SettingsScreen(onBack: () -> Unit) {
                         label = { Text("Socks5 Address") },
                         modifier = Modifier.fillMaxWidth()
                     )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = httpProxyAddr,
+                        onValueChange = { httpProxyAddr = it; saveStr("httpproxy", it) },
+                        label = { Text("HTTP Proxy Address") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
 
@@ -212,9 +216,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                             value = exitNodeIp,
                             onValueChange = { exitNodeIp = it; saveStr("exit_node_ip", it) },
                             label = { Text("Use Exit Node (IP)") },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor(),
+                            modifier = Modifier.fillMaxWidth().menuAnchor(),
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = exitNodeDropdownExpanded) },
                             colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
                         )
@@ -263,6 +265,7 @@ fun SettingsScreen(onBack: () -> Unit) {
         }
     }
 
+    // Диалоги для ключей (остаются без изменений)
     if (showKeysDialog) {
         val keysList = keyPrefs.getStringSet("keys_list", emptySet())?.toList()?.sorted() ?: emptyList()
         AlertDialog(
@@ -276,14 +279,11 @@ fun SettingsScreen(onBack: () -> Unit) {
                         keysList.forEach { key ->
                             Text(
                                 text = key,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        authKey = key
-                                        saveStr("authkey", key)
-                                        showKeysDialog = false
-                                    }
-                                    .padding(vertical = 12.dp),
+                                modifier = Modifier.fillMaxWidth().clickable {
+                                    authKey = key
+                                    saveStr("authkey", key)
+                                    showKeysDialog = false
+                                }.padding(vertical = 12.dp),
                                 style = MaterialTheme.typography.bodyLarge
                             )
                         }
@@ -336,10 +336,7 @@ fun SettingsScreen(onBack: () -> Unit) {
 @Composable
 fun SectionHeader(title: String, expanded: Boolean, onClick: () -> Unit) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(vertical = 12.dp),
+        modifier = Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -355,9 +352,7 @@ fun SectionHeader(title: String, expanded: Boolean, onClick: () -> Unit) {
 @Composable
 fun RowItemSwitch(text: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {

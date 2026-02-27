@@ -1,4 +1,4 @@
-package io.github.bropines.tailscaled // <-- ПРОВЕРЬ СВОЙ ПАКЕТ ЗДЕСЬ!
+package io.github.bropines.tailscaled
 
 import android.Manifest
 import android.content.BroadcastReceiver
@@ -70,7 +70,6 @@ class MainActivity : ComponentActivity() {
         } catch (e: Exception) {}
 
         if (ProxyState.isUserLetRunning(this) && !ProxyState.isActualRunning()) {
-            // ВАЛИДАЦИЯ ПРИ АВТОЗАПУСКЕ: Не стартуем зомби без ключа
             val authKey = appctrPrefs.getString("authkey", "") ?: ""
             if (authKey.isNotBlank()) {
                 val intent = Intent(this, TailscaledService::class.java).apply { action = "START_ACTION" }
@@ -96,7 +95,7 @@ fun MainScreen() {
     val context = LocalContext.current
     val prefs = context.getSharedPreferences("appctr", Context.MODE_PRIVATE)
     
-    var isRunning by remember { mutableStateOf(ProxyState.isActualRunning()) }
+    var proxyState by remember { mutableStateOf(if (ProxyState.isActualRunning()) "ACTIVE" else "STOPPED") }
     var showAboutDialog by remember { mutableStateOf(false) }
     var exitNodeIp by remember { mutableStateOf(prefs.getString("exit_node_ip", "") ?: "") }
 
@@ -104,15 +103,17 @@ fun MainScreen() {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 when (intent.action) {
+                    "STARTING" -> proxyState = "STARTING"
                     "START" -> {
-                        isRunning = true
+                        proxyState = "ACTIVE"
                         exitNodeIp = prefs.getString("exit_node_ip", "") ?: ""
                     }
-                    "STOP" -> isRunning = false
+                    "STOP" -> proxyState = "STOPPED"
                 }
             }
         }
         val filter = IntentFilter().apply {
+            addAction("STARTING")
             addAction("START")
             addAction("STOP")
         }
@@ -144,7 +145,7 @@ fun MainScreen() {
         ) {
             Spacer(modifier = Modifier.height(12.dp))
 
-            if (isRunning && exitNodeIp.isNotEmpty()) {
+            if (proxyState == "ACTIVE" && exitNodeIp.isNotEmpty()) {
                 Surface(
                     color = MaterialTheme.colorScheme.secondaryContainer,
                     shape = RoundedCornerShape(16.dp),
@@ -164,12 +165,11 @@ fun MainScreen() {
                 }
             }
 
-            StatusCard(isRunning = isRunning) {
-                if (ProxyState.isActualRunning()) {
+            StatusCard(state = proxyState) {
+                if (proxyState == "ACTIVE" || proxyState == "STARTING") {
                     val intent = Intent(context, TailscaledService::class.java).apply { action = "STOP_ACTION" }
                     context.startService(intent)
                 } else {
-                    // ЖЕСТКАЯ ВАЛИДАЦИЯ ПЕРЕД ЗАПУСКОМ
                     val currentAuthKey = prefs.getString("authkey", "") ?: ""
                     if (currentAuthKey.isBlank()) {
                         Toast.makeText(context, "🚫 Error: Please enter your Auth Key in the settings!", Toast.LENGTH_LONG).show()
@@ -234,9 +234,17 @@ fun MainScreen() {
 }
 
 @Composable
-fun StatusCard(isRunning: Boolean, onToggle: () -> Unit) {
-    val backgroundColor = if (isRunning) Color(0xFFDCF8C6) else MaterialTheme.colorScheme.surfaceContainerHigh
-    val contentColor = if (isRunning) Color(0xFF205023) else MaterialTheme.colorScheme.onSurfaceVariant
+fun StatusCard(state: String, onToggle: () -> Unit) {
+    val backgroundColor = when (state) {
+        "ACTIVE" -> Color(0xFFDCF8C6)
+        "STARTING" -> Color(0xFFFFF59D)
+        else -> MaterialTheme.colorScheme.surfaceContainerHigh
+    }
+    val contentColor = when (state) {
+        "ACTIVE" -> Color(0xFF205023)
+        "STARTING" -> Color(0xFFF57F17)
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
 
     Surface(
         shape = RoundedCornerShape(28.dp),
@@ -252,21 +260,33 @@ fun StatusCard(isRunning: Boolean, onToggle: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Icon(
-                imageVector = Icons.Default.CheckCircle,
+                imageVector = when(state) {
+                    "ACTIVE" -> Icons.Default.CheckCircle
+                    "STARTING" -> Icons.Default.Refresh
+                    else -> Icons.Default.CheckCircle
+                },
                 contentDescription = null,
                 tint = contentColor,
                 modifier = Modifier.size(48.dp).padding(bottom = 16.dp)
             )
             Text(
-                text = if (isRunning) "Active" else "Stopped",
+                text = when(state) {
+                    "ACTIVE" -> "Active"
+                    "STARTING" -> "Starting..."
+                    else -> "Stopped"
+                },
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (isRunning) Color.Black else MaterialTheme.colorScheme.onSurface
+                color = if (state != "STOPPED") Color.Black else MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = if (isRunning) "Service is running • Tap to stop" else "Tap to connect",
+                text = when(state) {
+                    "ACTIVE" -> "Service is running • Tap to stop"
+                    "STARTING" -> "Waking up the daemon..."
+                    else -> "Tap to connect"
+                },
                 modifier = Modifier.alpha(0.6f).padding(top = 4.dp),
-                color = if (isRunning) Color.Black else MaterialTheme.colorScheme.onSurface
+                color = if (state != "STOPPED") Color.Black else MaterialTheme.colorScheme.onSurface
             )
         }
     }
