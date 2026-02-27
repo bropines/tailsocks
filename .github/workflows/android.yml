@@ -9,7 +9,7 @@ on:
   workflow_dispatch: 
     inputs:
       build_type:
-        description: 'Build type to generate'
+        description: 'Type of assembly'
         required: true
         default: 'release'
         type: choice
@@ -18,7 +18,7 @@ on:
           - 'release'
           - 'all'
       skip_signing:
-        description: 'Skip APK signing (only for debug builds or if keystore is missing)'
+        description: 'Skip the signature (for debug only)'
         required: false
         default: false
         type: boolean
@@ -34,20 +34,20 @@ jobs:
           fetch-tags: "true"
           submodules: "recursive"
 
-      - name: clone core
-        run:
-          git clone -b my https://github.com/Asutorufa/tailscale.git
+      - name: Clone custom tailscale core
+        run: |
+          git clone -b my https://github.com/bropines/tailscale.git tailscale_core
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           check-latest: true
-          go-version: 'stable'
+          go-version: '1.23'
           cache-dependency-path: |
-            tailscale/go.sum
+            tailscale_core/go.sum
             appctr/go.sum
 
-      - name: set up JDK 17
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: "17"
@@ -63,12 +63,13 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }} 
 
-      - name: build core
+      - name: Build Tailscaled shared library
         run: |
-          export CORE_HOME=${PWD}/tailscale
+          export CORE_HOME=${PWD}/tailscale_core
+          chmod +x app/src/main/jniLibs/build.sh
           sh app/src/main/jniLibs/build.sh
 
-      - name: build appctr
+      - name: Build AppCtr Bridge (Gomobile)
         run: |
           cd appctr
           go install golang.org/x/mobile/cmd/gomobile@latest
@@ -78,16 +79,14 @@ jobs:
       - name: Determine Gradle build command
         id: gradle_command
         run: |
-          BUILD_COMMAND=""
           case "${{ github.event.inputs.build_type }}" in
-            "debug") BUILD_COMMAND="app:assembleDebug";;
-            "release") BUILD_COMMAND="app:assembleRelease";;
-            "all") BUILD_COMMAND="app:assembleDebug app:assembleRelease";;
-            *) BUILD_COMMAND="app:assembleRelease";; # Default to release
+            "debug") echo "command=app:assembleDebug" >> "$GITHUB_OUTPUT";;
+            "release") echo "command=app:assembleRelease" >> "$GITHUB_OUTPUT";;
+            "all") echo "command=app:assembleDebug app:assembleRelease" >> "$GITHUB_OUTPUT";;
+            *) echo "command=app:assembleRelease" >> "$GITHUB_OUTPUT";;
           esac
-          echo "command=$BUILD_COMMAND" >> "$GITHUB_OUTPUT"
 
-      - name: Build with Gradle
+      - name: Build Android App with Gradle
         run: |
           chmod +x gradlew
           ./gradlew ${{ steps.gradle_command.outputs.command }} --stacktrace
@@ -97,14 +96,15 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
-      - name: Upload APKs
+      - name: Upload APK Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: tailscaled-apks
+          name: tailscaled-socks5-apks
           path: app/build/outputs/apk/**/*.apk
 
-      - name: Upload Metadata
+      - name: Upload Build Metadata
+        if: github.event.inputs.build_type != 'debug'
         uses: actions/upload-artifact@v4
         with:
-          name: metadata
+          name: build-metadata
           path: app/build/outputs/apk/release/output-metadata.json
