@@ -226,13 +226,32 @@ fun MainScreen() {
     if (showAboutDialog) {
         AlertDialog(
             onDismissRequest = { showAboutDialog = false },
-            title = { Text("Tailscaled for Android") },
-            text = { Text("Proxy is running via official Tailscale core.\n\nApp Developer: Bropines\n\nCore Developer: Asutorufa\n\nLicense: BSD-3-Clause") },
+            title = { Text("TailSocks") },
+            text = { 
+                Column {
+                    Text("Proxy is running via official Tailscale core.\nLicense: BSD-3-Clause\n")
+                    
+                    TextButton(
+                        onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/bropines"))) },
+                        contentPadding = PaddingValues(0.dp)
+                    ) { Text("App Developer: Bropines") }
+                    
+                    TextButton(
+                        onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Asutorufa/tailscale"))) },
+                        contentPadding = PaddingValues(0.dp)
+                    ) { Text("Patch Developer: Asutorufa") }
+
+                    TextButton(
+                        onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/tailscale/tailscale"))) },
+                        contentPadding = PaddingValues(0.dp)
+                    ) { Text("Core Developer: Tailscale") }
+                } 
+            },
             confirmButton = {
                 TextButton(onClick = {
-                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Asutorufa/tailscale")))
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/bropines/tailscaled-socks5-android")))
                     showAboutDialog = false
-                }) { Text("GitHub") }
+                }) { Text("GitHub Repo") }
             },
             dismissButton = { TextButton(onClick = { showAboutDialog = false }) { Text("Close") } }
         )
