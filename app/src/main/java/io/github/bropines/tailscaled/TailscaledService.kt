@@ -128,7 +128,7 @@ class TailscaledService : Service() {
 
         val options = StartOptions().apply {
             socks5Server = prefs.getString("socks5", "127.0.0.1:1055")
-            httpProxy = prefs.getString("httpproxy", "127.0.0.1:1057") // Настраиваемый HTTP порт
+            httpProxy = prefs.getString("httpproxy", "127.0.0.1:1057")
             sshServer = prefs.getString("sshserver", "127.0.0.1:1056")
             authKey = prefs.getString("authkey", "")
             extraUpArgs = argsBuilder.toString()
@@ -141,18 +141,19 @@ class TailscaledService : Service() {
         Thread {
             try {
                 applicationContext.sendBroadcast(Intent("STARTING"))
-                updateNotification("Starting daemon...")
+                updateNotification("Killing old zombies...")
 
                 try {
                     val process = Runtime.getRuntime().exec("killall tailscaled")
                     process.waitFor()
-                    Log.d(TAG, "Killall tailscaled executed")
+                    Log.d(TAG, "Zombies killed")
                 } catch (e: Exception) {
-                    Log.w(TAG, "killall failed (maybe no processes found)")
+                    Log.w(TAG, "No zombies found")
                 }
 
                 Thread.sleep(1000)
 
+                updateNotification("Starting daemon...")
                 Appctr.start(options)
                 
                 updateNotification("Active")

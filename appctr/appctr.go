@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -117,15 +118,21 @@ func setWinsize(f *os.File, w, h int) {
 		uintptr(unsafe.Pointer(&struct{ h, w, x, y uint16 }{uint16(h), uint16(w), 0, 0})))
 }
 
+var stateMu sync.Mutex
 var cmd *exec.Cmd
 var sshserver *ssh.Server
+var sshListener net.Listener
 var PC pathControl
 
 type Closer interface {
 	Close() error
 }
 
-func IsRunning() bool { return cmd != nil && cmd.Process != nil }
+func IsRunning() bool { 
+    stateMu.Lock()
+    defer stateMu.Unlock()
+    return cmd != nil && cmd.Process != nil 
+}
 
 type StartOptions struct {
 	SSHServer    string
@@ -155,7 +162,9 @@ func Start(opt *StartOptions) {
         opt.HttpProxy = "127.0.0.1:1057"
     }
 
+    stateMu.Lock()
 	PC = newPathControl(opt.ExecPath, opt.SocketPath, opt.StatePath)
+    stateMu.Unlock()
 
 	if opt.SSHServer != "" {
 		go func() {
@@ -228,8 +237,8 @@ func RunTailscaleCmd(commandStr string) string {
 	args := []string{"--socket", PC.Socket()}
 	args = append(args, parts...)
 
-	cmd := exec.Command(PC.Tailscale(), args...)
-	output, err := cmd.CombinedOutput()
+	c := exec.Command(PC.Tailscale(), args...)
+	output, err := c.CombinedOutput()
 	
 	result := string(output)
 	if err != nil {
@@ -262,8 +271,8 @@ func registerMachineWithAuthKey(PC pathControl, opt *StartOptions) {
 
 		slog.Info("Running tailscale up", "try", count+1)
 
-		cmd := exec.Command(PC.Tailscale(), args...)
-		data, err := cmd.CombinedOutput()
+		c := exec.Command(PC.Tailscale(), args...)
+		data, err := c.CombinedOutput()
 		output := string(data)
 
 		if err != nil {
@@ -283,11 +292,19 @@ func registerMachineWithAuthKey(PC pathControl, opt *StartOptions) {
 }
 
 func Stop() {
+    stateMu.Lock()
+    defer stateMu.Unlock()
+
 	if sshserver != nil {
 		slog.Info("stop ssh server")
 		sshserver.Close()
 		sshserver = nil
 	}
+    
+    if sshListener != nil {
+        sshListener.Close() // Явно гасим TCP listener
+        sshListener = nil
+    }
 
 	x := cmd
 	cmd = nil
@@ -296,18 +313,13 @@ func Stop() {
 		slog.Info("stop tailscaled cmd")
 		_ = x.Process.Signal(syscall.SIGTERM)
 		
-		done := make(chan error, 1)
-		go func() {
-			_, err := x.Process.Wait()
-			done <- err
-		}()
-
-		select {
-		case <-time.After(2 * time.Second):
-			slog.Info("killing tailscaled cmd")
-			_ = x.Process.Kill()
-		case <-done:
-		}
+        // Мы больше не вызываем ручной Wait() здесь, чтобы не триггерить ошибку.
+        // Ожидание и так висит внутри tailscaledCmd. 
+        // Просто жестко убиваем, если он завис и не закрылся по SIGTERM.
+        go func(p *os.Process) {
+            time.Sleep(2 * time.Second)
+            _ = p.Kill()
+        }(x.Process)
 	}
 }
 
@@ -322,9 +334,9 @@ func rm(path ...string) {
 }
 
 func ln(src, dst string) {
-	cmd := exec.Command("/system/bin/ln", "-s", src, dst)
-	data, err := cmd.CombinedOutput()
-	slog.Info("ln", "cmd", cmd.String(), "output", string(data), "err", err)
+	c := exec.Command("/system/bin/ln", "-s", src, dst)
+	data, err := c.CombinedOutput()
+	slog.Info("ln", "cmd", c.String(), "output", string(data), "err", err)
 }
 
 type pathControl struct {
@@ -363,7 +375,7 @@ func tailscaledCmd(p pathControl, socks5host string, httphost string) error {
 	ln(p.TailscaledSo(), p.Tailscale())
 	ln(p.TailscaledSo(), p.Tailscaled())
 
-	cmd = exec.Command(
+	c := exec.Command(
 		p.Tailscaled(),
 		"--tun=userspace-networking",
 		"--socks5-server="+socks5host,
@@ -371,19 +383,30 @@ func tailscaledCmd(p pathControl, socks5host string, httphost string) error {
 		fmt.Sprintf("--statedir=%s", p.State()),
 		fmt.Sprintf("--socket=%s", p.Socket()),
 	)
-	cmd.Dir = p.DataDir()
-	cmd.Env = []string{
+	c.Dir = p.DataDir()
+	c.Env = []string{
 		fmt.Sprintf("TS_LOGS_DIR=%s/logs", p.DataDir()),
 	}
 
-	errChan := make(chan error)
+    stdOut, err := c.StdoutPipe()
+    if err != nil {
+        return err
+    }
+    
+    stdErr, err := c.StderrPipe()
+    if err != nil {
+        return err
+    }
+
+    stateMu.Lock()
+    cmd = c
+    stateMu.Unlock()
+
+    if err := c.Start(); err != nil {
+        return err
+    }
 
 	go func() {
-		stdOut, err := cmd.StdoutPipe()
-		if err != nil {
-			errChan <- err
-			return
-		}
 		s := bufio.NewScanner(stdOut)
 		for s.Scan() {
 			slog.Info(s.Text())
@@ -391,19 +414,13 @@ func tailscaledCmd(p pathControl, socks5host string, httphost string) error {
 	}()
 
 	go func() {
-		stdErr, err := cmd.StderrPipe()
-		if err != nil {
-			errChan <- err
-			return
-		}
 		s := bufio.NewScanner(stdErr)
 		for s.Scan() {
 			slog.Info(s.Text())
 		}
-		errChan <- nil
 	}()
 
-	return cmd.Run()
+	return c.Wait()
 }
 
 // --- SSH PART ---
@@ -433,9 +450,19 @@ func startSshServer(addr string, pc pathControl, keyData []byte) error {
 		},
 	}
 
+    // Явный бинд порта, чтобы можно было грохнуть его из Stop()
+    ln, err := net.Listen("tcp", addr)
+    if err != nil {
+        return err
+    }
+
+    stateMu.Lock()
 	sshserver = &ssh_server
+    sshListener = ln
+    stateMu.Unlock()
+
 	slog.Info("starting ssh server", "host", addr)
-	return ssh_server.ListenAndServe()
+	return ssh_server.Serve(ln)
 }
 
 var ptyWelcome = `
@@ -449,12 +476,12 @@ func ptyHandler(s ssh.Session, pc pathControl) {
 	_, _ = fmt.Fprintf(s, ptyWelcome, pc.TailscaledSo(), pc.DataDir(), s.RemoteAddr())
 	slog.Info("new pty session", "remote addr", s.RemoteAddr())
 
-	cmd := exec.Command("/system/bin/sh")
-	cmd.Dir = pc.DataDir()
+	c := exec.Command("/system/bin/sh")
+	c.Dir = pc.DataDir()
 	ptyReq, winCh, isPty := s.Pty()
 	if isPty {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("TERM=%s", ptyReq.Term))
-		f, err := pty.Start(cmd)
+		c.Env = append(c.Env, fmt.Sprintf("TERM=%s", ptyReq.Term))
+		f, err := pty.Start(c)
 		if err != nil {
 			slog.Error("start pty", "err", err)
 			return
@@ -470,7 +497,7 @@ func ptyHandler(s ssh.Session, pc pathControl) {
 		}()
 		_, _ = io.Copy(s, f)
 		s.Close()
-		_ = cmd.Wait()
+		_ = c.Wait()
 		slog.Info("session exit", "remote addr", s.RemoteAddr())
 	} else {
 		_, _ = io.WriteString(s, "No PTY requested.\n")

@@ -69,11 +69,17 @@ class MainActivity : ComponentActivity() {
             }
         } catch (e: Exception) {}
 
+        val forceBg = appctrPrefs.getBoolean("force_bg", false)
+
         if (ProxyState.isUserLetRunning(this) && !ProxyState.isActualRunning()) {
-            val authKey = appctrPrefs.getString("authkey", "") ?: ""
-            if (authKey.isNotBlank()) {
-                val intent = Intent(this, TailscaledService::class.java).apply { action = "START_ACTION" }
-                ContextCompat.startForegroundService(this, intent)
+            if (forceBg) {
+                val authKey = appctrPrefs.getString("authkey", "") ?: ""
+                if (authKey.isNotBlank()) {
+                    val intent = Intent(this, TailscaledService::class.java).apply { action = "START_ACTION" }
+                    ContextCompat.startForegroundService(this, intent)
+                } else {
+                    ProxyState.setUserState(this, false)
+                }
             } else {
                 ProxyState.setUserState(this, false)
             }
