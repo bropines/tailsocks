@@ -80,8 +80,6 @@ func newDualHandler() *dualHandler {
 func (h *dualHandler) Enabled(ctx context.Context, level slog.Level) bool { return true }
 
 func (h *dualHandler) Handle(ctx context.Context, r slog.Record) error {
-	timestamp := r.Time.Local().Format("15:04:05")
-	
 	var sb strings.Builder
 	sb.WriteString(r.Message)
 	r.Attrs(func(a slog.Attr) bool {
@@ -92,9 +90,19 @@ func (h *dualHandler) Handle(ctx context.Context, r slog.Record) error {
 		return true
 	})
 
-	entry := fmt.Sprintf("%s [%s] %s", timestamp, r.Level.String(), sb.String())
-	logManager.AddLog(entry)
+	msg := sb.String()
+	var entry string
 
+	// Проверяем, начинается ли строка с даты формата Tailscale (например, 2026/02/28)
+	// Если да, не лепим наше время. Если нет (наши внутренние логи) — лепим.
+	if len(msg) > 4 && msg[:2] == "20" && msg[4] == '/' {
+		entry = fmt.Sprintf("[%s] %s", r.Level.String(), msg)
+	} else {
+		timestamp := r.Time.Local().Format("15:04:05")
+		entry = fmt.Sprintf("%s [%s] %s", timestamp, r.Level.String(), msg)
+	}
+
+	logManager.AddLog(entry)
 	return h.textHandler.Handle(ctx, r)
 }
 
@@ -128,26 +136,19 @@ type Closer interface {
 	Close() error
 }
 
+// Экспортируем в Android
 func SetLogLevel(level int32) {
 	stateMu.Lock()
 	defer stateMu.Unlock()
 	currentLogLevel = level
 }
 
-func cleanTailscaleLog(text string) string {
-	if len(text) > 20 && text[4] == '/' && text[7] == '/' && text[13] == ':' {
-		return text[20:]
-	}
-	return text
-}
-
 func logWithFilter(text string) {
-	text = cleanTailscaleLog(text)
-	
 	stateMu.Lock()
 	lvl := currentLogLevel
 	stateMu.Unlock()
 
+	// Фильтруем мусор, если уровень Info или выше (не дебаг)
 	if lvl >= 1 {
 		lower := strings.ToLower(text)
 		if strings.Contains(lower, "magicsock") || 
@@ -415,8 +416,11 @@ func tailscaledCmd(p pathControl, socks5host string, httphost string) error {
 		fmt.Sprintf("--socket=%s", p.Socket()),
 	)
 	c.Dir = p.DataDir()
+	
+	// TS_NO_LOGS_NO_SUPPORT=true вырубает сбор телеметрии через logtail
 	c.Env = []string{
 		fmt.Sprintf("TS_LOGS_DIR=%s/logs", p.DataDir()),
+		"TS_NO_LOGS_NO_SUPPORT=true",
 	}
 
     stdOut, err := c.StdoutPipe()
