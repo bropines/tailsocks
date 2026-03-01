@@ -36,7 +36,7 @@ class SettingsActivity : ComponentActivity() {
         setContent {
             MaterialTheme(
                 colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()
-            ) {
+             ) {
                 SettingsScreen(onBack = { finish() })
             }
         }
@@ -82,10 +82,15 @@ fun SettingsScreen(onBack: () -> Unit) {
     var showAddKeyDialog by remember { mutableStateOf(false) }
     var newKeyInput by remember { mutableStateOf("") }
 
+    // --- LOG LEVEL ---
+    var logLevel by remember { mutableStateOf(prefs.getInt("log_level", 1)) }
+    val logLevelsText = listOf("Debug (All logs)", "Info (Cleaned)", "Errors Only")
+    var logLevelExpanded by remember { mutableStateOf(false) }
+
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
             try {
-                if (Appctr.isRunning()) {
+                 if (Appctr.isRunning()) {
                     val jsonOutput = Appctr.runTailscaleCmd("status --json")
                     val status = Gson().fromJson(jsonOutput, StatusResponse::class.java)
                     val nodes = status.peers?.values?.filter { it.exitNodeOption == true }?.map {
@@ -103,7 +108,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                 title = { Text("Settings") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
@@ -126,7 +131,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                 }, 1200) 
             }) {
                 Icon(Icons.Default.Refresh, contentDescription = "Restart Service")
-            }
+             }
         }
     ) { padding ->
         Column(
@@ -159,15 +164,15 @@ fun SettingsScreen(onBack: () -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                         trailingIcon = {
                             IconButton(onClick = { showKeysDialog = true }) {
-                                Icon(Icons.Default.List, contentDescription = "Keys")
+                                 Icon(Icons.Default.List, contentDescription = "Keys")
                             }
                         }
-                    )
+                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = hostname,
                         onValueChange = { newValue ->
-                            val filtered = newValue.filter { it.isLetterOrDigit() || it == '-' }
+                             val filtered = newValue.filter { it.isLetterOrDigit() || it == '-' }
                             hostname = filtered
                             saveStr("hostname", filtered)
                         },
@@ -179,7 +184,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                         value = loginServer,
                         onValueChange = { loginServer = it; saveStr("login_server", it) },
                         label = { Text("Login Server (Headscale)") },
-                        modifier = Modifier.fillMaxWidth()
+                         modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
@@ -197,7 +202,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
+                     OutlinedTextField(
                         value = httpProxyAddr,
                         onValueChange = { httpProxyAddr = it; saveStr("httpproxy", it) },
                         label = { Text("HTTP Proxy Address") },
@@ -217,31 +222,31 @@ fun SettingsScreen(onBack: () -> Unit) {
                     ) {
                         OutlinedTextField(
                             value = exitNodeIp,
-                            onValueChange = { exitNodeIp = it; saveStr("exit_node_ip", it) },
+                             onValueChange = { exitNodeIp = it; saveStr("exit_node_ip", it) },
                             label = { Text("Use Exit Node (IP)") },
                             modifier = Modifier.fillMaxWidth().menuAnchor(),
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = exitNodeDropdownExpanded) },
                             colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
                         )
                         if (availableExitNodes.isNotEmpty()) {
-                            ExposedDropdownMenu(
+                             ExposedDropdownMenu(
                                 expanded = exitNodeDropdownExpanded,
                                 onDismissRequest = { exitNodeDropdownExpanded = false }
-                            ) {
+                             ) {
                                 availableExitNodes.forEach { (name, ip) ->
                                     DropdownMenuItem(
-                                        text = { Text("$name ($ip)") },
+                                         text = { Text("$name ($ip)") },
                                         onClick = {
-                                            exitNodeIp = ip
+                                             exitNodeIp = ip
                                             saveStr("exit_node_ip", ip)
-                                            exitNodeDropdownExpanded = false
+                                             exitNodeDropdownExpanded = false
                                         }
                                     )
-                                }
+                                 }
                             }
                         }
                     }
-                    
+                     
                     Spacer(modifier = Modifier.height(8.dp))
                     RowItemSwitch("Allow LAN Access", allowLan) { allowLan = it; saveBool("exit_node_allow_lan", it) }
                 }
@@ -250,15 +255,49 @@ fun SettingsScreen(onBack: () -> Unit) {
             SectionHeader(title = "Advanced", expanded = advancedExpanded) { advancedExpanded = !advancedExpanded }
             AnimatedVisibility(visible = advancedExpanded) {
                 Column(modifier = Modifier.padding(bottom = 32.dp)) {
+                    
+                    // ДОБАВЛЕН ВЫБОР УРОВНЯ ЛОГОВ
+                    ExposedDropdownMenuBox(
+                        expanded = logLevelExpanded,
+                        onExpandedChange = { logLevelExpanded = it }
+                    ) {
+                        OutlinedTextField(
+                            value = logLevelsText.getOrElse(logLevel) { "Info (Cleaned)" },
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Log Level") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = logLevelExpanded) },
+                            modifier = Modifier.fillMaxWidth().menuAnchor(),
+                            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = logLevelExpanded,
+                            onDismissRequest = { logLevelExpanded = false }
+                        ) {
+                            logLevelsText.forEachIndexed { index, name ->
+                                DropdownMenuItem(
+                                    text = { Text(name) },
+                                    onClick = {
+                                        logLevel = index
+                                        prefs.edit().putInt("log_level", index).apply()
+                                        Appctr.setLogLevel(index)
+                                        logLevelExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+
                     OutlinedTextField(
                         value = sshAddr,
                         onValueChange = { sshAddr = it; saveStr("sshserver", it) },
                         label = { Text("SSH Server Address") },
-                        modifier = Modifier.fillMaxWidth()
+                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
-                        value = extraArgs,
+                         value = extraArgs,
                         onValueChange = { extraArgs = it; saveStr("extra_args_raw", it) },
                         label = { Text("Extra Arguments (Raw)") },
                         modifier = Modifier.fillMaxWidth()
@@ -280,13 +319,13 @@ fun SettingsScreen(onBack: () -> Unit) {
                     } else {
                         keysList.forEach { key ->
                             Text(
-                                text = key,
+                                 text = key,
                                 modifier = Modifier.fillMaxWidth().clickable {
                                     authKey = key
-                                    saveStr("authkey", key)
+                                     saveStr("authkey", key)
                                     showKeysDialog = false
                                 }.padding(vertical = 12.dp),
-                                style = MaterialTheme.typography.bodyLarge
+                                 style = MaterialTheme.typography.bodyLarge
                             )
                         }
                     }
@@ -296,7 +335,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                 TextButton(onClick = { showAddKeyDialog = true }) { Text("Add New") }
             },
             dismissButton = {
-                TextButton(onClick = { keyPrefs.edit().clear().apply(); showKeysDialog = false }) { Text("Clear All") }
+                 TextButton(onClick = { keyPrefs.edit().clear().apply(); showKeysDialog = false }) { Text("Clear All") }
             }
         )
     }
@@ -306,25 +345,25 @@ fun SettingsScreen(onBack: () -> Unit) {
             onDismissRequest = { showAddKeyDialog = false },
             title = { Text("Add Auth Key") },
             text = {
-                OutlinedTextField(
+                 OutlinedTextField(
                     value = newKeyInput,
                     onValueChange = { newKeyInput = it },
                     label = { Text("New Key") },
-                    singleLine = true
+                     singleLine = true
                 )
             },
             confirmButton = {
                 TextButton(onClick = {
                     if (newKeyInput.isNotBlank()) {
-                        val current = keyPrefs.getStringSet("keys_list", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
+                         val current = keyPrefs.getStringSet("keys_list", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
                         current.add(newKeyInput.trim())
                         keyPrefs.edit().putStringSet("keys_list", current).apply()
                         
-                        authKey = newKeyInput.trim()
+                         authKey = newKeyInput.trim()
                         saveStr("authkey", authKey)
                         newKeyInput = ""
                     }
-                    showAddKeyDialog = false
+                     showAddKeyDialog = false
                     showKeysDialog = false
                 }) { Text("Save") }
             },
@@ -343,7 +382,7 @@ fun SectionHeader(title: String, expanded: Boolean, onClick: () -> Unit) {
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(title, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-        Icon(
+         Icon(
             imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary
@@ -356,7 +395,7 @@ fun RowItemSwitch(text: String, checked: Boolean, onCheckedChange: (Boolean) -> 
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(text)
         Switch(checked = checked, onCheckedChange = onCheckedChange)

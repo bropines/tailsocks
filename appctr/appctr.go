@@ -81,8 +81,7 @@ func (h *dualHandler) Enabled(ctx context.Context, level slog.Level) bool { retu
 
 func (h *dualHandler) Handle(ctx context.Context, r slog.Record) error {
 	timestamp := r.Time.Local().Format("15:04:05")
-	level := r.Level.String()
-
+	
 	var sb strings.Builder
 	sb.WriteString(r.Message)
 	r.Attrs(func(a slog.Attr) bool {
@@ -93,7 +92,7 @@ func (h *dualHandler) Handle(ctx context.Context, r slog.Record) error {
 		return true
 	})
 
-	entry := fmt.Sprintf("%s [%s] %s", timestamp, level, sb.String())
+	entry := fmt.Sprintf("%s [%s] %s", timestamp, r.Level.String(), sb.String())
 	logManager.AddLog(entry)
 
 	return h.textHandler.Handle(ctx, r)
@@ -123,9 +122,44 @@ var cmd *exec.Cmd
 var sshserver *ssh.Server
 var sshListener net.Listener
 var PC pathControl
+var currentLogLevel int32 = 1 // 0 = Debug, 1 = Info, 2 = Errors
 
 type Closer interface {
 	Close() error
+}
+
+func SetLogLevel(level int32) {
+	stateMu.Lock()
+	defer stateMu.Unlock()
+	currentLogLevel = level
+}
+
+func cleanTailscaleLog(text string) string {
+	if len(text) > 20 && text[4] == '/' && text[7] == '/' && text[13] == ':' {
+		return text[20:]
+	}
+	return text
+}
+
+func logWithFilter(text string) {
+	text = cleanTailscaleLog(text)
+	
+	stateMu.Lock()
+	lvl := currentLogLevel
+	stateMu.Unlock()
+
+	if lvl >= 1 {
+		lower := strings.ToLower(text)
+		if strings.Contains(lower, "magicsock") || 
+		   strings.Contains(lower, "netcheck") || 
+		   strings.Contains(lower, "ratelimit") || 
+		   strings.Contains(lower, "udp proxy: received") ||
+		   strings.Contains(lower, "logtail") {
+			return 
+		}
+	}
+	
+	slog.Info(text)
 }
 
 func IsRunning() bool { 
@@ -302,7 +336,7 @@ func Stop() {
 	}
     
     if sshListener != nil {
-        sshListener.Close() // Явно гасим TCP listener
+        sshListener.Close() 
         sshListener = nil
     }
 
@@ -313,9 +347,6 @@ func Stop() {
 		slog.Info("stop tailscaled cmd")
 		_ = x.Process.Signal(syscall.SIGTERM)
 		
-        // Мы больше не вызываем ручной Wait() здесь, чтобы не триггерить ошибку.
-        // Ожидание и так висит внутри tailscaledCmd. 
-        // Просто жестко убиваем, если он завис и не закрылся по SIGTERM.
         go func(p *os.Process) {
             time.Sleep(2 * time.Second)
             _ = p.Kill()
@@ -409,14 +440,14 @@ func tailscaledCmd(p pathControl, socks5host string, httphost string) error {
 	go func() {
 		s := bufio.NewScanner(stdOut)
 		for s.Scan() {
-			slog.Info(s.Text())
+			logWithFilter(s.Text())
 		}
 	}()
 
 	go func() {
 		s := bufio.NewScanner(stdErr)
 		for s.Scan() {
-			slog.Info(s.Text())
+			logWithFilter(s.Text())
 		}
 	}()
 
@@ -450,7 +481,6 @@ func startSshServer(addr string, pc pathControl, keyData []byte) error {
 		},
 	}
 
-    // Явный бинд порта, чтобы можно было грохнуть его из Stop()
     ln, err := net.Listen("tcp", addr)
     if err != nil {
         return err

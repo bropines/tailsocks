@@ -153,6 +153,9 @@ class TailscaledService : Service() {
 
                 Thread.sleep(1000)
 
+                val currentLogLevel = prefs.getInt("log_level", 1)
+                Appctr.setLogLevel(currentLogLevel)
+
                 updateNotification("Starting daemon...")
                 Appctr.start(options)
                 
