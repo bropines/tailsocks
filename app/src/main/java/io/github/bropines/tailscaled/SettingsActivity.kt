@@ -61,6 +61,7 @@ fun SettingsScreen(onBack: () -> Unit) {
     var acceptRoutes by remember { mutableStateOf(prefs.getBoolean("accept_routes", false)) }
     var acceptDns by remember { mutableStateOf(prefs.getBoolean("accept_dns", true)) }
     var socks5Addr by remember { mutableStateOf(prefs.getString("socks5", "127.0.0.1:1055") ?: "") }
+    var dnsProxy by remember { mutableStateOf(prefs.getString("dns_proxy", "127.0.0.1:1053") ?: "") }
     var httpProxyAddr by remember { mutableStateOf(prefs.getString("httpproxy", "127.0.0.1:1057") ?: "") }
     
     var advertiseExitNode by remember { mutableStateOf(prefs.getBoolean("advertise_exit_node", false)) }
@@ -199,6 +200,14 @@ fun SettingsScreen(onBack: () -> Unit) {
                         value = socks5Addr,
                         onValueChange = { socks5Addr = it; saveStr("socks5", it) },
                         label = { Text("SOCKS5 Address") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = dnsProxy,
+                        onValueChange = { dnsProxy = it; saveStr("dns_proxy", it) },
+                        label = { Text("DNS Proxy Address") },
+                        placeholder = { Text("127.0.0.1:1053") },
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(8.dp))

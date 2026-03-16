@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/binary"
 	"encoding/pem"
 	"fmt"
 	"io"
@@ -170,15 +171,16 @@ func IsRunning() bool {
 }
 
 type StartOptions struct {
-	SSHServer    string
-	ExecPath     string
-	SocketPath   string
-	StatePath    string
-	Socks5Server string
-	HttpProxy    string
-	CloseCallBack Closer
-	AuthKey      string
-	ExtraUpArgs  string
+    SSHServer     string
+    ExecPath      string
+    SocketPath    string
+    StatePath     string
+    Socks5Server  string
+    HttpProxy     string
+    CloseCallBack Closer
+    AuthKey       string
+    ExtraUpArgs   string
+    DNSProxy      string 
 }
 
 func Start(opt *StartOptions) {
@@ -227,6 +229,15 @@ func Start(opt *StartOptions) {
 	}()
 
 	go registerMachineWithAuthKey(PC, opt)
+	    if opt.DNSProxy != "" {
+        go func() {
+            time.Sleep(3 * time.Second)
+            slog.Info("Starting DNS proxy", "addr", opt.DNSProxy)
+            if err := startDNSProxy(opt.DNSProxy, opt.HttpProxy); err != nil {
+                slog.Error("DNS proxy stopped", "err", err)
+            }
+        }()
+    }
 }
 
 func ensureHostKey(dir string) ([]byte, error) {
@@ -456,6 +467,92 @@ func tailscaledCmd(p pathControl, socks5host string, httphost string) error {
 	}()
 
 	return c.Wait()
+}
+
+// --- DNS PROXY ---
+
+// startDNSProxy слушает UDP на listenAddr и проксирует DNS
+// через HTTP CONNECT на tailscale MagicDNS (100.100.100.100:53)
+func startDNSProxy(listenAddr string, httpProxyAddr string) error {
+    pc, err := net.ListenPacket("udp", listenAddr)
+    if err != nil {
+        return fmt.Errorf("dns proxy listen failed: %w", err)
+    }
+    defer pc.Close()
+    slog.Info("DNS proxy listening", "addr", listenAddr)
+
+    buf := make([]byte, 65535)
+    for {
+        n, clientAddr, err := pc.ReadFrom(buf)
+        if err != nil {
+            // если прокси закрыт — выходим тихо
+            return nil
+        }
+        query := make([]byte, n)
+        copy(query, buf[:n])
+
+        go func(q []byte, cAddr net.Addr) {
+            resp, err := forwardDNSviaProxy(q, httpProxyAddr)
+            if err != nil {
+                slog.Info("DNS forward error", "err", err)
+                return
+            }
+            if _, err := pc.WriteTo(resp, cAddr); err != nil {
+                slog.Info("DNS write back error", "err", err)
+            }
+        }(query, clientAddr)
+    }
+}
+
+func forwardDNSviaProxy(query []byte, httpProxyAddr string) ([]byte, error) {
+    // Коннектимся к HTTP CONNECT прокси (порт 1057 — outbound http proxy tailscaled)
+    conn, err := net.DialTimeout("tcp", httpProxyAddr, 5*time.Second)
+    if err != nil {
+        return nil, fmt.Errorf("dial http proxy: %w", err)
+    }
+    defer conn.Close()
+    conn.SetDeadline(time.Now().Add(10 * time.Second))
+
+    // Просим прокси пробросить нас до MagicDNS
+    _, err = fmt.Fprintf(conn, "CONNECT 100.100.100.100:53 HTTP/1.1\r\nHost: 100.100.100.100:53\r\n\r\n")
+    if err != nil {
+        return nil, fmt.Errorf("send CONNECT: %w", err)
+    }
+
+    // Читаем ответ прокси (ищем "200")
+    respBuf := make([]byte, 512)
+    n, err := conn.Read(respBuf)
+    if err != nil {
+        return nil, fmt.Errorf("read proxy response: %w", err)
+    }
+    if !strings.Contains(string(respBuf[:n]), "200") {
+        return nil, fmt.Errorf("proxy tunnel rejected: %s", string(respBuf[:n]))
+    }
+
+    // DNS-over-TCP: 2 байта длины + сам запрос
+    tcpQuery := make([]byte, 2+len(query))
+    binary.BigEndian.PutUint16(tcpQuery[:2], uint16(len(query)))
+    copy(tcpQuery[2:], query)
+
+    if _, err := conn.Write(tcpQuery); err != nil {
+        return nil, fmt.Errorf("write dns query: %w", err)
+    }
+
+    // Читаем ответ: сначала 2 байта длины
+    lenBuf := make([]byte, 2)
+    if _, err := io.ReadFull(conn, lenBuf); err != nil {
+        return nil, fmt.Errorf("read response length: %w", err)
+    }
+    respLen := binary.BigEndian.Uint16(lenBuf)
+    if respLen == 0 {
+        return nil, fmt.Errorf("empty dns response")
+    }
+
+    resp := make([]byte, respLen)
+    if _, err := io.ReadFull(conn, resp); err != nil {
+        return nil, fmt.Errorf("read dns response: %w", err)
+    }
+    return resp, nil
 }
 
 // --- SSH PART ---
