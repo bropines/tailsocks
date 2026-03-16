@@ -61,7 +61,9 @@ fun SettingsScreen(onBack: () -> Unit) {
     var acceptRoutes by remember { mutableStateOf(prefs.getBoolean("accept_routes", false)) }
     var acceptDns by remember { mutableStateOf(prefs.getBoolean("accept_dns", true)) }
     var socks5Addr by remember { mutableStateOf(prefs.getString("socks5", "127.0.0.1:1055") ?: "") }
-    var dnsProxy by remember { mutableStateOf(prefs.getString("dns_proxy", "127.0.0.1:1053") ?: "") }
+    var dnsProxy     by remember { mutableStateOf(prefs.getString("dns_proxy", "127.0.0.1:1053") ?: "") }
+    var dnsFallback1 by remember { mutableStateOf(prefs.getString("dns_fallback1", "8.8.8.8:53") ?: "") }
+    var dnsFallback2 by remember { mutableStateOf(prefs.getString("dns_fallback2", "1.1.1.1:53") ?: "") }
     var httpProxyAddr by remember { mutableStateOf(prefs.getString("httpproxy", "127.0.0.1:1057") ?: "") }
     
     var advertiseExitNode by remember { mutableStateOf(prefs.getBoolean("advertise_exit_node", false)) }
@@ -208,6 +210,22 @@ fun SettingsScreen(onBack: () -> Unit) {
                         onValueChange = { dnsProxy = it; saveStr("dns_proxy", it) },
                         label = { Text("DNS Proxy Address") },
                         placeholder = { Text("127.0.0.1:1053") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = dnsFallback1,
+                        onValueChange = { dnsFallback1 = it; saveStr("dns_fallback1", it) },
+                        label = { Text("DNS Fallback 1") },
+                        placeholder = { Text("8.8.8.8:53") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = dnsFallback2,
+                        onValueChange = { dnsFallback2 = it; saveStr("dns_fallback2", it) },
+                        label = { Text("DNS Fallback 2") },
+                        placeholder = { Text("1.1.1.1:53") },
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(8.dp))

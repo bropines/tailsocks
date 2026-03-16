@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"encoding/binary"
 	"encoding/pem"
+	"net/http"
 	"fmt"
 	"io"
 	"log/slog"
@@ -180,7 +181,8 @@ type StartOptions struct {
     CloseCallBack Closer
     AuthKey       string
     ExtraUpArgs   string
-    DNSProxy      string 
+    DNSProxy      string
+    DNSFallbacks  string
 }
 
 func Start(opt *StartOptions) {
@@ -229,11 +231,12 @@ func Start(opt *StartOptions) {
 	}()
 
 	go registerMachineWithAuthKey(PC, opt)
-	    if opt.DNSProxy != "" {
+    	if opt.DNSProxy != "" {
         go func() {
             time.Sleep(3 * time.Second)
             slog.Info("Starting DNS proxy", "addr", opt.DNSProxy)
-            if err := startDNSProxy(opt.DNSProxy, opt.HttpProxy); err != nil {
+            fallbacks := strings.Split(opt.DNSFallbacks, ",")
+            if err := startDNSProxy(opt.DNSProxy, opt.HttpProxy, fallbacks); err != nil {
                 slog.Error("DNS proxy stopped", "err", err)
             }
         }()
@@ -471,8 +474,14 @@ func tailscaledCmd(p pathControl, socks5host string, httphost string) error {
 
 // --- DNS PROXY ---
 
-// startDNSProxy слушает UDP на listenAddr и проксирует DNS
-// через HTTP CONNECT на tailscale MagicDNS (100.100.100.100:53)
+var dnsProxyFallbacks = []string{
+    "8.8.8.8:53",
+    "1.1.1.1:53",
+}
+
+// DoH fallback (опционально)
+const dohURL = "https://dns.google/dns-query"
+
 func startDNSProxy(listenAddr string, httpProxyAddr string) error {
     pc, err := net.ListenPacket("udp", listenAddr)
     if err != nil {
@@ -485,23 +494,101 @@ func startDNSProxy(listenAddr string, httpProxyAddr string) error {
     for {
         n, clientAddr, err := pc.ReadFrom(buf)
         if err != nil {
-            // если прокси закрыт — выходим тихо
             return nil
         }
         query := make([]byte, n)
         copy(query, buf[:n])
 
         go func(q []byte, cAddr net.Addr) {
+            // Сначала пробуем MagicDNS
             resp, err := forwardDNSviaProxy(q, httpProxyAddr)
-            if err != nil {
-                slog.Info("DNS forward error", "err", err)
+            if err != nil || isNXDOMAIN(resp) {
+                if err != nil {
+                    slog.Info("MagicDNS failed, trying fallback", "err", err)
+                } else {
+                    slog.Info("MagicDNS returned NXDOMAIN, trying fallback")
+                }
+                // Пробуем fallback серверы по очереди
+                resp = tryFallbackDNS(q)
+            }
+
+            if resp == nil {
+                slog.Info("All DNS resolvers failed")
                 return
             }
-            if _, err := pc.WriteTo(resp, cAddr); err != nil {
-                slog.Info("DNS write back error", "err", err)
-            }
+            pc.WriteTo(resp, cAddr)
         }(query, clientAddr)
     }
+}
+
+// isNXDOMAIN проверяет RCODE в DNS ответе
+func isNXDOMAIN(resp []byte) bool {
+    if len(resp) < 4 {
+        return false
+    }
+    rcode := resp[3] & 0x0F
+    return rcode == 3 // NXDOMAIN
+}
+
+func tryFallbackDNS(query []byte) []byte {
+    // Сначала пробуем обычные UDP серверы
+    for _, server := range dnsProxyFallbacks {
+        resp, err := forwardDNSviaUDP(query, server)
+        if err == nil {
+            return resp
+        }
+        slog.Info("Fallback DNS failed", "server", server, "err", err)
+    }
+    // Последний шанс — DoH
+    resp, err := forwardDNSviaDoH(query)
+    if err == nil {
+        return resp
+    }
+    slog.Info("DoH fallback also failed", "err", err)
+    return nil
+}
+
+func forwardDNSviaUDP(query []byte, server string) ([]byte, error) {
+    conn, err := net.DialTimeout("udp", server, 5*time.Second)
+    if err != nil {
+        return nil, err
+    }
+    defer conn.Close()
+    conn.SetDeadline(time.Now().Add(5 * time.Second))
+
+    if _, err := conn.Write(query); err != nil {
+        return nil, err
+    }
+
+    buf := make([]byte, 65535)
+    n, err := conn.Read(buf)
+    if err != nil {
+        return nil, err
+    }
+    return buf[:n], nil
+}
+
+func forwardDNSviaDoH(query []byte) ([]byte, error) {
+    import_b64 := base64.RawURLEncoding.EncodeToString(query)
+    
+    client := &http.Client{Timeout: 10 * time.Second}
+    req, err := http.NewRequest("GET", dohURL+"?dns="+import_b64, nil)
+    if err != nil {
+        return nil, err
+    }
+    req.Header.Set("Accept", "application/dns-message")
+
+    resp, err := client.Do(req)
+    if err != nil {
+        return nil, err
+    }
+    defer resp.Body.Close()
+
+    return io.ReadAll(resp.Body)
+}
+
+func forwardDNSviaProxy(query []byte, httpProxyAddr string) ([]byte, error) {
+    // ... тот же код что был выше, без изменений
 }
 
 func forwardDNSviaProxy(query []byte, httpProxyAddr string) ([]byte, error) {

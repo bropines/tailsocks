@@ -128,14 +128,15 @@ class TailscaledService : Service() {
 
         val options = StartOptions().apply {
             socks5Server = prefs.getString("socks5", "127.0.0.1:1055")
-            httpProxy = prefs.getString("httpproxy", "127.0.0.1:1057")
-            sshServer = prefs.getString("sshserver", "127.0.0.1:1056")
-            dNSProxy = prefs.getString("dns_proxy", "127.0.0.1:1053")  // НОВОЕ
-            authKey = prefs.getString("authkey", "")
-            extraUpArgs = argsBuilder.toString()
-            execPath = "${applicationInfo.nativeLibraryDir}/libtailscaled.so"
-            socketPath = "${applicationInfo.dataDir}/tailscaled.sock"
-            statePath = "${applicationInfo.dataDir}/state"
+            httpProxy    = prefs.getString("httpproxy", "127.0.0.1:1057")
+            sshServer    = prefs.getString("sshserver", "127.0.0.1:1056")
+            dNSProxy     = prefs.getString("dns_proxy", "127.0.0.1:1053")
+            dNSFallbacks = "${prefs.getString("dns_fallback1", "8.8.8.8:53")},${prefs.getString("dns_fallback2", "1.1.1.1:53")}"
+            authKey      = prefs.getString("authkey", "")
+            extraUpArgs  = argsBuilder.toString()
+            execPath     = "${applicationInfo.nativeLibraryDir}/libtailscaled.so"
+            socketPath   = "${applicationInfo.dataDir}/tailscaled.sock"
+            statePath    = "${applicationInfo.dataDir}/state"
             closeCallBack = Closer { stopMe() }
         }
 
