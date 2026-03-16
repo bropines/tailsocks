@@ -178,8 +178,8 @@ type StartOptions struct {
 	CloseCallBack Closer
 	AuthKey       string
 	ExtraUpArgs   string
-	DNSProxy      string // например "127.0.0.1:1053" или "0.0.0.0:1053"
-	DNSFallbacks  string // например "8.8.8.8:53,1.1.1.1:53"
+    DnsProxy      string  // было DNSProxy
+    DnsFallbacks  string  // было DNSFallbacks
 }
 
 func Start(opt *StartOptions) {
@@ -230,13 +230,13 @@ func Start(opt *StartOptions) {
 	go registerMachineWithAuthKey(PC, opt)
 
 	// DNS прокси
-	if opt.DNSProxy != "" {
+	if opt.DnsProxy != "" {
 		go func() {
 			time.Sleep(3 * time.Second)
 			slog.Info("Starting DNS proxy", "addr", opt.DNSProxy)
 			var fallbacks []string
-			if opt.DNSFallbacks != "" {
-				for _, f := range strings.Split(opt.DNSFallbacks, ",") {
+			if opt.DnsFallbacks != "" {
+				for _, f := range strings.Split(opt.DnsFallbacks, ",") {
 					f = strings.TrimSpace(f)
 					if f != "" {
 						fallbacks = append(fallbacks, f)
