@@ -2,7 +2,7 @@ package appctr
 
 import (
 	"bufio"
-	"bytes"
+//	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
