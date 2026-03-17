@@ -544,6 +544,12 @@ func startDNSProxy(ctx context.Context, listenAddr string, socketPath string, fa
 				slog.Info("All DNS resolvers failed for query")
 				return
 			}
+
+			if len(resp) >= 2 && len(q) >= 2 {
+				resp[0] = q[0]
+				resp[1] = q[1]
+			}
+
 			if _, err := pc.WriteTo(resp, cAddr); err != nil {
 				slog.Info("DNS write back error", "err", err)
 			}
