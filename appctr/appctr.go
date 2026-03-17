@@ -131,7 +131,8 @@ var cmd *exec.Cmd
 var sshserver *ssh.Server
 var sshListener net.Listener
 var PC pathControl
-var currentLogLevel int32 = 1 // 0 = Debug, 1 = Info, 2 = Errors
+var currentLogLevel int32 = 1
+var dnsProxyCancel context.CancelFunc
 
 type Closer interface {
 	Close() error
@@ -234,6 +235,12 @@ func Start(opt *StartOptions) {
 		go func() {
 			time.Sleep(3 * time.Second)
 			slog.Info("Starting DNS proxy", "addr", opt.DnsProxy)
+
+			ctx, cancel := context.WithCancel(context.Background())
+			stateMu.Lock()
+			dnsProxyCancel = cancel
+			stateMu.Unlock()
+
 			var fallbacks []string
 			if opt.DnsFallbacks != "" {
 				for _, f := range strings.Split(opt.DnsFallbacks, ",") {
@@ -246,7 +253,7 @@ func Start(opt *StartOptions) {
 			if len(fallbacks) == 0 {
 				fallbacks = []string{"8.8.8.8:53", "1.1.1.1:53"}
 			}
-			if err := startDNSProxy(opt.DnsProxy, opt.HttpProxy, fallbacks); err != nil {
+			if err := startDNSProxy(ctx, opt.DnsProxy, opt.HttpProxy, fallbacks); err != nil {
 				slog.Error("DNS proxy stopped", "err", err)
 			}
 		}()
@@ -353,6 +360,13 @@ func registerMachineWithAuthKey(PC pathControl, opt *StartOptions) {
 func Stop() {
 	stateMu.Lock()
 	defer stateMu.Unlock()
+
+	// Останавливаем DNS прокси
+	if dnsProxyCancel != nil {
+		slog.Info("stop dns proxy")
+		dnsProxyCancel()
+		dnsProxyCancel = nil
+	}
 
 	if sshserver != nil {
 		slog.Info("stop ssh server")
@@ -486,7 +500,8 @@ func tailscaledCmd(p pathControl, socks5host string, httphost string) error {
 // startDNSProxy слушает UDP на listenAddr.
 // Сначала пробует MagicDNS через HTTP CONNECT прокси tailscaled.
 // При NXDOMAIN или ошибке — fallback на обычные UDP серверы и DoH.
-func startDNSProxy(listenAddr string, httpProxyAddr string, fallbacks []string) error {
+// Останавливается при отмене ctx.
+func startDNSProxy(ctx context.Context, listenAddr string, httpProxyAddr string, fallbacks []string) error {
 	pc, err := net.ListenPacket("udp", listenAddr)
 	if err != nil {
 		return fmt.Errorf("dns proxy listen failed: %w", err)
@@ -494,11 +509,21 @@ func startDNSProxy(listenAddr string, httpProxyAddr string, fallbacks []string) 
 	defer pc.Close()
 	slog.Info("DNS proxy listening", "addr", listenAddr)
 
+	// Закрываем listener когда контекст отменён
+	go func() {
+		<-ctx.Done()
+		slog.Info("DNS proxy context cancelled, shutting down")
+		pc.Close()
+	}()
+
 	buf := make([]byte, 65535)
 	for {
 		n, clientAddr, err := pc.ReadFrom(buf)
 		if err != nil {
-			return nil
+			if ctx.Err() != nil {
+				return nil // нормальное завершение по Stop()
+			}
+			return err
 		}
 		query := make([]byte, n)
 		copy(query, buf[:n])
