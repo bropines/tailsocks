@@ -7,7 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"encoding/base64"
+//	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
@@ -554,46 +554,35 @@ func startDNSProxy(ctx context.Context, listenAddr string, socketPath string, fa
 // forwardDNSviaLocalAPI резолвит DNS через tailscaled local API по Unix сокету.
 // Отправляет сырой DNS wire формат, получает сырой DNS wire формат обратно.
 func forwardDNSviaLocalAPI(query []byte, socketPath string) ([]byte, error) {
-	transport := &http.Transport{
-		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-			return net.DialTimeout("unix", socketPath, 3*time.Second)
-		},
-	}
-	client := &http.Client{
-		Transport: transport,
-		Timeout:   5 * time.Second,
-	}
+    transport := &http.Transport{
+        DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+            return net.DialTimeout("unix", socketPath, 3*time.Second)
+        },
+    }
+    client := &http.Client{
+        Transport: transport,
+        Timeout:   5 * time.Second,
+    }
 
-	resp, err := client.Post(
-		"http://local-tailscaled.sock/localapi/v0/dns-query", // дефис, не слэш
-		"application/dns-message",
-		bytes.NewReader(query),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("local api request: %w", err)
-	}
-	defer resp.Body.Close()
+    encoded := base64.StdEncoding.EncodeToString(query)
+    url := "http://local-tailscaled.sock/localapi/v0/dns-query?dns=" + encoded
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read local api response: %w", err)
-	}
+    resp, err := client.Get(url)
+    if err != nil {
+        return nil, fmt.Errorf("local api request: %w", err)
+    }
+    defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("local api status %d: %s", resp.StatusCode, string(body))
-	}
+    body, err := io.ReadAll(resp.Body)
+    if err != nil {
+        return nil, fmt.Errorf("read local api response: %w", err)
+    }
 
-	// Ответ — JSON с полем Bytes содержащим сырой DNS ответ
-	var dnsResp struct {
-		Bytes []byte `json:"Bytes"`
-	}
-	if err := json.Unmarshal(body, &dnsResp); err != nil {
-		return nil, fmt.Errorf("parse dns response json: %w", err)
-	}
-	if len(dnsResp.Bytes) == 0 {
-		return nil, fmt.Errorf("empty dns response bytes")
-	}
-	return dnsResp.Bytes, nil
+    if resp.StatusCode != http.StatusOK {
+        return nil, fmt.Errorf("local api status %d: %s", resp.StatusCode, string(body))
+    }
+
+    return body, nil
 }
 
 // isNXDOMAIN проверяет RCODE == 3 в DNS ответе
