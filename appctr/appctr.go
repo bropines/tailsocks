@@ -26,10 +26,12 @@ import (
 	"unsafe"
 
 	"github.com/creack/pty"
+	"golang.org/x/net/dns/dnsmessage"
 	"github.com/gliderlabs/ssh"
 	"github.com/pkg/sftp"
 	gossh "golang.org/x/crypto/ssh"
 	_ "golang.org/x/mobile/bind"
+	"strings"
 )
 
 // --- LOGGING SYSTEM ---
@@ -560,6 +562,22 @@ func startDNSProxy(ctx context.Context, listenAddr string, socketPath string, fa
 
 // forwardDNSviaLocalAPI резолвит DNS через tailscaled local API по Unix сокету.
 func forwardDNSviaLocalAPI(query []byte, socketPath string) ([]byte, error) {
+	// 1. Парсим входящий сырой DNS-запрос, чтобы вытащить домен и тип (A, AAAA)
+	var p dnsmessage.Parser
+	if _, err := p.Start(query); err != nil {
+		return nil, fmt.Errorf("parse dns start: %w", err)
+	}
+	q, err := p.Question()
+	if err != nil {
+		return nil, fmt.Errorf("parse dns question: %w", err)
+	}
+
+	name := q.Name.String()
+	name = strings.TrimSuffix(name, ".") // Убираем точку на конце для localapi
+
+	qType := q.Type.String() // Вернет "TypeA", "TypeAAAA" и т.д.
+	qType = strings.TrimPrefix(qType, "Type") // Оставляем только "A", "AAAA"
+
 	transport := &http.Transport{
 		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 			return net.DialTimeout("unix", socketPath, 3*time.Second)
@@ -570,9 +588,8 @@ func forwardDNSviaLocalAPI(query []byte, socketPath string) ([]byte, error) {
 		Timeout:   5 * time.Second,
 	}
 
-	// Возвращаем твой оригинальный GET с base64, он был правильным!
-	encoded := base64.RawURLEncoding.EncodeToString(query)
-	url := "http://local-tailscaled.sock/localapi/v0/dns-query?dns=" + encoded
+	// 2. Делаем GET-запрос с правильными параметрами
+	url := fmt.Sprintf("http://local-tailscaled.sock/localapi/v0/dns-query?name=%s&type=%s", name, qType)
 
 	resp, err := client.Get(url)
 	if err != nil {
@@ -589,8 +606,7 @@ func forwardDNSviaLocalAPI(query []byte, socketPath string) ([]byte, error) {
 		return nil, fmt.Errorf("local api status %d: %s", resp.StatusCode, string(body))
 	}
 
-	// Магия здесь: парсим JSON, достаем ответ.
-	// []byte в структуре заставит json.Unmarshal автоматически раскодировать base64.
+	// 3. Достаем сгенерированный Tailscale-ом DNS-ответ из поля Bytes
 	var dnsResp struct {
 		Bytes []byte `json:"Bytes"`
 	}
