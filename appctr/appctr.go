@@ -8,6 +8,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io"
@@ -564,7 +565,7 @@ func forwardDNSviaLocalAPI(query []byte, socketPath string) ([]byte, error) {
 	}
 
 	resp, err := client.Post(
-		"http://local-tailscaled.sock/localapi/v0/dns/query",
+		"http://local-tailscaled.sock/localapi/v0/dns-query", // дефис, не слэш
 		"application/dns-message",
 		bytes.NewReader(query),
 	)
@@ -582,7 +583,17 @@ func forwardDNSviaLocalAPI(query []byte, socketPath string) ([]byte, error) {
 		return nil, fmt.Errorf("local api status %d: %s", resp.StatusCode, string(body))
 	}
 
-	return body, nil
+	// Ответ — JSON с полем Bytes содержащим сырой DNS ответ
+	var dnsResp struct {
+		Bytes []byte `json:"Bytes"`
+	}
+	if err := json.Unmarshal(body, &dnsResp); err != nil {
+		return nil, fmt.Errorf("parse dns response json: %w", err)
+	}
+	if len(dnsResp.Bytes) == 0 {
+		return nil, fmt.Errorf("empty dns response bytes")
+	}
+	return dnsResp.Bytes, nil
 }
 
 // isNXDOMAIN проверяет RCODE == 3 в DNS ответе
