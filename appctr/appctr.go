@@ -2,6 +2,7 @@ package appctr
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
@@ -559,6 +560,7 @@ func startDNSProxy(ctx context.Context, listenAddr string, socketPath string, fa
 
 // forwardDNSviaLocalAPI резолвит DNS через tailscaled local API по Unix сокету.
 // Отправляет base64 DNS запрос через GET, получает JSON с полем Bytes.
+// forwardDNSviaLocalAPI резолвит DNS через tailscaled local API по Unix сокету.
 func forwardDNSviaLocalAPI(query []byte, socketPath string) ([]byte, error) {
 	transport := &http.Transport{
 		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
@@ -570,10 +572,15 @@ func forwardDNSviaLocalAPI(query []byte, socketPath string) ([]byte, error) {
 		Timeout:   5 * time.Second,
 	}
 
-	encoded := base64.RawURLEncoding.EncodeToString(query)
-	url := "http://local-tailscaled.sock/localapi/v0/dns-query?dns=" + encoded
+	// ФИКС 2: Tailscale localapi требует POST-запрос с raw DNS пакетом в body
+	url := "http://local-tailscaled.sock/localapi/v0/dns-query"
+	req, err := http.NewRequest("POST", url, bytes.NewReader(query))
+	if err != nil {
+		return nil, fmt.Errorf("create req: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/dns-message")
 
-	resp, err := client.Get(url)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("local api request: %w", err)
 	}
@@ -588,20 +595,17 @@ func forwardDNSviaLocalAPI(query []byte, socketPath string) ([]byte, error) {
 		return nil, fmt.Errorf("local api status %d: %s", resp.StatusCode, string(body))
 	}
 
-	// Ответ — JSON: {"Bytes":"base64...","Resolvers":[...]}
+	// ФИКС 1: Парсим JSON.
+	// Огромный плюс Go: тип []byte в структуре заставит json.Unmarshal 
+	// автоматически раскодировать base64 под капотом!
 	var dnsResp struct {
-		Bytes string `json:"Bytes"`
+		Bytes []byte `json:"Bytes"`
 	}
 	if err := json.Unmarshal(body, &dnsResp); err != nil {
 		return nil, fmt.Errorf("parse json: %w", err)
 	}
 
-	decoded, err := base64.StdEncoding.DecodeString(dnsResp.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("decode base64: %w", err)
-	}
-
-	return decoded, nil
+	return dnsResp.Bytes, nil
 }
 
 // isNXDOMAIN проверяет RCODE == 3 в DNS ответе
