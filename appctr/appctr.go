@@ -178,8 +178,8 @@ type StartOptions struct {
 	CloseCallBack Closer
 	AuthKey       string
 	ExtraUpArgs   string
-    DnsProxy      string  // было DNSProxy
-    DnsFallbacks  string  // было DNSFallbacks
+	DnsProxy      string // "127.0.0.1:1053" или "0.0.0.0:1053"
+	DnsFallbacks  string // "8.8.8.8:53,1.1.1.1:53"
 }
 
 func Start(opt *StartOptions) {
@@ -233,7 +233,7 @@ func Start(opt *StartOptions) {
 	if opt.DnsProxy != "" {
 		go func() {
 			time.Sleep(3 * time.Second)
-			slog.Info("Starting DNS proxy", "addr", opt.DNSProxy)
+			slog.Info("Starting DNS proxy", "addr", opt.DnsProxy)
 			var fallbacks []string
 			if opt.DnsFallbacks != "" {
 				for _, f := range strings.Split(opt.DnsFallbacks, ",") {
@@ -246,7 +246,7 @@ func Start(opt *StartOptions) {
 			if len(fallbacks) == 0 {
 				fallbacks = []string{"8.8.8.8:53", "1.1.1.1:53"}
 			}
-			if err := startDNSProxy(opt.DNSProxy, opt.HttpProxy, fallbacks); err != nil {
+			if err := startDNSProxy(opt.DnsProxy, opt.HttpProxy, fallbacks); err != nil {
 				slog.Error("DNS proxy stopped", "err", err)
 			}
 		}()
@@ -504,7 +504,6 @@ func startDNSProxy(listenAddr string, httpProxyAddr string, fallbacks []string) 
 		copy(query, buf[:n])
 
 		go func(q []byte, cAddr net.Addr) {
-			// Сначала пробуем MagicDNS через HTTP CONNECT прокси
 			resp, err := forwardDNSviaMagicDNS(q, httpProxyAddr)
 			if err != nil {
 				slog.Info("MagicDNS failed, trying fallback", "err", err)
@@ -512,7 +511,6 @@ func startDNSProxy(listenAddr string, httpProxyAddr string, fallbacks []string) 
 			} else if isNXDOMAIN(resp) {
 				slog.Info("MagicDNS returned NXDOMAIN, trying fallback")
 				fallbackResp := tryFallbackDNS(q, fallbacks)
-				// Если fallback тоже NXDOMAIN или nil — оставляем оригинальный ответ MagicDNS
 				if fallbackResp != nil && !isNXDOMAIN(fallbackResp) {
 					resp = fallbackResp
 				}
@@ -547,7 +545,6 @@ func tryFallbackDNS(query []byte, fallbacks []string) []byte {
 		}
 		slog.Info("Fallback DNS failed", "server", server, "err", err)
 	}
-	// Последний шанс — DoH
 	resp, err := forwardDNSviaDoH(query)
 	if err == nil {
 		return resp
@@ -565,13 +562,11 @@ func forwardDNSviaMagicDNS(query []byte, httpProxyAddr string) ([]byte, error) {
 	defer conn.Close()
 	conn.SetDeadline(time.Now().Add(10 * time.Second))
 
-	// HTTP CONNECT tunnel к MagicDNS
 	_, err = fmt.Fprintf(conn, "CONNECT 100.100.100.100:53 HTTP/1.1\r\nHost: 100.100.100.100:53\r\n\r\n")
 	if err != nil {
 		return nil, fmt.Errorf("send CONNECT: %w", err)
 	}
 
-	// Читаем ответ прокси
 	respBuf := make([]byte, 512)
 	n, err := conn.Read(respBuf)
 	if err != nil {
@@ -581,7 +576,6 @@ func forwardDNSviaMagicDNS(query []byte, httpProxyAddr string) ([]byte, error) {
 		return nil, fmt.Errorf("proxy tunnel rejected: %s", string(respBuf[:n]))
 	}
 
-	// DNS-over-TCP: 2 байта длины + запрос
 	tcpQuery := make([]byte, 2+len(query))
 	binary.BigEndian.PutUint16(tcpQuery[:2], uint16(len(query)))
 	copy(tcpQuery[2:], query)
@@ -590,7 +584,6 @@ func forwardDNSviaMagicDNS(query []byte, httpProxyAddr string) ([]byte, error) {
 		return nil, fmt.Errorf("write dns query: %w", err)
 	}
 
-	// Читаем ответ
 	lenBuf := make([]byte, 2)
 	if _, err := io.ReadFull(conn, lenBuf); err != nil {
 		return nil, fmt.Errorf("read response length: %w", err)
