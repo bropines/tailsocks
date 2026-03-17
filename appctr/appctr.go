@@ -2,13 +2,12 @@ package appctr
 
 import (
 	"bufio"
-	//"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
-	//"encoding/json"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io"
@@ -545,6 +544,7 @@ func startDNSProxy(ctx context.Context, listenAddr string, socketPath string, fa
 				return
 			}
 
+			// Патчим Transaction ID ответа чтобы совпадал с запросом
 			if len(resp) >= 2 && len(q) >= 2 {
 				resp[0] = q[0]
 				resp[1] = q[1]
@@ -558,37 +558,50 @@ func startDNSProxy(ctx context.Context, listenAddr string, socketPath string, fa
 }
 
 // forwardDNSviaLocalAPI резолвит DNS через tailscaled local API по Unix сокету.
-// Отправляет сырой DNS wire формат, получает сырой DNS wire формат обратно.
+// Отправляет base64 DNS запрос через GET, получает JSON с полем Bytes.
 func forwardDNSviaLocalAPI(query []byte, socketPath string) ([]byte, error) {
-    transport := &http.Transport{
-        DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-            return net.DialTimeout("unix", socketPath, 3*time.Second)
-        },
-    }
-    client := &http.Client{
-        Transport: transport,
-        Timeout:   5 * time.Second,
-    }
+	transport := &http.Transport{
+		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+			return net.DialTimeout("unix", socketPath, 3*time.Second)
+		},
+	}
+	client := &http.Client{
+		Transport: transport,
+		Timeout:   5 * time.Second,
+	}
 
-    encoded := base64.StdEncoding.EncodeToString(query)
-    url := "http://local-tailscaled.sock/localapi/v0/dns-query?dns=" + encoded
+	encoded := base64.StdEncoding.EncodeToString(query)
+	url := "http://local-tailscaled.sock/localapi/v0/dns-query?dns=" + encoded
 
-    resp, err := client.Get(url)
-    if err != nil {
-        return nil, fmt.Errorf("local api request: %w", err)
-    }
-    defer resp.Body.Close()
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("local api request: %w", err)
+	}
+	defer resp.Body.Close()
 
-    body, err := io.ReadAll(resp.Body)
-    if err != nil {
-        return nil, fmt.Errorf("read local api response: %w", err)
-    }
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read local api response: %w", err)
+	}
 
-    if resp.StatusCode != http.StatusOK {
-        return nil, fmt.Errorf("local api status %d: %s", resp.StatusCode, string(body))
-    }
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("local api status %d: %s", resp.StatusCode, string(body))
+	}
 
-    return body, nil
+	// Ответ — JSON: {"Bytes":"base64...","Resolvers":[...]}
+	var dnsResp struct {
+		Bytes string `json:"Bytes"`
+	}
+	if err := json.Unmarshal(body, &dnsResp); err != nil {
+		return nil, fmt.Errorf("parse json: %w", err)
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(dnsResp.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("decode base64: %w", err)
+	}
+
+	return decoded, nil
 }
 
 // isNXDOMAIN проверяет RCODE == 3 в DNS ответе
