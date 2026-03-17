@@ -570,7 +570,7 @@ func forwardDNSviaLocalAPI(query []byte, socketPath string) ([]byte, error) {
 		Timeout:   5 * time.Second,
 	}
 
-	encoded := base64.StdEncoding.EncodeToString(query)
+	encoded := base64.RawURLEncoding.EncodeToString(query)
 	url := "http://local-tailscaled.sock/localapi/v0/dns-query?dns=" + encoded
 
 	resp, err := client.Get(url)
