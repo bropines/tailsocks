@@ -31,7 +31,6 @@ import (
 	"github.com/pkg/sftp"
 	gossh "golang.org/x/crypto/ssh"
 	_ "golang.org/x/mobile/bind"
-	"strings"
 )
 
 // --- LOGGING SYSTEM ---
