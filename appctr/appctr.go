@@ -253,7 +253,7 @@ func Start(opt *StartOptions) {
 			if len(fallbacks) == 0 {
 				fallbacks = []string{"8.8.8.8:53", "1.1.1.1:53"}
 			}
-			if err := startDNSProxy(ctx, opt.DnsProxy, opt.HttpProxy, fallbacks); err != nil {
+			if err := startDNSProxy(ctx, opt.DnsProxy, opt.Socks5Server, fallbacks); err != nil {
 				slog.Error("DNS proxy stopped", "err", err)
 			}
 		}()
@@ -579,50 +579,63 @@ func tryFallbackDNS(query []byte, fallbacks []string) []byte {
 }
 
 // forwardDNSviaMagicDNS отправляет DNS запрос через HTTP CONNECT прокси на 100.100.100.100:53
-func forwardDNSviaMagicDNS(query []byte, httpProxyAddr string) ([]byte, error) {
-	conn, err := net.DialTimeout("tcp", httpProxyAddr, 5*time.Second)
-	if err != nil {
-		return nil, fmt.Errorf("dial http proxy: %w", err)
-	}
-	defer conn.Close()
-	conn.SetDeadline(time.Now().Add(10 * time.Second))
+func forwardDNSviaMagicDNS(query []byte, socks5ProxyAddr string) ([]byte, error) {
+    // Подключаемся к SOCKS5 прокси
+    conn, err := net.DialTimeout("tcp", socks5ProxyAddr, 5*time.Second)
+    if err != nil {
+        return nil, fmt.Errorf("dial socks5: %w", err)
+    }
+    defer conn.Close()
+    conn.SetDeadline(time.Now().Add(10 * time.Second))
 
-	_, err = fmt.Fprintf(conn, "CONNECT 100.100.100.100:53 HTTP/1.1\r\nHost: 100.100.100.100:53\r\n\r\n")
-	if err != nil {
-		return nil, fmt.Errorf("send CONNECT: %w", err)
-	}
+    // SOCKS5 handshake: версия + no auth
+    conn.Write([]byte{0x05, 0x01, 0x00})
+    resp := make([]byte, 2)
+    if _, err := io.ReadFull(conn, resp); err != nil {
+        return nil, fmt.Errorf("socks5 handshake: %w", err)
+    }
+    if resp[0] != 0x05 || resp[1] != 0x00 {
+        return nil, fmt.Errorf("socks5 auth rejected: %v", resp)
+    }
 
-	respBuf := make([]byte, 512)
-	n, err := conn.Read(respBuf)
-	if err != nil {
-		return nil, fmt.Errorf("read proxy response: %w", err)
-	}
-	if !strings.Contains(string(respBuf[:n]), "200") {
-		return nil, fmt.Errorf("proxy tunnel rejected: %s", string(respBuf[:n]))
-	}
+    // SOCKS5 CONNECT к 100.100.100.100:53
+    // CMD=CONNECT, ATYP=IPv4
+    conn.Write([]byte{
+        0x05, 0x01, 0x00, 0x01,
+        100, 100, 100, 100, // 100.100.100.100
+        0x00, 0x35,         // порт 53
+    })
+    connResp := make([]byte, 10)
+    if _, err := io.ReadFull(conn, connResp); err != nil {
+        return nil, fmt.Errorf("socks5 connect resp: %w", err)
+    }
+    if connResp[1] != 0x00 {
+        return nil, fmt.Errorf("socks5 connect failed: %d", connResp[1])
+    }
 
-	tcpQuery := make([]byte, 2+len(query))
-	binary.BigEndian.PutUint16(tcpQuery[:2], uint16(len(query)))
-	copy(tcpQuery[2:], query)
+    // DNS-over-TCP: 2 байта длины + запрос
+    tcpQuery := make([]byte, 2+len(query))
+    binary.BigEndian.PutUint16(tcpQuery[:2], uint16(len(query)))
+    copy(tcpQuery[2:], query)
 
-	if _, err := conn.Write(tcpQuery); err != nil {
-		return nil, fmt.Errorf("write dns query: %w", err)
-	}
+    if _, err := conn.Write(tcpQuery); err != nil {
+        return nil, fmt.Errorf("write dns query: %w", err)
+    }
 
-	lenBuf := make([]byte, 2)
-	if _, err := io.ReadFull(conn, lenBuf); err != nil {
-		return nil, fmt.Errorf("read response length: %w", err)
-	}
-	respLen := binary.BigEndian.Uint16(lenBuf)
-	if respLen == 0 {
-		return nil, fmt.Errorf("empty dns response")
-	}
+    lenBuf := make([]byte, 2)
+    if _, err := io.ReadFull(conn, lenBuf); err != nil {
+        return nil, fmt.Errorf("read response length: %w", err)
+    }
+    respLen := binary.BigEndian.Uint16(lenBuf)
+    if respLen == 0 {
+        return nil, fmt.Errorf("empty dns response")
+    }
 
-	resp := make([]byte, respLen)
-	if _, err := io.ReadFull(conn, resp); err != nil {
-		return nil, fmt.Errorf("read dns response: %w", err)
-	}
-	return resp, nil
+    dnsResp := make([]byte, respLen)
+    if _, err := io.ReadFull(conn, dnsResp); err != nil {
+        return nil, fmt.Errorf("read dns response: %w", err)
+    }
+    return dnsResp, nil
 }
 
 // forwardDNSviaUDP отправляет DNS запрос напрямую по UDP
