@@ -1,45 +1,37 @@
-@file:Suppress("UNUSED_EXPRESSION")
-
 plugins {
     alias(libs.plugins.androidApplication)
-    alias(libs.plugins.kotlinAndroid)
-    alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.jetbrainsKotlinAndroid)
 }
 
 android {
     namespace = "io.github.bropines.tailscaled"
-    compileSdk = 36
+    compileSdk = 35
+
+    signingConfigs {
+        create("release") {
+            val keystorePath = System.getenv("KEYSTORE_FILE")
+            if (keystorePath != null) {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            }
+        }
+    }
 
     defaultConfig {
         applicationId = "io.github.bropines.tailscaled"
         minSdk = 24
-        targetSdk = 36
-        versionCode = 1
-        versionName = "2.1"
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-    }
+        targetSdk = 35
+        versionCode = 2
+        versionName = "3.0.0"
 
-    buildFeatures {
-        viewBinding = true
-        buildConfig = true 
-        compose = true
-    }
-
-    splits {
-        abi {
-            isEnable = true
-            reset()
-            include("x86_64", "arm64-v8a")
+        ndk {
+            abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64"))
         }
-    }
-
-    signingConfigs {
-        create("releaseConfig") {
-            val keystorePath = System.getenv("KEYSTORE_FILE") ?: "debug.keystore"
-            storeFile = file(keystorePath)
-            storePassword = System.getenv("KEYSTORE_PASSWORD")
-            keyAlias = System.getenv("KEY_ALIAS")
-            keyPassword = System.getenv("KEY_PASSWORD")
+        
+        vectorDrawables {
+            useSupportLibrary = true
         }
     }
 
@@ -48,49 +40,47 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            if (System.getenv("KEYSTORE_PASSWORD") != null) {
-                signingConfig = signingConfigs.getByName("releaseConfig")
+            if (System.getenv("KEYSTORE_FILE") != null) {
+                signingConfig = signingConfigs.getByName("release")
             }
         }
     }
+
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
-    }
-    packaging {
-        jniLibs { useLegacyPackaging = true }
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "17"
+    }
+    buildFeatures {
+        compose = true
+    }
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.10"
+    }
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+        jniLibs {
+            useLegacyPackaging = true
+        }
     }
 }
 
 dependencies {
     implementation(project(":appctr"))
     implementation(libs.gson)
-    implementation(fileTree(mapOf("include" to listOf("*.aar", "*.jar"), "dir" to "libs")))
-    implementation(libs.core.ktx)
-    implementation(libs.appcompat)
-    implementation(libs.material)
-    implementation(libs.constraintlayout)
-    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     
-    // Compose
-    val composeBom = platform(libs.compose.bom)
-    implementation(composeBom)
-    implementation(libs.ui)
-    implementation(libs.ui.graphics)
-    implementation(libs.ui.tooling.preview)
-    implementation(libs.material3)
-    implementation(libs.activity.compose)
-    implementation(libs.lifecycle.runtime.ktx)
-    debugImplementation(libs.ui.tooling)
-
-    // Old Navigation (Пока оставляем для непереведенных активити)
-    implementation(libs.navigation.fragment.ktx)
-    implementation(libs.navigation.ui.ktx)
-    
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.test.ext.junit)
-    androidTestImplementation(libs.espresso.core)
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.activity.compose)
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.ui)
+    implementation(libs.androidx.ui.graphics)
+    implementation(libs.androidx.ui.tooling.preview)
+    implementation(libs.androidx.material3)
+    implementation(libs.navigation.compose)
+    implementation("androidx.compose.material:material-icons-extended:1.6.7")
 }
