@@ -213,12 +213,9 @@ func registerMachineWithAuthKey(PC pathControl, opt *StartOptions) {
 	time.Sleep(1 * time.Second)
 
 	// 2. Пробуем выполнить команду up (до 3 попыток)
-	for attempt := 1; attempt <= 3; attempt++ {
-		args := []string{"--socket", PC.Socket(), "up", "--timeout", "30s"}
+for attempt := 1; attempt <= 3; attempt++ {
+		args := []string{"--socket", PC.Socket(), "up", "--reset", "--timeout", "30s"}
 
-		if opt.DoReset {
-			args = append(args, "--reset")
-		}
 		if opt.AuthKey != "" {
 			args = append(args, "--auth-key", opt.AuthKey)
 		}

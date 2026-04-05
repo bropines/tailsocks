@@ -84,7 +84,7 @@ class TailscaledService : Service() {
             authKey      = prefs.getString("authkey", "")
             
             // Читаем настройку форсированного сброса из пресетов
-            doReset      = prefs.getBoolean("force_reset", false) 
+            //doReset      = prefs.getBoolean("force_reset", false) 
             
             execPath     = "${applicationInfo.nativeLibraryDir}/libtailscale.so"
             socketPath   = "${applicationInfo.dataDir}/tailscaled.sock"
