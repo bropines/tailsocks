@@ -19,30 +19,27 @@ if [ ! -d "tailscale_src" ]; then
     mv tailscale-${TS_VERSION} tailscale_src
 fi
 
-echo "[2/4] Injecting fixes and dummy modules..."
+echo "[2/4] Injecting Android Netmon fix..."
 cp patches/fix_android_netmon.go tailscale_src/cmd/tailscaled/
-mkdir -p tailscale_src/feature/ssh
-echo "package ssh" > tailscale_src/feature/ssh/android_stub.go
 
 echo "[3/4] Compiling binaries in PIE mode..."
 cd tailscale_src
 
-# Replace the problematic systray library with our dummy patch
-go mod edit -replace fyne.io/systray=../patches/dummy_systray
 go get github.com/wlynxg/anet@latest
 go mod tidy
 
+TAGS="ts_omit_taildrop,ts_omit_systray,ts_omit_kube,ts_omit_aws,ts_omit_bird,ts_omit_drive,ts_omit_qrcodes,ts_omit_desktop_sessions,ts_omit_dbus,ts_omit_networkmanager,ts_omit_resolved,ts_omit_sdnotify,ts_omit_tpm,ts_omit_logtail,ts_omit_synology,ts_omit_syspolicy,ts_omit_ssh,ts_omit_iptables,ts_omit_tap,ts_omit_linuxdnsfight,ts_omit_captiveportal,ts_omit_appconnectors,ts_omit_completion,ts_omit_completion_scripts,ts_omit_c2n,ts_omit_oauthkey"
 echo "-> Compiling Daemon (Core)..."
 GOOS=android GOARCH=arm64 go build \
     -buildmode=pie \
-    -tags ts_omit_taildrop \
+    -tags "$TAGS" \
     -ldflags="-s -w -checklinkname=0" \
     -o ../libtailscale.so ./cmd/tailscaled
 
 echo "-> Compiling CLI (Console)..."
 GOOS=android GOARCH=arm64 go build \
     -buildmode=pie \
-    -tags ts_omit_taildrop \
+    -tags "$TAGS" \
     -ldflags="-s -w -checklinkname=0" \
     -o ../libtailscale_cli.so ./cmd/tailscale
 
@@ -50,7 +47,8 @@ cd ..
 
 echo "[4/4] Building appctr.aar (Gomobile Bridge)..."
 go mod tidy
-gomobile bind -ldflags='-s -w -buildid= -checklinkname=0' -trimpath -target="android/arm64" -androidapi 21 -o appctr.aar -v .
+# Передаем те же теги в gomobile, чтобы обертка соответствовала ядру
+gomobile bind -ldflags='-s -w -buildid= -checklinkname=0' -trimpath -target="android/arm64" -androidapi 21 -tags "$TAGS" -o appctr.aar -v .
 
 echo "📦 Copying binaries to jniLibs..."
 mkdir -p ../app/src/main/jniLibs/arm64-v8a

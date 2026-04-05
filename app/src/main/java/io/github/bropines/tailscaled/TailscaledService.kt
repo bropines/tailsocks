@@ -82,6 +82,9 @@ class TailscaledService : Service() {
             dnsFallbacks = "${prefs.getString("dns_fallback1", "8.8.8.8:53")},${prefs.getString("dns_fallback2", "1.1.1.1:53")}"
             dohFallback  = prefs.getString("doh_url", "https://1.1.1.1/dns-query")
             authKey      = prefs.getString("authkey", "")
+
+            enableWebUI = prefs.getBoolean("enable_webui", false)
+            webUIAddr   = prefs.getString("webui_port", "127.0.0.1:8080")
             
             // Читаем настройку форсированного сброса из пресетов
             //doReset      = prefs.getBoolean("force_reset", false) 

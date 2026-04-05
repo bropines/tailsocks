@@ -54,6 +54,9 @@ fun SettingsScreen(onBack: () -> Unit) {
     //var forceReset by remember { mutableStateOf(prefs.getBoolean("force_reset", false)) }
     var extraArgs by remember { mutableStateOf(prefs.getString("extra_args_raw", "") ?: "") }
 
+    var enableWebUi by remember { mutableStateOf(prefs.getBoolean("enable_webui", false)) }
+    var webUiPort by remember { mutableStateOf(prefs.getString("webui_port", "127.0.0.1:8080") ?: "127.0.0.1:8080") }
+
     // Функция сохранения
     fun save(key: String, value: Any) {
         val editor = prefs.edit()
@@ -150,6 +153,34 @@ fun SettingsScreen(onBack: () -> Unit) {
                 SettingsSwitch("Accept DNS from Tailscale", acceptDns) {
                     acceptDns = it
                     save("accept_dns", it)
+                }
+            }
+
+            item { SectionTitle("Web UI") }
+            item {
+                SettingsSwitch("Enable Local Web Admin", enableWebUi) {
+                    enableWebUi = it
+                    save("enable_webui", it)
+                }
+                if (enableWebUi) {
+                    SettingsTextField("Listen Address", webUiPort, "127.0.0.1:8080") {
+                        webUiPort = it
+                        save("webui_port", it)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = {
+                            val intent = android.content.Intent(
+                                android.content.Intent.ACTION_VIEW, 
+                                android.net.Uri.parse("http://$webUiPort")
+                            )
+                            context.startActivity(intent)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                    ) {
+                        Text("Open Web UI in Browser")
+                    }
                 }
             }
 

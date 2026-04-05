@@ -20,6 +20,7 @@ var cmd *exec.Cmd
 var PC pathControl
 var currentLogLevel int32 = 1
 var dnsProxyCancel context.CancelFunc
+var webCmd *exec.Cmd
 
 type Closer interface {
 	Close() error
@@ -37,7 +38,9 @@ type StartOptions struct {
 	DnsProxy      string
 	DnsFallbacks  string
 	DohFallback   string
-	DoReset       bool // <-- НОВЫЙ ФЛАГ ДЛЯ ОПЦИОНАЛЬНОГО СБРОСА
+	DoReset       bool 
+	EnableWebUI   bool  
+	WebUIAddr     string
 }
 
 func SetLogLevel(level int32) {
@@ -151,6 +154,8 @@ func Stop() {
 	stateMu.Lock()
 	defer stateMu.Unlock()
 
+	StopWebUI()
+
 	if dnsProxyCancel != nil {
 		slog.Info("stop dns proxy")
 		dnsProxyCancel()
@@ -213,7 +218,8 @@ func registerMachineWithAuthKey(PC pathControl, opt *StartOptions) {
 	time.Sleep(1 * time.Second)
 
 	// 2. Пробуем выполнить команду up (до 3 попыток)
-for attempt := 1; attempt <= 3; attempt++ {
+	for attempt := 1; attempt <= 3; attempt++ {
+		// Жестко захардкоженный --reset для обхода дедлоков Android
 		args := []string{"--socket", PC.Socket(), "up", "--reset", "--timeout", "30s"}
 
 		if opt.AuthKey != "" {
@@ -223,20 +229,26 @@ for attempt := 1; attempt <= 3; attempt++ {
 			args = append(args, strings.Fields(opt.ExtraUpArgs)...)
 		}
 
-		slog.Info("Running tailscale up", "attempt", attempt, "reset", opt.DoReset)
+		slog.Info("Running tailscale up", "attempt", attempt)
 		
 		c := exec.Command(PC.Tailscale(), args...)
 		data, err := c.CombinedOutput()
 		output := string(data)
 
+		// УСПЕШНОЕ ПОДКЛЮЧЕНИЕ
 		if err == nil {
 			slog.Info("tailscale up success", "output", output)
-			return // Успешно подключились, выходим
+			
+			// Стартуем Web UI, если галочка включена
+			if opt.EnableWebUI {
+				StartWebUI(opt.WebUIAddr)
+			}
+			return // Выходим, так как подключились
 		}
 
+		// ЕСЛИ ОШИБКА
 		slog.Info("tailscale up failed", "output", output, "err", err)
 		
-		// Если ошибка критичная (ключ), нет смысла пытаться снова
 		if strings.Contains(output, "invalid key") || strings.Contains(output, "API key does not exist") {
 			slog.Error("Critical Auth Error: Invalid Auth Key. Please check settings.")
 			return
@@ -247,4 +259,35 @@ for attempt := 1; attempt <= 3; attempt++ {
 	}
 
 	slog.Info("Daemon configured but slow to connect. Leaving it to finish in background.")
+}
+
+func StartWebUI(listenAddr string) {
+	StopWebUI()
+	if listenAddr == "" {
+		listenAddr = "127.0.0.1:8080"
+	}
+	slog.Info("Starting Web UI", "addr", listenAddr)
+	
+	args := []string{"--socket", PC.Socket(), "web", "--listen", listenAddr}
+	c := exec.Command(PC.Tailscale(), args...)
+	webCmd = c
+	
+	go func() {
+		err := c.Run()
+		if err != nil {
+			slog.Error("Web UI stopped", "err", err)
+		}
+	}()
+}
+
+func StopWebUI() {
+	if webCmd != nil && webCmd.Process != nil {
+		slog.Info("Stopping Web UI")
+		_ = webCmd.Process.Signal(syscall.SIGTERM)
+		go func(p *os.Process) {
+			time.Sleep(1 * time.Second)
+			_ = p.Kill()
+		}(webCmd.Process)
+		webCmd = nil
+	}
 }
