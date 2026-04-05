@@ -232,12 +232,22 @@ fun MainScreen() {
         }
     }
 
-    if (showAboutDialog) {
+if (showAboutDialog) {
+        val versionName = remember {
+            try { context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?" }
+            catch (e: Exception) { "?" }
+        }
         AlertDialog(
             onDismissRequest = { showAboutDialog = false },
             title = { Text("TailSocks") },
             text = { 
                 Column {
+                    Text(
+                        "Version $versionName",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.height(8.dp))
                     Text("Proxy is running via official Tailscale core.\nLicense: BSD-3-Clause\n")
                     
                     TextButton(

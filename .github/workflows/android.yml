@@ -3,10 +3,10 @@ name: Android CI
 on:
   push:
     branches: [ "main" ]
-    tags: [ v* ]
+    tags: [ "v*" ]
   pull_request:
     branches: [ "main" ]
-  workflow_dispatch: 
+  workflow_dispatch:
     inputs:
       build_type:
         description: 'Тип сборки (debug/release/all)'
@@ -47,12 +47,12 @@ jobs:
 
       - name: Decode Keystore
         if: |
-          (github.event_name == 'push' || github.event.inputs.build_type != 'debug') && 
+          (github.event_name == 'push' || github.event.inputs.build_type != 'debug') &&
           github.event.inputs.skip_signing != 'true'
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/release.jks
         env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }} 
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
 
       - name: Build AppCtr Core (Gomobile + Patches)
         run: |
@@ -85,8 +85,17 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
-      - name: Upload APK
+      - name: Upload APK (artifact)
         uses: actions/upload-artifact@v4
         with:
           name: tailscaled-apks
           path: app/build/outputs/apk/**/*.apk
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: app/build/outputs/apk/**/*.apk
+          generate_release_notes: true
+          tag_name: ${{ github.ref_name }}
+          name: "Release ${{ github.ref_name }}"

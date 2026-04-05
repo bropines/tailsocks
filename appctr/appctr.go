@@ -35,8 +35,8 @@ type StartOptions struct {
 	AuthKey       string
 	ExtraUpArgs   string
 	DnsProxy      string
-	DnsFallbacks  string // "8.8.8.8:53,1.1.1.1:53"
-	DohFallback   string // "https://1.1.1.1/dns-query" или "none"
+	DnsFallbacks  string
+	DohFallback   string
 }
 
 func SetLogLevel(level int32) {
@@ -69,13 +69,34 @@ func IsRunning() bool {
 	return cmd != nil && cmd.Process != nil
 }
 
-func Start(opt *StartOptions) {
-	Stop()
-	time.Sleep(500 * time.Millisecond)
+// killLeftoverDaemons убивает зависшие процессы tailscaled от предыдущего запуска.
+func killLeftoverDaemons(daemonPath string) {
+	slog.Info("Killing leftover tailscaled processes", "path", daemonPath)
+	// pkill по точному пути бинаря
+	_ = exec.Command("/system/bin/pkill", "-f", daemonPath).Run()
+	// Дополнительно — по имени, на случай если путь отличается
+	_ = exec.Command("/system/bin/pkill", "tailscaled").Run()
+	time.Sleep(600 * time.Millisecond)
+}
 
+func Start(opt *StartOptions) {
+	// 1. Остановить текущий (если есть — внутри текущего JVM-процесса)
+	Stop()
+	time.Sleep(1 * time.Second) // увеличено с 500ms
+
+	// 2. Инициализируем PC ДО pkill, чтобы знать точный путь демона
+	stateMu.Lock()
+	PC = newPathControl(opt.ExecPath, opt.SocketPath, opt.StatePath)
+	stateMu.Unlock()
+
+	// 3. Убиваем зависшие демоны от предыдущего запуска приложения
+	killLeftoverDaemons(PC.Tailscaled())
+
+	// 4. Удаляем стейлый сокет
 	if opt.SocketPath != "" {
 		_ = os.Remove(opt.SocketPath)
 	}
+
 	if opt.Socks5Server == "" {
 		opt.Socks5Server = "127.0.0.1:1055"
 	}
@@ -83,10 +104,7 @@ func Start(opt *StartOptions) {
 		opt.HttpProxy = "127.0.0.1:1057"
 	}
 
-	stateMu.Lock()
-	PC = newPathControl(opt.ExecPath, opt.SocketPath, opt.StatePath)
-	stateMu.Unlock()
-
+	// 5. Запускаем демон
 	go func() {
 		err := tailscaledCmd(PC, opt.Socks5Server, opt.HttpProxy)
 		if err != nil {
@@ -98,11 +116,13 @@ func Start(opt *StartOptions) {
 		}
 	}()
 
+	// 6. Регистрируем машину (ждём готовности демона)
 	go registerMachineWithAuthKey(PC, opt)
 
+	// 7. DNS-прокси
 	if opt.DnsProxy != "" {
 		go func() {
-			time.Sleep(3 * time.Second)
+			time.Sleep(5 * time.Second) // чуть дольше, чтобы демон точно поднялся
 			slog.Info("Starting DNS proxy", "addr", opt.DnsProxy)
 
 			ctx, cancel := context.WithCancel(context.Background())
@@ -188,9 +208,15 @@ func registerMachineWithAuthKey(PC pathControl, opt *StartOptions) {
 	for count < maxRetries {
 		if _, err := os.Stat(PC.Socket()); err != nil {
 			count++
+			slog.Info("Waiting for tailscaled socket...", "attempt", count)
 			time.Sleep(1 * time.Second)
 			continue
 		}
+
+		// Сокет появился — ждём ещё немного: демон создаёт файл раньше,
+		// чем успевает принять соединения (race condition).
+		slog.Info("Socket found, waiting for daemon to be fully ready...")
+		time.Sleep(2 * time.Second) 
 
 		args := []string{"--socket", PC.Socket(), "up", "--reset", "--timeout", "15s"}
 

@@ -58,8 +58,8 @@ fun DnsScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     var status by remember { mutableStateOf<DnsStatus?>(null) }
     var loading by remember { mutableStateOf(false) }
+    var errorText by remember { mutableStateOf<String?>(null) }
 
-    // State for DNS Query Tool
     var queryDomain by remember { mutableStateOf("") }
     var queryResult by remember { mutableStateOf<String?>(null) }
     var isQuerying by remember { mutableStateOf(false) }
@@ -67,11 +67,25 @@ fun DnsScreen(onBack: () -> Unit) {
 
     fun refresh() {
         loading = true
+        errorText = null
         scope.launch(Dispatchers.IO) {
+            if (!Appctr.isRunning()) {
+                withContext(Dispatchers.Main) {
+                    status = null
+                    errorText = "Tailscale is not running.\nStart the service on the main screen."
+                    loading = false
+                }
+                return@launch
+            }
             val json = Appctr.runTailscaleCmd("dns status --json")
-            val parsed = try { Gson().fromJson(json, DnsStatus::class.java) } catch (e: Exception) { null }
+            val parsed = try {
+                Gson().fromJson(json, DnsStatus::class.java)
+            } catch (e: Exception) { null }
             withContext(Dispatchers.Main) {
                 status = parsed
+                if (parsed == null) {
+                    errorText = "Failed to parse DNS status.\n\nRaw output:\n$json"
+                }
                 loading = false
             }
         }
@@ -82,8 +96,9 @@ fun DnsScreen(onBack: () -> Unit) {
         isQuerying = true
         focusManager.clearFocus()
         scope.launch(Dispatchers.IO) {
-            // Запускаем CLI утилиту для резолва
-            val out = try { Appctr.runTailscaleCmd("dns query ${domain.trim()}") } catch (e: Exception) { "Error: ${e.message}" }
+            val out = try {
+                Appctr.runTailscaleCmd("dns query ${domain.trim()}")
+            } catch (e: Exception) { "Error: ${e.message}" }
             withContext(Dispatchers.Main) {
                 queryResult = out.trim()
                 isQuerying = false
@@ -103,8 +118,36 @@ fun DnsScreen(onBack: () -> Unit) {
         }
     ) { padding ->
         LazyColumn(modifier = Modifier.padding(padding).padding(horizontal = 16.dp)) {
-            
-            // 1. ИНТЕРАКТИВНЫЙ DNS QUERY TOOL
+
+            errorText?.let { msg ->
+                item {
+                    Spacer(Modifier.height(8.dp))
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                "⚠ DNS Status Unavailable",
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                msg,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                }
+            }
+
+            // 1. DNS QUERY TOOL
             item {
                 Spacer(Modifier.height(8.dp))
                 Card(
@@ -157,7 +200,7 @@ fun DnsScreen(onBack: () -> Unit) {
                 Text("Configuration Status", fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
             }
 
-            // 2. ОТОБРАЖЕНИЕ СТАТУСА (Как было)
+            // 2. СТАТУС
             status?.let { data ->
                 item {
                     DnsInfoCard("Global State", "Active: ${data.active}\nMagicDNS: ${data.tailnet?.enabled}")
@@ -170,6 +213,7 @@ fun DnsScreen(onBack: () -> Unit) {
                     }
                 }
             }
+
             if (loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
             item { Spacer(Modifier.height(32.dp)) }
         }

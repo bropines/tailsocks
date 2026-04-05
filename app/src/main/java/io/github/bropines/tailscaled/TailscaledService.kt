@@ -151,9 +151,11 @@ val options = StartOptions().apply {
             .build()
     }
 
-    override fun onDestroy() {
+override fun onDestroy() {
+        Appctr.stop()
         if (wakeLock?.isHeld == true) wakeLock?.release()
         super.onDestroy()
     }
+    
     override fun onBind(intent: Intent?): IBinder? = null
 }
