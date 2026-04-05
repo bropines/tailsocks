@@ -51,7 +51,7 @@ fun SettingsScreen(onBack: () -> Unit) {
     
     var acceptRoutes by remember { mutableStateOf(prefs.getBoolean("accept_routes", false)) }
     var acceptDns by remember { mutableStateOf(prefs.getBoolean("accept_dns", true)) }
-    var forceReset by remember { mutableStateOf(prefs.getBoolean("force_reset", false)) }
+    //var forceReset by remember { mutableStateOf(prefs.getBoolean("force_reset", false)) }
     var extraArgs by remember { mutableStateOf(prefs.getString("extra_args_raw", "") ?: "") }
 
     // Функция сохранения
@@ -159,11 +159,10 @@ fun SettingsScreen(onBack: () -> Unit) {
                     acceptRoutes = it
                     save("accept_routes", it)
                 }
-                // ТОТ САМЫЙ ПЕРЕКЛЮЧАТЕЛЬ ДЛЯ УСКОРЕНИЯ ЗАПУСКА
-                SettingsSwitch("Force Hard Reset (--reset)", forceReset) {
-                    forceReset = it
-                    save("force_reset", it)
-                }
+                //SettingsSwitch("Force Hard Reset (--reset)", forceReset) {
+                //    forceReset = it
+                //    save("force_reset", it)
+                //}
                 SettingsTextField("Extra Arguments (Raw)", extraArgs, "--advertise-tags=tag:server") {
                     extraArgs = it
                     save("extra_args_raw", it)
