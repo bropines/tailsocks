@@ -203,7 +203,7 @@ func RunTailscaleCmd(commandStr string) string {
 
 func registerMachineWithAuthKey(PC pathControl, opt *StartOptions) {
 	count := 0
-	maxRetries := 30
+	maxRetries := 5 // Нет смысла долбиться 30 раз, если таймаут теперь большой
 
 	for count < maxRetries {
 		if _, err := os.Stat(PC.Socket()); err != nil {
@@ -213,12 +213,10 @@ func registerMachineWithAuthKey(PC pathControl, opt *StartOptions) {
 			continue
 		}
 
-		// Сокет появился — ждём ещё немного: демон создаёт файл раньше,
-		// чем успевает принять соединения (race condition).
 		slog.Info("Socket found, waiting for daemon to be fully ready...")
-		time.Sleep(2 * time.Second) 
+		time.Sleep(2 * time.Second)
 
-		args := []string{"--socket", PC.Socket(), "up", "--reset", "--timeout", "15s"}
+		args := []string{"--socket", PC.Socket(), "up", "--reset", "--timeout", "45s"}
 
 		if opt.AuthKey != "" {
 			args = append(args, "--auth-key", opt.AuthKey)
@@ -235,10 +233,17 @@ func registerMachineWithAuthKey(PC pathControl, opt *StartOptions) {
 
 		if err != nil {
 			slog.Info("tailscale up failed", "output", output, "err", err)
+			
 			if strings.Contains(output, "invalid key") || strings.Contains(output, "API key does not exist") {
 				slog.Error("Critical Auth Error: Invalid Auth Key. Please check settings.")
 				return
 			}
+			
+			if strings.Contains(output, "timeout waiting for Tailscale service to enter a Running state") {
+				slog.Info("Daemon configured but slow to connect. Leaving it to finish in background.")
+				break
+			}
+
 			count++
 			time.Sleep(5 * time.Second)
 			continue
