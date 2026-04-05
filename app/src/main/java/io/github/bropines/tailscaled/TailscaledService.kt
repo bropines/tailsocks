@@ -7,8 +7,6 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.net.ConnectivityManager
 import android.net.Network
-import android.net.NetworkCapabilities
-import android.net.NetworkRequest
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
@@ -60,6 +58,7 @@ class TailscaledService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action
+        
         if (action == "STOP_ACTION") {
             stopMe()
             return START_NOT_STICKY
@@ -76,33 +75,39 @@ class TailscaledService : Service() {
     }
 
     private fun startTailscale() {
-        val argsBuilder = StringBuilder()
-        val hostname = prefs.getString("hostname", "")
-        if (!hostname.isNullOrEmpty()) argsBuilder.append("--hostname=$hostname ")
-        val loginServer = prefs.getString("login_server", "")
-        if (!loginServer.isNullOrEmpty()) argsBuilder.append("--login-server=$loginServer ")
-        if (prefs.getBoolean("accept_routes", false)) argsBuilder.append("--accept-routes ")
-        if (!prefs.getBoolean("accept_dns", true)) argsBuilder.append("--accept-dns=false ")
-        val exitNodeIp = prefs.getString("exit_node_ip", "")
-        if (!exitNodeIp.isNullOrEmpty()) {
-            argsBuilder.append("--exit-node=$exitNodeIp ")
-            if (prefs.getBoolean("exit_node_allow_lan", false)) argsBuilder.append("--exit-node-allow-lan-access ")
-        }
-        if (prefs.getBoolean("advertise_exit_node", false)) argsBuilder.append("--advertise-exit-node ")
-        val rawArgs = prefs.getString("extra_args_raw", "")
-        if (!rawArgs.isNullOrEmpty()) argsBuilder.append("$rawArgs")
-
-val options = StartOptions().apply {
+        val options = StartOptions().apply {
             socks5Server = prefs.getString("socks5", "127.0.0.1:1055")
             httpProxy    = prefs.getString("httpproxy", "127.0.0.1:1057")
             dnsProxy     = "127.0.0.1:1053"
             dnsFallbacks = "${prefs.getString("dns_fallback1", "8.8.8.8:53")},${prefs.getString("dns_fallback2", "1.1.1.1:53")}"
             dohFallback  = prefs.getString("doh_url", "https://1.1.1.1/dns-query")
             authKey      = prefs.getString("authkey", "")
+            
+            // Читаем настройку форсированного сброса из пресетов
+            doReset      = prefs.getBoolean("force_reset", false) 
+            
             execPath     = "${applicationInfo.nativeLibraryDir}/libtailscale.so"
             socketPath   = "${applicationInfo.dataDir}/tailscaled.sock"
             statePath    = "${applicationInfo.dataDir}/state"
             closeCallBack = Closer { stopMe() }
+            
+            val argsBuilder = StringBuilder()
+            val hostname = prefs.getString("hostname", "")
+            if (!hostname.isNullOrEmpty()) argsBuilder.append("--hostname=$hostname ")
+            val loginServer = prefs.getString("login_server", "")
+            if (!loginServer.isNullOrEmpty()) argsBuilder.append("--login-server=$loginServer ")
+            if (prefs.getBoolean("accept_routes", false)) argsBuilder.append("--accept-routes ")
+            if (!prefs.getBoolean("accept_dns", true)) argsBuilder.append("--accept-dns=false ")
+            val exitNodeIp = prefs.getString("exit_node_ip", "")
+            if (!exitNodeIp.isNullOrEmpty()) {
+                argsBuilder.append("--exit-node=$exitNodeIp ")
+                if (prefs.getBoolean("exit_node_allow_lan", false)) argsBuilder.append("--exit-node-allow-lan-access ")
+            }
+            if (prefs.getBoolean("advertise_exit_node", false)) argsBuilder.append("--advertise-exit-node ")
+            val rawArgs = prefs.getString("extra_args_raw", "")
+            if (!rawArgs.isNullOrEmpty()) argsBuilder.append("$rawArgs")
+            
+            extraUpArgs = argsBuilder.toString()
         }
 
         Thread {
@@ -151,7 +156,7 @@ val options = StartOptions().apply {
             .build()
     }
 
-override fun onDestroy() {
+    override fun onDestroy() {
         Appctr.stop()
         if (wakeLock?.isHeld == true) wakeLock?.release()
         super.onDestroy()

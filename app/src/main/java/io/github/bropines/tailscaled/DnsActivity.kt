@@ -3,6 +3,7 @@ package io.github.bropines.tailscaled
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.annotation.Keep
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -28,8 +29,6 @@ import com.google.gson.annotations.SerializedName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
-import androidx.annotation.Keep // Убедитесь, что импорт добавлен
 
 @Keep
 data class DnsAddr(@SerializedName("Addr") val addr: String)
