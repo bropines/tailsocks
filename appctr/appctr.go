@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"encoding/base64"
-	"encoding/binary"
 	"fmt"
 	"io"
 	"log/slog"
@@ -19,8 +18,8 @@ import (
 	"time"
 	_ "time/tzdata"
 
-	"golang.org/x/net/proxy"
 	_ "golang.org/x/mobile/bind"
+	"golang.org/x/net/dns/dnsmessage"
 )
 
 // --- LOGGING SYSTEM ---
@@ -223,7 +222,7 @@ func Start(opt *StartOptions) {
 			if len(fallbacks) == 0 {
 				fallbacks = []string{"8.8.8.8:53", "1.1.1.1:53"}
 			}
-			// Запускаем прокси, передавая адрес SOCKS5 сервера
+			
 			if err := startDNSProxy(ctx, opt.DnsProxy, opt.Socks5Server, fallbacks); err != nil {
 				slog.Error("DNS proxy stopped", "err", err)
 			}
@@ -356,10 +355,10 @@ func newPathControl(execPath, socketPath, statePath string) pathControl {
 	}
 }
 
-func (p pathControl) TailscaledSo() string { return p.execPath }
-func (p pathControl) Tailscaled() string   { return filepath.Join(p.dataDir, "tailscaled") }
-func (p pathControl) TailscaleSo() string  { return filepath.Join(p.execDir, "libtailscale.so") }
-func (p pathControl) Tailscale() string    { return filepath.Join(p.dataDir, "tailscale") }
+func (p pathControl) TailscaledSo() string   { return p.execPath } // libtailscale.so
+func (p pathControl) Tailscaled() string     { return filepath.Join(p.dataDir, "tailscaled") }
+func (p pathControl) TailscaleCliSo() string { return filepath.Join(p.execDir, "libtailscale_cli.so") }
+func (p pathControl) Tailscale() string      { return filepath.Join(p.dataDir, "tailscale") }
 func (p pathControl) DataDir(s ...string) string {
 	if len(s) == 0 {
 		return p.dataDir
@@ -371,7 +370,9 @@ func (p *pathControl) State() string { return p.statePath }
 
 func tailscaledCmd(p pathControl, socks5host string, httphost string) error {
 	rm(p.Tailscale(), p.Tailscaled())
-	ln(p.TailscaledSo(), p.Tailscale())
+	
+	// ВАЖНО: Разделяем ярлыки для CLI и Демона
+	ln(p.TailscaleCliSo(), p.Tailscale())
 	ln(p.TailscaledSo(), p.Tailscaled())
 
 	c := exec.Command(
@@ -426,8 +427,9 @@ func tailscaledCmd(p pathControl, socks5host string, httphost string) error {
 
 // --- DNS PROXY ---
 
-// startDNSProxy слушает UDP на listenAddr.
-// Заворачивает сырые UDP пакеты в TCP и шлет через локальный SOCKS5 в MagicDNS
+var dnsCache sync.Map // Кэш для ускорения резолва
+
+// startDNSProxy слушает UDP на listenAddr и работает как полноценный DNS-сервер
 func startDNSProxy(ctx context.Context, listenAddr string, socksAddr string, fallbacks []string) error {
 	pc, err := net.ListenPacket("udp", listenAddr)
 	if err != nil {
@@ -455,83 +457,124 @@ func startDNSProxy(ctx context.Context, listenAddr string, socksAddr string, fal
 		copy(query, buf[:n])
 
 		go func(q []byte, cAddr net.Addr) {
-			resp, err := forwardDNSviaSOCKS5(q, socksAddr)
-			if err != nil {
-				slog.Info("SOCKS5 MagicDNS failed, trying fallback", "err", err)
-				resp = tryFallbackDNS(q, fallbacks)
-			} else if isNXDOMAIN(resp) {
-				slog.Info("MagicDNS returned NXDOMAIN, trying fallback")
-				fallbackResp := tryFallbackDNS(q, fallbacks)
-				if fallbackResp != nil && !isNXDOMAIN(fallbackResp) {
-					resp = fallbackResp
+			resp := processDNSQuery(q, fallbacks)
+			if resp != nil {
+				if _, err := pc.WriteTo(resp, cAddr); err != nil {
+					slog.Debug("DNS write back error", "err", err)
 				}
-			}
-
-			if resp == nil {
-				slog.Info("All DNS resolvers failed for query")
-				return
-			}
-
-			// Патчим Transaction ID ответа чтобы совпадал с запросом
-			if len(resp) >= 2 && len(q) >= 2 {
-				resp[0] = q[0]
-				resp[1] = q[1]
-			}
-
-			if _, err := pc.WriteTo(resp, cAddr); err != nil {
-				slog.Info("DNS write back error", "err", err)
 			}
 		}(query, clientAddr)
 	}
 }
 
-// forwardDNSviaSOCKS5 берет UDP DNS-запрос, заворачивает его в TCP,
-// пробивается через локальный SOCKS5 Tailscale и стучится в MagicDNS (100.100.100.100:53).
-func forwardDNSviaSOCKS5(query []byte, socksAddr string) ([]byte, error) {
-	dialer, err := proxy.SOCKS5("tcp", socksAddr, nil, proxy.Direct)
-	if err != nil {
-		return nil, fmt.Errorf("socks5 init: %w", err)
+func processDNSQuery(query []byte, fallbacks []string) []byte {
+	var msg dnsmessage.Message
+	if err := msg.Unpack(query); err != nil || len(msg.Questions) == 0 {
+		return tryFallbackDNS(query, fallbacks)
 	}
 
-	// Стучимся в сервер MagicDNS по TCP через прокси
-	conn, err := dialer.Dial("tcp", "100.100.100.100:53")
-	if err != nil {
-		return nil, fmt.Errorf("dial magicdns: %w", err)
-	}
-	defer conn.Close()
-	conn.SetDeadline(time.Now().Add(5 * time.Second))
+	q := msg.Questions[0]
+	domain := q.Name.String()
+	domain = strings.TrimSuffix(domain, ".") // Убираем точку на конце
 
-	// Формируем TCP DNS запрос (RFC 1035 - первые 2 байта это длина)
-	reqLen := uint16(len(query))
-	tcpQuery := make([]byte, 2+len(query))
-	binary.BigEndian.PutUint16(tcpQuery[0:2], reqLen)
-	copy(tcpQuery[2:], query)
-
-	if _, err := conn.Write(tcpQuery); err != nil {
-		return nil, fmt.Errorf("write dns tcp: %w", err)
+	// Игнорируем reverse DNS чтобы не спамить CLI
+	if strings.HasSuffix(domain, ".arpa") {
+		return tryFallbackDNS(query, fallbacks)
 	}
 
-	// Читаем длину ответа
-	lenBuf := make([]byte, 2)
-	if _, err := io.ReadFull(conn, lenBuf); err != nil {
-		return nil, fmt.Errorf("read dns length: %w", err)
-	}
-	respLen := binary.BigEndian.Uint16(lenBuf)
+	if q.Type == dnsmessage.TypeA || q.Type == dnsmessage.TypeAAAA {
+		var ips []string
 
-	// Читаем само тело ответа
-	respBuf := make([]byte, respLen)
-	if _, err := io.ReadFull(conn, respBuf); err != nil {
-		return nil, fmt.Errorf("read dns body: %w", err)
+if cached, ok := dnsCache.Load(domain); ok {
+			ips = cached.([]string)
+		} else {
+			// ОПТИМИЗАЦИЯ 1: Ищем по полному имени (на всякий случай)
+			out := RunTailscaleCmd("ip " + domain)
+			ips = extractIPs(out)
+			
+			// ОПТИМИЗАЦИЯ 1.5: Если по полному не нашло - ищем по короткому имени (до первой точки)
+			// Это 100% решает проблему с длинными MagicDNS именами (machine.domain.ts.net)
+			if len(ips) == 0 {
+				shortName := strings.Split(domain, ".")[0]
+				out = RunTailscaleCmd("ip " + shortName)
+				ips = extractIPs(out)
+			}
+
+			// ОПТИМИЗАЦИЯ 2: Для Split DNS (therodev.com) и прочего
+			if len(ips) == 0 {
+				out = RunTailscaleCmd("dns query " + domain)
+				ips = extractIPs(out)
+			}
+			
+			slog.Info("DNS resolution attempt", "domain", domain, "extracted_ips", fmt.Sprintf("%v", ips))
+			
+			if len(ips) > 0 {
+				dnsCache.Store(domain, ips)
+				go func(d string) {
+					time.Sleep(60 * time.Second)
+					dnsCache.Delete(d)
+				}(domain)
+			}
+		}
+
+		if len(ips) > 0 {
+			msg.Response = true
+			msg.Authoritative = true
+			for _, ipStr := range ips {
+				ip := net.ParseIP(ipStr)
+				if ip == nil {
+					continue
+				}
+
+				if ip4 := ip.To4(); ip4 != nil && q.Type == dnsmessage.TypeA {
+					var a [4]byte
+					copy(a[:], ip4)
+					msg.Answers = append(msg.Answers, dnsmessage.Resource{
+						Header: dnsmessage.ResourceHeader{
+							Name:  q.Name,
+							Type:  dnsmessage.TypeA,
+							Class: dnsmessage.ClassINET,
+							TTL:   60,
+						},
+						Body: &dnsmessage.AResource{A: a},
+					})
+				} else if ip6 := ip.To16(); ip6 != nil && q.Type == dnsmessage.TypeAAAA {
+					var aaaa [16]byte
+					copy(aaaa[:], ip6)
+					msg.Answers = append(msg.Answers, dnsmessage.Resource{
+						Header: dnsmessage.ResourceHeader{
+							Name:  q.Name,
+							Type:  dnsmessage.TypeAAAA,
+							Class: dnsmessage.ClassINET,
+							TTL:   60,
+						},
+						Body: &dnsmessage.AAAAResource{AAAA: aaaa},
+					})
+				}
+			}
+
+			if len(msg.Answers) > 0 {
+				packed, err := msg.Pack()
+				if err == nil {
+					return packed
+				}
+			}
+		}
 	}
 
-	return respBuf, nil
+	return tryFallbackDNS(query, fallbacks)
 }
 
-func isNXDOMAIN(resp []byte) bool {
-	if len(resp) < 4 {
-		return false
+func extractIPs(out string) []string {
+	var ips []string
+	lines := strings.Split(out, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if net.ParseIP(line) != nil {
+			ips = append(ips, line)
+		}
 	}
-	return resp[3]&0x0F == 3
+	return ips
 }
 
 func tryFallbackDNS(query []byte, fallbacks []string) []byte {
@@ -540,23 +583,23 @@ func tryFallbackDNS(query []byte, fallbacks []string) []byte {
 		if err == nil {
 			return resp
 		}
-		slog.Info("Fallback DNS failed", "server", server, "err", err)
+		slog.Debug("Fallback DNS failed", "server", server, "err", err)
 	}
 	resp, err := forwardDNSviaDoH(query)
 	if err == nil {
 		return resp
 	}
-	slog.Info("DoH fallback also failed", "err", err)
+	slog.Debug("DoH fallback failed", "err", err)
 	return nil
 }
 
 func forwardDNSviaUDP(query []byte, server string) ([]byte, error) {
-	conn, err := net.DialTimeout("udp", server, 5*time.Second)
+	conn, err := net.DialTimeout("udp", server, 3*time.Second)
 	if err != nil {
 		return nil, err
 	}
 	defer conn.Close()
-	conn.SetDeadline(time.Now().Add(5 * time.Second))
+	conn.SetDeadline(time.Now().Add(3 * time.Second))
 
 	if _, err := conn.Write(query); err != nil {
 		return nil, err
@@ -572,9 +615,9 @@ func forwardDNSviaUDP(query []byte, server string) ([]byte, error) {
 
 func forwardDNSviaDoH(query []byte) ([]byte, error) {
 	encoded := base64.RawURLEncoding.EncodeToString(query)
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest("GET", "https://dns.google/dns-query?dns="+encoded, nil)
+	client := &http.Client{Timeout: 5 * time.Second}
+	// Используем Cloudflare 1.1.1.1 для повышенной доступности
+	req, err := http.NewRequest("GET", "https://1.1.1.1/dns-query?dns="+encoded, nil)
 	if err != nil {
 		return nil, err
 	}
