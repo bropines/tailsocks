@@ -1,2 +1,2 @@
 configurations.maybeCreate("default")
-artifacts.add("default", file('appctr.aar')) 
+artifacts.add("default", file('tmp/appctr.aar'))

@@ -57,3 +57,8 @@ cobase.txt
 tailscale_src/
 appctr/libtailscale.so
 appctr/libtailscale_cli.so
+
+# Build artifacts
+tmp/
+appctr/tmp/
+appctr/tailscale_src/tmp/
