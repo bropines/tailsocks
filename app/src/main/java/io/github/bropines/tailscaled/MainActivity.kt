@@ -33,6 +33,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.lang.Runtime
 
 class MainActivity : ComponentActivity() {
@@ -100,10 +102,12 @@ class MainActivity : ComponentActivity() {
 fun MainScreen() {
     val context = LocalContext.current
     val prefs = context.getSharedPreferences("appctr", Context.MODE_PRIVATE)
+    val scope = rememberCoroutineScope()
     
     var proxyState by remember { mutableStateOf(if (ProxyState.isActualRunning()) "ACTIVE" else "STOPPED") }
     var showAboutDialog by remember { mutableStateOf(false) }
     var exitNodeIp by remember { mutableStateOf(prefs.getString("exit_node_ip", "") ?: "") }
+    var isProcessing by remember { mutableStateOf(false) } // Флаг блокировки интерфейса
 
     DisposableEffect(context) {
         val receiver = object : BroadcastReceiver() {
@@ -171,8 +175,15 @@ fun MainScreen() {
                 }
             }
 
-            StatusCard(state = proxyState) {
+            StatusCard(state = proxyState, isProcessing = isProcessing) {
+                if (isProcessing) return@StatusCard // Защита от случайных нажатий
+
                 if (proxyState == "ACTIVE" || proxyState == "STARTING") {
+                    isProcessing = true
+                    scope.launch {
+                        delay(3000)
+                        isProcessing = false
+                    }
                     val intent = Intent(context, TailscaledService::class.java).apply { action = "STOP_ACTION" }
                     context.startService(intent)
                 } else {
@@ -188,6 +199,11 @@ fun MainScreen() {
                         return@StatusCard
                     }
 
+                    isProcessing = true
+                    scope.launch {
+                        delay(3000)
+                        isProcessing = false
+                    }
                     val intent = Intent(context, TailscaledService::class.java).apply { action = "START_ACTION" }
                     ContextCompat.startForegroundService(context, intent)
                 }
@@ -208,7 +224,6 @@ fun MainScreen() {
                 MenuCard(title = "Logs", icon = Icons.Default.Info, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                     context.startActivity(Intent(context, LogsActivity::class.java))
                 }
-                // Новая кнопка DNS
                 MenuCard(title = "DNS", icon = Icons.Default.Language, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
                     context.startActivity(Intent(context, DnsActivity::class.java))
                 }
@@ -232,7 +247,7 @@ fun MainScreen() {
         }
     }
 
-if (showAboutDialog) {
+    if (showAboutDialog) {
         val versionName = remember {
             try { context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?" }
             catch (e: Exception) { "?" }
@@ -278,7 +293,7 @@ if (showAboutDialog) {
 }
 
 @Composable
-fun StatusCard(state: String, onToggle: () -> Unit) {
+fun StatusCard(state: String, isProcessing: Boolean, onToggle: () -> Unit) {
     val backgroundColor = when (state) {
         "ACTIVE" -> Color(0xFFDCF8C6)
         "STARTING" -> Color(0xFFFFF59D)
@@ -296,7 +311,8 @@ fun StatusCard(state: String, onToggle: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .height(160.dp)
-            .clickable { onToggle() },
+            .alpha(if (isProcessing) 0.6f else 1f) // Даем визуальный фидбек при блокировке
+            .clickable(enabled = !isProcessing) { onToggle() },
         tonalElevation = 4.dp
     ) {
         Column(
@@ -324,9 +340,10 @@ fun StatusCard(state: String, onToggle: () -> Unit) {
                 color = if (state != "STOPPED") Color.Black else MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = when(state) {
-                    "ACTIVE" -> "Service is running • Tap to stop"
-                    "STARTING" -> "Waking up the daemon..."
+                text = when {
+                    isProcessing -> "Please wait..."
+                    state == "ACTIVE" -> "Service is running • Tap to stop"
+                    state == "STARTING" -> "Waking up the daemon..."
                     else -> "Tap to connect"
                 },
                 modifier = Modifier.alpha(0.6f).padding(top = 4.dp),
