@@ -29,12 +29,19 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+import androidx.annotation.Keep // Убедитесь, что импорт добавлен
+
+@Keep
 data class DnsAddr(@SerializedName("Addr") val addr: String)
+
+@Keep
 data class CurrentTailnetInfo(
     @SerializedName("MagicDNSEnabled") val enabled: Boolean,
     @SerializedName("MagicDNSSuffix") val suffix: String?,
     @SerializedName("SelfDNSName") val selfName: String?
 )
+
+@Keep
 data class DnsStatus(
     @SerializedName("TailscaleDNS") val active: Boolean?,
     @SerializedName("CurrentTailnet") val tailnet: CurrentTailnetInfo?,
