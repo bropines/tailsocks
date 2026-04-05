@@ -2,14 +2,9 @@ package appctr
 
 import (
 	"bufio"
-//	"bytes"
 	"context"
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
-	"encoding/pem"
 	"fmt"
 	"io"
 	"log/slog"
@@ -23,13 +18,8 @@ import (
 	"syscall"
 	"time"
 	_ "time/tzdata"
-	"unsafe"
 
-	"github.com/creack/pty"
 	"golang.org/x/net/dns/dnsmessage"
-	"github.com/gliderlabs/ssh"
-	"github.com/pkg/sftp"
-	gossh "golang.org/x/crypto/ssh"
 	_ "golang.org/x/mobile/bind"
 )
 
@@ -123,15 +113,8 @@ func init() {
 
 // --- MAIN LOGIC ---
 
-func setWinsize(f *os.File, w, h int) {
-	_, _, _ = syscall.Syscall(syscall.SYS_IOCTL, f.Fd(), uintptr(syscall.TIOCSWINSZ),
-		uintptr(unsafe.Pointer(&struct{ h, w, x, y uint16 }{uint16(h), uint16(w), 0, 0})))
-}
-
 var stateMu sync.Mutex
 var cmd *exec.Cmd
-var sshserver *ssh.Server
-var sshListener net.Listener
 var PC pathControl
 var currentLogLevel int32 = 1
 var dnsProxyCancel context.CancelFunc
@@ -172,7 +155,6 @@ func IsRunning() bool {
 }
 
 type StartOptions struct {
-	SSHServer     string
 	ExecPath      string
 	SocketPath    string
 	StatePath     string
@@ -204,20 +186,6 @@ func Start(opt *StartOptions) {
 	stateMu.Lock()
 	PC = newPathControl(opt.ExecPath, opt.SocketPath, opt.StatePath)
 	stateMu.Unlock()
-
-	if opt.SSHServer != "" {
-		go func() {
-			time.Sleep(1 * time.Second)
-			keyData, err := ensureHostKey(PC.DataDir())
-			if err != nil {
-				slog.Error("failed to ensure host key", "err", err)
-				return
-			}
-			if err := startSshServer(opt.SSHServer, PC, keyData); err != nil {
-				slog.Error("ssh server failed", "err", err)
-			}
-		}()
-	}
 
 	go func() {
 		err := tailscaledCmd(PC, opt.Socks5Server, opt.HttpProxy)
@@ -261,36 +229,6 @@ func Start(opt *StartOptions) {
 			}
 		}()
 	}
-}
-
-func ensureHostKey(dir string) ([]byte, error) {
-	keyPath := filepath.Join(dir, "ssh_host_key")
-	if data, err := os.ReadFile(keyPath); err == nil {
-		return data, nil
-	}
-
-	slog.Info("Generating new SSH host key...")
-	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		return nil, err
-	}
-
-	privateKeyPEM := &pem.Block{
-		Type:  "RSA PRIVATE KEY",
-		Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
-	}
-
-	var pemBuf strings.Builder
-	if err := pem.Encode(&pemBuf, privateKeyPEM); err != nil {
-		return nil, err
-	}
-
-	data := []byte(pemBuf.String())
-	if err := os.WriteFile(keyPath, data, 0600); err != nil {
-		return nil, err
-	}
-
-	return data, nil
 }
 
 func RunTailscaleCmd(commandStr string) string {
@@ -368,17 +306,6 @@ func Stop() {
 		slog.Info("stop dns proxy")
 		dnsProxyCancel()
 		dnsProxyCancel = nil
-	}
-
-	if sshserver != nil {
-		slog.Info("stop ssh server")
-		sshserver.Close()
-		sshserver = nil
-	}
-
-	if sshListener != nil {
-		sshListener.Close()
-		sshListener = nil
 	}
 
 	x := cmd
@@ -499,9 +426,6 @@ func tailscaledCmd(p pathControl, socks5host string, httphost string) error {
 
 // --- DNS PROXY ---
 
-// startDNSProxy слушает UDP на listenAddr.
-// Резолвит через tailscaled local API (Unix socket).
-// При ошибке или NXDOMAIN — fallback на обычные UDP серверы и DoH.
 func startDNSProxy(ctx context.Context, listenAddr string, socketPath string, fallbacks []string) error {
 	pc, err := net.ListenPacket("udp", listenAddr)
 	if err != nil {
@@ -546,7 +470,6 @@ func startDNSProxy(ctx context.Context, listenAddr string, socketPath string, fa
 				return
 			}
 
-			// Патчим Transaction ID ответа чтобы совпадал с запросом
 			if len(resp) >= 2 && len(q) >= 2 {
 				resp[0] = q[0]
 				resp[1] = q[1]
@@ -559,9 +482,7 @@ func startDNSProxy(ctx context.Context, listenAddr string, socketPath string, fa
 	}
 }
 
-// forwardDNSviaLocalAPI резолвит DNS через tailscaled local API по Unix сокету.
 func forwardDNSviaLocalAPI(query []byte, socketPath string) ([]byte, error) {
-	// 1. Парсим входящий сырой DNS-запрос, чтобы вытащить домен и тип (A, AAAA)
 	var p dnsmessage.Parser
 	if _, err := p.Start(query); err != nil {
 		return nil, fmt.Errorf("parse dns start: %w", err)
@@ -572,10 +493,10 @@ func forwardDNSviaLocalAPI(query []byte, socketPath string) ([]byte, error) {
 	}
 
 	name := q.Name.String()
-	name = strings.TrimSuffix(name, ".") // Убираем точку на конце для localapi
+	name = strings.TrimSuffix(name, ".")
 
-	qType := q.Type.String() // Вернет "TypeA", "TypeAAAA" и т.д.
-	qType = strings.TrimPrefix(qType, "Type") // Оставляем только "A", "AAAA"
+	qType := q.Type.String()
+	qType = strings.TrimPrefix(qType, "Type")
 
 	transport := &http.Transport{
 		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
@@ -587,7 +508,6 @@ func forwardDNSviaLocalAPI(query []byte, socketPath string) ([]byte, error) {
 		Timeout:   5 * time.Second,
 	}
 
-	// 2. Делаем GET-запрос с правильными параметрами
 	url := fmt.Sprintf("http://local-tailscaled.sock/localapi/v0/dns-query?name=%s&type=%s", name, qType)
 
 	resp, err := client.Get(url)
@@ -605,7 +525,6 @@ func forwardDNSviaLocalAPI(query []byte, socketPath string) ([]byte, error) {
 		return nil, fmt.Errorf("local api status %d: %s", resp.StatusCode, string(body))
 	}
 
-	// 3. Достаем сгенерированный Tailscale-ом DNS-ответ из поля Bytes
 	var dnsResp struct {
 		Bytes []byte `json:"Bytes"`
 	}
@@ -616,7 +535,6 @@ func forwardDNSviaLocalAPI(query []byte, socketPath string) ([]byte, error) {
 	return dnsResp.Bytes, nil
 }
 
-// isNXDOMAIN проверяет RCODE == 3 в DNS ответе
 func isNXDOMAIN(resp []byte) bool {
 	if len(resp) < 4 {
 		return false
@@ -624,7 +542,6 @@ func isNXDOMAIN(resp []byte) bool {
 	return resp[3]&0x0F == 3
 }
 
-// tryFallbackDNS перебирает fallback серверы, потом DoH
 func tryFallbackDNS(query []byte, fallbacks []string) []byte {
 	for _, server := range fallbacks {
 		resp, err := forwardDNSviaUDP(query, server)
@@ -641,7 +558,6 @@ func tryFallbackDNS(query []byte, fallbacks []string) []byte {
 	return nil
 }
 
-// forwardDNSviaUDP отправляет DNS запрос напрямую по UDP
 func forwardDNSviaUDP(query []byte, server string) ([]byte, error) {
 	conn, err := net.DialTimeout("udp", server, 5*time.Second)
 	if err != nil {
@@ -662,7 +578,6 @@ func forwardDNSviaUDP(query []byte, server string) ([]byte, error) {
 	return buf[:n], nil
 }
 
-// forwardDNSviaDoH отправляет DNS запрос через DNS-over-HTTPS (dns.google)
 func forwardDNSviaDoH(query []byte) ([]byte, error) {
 	encoded := base64.RawURLEncoding.EncodeToString(query)
 
@@ -684,103 +599,4 @@ func forwardDNSviaDoH(query []byte) ([]byte, error) {
 	}
 
 	return io.ReadAll(resp.Body)
-}
-
-// --- SSH PART ---
-
-func startSshServer(addr string, pc pathControl, keyData []byte) error {
-	p, _ := pem.Decode(keyData)
-	if p == nil {
-		return fmt.Errorf("failed to decode pem")
-	}
-	key, err := x509.ParsePKCS1PrivateKey(p.Bytes)
-	if err != nil {
-		return err
-	}
-	signer, err := gossh.NewSignerFromKey(key)
-	if err != nil {
-		return err
-	}
-
-	ssh_server := ssh.Server{
-		Addr:        addr,
-		HostSigners: []ssh.Signer{signer},
-		SubsystemHandlers: map[string]ssh.SubsystemHandler{
-			"sftp": sftpHandler,
-		},
-		Handler: func(s ssh.Session) {
-			ptyHandler(s, pc)
-		},
-	}
-
-	ln, err := net.Listen("tcp", addr)
-	if err != nil {
-		return err
-	}
-
-	stateMu.Lock()
-	sshserver = &ssh_server
-	sshListener = ln
-	stateMu.Unlock()
-
-	slog.Info("starting ssh server", "host", addr)
-	return ssh_server.Serve(ln)
-}
-
-var ptyWelcome = `
-Welcome to Tailscaled SSH
-	Tailscaled: %s
-	Work Dir: %s
-	RemoteAddr: %s
-`
-
-func ptyHandler(s ssh.Session, pc pathControl) {
-	_, _ = fmt.Fprintf(s, ptyWelcome, pc.TailscaledSo(), pc.DataDir(), s.RemoteAddr())
-	slog.Info("new pty session", "remote addr", s.RemoteAddr())
-
-	c := exec.Command("/system/bin/sh")
-	c.Dir = pc.DataDir()
-	ptyReq, winCh, isPty := s.Pty()
-	if isPty {
-		c.Env = append(c.Env, fmt.Sprintf("TERM=%s", ptyReq.Term))
-		f, err := pty.Start(c)
-		if err != nil {
-			slog.Error("start pty", "err", err)
-			return
-		}
-		go func() {
-			for win := range winCh {
-				setWinsize(f, win.Width, win.Height)
-			}
-		}()
-		go func() {
-			_, _ = io.Copy(f, s)
-			f.Close()
-		}()
-		_, _ = io.Copy(s, f)
-		s.Close()
-		_ = c.Wait()
-		slog.Info("session exit", "remote addr", s.RemoteAddr())
-	} else {
-		_, _ = io.WriteString(s, "No PTY requested.\n")
-		_ = s.Exit(1)
-	}
-}
-
-func sftpHandler(sess ssh.Session) {
-	slog.Info("new sftp session", "remote addr", sess.RemoteAddr())
-	debugStream := io.Discard
-	serverOptions := []sftp.ServerOption{sftp.WithDebug(debugStream)}
-	server, err := sftp.NewServer(sess, serverOptions...)
-	if err != nil {
-		slog.Error("sftp server init", "err", err)
-		return
-	}
-	if err := server.Serve(); err == io.EOF {
-		server.Close()
-		slog.Info("sftp client exited session.")
-	} else if err != nil {
-		slog.Error("sftp server completed", "err", err)
-	}
-	slog.Info("sftp session exited")
 }

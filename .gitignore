@@ -53,3 +53,6 @@ desktop.ini
 # --- [ Logs & Dumps ] ---
 *.log
 cobase.txt
+
+tailscale_src/
+appctr/libtailscale.so
