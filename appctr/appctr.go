@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -20,6 +21,7 @@ import (
 
 	_ "golang.org/x/mobile/bind"
 	"golang.org/x/net/dns/dnsmessage"
+	"golang.org/x/net/proxy"
 )
 
 // --- LOGGING SYSTEM ---
@@ -162,8 +164,9 @@ type StartOptions struct {
 	CloseCallBack Closer
 	AuthKey       string
 	ExtraUpArgs   string
-	DnsProxy      string // "127.0.0.1:1053" или "0.0.0.0:1053"
+	DnsProxy      string
 	DnsFallbacks  string // "8.8.8.8:53,1.1.1.1:53"
+	DohFallback   string // "https://1.1.1.1/dns-query" или "none" для отключения
 }
 
 func Start(opt *StartOptions) {
@@ -222,8 +225,13 @@ func Start(opt *StartOptions) {
 			if len(fallbacks) == 0 {
 				fallbacks = []string{"8.8.8.8:53", "1.1.1.1:53"}
 			}
-			
-			if err := startDNSProxy(ctx, opt.DnsProxy, opt.Socks5Server, fallbacks); err != nil {
+
+			doh := opt.DohFallback
+			if doh == "" {
+				doh = "https://1.1.1.1/dns-query" // Дефолт на случай пустоты
+			}
+
+			if err := startDNSProxy(ctx, opt.DnsProxy, opt.Socks5Server, fallbacks, doh); err != nil {
 				slog.Error("DNS proxy stopped", "err", err)
 			}
 		}()
@@ -370,7 +378,7 @@ func (p *pathControl) State() string { return p.statePath }
 
 func tailscaledCmd(p pathControl, socks5host string, httphost string) error {
 	rm(p.Tailscale(), p.Tailscaled())
-	
+
 	// ВАЖНО: Разделяем ярлыки для CLI и Демона
 	ln(p.TailscaleCliSo(), p.Tailscale())
 	ln(p.TailscaledSo(), p.Tailscaled())
@@ -427,10 +435,12 @@ func tailscaledCmd(p pathControl, socks5host string, httphost string) error {
 
 // --- DNS PROXY ---
 
-var dnsCache sync.Map // Кэш для ускорения резолва
+var dnsCache sync.Map
+var splitDNSCache sync.Map
+var splitDNSLastUpdate time.Time
+var splitDNSMutex sync.Mutex
 
-// startDNSProxy слушает UDP на listenAddr и работает как полноценный DNS-сервер
-func startDNSProxy(ctx context.Context, listenAddr string, socksAddr string, fallbacks []string) error {
+func startDNSProxy(ctx context.Context, listenAddr string, socksAddr string, fallbacks []string, dohUrl string) error {
 	pc, err := net.ListenPacket("udp", listenAddr)
 	if err != nil {
 		return fmt.Errorf("dns proxy listen failed: %w", err)
@@ -457,7 +467,7 @@ func startDNSProxy(ctx context.Context, listenAddr string, socksAddr string, fal
 		copy(query, buf[:n])
 
 		go func(q []byte, cAddr net.Addr) {
-			resp := processDNSQuery(q, fallbacks)
+			resp := processDNSQuery(q, fallbacks, socksAddr, dohUrl)
 			if resp != nil {
 				if _, err := pc.WriteTo(resp, cAddr); err != nil {
 					slog.Debug("DNS write back error", "err", err)
@@ -467,47 +477,135 @@ func startDNSProxy(ctx context.Context, listenAddr string, socksAddr string, fal
 	}
 }
 
-func processDNSQuery(query []byte, fallbacks []string) []byte {
+func getSplitDNSServers(domain string) []string {
+	splitDNSMutex.Lock()
+	defer splitDNSMutex.Unlock()
+
+	// Обновляем список Split DNS раз в минуту
+	if time.Since(splitDNSLastUpdate) > 60*time.Second {
+		out := RunTailscaleCmd("dns status --json")
+		var status struct {
+			SplitDNSRoutes map[string][]struct{ Addr string }
+		}
+		if err := json.Unmarshal([]byte(out), &status); err == nil {
+			splitDNSCache.Range(func(key, value interface{}) bool {
+				splitDNSCache.Delete(key)
+				return true
+			})
+			for d, addrs := range status.SplitDNSRoutes {
+				d = strings.TrimSuffix(d, ".")
+				var ips []string
+				for _, a := range addrs {
+					ips = append(ips, a.Addr)
+				}
+				splitDNSCache.Store(d, ips)
+			}
+			splitDNSLastUpdate = time.Now()
+		}
+	}
+
+	var match []string
+	splitDNSCache.Range(func(key, value interface{}) bool {
+		route := key.(string)
+		if domain == route || strings.HasSuffix(domain, "."+route) {
+			match = value.([]string)
+			return false
+		}
+		return true
+	})
+	return match
+}
+
+// Перенаправление DNS-запроса по TCP через SOCKS5 прокси
+func forwardDNSviaSOCKS5(query []byte, socksAddr string, dnsServer string) ([]byte, error) {
+	dialer, err := proxy.SOCKS5("tcp", socksAddr, nil, proxy.Direct)
+	if err != nil {
+		return nil, err
+	}
+	conn, err := dialer.Dial("tcp", dnsServer)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	conn.SetDeadline(time.Now().Add(5 * time.Second))
+
+	// TCP-DNS требует 2 байта длины перед самим запросом
+	length := uint16(len(query))
+	buf := make([]byte, 2+len(query))
+	buf[0] = byte(length >> 8)
+	buf[1] = byte(length)
+	copy(buf[2:], query)
+
+	if _, err := conn.Write(buf); err != nil {
+		return nil, err
+	}
+
+	lenBuf := make([]byte, 2)
+	if _, err := io.ReadFull(conn, lenBuf); err != nil {
+		return nil, err
+	}
+
+	respLen := int(lenBuf[0])<<8 | int(lenBuf[1])
+	respBuf := make([]byte, respLen)
+	if _, err := io.ReadFull(conn, respBuf); err != nil {
+		return nil, err
+	}
+
+	return respBuf, nil
+}
+
+func processDNSQuery(query []byte, fallbacks []string, socksAddr string, dohUrl string) []byte {
 	var msg dnsmessage.Message
 	if err := msg.Unpack(query); err != nil || len(msg.Questions) == 0 {
-		return tryFallbackDNS(query, fallbacks)
+		return tryFallbackDNS(query, fallbacks, dohUrl)
 	}
 
 	q := msg.Questions[0]
 	domain := q.Name.String()
-	domain = strings.TrimSuffix(domain, ".") // Убираем точку на конце
+	domain = strings.TrimSuffix(domain, ".")
 
-	// Игнорируем reverse DNS чтобы не спамить CLI
 	if strings.HasSuffix(domain, ".arpa") {
-		return tryFallbackDNS(query, fallbacks)
+		return tryFallbackDNS(query, fallbacks, dohUrl)
 	}
 
 	if q.Type == dnsmessage.TypeA || q.Type == dnsmessage.TypeAAAA {
 		var ips []string
 
-if cached, ok := dnsCache.Load(domain); ok {
+		if cached, ok := dnsCache.Load(domain); ok {
 			ips = cached.([]string)
 		} else {
-			// ОПТИМИЗАЦИЯ 1: Ищем по полному имени (на всякий случай)
+			// 1. Проверяем локальные узлы (быстро)
 			out := RunTailscaleCmd("ip " + domain)
 			ips = extractIPs(out)
-			
-			// ОПТИМИЗАЦИЯ 1.5: Если по полному не нашло - ищем по короткому имени (до первой точки)
-			// Это 100% решает проблему с длинными MagicDNS именами (machine.domain.ts.net)
+
 			if len(ips) == 0 {
 				shortName := strings.Split(domain, ".")[0]
 				out = RunTailscaleCmd("ip " + shortName)
 				ips = extractIPs(out)
 			}
 
-			// ОПТИМИЗАЦИЯ 2: Для Split DNS (therodev.com) и прочего
+			// 2. ИЩЕМ В SPLIT DNS И ПРОКИДЫВАЕМ ЧЕРЕЗ SOCKS5
+			if len(ips) == 0 {
+				splitServers := getSplitDNSServers(domain)
+				if len(splitServers) > 0 {
+					slog.Info("Split DNS via SOCKS5 TCP triggered", "domain", domain, "servers", splitServers)
+					for _, server := range splitServers {
+						target := net.JoinHostPort(server, "53")
+						resp, err := forwardDNSviaSOCKS5(query, socksAddr, target)
+						if err == nil {
+							return resp
+						}
+						slog.Error("SOCKS5 TCP DNS failed", "server", server, "err", err)
+					}
+				}
+			}
+
+			// 3. Если ничего не помогло - обычный CLI запрос
 			if len(ips) == 0 {
 				out = RunTailscaleCmd("dns query " + domain)
 				ips = extractIPs(out)
 			}
-			
-			slog.Info("DNS resolution attempt", "domain", domain, "extracted_ips", fmt.Sprintf("%v", ips))
-			
+
 			if len(ips) > 0 {
 				dnsCache.Store(domain, ips)
 				go func(d string) {
@@ -530,25 +628,15 @@ if cached, ok := dnsCache.Load(domain); ok {
 					var a [4]byte
 					copy(a[:], ip4)
 					msg.Answers = append(msg.Answers, dnsmessage.Resource{
-						Header: dnsmessage.ResourceHeader{
-							Name:  q.Name,
-							Type:  dnsmessage.TypeA,
-							Class: dnsmessage.ClassINET,
-							TTL:   60,
-						},
-						Body: &dnsmessage.AResource{A: a},
+						Header: dnsmessage.ResourceHeader{Name: q.Name, Type: dnsmessage.TypeA, Class: dnsmessage.ClassINET, TTL: 60},
+						Body:   &dnsmessage.AResource{A: a},
 					})
 				} else if ip6 := ip.To16(); ip6 != nil && q.Type == dnsmessage.TypeAAAA {
 					var aaaa [16]byte
 					copy(aaaa[:], ip6)
 					msg.Answers = append(msg.Answers, dnsmessage.Resource{
-						Header: dnsmessage.ResourceHeader{
-							Name:  q.Name,
-							Type:  dnsmessage.TypeAAAA,
-							Class: dnsmessage.ClassINET,
-							TTL:   60,
-						},
-						Body: &dnsmessage.AAAAResource{AAAA: aaaa},
+						Header: dnsmessage.ResourceHeader{Name: q.Name, Type: dnsmessage.TypeAAAA, Class: dnsmessage.ClassINET, TTL: 60},
+						Body:   &dnsmessage.AAAAResource{AAAA: aaaa},
 					})
 				}
 			}
@@ -562,7 +650,7 @@ if cached, ok := dnsCache.Load(domain); ok {
 		}
 	}
 
-	return tryFallbackDNS(query, fallbacks)
+	return tryFallbackDNS(query, fallbacks, dohUrl)
 }
 
 func extractIPs(out string) []string {
@@ -577,7 +665,7 @@ func extractIPs(out string) []string {
 	return ips
 }
 
-func tryFallbackDNS(query []byte, fallbacks []string) []byte {
+func tryFallbackDNS(query []byte, fallbacks []string, dohUrl string) []byte {
 	for _, server := range fallbacks {
 		resp, err := forwardDNSviaUDP(query, server)
 		if err == nil {
@@ -585,11 +673,15 @@ func tryFallbackDNS(query []byte, fallbacks []string) []byte {
 		}
 		slog.Debug("Fallback DNS failed", "server", server, "err", err)
 	}
-	resp, err := forwardDNSviaDoH(query)
-	if err == nil {
-		return resp
+
+	// Если DoH отключен словом "none" - не пытаемся
+	if dohUrl != "none" {
+		resp, err := forwardDNSviaDoH(query, dohUrl)
+		if err == nil {
+			return resp
+		}
+		slog.Debug("DoH fallback failed", "err", err)
 	}
-	slog.Debug("DoH fallback failed", "err", err)
 	return nil
 }
 
@@ -604,7 +696,6 @@ func forwardDNSviaUDP(query []byte, server string) ([]byte, error) {
 	if _, err := conn.Write(query); err != nil {
 		return nil, err
 	}
-
 	buf := make([]byte, 65535)
 	n, err := conn.Read(buf)
 	if err != nil {
@@ -613,11 +704,12 @@ func forwardDNSviaUDP(query []byte, server string) ([]byte, error) {
 	return buf[:n], nil
 }
 
-func forwardDNSviaDoH(query []byte) ([]byte, error) {
+func forwardDNSviaDoH(query []byte, dohUrl string) ([]byte, error) {
 	encoded := base64.RawURLEncoding.EncodeToString(query)
 	client := &http.Client{Timeout: 5 * time.Second}
-	// Используем Cloudflare 1.1.1.1 для повышенной доступности
-	req, err := http.NewRequest("GET", "https://1.1.1.1/dns-query?dns="+encoded, nil)
+
+	// Используем пользовательский URL
+	req, err := http.NewRequest("GET", dohUrl+"?dns="+encoded, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -632,6 +724,5 @@ func forwardDNSviaDoH(query []byte) ([]byte, error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("doh status: %d", resp.StatusCode)
 	}
-
 	return io.ReadAll(resp.Body)
 }

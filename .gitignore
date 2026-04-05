@@ -56,3 +56,4 @@ cobase.txt
 
 tailscale_src/
 appctr/libtailscale.so
+appctr/libtailscale_cli.so
