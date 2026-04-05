@@ -37,6 +37,7 @@ type StartOptions struct {
 	DnsProxy      string
 	DnsFallbacks  string
 	DohFallback   string
+	DoReset       bool // <-- НОВЫЙ ФЛАГ ДЛЯ ОПЦИОНАЛЬНОГО СБРОСА
 }
 
 func SetLogLevel(level int32) {
@@ -72,27 +73,21 @@ func IsRunning() bool {
 // killLeftoverDaemons убивает зависшие процессы tailscaled от предыдущего запуска.
 func killLeftoverDaemons(daemonPath string) {
 	slog.Info("Killing leftover tailscaled processes", "path", daemonPath)
-	// pkill по точному пути бинаря
 	_ = exec.Command("/system/bin/pkill", "-f", daemonPath).Run()
-	// Дополнительно — по имени, на случай если путь отличается
 	_ = exec.Command("/system/bin/pkill", "tailscaled").Run()
 	time.Sleep(600 * time.Millisecond)
 }
 
 func Start(opt *StartOptions) {
-	// 1. Остановить текущий (если есть — внутри текущего JVM-процесса)
 	Stop()
-	time.Sleep(1 * time.Second) // увеличено с 500ms
+	time.Sleep(1 * time.Second)
 
-	// 2. Инициализируем PC ДО pkill, чтобы знать точный путь демона
 	stateMu.Lock()
 	PC = newPathControl(opt.ExecPath, opt.SocketPath, opt.StatePath)
 	stateMu.Unlock()
 
-	// 3. Убиваем зависшие демоны от предыдущего запуска приложения
 	killLeftoverDaemons(PC.Tailscaled())
 
-	// 4. Удаляем стейлый сокет
 	if opt.SocketPath != "" {
 		_ = os.Remove(opt.SocketPath)
 	}
@@ -104,7 +99,6 @@ func Start(opt *StartOptions) {
 		opt.HttpProxy = "127.0.0.1:1057"
 	}
 
-	// 5. Запускаем демон
 	go func() {
 		err := tailscaledCmd(PC, opt.Socks5Server, opt.HttpProxy)
 		if err != nil {
@@ -116,13 +110,11 @@ func Start(opt *StartOptions) {
 		}
 	}()
 
-	// 6. Регистрируем машину (ждём готовности демона)
 	go registerMachineWithAuthKey(PC, opt)
 
-	// 7. DNS-прокси
 	if opt.DnsProxy != "" {
 		go func() {
-			time.Sleep(5 * time.Second) // чуть дольше, чтобы демон точно поднялся
+			time.Sleep(5 * time.Second)
 			slog.Info("Starting DNS proxy", "addr", opt.DnsProxy)
 
 			ctx, cancel := context.WithCancel(context.Background())
@@ -203,20 +195,25 @@ func RunTailscaleCmd(commandStr string) string {
 
 func registerMachineWithAuthKey(PC pathControl, opt *StartOptions) {
 	count := 0
-	maxRetries := 5 // Нет смысла долбиться 30 раз, если таймаут теперь большой
+	maxRetries := 5 // Уменьшено, так как таймаут теперь большой
 
 	for count < maxRetries {
 		if _, err := os.Stat(PC.Socket()); err != nil {
 			count++
 			slog.Info("Waiting for tailscaled socket...", "attempt", count)
-			time.Sleep(1 * time.Second)
+			time.Sleep(500 * time.Millisecond)
 			continue
 		}
 
 		slog.Info("Socket found, waiting for daemon to be fully ready...")
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 
-		args := []string{"--socket", PC.Socket(), "up", "--reset", "--timeout", "45s"}
+		// Убрали --reset по умолчанию, увеличили таймаут до 60с
+		args := []string{"--socket", PC.Socket(), "up", "--timeout", "60s"}
+
+		if opt.DoReset {
+			args = append(args, "--reset")
+		}
 
 		if opt.AuthKey != "" {
 			args = append(args, "--auth-key", opt.AuthKey)
@@ -225,7 +222,7 @@ func registerMachineWithAuthKey(PC pathControl, opt *StartOptions) {
 			args = append(args, strings.Fields(opt.ExtraUpArgs)...)
 		}
 
-		slog.Info("Running tailscale up", "try", count+1)
+		slog.Info("Running tailscale up", "try", count+1, "reset", opt.DoReset)
 
 		c := exec.Command(PC.Tailscale(), args...)
 		data, err := c.CombinedOutput()
@@ -239,6 +236,7 @@ func registerMachineWithAuthKey(PC pathControl, opt *StartOptions) {
 				return
 			}
 			
+			// Если таймаут — оставляем демона в покое, он уже настраивается в фоне
 			if strings.Contains(output, "timeout waiting for Tailscale service to enter a Running state") {
 				slog.Info("Daemon configured but slow to connect. Leaving it to finish in background.")
 				break
