@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/base64"
-	"encoding/json"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"log/slog"
@@ -19,7 +19,7 @@ import (
 	"time"
 	_ "time/tzdata"
 
-	"golang.org/x/net/dns/dnsmessage"
+	"golang.org/x/net/proxy"
 	_ "golang.org/x/mobile/bind"
 )
 
@@ -209,7 +209,6 @@ func Start(opt *StartOptions) {
 			ctx, cancel := context.WithCancel(context.Background())
 			stateMu.Lock()
 			dnsProxyCancel = cancel
-			socketPath := PC.Socket()
 			stateMu.Unlock()
 
 			var fallbacks []string
@@ -224,7 +223,8 @@ func Start(opt *StartOptions) {
 			if len(fallbacks) == 0 {
 				fallbacks = []string{"8.8.8.8:53", "1.1.1.1:53"}
 			}
-			if err := startDNSProxy(ctx, opt.DnsProxy, socketPath, fallbacks); err != nil {
+			// Запускаем прокси, передавая адрес SOCKS5 сервера
+			if err := startDNSProxy(ctx, opt.DnsProxy, opt.Socks5Server, fallbacks); err != nil {
 				slog.Error("DNS proxy stopped", "err", err)
 			}
 		}()
@@ -426,7 +426,9 @@ func tailscaledCmd(p pathControl, socks5host string, httphost string) error {
 
 // --- DNS PROXY ---
 
-func startDNSProxy(ctx context.Context, listenAddr string, socketPath string, fallbacks []string) error {
+// startDNSProxy слушает UDP на listenAddr.
+// Заворачивает сырые UDP пакеты в TCP и шлет через локальный SOCKS5 в MagicDNS
+func startDNSProxy(ctx context.Context, listenAddr string, socksAddr string, fallbacks []string) error {
 	pc, err := net.ListenPacket("udp", listenAddr)
 	if err != nil {
 		return fmt.Errorf("dns proxy listen failed: %w", err)
@@ -453,12 +455,12 @@ func startDNSProxy(ctx context.Context, listenAddr string, socketPath string, fa
 		copy(query, buf[:n])
 
 		go func(q []byte, cAddr net.Addr) {
-			resp, err := forwardDNSviaLocalAPI(q, socketPath)
+			resp, err := forwardDNSviaSOCKS5(q, socksAddr)
 			if err != nil {
-				slog.Info("LocalAPI DNS failed, trying fallback", "err", err)
+				slog.Info("SOCKS5 MagicDNS failed, trying fallback", "err", err)
 				resp = tryFallbackDNS(q, fallbacks)
 			} else if isNXDOMAIN(resp) {
-				slog.Info("LocalAPI DNS returned NXDOMAIN, trying fallback")
+				slog.Info("MagicDNS returned NXDOMAIN, trying fallback")
 				fallbackResp := tryFallbackDNS(q, fallbacks)
 				if fallbackResp != nil && !isNXDOMAIN(fallbackResp) {
 					resp = fallbackResp
@@ -470,6 +472,7 @@ func startDNSProxy(ctx context.Context, listenAddr string, socketPath string, fa
 				return
 			}
 
+			// Патчим Transaction ID ответа чтобы совпадал с запросом
 			if len(resp) >= 2 && len(q) >= 2 {
 				resp[0] = q[0]
 				resp[1] = q[1]
@@ -482,57 +485,46 @@ func startDNSProxy(ctx context.Context, listenAddr string, socketPath string, fa
 	}
 }
 
-func forwardDNSviaLocalAPI(query []byte, socketPath string) ([]byte, error) {
-	var p dnsmessage.Parser
-	if _, err := p.Start(query); err != nil {
-		return nil, fmt.Errorf("parse dns start: %w", err)
-	}
-	q, err := p.Question()
+// forwardDNSviaSOCKS5 берет UDP DNS-запрос, заворачивает его в TCP,
+// пробивается через локальный SOCKS5 Tailscale и стучится в MagicDNS (100.100.100.100:53).
+func forwardDNSviaSOCKS5(query []byte, socksAddr string) ([]byte, error) {
+	dialer, err := proxy.SOCKS5("tcp", socksAddr, nil, proxy.Direct)
 	if err != nil {
-		return nil, fmt.Errorf("parse dns question: %w", err)
+		return nil, fmt.Errorf("socks5 init: %w", err)
 	}
 
-	name := q.Name.String()
-	name = strings.TrimSuffix(name, ".")
-
-	qType := q.Type.String()
-	qType = strings.TrimPrefix(qType, "Type")
-
-	transport := &http.Transport{
-		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-			return net.DialTimeout("unix", socketPath, 3*time.Second)
-		},
-	}
-	client := &http.Client{
-		Transport: transport,
-		Timeout:   5 * time.Second,
-	}
-
-	url := fmt.Sprintf("http://local-tailscaled.sock/localapi/v0/dns-query?name=%s&type=%s", name, qType)
-
-	resp, err := client.Get(url)
+	// Стучимся в сервер MagicDNS по TCP через прокси
+	conn, err := dialer.Dial("tcp", "100.100.100.100:53")
 	if err != nil {
-		return nil, fmt.Errorf("local api request: %w", err)
+		return nil, fmt.Errorf("dial magicdns: %w", err)
 	}
-	defer resp.Body.Close()
+	defer conn.Close()
+	conn.SetDeadline(time.Now().Add(5 * time.Second))
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read local api response: %w", err)
-	}
+	// Формируем TCP DNS запрос (RFC 1035 - первые 2 байта это длина)
+	reqLen := uint16(len(query))
+	tcpQuery := make([]byte, 2+len(query))
+	binary.BigEndian.PutUint16(tcpQuery[0:2], reqLen)
+	copy(tcpQuery[2:], query)
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("local api status %d: %s", resp.StatusCode, string(body))
-	}
-
-	var dnsResp struct {
-		Bytes []byte `json:"Bytes"`
-	}
-	if err := json.Unmarshal(body, &dnsResp); err != nil {
-		return nil, fmt.Errorf("parse json: %w", err)
+	if _, err := conn.Write(tcpQuery); err != nil {
+		return nil, fmt.Errorf("write dns tcp: %w", err)
 	}
 
-	return dnsResp.Bytes, nil
+	// Читаем длину ответа
+	lenBuf := make([]byte, 2)
+	if _, err := io.ReadFull(conn, lenBuf); err != nil {
+		return nil, fmt.Errorf("read dns length: %w", err)
+	}
+	respLen := binary.BigEndian.Uint16(lenBuf)
+
+	// Читаем само тело ответа
+	respBuf := make([]byte, respLen)
+	if _, err := io.ReadFull(conn, respBuf); err != nil {
+		return nil, fmt.Errorf("read dns body: %w", err)
+	}
+
+	return respBuf, nil
 }
 
 func isNXDOMAIN(resp []byte) bool {
