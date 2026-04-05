@@ -208,9 +208,18 @@ fun MainScreen() {
                 MenuCard(title = "Logs", icon = Icons.Default.Info, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                     context.startActivity(Intent(context, LogsActivity::class.java))
                 }
-                MenuCard(title = "Settings", icon = Icons.Default.Settings, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                // Новая кнопка DNS
+                MenuCard(title = "DNS", icon = Icons.Default.Language, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                    context.startActivity(Intent(context, DnsActivity::class.java))
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                MenuCard(title = "Settings", icon = Icons.Default.Settings, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                     context.startActivity(Intent(context, SettingsActivity::class.java))
                 }
+                Spacer(modifier = Modifier.weight(1f).padding(start = 8.dp))
             }
 
             Spacer(modifier = Modifier.height(24.dp))
