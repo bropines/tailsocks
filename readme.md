@@ -1,54 +1,31 @@
+
 # 🧦 TailSocks (Tailscaled Proxy for Android)
 
-**TailSocks** is a lightweight fork of the Android client for [Tailscale](https://tailscale.com/), operating **exclusively in SOCKS5 proxy mode**.
+[![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](LICENSE)
+[![GitHub Release](https://img.shields.io/github/v/release/bropines/tailscaled-socks5-android)](https://github.com/bropines/tailscaled-socks5-android/releases)
 
-Unlike the official application, TailSocks does not use the Android `VpnService` to capture all system traffic. The core runs in `userspace-networking` mode, exposing a local SOCKS5 port (default `127.0.0.1:1055`). This allows you to route Tailscale network traffic selectively (e.g., via browser plugins or specific proxy clients) while keeping another system-wide VPN active.
+**TailSocks** is a highly optimized, lightweight fork of the Android client for [Tailscale](https://tailscale.com/), operating **exclusively in SOCKS5 proxy mode**. 
+
+Unlike the official application, TailSocks avoids the Android `VpnService` to bypass strict system limitations (such as `netlinkrib` access errors). The core runs in a stable `userspace-networking` mode, exposing a local SOCKS5 port (default `127.0.0.1:1055`). This allows you to route Tailscale network traffic selectively while keeping another system-wide VPN active.
 
 ## 🚀 Key Features
-* **Pure SOCKS5:** Access the Tailscale network without forced full-device routing.
-* **Exit Nodes:** Full support for routing traffic through Exit Nodes via proxy.
-* **Built-in SSH/SFTP:** Spins up a local SSH server (default port `1056`) for secure device access.
-* **Strict Validation:** Prevents idle or zombie daemon startups without a valid Auth Key.
-* **Custom DNS & Routes:** Capability to accept routes and MagicDNS.
 
-## 🛠 Build Instructions
+* **Dynamic Core Injection:** The build script automatically downloads the freshest official Tailscale source and injects Android-specific fixes at compile time, eliminating the need to maintain outdated forks.
+* **Hyper-Optimized Binary:** The core daemon is compiled with extensive build tags, completely stripping out heavy desktop/enterprise features (D-Bus, Kubernetes, AWS, BGP, Taildrop, built-in SSH) for lightning-fast startup and drastically reduced binary size.
+* **Advanced Local DNS Proxy:** A custom Go-based local DNS server resolves Android's UDP routing restrictions. It seamlessly handles MagicDNS and Split DNS by wrapping UDP queries into TCP frames and pushing them through the SOCKS5 tunnel directly to Tailscale's internal coordinator (100.100.100.100). 
+* **Ad-Blocker Synergy:** Zero DNS leaks. Internal network queries (e.g., `*.ts.net` or custom domains like `olegdev.com`) are securely routed through the daemon, while all external traffic bypasses the Go daemon entirely, routing natively to filters like AdGuard or custom DoH providers.
+* **Native Web UI:** Seamlessly access the official Tailscale Web UI right from the Android app, hosted locally at `127.0.0.1:8080` once the tunnel is up.
+* **Rock-Solid Stability:** Implements a strict userspace state-machine reset mechanism to completely eliminate deadlocks (`i/o timeout`) during daemon restarts.
 
-To build this project, you will need **Go** and the **Android NDK**.
+## 🛠 How to Build & Architecture
 
-1. Clone the repository:
+👉 **[See the full Build Instructions in `docs/BUILDING.md`](docs/BUILDING.md)**
+👉 **[Read more about the architecture, PIE binaries, and DNS wrapping in `docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)**
 
-```bash
-git clone https://github.com/bropines/tailscaled-socks5-android.git
-cd tailscaled-socks5-android
-```
+## 🗺️ Roadmap
+👉 **[Check out the detailed Roadmap and TODOs in `docs/ROADMAP.md`](docs/ROADMAP.md)**
 
-3. Compile the Go core (`libtailscaled.so`):
+## 📜 License & Credits
 
-```bash
-cd appctr
-sh build.sh
-cd ..
-
-```
-
-
-3. Build the Android APK:
-```bash
-./gradlew app:assembleDebug
-```
-
-## ⚠️ Known Limitations & Technical Debt
-
-Attempts to expand the functionality revealed architectural limitations of running the official `tailscaled` daemon outside the native app context (via `exec.Command`):
-
-* **Taildrop is disabled (JNI Panic):** File sharing is stripped out at compile time via the `ts_omit_taildrop` tag. If enabled, `tailscaled` attempts to use JNI to locate the system `Downloads` directory. Because it runs as a detached child process without a JVM context (`JNIEnv`), this results in an immediate panic (`exit status 2`).
-* **Full VPN Mode disabled (fdsan crash):** Attempts to pass a `VpnService` file descriptor (FD) into Go (directly or via `tun2socks`) crash the Android app (`fdsan: double-close of file descriptor`). Kotlin's Garbage Collector and the external Go process conflict over the FD lifecycle.
-
-*Future implementation of these features requires abandoning `exec.Command` and migrating the core to an in-process execution using `tailscale.com/tsnet` with proper JNIEnv passing.*
-
-## 📜 License
-
-Based on the open-source Tailscale client and the [Asutorufa](https://github.com/Asutorufa/tailscale) fork.
 Distributed under the **BSD-3-Clause** License.
-
-**Developer:** Bropines(Pinus)
+* **Developer:** [Bropines](https://github.com/bropines)
