@@ -22,7 +22,8 @@ var splitDNSCache sync.Map
 var splitDNSLastUpdate time.Time
 var splitDNSMutex sync.Mutex
 
-func startDNSProxy(ctx context.Context, listenAddr string, socksAddr string, fallbacks []string, dohUrl string) error {
+// Добавлены socksUser и socksPass
+func startDNSProxy(ctx context.Context, listenAddr string, socksAddr string, socksUser string, socksPass string, fallbacks []string, dohUrl string) error {
 	pc, err := net.ListenPacket("udp", listenAddr)
 	if err != nil {
 		return fmt.Errorf("dns proxy listen failed: %w", err)
@@ -49,7 +50,8 @@ func startDNSProxy(ctx context.Context, listenAddr string, socksAddr string, fal
 		copy(query, buf[:n])
 
 		go func(q []byte, cAddr net.Addr) {
-			resp := processDNSQuery(q, fallbacks, socksAddr, dohUrl)
+			// Прокидываем логин и пароль дальше
+			resp := processDNSQuery(q, fallbacks, socksAddr, socksUser, socksPass, dohUrl)
 			if resp != nil {
 				if _, err := pc.WriteTo(resp, cAddr); err != nil {
 					slog.Debug("DNS write back error", "err", err)
@@ -97,8 +99,14 @@ func getSplitDNSServers(domain string) []string {
 	return match
 }
 
-func forwardDNSviaSOCKS5(query []byte, socksAddr string, dnsServer string) ([]byte, error) {
-	dialer, err := proxy.SOCKS5("tcp", socksAddr, nil, proxy.Direct)
+// Добавлены user и pass для SOCKS5 авторизации
+func forwardDNSviaSOCKS5(query []byte, socksAddr string, user string, pass string, dnsServer string) ([]byte, error) {
+	var auth *proxy.Auth
+	if user != "" || pass != "" {
+		auth = &proxy.Auth{User: user, Password: pass}
+	}
+
+	dialer, err := proxy.SOCKS5("tcp", socksAddr, auth, proxy.Direct)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +141,8 @@ func forwardDNSviaSOCKS5(query []byte, socksAddr string, dnsServer string) ([]by
 	return respBuf, nil
 }
 
-func processDNSQuery(query []byte, fallbacks []string, socksAddr string, dohUrl string) []byte {
+// Добавлены socksUser и socksPass
+func processDNSQuery(query []byte, fallbacks []string, socksAddr, socksUser, socksPass, dohUrl string) []byte {
 	var msg dnsmessage.Message
 	if err := msg.Unpack(query); err != nil || len(msg.Questions) == 0 {
 		return tryFallbackDNS(query, fallbacks, dohUrl)
@@ -169,7 +178,8 @@ func processDNSQuery(query []byte, fallbacks []string, socksAddr string, dohUrl 
 					slog.Info("Split DNS via SOCKS5 TCP triggered", "domain", domain, "servers", splitServers)
 					for _, server := range splitServers {
 						target := net.JoinHostPort(server, "53")
-						resp, err := forwardDNSviaSOCKS5(query, socksAddr, target)
+						// Передаем логин и пароль в SOCKS5
+						resp, err := forwardDNSviaSOCKS5(query, socksAddr, socksUser, socksPass, target)
 						if err == nil {
 							return resp
 						}

@@ -76,8 +76,10 @@ class TailscaledService : Service() {
 
     private fun startTailscale() {
         val options = StartOptions().apply {
-            socks5Server = prefs.getString("socks5", "127.0.0.1:1055")
-            httpProxy    = prefs.getString("httpproxy", "127.0.0.1:1057")
+            socks5Server = prefs.getString("socks5", "127.0.0.1:48115")
+            socks5User   = prefs.getString("socks5_user", "")
+            socks5Pass   = prefs.getString("socks5_pass", "")
+            httpProxy    = prefs.getString("httpproxy", "")
             dnsProxy     = "127.0.0.1:1053"
             dnsFallbacks = "${prefs.getString("dns_fallback1", "8.8.8.8:53")},${prefs.getString("dns_fallback2", "1.1.1.1:53")}"
             dohFallback  = prefs.getString("doh_url", "https://1.1.1.1/dns-query")
