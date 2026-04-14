@@ -39,8 +39,11 @@ fun SettingsScreen(onBack: () -> Unit) {
     var hostname by remember { mutableStateOf(prefs.getString("hostname", "") ?: "") }
     var loginServer by remember { mutableStateOf(prefs.getString("login_server", "") ?: "") }
     
-    var socks5 by remember { mutableStateOf(prefs.getString("socks5", "127.0.0.1:1055") ?: "127.0.0.1:1055") }
-    var httpProxy by remember { mutableStateOf(prefs.getString("httpproxy", "127.0.0.1:1057") ?: "127.0.0.1:1057") }
+    var socks5 by remember { mutableStateOf(prefs.getString("socks5", "127.0.0.1:48115") ?: "127.0.0.1:48115") }
+    var httpProxy by remember { mutableStateOf(prefs.getString("httpproxy", "") ?: "") }
+
+    var socks5User by remember { mutableStateOf(prefs.getString("socks5_user", "") ?: "") }
+    var socks5Pass by remember { mutableStateOf(prefs.getString("socks5_pass", "") ?: "") }
     
     var exitNodeIp by remember { mutableStateOf(prefs.getString("exit_node_ip", "") ?: "") }
     var exitNodeAllowLan by remember { mutableStateOf(prefs.getBoolean("exit_node_allow_lan", false)) }
@@ -133,6 +136,17 @@ fun SettingsScreen(onBack: () -> Unit) {
                             save("httpproxy", it)
                         }
                     }
+                }
+                
+            // Добавляем поля ввода для логина и пароля
+                Spacer(Modifier.height(8.dp))
+                SettingsTextField("SOCKS5 Username (optional)", socks5User, "Leave blank to disable auth") {
+                    socks5User = it
+                    save("socks5_user", it)
+                }
+                SettingsTextField("SOCKS5 Password (optional)", socks5Pass, "Leave blank to disable auth") {
+                    socks5Pass = it
+                    save("socks5_pass", it)
                 }
             }
 

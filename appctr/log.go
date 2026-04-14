@@ -2,6 +2,7 @@ package appctr
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -9,42 +10,70 @@ import (
 	"sync"
 )
 
+// Структура для лога, которая полетит в Kotlin
+type LogEntry struct {
+	Timestamp string `json:"timestamp"`
+	Level     string `json:"level"`
+	Category  string `json:"category"`
+	Message   string `json:"message"`
+}
+
 type LogManager struct {
 	mu      sync.RWMutex
-	logs    []string
+	logs    []LogEntry
 	maxSize int
 }
 
 var logManager = &LogManager{
-	logs:    make([]string, 0, 10000),
+	logs:    make([]LogEntry, 0, 10000),
 	maxSize: 10000,
 }
 
-func (lm *LogManager) AddLog(entry string) {
+func (lm *LogManager) AddLog(entry LogEntry) {
 	lm.mu.Lock()
 	defer lm.mu.Unlock()
 	if len(lm.logs) >= lm.maxSize {
+		// Очищаем половину, если переполнилось
 		lm.logs = lm.logs[len(lm.logs)/2:]
 	}
 	lm.logs = append(lm.logs, entry)
 }
 
+// Отдаем чистый JSON для Android
+func (lm *LogManager) GetLogsJSON() string {
+	lm.mu.RLock()
+	defer lm.mu.RUnlock()
+	
+	bytes, err := json.Marshal(lm.logs)
+	if err != nil {
+		return "[]"
+	}
+	return string(bytes)
+}
+
+// Оставляем старый метод просто на всякий случай (например, для экспорта в txt)
 func (lm *LogManager) GetLogs() string {
 	lm.mu.RLock()
 	defer lm.mu.RUnlock()
-	return strings.Join(lm.logs, "\n")
+	var sb strings.Builder
+	for _, l := range lm.logs {
+		sb.WriteString(fmt.Sprintf("%s [%s] %s\n", l.Timestamp, l.Level, l.Message))
+	}
+	return sb.String()
 }
 
 func (lm *LogManager) ClearLogs() {
 	lm.mu.Lock()
 	defer lm.mu.Unlock()
-	lm.logs = make([]string, 0, lm.maxSize)
+	lm.logs = make([]LogEntry, 0, lm.maxSize)
 }
 
-func GetLogs() string { return logManager.GetLogs() }
-func ClearLogs()      { logManager.ClearLogs() }
+// Экспортируем функции для gomobile
+func GetLogsJSON() string { return logManager.GetLogsJSON() }
+func GetLogs() string     { return logManager.GetLogs() }
+func ClearLogs()          { logManager.ClearLogs() }
 
-// --- slog handler ---
+// --- Обработчик slog ---
 
 type dualHandler struct {
 	textHandler slog.Handler
@@ -72,12 +101,29 @@ func (h *dualHandler) Handle(ctx context.Context, r slog.Record) error {
 	})
 
 	msg := sb.String()
-	var entry string
-	if len(msg) > 4 && msg[:2] == "20" && msg[4] == '/' {
-		entry = fmt.Sprintf("[%s] %s", r.Level.String(), msg)
+
+	if len(msg) > 20 && msg[4] == '/' && msg[7] == '/' && msg[13] == ':' && msg[16] == ':' {
+		msg = msg[20:]
+	}
+
+	timestamp := r.Time.Local().Format("15:04:05")
+
+	// Определение категории
+	category := "OTHER"
+	lowerMsg := strings.ToLower(msg)
+	if r.Level >= slog.LevelError || strings.Contains(lowerMsg, "error") || strings.Contains(lowerMsg, "failed") {
+		category = "ERROR"
+	} else if strings.HasPrefix(msg, "[v1]") || strings.HasPrefix(msg, "[v2]") || strings.Contains(lowerMsg, "wgengine") {
+		category = "TAILSCALE"
 	} else {
-		timestamp := r.Time.Local().Format("15:04:05")
-		entry = fmt.Sprintf("%s [%s] %s", timestamp, r.Level.String(), msg)
+		category = "CORE"
+	}
+
+	entry := LogEntry{
+		Timestamp: timestamp,
+		Level:     r.Level.String(),
+		Category:  category,
+		Message:   msg,
 	}
 
 	logManager.AddLog(entry)
