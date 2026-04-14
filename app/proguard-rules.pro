@@ -31,3 +31,28 @@
 
 # Keep Appctr bridge just in case
 -keep class appctr.** { *; }
+
+# Keep all Gomobile bridge classes (internal mechanics)
+-keep class go.** { *; }
+-keep interface go.** { *; }
+
+# Keep all the generated Go classes of our module
+-keep class appctr.** { *; }
+-keep interface appctr.** { *; }
+
+# Just in case, please don't touch the native methods (JNI)
+-keepclasseswithmembernames class * {
+    native<methods>;
+}
+
+# Be sure to keep the annotations and signatures for Gson, 
+# so that it can properly parse logs and status from JSON
+-keepattributes Signature
+-keepattributes *Annotation*
+-keepattributes EnclosingMethod
+
+# Your data classes (@Keep) are already protected, but just in case, 
+# Let's protect the entire model package from aggressive obfuscation.
+-keep class io.github.bropines.tailscaled.PeerData { *; }
+-keep class io.github.bropines.tailscaled.StatusResponse { *; }
+-keep class io.github.bropines.tailscaled.LogEntry { *; }
