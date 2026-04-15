@@ -46,6 +46,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         checkNotificationPermission()
         handleAppStartup()
+        checkForUpdatesSilent()
 
         setContent {
             MaterialTheme(
@@ -93,6 +94,28 @@ class MainActivity : ComponentActivity() {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
+        }
+    }
+
+    private fun checkForUpdatesSilent() {
+        val scope = kotlinx.coroutines.MainScope()
+        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val currentVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0.0"
+                val connection = java.net.URL("https://api.github.com/repos/bropines/tailsocks/releases/latest").openConnection() as java.net.HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.setRequestProperty("Accept", "application/vnd.github.v3+json")
+                if (connection.responseCode == 200) {
+                    val response = connection.inputStream.bufferedReader().use { it.readText() }
+                    val json = com.google.gson.Gson().fromJson(response, com.google.gson.JsonObject::class.java)
+                    val tag = json.get("tag_name").asString
+                    if (tag.removePrefix("v") != currentVersion.removePrefix("v")) {
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                            Toast.makeText(this@MainActivity, "🚀 New TailSocks update available: $tag", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            } catch (e: Exception) {}
         }
     }
 }

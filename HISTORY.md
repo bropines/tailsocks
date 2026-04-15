@@ -13,7 +13,9 @@ This file tracks architectural decisions, failed attempts, and successful implem
 - **IP Randomization:** Updated the SOCKS5 randomizer to use the entire `127.x.y.z` range (Localhost/8) to avoid port collisions and improve isolation.
 - **Refactoring:** Removed `dummy_systray` patch and `appctr_test.go` as they were redundant due to build tags.
 - **CI/CD Optimization:** Updated `android.yml` to trigger only on code changes (app/ or appctr/) and not on documentation edits.
-- **Backups** Added backup system to json
+- **Auto-refresh Config:** Implemented a periodic background loop (every 15s) in `TailscaledService` that runs `tailscale up` (ReUp) to sync admin policies automatically.
+- **Startup Update Check:** Moved app version checking to application startup (silent Toast notification) and kept a manual button in Settings.
+- **Backups:** Added backup/restore system to JSON.
 
 ### ⚠️ Known Issues / Quarks:
 - **Signature Incompatibility:** Builds from `v1.4.0` onwards are NOT compatible with older "fork" versions (v1.3.1 and below). Users must uninstall the old app first.
