@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,6 +18,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import appctr.Appctr
+import com.google.gson.Gson
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlin.random.Random
 
 class SettingsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,6 +67,14 @@ fun SettingsScreen(onBack: () -> Unit) {
 
     var enableWebUi by remember { mutableStateOf(prefs.getBoolean("enable_webui", false)) }
     var webUiPort by remember { mutableStateOf(prefs.getString("webui_port", "127.0.0.1:8080") ?: "127.0.0.1:8080") }
+
+    var dnsProxy by remember { mutableStateOf(prefs.getString("dns_proxy", "127.0.0.1:1053") ?: "127.0.0.1:1053") }
+
+    var exitNodes by remember { mutableStateOf<List<PeerData>>(emptyList()) }
+    var isLoadingExitNodes by remember { mutableStateOf(false) }
+    var exitNodesExpanded by remember { mutableStateOf(false) }
+
+    val scope = rememberCoroutineScope()
 
     // Функция сохранения
     fun save(key: String, value: Any) {
@@ -110,9 +126,75 @@ fun SettingsScreen(onBack: () -> Unit) {
 
             item { SectionTitle("Exit Node") }
             item {
-                SettingsTextField("Exit Node IP/Name", exitNodeIp, "100.x.y.z") {
-                    exitNodeIp = it
-                    save("exit_node_ip", it)
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = exitNodeIp,
+                        onValueChange = { 
+                            exitNodeIp = it
+                            save("exit_node_ip", it)
+                        },
+                        label = { Text("Exit Node IP/Name") },
+                        placeholder = { Text("100.x.y.z") },
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        singleLine = true,
+                        trailingIcon = {
+                            IconButton(onClick = { 
+                                exitNodesExpanded = true 
+                                if (exitNodes.isEmpty()) {
+                                    isLoadingExitNodes = true
+                                    scope.launch(Dispatchers.IO) {
+                                        try {
+                                            val json = Appctr.runTailscaleCmd("status --json")
+                                            val status = Gson().fromJson(json, StatusResponse::class.java)
+                                            val nodes = status.peers?.values?.filter { it.exitNodeOption == true } ?: emptyList()
+                                            withContext(Dispatchers.Main) {
+                                                exitNodes = nodes
+                                                isLoadingExitNodes = false
+                                            }
+                                        } catch (e: Exception) {
+                                            withContext(Dispatchers.Main) {
+                                                isLoadingExitNodes = false
+                                            }
+                                        }
+                                    }
+                                }
+                            }) {
+                                Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Exit Node")
+                            }
+                        }
+                    )
+                    DropdownMenu(
+                        expanded = exitNodesExpanded,
+                        onDismissRequest = { exitNodesExpanded = false },
+                        modifier = Modifier.fillMaxWidth(0.9f)
+                    ) {
+                        if (isLoadingExitNodes) {
+                            DropdownMenuItem(text = { Text("Loading...") }, onClick = {})
+                        } else {
+                            DropdownMenuItem(
+                                text = { Text("None (Clear)") },
+                                onClick = { 
+                                    exitNodeIp = ""
+                                    save("exit_node_ip", "")
+                                    exitNodesExpanded = false
+                                }
+                            )
+                            if (exitNodes.isEmpty()) {
+                                DropdownMenuItem(text = { Text("No exit nodes found") }, onClick = {})
+                            } else {
+                                exitNodes.forEach { node ->
+                                    DropdownMenuItem(
+                                        text = { Text("${node.getDisplayName()} (${node.getPrimaryIp()})") },
+                                        onClick = { 
+                                            exitNodeIp = node.getPrimaryIp()
+                                            save("exit_node_ip", exitNodeIp)
+                                            exitNodesExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
                 SettingsSwitch("Allow LAN Access", exitNodeAllowLan) {
                     exitNodeAllowLan = it
@@ -122,23 +204,36 @@ fun SettingsScreen(onBack: () -> Unit) {
 
             item { SectionTitle("Proxy Ports") }
             item {
-                Row(Modifier.fillMaxWidth()) {
-                    Box(Modifier.weight(1f)) {
-                        SettingsTextField("SOCKS5", socks5, "127.0.0.1:1055") {
-                            socks5 = it
-                            save("socks5", it)
+                OutlinedTextField(
+                    value = socks5,
+                    onValueChange = { 
+                        socks5 = it
+                        save("socks5", it)
+                    },
+                    label = { Text("SOCKS5 Proxy") },
+                    placeholder = { Text("127.0.0.1:1055") },
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    singleLine = true,
+                    trailingIcon = {
+                        IconButton(onClick = {
+                            val randomPort = Random.nextInt(10000, 60000)
+                            val ip2 = Random.nextInt(0, 256)
+                            val ip3 = Random.nextInt(0, 256)
+                            val ip4 = Random.nextInt(1, 255)
+                            val newAddress = "127.$ip2.$ip3.$ip4:$randomPort"
+                            socks5 = newAddress
+                            save("socks5", newAddress)
+                        }) {
+                            Icon(Icons.Default.Refresh, contentDescription = "Random Port and IP")
                         }
                     }
-                    Spacer(Modifier.width(8.dp))
-                    Box(Modifier.weight(1f)) {
-                        SettingsTextField("HTTP", httpProxy, "127.0.0.1:1057") {
-                            httpProxy = it
-                            save("httpproxy", it)
-                        }
-                    }
+                )
+                
+                SettingsTextField("HTTP Proxy", httpProxy, "127.0.0.1:1057") {
+                    httpProxy = it
+                    save("httpproxy", it)
                 }
                 
-            // Добавляем поля ввода для логина и пароля
                 Spacer(Modifier.height(8.dp))
                 SettingsTextField("SOCKS5 Username (optional)", socks5User, "Leave blank to disable auth") {
                     socks5User = it
@@ -152,6 +247,10 @@ fun SettingsScreen(onBack: () -> Unit) {
 
             item { SectionTitle("DNS Settings") }
             item {
+                SettingsTextField("DNS Proxy Listen Address", dnsProxy, "127.0.0.1:1053") {
+                    dnsProxy = it
+                    save("dns_proxy", it)
+                }
                 SettingsTextField("DNS Fallback 1", dnsFallback1, "8.8.8.8:53") {
                     dnsFallback1 = it
                     save("dns_fallback1", it)
