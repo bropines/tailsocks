@@ -25,8 +25,26 @@ android {
         applicationId = "io.github.bropines.tailscaled"
         minSdk = 24
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.2.2"
+        versionCode = try {
+            val stdout = java.io.ByteArrayOutputStream()
+            project.exec {
+                commandLine("git", "rev-list", "--count", "HEAD")
+                standardOutput = stdout
+            }
+            stdout.toString().trim().toInt()
+        } catch (e: Exception) {
+            1
+        }
+        versionName = try {
+            val stdout = java.io.ByteArrayOutputStream()
+            project.exec {
+                commandLine("git", "describe", "--tags", "--always", "--dirty")
+                standardOutput = stdout
+            }
+            stdout.toString().trim().removePrefix("v")
+        } catch (e: Exception) {
+            "1.0.0-unknown"
+        }
 
         ndk {
             abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64"))
