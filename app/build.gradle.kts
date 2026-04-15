@@ -4,6 +4,17 @@ plugins {
     alias(libs.plugins.compose.compiler)
 }
 
+import java.util.Properties
+
+// Получаем версию из git через современные провайдеры Gradle
+val gitVersionCode = providers.exec {
+    commandLine("git", "rev-list", "--count", "HEAD")
+}.standardOutput.asText.map { it.trim().toInt() }.getOrElse(1)
+
+val gitVersionName = providers.exec {
+    commandLine("git", "describe", "--tags", "--always", "--dirty")
+}.standardOutput.asText.map { it.trim().removePrefix("v") }.getOrElse("1.2.3-dirty")
+
 android {
     namespace = "io.github.bropines.tailscaled"
     // Оставляем 36, так как core-ktx 1.17.0 этого требует
@@ -25,26 +36,8 @@ android {
         applicationId = "io.github.bropines.tailscaled"
         minSdk = 24
         targetSdk = 35
-        versionCode = try {
-            val stdout = java.io.ByteArrayOutputStream()
-            project.exec {
-                commandLine("git", "rev-list", "--count", "HEAD")
-                standardOutput = stdout
-            }
-            stdout.toString().trim().toInt()
-        } catch (e: Exception) {
-            1
-        }
-        versionName = try {
-            val stdout = java.io.ByteArrayOutputStream()
-            project.exec {
-                commandLine("git", "describe", "--tags", "--always", "--dirty")
-                standardOutput = stdout
-            }
-            stdout.toString().trim().removePrefix("v")
-        } catch (e: Exception) {
-            "1.0.0-unknown"
-        }
+        versionCode = gitVersionCode
+        versionName = gitVersionName
 
         ndk {
             abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64"))
