@@ -2,7 +2,7 @@
 # 🧦 TailSocks (Tailscaled Proxy for Android)
 
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](LICENSE)
-[![GitHub Release](https://img.shields.io/github/v/release/bropines/tailscaled-socks5-android)](https://github.com/bropines/tailscaled-socks5-android/releases)
+[![GitHub Release](https://img.shields.io/github/v/release/bropines/tailsocks)](https://github.com/bropines/tailsocks/releases)
 
 **TailSocks** is a highly optimized, lightweight fork of the Android client for [Tailscale](https://tailscale.com/), operating **exclusively in SOCKS5 proxy mode**. 
 
