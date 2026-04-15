@@ -9,11 +9,16 @@ import java.util.Properties
 // Получаем версию из git через современные провайдеры Gradle
 val gitVersionCode = providers.exec {
     commandLine("git", "rev-list", "--count", "HEAD")
-}.standardOutput.asText.map { it.trim().toInt() }.getOrElse(1)
+    workingDir = rootDir
+}.standardOutput.asText.map { it.trim().toInt() + 10 }.getOrElse(10)
 
 val gitVersionName = providers.exec {
     commandLine("git", "describe", "--tags", "--always", "--dirty")
+    workingDir = rootDir
 }.standardOutput.asText.map { it.trim().removePrefix("v") }.getOrElse("1.2.3-dirty")
+
+println("-> Build VersionCode: $gitVersionCode")
+println("-> Build VersionName: $gitVersionName")
 
 android {
     namespace = "io.github.bropines.tailscaled"
