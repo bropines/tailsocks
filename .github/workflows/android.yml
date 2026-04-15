@@ -37,6 +37,9 @@ on:
         default: false
         type: boolean
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
