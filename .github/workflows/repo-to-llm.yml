@@ -1,0 +1,51 @@
+name: Project to LLM Context
+
+on:
+  workflow_dispatch:
+    inputs:
+      include_extensions:
+        description: 'Extensions to include (regex)'
+        required: true
+        default: '\.kt$|\.java$|\.go$|\.gradle$|\.kts$|\.sh$|\.xml$|\.json$|\.md$|\.mod$|\.sum$'
+      exclude_dirs:
+        description: 'Directories to ignore (regex)'
+        required: true
+        default: 'node_modules|.git|build|app/build|.gradle|gradle/wrapper'
+      output_name:
+        description: 'Name of the output file'
+        required: true
+        default: 'codebase_context.txt'
+
+jobs:
+  build-context:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate Context
+        run: |
+          # 1. Генерируем структуру (используем стандартный find)
+          echo "PROJECT STRUCTURE" > ${{ github.event.inputs.output_name }}
+          echo "=================" >> ${{ github.event.inputs.output_name }}
+          find . -maxdepth 5 -not -path '*/.*' | sed -e "s/[^-][^\/]*\// |/g" -e "s/|\([^ ]\)/|-\1/" >> ${{ github.event.inputs.output_name }}
+          
+          echo -e "\n\nFILE CONTENTS" >> ${{ github.event.inputs.output_name }}
+          echo "=============" >> ${{ github.event.inputs.output_name }}
+
+          # 2. Ищем файлы, фильтруем по расширениям и исключаем папки
+          find . -type f | grep -E "${{ github.event.inputs.include_extensions }}" | while read -r file; do
+            # Проверка на исключаемые папки через регулярку
+            if [[ "$file" =~ ${{ github.event.inputs.exclude_dirs }} ]]; then
+              continue
+            fi
+
+            echo -e "\n--- START OF FILE: $file ---" >> ${{ github.event.inputs.output_name }}
+            cat "$file" >> ${{ github.event.inputs.output_name }}
+            echo -e "--- END OF FILE: $file ---" >> ${{ github.event.inputs.output_name }}
+          done
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.inputs.output_name }}
+          path: ${{ github.event.inputs.output_name }}
