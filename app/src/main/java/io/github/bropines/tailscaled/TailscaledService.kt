@@ -23,6 +23,17 @@ class TailscaledService : Service() {
     private lateinit var prefs: SharedPreferences
     private var wakeLock: PowerManager.WakeLock? = null
     
+    private val refreshHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val refreshRunnable = object : Runnable {
+        override fun run() {
+            if (Appctr.isRunning() && prefs.getBoolean("auto_refresh_config", false)) {
+                Log.d(TAG, "Auto-refreshing configuration...")
+                Thread { Appctr.reUp() }.start()
+            }
+            refreshHandler.postDelayed(this, 15000) // 15 seconds
+        }
+    }
+
     private lateinit var connectivityManager: ConnectivityManager
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
@@ -71,6 +82,11 @@ class TailscaledService : Service() {
         } else {
             updateNotification("Active")
         }
+        
+        // Запускаем цикл обновления
+        refreshHandler.removeCallbacks(refreshRunnable)
+        refreshHandler.postDelayed(refreshRunnable, 15000)
+        
         return START_STICKY
     }
 
@@ -130,6 +146,7 @@ class TailscaledService : Service() {
 
     private fun stopMe() {
         ProxyState.setUserState(this, false)
+        refreshHandler.removeCallbacks(refreshRunnable)
         Appctr.stop()
         if (wakeLock?.isHeld == true) wakeLock?.release()
         stopForeground(STOP_FOREGROUND_REMOVE)

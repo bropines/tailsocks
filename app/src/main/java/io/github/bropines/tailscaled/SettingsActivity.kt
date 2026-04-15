@@ -84,6 +84,15 @@ fun SettingsScreen(onBack: () -> Unit) {
     var isLoadingExitNodes by remember { mutableStateOf(false) }
     var exitNodesExpanded by remember { mutableStateOf(false) }
 
+    var latestVersion by remember { mutableStateOf<String?>(null) }
+    var isCheckingUpdate by remember { mutableStateOf(false) }
+    var autoRefreshConfig by remember { mutableStateOf(prefs.getBoolean("auto_refresh_config", false)) }
+    
+    val currentVersion = remember {
+        try { context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0.0.0" }
+        catch (e: Exception) { "0.0.0" }
+    }
+
     // Лаунчер для создания файла бэкапа
     val createDocumentLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json")
@@ -411,6 +420,90 @@ fun SettingsScreen(onBack: () -> Unit) {
                         Icon(Icons.Default.Upload, null)
                         Spacer(Modifier.width(8.dp))
                         Text("Import")
+                    }
+                }
+            }
+
+            item { SectionTitle("Tailscale Admin") }
+            item {
+                SettingsSwitch("Auto-refresh configuration", autoRefreshConfig) {
+                    autoRefreshConfig = it
+                    save("auto_refresh_config", it)
+                }
+                Text(
+                    "Automatically runs 'tailscale up' to sync tags/policies (every 15s).",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            item { SectionTitle("App Version") }
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Current Version: $currentVersion", fontWeight = FontWeight.Bold)
+                        if (latestVersion != null) {
+                            Spacer(Modifier.height(4.dp))
+                            val isNewer = latestVersion!!.removePrefix("v") != currentVersion.removePrefix("v")
+                            Text(
+                                text = if (isNewer) "New version available: $latestVersion" else "You are up to date!",
+                                color = if (isNewer) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (isNewer) {
+                                Button(
+                                    onClick = {
+                                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse("https://github.com/bropines/tailsocks/releases/latest"))
+                                        context.startActivity(intent)
+                                    },
+                                    modifier = Modifier.padding(top = 8.dp).fillMaxWidth()
+                                ) {
+                                    Text("Download Update")
+                                }
+                            }
+                        }
+
+                        Button(
+                            onClick = {
+                                isCheckingUpdate = true
+                                scope.launch(Dispatchers.IO) {
+                                    try {
+                                        val connection = java.net.URL("https://api.github.com/repos/bropines/tailsocks/releases/latest").openConnection() as java.net.HttpURLConnection
+                                        connection.requestMethod = "GET"
+                                        connection.setRequestProperty("Accept", "application/vnd.github.v3+json")
+                                        
+                                        if (connection.responseCode == 200) {
+                                            val response = connection.inputStream.bufferedReader().use { it.readText() }
+                                            val json = Gson().fromJson(response, com.google.gson.JsonObject::class.java)
+                                            val tag = json.get("tag_name").asString
+                                            withContext(Dispatchers.Main) {
+                                                latestVersion = tag
+                                                isCheckingUpdate = false
+                                            }
+                                        } else {
+                                            throw Exception("HTTP ${connection.responseCode}")
+                                        }
+                                    } catch (e: Exception) {
+                                        withContext(Dispatchers.Main) {
+                                            Toast.makeText(context, "Update check failed: ${e.message}", Toast.LENGTH_LONG).show()
+                                            isCheckingUpdate = false
+                                        }
+                                    }
+                                }
+                            },
+                            enabled = !isCheckingUpdate,
+                            modifier = Modifier.padding(top = 8.dp).fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                        ) {
+                            if (isCheckingUpdate) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSecondary)
+                            } else {
+                                Text("Check for App Updates")
+                            }
+                        }
                     }
                 }
             }
