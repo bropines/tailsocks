@@ -1,9 +1,13 @@
 package io.github.bropines.tailscaled
 
 import android.content.Context
+import android.net.Uri
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11,6 +15,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,9 +26,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import appctr.Appctr
 import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.BufferedReader
+import java.io.InputStreamReader
 import kotlin.random.Random
 
 class SettingsActivity : ComponentActivity() {
@@ -41,6 +50,7 @@ class SettingsActivity : ComponentActivity() {
 fun SettingsScreen(onBack: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val prefs = remember { context.getSharedPreferences("appctr", Context.MODE_PRIVATE) }
+    val scope = rememberCoroutineScope()
 
     // Состояния для всех настроек
     var authKey by remember { mutableStateOf(prefs.getString("authkey", "") ?: "") }
@@ -74,7 +84,74 @@ fun SettingsScreen(onBack: () -> Unit) {
     var isLoadingExitNodes by remember { mutableStateOf(false) }
     var exitNodesExpanded by remember { mutableStateOf(false) }
 
-    val scope = rememberCoroutineScope()
+    // Лаунчер для создания файла бэкапа
+    val createDocumentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        uri?.let {
+            scope.launch(Dispatchers.IO) {
+                try {
+                    val allPrefs = prefs.all
+                    val json = Gson().toJson(allPrefs)
+                    context.contentResolver.openOutputStream(it)?.use { os ->
+                        os.write(json.toByteArray())
+                    }
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "Settings exported successfully!", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "Export failed: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        }
+    }
+
+    // Лаунчер для выбора файла для восстановления
+    val openDocumentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let {
+            scope.launch(Dispatchers.IO) {
+                try {
+                    val inputStream = context.contentResolver.openInputStream(it)
+                    val reader = BufferedReader(InputStreamReader(inputStream))
+                    val json = reader.use { r -> r.readText() }
+                    
+                    val type = object : TypeToken<Map<String, Any>>() {}.type
+                    val importedData: Map<String, Any> = Gson().fromJson(json, type)
+                    
+                    val editor = prefs.edit()
+                    importedData.forEach { (key, value) ->
+                        when (value) {
+                            is String -> editor.putString(key, value)
+                            is Boolean -> editor.putBoolean(key, value)
+                            is Double -> {
+                                // GSON парсит числа как Double по умолчанию, пробуем сохранить как Int если это возможно
+                                if (value == value.toInt().toDouble()) {
+                                    editor.putInt(key, value.toInt())
+                                } else if (value == value.toLong().toDouble()) {
+                                    editor.putLong(key, value.toLong())
+                                }
+                            }
+                        }
+                    }
+                    editor.apply()
+                    
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "Settings restored! Restarting UI...", Toast.LENGTH_SHORT).show()
+                        // Перезагружаем текущую активность для обновления состояний
+                        (context as? SettingsActivity)?.recreate()
+                    }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "Restore failed: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        }
+    }
 
     // Функция сохранения
     fun save(key: String, value: Any) {
@@ -310,6 +387,31 @@ fun SettingsScreen(onBack: () -> Unit) {
                 SettingsTextField("Extra Arguments (Raw)", extraArgs, "--advertise-tags=tag:server") {
                     extraArgs = it
                     save("extra_args_raw", it)
+                }
+            }
+
+            item { SectionTitle("Maintenance") }
+            item {
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                    Button(
+                        onClick = { createDocumentLauncher.launch("tailsocks_backup.json") },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
+                    ) {
+                        Icon(Icons.Default.Save, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Export")
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Button(
+                        onClick = { openDocumentLauncher.launch(arrayOf("application/json")) },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                    ) {
+                        Icon(Icons.Default.Upload, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Import")
+                    }
                 }
             }
 
