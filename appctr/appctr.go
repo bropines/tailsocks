@@ -18,6 +18,7 @@ var cmd *exec.Cmd
 var PC pathControl
 var currentLogLevel int32 = 1
 var dnsProxyCancel context.CancelFunc
+var lastOptions *StartOptions
 
 type Closer interface {
 	Close() error
@@ -72,12 +73,24 @@ func IsRunning() bool {
 	return cmd != nil && cmd.Process != nil
 }
 
+func ReUp() {
+	stateMu.Lock()
+	opt := lastOptions
+	pc := PC
+	stateMu.Unlock()
+
+	if opt != nil && IsRunning() {
+		go registerMachineWithAuthKey(pc, opt)
+	}
+}
+
 func Start(opt *StartOptions) {
 	Stop()
 	time.Sleep(1 * time.Second)
 
 	stateMu.Lock()
 	PC = newPathControl(opt.ExecPath, opt.SocketPath, opt.StatePath)
+	lastOptions = opt
 	stateMu.Unlock()
 
 	killLeftoverDaemons(PC.Tailscaled())

@@ -141,7 +141,19 @@ fun MainScreen() {
         topBar = {
             TopAppBar(
                 title = { Text("TailSocks") },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                actions = {
+                    if (proxyState == "ACTIVE") {
+                        IconButton(onClick = { 
+                            scope.launch(Dispatchers.IO) {
+                                appctr.Appctr.reUp()
+                            }
+                            Toast.makeText(context, "Refreshing configuration...", Toast.LENGTH_SHORT).show()
+                        }) {
+                            Icon(Icons.Default.Refresh, contentDescription = "Refresh Config")
+                        }
+                    }
+                }
             )
         }
     ) { paddingValues ->
