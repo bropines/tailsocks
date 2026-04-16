@@ -16,6 +16,8 @@ This file tracks architectural decisions, failed attempts, and successful implem
 - **Auto-refresh Config:** Implemented a periodic background loop (every 15s) in `TailscaledService` that runs `tailscale up` (ReUp) to sync admin policies automatically.
 - **Startup Update Check:** Moved app version checking to application startup (silent Toast notification) and kept a manual button in Settings.
 - **Intelligent Restarts (ApplySettings):** Refactored the Go-bridge and Kotlin service to support partial updates. The system now intelligently decides whether to perform a full daemon restart, a DNS-only restart, or a simple `tailscale up` based on configuration changes. This prevents unnecessary connection drops.
+- **Versioning Fix (v1.5.1):** Fixed CI versioning by ensuring full git history fetch (`fetch-depth: 0`) and ignoring the `--dirty` flag in GitHub Actions to avoid mismatching version strings.
+- **AdGuard Guide:** Created `docs/ADGUARD.md` detailing how to resolve `.ts.net` domains through AdGuard's low-level settings.
 - **Backups:** Added backup/restore system to JSON.
 
 ### ⚠️ Known Issues / Quarks:

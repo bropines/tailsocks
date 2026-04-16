@@ -21,6 +21,7 @@ Unlike the official application, TailSocks avoids the Android `VpnService` to by
 
 - 👉 **[See the full Build Instructions in `docs/BUILDING.md`](docs/BUILDING.md)**
 - 👉 **[Read more about the architecture, PIE binaries, and DNS wrapping in `docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)**
+- 👉 **[Setup TailSocks DNS with AdGuard in `docs/ADGUARD.md`](docs/ADGUARD.md)**
 
 ## 🗺️ Roadmap
 - 👉 **[Check out the detailed Roadmap and TODOs in `docs/ROADMAP.md`](docs/ROADMAP.md)**
