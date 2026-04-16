@@ -28,7 +28,7 @@ class TailscaledService : Service() {
         override fun run() {
             if (Appctr.isRunning() && prefs.getBoolean("auto_refresh_config", false)) {
                 Log.d(TAG, "Auto-refreshing configuration...")
-                Thread { Appctr.reUp() }.start()
+                Thread { Appctr.applySettings(buildStartOptions()) }.start()
             }
             refreshHandler.postDelayed(this, 15000) // 15 seconds
         }
@@ -74,6 +74,12 @@ class TailscaledService : Service() {
             stopMe()
             return START_NOT_STICKY
         }
+
+        if (action == "REFRESH_ACTION") {
+            Thread { Appctr.applySettings(buildStartOptions()) }.start()
+            return START_STICKY
+        }
+
         ProxyState.setUserState(this, true)
         updateTile()
         if (!Appctr.isRunning()) {
@@ -91,7 +97,23 @@ class TailscaledService : Service() {
     }
 
     private fun startTailscale() {
-        val options = StartOptions().apply {
+        val options = buildStartOptions()
+
+        Thread {
+            try {
+                applicationContext.sendBroadcast(Intent("STARTING"))
+                Appctr.start(options)
+                updateNotification("Active")
+                applicationContext.sendBroadcast(Intent("START"))
+            } catch (e: Exception) {
+                Log.e(TAG, "Start error: ${e.message}")
+                stopMe()
+            }
+        }.start()
+    }
+
+    private fun buildStartOptions(): StartOptions {
+        return StartOptions().apply {
             socks5Server = prefs.getString("socks5", "127.0.0.1:48115")
             socks5User   = prefs.getString("socks5_user", "")
             socks5Pass   = prefs.getString("socks5_pass", "")
@@ -103,9 +125,6 @@ class TailscaledService : Service() {
 
             enableWebUI = prefs.getBoolean("enable_webui", false)
             webUIAddr   = prefs.getString("webui_port", "127.0.0.1:8080")
-            
-            // Читаем настройку форсированного сброса из пресетов
-            //doReset      = prefs.getBoolean("force_reset", false) 
             
             execPath     = "${applicationInfo.nativeLibraryDir}/libtailscale.so"
             socketPath   = "${applicationInfo.dataDir}/tailscaled.sock"
@@ -130,18 +149,6 @@ class TailscaledService : Service() {
             
             extraUpArgs = argsBuilder.toString()
         }
-
-        Thread {
-            try {
-                applicationContext.sendBroadcast(Intent("STARTING"))
-                Appctr.start(options)
-                updateNotification("Active")
-                applicationContext.sendBroadcast(Intent("START"))
-            } catch (e: Exception) {
-                Log.e(TAG, "Start error: ${e.message}")
-                stopMe()
-            }
-        }.start()
     }
 
     private fun stopMe() {

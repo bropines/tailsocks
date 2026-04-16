@@ -73,6 +73,45 @@ func IsRunning() bool {
 	return cmd != nil && cmd.Process != nil
 }
 
+func ApplySettings(opt *StartOptions) {
+	stateMu.Lock()
+	old := lastOptions
+	stateMu.Unlock()
+
+	if old == nil || !IsRunning() {
+		Start(opt)
+		return
+	}
+
+	// 1. Если изменились критические параметры ядра — рестартим всё
+	if old.Socks5Server != opt.Socks5Server ||
+		old.HttpProxy != opt.HttpProxy ||
+		old.Socks5User != opt.Socks5User ||
+		old.Socks5Pass != opt.Socks5Pass ||
+		old.AuthKey != opt.AuthKey ||
+		old.ExtraUpArgs != opt.ExtraUpArgs {
+		slog.Info("Critical settings changed, performing full restart")
+		Start(opt)
+		return
+	}
+
+	// 2. Обновляем кэш опций
+	stateMu.Lock()
+	lastOptions = opt
+	stateMu.Unlock()
+
+	// 3. Если изменился только DNS — рестартим только его
+	if old.DnsProxy != opt.DnsProxy ||
+		old.DnsFallbacks != opt.DnsFallbacks ||
+		old.DohFallback != opt.DohFallback {
+		slog.Info("DNS settings changed, restarting DNS proxy only")
+		RestartDNS()
+	}
+
+	// 4. В любом случае делаем ReUp для синхронизации тегов/политик
+	ReUp()
+}
+
 func ReUp() {
 	stateMu.Lock()
 	opt := lastOptions
@@ -117,28 +156,47 @@ func Start(opt *StartOptions) {
 	go registerMachineWithAuthKey(PC, opt)
 
 	if opt.DnsProxy != "" {
-		go func() {
-			time.Sleep(5 * time.Second)
-			ctx, cancel := context.WithCancel(context.Background())
-			stateMu.Lock()
-			dnsProxyCancel = cancel
-			stateMu.Unlock()
-
-			fallbacks := []string{"8.8.8.8:53", "1.1.1.1:53"}
-			if opt.DnsFallbacks != "" {
-				fallbacks = strings.Split(opt.DnsFallbacks, ",")
-			}
-
-			doh := opt.DohFallback
-			if doh == "" {
-				doh = "https://1.1.1.1/dns-query"
-			}
-
-			if err := startDNSProxy(ctx, opt.DnsProxy, opt.Socks5Server, opt.Socks5User, opt.Socks5Pass, fallbacks, doh); err != nil {
-				slog.Error("DNS proxy error", "err", err)
-			}
-		}()
+		RestartDNS()
 	}
+}
+
+func RestartDNS() {
+	stateMu.Lock()
+	opt := lastOptions
+	if dnsProxyCancel != nil {
+		dnsProxyCancel()
+		dnsProxyCancel = nil
+	}
+	stateMu.Unlock()
+
+	if opt == nil || opt.DnsProxy == "" {
+		return
+	}
+
+	go func() {
+		// Даем время старому прокси закрыть сокет
+		time.Sleep(500 * time.Millisecond)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		stateMu.Lock()
+		dnsProxyCancel = cancel
+		stateMu.Unlock()
+
+		fallbacks := []string{"8.8.8.8:53", "1.1.1.1:53"}
+		if opt.DnsFallbacks != "" {
+			fallbacks = strings.Split(opt.DnsFallbacks, ",")
+		}
+
+		doh := opt.DohFallback
+		if doh == "" {
+			doh = "https://1.1.1.1/dns-query"
+		}
+
+		slog.Info("Starting DNS proxy", "addr", opt.DnsProxy)
+		if err := startDNSProxy(ctx, opt.DnsProxy, opt.Socks5Server, opt.Socks5User, opt.Socks5Pass, fallbacks, doh); err != nil {
+			slog.Error("DNS proxy error", "err", err)
+		}
+	}()
 }
 
 func Stop() {
