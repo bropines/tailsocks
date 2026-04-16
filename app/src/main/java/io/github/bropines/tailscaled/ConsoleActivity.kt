@@ -8,7 +8,6 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -36,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import appctr.Appctr
+import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -50,9 +50,7 @@ class ConsoleActivity : ComponentActivity() {
         val initialCmd = intent?.getStringExtra("CMD") ?: ""
         
         setContent {
-            MaterialTheme(
-                colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()
-            ) {
+            TailSocksTheme {
                 ConsoleScreen(initialCmd = initialCmd, onBack = { finish() })
             }
         }
@@ -185,7 +183,7 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(Color(0xFF1C1B1F))
+                .background(MaterialTheme.colorScheme.surface)
                 .pointerInput(Unit) {
                     detectTransformGestures { _, _, zoom, _ ->
                         scale = (scale * zoom).coerceIn(0.5f, 4f)
@@ -194,7 +192,7 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
         ) {
             Text(
                 text = outputText,
-                color = Color(0xFFE6E1E5),
+                color = MaterialTheme.colorScheme.onSurface,
                 fontFamily = FontFamily.Monospace,
                 fontSize = (14 * scale).sp,
                 softWrap = false, // <-- ФИКС ТЕРМИНАЛА: Отключаем перенос строк

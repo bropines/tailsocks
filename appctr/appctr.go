@@ -2,15 +2,19 @@ package appctr
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"strings"
 	"os/exec"
 	"sync"
 	"time"
+	"net/http"
 	_ "time/tzdata"
 
 	_ "golang.org/x/mobile/bind"
+	"tailscale.com/client/local"
+	"tailscale.com/client/web"
 )
 
 var stateMu sync.Mutex
@@ -19,6 +23,7 @@ var PC pathControl
 var currentLogLevel int32 = 1
 var dnsProxyCancel context.CancelFunc
 var lastOptions *StartOptions
+var webServer *http.Server
 
 type Closer interface {
 	Close() error
@@ -228,10 +233,60 @@ func killLeftoverDaemons(daemonPath string) {
 }
 
 func StartWebUI(addr string) {
-    slog.Info("Web UI start requested", "addr", addr)
-    // Реализацию прокси для Web UI можно добавить сюда позже
+	stateMu.Lock()
+	if webServer != nil {
+		stateMu.Unlock()
+		return
+	}
+	pc := PC
+	stateMu.Unlock()
+
+	slog.Info("Web UI start requested", "addr", addr)
+
+	lc := &local.Client{
+		Socket: pc.Socket(),
+	}
+
+	ws, err := web.NewServer(web.ServerOpts{
+		Mode:        web.LoginServerMode,
+		LocalClient: lc,
+		Logf: func(format string, args ...any) {
+			slog.Info("web", "msg", fmt.Sprintf(format, args...))
+		},
+	})
+	if err != nil {
+		slog.Error("Failed to create web server", "err", err)
+		return
+	}
+
+	stateMu.Lock()
+	webServer = &http.Server{
+		Addr:    addr,
+		Handler: ws,
+	}
+	stateMu.Unlock()
+
+	go func() {
+		slog.Info("Web UI listening", "addr", addr)
+		if err := webServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			slog.Error("Web UI listen error", "err", err)
+		}
+		stateMu.Lock()
+		webServer = nil
+		stateMu.Unlock()
+	}()
 }
 
 func StopWebUI() {
-    // Остановка Web UI
+	stateMu.Lock()
+	ws := webServer
+	webServer = nil
+	stateMu.Unlock()
+
+	if ws != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_ = ws.Shutdown(ctx)
+		slog.Info("Web UI stopped")
+	}
 }

@@ -38,6 +38,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.lang.Runtime
 
+import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
+
 class MainActivity : ComponentActivity() {
 
     private val requestPermissionLauncher =
@@ -50,9 +52,7 @@ class MainActivity : ComponentActivity() {
         checkForUpdatesSilent()
 
         setContent {
-            MaterialTheme(
-                colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()
-            ) {
+            TailSocksTheme {
                 MainScreen()
             }
         }
@@ -330,13 +330,13 @@ fun MainScreen() {
 @Composable
 fun StatusCard(state: String, isProcessing: Boolean, onToggle: () -> Unit) {
     val backgroundColor = when (state) {
-        "ACTIVE" -> Color(0xFFDCF8C6)
-        "STARTING" -> Color(0xFFFFF59D)
+        "ACTIVE" -> MaterialTheme.colorScheme.primaryContainer
+        "STARTING" -> MaterialTheme.colorScheme.tertiaryContainer
         else -> MaterialTheme.colorScheme.surfaceContainerHigh
     }
     val contentColor = when (state) {
-        "ACTIVE" -> Color(0xFF205023)
-        "STARTING" -> Color(0xFFF57F17)
+        "ACTIVE" -> MaterialTheme.colorScheme.onPrimaryContainer
+        "STARTING" -> MaterialTheme.colorScheme.onTertiaryContainer
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
@@ -372,7 +372,7 @@ fun StatusCard(state: String, isProcessing: Boolean, onToggle: () -> Unit) {
                 },
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (state != "STOPPED") Color.Black else MaterialTheme.colorScheme.onSurface
+                color = contentColor
             )
             Text(
                 text = when {
@@ -382,7 +382,7 @@ fun StatusCard(state: String, isProcessing: Boolean, onToggle: () -> Unit) {
                     else -> "Tap to connect"
                 },
                 modifier = Modifier.alpha(0.6f).padding(top = 4.dp),
-                color = if (state != "STOPPED") Color.Black else MaterialTheme.colorScheme.onSurface
+                color = contentColor
             )
         }
     }

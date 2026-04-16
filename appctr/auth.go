@@ -73,5 +73,7 @@ func registerMachineWithAuthKey(PC pathControl, opt *StartOptions) {
 
 	if opt.EnableWebUI {
 		StartWebUI(opt.WebUIAddr)
+	} else {
+		StopWebUI()
 	}
 }
