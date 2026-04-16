@@ -15,6 +15,7 @@ This file tracks architectural decisions, failed attempts, and successful implem
 - **CI/CD Optimization:** Updated `android.yml` to trigger only on code changes (app/ or appctr/) and not on documentation edits.
 - **Auto-refresh Config:** Implemented a periodic background loop (every 15s) in `TailscaledService` that runs `tailscale up` (ReUp) to sync admin policies automatically.
 - **Startup Update Check:** Moved app version checking to application startup (silent Toast notification) and kept a manual button in Settings.
+- **Intelligent Restarts (ApplySettings):** Refactored the Go-bridge and Kotlin service to support partial updates. The system now intelligently decides whether to perform a full daemon restart, a DNS-only restart, or a simple `tailscale up` based on configuration changes. This prevents unnecessary connection drops.
 - **Backups:** Added backup/restore system to JSON.
 
 ### ⚠️ Known Issues / Quarks:

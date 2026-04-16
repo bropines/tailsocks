@@ -169,9 +169,8 @@ fun MainScreen() {
                 actions = {
                     if (proxyState == "ACTIVE") {
                         IconButton(onClick = { 
-                            scope.launch(Dispatchers.IO) {
-                                appctr.Appctr.reUp()
-                            }
+                            val intent = Intent(context, TailscaledService::class.java).apply { action = "REFRESH_ACTION" }
+                            context.startService(intent)
                             Toast.makeText(context, "Refreshing configuration...", Toast.LENGTH_SHORT).show()
                         }) {
                             Icon(Icons.Default.Refresh, contentDescription = "Refresh Config")
