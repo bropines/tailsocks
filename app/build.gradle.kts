@@ -13,9 +13,14 @@ val gitVersionCode = providers.exec {
 }.standardOutput.asText.map { it.trim().toInt() + 10 }.getOrElse(10)
 
 val gitVersionName = providers.exec {
-    commandLine("git", "describe", "--tags", "--always", "--dirty")
+    val isCI = System.getenv("GITHUB_ACTIONS") == "true"
+    if (isCI) {
+        commandLine("git", "describe", "--tags", "--always")
+    } else {
+        commandLine("git", "describe", "--tags", "--always", "--dirty")
+    }
     workingDir = rootDir
-}.standardOutput.asText.map { it.trim().removePrefix("v") }.getOrElse("1.2.3-dirty")
+}.standardOutput.asText.map { it.trim().removePrefix("v") }.getOrElse("1.5.0-dirty")
 
 println("-> Build VersionCode: $gitVersionCode")
 println("-> Build VersionName: $gitVersionName")
