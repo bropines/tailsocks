@@ -1,6 +1,6 @@
 module appctr
 
-go 1.26.1
+go 1.26.2
 
 require (
 	github.com/things-go/go-socks5 v0.1.1
@@ -22,9 +22,11 @@ require (
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba // indirect
 	golang.org/x/crypto v0.50.0 // indirect
 	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b // indirect
-	golang.org/x/mod v0.30.0 // indirect
+	golang.org/x/mod v0.31.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.43.0 // indirect
-	golang.org/x/tools v0.39.0 // indirect
+	golang.org/x/tools v0.40.1-0.20260108161641-ca281cf95054 // indirect
 	golang.zx2c4.com/wireguard/windows v0.5.3 // indirect
 )
+
+replace tailscale.com => ./tailscale_src
