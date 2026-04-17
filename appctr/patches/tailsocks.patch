@@ -1,5 +1,5 @@
---- cmd/tailscaled/proxy.go.orig	2026-04-17 09:08:26.365308822 +0300
-+++ cmd/tailscaled/proxy.go	2026-04-17 09:08:33.553307323 +0300
+--- cmd/tailscaled/proxy.go.orig	2026-04-17 09:15:50.025194943 +0300
++++ cmd/tailscaled/proxy.go	2026-04-17 09:16:02.661192308 +0300
 @@ -15,6 +15,7 @@
  	"net"
  	"net/http"
@@ -17,17 +17,61 @@
  				Logf:   logger.WithPrefix(logf, "socks5: "),
  				Dialer: dialer.UserDial,
  			}
---- feature/taildrop/ext.go.orig	2026-04-17 09:08:26.365308822 +0300
-+++ feature/taildrop/ext.go	2026-04-17 09:09:16.273295569 +0300
-@@ -10,6 +10,7 @@
+--- feature/taildrop/ext.go.orig	2026-04-17 09:15:50.025194943 +0300
++++ feature/taildrop/ext.go	2026-04-17 09:17:15.573177708 +0300
+@@ -4,18 +4,24 @@
+ package taildrop
+ 
+ import (
++	"bytes"
+ 	"cmp"
+ 	"context"
++	"crypto/sha256"
+ 	"errors"
  	"fmt"
  	"io"
++	"io/fs"
  	"maps"
 +	"os"
++	"path"
  	"path/filepath"
  	"runtime"
  	"slices"
-@@ -48,6 +49,9 @@
+ 	"strings"
+ 	"sync"
+ 	"sync/atomic"
++	"unicode/utf8"
+ 
+ 	"tailscale.com/client/tailscale/apitype"
+ 	"tailscale.com/cmd/tailscaled/tailscaledhooks"
+@@ -30,6 +36,8 @@
+ 	"tailscale.com/util/set"
+ )
+ 
++var renameMu sync.Mutex
++
+ func init() {
+ 	ipnext.RegisterExtension("taildrop", newExtension)
+ 
+@@ -39,6 +47,17 @@
+ 			osshare.SetFileSharingEnabled(false, logger.Discard)
+ 		})
+ 	}
++
++	// Force standard FS provider for Android to avoid JNI panic
++	newFileOps = func(dir string) (FileOps, error) {
++		if dir == "" {
++			return nil, errors.New("rootDir cannot be empty")
++		}
++		if err := os.MkdirAll(dir, 0o700); err != nil {
++			return nil, fmt.Errorf("mkdir %q: %w", dir, err)
++		}
++		return fsFileOps{rootDir: dir}, nil
++	}
+ }
+ 
+ func newExtension(logf logger.Logf, b ipnext.SafeBackend) (ipnext.Extension, error) {
+@@ -48,6 +67,9 @@
  		logf:       logger.WithPrefix(logf, "taildrop: "),
  	}
  	e.setPlatformDefaultDirectFileRoot()
@@ -37,7 +81,7 @@
  	return e, nil
  }
  
-@@ -241,6 +245,11 @@
+@@ -241,6 +263,11 @@
  		return
  	}
  
@@ -49,3 +93,108 @@
  	var n ipn.Notify
  
  	e.mu.Lock()
+@@ -434,3 +461,104 @@
+ 
+ 	e.host.SendNotifyAsync(ipn.Notify{OutgoingFiles: outgoingFiles})
+ }
++
++// --- MONOLITHIC FS PROVIDER BY HEDGEHOG ---
++
++type fsFileOps struct{ rootDir string }
++
++func (f fsFileOps) OpenWriter(name string, offset int64, perm os.FileMode) (io.WriteCloser, string, error) {
++	p, err := joinDir(f.rootDir, name)
++	if err != nil { return nil, "", err }
++	if err = os.MkdirAll(filepath.Dir(p), 0o700); err != nil { return nil, "", err }
++	fi, err := os.OpenFile(p, os.O_CREATE|os.O_RDWR, perm)
++	if err != nil { return nil, "", err }
++	if offset != 0 {
++		curr, err := fi.Seek(0, io.SeekEnd)
++		if err != nil { fi.Close(); return nil, "", err }
++		if offset < 0 || offset > curr { fi.Close(); return nil, "", fmt.Errorf("offset out of range") }
++		if _, err := fi.Seek(offset, io.SeekStart); err != nil { fi.Close(); return nil, "", err }
++		if err := fi.Truncate(offset); err != nil { fi.Close(); return nil, "", err }
++	}
++	return fi, p, nil
++}
++
++func (f fsFileOps) Remove(name string) error {
++	p, err := joinDir(f.rootDir, name)
++	if err != nil { return err }
++	return os.Remove(p)
++}
++
++func (f fsFileOps) Rename(oldPath, newName string) (newPath string, err error) {
++	if filepath.IsAbs(newName) || strings.ContainsRune(newName, os.PathSeparator) {
++		return "", fmt.Errorf("invalid newName")
++	}
++	dst := filepath.Join(f.rootDir, newName)
++	if err := os.MkdirAll(filepath.Dir(dst), 0o700); err != nil { return "", err }
++	st, err := os.Stat(oldPath)
++	if err != nil { return "", err }
++	wantSize := st.Size()
++
++	for i := 0; i < 10; i++ {
++		renameMu.Lock()
++		fi, statErr := os.Stat(dst)
++		if os.IsNotExist(statErr) {
++			err = os.Rename(oldPath, dst)
++			renameMu.Unlock()
++			return dst, err
++		}
++		renameMu.Unlock()
++		if statErr != nil { return "", statErr }
++		if fi.Size() == wantSize {
++			sumP, _ := sha256File(oldPath)
++			sumD, _ := sha256File(dst)
++			if bytes.Equal(sumP[:], sumD[:]) {
++				os.Remove(oldPath)
++				return dst, nil
++			}
++		}
++		dst = filepath.Join(filepath.Dir(dst), nextFilename(filepath.Base(dst)))
++	}
++	return "", fmt.Errorf("too many retries")
++}
++
++func sha256File(path string) (sum [sha256.Size]byte, _ error) {
++	f, err := os.Open(path)
++	if err != nil { return sum, err }
++	defer f.Close()
++	h := sha256.New()
++	io.Copy(h, f)
++	copy(sum[:], h.Sum(nil))
++	return sum, nil
++}
++
++func (f fsFileOps) ListFiles() ([]string, error) {
++	entries, err := os.ReadDir(f.rootDir)
++	if err != nil { return nil, err }
++	var names []string
++	for _, e := range entries {
++		if e.Type().IsRegular() { names = append(names, e.Name()) }
++	}
++	return names, nil
++}
++
++func (f fsFileOps) Stat(name string) (fs.FileInfo, error) {
++	p, err := joinDir(f.rootDir, name)
++	if err != nil { return nil, err }
++	return os.Stat(p)
++}
++
++func (f fsFileOps) OpenReader(name string) (io.ReadCloser, error) {
++	p, err := joinDir(f.rootDir, name)
++	if err != nil { return nil, err }
++	return os.Open(p)
++}
++
++func joinDir(dir, baseName string) (string, error) {
++	if !utf8.ValidString(baseName) || strings.TrimSpace(baseName) != baseName || len(baseName) > 255 {
++		return "", ErrInvalidFileName
++	}
++	clean := path.Clean(baseName)
++	if clean != baseName || clean == "." || clean == ".." { return "", ErrInvalidFileName }
++	if !filepath.IsLocal(baseName) { return "", ErrInvalidFileName }
++	return filepath.Join(dir, baseName), nil
++}

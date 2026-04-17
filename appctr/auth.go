@@ -16,14 +16,23 @@ func RunTailscaleCmd(commandStr string) string {
 	args := append([]string{"--socket", PC.Socket()}, parts...)
 	c := exec.Command(PC.Tailscale(), args...)
 	
-	slog.Info("Running Tailscale CLI", "cmd", commandStr)
+	isRoutineCheck := strings.HasPrefix(commandStr, "status")
+
+	if !isRoutineCheck {
+		slog.Info("Running Tailscale CLI", "cmd", commandStr)
+	}
+	
 	output, err := c.CombinedOutput()
 	outStr := string(output)
 
 	if err != nil {
-		slog.Error("CLI command failed", "out", outStr, "err", err)
+		if !isRoutineCheck {
+			slog.Error("CLI command failed", "out", outStr, "err", err)
+		}
 	} else if outStr != "" {
-		slog.Info("CLI command output", "out", outStr)
+		if !isRoutineCheck {
+			slog.Info("CLI command output", "out", outStr)
+		}
 	}
 	
 	return outStr
