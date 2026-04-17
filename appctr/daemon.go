@@ -10,7 +10,7 @@ import (
 
 // Переменные cmd и stateMu удалены, так как они уже есть в appctr.go
 
-func tailscaledCmd(p pathControl, socksAddr, httpAddr, socksUser, socksPass string) error {
+func tailscaledCmd(p pathControl, socksAddr, httpAddr, socksUser, socksPass, taildropDir string) error {
 	rm(p.Tailscale(), p.Tailscaled())
 	ln(p.TailscaleCliSo(), p.Tailscale())
 	ln(p.TailscaledSo(), p.Tailscaled())
@@ -33,6 +33,9 @@ func tailscaledCmd(p pathControl, socksAddr, httpAddr, socksUser, socksPass stri
 		fmt.Sprintf("TS_LOGS_DIR=%s/logs", p.DataDir()),
 		"TS_NO_LOGS_NO_SUPPORT=true",
 	)
+	if taildropDir != "" {
+		c.Env = append(c.Env, "TS_TAILDROP_DIR="+taildropDir)
+	}
 	if socksUser != "" || socksPass != "" {
 		c.Env = append(c.Env, "TS_SOCKS5_USER="+socksUser)
 		c.Env = append(c.Env, "TS_SOCKS5_PASS="+socksPass)
