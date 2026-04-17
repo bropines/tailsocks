@@ -182,6 +182,15 @@ fun SettingsScreen(onBack: () -> Unit) {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
+                },
+                actions = {
+                    IconButton(onClick = {
+                        val intent = android.content.Intent(context, TailscaledService::class.java).apply { action = "REFRESH_ACTION" }
+                        context.startService(intent)
+                        Toast.makeText(context, "Configuration refreshed!", Toast.LENGTH_SHORT).show()
+                    }) {
+                        Icon(Icons.Default.Save, contentDescription = "Refresh Config")
+                    }
                 }
             )
         }
@@ -202,10 +211,29 @@ fun SettingsScreen(onBack: () -> Unit) {
 
             item { SectionTitle("Node Configuration") }
             item {
-                SettingsTextField("Hostname", hostname, "android-device") {
-                    hostname = it
-                    save("hostname", it)
-                }
+                OutlinedTextField(
+                    value = hostname,
+                    onValueChange = { 
+                        hostname = it
+                        save("hostname", it)
+                    },
+                    label = { Text("Hostname") },
+                    placeholder = { Text("android-device") },
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    singleLine = true,
+                    trailingIcon = {
+                        IconButton(onClick = { 
+                            val model = android.os.Build.MODEL
+                                .replace(Regex("[^a-zA-Z0-9]"), "-")
+                                .trim('-')
+                                .uppercase()
+                            hostname = model
+                            save("hostname", model)
+                        }) {
+                            Icon(Icons.Default.Refresh, contentDescription = "Auto-generate from device model")
+                        }
+                    }
+                )
                 SettingsTextField("Login Server", loginServer, "https://controlplane.tailscale.com") {
                     loginServer = it
                     save("login_server", it)

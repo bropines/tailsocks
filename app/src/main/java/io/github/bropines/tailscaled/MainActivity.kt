@@ -133,6 +133,19 @@ fun MainScreen() {
     var showAboutDialog by remember { mutableStateOf(false) }
     var exitNodeIp by remember { mutableStateOf(prefs.getString("exit_node_ip", "") ?: "") }
     var isProcessing by remember { mutableStateOf(false) } // Флаг блокировки интерфейса
+    var loginUrl by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(proxyState) {
+        if (proxyState != "STOPPED") {
+            while (true) {
+                val url = try { appctr.Appctr.getLoginURLString() } catch (e: Exception) { "" }
+                loginUrl = if (url.isNullOrBlank()) null else url
+                delay(2000)
+            }
+        } else {
+            loginUrl = null
+        }
+    }
 
     DisposableEffect(context) {
         val receiver = object : BroadcastReceiver() {
@@ -224,12 +237,8 @@ fun MainScreen() {
                     context.startService(intent)
                 } else {
                     val currentAuthKey = prefs.getString("authkey", "") ?: ""
-                    if (currentAuthKey.isBlank()) {
-                        Toast.makeText(context, "🚫 Error: Please enter your Auth Key in the settings!", Toast.LENGTH_LONG).show()
-                        return@StatusCard
-                    }
-                    
                     val currentSocks = prefs.getString("socks5", "127.0.0.1:1055") ?: "127.0.0.1:1055"
+                    
                     if (currentSocks.isBlank()) {
                         Toast.makeText(context, "🚫 Error: SOCKS5 address cannot be empty!", Toast.LENGTH_LONG).show()
                         return@StatusCard
@@ -242,6 +251,57 @@ fun MainScreen() {
                     }
                     val intent = Intent(context, TailscaledService::class.java).apply { action = "START_ACTION" }
                     ContextCompat.startForegroundService(context, intent)
+                }
+            }
+
+            if (loginUrl != null) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth().clickable {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(loginUrl)))
+                        scope.launch {
+                            repeat(3) { i ->
+                                delay(10000)
+                                // If loginUrl is null, it means the background loop already detected success
+                                if (loginUrl == null) {
+                                    withContext(Dispatchers.Main) {
+                                        Toast.makeText(context, "✅ Tailscale login successful!", Toast.LENGTH_SHORT).show()
+                                    }
+                                    return@launch
+                                }
+                                
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(context, "Checking auth status... (${i + 1}/3)", Toast.LENGTH_SHORT).show()
+                                    val refreshIntent = Intent(context, TailscaledService::class.java).apply { action = "REFRESH_ACTION" }
+                                    context.startService(refreshIntent)
+                                }
+                            }
+                            
+                            // Final check after loop
+                            delay(2000)
+                            if (loginUrl != null) {
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(context, "⌛ Still waiting for login. Check your browser.", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        }
+                    }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.AccountCircle, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("Login Required", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Text("Tap to authenticate via browser", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        }
+                        Spacer(modifier = Modifier.weight(1f))
+                        Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                    }
                 }
             }
 
@@ -270,7 +330,9 @@ fun MainScreen() {
                 MenuCard(title = "Settings", icon = Icons.Default.Settings, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                     context.startActivity(Intent(context, SettingsActivity::class.java))
                 }
-                Spacer(modifier = Modifier.weight(1f).padding(start = 8.dp))
+                MenuCard(title = "Netcheck", icon = Icons.Default.Refresh, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                    context.startActivity(Intent(context, NetcheckActivity::class.java))
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
