@@ -17,7 +17,18 @@ import (
 	"tailscale.com/client/web"
 )
 
+var latestInterfaceState string
 var stateMu sync.Mutex
+
+func InjectNetworkState(jsonState string) {
+	stateMu.Lock()
+	latestInterfaceState = jsonState
+	stateMu.Unlock()
+	
+	// Мы пока не можем вызвать InjectEvent напрямую здесь, так как у нас нет ссылки на Monitor.
+	// Но мы пропатчим ядро, чтобы оно использовало latestInterfaceState при вызове геттера.
+	slog.Info("Network state injected from Kotlin")
+}
 var cmd *exec.Cmd
 var PC pathControl
 var currentLogLevel int32 = 1

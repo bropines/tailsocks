@@ -62,3 +62,6 @@ appctr/libtailscale_cli.so
 tmp/
 appctr/tmp/
 appctr/tailscale_src/tmp/.gemini/skills/
+
+*.txt
+*.txt:Zone.Identifier
