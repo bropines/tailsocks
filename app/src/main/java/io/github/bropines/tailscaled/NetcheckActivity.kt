@@ -14,7 +14,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import appctr.Appctr
@@ -39,7 +38,6 @@ class NetcheckActivity : ComponentActivity() {
 fun NetcheckScreen(onBack: () -> Unit) {
     var output by remember { mutableStateOf("Press Refresh to run health diagnostics...") }
     var isRunning by remember { mutableStateOf(false) }
-    var connectionSummary by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
     fun runDiagnostics() {
@@ -103,7 +101,7 @@ fun NetcheckScreen(onBack: () -> Unit) {
                         if (isRunning) {
                             CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                         } else {
-                            Icon(Icons.Default.Refresh, contentDescription = "Run Netcheck")
+                            Icon(Icons.Default.Refresh, contentDescription = "Run Diagnostics")
                         }
                     }
                 }
@@ -133,7 +131,7 @@ fun NetcheckScreen(onBack: () -> Unit) {
             Spacer(modifier = Modifier.height(16.dp))
             
             Text(
-                text = "Note: 'netlinkrib: permission denied' is normal on Android 11+ (system restriction). DERP and UDP checks should still work.",
+                text = "Diagnostics help you understand NAT traversal and DERP relay usage.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

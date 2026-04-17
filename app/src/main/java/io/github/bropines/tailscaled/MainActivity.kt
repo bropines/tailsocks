@@ -320,8 +320,18 @@ fun MainScreen() {
                 MenuCard(title = "Logs", icon = Icons.Default.Info, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                     context.startActivity(Intent(context, LogsActivity::class.java))
                 }
-                MenuCard(title = "DNS", icon = Icons.Default.Language, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                MenuCard(title = "Files", icon = Icons.Default.Folder, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                    context.startActivity(Intent(context, FilesActivity::class.java))
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                MenuCard(title = "DNS", icon = Icons.Default.Language, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                     context.startActivity(Intent(context, DnsActivity::class.java))
+                }
+                MenuCard(title = "Netcheck", icon = Icons.Default.Refresh, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                    context.startActivity(Intent(context, NetcheckActivity::class.java))
                 }
             }
 
@@ -330,9 +340,7 @@ fun MainScreen() {
                 MenuCard(title = "Settings", icon = Icons.Default.Settings, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                     context.startActivity(Intent(context, SettingsActivity::class.java))
                 }
-                MenuCard(title = "Netcheck", icon = Icons.Default.Refresh, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
-                    context.startActivity(Intent(context, NetcheckActivity::class.java))
-                }
+                Spacer(modifier = Modifier.weight(1f).padding(start = 8.dp))
             }
 
             Spacer(modifier = Modifier.height(24.dp))

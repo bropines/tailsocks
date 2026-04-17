@@ -34,7 +34,18 @@
 
         <activity android:name=".SettingsActivity" android:exported="false" />
         <activity android:name=".NetcheckActivity" android:exported="false" />
+        <activity android:name=".FilesActivity" android:exported="false" />
         <activity android:name=".LogsActivity" android:exported="false" />
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
         <activity android:name=".DnsActivity" android:exported="false" />
         <activity android:name=".ConsoleActivity" android:exported="false" android:windowSoftInputMode="adjustResize"/>
         <activity android:name=".PeersActivity" android:exported="false" />

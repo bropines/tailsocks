@@ -1,0 +1,51 @@
+--- cmd/tailscaled/proxy.go.orig	2026-04-17 09:08:26.365308822 +0300
++++ cmd/tailscaled/proxy.go	2026-04-17 09:08:33.553307323 +0300
+@@ -15,6 +15,7 @@
+ 	"net"
+ 	"net/http"
+ 	"net/http/httputil"
++	"os"
+ 	"strings"
+ 
+ 	"tailscale.com/feature"
+@@ -96,6 +97,8 @@
+ 		}
+ 		if socksListener != nil {
+ 			ss := &socks5.Server{
++				Username: os.Getenv("TS_SOCKS5_USER"),
++				Password: os.Getenv("TS_SOCKS5_PASS"),
+ 				Logf:   logger.WithPrefix(logf, "socks5: "),
+ 				Dialer: dialer.UserDial,
+ 			}
+--- feature/taildrop/ext.go.orig	2026-04-17 09:08:26.365308822 +0300
++++ feature/taildrop/ext.go	2026-04-17 09:09:16.273295569 +0300
+@@ -10,6 +10,7 @@
+ 	"fmt"
+ 	"io"
+ 	"maps"
++	"os"
+ 	"path/filepath"
+ 	"runtime"
+ 	"slices"
+@@ -48,6 +49,9 @@
+ 		logf:       logger.WithPrefix(logf, "taildrop: "),
+ 	}
+ 	e.setPlatformDefaultDirectFileRoot()
++	if dir := os.Getenv("TS_TAILDROP_DIR"); dir != "" {
++		e.SetDirectFileRoot(dir)
++	}
+ 	return e, nil
+ }
+ 
+@@ -241,6 +245,11 @@
+ 		return
+ 	}
+ 
++	fw, _ := mgr.WaitingFiles()
++	if len(fw) > 0 {
++		e.logf("Hedgehog: Received %d files via Taildrop", len(fw))
++	}
++
+ 	var n ipn.Notify
+ 
+ 	e.mu.Lock()
