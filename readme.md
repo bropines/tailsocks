@@ -3,10 +3,13 @@
 
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](LICENSE)
 [![GitHub Release](https://img.shields.io/github/v/release/bropines/tailsocks)](https://github.com/bropines/tailsocks/releases)
+[![Stable Core](https://img.shields.io/badge/Tailscale_Core-v1.96.x-green.svg)](https://github.com/tailscale/tailscale/tags)
 
 **TailSocks** is a highly optimized, lightweight fork of the Android client for [Tailscale](https://tailscale.com/), operating **exclusively in SOCKS5 proxy mode**. 
 
-Unlike the official application, TailSocks avoids the Android `VpnService` to bypass strict system limitations (such as `netlinkrib` access errors). The core runs in a stable `userspace-networking` mode, exposing a local SOCKS5 port (default `127.0.0.1:1055`). This allows you to route Tailscale network traffic selectively while keeping another system-wide VPN active.
+### 🏗 Architecture
+*   **Dynamic Stable Core:** The build script automatically fetches and patches the **latest stable Tailscale tag** (e.g., `v1.96.5`) during compilation, injecting Android-specific fixes (`anet` netmon) and SOCKS5 auth directly into the upstream source.
+*   **No VpnService:** Unlike the official app, TailSocks avoids the Android `VpnService` to bypass strict system limitations (such as `netlinkrib` access errors). The core runs in a stable `userspace-networking` mode, exposing a local SOCKS5 port.
 
 ## 🚀 Key Features
 

@@ -87,6 +87,8 @@ fun SettingsScreen(onBack: () -> Unit) {
     var latestVersion by remember { mutableStateOf<String?>(null) }
     var isCheckingUpdate by remember { mutableStateOf(false) }
     var autoRefreshConfig by remember { mutableStateOf(prefs.getBoolean("auto_refresh_config", false)) }
+    var forceBg by remember { mutableStateOf(prefs.getBoolean("force_bg", false)) }
+    var settingsChanged by remember { mutableStateOf(false) }
     
     val currentVersion = remember {
         try { context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0.0.0" }
@@ -385,6 +387,17 @@ fun SettingsScreen(onBack: () -> Unit) {
 
             item { SectionTitle("Advanced") }
             item {
+                SettingsSwitch("Force Background Run", forceBg) {
+                    forceBg = it
+                    save("force_bg", it)
+                }
+                Text(
+                    "Try to hold WakeLock and restart service if killed.",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
                 SettingsSwitch("Accept Routes", acceptRoutes) {
                     acceptRoutes = it
                     save("accept_routes", it)
@@ -436,76 +449,6 @@ fun SettingsScreen(onBack: () -> Unit) {
                     modifier = Modifier.padding(horizontal = 4.dp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            }
-
-            item { SectionTitle("App Version") }
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Current Version: $currentVersion", fontWeight = FontWeight.Bold)
-                        if (latestVersion != null) {
-                            Spacer(Modifier.height(4.dp))
-                            val isNewer = latestVersion!!.removePrefix("v") != currentVersion.removePrefix("v")
-                            Text(
-                                text = if (isNewer) "New version available: $latestVersion" else "You are up to date!",
-                                color = if (isNewer) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            if (isNewer) {
-                                Button(
-                                    onClick = {
-                                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse("https://github.com/bropines/tailsocks/releases/latest"))
-                                        context.startActivity(intent)
-                                    },
-                                    modifier = Modifier.padding(top = 8.dp).fillMaxWidth()
-                                ) {
-                                    Text("Download Update")
-                                }
-                            }
-                        }
-
-                        Button(
-                            onClick = {
-                                isCheckingUpdate = true
-                                scope.launch(Dispatchers.IO) {
-                                    try {
-                                        val connection = java.net.URL("https://api.github.com/repos/bropines/tailsocks/releases/latest").openConnection() as java.net.HttpURLConnection
-                                        connection.requestMethod = "GET"
-                                        connection.setRequestProperty("Accept", "application/vnd.github.v3+json")
-                                        
-                                        if (connection.responseCode == 200) {
-                                            val response = connection.inputStream.bufferedReader().use { it.readText() }
-                                            val json = Gson().fromJson(response, com.google.gson.JsonObject::class.java)
-                                            val tag = json.get("tag_name").asString
-                                            withContext(Dispatchers.Main) {
-                                                latestVersion = tag
-                                                isCheckingUpdate = false
-                                            }
-                                        } else {
-                                            throw Exception("HTTP ${connection.responseCode}")
-                                        }
-                                    } catch (e: Exception) {
-                                        withContext(Dispatchers.Main) {
-                                            Toast.makeText(context, "Update check failed: ${e.message}", Toast.LENGTH_LONG).show()
-                                            isCheckingUpdate = false
-                                        }
-                                    }
-                                }
-                            },
-                            enabled = !isCheckingUpdate,
-                            modifier = Modifier.padding(top = 8.dp).fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
-                        ) {
-                            if (isCheckingUpdate) {
-                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSecondary)
-                            } else {
-                                Text("Check for App Updates")
-                            }
-                        }
-                    }
-                }
             }
 
             item { Spacer(Modifier.height(40.dp)) }

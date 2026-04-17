@@ -287,40 +287,117 @@ fun MainScreen() {
             try { context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?" }
             catch (e: Exception) { "?" }
         }
+        val coreVer = remember {
+            try { appctr.Appctr.getCoreVersion() } catch (e: Exception) { "unknown" }
+        }
+        var latestVersion by remember { mutableStateOf<String?>(null) }
+        var isCheckingUpdate by remember { mutableStateOf(false) }
+
         AlertDialog(
             onDismissRequest = { showAboutDialog = false },
-            title = { Text("TailSocks") },
+            title = { 
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.width(12.dp))
+                    Text("About TailSocks")
+                }
+            },
             text = { 
-                Column {
-                    Text(
-                        "Version $versionName",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(Modifier.height(8.dp))
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text("App Version: $versionName", fontWeight = FontWeight.Bold)
+                            Text("Tailscale Core: $coreVer", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    
+                    if (latestVersion != null) {
+                        val isNewer = latestVersion!!.removePrefix("v") != versionName.removePrefix("v")
+                        if (isNewer) {
+                            Spacer(Modifier.height(8.dp))
+                            Surface(
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Download, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("New version: $latestVersion", color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(16.dp))
                     Text("Proxy is running via official Tailscale core.\nLicense: BSD-3-Clause\n")
                     
                     TextButton(
                         onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/bropines"))) },
+                        modifier = Modifier.height(32.dp),
                         contentPadding = PaddingValues(0.dp)
                     ) { Text("App Developer: Bropines") }
                     
                     TextButton(
                         onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Asutorufa/tailscale"))) },
+                        modifier = Modifier.height(32.dp),
                         contentPadding = PaddingValues(0.dp)
                     ) { Text("Patch Developer: Asutorufa") }
 
                     TextButton(
                         onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/tailscale/tailscale"))) },
+                        modifier = Modifier.height(32.dp),
                         contentPadding = PaddingValues(0.dp)
                     ) { Text("Core Developer: Tailscale") }
+
+                    Spacer(Modifier.height(12.dp))
+                    Button(
+                        onClick = {
+                            isCheckingUpdate = true
+                            scope.launch(Dispatchers.IO) {
+                                try {
+                                    val connection = java.net.URL("https://api.github.com/repos/bropines/tailsocks/releases/latest").openConnection() as java.net.HttpURLConnection
+                                    connection.requestMethod = "GET"
+                                    connection.setRequestProperty("Accept", "application/vnd.github.v3+json")
+                                    if (connection.responseCode == 200) {
+                                        val response = connection.inputStream.bufferedReader().use { it.readText() }
+                                        val json = com.google.gson.Gson().fromJson(response, com.google.gson.JsonObject::class.java)
+                                        val tag = json.get("tag_name").asString
+                                        withContext(Dispatchers.Main) {
+                                            latestVersion = tag
+                                            isCheckingUpdate = false
+                                        }
+                                    } else { throw Exception("HTTP ${connection.responseCode}") }
+                                } catch (e: Exception) {
+                                    withContext(Dispatchers.Main) {
+                                        Toast.makeText(context, "Check failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                                        isCheckingUpdate = false
+                                    }
+                                }
+                            }
+                        },
+                        enabled = !isCheckingUpdate,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                    ) {
+                        if (isCheckingUpdate) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSecondary)
+                        } else {
+                            Text("Check for App Updates")
+                        }
+                    }
                 } 
             },
             confirmButton = {
                 TextButton(onClick = {
-                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/bropines/tailscaled-socks5-android")))
+                    val url = if (latestVersion != null) "https://github.com/bropines/tailsocks/releases/latest" 
+                             else "https://github.com/bropines/tailscaled-socks5-android"
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                     showAboutDialog = false
-                }) { Text("GitHub Repo") }
+                }) { Text(if (latestVersion != null) "Download" else "GitHub") }
             },
             dismissButton = { TextButton(onClick = { showAboutDialog = false }) { Text("Close") } }
         )

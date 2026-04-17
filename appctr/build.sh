@@ -11,13 +11,21 @@ fi
 export CC="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang"
 export CGO_ENABLED=1
 
-TS_VERSION="main"
+# Dynamically find the latest stable Tailscale tag
+echo "-> Fetching latest stable Tailscale version..."
+TS_VERSION=$(git ls-remote --tags --sort="v:refname" https://github.com/tailscale/tailscale.git | grep -v 'pre\|beta\|rc\|{}$' | tail -n1 | sed 's/.*\///')
+
+if [ -z "$TS_VERSION" ]; then
+    echo "❌ Error: Could not find latest Tailscale tag. Falling back to v1.78.1"
+    TS_VERSION="v1.78.1"
+fi
+echo "-> Using Tailscale version: $TS_VERSION"
 
 echo "[1/4] Preparing and Patching Tailscale sources..."
 if [ ! -d "tailscale_src" ]; then
     echo "-> Downloading sources..."
-    curl -sL "https://github.com/tailscale/tailscale/archive/refs/heads/${TS_VERSION}.tar.gz" | tar -xz
-    mv tailscale-${TS_VERSION} tailscale_src
+    curl -sL "https://github.com/tailscale/tailscale/archive/refs/tags/${TS_VERSION}.tar.gz" | tar -xz
+    mv tailscale-${TS_VERSION#v} tailscale_src
 
     echo "-> Injecting Android Netmon fix..."
     cp patches/fix_android_netmon.go tailscale_src/cmd/tailscaled/
@@ -65,7 +73,7 @@ go mod tidy
 
 mkdir -p tmp
 
-gomobile bind -ldflags='-s -w -buildid= -checklinkname=0' -trimpath -target="android/arm64" -androidapi 21 -tags "$TAGS" -o tmp/appctr.aar -v .
+gomobile bind -ldflags="-s -w -buildid= -checklinkname=0 -X appctr.coreVersion=$TS_VERSION" -trimpath -target="android/arm64" -androidapi 21 -tags "$TAGS" -o tmp/appctr.aar -v .
 
 echo "[4/4] Copying binaries to jniLibs..."
 mkdir -p ../app/src/main/jniLibs/arm64-v8a

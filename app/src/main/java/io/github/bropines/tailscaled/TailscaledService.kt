@@ -84,6 +84,12 @@ class TailscaledService : Service() {
         updateTile()
         if (!Appctr.isRunning()) {
             startForeground(1, buildNotification("Starting..."))
+            
+            if (prefs.getBoolean("force_bg", false)) {
+                wakeLock?.acquire(10 * 60 * 1000L /*10 minutes*/)
+                Log.d(TAG, "WakeLock acquired")
+            }
+            
             startTailscale()
         } else {
             updateNotification("Active")
