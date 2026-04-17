@@ -20,6 +20,16 @@ This file tracks architectural decisions, failed attempts, and successful implem
 - **AdGuard Guide:** Created `docs/ADGUARD.md` detailing how to resolve `.ts.net` domains through AdGuard's low-level settings.
 - **Backups:** Added backup/restore system to JSON.
 
+### 🟢 [2026-04-17] Taildrop & Core Monolith
+
+### ✅ Successes:
+- **Taildrop Enabled:** Successfully enabled Taildrop on Android by bypassing the problematic JNI implementation. We utilized `TS_TAILDROP_DIR` via environment variables and injected a pure Go filesystem provider (`fileops_fs.go`).
+- **Unified Patch System:** Migrated from fragile `sed` commands in `build.sh` to a robust, unified `tailsocks.patch` file applied via `patch -p0`. This ensures stable builds and easy maintenance.
+- **Taildrop Manager (Files UI):** Created a dedicated `FilesActivity` in Kotlin to manage received files (Inbox) and view the history of sent files (Sent Log). Features include opening files and saving them to the public `Downloads` directory.
+- **Smart Status Polling:** Optimized `MainActivity` to poll `status --json` only when necessary (e.g., waiting for browser login), significantly reducing battery drain and log spam.
+- **Netcheck Diagnostics:** Transformed the broken `netcheck` screen into a functional Connection Health dashboard parsing `status --json` to show Relay info and NAT status.
+- **SOCKS5 Credentials:** Injected `Username` and `Password` support for the SOCKS5 server directly into the Tailscale proxy configuration.
+
 ### ⚠️ Known Issues / Quarks:
 - **Signature Incompatibility:** Builds from `v1.4.0` onwards are NOT compatible with older "fork" versions (v1.3.1 and below). Users must uninstall the old app first.
 - **Kotlin DSL Scoping:** `project.exec` and standard `java.io` are often "unresolved" inside `defaultConfig`. Always move such logic to the top level of `build.gradle.kts` and use `providers.exec`.
