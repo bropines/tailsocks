@@ -131,6 +131,10 @@ class TailscaledService : Service() {
 
             enableWebUI = prefs.getBoolean("enable_webui", false)
             webUIAddr   = prefs.getString("webui_port", "127.0.0.1:8080")
+            taildropDir = "${applicationInfo.dataDir}/taildrop"
+            
+            // Ensure taildrop directory exists to avoid Go errors
+            java.io.File(taildropDir).mkdirs()
             
             execPath     = "${applicationInfo.nativeLibraryDir}/libtailscale.so"
             socketPath   = "${applicationInfo.dataDir}/tailscaled.sock"
@@ -161,6 +165,7 @@ class TailscaledService : Service() {
         ProxyState.setUserState(this, false)
         refreshHandler.removeCallbacks(refreshRunnable)
         Appctr.stop()
+        try { Runtime.getRuntime().exec("killall tailscaled") } catch (e: Exception) {}
         if (wakeLock?.isHeld == true) wakeLock?.release()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()

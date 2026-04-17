@@ -33,6 +33,7 @@
         </activity>
 
         <activity android:name=".SettingsActivity" android:exported="false" />
+        <activity android:name=".NetcheckActivity" android:exported="false" />
         <activity android:name=".LogsActivity" android:exported="false" />
         <activity android:name=".DnsActivity" android:exported="false" />
         <activity android:name=".ConsoleActivity" android:exported="false" android:windowSoftInputMode="adjustResize"/>
