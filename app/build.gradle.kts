@@ -12,15 +12,18 @@ val gitVersionCode = providers.exec {
     workingDir = rootDir
 }.standardOutput.asText.map { it.trim().toInt() + 10 }.getOrElse(10)
 
-val gitVersionName = providers.exec {
-    val isCI = System.getenv("GITHUB_ACTIONS") == "true"
-    if (isCI) {
-        commandLine("git", "describe", "--tags", "--always")
-    } else {
-        commandLine("git", "describe", "--tags", "--always", "--dirty")
-    }
+val baseVersion = providers.exec {
+    commandLine("git", "describe", "--tags", "--always", "--abbrev=0")
     workingDir = rootDir
-}.standardOutput.asText.map { it.trim().removePrefix("v") }.getOrElse("1.5.0-dirty")
+}.standardOutput.asText.map { it.trim().removePrefix("v") }.getOrElse("1.7.1")
+
+val gitHash = providers.exec {
+    commandLine("git", "rev-parse", "--short=6", "HEAD")
+    workingDir = rootDir
+}.standardOutput.asText.map { it.trim() }.getOrElse("unknown")
+
+val isRelease = gradle.startParameter.taskNames.any { it.contains("release", ignoreCase = true) }
+val gitVersionName = if (isRelease) baseVersion else "$baseVersion-$gitHash-dev"
 
 println("-> Build VersionCode: $gitVersionCode")
 println("-> Build VersionName: $gitVersionName")
