@@ -36,6 +36,12 @@ if [ ! -d "tailscale_src" ]; then
     
     # Find the creation of &socks5.Server{ and add our credits inside
     sed -i '/&socks5.Server{/a \		Username: os.Getenv("TS_SOCKS5_USER"),\n		Password: os.Getenv("TS_SOCKS5_PASS"),' tailscale_src/cmd/tailscaled/proxy.go
+
+    echo "-> Patching taildrop to support TS_TAILDROP_DIR..."
+    # Inject environment variable check into taildrop extension to avoid JNI calls on Android
+    sed -i '/package taildrop/a import "os"' tailscale_src/feature/taildrop/ext.go
+    sed -i '/e.setPlatformDefaultDirectFileRoot()/a \	if dir := os.Getenv("TS_TAILDROP_DIR"); dir != "" { e.SetDirectFileRoot(dir) }' tailscale_src/feature/taildrop/ext.go
+
     echo "✅ Sources patched successfully."
 else
     echo "-> Sources already exist and patched. Skipping download."
@@ -50,7 +56,7 @@ mkdir -p tmp
 go get github.com/wlynxg/anet@latest
 go mod tidy
 
-TAGS="ts_omit_taildrop,ts_omit_systray,ts_omit_kube,ts_omit_aws,ts_omit_bird,ts_omit_drive,ts_omit_qrcodes,ts_omit_desktop_sessions,ts_omit_dbus,ts_omit_networkmanager,ts_omit_resolved,ts_omit_sdnotify,ts_omit_tpm,ts_omit_logtail,ts_omit_synology,ts_omit_syspolicy,ts_omit_ssh,ts_omit_iptables,ts_omit_tap,ts_omit_linuxdnsfight,ts_omit_captiveportal,ts_omit_appconnectors,ts_omit_completion,ts_omit_completion_scripts,ts_omit_c2n,ts_omit_oauthkey"
+TAGS="ts_omit_systray,ts_omit_kube,ts_omit_aws,ts_omit_bird,ts_omit_drive,ts_omit_qrcodes,ts_omit_desktop_sessions,ts_omit_dbus,ts_omit_networkmanager,ts_omit_resolved,ts_omit_sdnotify,ts_omit_tpm,ts_omit_logtail,ts_omit_synology,ts_omit_syspolicy,ts_omit_ssh,ts_omit_iptables,ts_omit_tap,ts_omit_linuxdnsfight,ts_omit_captiveportal,ts_omit_appconnectors,ts_omit_completion,ts_omit_completion_scripts,ts_omit_c2n,ts_omit_oauthkey"
 
 echo "-> Compiling Daemon (Core)..."
 GOOS=android GOARCH=arm64 go build \

@@ -51,6 +51,7 @@ type StartOptions struct {
 	DoReset       bool
 	EnableWebUI   bool
 	WebUIAddr     string
+	TaildropDir   string
 }
 
 func SetLogLevel(level int32) {
@@ -81,6 +82,10 @@ func IsRunning() bool {
 	stateMu.Lock()
 	defer stateMu.Unlock()
 	return cmd != nil && cmd.Process != nil
+}
+
+func GetLoginURLString() string {
+	return GetLoginURL()
 }
 
 func ApplySettings(opt *StartOptions) {
@@ -153,7 +158,7 @@ func Start(opt *StartOptions) {
 	}
 
 	go func() {
-		err := tailscaledCmd(PC, opt.Socks5Server, opt.HttpProxy, opt.Socks5User, opt.Socks5Pass)
+		err := tailscaledCmd(PC, opt.Socks5Server, opt.HttpProxy, opt.Socks5User, opt.Socks5Pass, opt.TaildropDir)
 		if err != nil {
 			slog.Error("tailscaled cmd crashed", "err", err)
 		}
@@ -250,6 +255,7 @@ func StartWebUI(addr string) {
 
 	lc := &local.Client{
 		Socket: pc.Socket(),
+		UseSocketOnly: true,
 	}
 
 	ws, err := web.NewServer(web.ServerOpts{

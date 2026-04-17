@@ -23,6 +23,22 @@ func RunTailscaleCmd(commandStr string) string {
 	return string(output)
 }
 
+func GetLoginURL() string {
+	out := RunTailscaleCmd("status")
+	if strings.Contains(out, "https://login.tailscale.com/a/") {
+		lines := strings.Split(out, "\n")
+		for _, line := range lines {
+			if strings.Contains(line, "https://login.tailscale.com/a/") {
+				idx := strings.Index(line, "https://")
+				if idx != -1 {
+					return strings.TrimSpace(line[idx:])
+				}
+			}
+		}
+	}
+	return ""
+}
+
 func registerMachineWithAuthKey(PC pathControl, opt *StartOptions) {
 	apiReady := false
 	
