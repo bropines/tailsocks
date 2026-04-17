@@ -26,32 +26,29 @@ if [ ! -d "tailscale_src" ]; then
     echo "-> Downloading sources..."
     curl -sL "https://github.com/tailscale/tailscale/archive/refs/tags/${TS_VERSION}.tar.gz" | tar -xz
     mv tailscale-${TS_VERSION#v} tailscale_src
+
+    echo "-> Injecting Android Netmon fix..."
+    cp patches/fix_android_netmon.go tailscale_src/cmd/tailscaled/
+
+    echo "-> Applying unified patch..."
+    cd tailscale_src
+    # Удаляем конфликтный файл, так как мы его вшили в ext.go (монолитный патч)
+    rm -f feature/taildrop/fileops_fs.go
+    
+    if [ -f "../patches/tailsocks.patch" ]; then
+        patch -p0 < ../patches/tailsocks.patch
+    fi
+    cd ..
+
+    echo "✅ Sources patched successfully."
+else
+    echo "-> Sources already exist and patched. Skipping download."
 fi
-
-# Всегда сбрасываем и накатываем патчи заново для чистоты
-echo "-> Applying patches..."
-cd tailscale_src
-# Инициализация гита для безопасного сброса
-if [ ! -d ".git" ]; then
-    git init -q && git add . && git commit -m "base" -q
-fi
-git checkout . -q
-
-if [ -f "../patches/tailsocks.patch" ]; then
-    patch -p0 -N < ../patches/tailsocks.patch || echo "⚠️ Patch already applied."
-fi
-cd ..
-
-# Инъекция netmon
-cp patches/fix_android_netmon.go tailscale_src/cmd/tailscaled/ 2>/dev/null || true
-
-echo "✅ Sources ready."
 
 echo "[2/4] Compiling binaries in PIE mode..."
 cd tailscale_src
 mkdir -p tmp
 
-go get github.com/wlynxg/anet@latest
 go mod tidy
 
 TAGS="ts_omit_systray,ts_omit_kube,ts_omit_aws,ts_omit_bird,ts_omit_drive,ts_omit_qrcodes,ts_omit_desktop_sessions,ts_omit_dbus,ts_omit_networkmanager,ts_omit_resolved,ts_omit_sdnotify,ts_omit_tpm,ts_omit_logtail,ts_omit_synology,ts_omit_syspolicy,ts_omit_ssh,ts_omit_iptables,ts_omit_tap,ts_omit_linuxdnsfight,ts_omit_captiveportal,ts_omit_appconnectors,ts_omit_completion,ts_omit_completion_scripts,ts_omit_c2n,ts_omit_oauthkey"
@@ -74,9 +71,7 @@ cd ..
 
 echo "[3/4] Building appctr.aar (Gomobile Bridge)..."
 go mod tidy
-
 mkdir -p tmp
-
 gomobile bind -ldflags="-s -w -buildid= -checklinkname=0 -X appctr.coreVersion=$TS_VERSION" -trimpath -target="android/arm64" -androidapi 21 -tags "$TAGS" -o tmp/appctr.aar -v .
 
 echo "[4/4] Copying binaries to jniLibs..."

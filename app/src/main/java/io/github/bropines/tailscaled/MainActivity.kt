@@ -137,10 +137,20 @@ fun MainScreen() {
 
     LaunchedEffect(proxyState) {
         if (proxyState != "STOPPED") {
+            var urlFoundPreviously = false
             while (true) {
                 val url = try { appctr.Appctr.getLoginURLString() } catch (e: Exception) { "" }
-                loginUrl = if (url.isNullOrBlank()) null else url
-                delay(2000)
+                val newLoginUrl = if (url.isNullOrBlank()) null else url
+                loginUrl = newLoginUrl
+                
+                if (newLoginUrl != null) {
+                    urlFoundPreviously = true
+                } else if (urlFoundPreviously) {
+                    // Если ссылка была, а теперь её нет - мы успешно залогинились, прекращаем спамить
+                    break
+                }
+                
+                delay(5000) // Опрашиваем раз в 5 секунд, а не 2
             }
         } else {
             loginUrl = null
