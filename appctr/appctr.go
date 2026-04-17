@@ -24,6 +24,11 @@ var currentLogLevel int32 = 1
 var dnsProxyCancel context.CancelFunc
 var lastOptions *StartOptions
 var webServer *http.Server
+var coreVersion string = "unknown"
+
+func GetCoreVersion() string {
+	return coreVersion
+}
 
 type Closer interface {
 	Close() error
@@ -205,10 +210,10 @@ func RestartDNS() {
 }
 
 func Stop() {
+	StopWebUI()
+
 	stateMu.Lock()
 	defer stateMu.Unlock()
-
-	StopWebUI()
 
 	if dnsProxyCancel != nil {
 		dnsProxyCancel()

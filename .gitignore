@@ -61,4 +61,4 @@ appctr/libtailscale_cli.so
 # Build artifacts
 tmp/
 appctr/tmp/
-appctr/tailscale_src/tmp/
+appctr/tailscale_src/tmp/.gemini/skills/
