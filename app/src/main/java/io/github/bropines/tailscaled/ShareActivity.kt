@@ -1,5 +1,6 @@
 package io.github.bropines.tailscaled
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -33,7 +34,9 @@ class ShareActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        val fileUri = intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
+        val fileUri = if (intent.action == Intent.ACTION_SEND) {
+            intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
+        } else null
         
         if (fileUri == null || !ProxyState.isActualRunning()) {
             Toast.makeText(this, "Tailscale is not running or no file selected", Toast.LENGTH_SHORT).show()
@@ -72,26 +75,27 @@ fun ShareScreen(fileUri: Uri, onDismiss: () -> Unit) {
         isSending = true
         coroutineScope.launch(Dispatchers.IO) {
             try {
-                // Копируем файл из Uri во временную папку, т.к. Tailscale нужен реальный путь
-                val contentResolver = context.contentResolver
-                val fileName = "shared_file_${System.currentTimeMillis()}"
+                val fileName = getFileName(context, fileUri) ?: "file_${System.currentTimeMillis()}"
                 val tempFile = File(context.cacheDir, fileName)
                 
-                contentResolver.openInputStream(fileUri)?.use { input ->
+                context.contentResolver.openInputStream(fileUri)?.use { input ->
                     FileOutputStream(tempFile).use { output ->
                         input.copyTo(output)
                     }
                 }
 
-                // Отправляем: tailscale file cp /path/to/file peername:
-                // ВАЖНО: двоеточие в конце имени пира обязательно!
-                val targetName = peer.hostName ?: peer.getDisplayName()
-                Appctr.runTailscaleCmd("file cp ${tempFile.absolutePath} ${targetName}:")
+                val targetName = peer.dnsName ?: peer.hostName ?: peer.getDisplayName()
+                val result = Appctr.runTailscaleCmd("file cp ${tempFile.absolutePath} ${targetName}:")
                 
-                tempFile.delete() // Чистим за собой
+                logSentFile(context, fileName, peer.getDisplayName())
+                tempFile.delete()
                 
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Sent to ${peer.getDisplayName()}", Toast.LENGTH_SHORT).show()
+                    if (result.isNotBlank() && (result.contains("error", true) || result.contains("failed", true))) {
+                        Toast.makeText(context, "Tailscale: $result", Toast.LENGTH_LONG).show()
+                    } else {
+                        Toast.makeText(context, "Sent to ${peer.getDisplayName()}", Toast.LENGTH_SHORT).show()
+                    }
                     onDismiss()
                 }
             } catch (e: Exception) {
@@ -128,4 +132,44 @@ fun ShareScreen(fileUri: Uri, onDismiss: () -> Unit) {
             }
         }
     }
+}
+
+fun logSentFile(context: Context, fileName: String, targetName: String) {
+    try {
+        val historyFile = File(context.filesDir, "sent_history.json")
+        val gson = Gson()
+        val type = object : com.google.gson.reflect.TypeToken<MutableList<SentFileEntry>>() {}.type
+        
+        val history: MutableList<SentFileEntry> = if (historyFile.exists()) {
+            gson.fromJson(historyFile.readText(), type)
+        } else {
+            mutableListOf()
+        }
+        
+        history.add(0, SentFileEntry(fileName, targetName, System.currentTimeMillis()))
+        if (history.size > 50) history.removeAt(history.size - 1)
+        
+        historyFile.writeText(gson.toJson(history))
+    } catch (e: Exception) {}
+}
+
+fun getFileName(context: Context, uri: Uri): String? {
+    var result: String? = null
+    if (uri.scheme == "content") {
+        val cursor = context.contentResolver.query(uri, null, null, null, null)
+        try {
+            if (cursor != null && cursor.moveToFirst()) {
+                val index = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                if (index != -1) result = cursor.getString(index)
+            }
+        } finally {
+            cursor?.close()
+        }
+    }
+    if (result == null) {
+        result = uri.path
+        val cut = result?.lastIndexOf('/') ?: -1
+        if (cut != -1) result = result?.substring(cut + 1)
+    }
+    return result
 }

@@ -15,12 +15,18 @@ func RunTailscaleCmd(commandStr string) string {
 	parts := strings.Fields(commandStr)
 	args := append([]string{"--socket", PC.Socket()}, parts...)
 	c := exec.Command(PC.Tailscale(), args...)
+	
+	slog.Info("Running Tailscale CLI", "cmd", commandStr)
 	output, err := c.CombinedOutput()
+	outStr := string(output)
+
 	if err != nil {
-		// We don't use slog here to avoid writing to the log during every check.
-		return string(output)
+		slog.Error("CLI command failed", "out", outStr, "err", err)
+	} else if outStr != "" {
+		slog.Info("CLI command output", "out", outStr)
 	}
-	return string(output)
+	
+	return outStr
 }
 
 func GetLoginURL() string {
