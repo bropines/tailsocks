@@ -36,6 +36,7 @@ import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.lang.Runtime
 
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
@@ -111,7 +112,7 @@ class MainActivity : ComponentActivity() {
                     val json = com.google.gson.Gson().fromJson(response, com.google.gson.JsonObject::class.java)
                     val tag = json.get("tag_name").asString
                     if (tag.removePrefix("v") != currentVersion.removePrefix("v")) {
-                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        withContext(Dispatchers.Main) {
                             Toast.makeText(this@MainActivity, "🚀 New TailSocks update available: $tag", Toast.LENGTH_LONG).show()
                         }
                     }
