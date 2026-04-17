@@ -152,11 +152,11 @@ fun LogsScreen(onBack: () -> Unit) {
                     actions = {
                         IconButton(onClick = { 
                             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            clipboard.setPrimaryClip(ClipData.newPlainText("Tailscale Logs", Appctr.getLogs()))
-                            Toast.makeText(context, "Скопировано в буфер", Toast.LENGTH_SHORT).show()
-                        }) { Icon(Icons.Default.List, contentDescription = "Copy everything") }
+                            clipboard.setPrimaryClip(ClipData.newPlainText("TailSocks Logs", Appctr.getLogs()))
+                            Toast.makeText(context, "Logs copied to clipboard!", Toast.LENGTH_SHORT).show()
+                        }) { Icon(Icons.Default.ContentCopy, contentDescription = "Copy everything") }
                         
-                        IconButton(onClick = { saveFileLauncher.launch("tailscaled_logs_${System.currentTimeMillis()}.txt") }) { Icon(Icons.Default.Done, contentDescription = "Save") }
+                        IconButton(onClick = { saveFileLauncher.launch("tailscaled_logs_${System.currentTimeMillis()}.txt") }) { Icon(Icons.Default.Save, contentDescription = "Save to File") }
                         
                         IconButton(onClick = {
                             val sendIntent = Intent().apply {
