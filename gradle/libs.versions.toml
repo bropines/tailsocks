@@ -5,16 +5,14 @@ core-ktx = "1.17.0"
 appcompat = "1.7.1"
 material = "1.13.0"
 gson = "2.10.1"
-# Версия для поддержки Material 3 Expressive (1.3.0+)
 compose-bom = "2024.10.00"
 activity-compose = "1.8.2"
 lifecycle-runtime-ktx = "2.7.0"
 navigation = "2.9.6"
+documentfile = "1.0.1"
 
 [libraries]
-# Вот эта строка исправляет твою ошибку "Unresolved reference 'material'"
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
-
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "core-ktx" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycle-runtime-ktx" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activity-compose" }
@@ -24,6 +22,7 @@ androidx-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
 androidx-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
 androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
+androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }
 navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigation" }
 gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
 

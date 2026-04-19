@@ -22,23 +22,25 @@ func ForceRefresh() {
 }
 
 func RunTailscaleCmd(commandStr string) string {
+	return RunTailscaleArgs(strings.Fields(commandStr)...)
+}
+
+func RunTailscaleArgs(parts ...string) string {
 	if !IsRunning() {
 		return "Error: Tailscaled is not running."
 	}
-	parts := strings.Fields(commandStr)
 	args := append([]string{"--socket", PC.Socket()}, parts...)
 	c := exec.Command(PC.Tailscale(), args...)
 	
-	isRoutineCheck := strings.HasPrefix(commandStr, "status")
+	isRoutineCheck := len(parts) > 0 && parts[0] == "status"
 
 	if !isRoutineCheck {
-		slog.Info("Running Tailscale CLI", "cmd", commandStr)
+		slog.Info("Running Tailscale CLI", "args", parts)
 	}
 	
 	output, err := c.CombinedOutput()
 	outStr := string(output)
 
-	// Парсим специфические ошибки для UI
 	if strings.Contains(outStr, "http 410") {
 		lastErrStr = "410_GONE"
 	}

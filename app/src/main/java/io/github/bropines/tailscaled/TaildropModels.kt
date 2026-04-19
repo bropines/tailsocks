@@ -8,3 +8,11 @@ data class SentFileEntry(
     val target: String,
     val timestamp: Long
 )
+
+@Keep
+data class TaildropFile(
+    val Name: String,
+    val Size: Long,
+    val ModTime: Long,
+    val Path: String
+)
