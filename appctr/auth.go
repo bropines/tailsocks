@@ -120,11 +120,12 @@ func registerMachineWithAuthKey(PC pathControl, opt *StartOptions) {
 	go func() {
 		c := exec.Command(PC.Tailscale(), args...)
 		output, err := c.CombinedOutput()
+		outStr := string(output)
 		if err != nil {
-			// Логируем только если произошла реальная критическая ошибка (не таймаут)
-			outStr := string(output)
 			if strings.Contains(outStr, "invalid key") {
 				slog.Error("Critical: Invalid Auth Key")
+			} else {
+				slog.Error("Tailscale up failed", "err", err, "out", outStr)
 			}
 		} else {
 			slog.Info("Tailscale configuration applied successfully")
