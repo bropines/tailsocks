@@ -32,7 +32,7 @@ func RunTailscaleArgs(parts ...string) string {
 	args := append([]string{"--socket", PC.Socket()}, parts...)
 	c := exec.Command(PC.Tailscale(), args...)
 	
-	isRoutineCheck := len(parts) > 0 && parts[0] == "status"
+	isRoutineCheck := len(parts) > 0 && (parts[0] == "status" || parts[0] == "dns" || parts[0] == "netcheck" || parts[0] == "ping")
 
 	if !isRoutineCheck {
 		slog.Info("Running Tailscale CLI", "args", parts)

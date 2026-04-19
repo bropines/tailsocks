@@ -17,16 +17,20 @@ data class PeerData(
     @SerializedName("DNSName") val dnsName: String?,
     @SerializedName("OS") val os: String?,
     @SerializedName("TailscaleIPs") val tailscaleIPs: List<String>?,
+    @SerializedName("AllowedIPs") val allowedIPs: List<String>?,
     @SerializedName("Online") val online: Boolean?,
-    @SerializedName("Active") val active: Boolean?, 
+    @SerializedName("Active") val active: Boolean?,
     @SerializedName("Relay") val relay: String?,
     @SerializedName("LastSeen") val lastSeen: String?,
     @SerializedName("KeyExpiry") val keyExpiry: String?,
     @SerializedName("Version") val version: String?,
-    @SerializedName("ExitNodeOption") val exitNodeOption: Boolean?
+    @SerializedName("ExitNode") val exitNode: Boolean?,
+    @SerializedName("ExitNodeOption") val exitNodeOption: Boolean?,
+    @SerializedName("RxBytes") val rxBytes: Long?,
+    @SerializedName("TxBytes") val txBytes: Long?
 ) {
     fun getPrimaryIp(): String = tailscaleIPs?.firstOrNull() ?: "0.0.0.0"
-    
+
     fun getDisplayName(): String = dnsName?.split(".")?.firstOrNull() ?: hostName ?: "Unknown"
 
     fun getDetailsList(): List<Pair<String, String>> {
@@ -45,7 +49,10 @@ data class PeerData(
             "Node ID" to (id ?: "N/A"),
             "Relay" to (relay ?: "Direct"),
             "Key Expiry" to (keyExpiry?.split("T")?.firstOrNull() ?: "No expiry"),
-            "Last Seen" to displaySeen
+            "Last Seen" to displaySeen,
+            "Rx Bytes" to (rxBytes?.toString() ?: "0"),
+            "Tx Bytes" to (txBytes?.toString() ?: "0"),
+            "Is Exit Node" to (exitNodeOption?.toString() ?: "false")
         )
     }
 }

@@ -17,10 +17,10 @@ if [ -n "$TS_VER_TAG" ]; then
     TS_VERSION="$TS_VER_TAG"
 else
     echo "-> Fetching latest stable Tailscale version..."
-    TS_VERSION=$(git ls-remote --tags --sort="v:refname" https://github.com/tailscale/tailscale.git | grep -v 'pre\|beta\|rc\|{}$' | tail -n1 | sed 's/.*\///')
+    TS_VERSION=$(git ls-remote --tags --sort="v:refname" https://github.com/tailscale/tailscale.git | grep -v 'pre\|beta\|rc\|{}$' | grep -v 'dev' | tail -n1 | sed 's/.*\///')
     if [ -z "$TS_VERSION" ]; then
-        echo "❌ Error: Could not find latest Tailscale tag. Falling back to v1.78.1"
-        TS_VERSION="v1.78.1"
+        echo "❌ Error: Could not find latest Tailscale tag. Falling back to v1.96.4"
+        TS_VERSION="v1.96.4"
     fi
     echo "-> Latest version: $TS_VERSION"
 fi

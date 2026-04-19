@@ -177,7 +177,7 @@ fun SettingsScreen(onBack: () -> Unit) {
             SettingsEditItem("HTTP Proxy", httpProxy, Icons.Default.Http) { httpProxy = it; savePref("httpproxy", it) }
             SettingsEditItem("DNS Proxy", dnsProxy, Icons.Default.Toll) { dnsProxy = it; savePref("dns_proxy", it) }
             SettingsEditItem("DNS Fallbacks", dnsFallbacks, Icons.Default.List, placeholder = "8.8.8.8:53,1.1.1.1:53") { dnsFallbacks = it; savePref("dns_fallbacks", it) }
-            SettingsEditItem("Exit Node IP", exitNodeIp, Icons.Default.Input) { exitNodeIp = it; savePref("exit_node_ip", it) }
+            SettingsExitNodeItem("Exit Node", exitNodeIp, Icons.Default.Input) { exitNodeIp = it; savePref("exit_node_ip", it) }
 
             SettingsSectionHeader("Web Interface")
             SettingsSwitchItem("Enable Web UI", "Run built-in Tailscale web server", Icons.Default.Web, enableWebUI) { enableWebUI = it; savePref("enable_webui", it) }
@@ -271,5 +271,74 @@ fun SettingsEditItem(
             confirmButton = { Button(onClick = { onSave(text); showDialog = false }) { Text("Save") } },
             dismissButton = { TextButton(onClick = { showDialog = false }) { Text("Cancel") } }
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsExitNodeItem(
+    title: String, 
+    currentValue: String, 
+    icon: androidx.compose.ui.graphics.vector.ImageVector, 
+    onSave: (String) -> Unit
+) {
+    var showDialog by remember { mutableStateOf(false) }
+    var exitNodes by remember { mutableStateOf<List<PeerData>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    ListItem(
+        headlineContent = { Text(title) },
+        supportingContent = { Text(if (currentValue.isEmpty()) "None" else currentValue, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        leadingContent = { Icon(icon, null, tint = MaterialTheme.colorScheme.primary) },
+        modifier = Modifier.clickable { 
+            showDialog = true 
+            isLoading = true
+            scope.launch(Dispatchers.IO) {
+                try {
+                    val pJson = Appctr.runTailscaleCmd("status --json")
+                    if (!pJson.startsWith("Error")) {
+                        val status = Gson().fromJson(pJson, StatusResponse::class.java)
+                        val nodes = status.peers?.values?.filter { it.exitNodeOption == true }?.toList() ?: emptyList()
+                        withContext(Dispatchers.Main) { exitNodes = nodes }
+                    }
+                } catch (e: Exception) {}
+                withContext(Dispatchers.Main) { isLoading = false }
+            }
+        }
+    )
+
+    if (showDialog) {
+        ModalBottomSheet(onDismissRequest = { showDialog = false }) {
+            Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+                Text("Select Exit Node", modifier = Modifier.padding(20.dp), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                if (isLoading) {
+                    Box(Modifier.fillMaxWidth().height(100.dp), Alignment.Center) { CircularProgressIndicator() }
+                } else if (exitNodes.isEmpty()) {
+                    Box(Modifier.fillMaxWidth().height(100.dp), Alignment.Center) { 
+                        Text("No exit nodes available", color = MaterialTheme.colorScheme.outline)
+                    }
+                } else {
+                    androidx.compose.foundation.lazy.LazyColumn {
+                        item {
+                            ListItem(
+                                headlineContent = { Text("None") },
+                                leadingContent = { Icon(Icons.Default.Clear, null) },
+                                modifier = Modifier.clickable { onSave(""); showDialog = false }
+                            )
+                        }
+                        items(exitNodes.size) { i ->
+                            val node = exitNodes[i]
+                            ListItem(
+                                headlineContent = { Text(node.getDisplayName()) },
+                                supportingContent = { Text(node.getPrimaryIp()) },
+                                leadingContent = { Icon(Icons.Default.VpnKey, null) },
+                                modifier = Modifier.clickable { onSave(node.getPrimaryIp()); showDialog = false }
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }

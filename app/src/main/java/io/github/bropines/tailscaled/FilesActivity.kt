@@ -77,27 +77,50 @@ fun FilesScreen(onBack: () -> Unit) {
     fun refreshData() {
         isLoading = true
         scope.launch(Dispatchers.IO) {
+            // 1. Load incoming files
             try {
                 val json = Appctr.getWaitingFiles(taildropDir.absolutePath)
-                files = Gson().fromJson(json, object : TypeToken<List<TaildropFile>>() {}.type)
-                
+                val newFiles: List<TaildropFile> = Gson().fromJson(json, object : TypeToken<List<TaildropFile>>() {}.type) ?: emptyList()
+                withContext(Dispatchers.Main) { files = newFiles }
+            } catch (e: Exception) {
+                android.util.Log.e("FilesActivity", "Failed to load waiting files", e)
+            }
+
+            // 2. Load peers status
+            try {
                 val pJson = Appctr.runTailscaleCmd("status --json")
                 if (!pJson.startsWith("Error")) {
                     val status = Gson().fromJson(pJson, StatusResponse::class.java)
-                    peers = status.peers?.values?.toList()?.sortedWith(
+                    val newPeers = status.peers?.values?.toList()?.sortedWith(
                         compareByDescending<PeerData> { it.online == true }.thenBy { it.getDisplayName() }
                     ) ?: emptyList()
-                    selfPeer = status.self
+                    withContext(Dispatchers.Main) {
+                        peers = newPeers
+                        selfPeer = status.self
+                    }
+                } else {
+                    android.util.Log.w("FilesActivity", "Status CMD error: $pJson")
                 }
-                
+            } catch (e: Exception) {
+                android.util.Log.e("FilesActivity", "Failed to parse status JSON", e)
+            }
+
+            // 3. Load sent history
+            try {
                 val hf = File(context.filesDir, "sent_history.json")
-                if (hf.exists()) sentFiles = Gson().fromJson(hf.readText(), object : TypeToken<List<SentFileEntry>>() {}.type)
-            } catch (e: Exception) {}
+                if (hf.exists()) {
+                    val newHistory: List<SentFileEntry> = Gson().fromJson(hf.readText(), object : TypeToken<List<SentFileEntry>>() {}.type) ?: emptyList()
+                    withContext(Dispatchers.Main) { sentFiles = newHistory }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("FilesActivity", "Failed to load sent history", e)
+            }
+
             withContext(Dispatchers.Main) { isLoading = false }
         }
     }
 
-    LaunchedEffect(Unit) { refreshData() }
+    LaunchedEffect(activeAccount.id) { refreshData() }
     LaunchedEffect(selectedTab) { refreshData() }
 
     fun handleSaveRequest(file: TaildropFile) {
@@ -139,7 +162,7 @@ fun FilesScreen(onBack: () -> Unit) {
                     else LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(files) { f -> FileCard(f, { openTaildropFile(context, f) }, { handleSaveRequest(f) }, { if (Appctr.deleteTaildropFile(f.Path)) refreshData() }) }
                     }
-                1 -> if (peers.isEmpty() && !isLoading) EmptyState(Icons.Default.Devices, "No devices") 
+                1 -> if (peers.isEmpty() && selfPeer == null && !isLoading) EmptyState(Icons.Default.Devices, "No devices") 
                     else LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
                         if (selfPeer != null) {
                             this@LazyColumn.item { PeerItem(selfPeer!!, true) {} }
