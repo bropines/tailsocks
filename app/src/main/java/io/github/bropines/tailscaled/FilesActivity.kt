@@ -79,7 +79,11 @@ fun FilesScreen(onBack: () -> Unit) {
         scope.launch(Dispatchers.IO) {
             // 1. Load incoming files
             try {
-                val json = Appctr.getWaitingFiles(taildropDir.absolutePath)
+                val json = if (BuildConfig.IS_DEV) {
+                    Appctr.getTaildropFilesFromAPI()
+                } else {
+                    Appctr.getWaitingFiles(taildropDir.absolutePath)
+                }
                 val newFiles: List<TaildropFile> = Gson().fromJson(json, object : TypeToken<List<TaildropFile>>() {}.type) ?: emptyList()
                 withContext(Dispatchers.Main) { files = newFiles }
             } catch (e: Exception) {
@@ -88,7 +92,12 @@ fun FilesScreen(onBack: () -> Unit) {
 
             // 2. Load peers status
             try {
-                val pJson = Appctr.runTailscaleCmd("status --json")
+                val pJson = if (BuildConfig.IS_DEV) {
+                    Appctr.getStatusFromAPI()
+                } else {
+                    Appctr.runTailscaleCmd("status --json")
+                }
+                
                 if (!pJson.startsWith("Error")) {
                     val status = Gson().fromJson(pJson, StatusResponse::class.java)
                     val newPeers = status.peers?.values?.toList()?.sortedWith(
@@ -99,7 +108,7 @@ fun FilesScreen(onBack: () -> Unit) {
                         selfPeer = status.self
                     }
                 } else {
-                    android.util.Log.w("FilesActivity", "Status CMD error: $pJson")
+                    android.util.Log.w("FilesActivity", "Status source error: $pJson")
                 }
             } catch (e: Exception) {
                 android.util.Log.e("FilesActivity", "Failed to parse status JSON", e)
@@ -160,7 +169,10 @@ fun FilesScreen(onBack: () -> Unit) {
             when (selectedTab) {
                 0 -> if (files.isEmpty() && !isLoading) EmptyState(Icons.Default.Inbox, "No incoming files") 
                     else LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(files) { f -> FileCard(f, { openTaildropFile(context, f) }, { handleSaveRequest(f) }, { if (Appctr.deleteTaildropFile(f.Path)) refreshData() }) }
+                        items(files) { f -> FileCard(f, { openTaildropFile(context, f) }, { handleSaveRequest(f) }, { 
+                            val deleted = if (BuildConfig.IS_DEV) Appctr.deleteTaildropFileFromAPI(f.Name) else Appctr.deleteTaildropFile(f.Path)
+                            if (deleted) refreshData() 
+                        }) }
                     }
                 1 -> if (peers.isEmpty() && selfPeer == null && !isLoading) EmptyState(Icons.Default.Devices, "No devices") 
                     else LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
@@ -229,8 +241,13 @@ private suspend fun sendSingleFileInActivity(context: Context, uri: Uri, peer: P
         val tmp = File(outDir, originalName)
         context.contentResolver.openInputStream(uri)?.use { i -> tmp.outputStream().use { o -> i.copyTo(o); o.flush() } }
         onProgress("Uploading...")
-        val target = peer.hostName ?: peer.dnsName ?: peer.getDisplayName()
-        val res = Appctr.sendFile(target, tmp.absolutePath)
+        val res = if (BuildConfig.IS_DEV && !peer.id.isNullOrEmpty()) {
+            Appctr.sendFileFromAPI(peer.id, tmp.absolutePath)
+        } else {
+            val target = peer.hostName ?: peer.dnsName ?: peer.getDisplayName()
+            Appctr.sendFile(target, tmp.absolutePath)
+        }
+        
         if (res.isBlank() || !(res.contains("error", true) || res.contains("failed", true))) {
             logSentFile(context, originalName, peer.getDisplayName())
             withContext(Dispatchers.Main) { Toast.makeText(context, "Sent!", Toast.LENGTH_SHORT).show() }
