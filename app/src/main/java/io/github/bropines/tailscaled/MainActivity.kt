@@ -147,9 +147,17 @@ fun MainScreen() {
     var loginUrl by remember { mutableStateOf<String?>(null) }
     var show410Warning by remember { mutableStateOf(false) }
 
-    // Перезагрузка при смене аккаунта
-    LaunchedEffect(activeAccount.id) {
+    DisposableEffect(prefs) {
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
+            if (key == "exit_node_ip") {
+                exitNodeIp = sharedPreferences.getString("exit_node_ip", "") ?: ""
+            }
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
         exitNodeIp = prefs.getString("exit_node_ip", "") ?: ""
+        onDispose {
+            prefs.unregisterOnSharedPreferenceChangeListener(listener)
+        }
     }
 
     LaunchedEffect(proxyState) {
