@@ -126,14 +126,31 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainScreen() {
     val context = LocalContext.current
-    val prefs = context.getSharedPreferences("appctr", Context.MODE_PRIVATE)
     val scope = rememberCoroutineScope()
     
-    var proxyState by remember { mutableStateOf(if (ProxyState.isActualRunning()) "ACTIVE" else "STOPPED") }
+    var activeAccount by remember { mutableStateOf(AccountManager.getActiveAccount(context)) }
+    val accounts = remember { mutableStateOf(AccountManager.getAccounts(context)) }
+    
+    var showAddAccountDialog by remember { mutableStateOf(false) }
+    var showRenameAccountDialog by remember { mutableStateOf(false) }
+    var showSwitchConfirmDialog by remember { mutableStateOf<TailscaleAccount?>(null) }
+    
+    var newAccountName by remember { mutableStateOf("") }
+    var accountMenuExpanded by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
+
+    val prefs = remember(activeAccount.id) { context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE) }
+    
+    var proxyState by remember { mutableStateOf(if (ProxyState.isActualRunning()) "ACTIVE" else "STOPPED") }
     var exitNodeIp by remember { mutableStateOf(prefs.getString("exit_node_ip", "") ?: "") }
-    var isProcessing by remember { mutableStateOf(false) } // Флаг блокировки интерфейса
+    var isProcessing by remember { mutableStateOf(false) }
     var loginUrl by remember { mutableStateOf<String?>(null) }
+    var show410Warning by remember { mutableStateOf(false) }
+
+    // Перезагрузка при смене аккаунта
+    LaunchedEffect(activeAccount.id) {
+        exitNodeIp = prefs.getString("exit_node_ip", "") ?: ""
+    }
 
     LaunchedEffect(proxyState) {
         if (proxyState != "STOPPED") {
@@ -143,17 +160,23 @@ fun MainScreen() {
                 val newLoginUrl = if (url.isNullOrBlank()) null else url
                 loginUrl = newLoginUrl
                 
+                // Проверка на ошибку 410
+                val lastErr = try { appctr.Appctr.getLastError() } catch (e: Exception) { "" }
+                if (lastErr == "410_GONE") {
+                    show410Warning = true
+                }
+
                 if (newLoginUrl != null) {
                     urlFoundPreviously = true
                 } else if (urlFoundPreviously) {
-                    // Если ссылка была, а теперь её нет - мы успешно залогинились, прекращаем спамить
+                    show410Warning = false
                     break
                 }
-                
-                delay(5000) // Опрашиваем раз в 5 секунд, а не 2
+                delay(5000)
             }
         } else {
             loginUrl = null
+            show410Warning = false
         }
     }
 
@@ -165,6 +188,7 @@ fun MainScreen() {
                     "START" -> {
                         proxyState = "ACTIVE"
                         exitNodeIp = prefs.getString("exit_node_ip", "") ?: ""
+                        show410Warning = false
                     }
                     "STOP" -> proxyState = "STOPPED"
                 }
@@ -185,10 +209,168 @@ fun MainScreen() {
         }
     }
 
+    if (showAddAccountDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddAccountDialog = false },
+            title = { Text("Add Account") },
+            text = {
+                OutlinedTextField(
+                    value = newAccountName,
+                    onValueChange = { newAccountName = it },
+                    label = { Text("Account Name") },
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    if (newAccountName.isNotBlank()) {
+                        val acc = AccountManager.addAccount(context, newAccountName)
+                        accounts.value = AccountManager.getAccounts(context)
+                        AccountManager.setActiveAccount(context, acc.id)
+                        activeAccount = acc
+                        newAccountName = ""
+                        showAddAccountDialog = false
+                        
+                        if (proxyState == "ACTIVE") {
+                            val intent = Intent(context, TailscaledService::class.java).apply { action = "REFRESH_ACTION" }
+                            context.startService(intent)
+                        }
+                    }
+                }) { Text("Add") }
+            },
+            dismissButton = { TextButton(onClick = { showAddAccountDialog = false }) { Text("Cancel") } }
+        )
+    }
+
+    if (showRenameAccountDialog) {
+        var renameText by remember { mutableStateOf(activeAccount.name) }
+        AlertDialog(
+            onDismissRequest = { showRenameAccountDialog = false },
+            title = { Text("Rename Account") },
+            text = {
+                OutlinedTextField(
+                    value = renameText,
+                    onValueChange = { renameText = it },
+                    label = { Text("New Name") },
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    if (renameText.isNotBlank()) {
+                        AccountManager.renameAccount(context, activeAccount.id, renameText)
+                        accounts.value = AccountManager.getAccounts(context)
+                        activeAccount = AccountManager.getActiveAccount(context)
+                        showRenameAccountDialog = false
+                    }
+                }) { Text("Rename") }
+            },
+            dismissButton = { TextButton(onClick = { showRenameAccountDialog = false }) { Text("Cancel") } }
+        )
+    }
+
+    if (showSwitchConfirmDialog != null) {
+        AlertDialog(
+            onDismissRequest = { showSwitchConfirmDialog = null },
+            title = { Text("Switch Account?") },
+            text = { Text("Switching to '${showSwitchConfirmDialog!!.name}' will restart the core. Are you sure?") },
+            confirmButton = {
+                Button(onClick = {
+                    val target = showSwitchConfirmDialog!!
+                    showSwitchConfirmDialog = null
+                    isProcessing = true
+                    
+                    scope.launch {
+                        // 1. Останавливаем текущий аккаунт
+                        context.startService(Intent(context, TailscaledService::class.java).apply { action = "STOP_ACTION" })
+                        delay(1000)
+                        
+                        // 2. Меняем активный аккаунт
+                        AccountManager.setActiveAccount(context, target.id)
+                        activeAccount = target
+                        
+                        // 3. Запускаем новый
+                        context.startForegroundService(Intent(context, TailscaledService::class.java).apply { action = "START_ACTION" })
+                        
+                        delay(2000)
+                        isProcessing = false
+                    }
+                }) { Text("Restart & Switch") }
+            },
+            dismissButton = { TextButton(onClick = { showSwitchConfirmDialog = null }) { Text("Cancel") } }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("TailSocks") },
+                title = {
+                    Column(modifier = Modifier.clickable { accountMenuExpanded = true }) {
+                        Text("TailSocks", style = MaterialTheme.typography.titleMedium)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                activeAccount.name,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Icon(Icons.Default.ArrowDropDown, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                        }
+                        
+                        DropdownMenu(
+                            expanded = accountMenuExpanded,
+                            onDismissRequest = { accountMenuExpanded = false }
+                        ) {
+                            accounts.value.forEach { account ->
+                                DropdownMenuItem(
+                                    text = { Text(account.name) },
+                                    onClick = {
+                                        accountMenuExpanded = false
+                                        if (account.id != activeAccount.id) {
+                                            if (proxyState == "ACTIVE") {
+                                                showSwitchConfirmDialog = account
+                                            } else {
+                                                AccountManager.setActiveAccount(context, account.id)
+                                                activeAccount = account
+                                            }
+                                        }
+                                    },
+                                    trailingIcon = {
+                                        if (account.id == activeAccount.id) Icon(Icons.Default.Check, null)
+                                    }
+                                )
+                            }
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text("Rename Current") },
+                                onClick = {
+                                    accountMenuExpanded = false
+                                    showRenameAccountDialog = true
+                                },
+                                leadingIcon = { Icon(Icons.Default.Edit, null) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Add Account") },
+                                onClick = {
+                                    accountMenuExpanded = false
+                                    showAddAccountDialog = true
+                                },
+                                leadingIcon = { Icon(Icons.Default.Add, null) }
+                            )
+                            if (activeAccount.id != "default") {
+                                DropdownMenuItem(
+                                    text = { Text("Delete Current", color = MaterialTheme.colorScheme.error) },
+                                    onClick = {
+                                        accountMenuExpanded = false
+                                        AccountManager.deleteAccount(context, activeAccount.id)
+                                        activeAccount = AccountManager.getActiveAccount(context)
+                                        accounts.value = AccountManager.getAccounts(context)
+                                    },
+                                    leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) }
+                                )
+                            }
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
                 actions = {
                     if (proxyState == "ACTIVE") {
@@ -214,6 +396,27 @@ fun MainScreen() {
         ) {
             Spacer(modifier = Modifier.height(12.dp))
 
+            if (show410Warning) {
+                Surface(
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("Network Sync Warning", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
+                            Text("Initial machine map parsing may take 1-3 minutes due to network backoff. Please do not restart.", 
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                        }
+                    }
+                }
+            }
+
             if (proxyState == "ACTIVE" && exitNodeIp.isNotEmpty()) {
                 Surface(
                     color = MaterialTheme.colorScheme.secondaryContainer,
@@ -235,7 +438,7 @@ fun MainScreen() {
             }
 
             StatusCard(state = proxyState, isProcessing = isProcessing) {
-                if (isProcessing) return@StatusCard // Защита от случайных нажатий
+                if (isProcessing) return@StatusCard
 
                 if (proxyState == "ACTIVE" || proxyState == "STARTING") {
                     isProcessing = true
@@ -246,7 +449,6 @@ fun MainScreen() {
                     val intent = Intent(context, TailscaledService::class.java).apply { action = "STOP_ACTION" }
                     context.startService(intent)
                 } else {
-                    val currentAuthKey = prefs.getString("authkey", "") ?: ""
                     val currentSocks = prefs.getString("socks5", "127.0.0.1:1055") ?: "127.0.0.1:1055"
                     
                     if (currentSocks.isBlank()) {
@@ -274,7 +476,6 @@ fun MainScreen() {
                         scope.launch {
                             repeat(3) { i ->
                                 delay(10000)
-                                // If loginUrl is null, it means the background loop already detected success
                                 if (loginUrl == null) {
                                     withContext(Dispatchers.Main) {
                                         Toast.makeText(context, "✅ Tailscale login successful!", Toast.LENGTH_SHORT).show()
@@ -289,7 +490,6 @@ fun MainScreen() {
                                 }
                             }
                             
-                            // Final check after loop
                             delay(2000)
                             if (loginUrl != null) {
                                 withContext(Dispatchers.Main) {
@@ -504,7 +704,7 @@ fun StatusCard(state: String, isProcessing: Boolean, onToggle: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .height(160.dp)
-            .alpha(if (isProcessing) 0.6f else 1f) // Даем визуальный фидбек при блокировке
+            .alpha(if (isProcessing) 0.6f else 1f)
             .clickable(enabled = !isProcessing) { onToggle() },
         tonalElevation = 4.dp
     ) {
