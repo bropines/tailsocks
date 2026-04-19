@@ -12,7 +12,7 @@ var lastErrStr string
 
 func GetLastError() string {
 	e := lastErrStr
-	lastErrStr = "" // Очищаем после прочтения
+	lastErrStr = "" // Clear after reading
 	return e
 }
 
@@ -77,11 +77,11 @@ func GetLoginURL() string {
 func registerMachineWithAuthKey(PC pathControl, opt *StartOptions) {
 	apiReady := false
 	
-	// Проверяем готовность сокета и API в тихом режиме
+	// Poll socket and API readiness in silent mode
 	for i := 1; i <= 20; i++ {
 		if _, err := os.Stat(PC.Socket()); err == nil {
 			out := RunTailscaleCmd("status")
-			// Проверяем, что API ответило хоть чем-то осмысленным
+			// Ensure the API is responsive
 			if !strings.Contains(out, "failed to connect") && !strings.Contains(out, "not running") {
 				apiReady = true
 				break
@@ -95,7 +95,7 @@ func registerMachineWithAuthKey(PC pathControl, opt *StartOptions) {
 		return
 	}
 
-	// Всего одна строка в логах, что мы начали настройку
+	// Single log entry to indicate configuration start
 	slog.Info("Daemon is ready, applying configuration...")
 
 	args := []string{"--socket", PC.Socket(), "up", "--timeout", "60s"}
@@ -116,7 +116,7 @@ func registerMachineWithAuthKey(PC pathControl, opt *StartOptions) {
 		args = append(args, strings.Fields(opt.ExtraUpArgs)...)
 	}
 
-	// Запускаем в фоне, чтобы не блокировать основной поток
+	// Execute in background to avoid blocking the main thread
 	go func() {
 		c := exec.Command(PC.Tailscale(), args...)
 		output, err := c.CombinedOutput()

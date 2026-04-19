@@ -25,8 +25,8 @@ func InjectNetworkState(jsonState string) {
 	latestInterfaceState = jsonState
 	stateMu.Unlock()
 	
-	// Мы пока не можем вызвать InjectEvent напрямую здесь, так как у нас нет ссылки на Monitor.
-	// Но мы пропатчим ядро, чтобы оно использовало latestInterfaceState при вызове геттера.
+	// Currently, InjectEvent cannot be called directly here as we lack a Monitor reference.
+	// The core is patched to use latestInterfaceState during getter calls.
 	slog.Info("Network state injected from Kotlin")
 }
 var cmd *exec.Cmd
@@ -104,21 +104,21 @@ func ApplySettings(opt *StartOptions) {
 	old := lastOptions
 	stateMu.Unlock()
 
-	// Если не запущен - запускаем
+	// Start if not already running
 	if !IsRunning() {
 		slog.Info("Tailscaled not running, performing full start")
 		Start(opt)
 		return
 	}
 
-	// КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Если сейчас идет процесс логина (есть ссылка в статусе),
-	// мы ЗАПРЕЩАЕМ любые обновления настроек, чтобы не сбросить сессию и не получить 410 Gone.
+	// CRITICAL FIX: If login is in progress (Login URL present),
+	// block configuration updates to prevent session resets and 410 Gone errors.
 	if GetLoginURL() != "" {
 		slog.Info("Login in progress, ignoring ApplySettings to protect session")
 		return
 	}
 
-	// Если запущен, но опций еще не было (странно, но бывает)
+	// Initialize options if they don't exist
 	if old == nil {
 		stateMu.Lock()
 		lastOptions = opt
@@ -127,8 +127,8 @@ func ApplySettings(opt *StartOptions) {
 		return
 	}
 
-	// 1. Если изменились критические параметры ядра - 
-	// вот ТУТ мы действительно вынуждены перезагрузиться.
+	// 1. Critical parameter check.
+	// Force a full restart if core paths or proxy settings changed.
 	if old.Socks5Server != opt.Socks5Server ||
 		old.HttpProxy != opt.HttpProxy ||
 		old.Socks5User != opt.Socks5User ||
@@ -139,12 +139,12 @@ func ApplySettings(opt *StartOptions) {
 		return
 	}
 
-	// 2. Обновляем кэш опций
+	// 2. Update option cache
 	stateMu.Lock()
 	lastOptions = opt
 	stateMu.Unlock()
 
-	// 3. Если изменился только DNS — рестартим только его (без ядра!)
+	// 3. DNS-only restart if only DNS parameters changed.
 	if old.DnsProxy != opt.DnsProxy ||
 		old.DnsFallbacks != opt.DnsFallbacks ||
 		old.DohFallback != opt.DohFallback {
@@ -152,8 +152,8 @@ func ApplySettings(opt *StartOptions) {
 		RestartDNS()
 	}
 
-	// 4. Для всего остального (теги, хостнейм, логин) - используем только ReUp.
-	// Это НЕ убивает текущую сессию и позволяет дождаться Netmap.
+	// 4. Synchronize other settings (hostname, tags, etc.) via ReUp.
+	// This preserves the current session and waits for Netmap synchronization.
 	ReUp()
 }
 
@@ -225,7 +225,7 @@ func RestartDNS() {
 	}
 
 	go func() {
-		// Даем время старому прокси закрыть сокет
+		// Allow time for the previous proxy to release the socket
 		time.Sleep(500 * time.Millisecond)
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -271,10 +271,10 @@ func Stop() {
 	}
 }
 
-// --- Вспомогательные функции ---
+// --- Helper Functions ---
 
 func killLeftoverDaemons(daemonPath string) {
-    // Простая команда для Android, чтобы прибить старые процессы
+    // Utility command for Android to terminate orphaned processes
     _ = exec.Command("/system/bin/killall", "tailscaled").Run()
 }
 
