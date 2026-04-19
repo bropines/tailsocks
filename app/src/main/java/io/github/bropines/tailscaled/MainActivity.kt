@@ -147,6 +147,38 @@ fun MainScreen() {
     var loginUrl by remember { mutableStateOf<String?>(null) }
     var show410Warning by remember { mutableStateOf(false) }
 
+    // Watchdog: Sync UI state with actual daemon status
+    LaunchedEffect(Unit) {
+        var urlDetected = false
+        while (true) {
+            val actualRunning = try { appctr.Appctr.isRunning() } catch (e: Exception) { false }
+            
+            // Sync state if not explicitly in transition
+            if (!isProcessing) {
+                proxyState = if (actualRunning) "ACTIVE" else "STOPPED"
+            }
+
+            if (actualRunning) {
+                val url = try { appctr.Appctr.getLoginURLString() } catch (e: Exception) { "" }
+                loginUrl = if (url.isNullOrBlank()) null else url
+                
+                if (loginUrl != null) urlDetected = true
+                else if (urlDetected) {
+                    show410Warning = false
+                    urlDetected = false
+                }
+
+                val lastErr = try { appctr.Appctr.getLastError() } catch (e: Exception) { "" }
+                if (lastErr == "410_GONE") show410Warning = true
+            } else {
+                loginUrl = null
+                show410Warning = false
+                urlDetected = false
+            }
+            delay(2000)
+        }
+    }
+
     DisposableEffect(prefs) {
         val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
             if (key == "exit_node_ip") {
@@ -160,45 +192,18 @@ fun MainScreen() {
         }
     }
 
-    LaunchedEffect(proxyState) {
-        if (proxyState != "STOPPED") {
-            var urlFoundPreviously = false
-            while (true) {
-                val url = try { appctr.Appctr.getLoginURLString() } catch (e: Exception) { "" }
-                val newLoginUrl = if (url.isNullOrBlank()) null else url
-                loginUrl = newLoginUrl
-                
-                // Проверка на ошибку 410
-                val lastErr = try { appctr.Appctr.getLastError() } catch (e: Exception) { "" }
-                if (lastErr == "410_GONE") {
-                    show410Warning = true
-                }
-
-                if (newLoginUrl != null) {
-                    urlFoundPreviously = true
-                } else if (urlFoundPreviously) {
-                    show410Warning = false
-                    break
-                }
-                delay(5000)
-            }
-        } else {
-            loginUrl = null
-            show410Warning = false
-        }
-    }
-
     DisposableEffect(context) {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 when (intent.action) {
-                    "STARTING" -> proxyState = "STARTING"
+                    "STARTING" -> { proxyState = "STARTING"; isProcessing = true }
                     "START" -> {
                         proxyState = "ACTIVE"
+                        isProcessing = false
                         exitNodeIp = prefs.getString("exit_node_ip", "") ?: ""
                         show410Warning = false
                     }
-                    "STOP" -> proxyState = "STOPPED"
+                    "STOP" -> { proxyState = "STOPPED"; isProcessing = false }
                 }
             }
         }
@@ -238,10 +243,9 @@ fun MainScreen() {
                         activeAccount = acc
                         newAccountName = ""
                         showAddAccountDialog = false
-                        
-                        if (proxyState == "ACTIVE") {
-                            val intent = Intent(context, TailscaledService::class.java).apply { action = "REFRESH_ACTION" }
-                            context.startService(intent)
+
+                        if (ProxyState.isActualRunning()) {
+                            context.startService(Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" })
                         }
                     }
                 }) { Text("Add") }
@@ -287,22 +291,11 @@ fun MainScreen() {
                     val target = showSwitchConfirmDialog!!
                     showSwitchConfirmDialog = null
                     isProcessing = true
-                    
-                    scope.launch {
-                        // 1. Останавливаем текущий аккаунт
-                        context.startService(Intent(context, TailscaledService::class.java).apply { action = "STOP_ACTION" })
-                        delay(1000)
-                        
-                        // 2. Меняем активный аккаунт
-                        AccountManager.setActiveAccount(context, target.id)
-                        activeAccount = target
-                        
-                        // 3. Запускаем новый
-                        context.startForegroundService(Intent(context, TailscaledService::class.java).apply { action = "START_ACTION" })
-                        
-                        delay(2000)
-                        isProcessing = false
-                    }
+
+                    // Move core logic to Service via RESTART_ACTION
+                    AccountManager.setActiveAccount(context, target.id)
+                    activeAccount = target
+                    context.startService(Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" })
                 }) { Text("Restart & Switch") }
             },
             dismissButton = { TextButton(onClick = { showSwitchConfirmDialog = null }) { Text("Cancel") } }
@@ -323,7 +316,7 @@ fun MainScreen() {
                             )
                             Icon(Icons.Default.ArrowDropDown, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                         }
-                        
+
                         DropdownMenu(
                             expanded = accountMenuExpanded,
                             onDismissRequest = { accountMenuExpanded = false }
@@ -334,7 +327,7 @@ fun MainScreen() {
                                     onClick = {
                                         accountMenuExpanded = false
                                         if (account.id != activeAccount.id) {
-                                            if (proxyState == "ACTIVE") {
+                                            if (ProxyState.isActualRunning()) {
                                                 showSwitchConfirmDialog = account
                                             } else {
                                                 AccountManager.setActiveAccount(context, account.id)
@@ -450,25 +443,17 @@ fun MainScreen() {
 
                 if (proxyState == "ACTIVE" || proxyState == "STARTING") {
                     isProcessing = true
-                    scope.launch {
-                        delay(3000)
-                        isProcessing = false
-                    }
                     val intent = Intent(context, TailscaledService::class.java).apply { action = "STOP_ACTION" }
                     context.startService(intent)
                 } else {
                     val currentSocks = prefs.getString("socks5", "127.0.0.1:1055") ?: "127.0.0.1:1055"
-                    
+
                     if (currentSocks.isBlank()) {
                         Toast.makeText(context, "🚫 Error: SOCKS5 address cannot be empty!", Toast.LENGTH_LONG).show()
                         return@StatusCard
                     }
 
                     isProcessing = true
-                    scope.launch {
-                        delay(3000)
-                        isProcessing = false
-                    }
                     val intent = Intent(context, TailscaledService::class.java).apply { action = "START_ACTION" }
                     ContextCompat.startForegroundService(context, intent)
                 }
@@ -481,30 +466,6 @@ fun MainScreen() {
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth().clickable {
                         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(loginUrl)))
-                        scope.launch {
-                            repeat(3) { i ->
-                                delay(10000)
-                                if (loginUrl == null) {
-                                    withContext(Dispatchers.Main) {
-                                        Toast.makeText(context, "✅ Tailscale login successful!", Toast.LENGTH_SHORT).show()
-                                    }
-                                    return@launch
-                                }
-                                
-                                withContext(Dispatchers.Main) {
-                                    Toast.makeText(context, "Checking auth status... (${i + 1}/3)", Toast.LENGTH_SHORT).show()
-                                    val refreshIntent = Intent(context, TailscaledService::class.java).apply { action = "REFRESH_ACTION" }
-                                    context.startService(refreshIntent)
-                                }
-                            }
-                            
-                            delay(2000)
-                            if (loginUrl != null) {
-                                withContext(Dispatchers.Main) {
-                                    Toast.makeText(context, "⌛ Still waiting for login. Check your browser.", Toast.LENGTH_LONG).show()
-                                }
-                            }
-                        }
                     }
                 ) {
                     Row(
