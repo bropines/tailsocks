@@ -122,6 +122,28 @@ func SendFileFromAPI(peerID, filePath string) string {
 	return string(data)
 }
 
+func GetBackendState() string {
+	if !IsRunning() {
+		return "Stopped"
+	}
+	data, err := doLocalRequest("GET", "/localapi/v0/status", nil)
+	if err != nil {
+		return "Error"
+	}
+	// Simple string parsing to avoid full JSON unmarshal for just one field
+	s := string(data)
+	idx := strings.Index(s, "\"BackendState\":\"")
+	if idx == -1 {
+		return "Unknown"
+	}
+	start := idx + len("\"BackendState\":\"")
+	end := strings.Index(s[start:], "\"")
+	if end == -1 {
+		return "Unknown"
+	}
+	return s[start : start+end]
+}
+
 func GetCoreVersion() string {
 	return coreVersion
 }

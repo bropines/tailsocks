@@ -151,11 +151,19 @@ fun MainScreen() {
     LaunchedEffect(Unit) {
         var urlDetected = false
         while (true) {
-            val actualRunning = try { appctr.Appctr.isRunning() } catch (e: Exception) { false }
+            val isProcessAlive = try { appctr.Appctr.isRunning() } catch (e: Exception) { false }
             
+            if (isProcessAlive && BuildConfig.IS_DEV) {
+                val backendState = try { appctr.Appctr.getBackendState() } catch (e: Exception) { "Error" }
+                // If backend is in a terminal state but process is alive, we might need to reflect it
+                if (backendState == "Stopped" || backendState == "Error") {
+                    // Process is alive but API is not responding or backend is stopped
+                }
+            }
+
             // Sync state if not explicitly in transition
             if (!isProcessing) {
-                proxyState = if (actualRunning) "ACTIVE" else "STOPPED"
+                proxyState = if (isProcessAlive) "ACTIVE" else "STOPPED"
             }
 
             if (actualRunning) {
