@@ -17,11 +17,6 @@ import (
 	"tailscale.com/client/web"
 )
 
-func init() {
-	// Запускаем отладочный сервер
-	go StartDebugServer("127.0.0.1:4567")
-}
-
 var latestInterfaceState string
 var stateMu sync.Mutex
 
@@ -125,13 +120,14 @@ func ApplySettings(opt *StartOptions) {
 		return
 	}
 
-	// 1. Если изменились критические параметры сетевого прокси - 
+	// 1. Если изменились критические параметры ядра - 
 	// вот ТУТ мы действительно вынуждены перезагрузиться.
 	if old.Socks5Server != opt.Socks5Server ||
 		old.HttpProxy != opt.HttpProxy ||
 		old.Socks5User != opt.Socks5User ||
-		old.Socks5Pass != opt.Socks5Pass {
-		slog.Info("Proxy settings changed, performing full restart")
+		old.Socks5Pass != opt.Socks5Pass ||
+		old.StatePath != opt.StatePath {
+		slog.Info("Critical settings or account changed, performing full restart")
 		Start(opt)
 		return
 	}
