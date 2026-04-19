@@ -1,45 +1,27 @@
-# 🦔 TailSocks: Gemini CLI Project Mandate
+# TailSocks: Project Mandate
 
-You are an expert architect specializing in the **TailSocks Android** project. This project uses a unique "Hedgehog Bridge" architecture between a Go-based Tailscale core and a Kotlin/Compose UI.
+You are an expert software architect specializing in the TailSocks project. This project follows strict engineering standards, prioritizing stability, battery efficiency, and architectural integrity.
 
-## 🏗 Core Architecture: The Hedgehog Bridge
-- **The Core (`libtailscale.so`):** A PIE-compiled binary of official Tailscale, stripped of desktop bloat using specific build tags.
-- **The Bridge (`appctr`):** A Go module compiled into an `.aar` via `gomobile bind`. It acts as a "nanny" for the core process.
-- **Account Isolation:** Each profile has its own `SharedPreferences` (`appctr_{id}`) and state directory (`files/states/{id}`). The `AccountManager` in Kotlin manages profile IDs.
-- **Intelligent Updates (`ApplySettings`):** Intelligently decides whether to perform a full daemon restart (only if SOCKS5 or StatePath changes), a DNS-only restart, or a simple `tailscale up` (ReUp) sync. This minimizes connection drops and prevents 410 Gone errors during login.
-- **Hedgehog Debug Tunnel:** A local TCP server (port 4567) in Go for real-time log access.
+## 🏗 Core Architecture
+- **Passive Management:** Do not implement aggressive configuration loops. Trust the Tailscale daemon to manage its own lifecycle, policy synchronization, and network recovery.
+- **Stateless Configuration:** Every `tailscale up` command must include explicit flags (including negative ones like `--exit-node=`) to ensure the daemon's internal state reflects the UI.
+- **Hybrid Bridge:** A Go-based core (`libtailscale.so`) managed by a Go-Kotlin bridge (`appctr`).
+- **Account Isolation:** Strict separation of data using unique profile IDs. State is stored in `files/states/{id}/` and preferences in `appctr_{id}`.
 
-## 🛠 Build & Environment Mandates
-- **Build Script:** Always use `appctr/build.sh`. It handles source downloading, patching, and compilation.
-- **NDK:** Requires `ANDROID_NDK_HOME` and uses `aarch64-linux-android21-clang`.
-- **Patching:**
-    - `appctr/patches/fix_android_netmon.go`: Essential for Android network monitoring (via `anet`).
-    - `appctr/patches/tailsocks.patch`: Unified patch applied via `patch -p0`.
-- **Dependencies:** Always check `gradle/libs.versions.toml` before adding new Android libraries.
+## 📡 Networking Standards
+- **SOCKS5/HTTP Proxy:** Operating exclusively in userspace-networking mode.
+- **DNS Wrapping:** MagicDNS and Split DNS are handled via a custom Go-based server (port 1053) that wraps UDP queries into TCP frames over SOCKS5.
+- **NAT Traversal:** Monitoring connectivity through `InMagicSock` status. Avoid disrupting the `magicsock` engine with unnecessary restarts.
 
-## 🎨 UI & Logic Standards
-- **Local Proxying:** SOCKS5/HTTP addresses should default to `127.x.y.z`.
-- **IP Randomization:** When generating random proxy addresses, use the full `127.0.0.0/8` range for maximum isolation.
-- **DNS Proxy:** A custom Go-based DNS server runs on a configurable port (default `1053`) to bypass Android's UDP restrictions via SOCKS5 wrapping.
-- **Auto-Refresh (The Holy Crutch):** A configurable background loop (default 15s) in `TailscaledService` that triggers `ApplySettings` to ensure tags and policies from the admin console are synced.
-- **Exit Nodes:** Always parse `tailscale status --json` to populate the Exit Node selection UI.
+## 🛠 Engineering & Documentation
+- **Professional Tone:** Use formal engineering language. Avoid informal nicknames or unprofessional metaphors in documentation.
+- **Changelog Compliance:** Document every significant change in `CHANGELOG.md` following the [Keep a Changelog](https://keepachangelog.com/) standard.
+- **Historical Context:** Refer to `docs/RETROSPECTIVE.md` and `docs/AI_ARCHITECTURE_CONTEXT.md` to avoid repeating past design errors (e.g., "Active Management").
+- **Clean Build System:** Use `appctr/build.sh` for core modifications. Do not commit compiled binaries or raw source trees.
 
-## 📈 Versioning Strategy
-- **Automated:** `versionCode` and `versionName` are derived dynamically from Git in `app/build.gradle.kts`.
+## 🚀 Quality Goals
+Maintain a small binary footprint, a responsive UI, and robust connections without utilizing Android's `VpnService`. 
 
-## 📜 Historical Context
-- **Always read `HISTORY.md`** before suggesting changes.
+**Mitigation of the "410 Wall":** Protect login sessions by blocking configuration updates while a Login URL is active in the daemon status.
 
-## 🧹 Maintenance & Safety
-- **Cleanliness:** Do not commit `tailscale_src/`, `tmp/` folders, or large `.so` binaries.
-- **Logs:** Use the custom `LogManager` in Go to stream logs to the Kotlin UI via JSON.
-
-## 🚀 Final Goal
-Keep the binary small, the UI responsive, and the connection rock-solid without using Android's `VpnService`. 
-
-**Status of the "410 Wall":** The `http 410: auth path not found` error remains a persistent quirk when using native Android identities without JNI-based attestation. We have successfully **mitigated** its impact by:
-1.  Preventing daemon restarts/resets during the 1-3 minute backoff period.
-2.  Ensuring machine key persistence via account-isolated state directories.
-3.  Providing UX feedback (Warning Banners) to ensure the user waits for the automated retry to succeed.
-
-TEMP: The user is Russian-speaking, answer him in Russian
+TEMP: The user is Russian-speaking, answer him in Russian.
