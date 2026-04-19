@@ -3,13 +3,16 @@ package appctr
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
+	"net"
 	"os"
 	"strings"
 	"os/exec"
 	"sync"
 	"time"
 	"net/http"
+	"path/filepath"
 	_ "time/tzdata"
 
 	_ "golang.org/x/mobile/bind"
@@ -36,6 +39,88 @@ var dnsProxyCancel context.CancelFunc
 var lastOptions *StartOptions
 var webServer *http.Server
 var coreVersion string = "unknown"
+
+func doLocalRequest(method, path string, body io.Reader) ([]byte, error) {
+	stateMu.Lock()
+	pc := PC
+	stateMu.Unlock()
+
+	if pc.Socket() == "" {
+		return nil, fmt.Errorf("socket path is empty")
+	}
+
+	client := http.Client{
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+				var d net.Dialer
+				return d.DialContext(ctx, "unix", pc.Socket())
+			},
+		},
+	}
+
+	req, err := http.NewRequest(method, "http://local-tailscaled.sock"+path, body)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return io.ReadAll(resp.Body)
+}
+
+func GetStatusFromAPI() string {
+	if !IsRunning() {
+		return "Error: Tailscaled is not running."
+	}
+	data, err := doLocalRequest("GET", "/localapi/v0/status", nil)
+	if err != nil {
+		return "Error: " + err.Error()
+	}
+	return string(data)
+}
+
+func GetTaildropFilesFromAPI() string {
+	if !IsRunning() {
+		return "[]"
+	}
+	data, err := doLocalRequest("GET", "/localapi/v0/files/", nil)
+	if err != nil {
+		return "[]"
+	}
+	return string(data)
+}
+
+func DeleteTaildropFileFromAPI(name string) bool {
+	if !IsRunning() {
+		return false
+	}
+	_, err := doLocalRequest("DELETE", "/localapi/v0/files/"+name, nil)
+	return err == nil
+}
+
+func SendFileFromAPI(peerID, filePath string) string {
+	if !IsRunning() {
+		return "Error: Tailscaled is not running."
+	}
+	
+	f, err := os.Open(filePath)
+	if err != nil {
+		return "Error: " + err.Error()
+	}
+	defer f.Close()
+
+	name := filepath.Base(filePath)
+	// PUT /localapi/v0/file-put/<id>/<name>
+	data, err := doLocalRequest("PUT", "/localapi/v0/file-put/"+peerID+"/"+name, f)
+	if err != nil {
+		return "Error: " + err.Error()
+	}
+	return string(data)
+}
 
 func GetCoreVersion() string {
 	return coreVersion
