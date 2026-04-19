@@ -17,6 +17,11 @@ import (
 	"tailscale.com/client/web"
 )
 
+func init() {
+	// Запускаем отладочный сервер
+	go StartDebugServer("127.0.0.1:4567")
+}
+
 var latestInterfaceState string
 var stateMu sync.Mutex
 
@@ -104,19 +109,29 @@ func ApplySettings(opt *StartOptions) {
 	old := lastOptions
 	stateMu.Unlock()
 
-	if old == nil || !IsRunning() {
+	// Если не запущен - запускаем
+	if !IsRunning() {
+		slog.Info("Tailscaled not running, performing full start")
 		Start(opt)
 		return
 	}
 
-	// 1. Если изменились критические параметры ядра — рестартим всё
+	// Если запущен, но опций еще не было (странно, но бывает)
+	if old == nil {
+		stateMu.Lock()
+		lastOptions = opt
+		stateMu.Unlock()
+		ReUp()
+		return
+	}
+
+	// 1. Если изменились критические параметры сетевого прокси - 
+	// вот ТУТ мы действительно вынуждены перезагрузиться.
 	if old.Socks5Server != opt.Socks5Server ||
 		old.HttpProxy != opt.HttpProxy ||
 		old.Socks5User != opt.Socks5User ||
-		old.Socks5Pass != opt.Socks5Pass ||
-		old.AuthKey != opt.AuthKey ||
-		old.ExtraUpArgs != opt.ExtraUpArgs {
-		slog.Info("Critical settings changed, performing full restart")
+		old.Socks5Pass != opt.Socks5Pass {
+		slog.Info("Proxy settings changed, performing full restart")
 		Start(opt)
 		return
 	}
@@ -126,7 +141,7 @@ func ApplySettings(opt *StartOptions) {
 	lastOptions = opt
 	stateMu.Unlock()
 
-	// 3. Если изменился только DNS — рестартим только его
+	// 3. Если изменился только DNS — рестартим только его (без ядра!)
 	if old.DnsProxy != opt.DnsProxy ||
 		old.DnsFallbacks != opt.DnsFallbacks ||
 		old.DohFallback != opt.DohFallback {
@@ -134,7 +149,8 @@ func ApplySettings(opt *StartOptions) {
 		RestartDNS()
 	}
 
-	// 4. В любом случае делаем ReUp для синхронизации тегов/политик
+	// 4. Для всего остального (теги, хостнейм, логин) - используем только ReUp.
+	// Это НЕ убивает текущую сессию и позволяет дождаться Netmap.
 	ReUp()
 }
 
@@ -145,6 +161,12 @@ func ReUp() {
 	stateMu.Unlock()
 
 	if opt != nil && IsRunning() {
+		// If we are already waiting for login, don't trigger 'up' again
+		// as it might reset the pending session and cause 410 Gone.
+		if GetLoginURL() != "" {
+			slog.Info("Login is in progress, skipping ReUp to avoid 410 Gone")
+			return
+		}
 		go registerMachineWithAuthKey(pc, opt)
 	}
 }

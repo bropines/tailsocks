@@ -43,3 +43,25 @@ This file tracks architectural decisions, failed attempts, and successful implem
 ## 🚀 Future Roadmap Ideas:
 - **tsnet Integration:** Moving from a standalone binary to an embedded Go library (tsnet) to eliminate process management overhead.
 - **tun2socks:** Adding `VpnService` support for system-wide routing while keeping the "lightweight" feel.
+
+## 🔴 [2026-04-18] The "Hedgehog Evolution" & Revert
+
+### ✅ Successes:
+- **Account Manager:** Implemented a robust multi-account system in Kotlin. Each Tailscale account now operates in its own isolated state directory (`/files/accounts/UUID`).
+- **UI Switcher:** Added a TopAppBar account switcher that triggers a graceful service restart with the new state directory.
+
+### 🛠 Failed Attempts (Lessons Learned):
+- **Spoofing "OS: linux" to bypass 410 Wall:** 
+    - *Hypothesis:* Tricking the control plane into thinking the Android binary is a Linux CLI would bypass the JNI-auth requirement and fix the "410 Gone: auth path not found" error.
+    - *Result:* Reverted. While it successfully generated interactive login URLs, it caused severe Netmap synchronization issues (stuck at "netmap not yet valid") because the server expects different protocol behaviors for Linux vs Android.
+    - *Conclusion:* We must find a way to stabilize the login flow while maintaining the "Android" identity, or better handle the transition between states.
+
+### 🧹 Maintenance:
+- **Project Revert:** All experimental Go-bridge patches from this session were removed. The repository has been returned to the clean state of commit `ec7142f`.
+
+### 🧪 Insights from the "Neural Network Roast":
+- **HTTP 410 Explained:** Confirmed as "Gone". Server drops the polling path if it thinks the session is consumed or expired.
+- **Potential Fixes to try:**
+    - Use `tailscale up --force-reauth` to clear internal daemon "sticky" sessions.
+    - Set environment variable `TS_AUTH_ONCE=true` to prevent re-using invalid tokens.
+    - Investigate if providing `file:/dev/null` as an auth key forces a cleaner interactive flow.

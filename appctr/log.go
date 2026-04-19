@@ -31,12 +31,15 @@ var logManager = &LogManager{
 
 func (lm *LogManager) AddLog(entry LogEntry) {
 	lm.mu.Lock()
-	defer lm.mu.Unlock()
 	if len(lm.logs) >= lm.maxSize {
 		// Очищаем половину, если переполнилось
 		lm.logs = lm.logs[len(lm.logs)/2:]
 	}
 	lm.logs = append(lm.logs, entry)
+	lm.mu.Unlock()
+
+	// Вещаем в отладочный туннель
+	BroadcastLog(fmt.Sprintf("%s [%s] %s\n", entry.Timestamp, entry.Level, entry.Message))
 }
 
 // Отдаем чистый JSON для Android
