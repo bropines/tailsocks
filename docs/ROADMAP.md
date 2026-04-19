@@ -1,24 +1,19 @@
-# 🗺️ Roadmap & TODOs
+# Project Roadmap
 
-This document tracks upcoming features, architectural improvements, and refactoring goals for TailSocks.
+This document outlines the planned features, architectural improvements, and refactoring goals for the TailSocks project.
 
-## ✅ Recently Completed
-- [x] **Taildrop Hub:** Fully custom implementation of file sharing with Inbox/History and SAF integration.
-- [x] **Multi-Account Manager:** Profile isolation with independent machine keys and state.
-- [x] **Advanced Exit Node Support:** Discovery UI and self-healing validation.
-- [x] **Peer Diagnostics:** Deep parsing of `status.json` for NAT traversal and handshake info.
-- [x] **SagerNet Integration:** One-click copy for SOCKS5/UDP proxy links.
-- [x] **Dynamic Core Integration:** Replaced static branching with dynamic compile-time injection to always use the latest official Tailscale source.
-- [x] **Smart DNS Proxy:** Built a local Go DNS server that wraps UDP into TCP via SOCKS5, fixing Split DNS and MagicDNS without VpnService.
+## Completed Milestones
+- [x] **Core Stability:** Passive daemon management and stateless configuration.
+- [x] **File Sharing:** Taildrop implementation with Storage Access Framework integration.
+- [x] **Profile Isolation:** Multi-account system with independent state persistence.
+- [x] **Connectivity:** Custom DNS wrapping and Exit Node support.
 
-## 🧹 Housekeeping & Refactoring
-- [x] **Clean Build Process:** Isolated all compiled binaries (`.so`) and libraries (`.aar`) into temporary (`tmp/`) directories.
-- [ ] **Code Modernization:** Refactor `MainActivity.kt` to use a dedicated ViewModel for state management instead of hoisting everything in the Composable.
+## Short-Term Goals
+- **Code Modernization:** Refactor `MainActivity` to utilize `ViewModel` patterns for state management.
+- **System Integration:** Implement Quick Settings Tiles for rapid connectivity toggling and account switching.
+- **Enhanced Monitoring:** Add real-time throughput graphs to the diagnostics interface.
 
-## 🚀 Planned Features
-- [ ] **Local Services (`ts serve`):** Implement support for Tailscale Serve to expose local Android services to the Tailnet.
-- [ ] **Public Exposure (`funnel`):** Integrate Tailscale Funnel to securely share local Android servers over the public internet.
-- [ ] **Quick Settings Tiles:** Add dedicated tiles for toggling Exit Nodes and switching accounts.
-
-## 🏗 Long-Term Architectural Changes
-- [ ] **Hybrid Core (`tsnet` + PIE):** Explore using `tsnet` for better Taildrop integration while maintaining the PIE daemon for raw SOCKS5 performance and stability.
+## Long-Term Goals
+- **Tailscale Serve/Funnel:** Implement support for exposing local services to the Tailnet.
+- **Architectural Hybridization:** Evaluate the integration of `tsnet` for specific features while maintaining the performance of the standalone daemon.
+- **VPN Mode:** Explore optional `VpnService` integration for transparent routing as an alternative to the proxy mode.

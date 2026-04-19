@@ -1,43 +1,35 @@
-
-# 🦔 TailSocks (Tailscaled Proxy for Android)
+# TailSocks: Advanced Tailscale Proxy for Android
 
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](LICENSE)
 [![GitHub Release](https://img.shields.io/github/v/release/bropines/tailsocks)](https://github.com/bropines/tailsocks/releases)
-[![Stable Core](https://img.shields.io/badge/Tailscale_Core-v1.96.x-green.svg)](https://github.com/tailscale/tailscale/tags)
+[![Core](https://img.shields.io/badge/Tailscale_Core-v1.96.x-green.svg)](https://github.com/tailscale/tailscale/tags)
 
-**TailSocks** is a highly optimized, lightweight Android client for [Tailscale](https://tailscale.com/), operating **exclusively in SOCKS5/HTTP proxy mode**. It provides a full-featured Tailscale experience (including Taildrop and Exit Nodes) without requiring Android's `VpnService`.
+TailSocks is a high-performance, lightweight Android client for [Tailscale](https://tailscale.com/) that operates exclusively in **userspace-networking mode**. It provides a complete Tailscale environment—including Taildrop and Exit Nodes—without utilizing Android's `VpnService`, enabling seamless coexistence with other VPN and firewall applications.
 
-### 🏗 Architecture: The Hedgehog Bridge
-TailSocks uses a unique bridge architecture to connect the Go-based Tailscale core with the Kotlin/Compose UI:
-*   **The Core (`libtailscale.so`):** A PIE-compiled binary of the official Tailscale daemon, stripped of desktop bloat but patched for Android network monitoring.
-*   **The Bridge (`appctr`):** A Go module compiled into an `.aar` via `gomobile`. It manages the daemon's lifecycle, handles account isolation, and streams logs to the UI.
-*   **No VpnService:** TailSocks operates in `userspace-networking` mode. This bypasses system-level restrictions and allows TailSocks to run alongside other VPN apps (like AdGuard or SagerNet).
+## 🏗 System Architecture
+
+TailSocks utilizes a hybrid bridge architecture to integrate the official Go-based Tailscale core with a modern Android management interface:
+
+*   **Optimized Core:** The `tailscaled` daemon is compiled as a Position Independent Executable (PIE) and patched specifically for Android's network monitoring restrictions.
+*   **Management Bridge (`appctr`):** A Go-based controller compiled via `gomobile` that manages the daemon's lifecycle, implements account isolation, and handles low-level networking logic.
+*   **Passive State Model:** Starting from v1.8.1, the system utilizes a passive management approach, trusting the daemon's internal state machine for recovery and policy synchronization, which significantly improves connection stability and battery efficiency.
 
 ## 🚀 Key Features
 
-*   **Taildrop Hub:** A robust, custom-built implementation of Tailscale's file-sharing protocol. Includes an **Incoming Inbox**, **Sent History**, and **Automatic Save** to Android storage via the Storage Access Framework.
-*   **Multi-Account Manager:** Support for multiple Tailscale profiles with complete isolation. Each account has its own state directory, machine keys, and settings. Switch between accounts with a single tap.
-*   **Advanced Exit Node Selector:** Integrated UI to discover and select Exit Nodes from your Tailnet. Includes a "Self-Healing" mechanism that automatically clears invalid Exit Node configurations when switching networks or accounts.
-*   **Deep Network Diagnostics:** Real-time technical insights for every node in your map:
-    *   **InMagicSock:** See if you have a direct P2P connection (NAT traversal status).
-    *   **Traffic Counters:** Live RX/TX byte tracking.
-    *   **Handshake Info:** View the exact time of the last successful WireGuard handshake.
-*   **SagerNet & Nekobox Integration:** Generate and copy SOCKS5/UDP links (with authentication) to instantly import your Tailscale connection into third-party proxy clients.
-*   **Advanced DNS Proxy:** A custom Go-based local DNS server (port 1053) that resolves MagicDNS (`*.ts.net`) and Split DNS by wrapping UDP queries into TCP frames and pushing them through the SOCKS5 tunnel.
-*   **Native Web UI:** Access the official Tailscale Web administrator interface locally at `127.0.0.1:8080`.
-*   **Dynamic Core Injection:** The build system automatically fetches, patches, and compiles the **latest stable Tailscale version** (currently `v1.96.x`) at build time.
+*   **Taildrop Hub:** A custom implementation of Tailscale's file-sharing protocol with background reception support and integration with the Android Storage Access Framework (SAF).
+*   **Multi-Account Management:** Robust profile isolation. Each account maintains its own state directory (`files/states/{id}`) and independent machine keys.
+*   **Advanced DNS Proxy:** A tri-tier DNS resolver that handles MagicDNS (`*.ts.net`) and Split DNS by wrapping UDP queries into TCP frames, bypassing standard Android routing limitations.
+*   **Exit Node Support:** Full integration with Tailnet Exit Nodes, featuring an automated "Self-Healing" mechanism that clears invalid configurations during account or network transitions.
+*   **Deep Diagnostics:** Real-time visibility into the userspace engine, including NAT traversal status (`InMagicSock`), byte counters (RX/TX), and WireGuard handshake telemetry.
+*   **SagerNet Integration:** Seamless export of SOCKS5/UDP credentials to third-party proxy clients via standardized URI schemes.
 
-## 🛠 How to Build & Architecture
+## 📚 Documentation
 
-- 👉 **[See the full Build Instructions in `docs/BUILDING.md`](docs/BUILDING.md)**
-- 👉 **[Read more about the architecture, PIE binaries, and DNS wrapping in `docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)**
-- 👉 **[Setup TailSocks DNS with AdGuard in `docs/ADGUARD.md`](docs/ADGUARD.md)**
+*   [**Architecture Deep Dive**](docs/ARCHITECTURE.md) — Technical details on DNS wrapping and account isolation.
+*   [**Build Instructions**](docs/BUILDING.md) — Setting up the NDK environment and compiling the Go core.
+*   [**Project Evolution**](docs/RETROSPECTIVE.md) — History of the project from PoC to the current stable architecture.
+*   [**AdGuard Setup**](docs/ADGUARD.md) — Instructions for using TailSocks alongside system-wide ad-blockers.
 
-## 🗺️ Roadmap
-- 👉 **[Check out the detailed Roadmap and TODOs in `docs/ROADMAP.md`](docs/ROADMAP.md)**
+## 📜 License
 
-## 📜 License & Credits
-
-Distributed under the **BSD-3-Clause** License.
-* **Developer:** [Bropines](https://github.com/bropines)
-* **Core:** [Tailscale](https://github.com/tailscale/tailscale)
+Distributed under the BSD-3-Clause License. See `LICENSE` for details.
