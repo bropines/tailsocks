@@ -52,11 +52,6 @@ class TailscaledService : Service() {
                         }
                     } catch (e: Exception) {}
                 }
-
-                if (profilePrefs.getBoolean("auto_refresh", true)) {
-                    Log.d(TAG, "Auto-refreshing configuration...")
-                    Thread { Appctr.applySettings(buildStartOptions()) }.start()
-                }
             }
             
             val interval = profilePrefs.getString("refresh_interval", "15000")?.toLongOrNull() ?: 15000L
@@ -118,12 +113,18 @@ class TailscaledService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action
-        val activeAccount = AccountManager.getActiveAccount(this)
-        val profilePrefs = getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
         
         if (action == "STOP_ACTION") { stopMe(); return START_NOT_STICKY }
         if (action == "REFRESH_ACTION" || action == "APPLY_SETTINGS") {
             Thread { Appctr.applySettings(buildStartOptions()) }.start()
+            return START_STICKY
+        }
+        if (action == "RESTART_ACTION") {
+            Thread {
+                stopMe()
+                Thread.sleep(1500)
+                startTailscale()
+            }.start()
             return START_STICKY
         }
 
@@ -131,7 +132,6 @@ class TailscaledService : Service() {
         updateTile()
         if (!Appctr.isRunning()) {
             startForeground(1, buildNotification("Starting..."))
-            if (profilePrefs.getBoolean("force_bg", false)) wakeLock?.acquire(10 * 60 * 1000L)
             startTailscale()
         } else updateNotification("Active")
         
@@ -142,13 +142,21 @@ class TailscaledService : Service() {
 
     private fun startTailscale() {
         val options = buildStartOptions()
+        val activeAccount = AccountManager.getActiveAccount(this)
+        val profilePrefs = getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
+        
+        if (profilePrefs.getBoolean("force_bg", false)) wakeLock?.acquire(10 * 60 * 1000L)
+        
         Thread {
             try {
                 applicationContext.sendBroadcast(Intent("STARTING"))
                 Appctr.start(options)
                 updateNotification("Active")
                 applicationContext.sendBroadcast(Intent("START"))
-            } catch (e: Exception) { stopMe() }
+            } catch (e: Exception) { 
+                Log.e(TAG, "Start failed", e)
+                stopMe() 
+            }
         }.start()
     }
 

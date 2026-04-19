@@ -111,6 +111,13 @@ func ApplySettings(opt *StartOptions) {
 		return
 	}
 
+	// КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Если сейчас идет процесс логина (есть ссылка в статусе),
+	// мы ЗАПРЕЩАЕМ любые обновления настроек, чтобы не сбросить сессию и не получить 410 Gone.
+	if GetLoginURL() != "" {
+		slog.Info("Login in progress, ignoring ApplySettings to protect session")
+		return
+	}
+
 	// Если запущен, но опций еще не было (странно, но бывает)
 	if old == nil {
 		stateMu.Lock()

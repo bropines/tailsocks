@@ -72,7 +72,7 @@ fun SettingsScreen(onBack: () -> Unit) {
     var dnsFallbacks by remember { mutableStateOf(prefs.getString("dns_fallbacks", "8.8.8.8:53,1.1.1.1:53") ?: "") }
     var extraArgs by remember { mutableStateOf(prefs.getString("extra_args_raw", "") ?: "") }
     
-    var autoRefresh by remember { mutableStateOf(prefs.getBoolean("auto_refresh", true)) }
+    var autoRefresh by remember { mutableStateOf(prefs.getBoolean("auto_refresh", false)) }
     var acceptRoutes by remember { mutableStateOf(prefs.getBoolean("accept_routes", false)) }
     var acceptDns by remember { mutableStateOf(prefs.getBoolean("accept_dns", true)) }
     var forceBg by remember { mutableStateOf(prefs.getBoolean("force_bg", false)) }
