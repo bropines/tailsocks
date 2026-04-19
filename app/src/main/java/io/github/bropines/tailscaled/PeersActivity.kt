@@ -66,7 +66,13 @@ fun PeersScreen(onBack: () -> Unit) {
                     peersList = emptyList()
                 }
                 
-                val json = Appctr.runTailscaleCmd("status --json")
+                // 2. Load peers status
+                val json = if (BuildConfig.IS_DEV) {
+                    Appctr.getStatusFromAPI()
+                } else {
+                    Appctr.runTailscaleCmd("status --json")
+                }
+                
                 if (json.isNullOrBlank() || json.startsWith("Error")) {
                     throw Exception(if (json.isNullOrBlank()) "Daemon not running" else json)
                 }

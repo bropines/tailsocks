@@ -45,7 +45,11 @@ fun NetcheckScreen(onBack: () -> Unit) {
         output = "Analyzing connection..."
         scope.launch(Dispatchers.IO) {
             try {
-                val json = Appctr.runTailscaleCmd("status --json")
+                val json = if (BuildConfig.IS_DEV) {
+                    Appctr.getStatusFromAPI()
+                } else {
+                    Appctr.runTailscaleCmd("status --json")
+                }
                 val status = com.google.gson.Gson().fromJson(json, com.google.gson.JsonObject::class.java)
                 
                 val self = status.getAsJsonObject("Self")
