@@ -2,6 +2,13 @@
 
 This file tracks architectural decisions, failed attempts, and successful implementations to provide context for future AI agents.
 
+## 🟢 [2026-04-19] v1.8.1: Architectural Cleanup (Passive Mode)
+- **Passive Core Management:** Removed aggressive `ApplySettings` calls from the background loop. The app now trusts the Tailscale daemon to manage its own state, policies, and peer-to-peer connections once initialized.
+- **Login Session Protection:** Implemented a safeguard in the Go bridge that blocks configuration updates while a login URL is active. This effectively eliminates "410 Gone" errors caused by session resets during authentication.
+- **UI Watchdog:** Replaced complex broadcast-only state tracking with a simple 2-second watchdog timer in `MainActivity`. It queries the Go core's running status directly, ensuring the UI always reflects reality even if the service is killed by the OS.
+- **Unified Restart Logic:** Introduced `RESTART_ACTION` to handle account switching and major setting changes. This centralizes the "Stop -> Wait -> Start" sequence in the Service, eliminating race conditions in the UI layer.
+- **Default Value Adjustments:** Disabled `Auto-Refresh` by default to minimize unnecessary battery drain and background activity.
+
 ## 🟣 [2026-04-19] v1.8.0: Diagnostics & Self-Healing
 - **Expanded Peer Diagnostics:** Completely rewrote the peer parser to extract deep technical data from `status.json`. Added visibility for `InMagicSock` (NAT traversal), `LastHandshake`, `LastWrite`, and real-time RX/TX traffic counters.
 - **Stateless Configuration Flow:** Fixed the "Sticky Flags" bug where the daemon would remember old settings (like an old Exit Node) even after they were toggled off in the UI. We now explicitly pass negative flags (e.g., `--exit-node=`, `--accept-routes=false`) during the `up` command.
