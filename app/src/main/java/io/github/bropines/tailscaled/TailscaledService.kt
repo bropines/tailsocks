@@ -119,22 +119,26 @@ class TailscaledService : Service() {
     }
 
     private fun buildStartOptions(): StartOptions {
+        val activeAccount = AccountManager.getActiveAccount(this)
+        val accountId = activeAccount.id
+        val profilePrefs = getSharedPreferences("appctr_$accountId", Context.MODE_PRIVATE)
+        
         val baseDir = filesDir.absolutePath
-        val stateDir = "$baseDir/state"
+        val stateDir = "$baseDir/states/$accountId"
         java.io.File(stateDir).mkdirs()
 
         return StartOptions().apply {
-            socks5Server = prefs.getString("socks5", "127.0.0.1:48115")
-            socks5User   = prefs.getString("socks5_user", "")
-            socks5Pass   = prefs.getString("socks5_pass", "")
-            httpProxy    = prefs.getString("httpproxy", "")
-            dnsProxy     = prefs.getString("dns_proxy", "127.0.0.1:1053") ?: "127.0.0.1:1053"
-            dnsFallbacks = "${prefs.getString("dns_fallback1", "8.8.8.8:53")},${prefs.getString("dns_fallback2", "1.1.1.1:53")}"
-            dohFallback  = prefs.getString("doh_url", "https://1.1.1.1/dns-query")
-            authKey      = prefs.getString("authkey", "")
+            socks5Server = profilePrefs.getString("socks5", "127.0.0.1:48115")
+            socks5User   = profilePrefs.getString("socks5_user", "")
+            socks5Pass   = profilePrefs.getString("socks5_pass", "")
+            httpProxy    = profilePrefs.getString("httpproxy", "")
+            dnsProxy     = profilePrefs.getString("dns_proxy", "127.0.0.1:1053") ?: "127.0.0.1:1053"
+            dnsFallbacks = "${profilePrefs.getString("dns_fallback1", "8.8.8.8:53")},${profilePrefs.getString("dns_fallback2", "1.1.1.1:53")}"
+            dohFallback  = profilePrefs.getString("doh_url", "https://1.1.1.1/dns-query")
+            authKey      = profilePrefs.getString("authkey", "")
 
-            enableWebUI = prefs.getBoolean("enable_webui", false)
-            webUIAddr   = prefs.getString("webui_port", "127.0.0.1:8080")
+            enableWebUI = profilePrefs.getBoolean("enable_webui", false)
+            webUIAddr   = profilePrefs.getString("webui_port", "127.0.0.1:8080")
             taildropDir = "$baseDir/taildrop"
             java.io.File(taildropDir).mkdirs()
             
@@ -142,21 +146,21 @@ class TailscaledService : Service() {
             socketPath   = "$baseDir/tailscaled.sock"
             statePath    = stateDir
             closeCallBack = Closer { stopMe() }
-            
+
             val argsBuilder = StringBuilder()
-            val hostname = prefs.getString("hostname", "")
+            val hostname = profilePrefs.getString("hostname", "")
             if (!hostname.isNullOrEmpty()) argsBuilder.append("--hostname=$hostname ")
-            val loginServer = prefs.getString("login_server", "")
+            val loginServer = profilePrefs.getString("login_server", "")
             if (!loginServer.isNullOrEmpty()) argsBuilder.append("--login-server=$loginServer ")
-            if (prefs.getBoolean("accept_routes", false)) argsBuilder.append("--accept-routes ")
-            if (!prefs.getBoolean("accept_dns", true)) argsBuilder.append("--accept-dns=false ")
-            val exitNodeIp = prefs.getString("exit_node_ip", "")
+            if (profilePrefs.getBoolean("accept_routes", false)) argsBuilder.append("--accept-routes ")
+            if (!profilePrefs.getBoolean("accept_dns", true)) argsBuilder.append("--accept-dns=false ")
+            val exitNodeIp = profilePrefs.getString("exit_node_ip", "")
             if (!exitNodeIp.isNullOrEmpty()) {
                 argsBuilder.append("--exit-node=$exitNodeIp ")
-                if (prefs.getBoolean("exit_node_allow_lan", false)) argsBuilder.append("--exit-node-allow-lan-access ")
+                if (profilePrefs.getBoolean("exit_node_allow_lan", false)) argsBuilder.append("--exit-node-allow-lan-access ")
             }
-            if (prefs.getBoolean("advertise_exit_node", false)) argsBuilder.append("--advertise-exit-node ")
-            val rawArgs = prefs.getString("extra_args_raw", "")
+            if (profilePrefs.getBoolean("advertise_exit_node", false)) argsBuilder.append("--advertise-exit-node ")
+            val rawArgs = profilePrefs.getString("extra_args_raw", "")
             if (!rawArgs.isNullOrEmpty()) argsBuilder.append("$rawArgs")
             
             extraUpArgs = argsBuilder.toString()

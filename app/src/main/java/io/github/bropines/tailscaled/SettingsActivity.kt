@@ -49,7 +49,8 @@ class SettingsActivity : ComponentActivity() {
 @Composable
 fun SettingsScreen(onBack: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val prefs = remember { context.getSharedPreferences("appctr", Context.MODE_PRIVATE) }
+    val activeAccount = remember { AccountManager.getActiveAccount(context) }
+    val prefs = remember(activeAccount.id) { context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE) }
     val scope = rememberCoroutineScope()
 
     // Состояния для всех настроек
@@ -139,7 +140,6 @@ fun SettingsScreen(onBack: () -> Unit) {
                             is String -> editor.putString(key, value)
                             is Boolean -> editor.putBoolean(key, value)
                             is Double -> {
-                                // GSON парсит числа как Double по умолчанию, пробуем сохранить как Int если это возможно
                                 if (value == value.toInt().toDouble()) {
                                     editor.putInt(key, value.toInt())
                                 } else if (value == value.toLong().toDouble()) {
@@ -152,7 +152,6 @@ fun SettingsScreen(onBack: () -> Unit) {
                     
                     withContext(Dispatchers.Main) {
                         Toast.makeText(context, "Settings restored! Restarting UI...", Toast.LENGTH_SHORT).show()
-                        // Перезагружаем текущую активность для обновления состояний
                         (context as? SettingsActivity)?.recreate()
                     }
                 } catch (e: Exception) {
@@ -177,7 +176,12 @@ fun SettingsScreen(onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings") },
+                title = { 
+                    Column {
+                        Text("Settings", style = MaterialTheme.typography.titleMedium)
+                        Text(activeAccount.name, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
