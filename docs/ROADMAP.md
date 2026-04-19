@@ -3,17 +3,22 @@
 This document tracks upcoming features, architectural improvements, and refactoring goals for TailSocks.
 
 ## ✅ Recently Completed
+- [x] **Taildrop Hub:** Fully custom implementation of file sharing with Inbox/History and SAF integration.
+- [x] **Multi-Account Manager:** Profile isolation with independent machine keys and state.
+- [x] **Advanced Exit Node Support:** Discovery UI and self-healing validation.
+- [x] **Peer Diagnostics:** Deep parsing of `status.json` for NAT traversal and handshake info.
+- [x] **SagerNet Integration:** One-click copy for SOCKS5/UDP proxy links.
 - [x] **Dynamic Core Integration:** Replaced static branching with dynamic compile-time injection to always use the latest official Tailscale source.
 - [x] **Smart DNS Proxy:** Built a local Go DNS server that wraps UDP into TCP via SOCKS5, fixing Split DNS and MagicDNS without VpnService.
-- [x] **Extreme Binary Optimization:** Removed bloatware (Systray, AWS, SSH, Taildrop) via Go build tags.
-- [x] **Web UI:** Implemented seamless access to the local Tailscale web administrator interface.
 
 ## 🧹 Housekeeping & Refactoring
-- [ ] **Clean Build Process:** Isolate all compiled binaries (`.so`) and libraries (`.aar`) into temporary (`tmp/`) directories during the build scripts to keep the working tree clean and prevent accidental commits of large binaries.
+- [x] **Clean Build Process:** Isolated all compiled binaries (`.so`) and libraries (`.aar`) into temporary (`tmp/`) directories.
+- [ ] **Code Modernization:** Refactor `MainActivity.kt` to use a dedicated ViewModel for state management instead of hoisting everything in the Composable.
 
 ## 🚀 Planned Features
-- [ ] **Local Services (`ts serve`):** Implement support for Tailscale Serve. This will allow users to easily expose local Android services (like Termux web servers, local API testing, or file servers) directly to their Tailnet.
-- [ ] **Public Exposure (`funnel`):** Integrate Tailscale Funnel to securely share local Android servers over the public internet using Tailscale's relay infrastructure, without exposing the entire device.
+- [ ] **Local Services (`ts serve`):** Implement support for Tailscale Serve to expose local Android services to the Tailnet.
+- [ ] **Public Exposure (`funnel`):** Integrate Tailscale Funnel to securely share local Android servers over the public internet.
+- [ ] **Quick Settings Tiles:** Add dedicated tiles for toggling Exit Nodes and switching accounts.
 
 ## 🏗 Long-Term Architectural Changes
-- [ ] **Migrate to `tsnet`:** Abandon the `fork/exec` PIE binary approach and migrate the core to an in-process execution using `tailscale.com/tsnet`. This is required to safely pass the `JNIEnv` and resolve crashes related to `VpnService` and Taildrop.
+- [ ] **Hybrid Core (`tsnet` + PIE):** Explore using `tsnet` for better Taildrop integration while maintaining the PIE daemon for raw SOCKS5 performance and stability.

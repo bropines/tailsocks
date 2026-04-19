@@ -1,26 +1,32 @@
-# 🧠 Architecture & Deep Dive
+# 🧠 Architecture & Deep Dive: The Hedgehog Bridge
 
-TailSocks operates entirely in `userspace-networking` mode without utilizing Android's `VpnService`. This design bypasses strict system limitations (like `netlinkrib` access errors) but requires creative architectural solutions.
+TailSocks operates entirely in `userspace-networking` mode without utilizing Android's `VpnService`. To make this reliable and feature-complete, we use a hybrid Go-Kotlin architecture known as the **Hedgehog Bridge**.
 
-## 1. The DNS Routing Masterpiece
+## 1. The Hedgehog Bridge
+The system is split into three distinct layers:
+*   **Official Core:** The `tailscaled` daemon is compiled as a Position Independent Executable (PIE) shared library (`libtailscale.so`). We use extensive build tags to strip desktop bloat while preserving core networking logic.
+*   **The Go Nanny (`appctr`):** A Go module compiled into an `.aar` via `gomobile bind`. It acts as a controller that spawns and monitors the core process, handles JNI callbacks, and implements custom logic (DNS proxy, Taildrop manager).
+*   **Kotlin UI:** A modern Jetpack Compose interface that communicates with the bridge to manage accounts, settings, and real-time diagnostics.
 
-Standard Android applications cannot easily route UDP packets (standard DNS queries) into a userspace network without a TUN interface. To solve this, TailSocks features a custom-built local DNS server in Go (running on port 1053).
+## 2. Multi-Account Isolation
+Unlike traditional Tailscale clients, TailSocks supports multiple profiles on a single device:
+*   **State Directories:** Each account has its own isolated directory in `files/states/{id}` containing unique machine keys and netmap caches.
+*   **Preference Isolation:** Settings are stored in account-specific `SharedPreferences` (`appctr_{id}`).
+*   **Clean Transitions:** When switching accounts, the bridge performs a full daemon restart to ensure no state leak between different Tailnets.
 
-It operates using a tri-tier logic:
-* **Local Netmap Resolution:** If you query a known local node, the proxy instantly extracts the IP directly from memory using the `tailscale ip` command.
-* **UDP-to-TCP Wrapping (Split DNS):** For internal domains (e.g., `olegdev.com`), the proxy intercepts the system's UDP query, wraps it into a TCP frame, and forcefully pushes it through our SOCKS5 tunnel directly to Tailscale's internal DNS coordinator (`100.100.100.100`).
-* **External DoH Fallback:** Queries for the public web (e.g., `google.com`) completely bypass the Go daemon. They are routed directly to configured DoH servers (like Cloudflare) or native ad-blockers like AdGuard. This ensures zero local DNS leaks, ultra-fast pings, and massive battery savings.
+## 3. The DNS Routing Masterpiece
+Standard Android applications cannot route UDP packets into a userspace network without a TUN interface. TailSocks features a custom-built local DNS server in Go (port 1053) using a tri-tier logic:
+*   **Local Netmap Resolution:** If you query a known local node, the proxy extracts the IP directly from memory.
+*   **UDP-to-TCP Wrapping (Split DNS):** For internal domains (e.g., `*.ts.net`), the proxy intercepts the UDP query, wraps it into a TCP frame, and pushes it through the SOCKS5 tunnel to Tailscale's internal DNS coordinator (`100.100.100.100`).
+*   **External DoH Fallback:** Queries for the public web bypass the Go daemon entirely, routing natively to system filters like AdGuard.
 
-## 2. Daemon State-Machine Anti-Deadlock
+## 4. Taildrop: JNI-less Implementation
+Official Taildrop on Android usually requires complex JNI callbacks to handle `VpnService` permissions. TailSocks implements a standalone Taildrop manager:
+*   **Environment-Based Storage:** We inject `TS_TAILDROP_DIR` via environment variables to the core.
+*   **Incoming Hub:** A background watcher in Go monitors the incoming folder and provides a JSON API for the Kotlin UI.
+*   **Outgoing Bridge:** Files are read from Android's Storage Access Framework and streamed to the `tailscale file cp` CLI logic.
 
-A critical flaw in the official userspace-networking implementation causes the daemon to hang (`i/o timeout`) when restarting the app without clearing the cache. The daemon struggles to correctly update routing paths from its previous state. 
-* **The Fix:** We hardcoded the `--reset` flag on every daemon startup. This forces the userspace state machine to cleanly rebuild the virtual network upon every initialization, guaranteeing a 100% stable startup.
-
-## 3. UI Thread Stabilization
-
-Rapidly toggling the proxy connection previously caused race conditions. 
-* **The Fix:** We implemented a 3-second software debounce in the Jetpack Compose UI. This grace period provides the daemon ample time to gracefully close sockets and save state files before a new instance is spawned.
-
-## 4. Web UI Integration
-
-An asynchronous controller continuously monitors the tunnel status. Once the connection is successfully established, it spins up the official Tailscale Web UI server locally at `127.0.0.1:8080`, accessible via a single tap from the app settings.
+## 5. Self-Healing Routing
+A common issue in userspace networking is "sticky" routing configurations.
+*   **Stateless Flags:** TailSocks explicitly passes negative flags (e.g., `--exit-node=`, `--accept-routes=false`) during the `up` command to force the daemon to clear its internal state when a setting is toggled off.
+*   **Exit Node Validation:** A фоновый (background) loop continuously validates that the selected Exit Node exists in the current account's netmap, auto-clearing it if it becomes invalid.
