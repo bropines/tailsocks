@@ -11,15 +11,19 @@ fi
 export CC="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang"
 export CGO_ENABLED=1
 
-# Dynamically find the latest stable Tailscale tag
-echo "-> Fetching latest stable Tailscale version..."
-TS_VERSION=$(git ls-remote --tags --sort="v:refname" https://github.com/tailscale/tailscale.git | grep -v 'pre\|beta\|rc\|{}$' | tail -n1 | sed 's/.*\///')
-
-if [ -z "$TS_VERSION" ]; then
-    echo "❌ Error: Could not find latest Tailscale tag. Falling back to v1.78.1"
-    TS_VERSION="v1.78.1"
+# Determine Tailscale version
+if [ -n "$TS_VER_TAG" ]; then
+    echo "-> Using provided Tailscale version: $TS_VER_TAG"
+    TS_VERSION="$TS_VER_TAG"
+else
+    echo "-> Fetching latest stable Tailscale version..."
+    TS_VERSION=$(git ls-remote --tags --sort="v:refname" https://github.com/tailscale/tailscale.git | grep -v 'pre\|beta\|rc\|{}$' | tail -n1 | sed 's/.*\///')
+    if [ -z "$TS_VERSION" ]; then
+        echo "❌ Error: Could not find latest Tailscale tag. Falling back to v1.78.1"
+        TS_VERSION="v1.78.1"
+    fi
+    echo "-> Latest version: $TS_VERSION"
 fi
-echo "-> Using Tailscale version: $TS_VERSION"
 
 echo "[1/4] Preparing and Patching Tailscale sources..."
 if [ ! -d "tailscale_src" ]; then
@@ -46,6 +50,7 @@ else
 fi
 
 echo "[2/4] Compiling binaries in PIE mode..."
+
 cd tailscale_src
 mkdir -p tmp
 

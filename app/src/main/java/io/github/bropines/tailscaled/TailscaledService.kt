@@ -119,6 +119,10 @@ class TailscaledService : Service() {
     }
 
     private fun buildStartOptions(): StartOptions {
+        val baseDir = filesDir.absolutePath
+        val stateDir = "$baseDir/state"
+        java.io.File(stateDir).mkdirs()
+
         return StartOptions().apply {
             socks5Server = prefs.getString("socks5", "127.0.0.1:48115")
             socks5User   = prefs.getString("socks5_user", "")
@@ -131,14 +135,12 @@ class TailscaledService : Service() {
 
             enableWebUI = prefs.getBoolean("enable_webui", false)
             webUIAddr   = prefs.getString("webui_port", "127.0.0.1:8080")
-            taildropDir = "${applicationInfo.dataDir}/taildrop"
-            
-            // Ensure taildrop directory exists to avoid Go errors
+            taildropDir = "$baseDir/taildrop"
             java.io.File(taildropDir).mkdirs()
             
             execPath     = "${applicationInfo.nativeLibraryDir}/libtailscale.so"
-            socketPath   = "${applicationInfo.dataDir}/tailscaled.sock"
-            statePath    = "${applicationInfo.dataDir}/state"
+            socketPath   = "$baseDir/tailscaled.sock"
+            statePath    = stateDir
             closeCallBack = Closer { stopMe() }
             
             val argsBuilder = StringBuilder()

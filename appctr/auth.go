@@ -8,6 +8,19 @@ import (
 	"time"
 )
 
+var lastErrStr string
+
+func GetLastError() string {
+	e := lastErrStr
+	lastErrStr = "" // Очищаем после прочтения
+	return e
+}
+
+func ForceRefresh() {
+	slog.Info("Manual refresh requested")
+	ReUp()
+}
+
 func RunTailscaleCmd(commandStr string) string {
 	if !IsRunning() {
 		return "Error: Tailscaled is not running."
@@ -24,6 +37,11 @@ func RunTailscaleCmd(commandStr string) string {
 	
 	output, err := c.CombinedOutput()
 	outStr := string(output)
+
+	// Парсим специфические ошибки для UI
+	if strings.Contains(outStr, "http 410") {
+		lastErrStr = "410_GONE"
+	}
 
 	if err != nil {
 		if !isRoutineCheck {
@@ -78,11 +96,20 @@ func registerMachineWithAuthKey(PC pathControl, opt *StartOptions) {
 	// Всего одна строка в логах, что мы начали настройку
 	slog.Info("Daemon is ready, applying configuration...")
 
-	args := []string{"--socket", PC.Socket(), "up", "--reset", "--timeout", "60s"}
+	args := []string{"--socket", PC.Socket(), "up", "--timeout", "60s"}
 	
+	if opt.DoReset {
+		args = append(args, "--reset")
+	}
+
 	if opt.AuthKey != "" {
 		args = append(args, "--auth-key", opt.AuthKey)
+	} else if opt.DoReset {
+		// If we are explicitly resetting and have no auth key, 
+		// we likely want a fresh interactive login.
+		args = append(args, "--force-reauth")
 	}
+
 	if opt.ExtraUpArgs != "" {
 		args = append(args, strings.Fields(opt.ExtraUpArgs)...)
 	}
