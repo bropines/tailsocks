@@ -15,6 +15,8 @@ You are an expert software architect specializing in the TailSocks project. This
 
 ## 🛠 Engineering & Documentation
 - **Professional Tone:** Use formal engineering language. Avoid informal nicknames or unprofessional metaphors in documentation.
+- **Atomic Local Commits:** ALWAYS perform a local `git commit -m "..."` after each logical change to the codebase. Do not wait for the end of the session.
+- **Push Policy:** Only execute `git push` when explicitly requested by the user.
 - **Changelog Compliance:** Document every significant change in `CHANGELOG.md` following the [Keep a Changelog](https://keepachangelog.com/) standard.
 - **Historical Context:** Refer to `docs/RETROSPECTIVE.md` and `docs/AI_ARCHITECTURE_CONTEXT.md` to avoid repeating past design errors (e.g., "Active Management").
 - **Clean Build System:** Use `appctr/build.sh` for core modifications. Do not commit compiled binaries or raw source trees.
