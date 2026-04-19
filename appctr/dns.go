@@ -22,6 +22,14 @@ var splitDNSCache sync.Map
 var splitDNSLastUpdate time.Time
 var splitDNSMutex sync.Mutex
 
+func FlushDNS() {
+	dnsCache.Range(func(key, value interface{}) bool {
+		dnsCache.Delete(key)
+		return true
+	})
+	slog.Info("DNS cache flushed")
+}
+
 // Добавлены socksUser и socksPass
 func startDNSProxy(ctx context.Context, listenAddr string, socksAddr string, socksUser string, socksPass string, fallbacks []string, dohUrl string) error {
 	pc, err := net.ListenPacket("udp", listenAddr)

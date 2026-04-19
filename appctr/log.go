@@ -38,8 +38,7 @@ func (lm *LogManager) AddLog(entry LogEntry) {
 	lm.logs = append(lm.logs, entry)
 	lm.mu.Unlock()
 
-	// Вещаем в отладочный туннель
-	BroadcastLog(fmt.Sprintf("%s [%s] %s\n", entry.Timestamp, entry.Level, entry.Message))
+	// Вещаем в лог-менеджер (уже добавлено выше)
 }
 
 // Отдаем чистый JSON для Android

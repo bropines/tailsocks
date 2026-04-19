@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -41,7 +42,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.OutputStreamWriter
 
-// Модель данных для лога (должна совпадать с тем, что отдает Go в JSON)
 @Keep
 data class LogEntry(
     @SerializedName("timestamp") val timestamp: String,
@@ -61,6 +61,20 @@ class LogsActivity : ComponentActivity() {
     }
 }
 
+fun getDebugHeader(context: Context): String {
+    val verName = try { context.packageManager.getPackageInfo(context.packageName, 0).versionName } catch (e: Exception) { "unknown" }
+    val coreVer = try { Appctr.getCoreVersion() } catch (e: Exception) { "unknown" }
+    return """
+        --- TAILSOCKS DEBUG INFO ---
+        App Version: $verName
+        Tailscale Core: $coreVer
+        Device: ${Build.MANUFACTURER} ${Build.MODEL} (Android ${Build.VERSION.RELEASE}, API ${Build.VERSION.SDK_INT})
+        Arch: ${Build.SUPPORTED_ABIS.joinToString(", ")}
+        ----------------------------
+        
+    """.trimIndent()
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LogsScreen(onBack: () -> Unit) {
@@ -72,14 +86,12 @@ fun LogsScreen(onBack: () -> Unit) {
     var searchQuery by remember { mutableStateOf("") }
     
     var isAutoScroll by remember { mutableStateOf(true) }
-    var isRefreshing by remember { mutableStateOf(false) }
     
     var scale by remember { mutableFloatStateOf(1f) }
     val listState = rememberLazyListState()
 
     val categories = listOf("ALL", "ERROR", "CORE", "TAILSCALE", "OTHER")
 
-    // Фильтрация: сначала по категории, потом по поисковому запросу
     val displayedLogs = remember(allLogs, selectedCategory, searchQuery) {
         allLogs.filter { log ->
             val matchCategory = selectedCategory == "ALL" || log.category == selectedCategory
@@ -92,12 +104,13 @@ fun LogsScreen(onBack: () -> Unit) {
         uri?.let {
             coroutineScope.launch(Dispatchers.IO) {
                 try {
+                    val fullLog = getDebugHeader(context) + Appctr.getLogs()
                     context.contentResolver.openOutputStream(it)?.use { os ->
-                        OutputStreamWriter(os).use { writer -> writer.write(Appctr.getLogs()) }
+                        OutputStreamWriter(os).use { writer -> writer.write(fullLog) }
                     }
-                    withContext(Dispatchers.Main) { Toast.makeText(context, "Логи сохранены", Toast.LENGTH_SHORT).show() }
+                    withContext(Dispatchers.Main) { Toast.makeText(context, "Logs saved", Toast.LENGTH_SHORT).show() }
                 } catch (e: Exception) {
-                    withContext(Dispatchers.Main) { Toast.makeText(context, "Ошибка: ${e.message}", Toast.LENGTH_LONG).show() }
+                    withContext(Dispatchers.Main) { Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show() }
                 }
             }
         }
@@ -106,17 +119,12 @@ fun LogsScreen(onBack: () -> Unit) {
     fun loadLogsData() {
         coroutineScope.launch(Dispatchers.IO) {
             val jsonString = try { Appctr.getLogsJSON() } catch (e: Exception) { "[]" }
-            
             val logsList: List<LogEntry> = try {
-                val type = object : TypeToken<List<LogEntry>>() {}.type
-                Gson().fromJson(jsonString, type)
-            } catch (e: Exception) {
-                emptyList()
-            }
+                Gson().fromJson(jsonString, object : TypeToken<List<LogEntry>>() {}.type)
+            } catch (e: Exception) { emptyList() }
 
             withContext(Dispatchers.Main) {
                 allLogs = logsList
-                isRefreshing = false
             }
         }
     }
@@ -124,20 +132,13 @@ fun LogsScreen(onBack: () -> Unit) {
     LaunchedEffect(Unit) {
         while (true) {
             loadLogsData()
-            delay(2000) // Обновляем каждые 2 секунды
+            delay(2000)
         }
     }
 
     LaunchedEffect(displayedLogs.size) {
         if (isAutoScroll && displayedLogs.isNotEmpty()) {
             listState.animateScrollToItem(displayedLogs.size - 1)
-        }
-    }
-
-    LaunchedEffect(listState.isScrollInProgress) {
-        if (listState.isScrollInProgress) {
-            val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()
-            isAutoScroll = lastVisibleItem?.index == listState.layoutInfo.totalItemsCount - 1
         }
     }
 
@@ -151,103 +152,67 @@ fun LogsScreen(onBack: () -> Unit) {
                     },
                     actions = {
                         IconButton(onClick = { 
+                            Appctr.flushDNS()
+                            Toast.makeText(context, "DNS Cache Flushed", Toast.LENGTH_SHORT).show()
+                        }) { Icon(Icons.Default.CleaningServices, contentDescription = "Flush DNS") }
+
+                        IconButton(onClick = { 
+                            val fullLog = getDebugHeader(context) + Appctr.getLogs()
                             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            clipboard.setPrimaryClip(ClipData.newPlainText("TailSocks Logs", Appctr.getLogs()))
-                            Toast.makeText(context, "Logs copied to clipboard!", Toast.LENGTH_SHORT).show()
-                        }) { Icon(Icons.Default.ContentCopy, contentDescription = "Copy everything") }
+                            clipboard.setPrimaryClip(ClipData.newPlainText("TailSocks Logs", fullLog))
+                            Toast.makeText(context, "Logs copied!", Toast.LENGTH_SHORT).show()
+                        }) { Icon(Icons.Default.ContentCopy, contentDescription = "Copy") }
                         
-                        IconButton(onClick = { saveFileLauncher.launch("tailscaled_logs_${System.currentTimeMillis()}.txt") }) { Icon(Icons.Default.Save, contentDescription = "Save to File") }
-                        
-                        IconButton(onClick = {
-                            val sendIntent = Intent().apply {
-                                action = Intent.ACTION_SEND
-                                putExtra(Intent.EXTRA_TEXT, Appctr.getLogs())
-                                type = "text/plain"
-                            }
-                            context.startActivity(Intent.createChooser(sendIntent, "Share logs"))
-                        }) { Icon(Icons.Default.Share, contentDescription = "Share") }
+                        IconButton(onClick = { saveFileLauncher.launch("tailsocks_logs_${System.currentTimeMillis()}.txt") }) { Icon(Icons.Default.Save, contentDescription = "Save") }
                     }
                 )
                 
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    placeholder = { Text("Search in logs...") },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Default.Close, contentDescription = "Clear")
-                            }
-                        }
-                    },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    placeholder = { Text("Search...") },
+                    leadingIcon = { Icon(Icons.Default.Search, null) },
+                    trailingIcon = { if (searchQuery.isNotEmpty()) IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Default.Close, null) } },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp)
                 )
 
-                if (isRefreshing) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-
-                LazyRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                LazyRow(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(categories) { category ->
-                        FilterChip(
-                            selected = selectedCategory == category,
-                            onClick = { 
-                                selectedCategory = category
-                                isAutoScroll = true 
-                            },
-                            label = { Text(category) }
-                        )
+                        FilterChip(selected = selectedCategory == category, onClick = { selectedCategory = category; isAutoScroll = true }, label = { Text(category) })
                     }
                 }
             }
         },
         floatingActionButton = {
             FloatingActionButton(onClick = {
-                Appctr.clearLogs()
-                allLogs = emptyList()
-                Toast.makeText(context, "Logs clear", Toast.LENGTH_SHORT).show()
+                coroutineScope.launch(Dispatchers.IO) {
+                    Appctr.clearLogs()
+                    withContext(Dispatchers.Main) {
+                        allLogs = emptyList()
+                        Toast.makeText(context, "Cleared", Toast.LENGTH_SHORT).show()
+                    }
+                }
             }) { Icon(Icons.Default.Delete, contentDescription = "Clear") }
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            // Включаем возможность выделения текста
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             SelectionContainer {
                 LazyColumn(
                     state = listState,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 8.dp)
-                        .pointerInput(Unit) {
-                            detectTransformGestures { _, _, zoom, _ ->
-                                scale = (scale * zoom).coerceIn(0.5f, 4f)
-                            }
-                        }
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp).pointerInput(Unit) {
+                        detectTransformGestures { _, _, zoom, _ -> scale = (scale * zoom).coerceIn(0.5f, 4f) }
+                    }
                 ) {
                     items(displayedLogs) { log ->
-                        val textColor = if (log.category == "ERROR") {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            MaterialTheme.colorScheme.onSurface
-                        }
-
+                        val textColor = if (log.category == "ERROR") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
                         Text(
                             text = "${log.timestamp} [${log.category}] ${log.message}",
                             fontFamily = FontFamily.Monospace,
                             fontSize = (12 * scale).sp,
                             color = textColor,
-                            modifier = Modifier.padding(vertical = 4.dp)
+                            modifier = Modifier.padding(vertical = 2.dp)
                         )
                     }
                 }

@@ -16,66 +16,88 @@ import androidx.core.app.NotificationCompat
 import appctr.Appctr
 import appctr.Closer
 import appctr.StartOptions
+import com.google.gson.Gson
 
 class TailscaledService : Service() {
     private val TAG = "TailscaledService"
     private val notificationManager by lazy { getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager }
-    private lateinit var prefs: SharedPreferences
     private var wakeLock: PowerManager.WakeLock? = null
     
     private val refreshHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private val refreshRunnable = object : Runnable {
         override fun run() {
-            if (Appctr.isRunning() && prefs.getBoolean("auto_refresh_config", false)) {
+            val activeAccount = AccountManager.getActiveAccount(this@TailscaledService)
+            val profilePrefs = getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
+            
+            if (Appctr.isRunning() && profilePrefs.getBoolean("auto_refresh", true)) {
                 Log.d(TAG, "Auto-refreshing configuration...")
                 Thread { Appctr.applySettings(buildStartOptions()) }.start()
             }
-            refreshHandler.postDelayed(this, 15000) // 15 seconds
+            
+            val interval = profilePrefs.getString("refresh_interval", "15000")?.toLongOrNull() ?: 15000L
+            refreshHandler.postDelayed(this, interval)
         }
     }
 
     private lateinit var connectivityManager: ConnectivityManager
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
+        private var lastStateJson = ""
+        
         override fun onAvailable(network: Network) {
             Log.d(TAG, "Network Available")
+            injectIfNeeded()
             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                if (Appctr.isRunning()) {
-                    updateNotification("Active")
-                }
+                if (Appctr.isRunning()) updateNotification("Active")
             }, 1500)
         }
         override fun onLost(network: Network) {
             Log.d(TAG, "Network Lost")
-            if (Appctr.isRunning()) {
-                updateNotification("Waiting for network...")
-            }
+            injectIfNeeded()
+            if (Appctr.isRunning()) updateNotification("Waiting for network...")
+        }
+
+        private fun injectIfNeeded() {
+            if (!Appctr.isRunning()) return
+            Thread {
+                try {
+                    val interfaces = java.net.NetworkInterface.getNetworkInterfaces()
+                    val list = mutableListOf<Map<String, Any>>()
+                    if (interfaces != null) {
+                        for (iface in interfaces) {
+                            if (!iface.isUp || iface.isLoopback) continue
+                            val addrs = iface.inetAddresses?.toList()?.filter { !it.isLoopbackAddress }?.map { it.hostAddress ?: "" } ?: emptyList()
+                            if (addrs.isNotEmpty()) {
+                                list.add(mapOf("name" to iface.name, "addresses" to addrs, "up" to iface.isUp, "mtu" to iface.mtu))
+                            }
+                        }
+                    }
+                    val json = Gson().toJson(list)
+                    if (json != lastStateJson) {
+                        lastStateJson = json
+                        Appctr.injectNetworkState(json)
+                        Log.d(TAG, "Network state changed and injected")
+                    }
+                } catch (e: Exception) { Log.e(TAG, "Inject failed: ${e.message}") }
+            }.start()
         }
     }
 
     override fun onCreate() {
         super.onCreate()
-        try {
-            android.system.Os.setenv("TZ", java.util.TimeZone.getDefault().id, true)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to set TZ env", e)
-        }
-        prefs = getSharedPreferences("appctr", Context.MODE_PRIVATE)
+        try { android.system.Os.setenv("TZ", java.util.TimeZone.getDefault().id, true) } catch (e: Exception) {}
         connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Tailscaled::WakeLock").apply {
-            acquire(10*60*1000L) 
-        }
+        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Tailscaled::WakeLock")
+        try { connectivityManager.registerDefaultNetworkCallback(networkCallback) } catch (e: Exception) {}
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action
+        val activeAccount = AccountManager.getActiveAccount(this)
+        val profilePrefs = getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
         
-        if (action == "STOP_ACTION") {
-            stopMe()
-            return START_NOT_STICKY
-        }
-
-        if (action == "REFRESH_ACTION") {
+        if (action == "STOP_ACTION") { stopMe(); return START_NOT_STICKY }
+        if (action == "REFRESH_ACTION" || action == "APPLY_SETTINGS") {
             Thread { Appctr.applySettings(buildStartOptions()) }.start()
             return START_STICKY
         }
@@ -84,47 +106,31 @@ class TailscaledService : Service() {
         updateTile()
         if (!Appctr.isRunning()) {
             startForeground(1, buildNotification("Starting..."))
-            
-            if (prefs.getBoolean("force_bg", false)) {
-                wakeLock?.acquire(10 * 60 * 1000L /*10 minutes*/)
-                Log.d(TAG, "WakeLock acquired")
-            }
-            
+            if (profilePrefs.getBoolean("force_bg", false)) wakeLock?.acquire(10 * 60 * 1000L)
             startTailscale()
-        } else {
-            updateNotification("Active")
-        }
+        } else updateNotification("Active")
         
-        // Запускаем цикл обновления
         refreshHandler.removeCallbacks(refreshRunnable)
-        refreshHandler.postDelayed(refreshRunnable, 15000)
-        
+        refreshHandler.postDelayed(refreshRunnable, 1000)
         return START_STICKY
     }
 
     private fun startTailscale() {
         val options = buildStartOptions()
-
         Thread {
             try {
                 applicationContext.sendBroadcast(Intent("STARTING"))
                 Appctr.start(options)
                 updateNotification("Active")
                 applicationContext.sendBroadcast(Intent("START"))
-            } catch (e: Exception) {
-                Log.e(TAG, "Start error: ${e.message}")
-                stopMe()
-            }
+            } catch (e: Exception) { stopMe() }
         }.start()
     }
 
     private fun buildStartOptions(): StartOptions {
         val activeAccount = AccountManager.getActiveAccount(this)
-        val accountId = activeAccount.id
-        val profilePrefs = getSharedPreferences("appctr_$accountId", Context.MODE_PRIVATE)
-        
-        val baseDir = filesDir.absolutePath
-        val stateDir = "$baseDir/states/$accountId"
+        val profilePrefs = getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
+        val stateDir = "${filesDir.absolutePath}/states/${activeAccount.id}"
         java.io.File(stateDir).mkdirs()
 
         return StartOptions().apply {
@@ -133,19 +139,19 @@ class TailscaledService : Service() {
             socks5Pass   = profilePrefs.getString("socks5_pass", "")
             httpProxy    = profilePrefs.getString("httpproxy", "")
             dnsProxy     = profilePrefs.getString("dns_proxy", "127.0.0.1:1053") ?: "127.0.0.1:1053"
-            dnsFallbacks = "${profilePrefs.getString("dns_fallback1", "8.8.8.8:53")},${profilePrefs.getString("dns_fallback2", "1.1.1.1:53")}"
+            dnsFallbacks = profilePrefs.getString("dns_fallbacks", "8.8.8.8:53,1.1.1.1:53")
             dohFallback  = profilePrefs.getString("doh_url", "https://1.1.1.1/dns-query")
             authKey      = profilePrefs.getString("authkey", "")
-
             enableWebUI = profilePrefs.getBoolean("enable_webui", false)
-            webUIAddr   = profilePrefs.getString("webui_port", "127.0.0.1:8080")
-            taildropDir = "$baseDir/taildrop"
+            webUIAddr   = profilePrefs.getString("webui_addr", "127.0.0.1:8080")
+            taildropDir = "$stateDir/taildrop"
             java.io.File(taildropDir).mkdirs()
-            
             execPath     = "${applicationInfo.nativeLibraryDir}/libtailscale.so"
-            socketPath   = "$baseDir/tailscaled.sock"
+            socketPath   = "${filesDir.absolutePath}/tailscaled.sock"
             statePath    = stateDir
             closeCallBack = Closer { stopMe() }
+            doReset      = profilePrefs.getBoolean("do_reset", false)
+            if (doReset) profilePrefs.edit().putBoolean("do_reset", false).apply()
 
             val argsBuilder = StringBuilder()
             val hostname = profilePrefs.getString("hostname", "")
@@ -162,7 +168,6 @@ class TailscaledService : Service() {
             if (profilePrefs.getBoolean("advertise_exit_node", false)) argsBuilder.append("--advertise-exit-node ")
             val rawArgs = profilePrefs.getString("extra_args_raw", "")
             if (!rawArgs.isNullOrEmpty()) argsBuilder.append("$rawArgs")
-            
             extraUpArgs = argsBuilder.toString()
         }
     }
@@ -193,17 +198,13 @@ class TailscaledService : Service() {
         val stopPendingIntent = PendingIntent.getService(this, 0, stopIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
         return NotificationCompat.Builder(this, channelId)
-            .setContentTitle("TailSocks")
-            .setContentText(status)
-            .setSmallIcon(android.R.drawable.ic_secure) 
-            .setOngoing(true)
-            .setContentIntent(pendingIntent)
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", stopPendingIntent)
-            .build()
+            .setContentTitle("TailSocks").setContentText(status).setSmallIcon(android.R.drawable.ic_secure).setOngoing(true).setContentIntent(pendingIntent)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", stopPendingIntent).build()
     }
 
     override fun onDestroy() {
         Appctr.stop()
+        try { connectivityManager.unregisterNetworkCallback(networkCallback) } catch (e: Exception) {}
         if (wakeLock?.isHeld == true) wakeLock?.release()
         super.onDestroy()
     }

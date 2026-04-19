@@ -1,6 +1,9 @@
 package io.github.bropines.tailscaled
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
@@ -8,521 +11,265 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import appctr.Appctr
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import kotlin.random.Random
+import java.io.File
+import appctr.Appctr
+import java.net.URLEncoder
 
 class SettingsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
-            TailSocksTheme {
-                SettingsScreen(onBack = { finish() })
-            }
-        }
+        setContent { TailSocksTheme { SettingsScreen(onBack = { finish() }) } }
     }
+}
+
+fun generateRandomString(length: Int = 12): String {
+    val allowedChars = ('A'..'Z') + ('a'..'z') + ('0'..'9')
+    return (1..length).map { allowedChars.random() }.joinToString("")
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(onBack: () -> Unit) {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val activeAccount = remember { AccountManager.getActiveAccount(context) }
     val prefs = remember(activeAccount.id) { context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE) }
-    val scope = rememberCoroutineScope()
-
-    // Состояния для всех настроек
-    var authKey by remember { mutableStateOf(prefs.getString("authkey", "") ?: "") }
-    var hostname by remember { mutableStateOf(prefs.getString("hostname", "") ?: "") }
-    var loginServer by remember { mutableStateOf(prefs.getString("login_server", "") ?: "") }
     
-    var socks5 by remember { mutableStateOf(prefs.getString("socks5", "127.0.0.1:48115") ?: "127.0.0.1:48115") }
-    var httpProxy by remember { mutableStateOf(prefs.getString("httpproxy", "") ?: "") }
-
+    var taildropRootUri by remember { mutableStateOf(GlobalSettings.getTaildropRootUri(context)) }
+    var autoStart by remember { mutableStateOf(GlobalSettings.isAutoStartEnabled(context)) }
+    
+    var authKey by remember { mutableStateOf(prefs.getString("authkey", "") ?: "") }
+    var socks5 by remember { mutableStateOf(prefs.getString("socks5", "127.0.0.1:48115") ?: "") }
     var socks5User by remember { mutableStateOf(prefs.getString("socks5_user", "") ?: "") }
     var socks5Pass by remember { mutableStateOf(prefs.getString("socks5_pass", "") ?: "") }
-    
+    var httpProxy by remember { mutableStateOf(prefs.getString("httpproxy", "") ?: "") }
+    var hostname by remember { mutableStateOf(prefs.getString("hostname", "") ?: "") }
+    var loginServer by remember { mutableStateOf(prefs.getString("login_server", "") ?: "") }
     var exitNodeIp by remember { mutableStateOf(prefs.getString("exit_node_ip", "") ?: "") }
-    var exitNodeAllowLan by remember { mutableStateOf(prefs.getBoolean("exit_node_allow_lan", false)) }
+    var dnsProxy by remember { mutableStateOf(prefs.getString("dns_proxy", "127.0.0.1:1053") ?: "") }
+    var dnsFallbacks by remember { mutableStateOf(prefs.getString("dns_fallbacks", "8.8.8.8:53,1.1.1.1:53") ?: "") }
+    var extraArgs by remember { mutableStateOf(prefs.getString("extra_args_raw", "") ?: "") }
     
-    var dnsFallback1 by remember { mutableStateOf(prefs.getString("dns_fallback1", "8.8.8.8:53") ?: "8.8.8.8:53") }
-    var dnsFallback2 by remember { mutableStateOf(prefs.getString("dns_fallback2", "1.1.1.1:53") ?: "1.1.1.1:53") }
-    var dohUrl by remember { mutableStateOf(prefs.getString("doh_url", "https://1.1.1.1/dns-query") ?: "https://1.1.1.1/dns-query") }
-    
+    var autoRefresh by remember { mutableStateOf(prefs.getBoolean("auto_refresh", true)) }
     var acceptRoutes by remember { mutableStateOf(prefs.getBoolean("accept_routes", false)) }
     var acceptDns by remember { mutableStateOf(prefs.getBoolean("accept_dns", true)) }
-    //var forceReset by remember { mutableStateOf(prefs.getBoolean("force_reset", false)) }
-    var extraArgs by remember { mutableStateOf(prefs.getString("extra_args_raw", "") ?: "") }
-
-    var enableWebUi by remember { mutableStateOf(prefs.getBoolean("enable_webui", false)) }
-    var webUiPort by remember { mutableStateOf(prefs.getString("webui_port", "127.0.0.1:8080") ?: "127.0.0.1:8080") }
-
-    var dnsProxy by remember { mutableStateOf(prefs.getString("dns_proxy", "127.0.0.1:1053") ?: "127.0.0.1:1053") }
-
-    var exitNodes by remember { mutableStateOf<List<PeerData>>(emptyList()) }
-    var isLoadingExitNodes by remember { mutableStateOf(false) }
-    var exitNodesExpanded by remember { mutableStateOf(false) }
-
-    var latestVersion by remember { mutableStateOf<String?>(null) }
-    var isCheckingUpdate by remember { mutableStateOf(false) }
-    var autoRefreshConfig by remember { mutableStateOf(prefs.getBoolean("auto_refresh_config", false)) }
     var forceBg by remember { mutableStateOf(prefs.getBoolean("force_bg", false)) }
-    var settingsChanged by remember { mutableStateOf(false) }
     
-    val currentVersion = remember {
-        try { context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0.0.0" }
-        catch (e: Exception) { "0.0.0" }
+    var enableWebUI by remember { mutableStateOf(prefs.getBoolean("enable_webui", false)) }
+    var webUIAddr by remember { mutableStateOf(prefs.getString("webui_addr", "127.0.0.1:8080") ?: "127.0.0.1:8080") }
+    var detailedLogs by remember { mutableStateOf(prefs.getBoolean("detailed_logs", false)) }
+
+    val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) { GlobalSettings.setTaildropRootUri(context, uri); taildropRootUri = uri }
     }
 
-    // Лаунчер для создания файла бэкапа
-    val createDocumentLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("application/json")
-    ) { uri ->
-        uri?.let {
+    val backupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) {
             scope.launch(Dispatchers.IO) {
                 try {
                     val allPrefs = prefs.all
-                    val json = Gson().toJson(allPrefs)
-                    context.contentResolver.openOutputStream(it)?.use { os ->
-                        os.write(json.toByteArray())
-                    }
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "Settings exported successfully!", Toast.LENGTH_SHORT).show()
-                    }
+                    val backupData = mapOf("account" to activeAccount, "settings" to allPrefs)
+                    context.contentResolver.openOutputStream(uri)?.use { it.write(Gson().toJson(backupData).toByteArray()) }
+                    withContext(Dispatchers.Main) { Toast.makeText(context, "Backup saved", Toast.LENGTH_SHORT).show() }
                 } catch (e: Exception) {
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "Export failed: ${e.message}", Toast.LENGTH_LONG).show()
-                    }
+                    withContext(Dispatchers.Main) { Toast.makeText(context, "Backup failed: ${e.message}", Toast.LENGTH_LONG).show() }
                 }
             }
         }
     }
 
-    // Лаунчер для выбора файла для восстановления
-    val openDocumentLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        uri?.let {
-            scope.launch(Dispatchers.IO) {
-                try {
-                    val inputStream = context.contentResolver.openInputStream(it)
-                    val reader = BufferedReader(InputStreamReader(inputStream))
-                    val json = reader.use { r -> r.readText() }
-                    
-                    val type = object : TypeToken<Map<String, Any>>() {}.type
-                    val importedData: Map<String, Any> = Gson().fromJson(json, type)
-                    
-                    val editor = prefs.edit()
-                    importedData.forEach { (key, value) ->
-                        when (value) {
-                            is String -> editor.putString(key, value)
-                            is Boolean -> editor.putBoolean(key, value)
-                            is Double -> {
-                                if (value == value.toInt().toDouble()) {
-                                    editor.putInt(key, value.toInt())
-                                } else if (value == value.toLong().toDouble()) {
-                                    editor.putLong(key, value.toLong())
-                                }
-                            }
-                        }
-                    }
-                    editor.apply()
-                    
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "Settings restored! Restarting UI...", Toast.LENGTH_SHORT).show()
-                        (context as? SettingsActivity)?.recreate()
-                    }
-                } catch (e: Exception) {
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "Restore failed: ${e.message}", Toast.LENGTH_LONG).show()
-                    }
-                }
-            }
-        }
-    }
-
-    // Функция сохранения
-    fun save(key: String, value: Any) {
+    fun savePref(key: String, value: Any?) {
         val editor = prefs.edit()
         when (value) {
             is String -> editor.putString(key, value)
             is Boolean -> editor.putBoolean(key, value)
+            is Int -> editor.putInt(key, value)
         }
         editor.apply()
+        if (key == "detailed_logs") Appctr.setLogLevel(if (value as Boolean) 0 else 1)
+        context.startService(Intent(context, TailscaledService::class.java).apply { action = "APPLY_SETTINGS" })
+    }
+
+    fun copySagerNetLink() {
+        try {
+            val encodedUser = URLEncoder.encode(socks5User, "UTF-8").replace("+", "%20")
+            val encodedPass = URLEncoder.encode(socks5Pass, "UTF-8").replace("+", "%20")
+            val label = URLEncoder.encode("TAILSCALE (${activeAccount.name})", "UTF-8")
+            val link = if (encodedUser.isNotEmpty()) {
+                "socks5://$encodedUser:$encodedPass@$socks5#$label"
+            } else {
+                "socks5://$socks5#$label"
+            }
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(ClipData.newPlainText("SagerNet SOCKS5", link))
+            Toast.makeText(context, "SagerNet link copied!", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    var showResetDialog by remember { mutableStateOf(false) }
+    if (showResetDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetDialog = false },
+            title = { Text("Reset Node State?") },
+            text = { Text("This will call 'tailscale up --reset', clearing all flags and re-authenticating. Continue?") },
+            confirmButton = {
+                Button(onClick = { savePref("do_reset", true); showResetDialog = false }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Reset") }
+            },
+            dismissButton = { TextButton(onClick = { showResetDialog = false }) { Text("Cancel") } }
+        )
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { 
-                    Column {
-                        Text("Settings", style = MaterialTheme.typography.titleMedium)
-                        Text(activeAccount.name, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = {
-                        val intent = android.content.Intent(context, TailscaledService::class.java).apply { action = "REFRESH_ACTION" }
-                        context.startService(intent)
-                        Toast.makeText(context, "Configuration refreshed!", Toast.LENGTH_SHORT).show()
-                    }) {
-                        Icon(Icons.Default.Save, contentDescription = "Refresh Config")
-                    }
-                }
+                title = { Text("Settings") },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } }
             )
         }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .padding(horizontal = 16.dp)
-        ) {
-            item { SectionTitle("Authentication") }
-            item {
-                SettingsTextField("Auth Key", authKey, "tskey-auth-...") {
-                    authKey = it
-                    save("authkey", it)
-                }
-            }
+        Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+            
+            SettingsSectionHeader("Global Settings")
+            SettingsClickableItem("Taildrop Storage Folder", taildropRootUri?.path ?: "Uses app internal folder", Icons.Default.Folder) { folderPicker.launch(null) }
+            SettingsSwitchItem("Auto-start on Boot", "Start TailSocks when device turns on", Icons.Default.PowerSettingsNew, autoStart) { GlobalSettings.setAutoStartEnabled(context, it); autoStart = it }
 
-            item { SectionTitle("Node Configuration") }
-            item {
-                OutlinedTextField(
-                    value = hostname,
-                    onValueChange = { 
-                        hostname = it
-                        save("hostname", it)
-                    },
-                    label = { Text("Hostname") },
-                    placeholder = { Text("android-device") },
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                    singleLine = true,
-                    trailingIcon = {
-                        IconButton(onClick = { 
-                            val model = android.os.Build.MODEL
-                                .replace(Regex("[^a-zA-Z0-9]"), "-")
-                                .trim('-')
-                                .uppercase()
-                            hostname = model
-                            save("hostname", model)
-                        }) {
-                            Icon(Icons.Default.Refresh, contentDescription = "Auto-generate from device model")
-                        }
-                    }
-                )
-                SettingsTextField("Login Server", loginServer, "https://controlplane.tailscale.com") {
-                    loginServer = it
-                    save("login_server", it)
-                }
-            }
+            HorizontalDivider(Modifier.padding(vertical = 16.dp))
 
-            item { SectionTitle("Exit Node") }
-            item {
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    OutlinedTextField(
-                        value = exitNodeIp,
-                        onValueChange = { 
-                            exitNodeIp = it
-                            save("exit_node_ip", it)
-                        },
-                        label = { Text("Exit Node IP/Name") },
-                        placeholder = { Text("100.x.y.z") },
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        singleLine = true,
-                        trailingIcon = {
-                            IconButton(onClick = { 
-                                exitNodesExpanded = true 
-                                if (exitNodes.isEmpty()) {
-                                    isLoadingExitNodes = true
-                                    scope.launch(Dispatchers.IO) {
-                                        try {
-                                            val json = Appctr.runTailscaleCmd("status --json")
-                                            val status = Gson().fromJson(json, StatusResponse::class.java)
-                                            val nodes = status.peers?.values?.filter { it.exitNodeOption == true } ?: emptyList()
-                                            withContext(Dispatchers.Main) {
-                                                exitNodes = nodes
-                                                isLoadingExitNodes = false
-                                            }
-                                        } catch (e: Exception) {
-                                            withContext(Dispatchers.Main) {
-                                                isLoadingExitNodes = false
-                                            }
-                                        }
-                                    }
-                                }
-                            }) {
-                                Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Exit Node")
-                            }
-                        }
-                    )
-                    DropdownMenu(
-                        expanded = exitNodesExpanded,
-                        onDismissRequest = { exitNodesExpanded = false },
-                        modifier = Modifier.fillMaxWidth(0.9f)
-                    ) {
-                        if (isLoadingExitNodes) {
-                            DropdownMenuItem(text = { Text("Loading...") }, onClick = {})
-                        } else {
-                            DropdownMenuItem(
-                                text = { Text("None (Clear)") },
-                                onClick = { 
-                                    exitNodeIp = ""
-                                    save("exit_node_ip", "")
-                                    exitNodesExpanded = false
-                                }
-                            )
-                            if (exitNodes.isEmpty()) {
-                                DropdownMenuItem(text = { Text("No exit nodes found") }, onClick = {})
-                            } else {
-                                exitNodes.forEach { node ->
-                                    DropdownMenuItem(
-                                        text = { Text("${node.getDisplayName()} (${node.getPrimaryIp()})") },
-                                        onClick = { 
-                                            exitNodeIp = node.getPrimaryIp()
-                                            save("exit_node_ip", exitNodeIp)
-                                            exitNodesExpanded = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-                SettingsSwitch("Allow LAN Access", exitNodeAllowLan) {
-                    exitNodeAllowLan = it
-                    save("exit_node_allow_lan", it)
-                }
+            SettingsSectionHeader("Account: ${activeAccount.name}")
+            SettingsEditItem("Auth Key", authKey, Icons.Default.VpnKey) { authKey = it; savePref("authkey", it) }
+            SettingsEditItem("Hostname", hostname, Icons.Default.Badge, onAction = { android.os.Build.MODEL.replace(" ", "-").lowercase() }, actionIcon = Icons.Default.AutoFixHigh) { hostname = it; savePref("hostname", it) }
+            
+            SettingsSectionHeader("Networking")
+            SettingsEditItem("SOCKS5 Address", socks5, Icons.Default.Language) { socks5 = it; savePref("socks5", it) }
+            SettingsEditItem("SOCKS5 User", socks5User, Icons.Default.Person, onAction = { generateRandomString(8) }, actionIcon = Icons.Default.Casino) { socks5User = it; savePref("socks5_user", it) }
+            SettingsEditItem("SOCKS5 Pass", socks5Pass, Icons.Default.Password, onAction = { generateRandomString(12) }, actionIcon = Icons.Default.Casino) { socks5Pass = it; savePref("socks5_pass", it) }
+            
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = { copySagerNetLink() }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+                Icon(Icons.Default.Share, null); Spacer(Modifier.width(8.dp)); Text("Copy SagerNet Link")
             }
+            Spacer(Modifier.height(8.dp))
 
-            item { SectionTitle("Proxy Ports") }
-            item {
-                OutlinedTextField(
-                    value = socks5,
-                    onValueChange = { 
-                        socks5 = it
-                        save("socks5", it)
-                    },
-                    label = { Text("SOCKS5 Proxy") },
-                    placeholder = { Text("127.0.0.1:1055") },
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                    singleLine = true,
-                    trailingIcon = {
-                        IconButton(onClick = {
-                            val randomPort = Random.nextInt(10000, 60000)
-                            val ip2 = Random.nextInt(0, 256)
-                            val ip3 = Random.nextInt(0, 256)
-                            val ip4 = Random.nextInt(1, 255)
-                            val newAddress = "127.$ip2.$ip3.$ip4:$randomPort"
-                            socks5 = newAddress
-                            save("socks5", newAddress)
-                        }) {
-                            Icon(Icons.Default.Refresh, contentDescription = "Random Port and IP")
-                        }
-                    }
-                )
-                
-                SettingsTextField("HTTP Proxy", httpProxy, "127.0.0.1:1057") {
-                    httpProxy = it
-                    save("httpproxy", it)
-                }
-                
-                Spacer(Modifier.height(8.dp))
-                SettingsTextField("SOCKS5 Username (optional)", socks5User, "Leave blank to disable auth") {
-                    socks5User = it
-                    save("socks5_user", it)
-                }
-                SettingsTextField("SOCKS5 Password (optional)", socks5Pass, "Leave blank to disable auth") {
-                    socks5Pass = it
-                    save("socks5_pass", it)
-                }
+            SettingsEditItem("HTTP Proxy", httpProxy, Icons.Default.Http) { httpProxy = it; savePref("httpproxy", it) }
+            SettingsEditItem("DNS Proxy", dnsProxy, Icons.Default.Toll) { dnsProxy = it; savePref("dns_proxy", it) }
+            SettingsEditItem("DNS Fallbacks", dnsFallbacks, Icons.Default.List, placeholder = "8.8.8.8:53,1.1.1.1:53") { dnsFallbacks = it; savePref("dns_fallbacks", it) }
+            SettingsEditItem("Exit Node IP", exitNodeIp, Icons.Default.Input) { exitNodeIp = it; savePref("exit_node_ip", it) }
+
+            SettingsSectionHeader("Web Interface")
+            SettingsSwitchItem("Enable Web UI", "Run built-in Tailscale web server", Icons.Default.Web, enableWebUI) { enableWebUI = it; savePref("enable_webui", it) }
+            if (enableWebUI) SettingsEditItem("Web UI Address", webUIAddr, Icons.Default.Link) { webUIAddr = it; savePref("webui_addr", it) }
+
+            SettingsSectionHeader("Flags & Logs")
+            SettingsSwitchItem("Accept Routes", "Allow network to set routes", Icons.Default.Map, acceptRoutes) { acceptRoutes = it; savePref("accept_routes", it) }
+            SettingsSwitchItem("Accept DNS", "Allow network to set DNS", Icons.Default.Dns, acceptDns) { acceptDns = it; savePref("accept_dns", it) }
+            SettingsSwitchItem("Auto-Refresh", "Sync policies every 15s", Icons.Default.Sync, autoRefresh) { autoRefresh = it; savePref("auto_refresh", it) }
+            SettingsSwitchItem("Force Background", "Keep WakeLock active", Icons.Default.BatteryFull, forceBg) { forceBg = it; savePref("force_bg", it) }
+            SettingsSwitchItem("Detailed Logs", "Disable log filtering (noisy!)", Icons.Default.BugReport, detailedLogs) { detailedLogs = it; savePref("detailed_logs", it) }
+
+            SettingsSectionHeader("Advanced")
+            SettingsEditItem("Extra Arguments", extraArgs, Icons.Default.Code, "--flag=val ...") { extraArgs = it; savePref("extra_args_raw", it) }
+            
+            Spacer(Modifier.height(16.dp))
+            Button(onClick = { backupLauncher.launch("tailsocks_backup_${activeAccount.name}.json") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+                Icon(Icons.Default.Backup, null); Spacer(Modifier.width(8.dp)); Text("Backup Account Settings")
             }
-
-            item { SectionTitle("DNS Settings") }
-            item {
-                SettingsTextField("DNS Proxy Listen Address", dnsProxy, "127.0.0.1:1053") {
-                    dnsProxy = it
-                    save("dns_proxy", it)
-                }
-                SettingsTextField("DNS Fallback 1", dnsFallback1, "8.8.8.8:53") {
-                    dnsFallback1 = it
-                    save("dns_fallback1", it)
-                }
-                SettingsTextField("DNS Fallback 2", dnsFallback2, "1.1.1.1:53") {
-                    dnsFallback2 = it
-                    save("dns_fallback2", it)
-                }
-                SettingsTextField("DoH URL (Fallback)", dohUrl, "https://dns.google/dns-query") {
-                    dohUrl = it
-                    save("doh_url", it)
-                }
-                SettingsSwitch("Accept DNS from Tailscale", acceptDns) {
-                    acceptDns = it
-                    save("accept_dns", it)
-                }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = { showResetDialog = true }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+                Icon(Icons.Default.RestartAlt, null); Spacer(Modifier.width(8.dp)); Text("Reset Node State")
             }
-
-            item { SectionTitle("Web UI") }
-            item {
-                SettingsSwitch("Enable Local Web Admin", enableWebUi) {
-                    enableWebUi = it
-                    save("enable_webui", it)
-                }
-                if (enableWebUi) {
-                    SettingsTextField("Listen Address", webUiPort, "127.0.0.1:8080") {
-                        webUiPort = it
-                        save("webui_port", it)
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Button(
-                        onClick = {
-                            val intent = android.content.Intent(
-                                android.content.Intent.ACTION_VIEW, 
-                                android.net.Uri.parse("http://$webUiPort")
-                            )
-                            context.startActivity(intent)
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
-                    ) {
-                        Text("Open Web UI in Browser")
-                    }
-                }
-            }
-
-            item { SectionTitle("Advanced") }
-            item {
-                SettingsSwitch("Force Background Run", forceBg) {
-                    forceBg = it
-                    save("force_bg", it)
-                }
-                Text(
-                    "Try to hold WakeLock and restart service if killed.",
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(horizontal = 4.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.height(8.dp))
-                SettingsSwitch("Accept Routes", acceptRoutes) {
-                    acceptRoutes = it
-                    save("accept_routes", it)
-                }
-                //SettingsSwitch("Force Hard Reset (--reset)", forceReset) {
-                //    forceReset = it
-                //    save("force_reset", it)
-                //}
-                SettingsTextField("Extra Arguments (Raw)", extraArgs, "--advertise-tags=tag:server") {
-                    extraArgs = it
-                    save("extra_args_raw", it)
-                }
-            }
-
-            item { SectionTitle("Maintenance") }
-            item {
-                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                    Button(
-                        onClick = { createDocumentLauncher.launch("tailsocks_backup.json") },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
-                    ) {
-                        Icon(Icons.Default.Save, null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Export")
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    Button(
-                        onClick = { openDocumentLauncher.launch(arrayOf("application/json")) },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
-                    ) {
-                        Icon(Icons.Default.Upload, null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Import")
-                    }
-                }
-            }
-
-            item { SectionTitle("Tailscale Admin") }
-            item {
-                SettingsSwitch("Auto-refresh configuration", autoRefreshConfig) {
-                    autoRefreshConfig = it
-                    save("auto_refresh_config", it)
-                }
-                Text(
-                    "Automatically runs 'tailscale up' to sync tags/policies (every 15s).",
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(horizontal = 4.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            item { Spacer(Modifier.height(40.dp)) }
+            Spacer(Modifier.height(32.dp))
         }
     }
 }
 
 @Composable
-fun SectionTitle(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.primary,
-        fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(top = 24.dp, bottom = 8.dp)
+fun SettingsSectionHeader(title: String) {
+    Text(text = title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 12.dp))
+}
+
+@Composable
+fun SettingsClickableItem(title: String, subtitle: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+    Surface(onClick = onClick, shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)) {
+        ListItem(
+            headlineContent = { Text(title) },
+            supportingContent = { Text(subtitle, style = MaterialTheme.typography.bodySmall) },
+            leadingContent = { Icon(icon, null, tint = MaterialTheme.colorScheme.primary) },
+            trailingContent = { Icon(Icons.Default.ChevronRight, null) },
+            colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
+        )
+    }
+}
+
+@Composable
+fun SettingsSwitchItem(title: String, subtitle: String, icon: androidx.compose.ui.graphics.vector.ImageVector, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    ListItem(
+        headlineContent = { Text(title) },
+        supportingContent = { Text(subtitle, style = MaterialTheme.typography.bodySmall) },
+        leadingContent = { Icon(icon, null, tint = MaterialTheme.colorScheme.primary) },
+        trailingContent = { Switch(checked = checked, onCheckedChange = onCheckedChange) }
     )
 }
 
 @Composable
-fun SettingsTextField(label: String, value: String, placeholder: String, onValueChange: (String) -> Unit) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
-        placeholder = { Text(placeholder) },
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        singleLine = true
+fun SettingsEditItem(
+    title: String, 
+    value: String, 
+    icon: androidx.compose.ui.graphics.vector.ImageVector, 
+    placeholder: String = "", 
+    onAction: (() -> String)? = null,
+    actionIcon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    onSave: (String) -> Unit
+) {
+    var showDialog by remember { mutableStateOf(false) }
+    var text by remember { mutableStateOf(value) }
+    LaunchedEffect(showDialog) { if (showDialog) text = value }
+    ListItem(
+        headlineContent = { Text(title) },
+        supportingContent = { Text(if (value.isEmpty()) placeholder.ifEmpty { "Not set" } else value, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        leadingContent = { Icon(icon, null, tint = MaterialTheme.colorScheme.primary) },
+        modifier = Modifier.clickable { showDialog = true }
     )
-}
-
-@Composable
-fun SettingsSwitch(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(label, fontSize = 16.sp)
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text(title) },
+            text = { 
+                OutlinedTextField(
+                    value = text, 
+                    onValueChange = { text = it }, 
+                    modifier = Modifier.fillMaxWidth(), 
+                    singleLine = true,
+                    trailingIcon = if (onAction != null && actionIcon != null) {
+                        { IconButton(onClick = { text = onAction() }) { Icon(actionIcon, null) } }
+                    } else null
+                ) 
+            },
+            confirmButton = { Button(onClick = { onSave(text); showDialog = false }) { Text("Save") } },
+            dismissButton = { TextButton(onClick = { showDialog = false }) { Text("Cancel") } }
+        )
     }
 }

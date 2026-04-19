@@ -52,7 +52,7 @@
 
         <activity android:name=".ToggleActivity" android:exported="false" android:theme="@android:style/Theme.NoDisplay" android:excludeFromRecents="true" />
 
-        <activity android:name=".ShareActivity" android:exported="true" android:theme="@style/Theme.Tailscaled">
+        <activity android:name=".ShareActivity" android:exported="true" android:theme="@style/Theme.Tailscaled.Transparent">
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
