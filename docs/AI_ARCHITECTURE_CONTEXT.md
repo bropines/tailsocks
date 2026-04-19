@@ -48,13 +48,22 @@ TailSocks avoids the Android `VpnService` entirely to allow coexistence with oth
 - **Problem:** Depending only on broadcasts is fragile (Service can be killed).
 - **Fix:** A 2-second watchdog in `MainActivity` queries `Appctr.isRunning()` directly. UI state follows process reality, not just intent.
 
-## 🛠 Build Standards
-- **Script:** `appctr/build.sh` is the source of truth.
-- **Patching:** Core fixes are applied via `appctr/patches/`. Essential patch: `fix_android_netmon.go` (injects `anet`).
-- **Stable-only:** The build system filters for stable Tailscale tags to ensure relay/DERP reliability.
+## ⚙️ Intentional Platform Adaptation (Essential Hacks)
 
-## 📋 Standard Diagnostics
-When debugging connectivity, check the following fields in the Peer Details modal:
-1. `InMagicSock`: Must be `true` for direct P2P.
-2. `LastHandshake`: Indicates if WireGuard is actively negotiating.
-3. `Relay (DERP)`: If populated, P2P has failed, and traffic is relayed (high latency).
+The following components may look redundant but are critical for TailSocks functioning alongside Android's limitations and external tools like AdGuard.
+
+### 1. Manual DNS Proxy (Port 1053)
+- **Why not 100.100.100.100?** Previous attempts to route directly to Tailscale's internal DNS coordinator failed due to Android's SOCKS5 routing quirks.
+- **AdGuard Synergy:** This proxy acts as a bridge for external DNS managers (AdGuard, exclave). It intercepts specific queries and forces them into the TS pool via TCP-wrapping.
+- **Bootstrap:** It allows name resolution to function *before* the system fully recognizes the userspace tunnel.
+
+### 2. Network State Injection (`InjectNetworkState`)
+- **Purpose:** While the core has its own netmon, Android's process isolation often prevents it from seeing interface changes in real-time.
+- **Diagnostic Support:** This is an attempt to feed the `netcheck` engine enough data to function in a restricted environment.
+
+### 3. Exit Node Auto-Clearing
+- **UI Sync:** Due to the way the Kotlin UI handles IP strings from memory, the daemon can occasionally "choke" on stale or unreachable IPs. The auto-clearing loop prevents the app from getting stuck in a "black hole" routing state.
+
+## 🛠 Engineering Standards & Commit Protocol
+- **Atomic Local Commits:** Always perform a `git commit` (without push) after every logical code change. This ensures transparency and easy diffing between development turns.
+- **Push Policy:** Only `git push` when explicitly requested by the user.
