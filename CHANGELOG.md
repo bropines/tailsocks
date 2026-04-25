@@ -2,6 +2,13 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [1.9.1] - 2026-04-25
+### Fixed
+- **Diagnostics Reliability:** Fixed Gson parsing error in `NetcheckActivity` by ensuring `appctr` always returns valid JSON and checks HTTP status codes.
+- **Native Netcheck:** Implemented native `GetNetcheckFromAPI` using the `tailscale.com/net/netcheck` package within the bridge to bypass daemon limitations on Android.
+- **Android Netmon Mitigation:** Implemented `TS_NET_STATE` environment variable to bridge Android interface states to the `tailscaled` core, resolving `netlinkrib` permission issues.
+- **Improved Diagnostics UI:** Enhanced `NetcheckActivity` to display detailed results including UDP/IPv6 status and DERP latencies.
+
 ## [1.9.0] - 2026-04-25
 ### Added
 - **Native Local API Integration:** Replaced major CLI calls (`status`, `netcheck`, `dns query`) with high-performance HTTP requests to the `tailscaled` Unix socket.

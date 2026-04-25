@@ -20,6 +20,8 @@ import (
 	"golang.org/x/net/dns/dnsmessage"
 	"tailscale.com/client/local"
 	"tailscale.com/client/web"
+	"tailscale.com/net/netcheck"
+	"tailscale.com/tailcfg"
 )
 
 var latestInterfaceState string
@@ -96,17 +98,26 @@ func doLocalRequest(method, path string, body io.Reader) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
-	return io.ReadAll(resp.Body)
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(data))
+	}
+
+	return data, nil
 }
 
 func GetStatusFromAPI() string {
 	if !IsRunning() {
-		return "Error: Tailscaled is not running."
+		return `{"Error": "Tailscaled is not running."}`
 	}
 	// Важно: peers=true заставляет API вернуть список всех нод
 	data, err := doLocalRequest("GET", "/localapi/v0/status?peers=true", nil)
 	if err != nil {
-		return "Error: " + err.Error()
+		return fmt.Sprintf(`{"Error": %q}`, err.Error())
 	}
 	return string(data)
 }
@@ -229,16 +240,40 @@ func NativeDnsQuery(domain, qtype string) string {
 
 func GetNetcheckFromAPI() string {
 	if !IsRunning() {
-		return "Error: Tailscaled is not running."
+		return `{"Error": "Tailscaled is not running."}`
 	}
-	data, err := doLocalRequest("POST", "/localapi/v0/netcheck", nil)
+
+	// 1. Получаем DERP map из демона
+	data, err := doLocalRequest("GET", "/localapi/v0/derpmap", nil)
 	if err != nil {
-		return "Error: " + err.Error()
+		return fmt.Sprintf(`{"Error": "Failed to get DERP map: %v"}`, err)
 	}
-	return string(data)
+
+	var dm tailcfg.DERPMap
+	if err := json.Unmarshal(data, &dm); err != nil {
+		return fmt.Sprintf(`{"Error": "Failed to parse DERP map: %v"}`, err)
+	}
+
+	// 2. Запускаем нативный netcheck
+	c := &netcheck.Client{
+		Logf: func(format string, args ...any) {
+			// Log to slog
+			slog.Info(fmt.Sprintf("netcheck: "+format, args...))
+		},
+	}
+
+	report, err := c.GetReport(context.Background(), &dm, nil)
+	if err != nil {
+		return fmt.Sprintf(`{"Error": "Netcheck failed: %v"}`, err)
+	}
+
+	// 3. Возвращаем JSON отчета
+	res, err := json.Marshal(report)
+	if err != nil {
+		return fmt.Sprintf(`{"Error": "JSON marshal failed: %v"}`, err)
+	}
+	return string(res)
 }
-
-
 
 func GetTaildropFilesFromAPI() string {
 	if !IsRunning() {

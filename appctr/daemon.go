@@ -29,10 +29,15 @@ func tailscaledCmd(p pathControl, socksAddr, httpAddr, socksUser, socksPass, tai
 	c := exec.Command(p.Tailscaled(), args...)
 	c.Dir = p.DataDir()
 
+	stateMu.Lock()
+	netState := latestInterfaceState
+	stateMu.Unlock()
+
 	c.Env = append(os.Environ(),
 		fmt.Sprintf("TS_LOGS_DIR=%s/logs", p.DataDir()),
 		"TS_NO_LOGS_NO_SUPPORT=true",
 		"TS_AUTH_ONCE=true",
+		"TS_NET_STATE="+netState,
 	)
 	if taildropDir != "" {
 		c.Env = append(c.Env, "TS_TAILDROP_DIR="+taildropDir)

@@ -48,14 +48,14 @@ fun NetcheckScreen(onBack: () -> Unit) {
                 val json = Appctr.getStatusFromAPI()
                 val status = com.google.gson.Gson().fromJson(json, com.google.gson.JsonObject::class.java)
                 
-                // Perform netcheck via Local API
-                val netcheckJson = Appctr.getNetcheckFromAPI()
-                val netcheck = com.google.gson.Gson().fromJson(netcheckJson, com.google.gson.JsonObject::class.java)
-                
+                if (status.has("Error")) {
+                    throw Exception(status.get("Error").asString)
+                }
+
                 val self = status.getAsJsonObject("Self")
-                val online = self.get("Online")?.asBoolean ?: false
-                val relay = self.get("Relay")?.asString ?: "Direct (P2P)"
-                val tailscaleIp = self.getAsJsonArray("TailscaleIPs")?.get(0)?.asString ?: "Unknown"
+                val online = self?.get("Online")?.asBoolean ?: false
+                val relay = self?.get("Relay")?.asString ?: "Direct (P2P)"
+                val tailscaleIp = self?.getAsJsonArray("TailscaleIPs")?.get(0)?.asString ?: "Unknown"
 
                 val healthOutput = StringBuilder()
                 healthOutput.append("--- CONNECTION HEALTH ---\n")
@@ -67,6 +67,39 @@ fun NetcheckScreen(onBack: () -> Unit) {
                     healthOutput.append("Traffic Mode: 🔀 Via Relay (UDP might be restricted)\n")
                 } else {
                     healthOutput.append("Traffic Mode: 🚀 Direct P2P (UDP is working)\n")
+                }
+
+                // Perform NATIVE netcheck via bridge
+                healthOutput.append("\n--- RUNNING DIAGNOSTICS ---\n")
+                val netcheckJson = Appctr.getNetcheckFromAPI()
+                val netcheck = com.google.gson.Gson().fromJson(netcheckJson, com.google.gson.JsonObject::class.java)
+
+                if (netcheck != null && !netcheck.has("Error")) {
+                    val udp = netcheck.get("UDP")?.asBoolean ?: false
+                    val ipv4 = netcheck.get("IPv4")?.asBoolean ?: false
+                    val ipv6 = netcheck.get("IPv6")?.asBoolean ?: false
+                    val mappingVaries = netcheck.get("MappingVariesByDestIP")?.asBoolean ?: false
+                    
+                    healthOutput.append("UDP: ${if (udp) "✅ Working" else "❌ Blocked"}\n")
+                    healthOutput.append("IPv4: ${if (ipv4) "✅ Yes" else "❌ No"}\n")
+                    healthOutput.append("IPv6: ${if (ipv6) "✅ Yes" else "❌ No"}\n")
+                    healthOutput.append("NAT Mapping Varies: ${if (mappingVaries) "⚠️ Yes (Symmetric NAT)" else "✅ No"}\n")
+                    
+                    val preferredDerp = netcheck.get("PreferredDERP")?.asInt ?: 0
+                    if (preferredDerp != 0) {
+                        healthOutput.append("Nearest DERP ID: $preferredDerp\n")
+                    }
+                    
+                    val derpLatency = netcheck.getAsJsonObject("DERPLatency")
+                    if (derpLatency != null && derpLatency.size() > 0) {
+                        healthOutput.append("\n--- DERP LATENCY ---\n")
+                        derpLatency.entrySet().take(5).forEach { entry ->
+                            val latency = entry.value.asDouble * 1000
+                            healthOutput.append("${entry.key}: ${"%.1f".format(latency)}ms\n")
+                        }
+                    }
+                } else if (netcheck?.has("Error") == true) {
+                    healthOutput.append("❌ Diagnostic Error: ${netcheck.get("Error").asString}\n")
                 }
 
                 healthOutput.append("\n--- PEER SUMMARY ---\n")
@@ -84,7 +117,7 @@ fun NetcheckScreen(onBack: () -> Unit) {
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    output = "Error fetching diagnostics: ${e.message}\n\nMake sure Tailscale is connected."
+                    output = "Error fetching diagnostics: ${e.message}\n\nMake sure Tailscale is connected and running."
                     isRunning = false
                 }
             }
