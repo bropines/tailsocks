@@ -14,11 +14,12 @@ To support multiple Tailscale profiles on a single device, TailSocks implements 
 *   **Preference Scoping:** Settings are stored in account-specific `SharedPreferences` (`appctr_{id}`).
 *   **Process Lifecycle:** A full daemon termination and re-initialization occurs during account switching to prevent cross-account state leakage.
 
-## 3. DNS Implementation (UDP-to-TCP Wrapping)
-Standard Android applications cannot route UDP packets into a userspace network map without a TUN interface. TailSocks solves this using a tri-tier resolution logic:
-1.  **Local Peer Resolution:** If a query matches a known node in the local netmap, the bridge resolves the IP instantly from memory.
-2.  **UDP-to-TCP Proxying:** For internal domains (e.g., `*.ts.net`), the bridge intercepts UDP queries, wraps them into TCP frames, and tunnels them through the SOCKS5 interface to Tailscale’s internal DNS coordinator (`100.100.100.100`).
-3.  **Upstream Fallback:** Public queries (e.g., `google.com`) are routed natively to system resolvers or ad-blockers, ensuring zero DNS leaks and maximum performance.
+## 3. Native DNS Engine & Reactive Sync
+Standard Android applications cannot route UDP packets into a userspace network map without a TUN interface. TailSocks solves this using a reactive, multi-stage resolution logic:
+1.  **IPN Bus Synchronization:** The Go bridge maintains a persistent connection to the daemon's internal notification bus (`mask=1032`). This allows real-time tracking of `NetMap` changes, MagicDNS suffixes, and `SplitDNSRoutes`.
+2.  **In-Memory Peer Resolution:** All nodes in the network are cached by their FQDN and short names. Resolution of `*.ts.net` names occurs in **0ms** by querying the internal memory map directly.
+3.  **Split DNS (TCP-over-SOCKS5):** For domains matching corporate routes (e.g., `therodev.com`), the bridge wraps UDP queries into TCP frames and tunnels them via SOCKS5 to the specific internal resolver IP provided by the netmap.
+4.  **Smart Upstream Fallback:** Public queries (e.g., `google.com`) are attempted via Tailscale's `dns-query` API first. If the daemon returns a `SERVFAIL` (common in userspace-only mode), the bridge automatically falls back to user-configured system/DoH resolvers.
 
 ## 4. Taildrop (JNI-less Implementation)
 Official Taildrop usually relies on complex system-level integrations. TailSocks implements a standalone manager:

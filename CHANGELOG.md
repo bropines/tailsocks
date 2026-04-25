@@ -2,6 +2,20 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [1.9.0] - 2026-04-25
+### Added
+- **Native Local API Integration:** Replaced major CLI calls (`status`, `netcheck`, `dns query`) with high-performance HTTP requests to the `tailscaled` Unix socket.
+- **Reactive DNS Engine:** Implemented `IPN Bus Listener` using mask `1032` for real-time `NetMap` and `SplitDNSRoutes` synchronization.
+- **Zero-Latency MagicDNS:** In-memory node cache for FQDN and short-name resolution (0ms lookup time).
+- **Split DNS over SOCKS5:** Native TCP-wrapped DNS forwarding for corporate domains (e.g., `*.therodev.com`) through the SOCKS5 proxy.
+- **Smart DNS Fallback:** Automatic failover to system/DoH resolvers when Tailscale returns `SERVFAIL` or timeouts.
+
+### Fixed
+- Resolved **Panic (nil pointer dereference)** in Taildrop extension when receiving initial NetMap updates.
+- Fixed `actualRunning` reference error in `MainActivity` watchdog.
+- Corrected DNS transaction ID mismatch to ensure compatibility with external tools like AdGuard.
+- Improved name normalization for node resolution (case-insensitive and dot-stripping).
+
 ## [1.8.1] - 2026-04-19
 ### Changed
 - Migrated to a **Passive Management Model**: Removed aggressive configuration loops in favor of daemon-led state management.

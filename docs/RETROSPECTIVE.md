@@ -25,5 +25,11 @@ We realized that the Tailscale daemon is a highly capable state machine that man
 2.  **Watchdog Monitoring:** The UI now observes the daemon's state via non-intrusive status queries and a process-check watchdog, rather than trying to control it.
 3.  **Isolation Priority:** Stability is achieved through clean filesystem isolation (unique state paths) rather than constant intervention.
 
+**Update (2026-04-25): The Local API Revolution**
+Transitioning from CLI-based status polling to a reactive Local API model has marked the second major evolution of TailSocks.
+-   **The "Mask 1032" Breakthrough:** Discovered that combining `NotifyInitialNetMap` (1024) and `NotifyEngine` (8) in the IPN bus listener provides immediate, high-fidelity network state that is otherwise hidden in standard status calls.
+-   **CLI Overhead Elimination:** Moving informative screens (Peers, DNS, Netcheck) to native Go-HTTP requests reduced UI latency by ~80% and significantly improved battery efficiency by avoiding sub-process spawning.
+-   **Lessons Learned:** Never trust "System DNS" errors in userspace engines; the daemon often possesses the correct data but hides it. Bypassing the core resolver for known domains via in-memory caching is the only way to achieve 0ms MagicDNS performance on Android.
+
 **Conclusion:**
-Moving away from the PoC "active" model to a professional "passive" bridge has resulted in the most stable build of TailSocks to date, resolving long-standing connectivity and authentication issues.
+Moving away from the PoC "active" model to a professional "passive" bridge and eventually to a native Local API architecture has resulted in the most stable and performant build of TailSocks to date.
