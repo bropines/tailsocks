@@ -10,6 +10,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - **Diagnostics Reliability:** Fixed panics and Gson parsing errors in `NetcheckActivity`. Implemented "bulletproof" JSON handling for inconsistent Local API responses.
 - **Native Netcheck:** Implemented native `GetNetcheckFromAPI` using Go's `netcheck` package with a static `NetMon` to bypass Android permission issues.
 - **Taildrop Collector:** Implemented a background collector that automatically drains the Tailscale incoming file queue via Local API and saves them to the local filesystem. This fixes the issue where received files were not being saved in userspace mode.
+- **Universal Auth URL Detection:** Fixed logic to detect login URLs from custom control planes (e.g., Headscale). Previously, the app only looked for tailscale.com domains, preventing authentication on private networks.
 - **Android Netmon Mitigation:** Integrated `TS_NET_STATE` for seamless interface synchronization between Kotlin and Go core.
 - **Improved Diagnostics UI:** Added detailed network report (UDP, IPv4/v6, NAT type) and a **Copy to Clipboard** feature for easier debugging.
 
