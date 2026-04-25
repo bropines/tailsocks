@@ -67,6 +67,7 @@ var cmd *exec.Cmd
 var PC pathControl
 var currentLogLevel int32 = 1
 var dnsProxyCancel context.CancelFunc
+var taildropCancel context.CancelFunc
 var lastOptions *StartOptions
 var webServer *http.Server
 var coreVersion string = "unknown"
@@ -110,6 +111,67 @@ func doLocalRequest(method, path string, body io.Reader) ([]byte, error) {
 	}
 
 	return data, nil
+}
+
+func startTaildropCollector(ctx context.Context, taildropDir string) {
+	slog.Info("Starting Taildrop Collector", "dir", taildropDir)
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if !IsRunning() {
+				continue
+			}
+			processIncomingFiles(taildropDir)
+		}
+	}
+}
+
+func processIncomingFiles(taildropDir string) {
+	data, err := doLocalRequest("GET", "/localapi/v0/files", nil)
+	if err != nil {
+		return
+	}
+
+	type waitingFile struct {
+		Name string
+		Size int64
+	}
+	var files []waitingFile
+	if err := json.Unmarshal(data, &files); err != nil {
+		return
+	}
+
+	if len(files) == 0 {
+		return
+	}
+
+	slog.Info("Taildrop: Found waiting files", "count", len(files))
+	if err := os.MkdirAll(taildropDir, 0755); err != nil {
+		slog.Error("Taildrop: Failed to create dir", "err", err)
+		return
+	}
+
+	for _, f := range files {
+		destPath := filepath.Join(taildropDir, f.Name)
+		slog.Info("Taildrop: Downloading file", "name", f.Name, "dest", destPath)
+		
+		content, err := doLocalRequest("GET", "/localapi/v0/files/"+url.PathEscape(f.Name), nil)
+		if err != nil {
+			slog.Error("Taildrop: Download failed", "name", f.Name, "err", err)
+			continue
+		}
+
+		if err := os.WriteFile(destPath, content, 0644); err != nil {
+			slog.Error("Taildrop: Save failed", "name", f.Name, "err", err)
+			continue
+		}
+		slog.Info("Taildrop: Saved successfully", "name", f.Name)
+	}
 }
 
 func GetStatusFromAPI() string {
@@ -289,55 +351,31 @@ func GetNetcheckFromAPI() string {
 }
 
 func GetTaildropFilesFromAPI() string {
-	if !IsRunning() {
-		return "[]"
-	}
-	
 	stateMu.Lock()
 	opt := lastOptions
 	stateMu.Unlock()
 	
-	if opt == nullOptions || opt.TaildropDir == "" {
+	if opt == nil || opt.TaildropDir == "" {
 		return "[]"
 	}
 
-	data, err := doLocalRequest("GET", "/localapi/v0/files", nil)
-	if err != nil {
-		return "[]"
-	}
-
-	type waitingFile struct {
-		Name string
-		Size int64
-	}
-	var official []waitingFile
-	if err := json.Unmarshal(data, &official); err != nil {
-		return "[]"
-	}
-
-	type enrichedFile struct {
-		Name string
-		Size int64
-		Path string
-	}
-	res := make([]enrichedFile, 0, len(official))
-	for _, f := range official {
-		res = append(res, enrichedFile{
-			Name: f.Name,
-			Size: f.Size,
-			Path: filepath.Join(opt.TaildropDir, f.Name),
-		})
-	}
-
-	enrichedData, _ := json.Marshal(res)
-	return string(enrichedData)
+	return GetWaitingFiles(opt.TaildropDir)
 }
 
 func DeleteTaildropFileFromAPI(name string) bool {
-	if !IsRunning() {
+	stateMu.Lock()
+	opt := lastOptions
+	stateMu.Unlock()
+	
+	if opt == nil || opt.TaildropDir == "" {
 		return false
 	}
-	_, err := doLocalRequest("DELETE", "/localapi/v0/files/"+url.PathEscape(name), nil)
+	
+	path := filepath.Join(opt.TaildropDir, name)
+	err := os.Remove(path)
+	if err != nil {
+		slog.Error("Taildrop: Failed to delete file", "path", path, "err", err)
+	}
 	return err == nil
 }
 
@@ -582,6 +620,14 @@ func Start(opt *StartOptions) {
 	if opt.DnsProxy != "" {
 		RestartDNS()
 	}
+
+	if opt.TaildropDir != "" {
+		stateMu.Lock()
+		ctx, cancel := context.WithCancel(context.Background())
+		taildropCancel = cancel
+		stateMu.Unlock()
+		go startTaildropCollector(ctx, opt.TaildropDir)
+	}
 }
 
 func RestartDNS() {
@@ -632,6 +678,11 @@ func Stop() {
 	if dnsProxyCancel != nil {
 		dnsProxyCancel()
 		dnsProxyCancel = nil
+	}
+
+	if taildropCancel != nil {
+		taildropCancel()
+		taildropCancel = nil
 	}
 
 	if cmd != nil && cmd.Process != nil {
