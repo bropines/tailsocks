@@ -81,13 +81,15 @@
  	return e, nil
  }
  
-@@ -241,6 +263,11 @@
+@@ -241,6 +263,13 @@
  		return
  	}
  
-+	fw, _ := mgr.WaitingFiles()
-+	if len(fw) > 0 {
-+		e.logf("Hedgehog: Received %d files via Taildrop", len(fw))
++	if mgr != nil {
++		fw, _ := mgr.WaitingFiles()
++		if len(fw) > 0 {
++			e.logf("Hedgehog: Received %d files via Taildrop", len(fw))
++		}
 +	}
 +
  	var n ipn.Notify

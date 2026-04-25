@@ -45,12 +45,12 @@ fun NetcheckScreen(onBack: () -> Unit) {
         output = "Analyzing connection..."
         scope.launch(Dispatchers.IO) {
             try {
-                val json = if (BuildConfig.IS_DEV) {
-                    Appctr.getStatusFromAPI()
-                } else {
-                    Appctr.runTailscaleCmd("status --json")
-                }
+                val json = Appctr.getStatusFromAPI()
                 val status = com.google.gson.Gson().fromJson(json, com.google.gson.JsonObject::class.java)
+                
+                // Perform netcheck via Local API
+                val netcheckJson = Appctr.getNetcheckFromAPI()
+                val netcheck = com.google.gson.Gson().fromJson(netcheckJson, com.google.gson.JsonObject::class.java)
                 
                 val self = status.getAsJsonObject("Self")
                 val online = self.get("Online")?.asBoolean ?: false

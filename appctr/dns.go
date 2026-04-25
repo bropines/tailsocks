@@ -18,9 +18,11 @@ import (
 )
 
 var dnsCache sync.Map
-var splitDNSCache sync.Map
-var splitDNSLastUpdate time.Time
-var splitDNSMutex sync.Mutex
+var splitDNSCache sync.Map // Map[string][]string
+var nodesCache sync.Map    // Map[string][]string
+var magicDNSSuffix string
+var busCancel context.CancelFunc
+var busMu sync.Mutex
 
 func FlushDNS() {
 	dnsCache.Range(func(key, value interface{}) bool {
@@ -30,8 +32,129 @@ func FlushDNS() {
 	slog.Info("DNS cache flushed")
 }
 
-// Добавлены socksUser и socksPass
-func startDNSProxy(ctx context.Context, listenAddr string, socksAddr string, socksUser string, socksPass string, fallbacks []string, dohUrl string) error {
+func startIPNBusListener(ctx context.Context) {
+	slog.Info("Starting IPN Bus Listener (mask=1032)...")
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			err := listenToBus(ctx)
+			if err != nil {
+				slog.Error("Bus listener error, retrying in 2s", "err", err)
+				time.Sleep(2 * time.Second)
+			}
+		}
+	}
+}
+
+type busNode struct {
+	Name      string
+	Addresses []string
+}
+
+func listenToBus(ctx context.Context) error {
+	pc := PC
+	client := http.Client{
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+				var d net.Dialer
+				return d.DialContext(ctx, "unix", pc.Socket())
+			},
+		},
+	}
+
+	req, _ := http.NewRequestWithContext(ctx, "GET", "http://local-tailscaled.sock/localapi/v0/watch-ipn-bus?mask=1032", nil)
+	resp, err := client.Do(req)
+	if err != nil { return err }
+	defer resp.Body.Close()
+
+	dec := json.NewDecoder(resp.Body)
+	for {
+		var msg struct {
+			NetMap *struct {
+				MagicDNSSuffix string
+				SelfNode       *busNode
+				Peers          []*busNode
+				DNS            struct {
+					Domains []string
+					Routes  map[string][]struct {
+						Addr string
+					}
+				}
+			}
+		}
+
+		if err := dec.Decode(&msg); err != nil { return err }
+
+		if msg.NetMap != nil {
+			// 1. Суффикс
+			if msg.NetMap.MagicDNSSuffix != "" {
+				magicDNSSuffix = strings.ToLower(strings.Trim(msg.NetMap.MagicDNSSuffix, "."))
+			} else if len(msg.NetMap.DNS.Domains) > 0 {
+				magicDNSSuffix = strings.ToLower(strings.Trim(msg.NetMap.DNS.Domains[0], "."))
+			}
+
+			// 2. Кэшируем ноды
+			nodesCount := 0
+			if msg.NetMap.SelfNode != nil {
+				if updateNodeInCache(msg.NetMap.SelfNode) { nodesCount++ }
+			}
+			for _, p := range msg.NetMap.Peers {
+				if updateNodeInCache(p) { nodesCount++ }
+			}
+
+			// 3. Маршруты Split DNS
+			routesCount := 0
+			if msg.NetMap.DNS.Routes != nil {
+				for domain, resolvers := range msg.NetMap.DNS.Routes {
+					var ips []string
+					for _, r := range resolvers {
+						ips = append(ips, r.Addr)
+					}
+					if len(ips) > 0 {
+						d := strings.ToLower(strings.Trim(domain, "."))
+						splitDNSCache.Store(d, ips)
+						routesCount++
+					}
+				}
+			}
+			
+			if nodesCount > 0 || routesCount > 0 {
+				slog.Info("Bus: Metadata synced", "nodes", nodesCount, "routes", routesCount, "suffix", magicDNSSuffix)
+			}
+		}
+	}
+}
+
+func updateNodeInCache(n *busNode) bool {
+	if n == nil || n.Name == "" { return false }
+	
+	fullName := strings.ToLower(strings.Trim(n.Name, "."))
+	var ips []string
+	for _, addr := range n.Addresses {
+		ipStr := addr
+		if idx := strings.Index(addr, "/"); idx != -1 {
+			ipStr = addr[:idx]
+		}
+		ip := net.ParseIP(ipStr)
+		if ip != nil {
+			ips = append(ips, ip.String())
+		}
+	}
+	
+	if len(ips) > 0 {
+		nodesCache.Store(fullName, ips)
+		parts := strings.Split(fullName, ".")
+		if len(parts) > 0 {
+			nodesCache.Store(parts[0], ips)
+		}
+		return true
+	}
+	return false
+}
+
+func startDNSProxy(ctx context.Context, listenAddr string, fallbacks []string, dohUrl string) error {
 	pc, err := net.ListenPacket("udp", listenAddr)
 	if err != nil {
 		return fmt.Errorf("dns proxy listen failed: %w", err)
@@ -39,62 +162,40 @@ func startDNSProxy(ctx context.Context, listenAddr string, socksAddr string, soc
 	defer pc.Close()
 	slog.Info("DNS proxy listening", "addr", listenAddr)
 
+	busMu.Lock()
+	if busCancel != nil { busCancel() }
+	busCtx, cancel := context.WithCancel(context.Background())
+	busCancel = cancel
+	busMu.Unlock()
+	go startIPNBusListener(busCtx)
+
 	go func() {
 		<-ctx.Done()
-		slog.Info("DNS proxy context cancelled, shutting down")
 		pc.Close()
+		busMu.Lock()
+		if busCancel != nil { busCancel(); busCancel = nil }
+		busMu.Unlock()
 	}()
 
 	buf := make([]byte, 65535)
 	for {
 		n, clientAddr, err := pc.ReadFrom(buf)
 		if err != nil {
-			if ctx.Err() != nil {
-				return nil
-			}
+			if ctx.Err() != nil { return nil }
 			return err
 		}
 		query := make([]byte, n)
 		copy(query, buf[:n])
-
 		go func(q []byte, cAddr net.Addr) {
-			// Прокидываем логин и пароль дальше
-			resp := processDNSQuery(q, fallbacks, socksAddr, socksUser, socksPass, dohUrl)
+			resp := processDNSQuery(q, fallbacks, dohUrl)
 			if resp != nil {
-				if _, err := pc.WriteTo(resp, cAddr); err != nil {
-					slog.Debug("DNS write back error", "err", err)
-				}
+				_, _ = pc.WriteTo(resp, cAddr)
 			}
 		}(query, clientAddr)
 	}
 }
 
 func getSplitDNSServers(domain string) []string {
-	splitDNSMutex.Lock()
-	defer splitDNSMutex.Unlock()
-
-	if time.Since(splitDNSLastUpdate) > 60*time.Second {
-		out := RunTailscaleCmd("dns status --json")
-		var status struct {
-			SplitDNSRoutes map[string][]struct{ Addr string }
-		}
-		if err := json.Unmarshal([]byte(out), &status); err == nil {
-			splitDNSCache.Range(func(key, value interface{}) bool {
-				splitDNSCache.Delete(key)
-				return true
-			})
-			for d, addrs := range status.SplitDNSRoutes {
-				d = strings.TrimSuffix(d, ".")
-				var ips []string
-				for _, a := range addrs {
-					ips = append(ips, a.Addr)
-				}
-				splitDNSCache.Store(d, ips)
-			}
-			splitDNSLastUpdate = time.Now()
-		}
-	}
-
 	var match []string
 	splitDNSCache.Range(func(key, value interface{}) bool {
 		route := key.(string)
@@ -107,212 +208,158 @@ func getSplitDNSServers(domain string) []string {
 	return match
 }
 
-// Добавлены user и pass для SOCKS5 авторизации
-func forwardDNSviaSOCKS5(query []byte, socksAddr string, user string, pass string, dnsServer string) ([]byte, error) {
+func forwardDNSviaSOCKS5(query []byte, socksAddr, user, pass, dnsServer string) ([]byte, error) {
 	var auth *proxy.Auth
 	if user != "" || pass != "" {
 		auth = &proxy.Auth{User: user, Password: pass}
 	}
-
 	dialer, err := proxy.SOCKS5("tcp", socksAddr, auth, proxy.Direct)
-	if err != nil {
-		return nil, err
-	}
+	if err != nil { return nil, err }
 	conn, err := dialer.Dial("tcp", dnsServer)
-	if err != nil {
-		return nil, err
-	}
+	if err != nil { return nil, err }
 	defer conn.Close()
 	conn.SetDeadline(time.Now().Add(5 * time.Second))
 
 	length := uint16(len(query))
 	buf := make([]byte, 2+len(query))
-	buf[0] = byte(length >> 8)
-	buf[1] = byte(length)
+	buf[0] = byte(length >> 8); buf[1] = byte(length)
 	copy(buf[2:], query)
-
-	if _, err := conn.Write(buf); err != nil {
-		return nil, err
-	}
+	if _, err := conn.Write(buf); err != nil { return nil, err }
 
 	lenBuf := make([]byte, 2)
-	if _, err := io.ReadFull(conn, lenBuf); err != nil {
-		return nil, err
-	}
-
+	if _, err := io.ReadFull(conn, lenBuf); err != nil { return nil, err }
 	respLen := int(lenBuf[0])<<8 | int(lenBuf[1])
 	respBuf := make([]byte, respLen)
-	if _, err := io.ReadFull(conn, respBuf); err != nil {
-		return nil, err
-	}
-
+	if _, err := io.ReadFull(conn, respBuf); err != nil { return nil, err }
 	return respBuf, nil
 }
 
-// Добавлены socksUser и socksPass
-func processDNSQuery(query []byte, fallbacks []string, socksAddr, socksUser, socksPass, dohUrl string) []byte {
+func processDNSQuery(query []byte, fallbacks []string, dohUrl string) []byte {
 	var msg dnsmessage.Message
 	if err := msg.Unpack(query); err != nil || len(msg.Questions) == 0 {
 		return tryFallbackDNS(query, fallbacks, dohUrl)
 	}
 
 	q := msg.Questions[0]
-	domain := strings.TrimSuffix(q.Name.String(), ".")
-
+	domain := strings.ToLower(strings.Trim(q.Name.String(), "."))
+	
 	if strings.HasSuffix(domain, ".arpa") {
 		return tryFallbackDNS(query, fallbacks, dohUrl)
 	}
 
-	if q.Type == dnsmessage.TypeA || q.Type == dnsmessage.TypeAAAA {
-		var ips []string
+	socks, user, pass, _ := GConfig.get()
+	
+	isMagicDNS := magicDNSSuffix != "" && strings.HasSuffix(domain, magicDNSSuffix)
+	isShortName := !strings.Contains(domain, ".")
 
-		if cached, ok := dnsCache.Load(domain); ok {
-			ips = cached.([]string)
-		} else {
-			// 1. Локальные ноды тейлскейла
-			out := RunTailscaleCmd("ip " + domain)
-			ips = extractIPs(out)
-
-			if len(ips) == 0 {
-				shortName := strings.Split(domain, ".")[0]
-				out = RunTailscaleCmd("ip " + shortName)
-				ips = extractIPs(out)
-			}
-
-			// 2. Split DNS через SOCKS5 TCP
-			if len(ips) == 0 {
-				splitServers := getSplitDNSServers(domain)
-				if len(splitServers) > 0 {
-					slog.Info("Split DNS via SOCKS5 TCP triggered", "domain", domain, "servers", splitServers)
-					for _, server := range splitServers {
-						target := net.JoinHostPort(server, "53")
-						// Передаем логин и пароль в SOCKS5
-						resp, err := forwardDNSviaSOCKS5(query, socksAddr, socksUser, socksPass, target)
-						if err == nil {
-							return resp
-						}
-						slog.Error("SOCKS5 TCP DNS failed", "server", server, "err", err)
-					}
-				}
-			}
-
-			// 3. CLI fallback
-			if len(ips) == 0 {
-				out = RunTailscaleCmd("dns query " + domain)
-				ips = extractIPs(out)
-			}
-
-			if len(ips) > 0 {
-				dnsCache.Store(domain, ips)
-				go func(d string) {
-					time.Sleep(60 * time.Second)
-					dnsCache.Delete(d)
-				}(domain)
-			}
+	// 1. Поиск в кэше нод (MagicDNS)
+	if isMagicDNS || isShortName {
+		if ips, ok := nodesCache.Load(domain); ok {
+			return packDNSResponse(msg, q, ips.([]string), query)
 		}
+	}
 
-		if len(ips) > 0 {
-			msg.Response = true
-			msg.Authoritative = true
-			for _, ipStr := range ips {
-				ip := net.ParseIP(ipStr)
-				if ip == nil {
-					continue
-				}
-				if ip4 := ip.To4(); ip4 != nil && q.Type == dnsmessage.TypeA {
-					var a [4]byte
-					copy(a[:], ip4)
-					msg.Answers = append(msg.Answers, dnsmessage.Resource{
-						Header: dnsmessage.ResourceHeader{Name: q.Name, Type: dnsmessage.TypeA, Class: dnsmessage.ClassINET, TTL: 60},
-						Body:   &dnsmessage.AResource{A: a},
-					})
-				} else if ip6 := ip.To16(); ip6 != nil && q.Type == dnsmessage.TypeAAAA {
-					var aaaa [16]byte
-					copy(aaaa[:], ip6)
-					msg.Answers = append(msg.Answers, dnsmessage.Resource{
-						Header: dnsmessage.ResourceHeader{Name: q.Name, Type: dnsmessage.TypeAAAA, Class: dnsmessage.ClassINET, TTL: 60},
-						Body:   &dnsmessage.AAAAResource{AAAA: aaaa},
-					})
-				}
-			}
-			if len(msg.Answers) > 0 {
-				if packed, err := msg.Pack(); err == nil {
-					return packed
+	// 2. Split DNS (SOCKS5 TCP)
+	if !isMagicDNS {
+		splitServers := getSplitDNSServers(domain)
+		if len(splitServers) > 0 && socks != "" {
+			for _, server := range splitServers {
+				target := net.JoinHostPort(server, "53")
+				resp, err := forwardDNSviaSOCKS5(query, socks, user, pass, target)
+				if err == nil && len(resp) >= 2 {
+					resp[0] = query[0]; resp[1] = query[1]
+					return resp
 				}
 			}
 		}
 	}
 
+	// 3. Local API DNS Query
+	typeStr := "A"
+	if q.Type == dnsmessage.TypeAAAA { typeStr = "AAAA" }
+	path := fmt.Sprintf("/localapi/v0/dns-query?name=%s&type=%s", domain, typeStr)
+	data, err := doLocalRequest("GET", path, nil)
+	if err == nil {
+		var dnsResp struct { Bytes []byte }
+		if json.Unmarshal(data, &dnsResp) == nil && len(dnsResp.Bytes) >= 4 {
+			rcode := dnsResp.Bytes[3] & 0x0F
+			if rcode == 0 || isMagicDNS {
+				dnsResp.Bytes[0] = query[0]; dnsResp.Bytes[1] = query[1]
+				return dnsResp.Bytes
+			}
+		}
+	}
+
+	// 4. Fallback
 	return tryFallbackDNS(query, fallbacks, dohUrl)
 }
 
-func extractIPs(out string) []string {
-	var ips []string
-	for _, line := range strings.Split(out, "\n") {
-		line = strings.TrimSpace(line)
-		if net.ParseIP(line) != nil {
-			ips = append(ips, line)
+func packDNSResponse(msg dnsmessage.Message, q dnsmessage.Question, ips []string, query []byte) []byte {
+	msg.Response = true
+	msg.Authoritative = true
+	msg.RecursionAvailable = true
+	for _, ipStr := range ips {
+		ip := net.ParseIP(ipStr)
+		if ip == nil { continue }
+		if ip4 := ip.To4(); ip4 != nil && q.Type == dnsmessage.TypeA {
+			var a [4]byte
+			copy(a[:], ip4)
+			msg.Answers = append(msg.Answers, dnsmessage.Resource{
+				Header: dnsmessage.ResourceHeader{Name: q.Name, Type: dnsmessage.TypeA, Class: dnsmessage.ClassINET, TTL: 60},
+				Body:   &dnsmessage.AResource{A: a},
+			})
+		} else if ip6 := ip.To16(); ip6 != nil && q.Type == dnsmessage.TypeAAAA {
+			var aaaa [16]byte
+			copy(aaaa[:], ip6)
+			msg.Answers = append(msg.Answers, dnsmessage.Resource{
+				Header: dnsmessage.ResourceHeader{Name: q.Name, Type: dnsmessage.TypeAAAA, Class: dnsmessage.ClassINET, TTL: 60},
+				Body:   &dnsmessage.AAAAResource{AAAA: aaaa},
+			})
 		}
 	}
-	return ips
+	if len(msg.Answers) > 0 {
+		if packed, err := msg.Pack(); err == nil {
+			return packed
+		}
+	}
+	return nil
 }
 
 func tryFallbackDNS(query []byte, fallbacks []string, dohUrl string) []byte {
 	for _, server := range fallbacks {
 		resp, err := forwardDNSviaUDP(query, server)
-		if err == nil {
-			return resp
-		}
-		slog.Debug("Fallback DNS failed", "server", server, "err", err)
+		if err == nil { return resp }
 	}
-
-	if dohUrl != "none" {
+	if dohUrl != "none" && dohUrl != "" {
 		resp, err := forwardDNSviaDoH(query, dohUrl)
-		if err == nil {
-			return resp
-		}
-		slog.Debug("DoH fallback failed", "err", err)
+		if err == nil { return resp }
 	}
 	return nil
 }
 
 func forwardDNSviaUDP(query []byte, server string) ([]byte, error) {
 	conn, err := net.DialTimeout("udp", server, 3*time.Second)
-	if err != nil {
-		return nil, err
-	}
+	if err != nil { return nil, err }
 	defer conn.Close()
 	conn.SetDeadline(time.Now().Add(3 * time.Second))
-
-	if _, err := conn.Write(query); err != nil {
-		return nil, err
-	}
+	if _, err := conn.Write(query); err != nil { return nil, err }
 	buf := make([]byte, 65535)
 	n, err := conn.Read(buf)
-	if err != nil {
-		return nil, err
-	}
+	if err != nil { return nil, err }
 	return buf[:n], nil
 }
 
 func forwardDNSviaDoH(query []byte, dohUrl string) ([]byte, error) {
 	encoded := base64.RawURLEncoding.EncodeToString(query)
 	client := &http.Client{Timeout: 5 * time.Second}
-
-	req, err := http.NewRequest("GET", dohUrl+"?dns="+encoded, nil)
-	if err != nil {
-		return nil, err
-	}
+	url := dohUrl
+	if strings.Contains(url, "?") { url += "&dns=" + encoded } else { url += "?dns=" + encoded }
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil { return nil, err }
 	req.Header.Set("Accept", "application/dns-message")
-
 	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
+	if err != nil { return nil, err }
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("doh status: %d", resp.StatusCode)
-	}
+	if resp.StatusCode != http.StatusOK { return nil, fmt.Errorf("doh status: %d", resp.StatusCode) }
 	return io.ReadAll(resp.Body)
 }

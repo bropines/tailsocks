@@ -296,7 +296,7 @@ fun SettingsExitNodeItem(
             isLoading = true
             scope.launch(Dispatchers.IO) {
                 try {
-                    val pJson = Appctr.runTailscaleCmd("status --json")
+                    val pJson = Appctr.getStatusFromAPI()
                     if (!pJson.startsWith("Error")) {
                         val status = Gson().fromJson(pJson, StatusResponse::class.java)
                         val nodes = status.peers?.values?.filter { it.exitNodeOption == true }?.toList() ?: emptyList()

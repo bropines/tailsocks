@@ -33,7 +33,7 @@ class TailscaledService : Service() {
                 val exitNodeIp = profilePrefs.getString("exit_node_ip", "")
                 if (!exitNodeIp.isNullOrEmpty()) {
                     try {
-                        val pJson = Appctr.runTailscaleCmd("status --json")
+                        val pJson = Appctr.getStatusFromAPI()
                         if (!pJson.startsWith("Error") && pJson.contains("\"Self\"")) {
                             val status = Gson().fromJson(pJson, StatusResponse::class.java)
                             var found = false

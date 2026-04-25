@@ -166,7 +166,7 @@ fun MainScreen() {
                 proxyState = if (isProcessAlive) "ACTIVE" else "STOPPED"
             }
 
-            if (actualRunning) {
+            if (isProcessAlive) {
                 val url = try { appctr.Appctr.getLoginURLString() } catch (e: Exception) { "" }
                 loginUrl = if (url.isNullOrBlank()) null else url
                 

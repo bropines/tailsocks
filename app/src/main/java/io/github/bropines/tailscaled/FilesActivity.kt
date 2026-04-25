@@ -95,7 +95,7 @@ fun FilesScreen(onBack: () -> Unit) {
                 val pJson = if (BuildConfig.IS_DEV) {
                     Appctr.getStatusFromAPI()
                 } else {
-                    Appctr.runTailscaleCmd("status --json")
+                    Appctr.getStatusFromAPI()
                 }
                 
                 if (!pJson.startsWith("Error")) {

@@ -65,7 +65,7 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
         isLoadingPeers = true
         scope.launch(Dispatchers.IO) {
             try {
-                val json = Appctr.runTailscaleCmd("status --json")
+                val json = Appctr.getStatusFromAPI()
                 if (json.startsWith("Error")) throw Exception(json)
                 val status = Gson().fromJson(json, StatusResponse::class.java)
                 peers = status.peers?.values?.toList()?.sortedByDescending { it.online == true } ?: emptyList()

@@ -83,7 +83,7 @@ fun DnsScreen(onBack: () -> Unit) {
                 }
                 return@launch
             }
-            val json = Appctr.runTailscaleCmd("dns status --json")
+            val json = Appctr.getDnsStatusJSON()
             val parsed = try {
                 Gson().fromJson(json, DnsStatus::class.java)
             } catch (e: Exception) { null }
@@ -103,7 +103,7 @@ fun DnsScreen(onBack: () -> Unit) {
         focusManager.clearFocus()
         scope.launch(Dispatchers.IO) {
             val out = try {
-                Appctr.runTailscaleCmd("dns query ${domain.trim()}")
+                Appctr.nativeDnsQuery(domain.trim(), "A")
             } catch (e: Exception) { "Error: ${e.message}" }
             withContext(Dispatchers.Main) {
                 queryResult = out.trim()

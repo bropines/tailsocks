@@ -13,15 +13,42 @@ import (
 	"time"
 	"net/http"
 	"path/filepath"
+	"encoding/json"
 	_ "time/tzdata"
 
 	_ "golang.org/x/mobile/bind"
+	"golang.org/x/net/dns/dnsmessage"
 	"tailscale.com/client/local"
 	"tailscale.com/client/web"
 )
 
 var latestInterfaceState string
 var stateMu sync.Mutex
+
+type GlobalConfig struct {
+	mu         sync.RWMutex
+	Socks5Addr string
+	Socks5User string
+	Socks5Pass string
+	DNSAddr    string
+}
+
+func (c *GlobalConfig) get() (socks, user, pass, dns string) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.Socks5Addr, c.Socks5User, c.Socks5Pass, c.DNSAddr
+}
+
+func (c *GlobalConfig) update(socks, user, pass, dns string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.Socks5Addr = socks
+	c.Socks5User = user
+	c.Socks5Pass = pass
+	c.DNSAddr = dns
+}
+
+var GConfig GlobalConfig
 
 func InjectNetworkState(jsonState string) {
 	stateMu.Lock()
@@ -76,12 +103,142 @@ func GetStatusFromAPI() string {
 	if !IsRunning() {
 		return "Error: Tailscaled is not running."
 	}
-	data, err := doLocalRequest("GET", "/localapi/v0/status", nil)
+	// Важно: peers=true заставляет API вернуть список всех нод
+	data, err := doLocalRequest("GET", "/localapi/v0/status?peers=true", nil)
 	if err != nil {
 		return "Error: " + err.Error()
 	}
 	return string(data)
 }
+
+func GetDnsStatusJSON() string {
+	if !IsRunning() {
+		return "{}"
+	}
+
+	socks, _, _, dns := GConfig.get()
+	
+	// Собираем структуру, совместимую с DnsActivity.kt
+	type dnsAddr struct {
+		Addr string `json:"Addr"`
+	}
+	type tailnetInfo struct {
+		MagicDNSEnabled bool    `json:"MagicDNSEnabled"`
+		MagicDNSSuffix  string  `json:"MagicDNSSuffix"`
+		SelfDNSName     string  `json:"SelfDNSName"`
+	}
+	type status struct {
+		TailscaleDNS   bool                    `json:"TailscaleDNS"`
+		CurrentTailnet tailnetInfo             `json:"CurrentTailnet"`
+		SplitDNSRoutes map[string][]dnsAddr   `json:"SplitDNSRoutes"`
+	}
+
+	res := status{
+		TailscaleDNS: dns != "",
+		CurrentTailnet: tailnetInfo{
+			MagicDNSEnabled: magicDNSSuffix != "",
+			MagicDNSSuffix:  magicDNSSuffix,
+		},
+		SplitDNSRoutes: make(map[string][]dnsAddr),
+	}
+
+	// Заполняем маршруты из нашего кэша
+	splitDNSCache.Range(func(key, value interface{}) bool {
+		domain := key.(string)
+		ips := value.([]string)
+		var addrs []dnsAddr
+		for _, ip := range ips {
+			addrs = append(addrs, dnsAddr{Addr: ip})
+		}
+		res.SplitDNSRoutes[domain] = addrs
+		return true
+	})
+
+	// Пытаемся найти свое имя
+	if socks != "" { // Просто как индикатор что мы инициализированы
+		nodesCache.Range(func(key, value interface{}) bool {
+			name := key.(string)
+			if strings.HasSuffix(name, magicDNSSuffix) && !strings.Contains(strings.TrimSuffix(name, magicDNSSuffix), ".") {
+				res.CurrentTailnet.SelfDNSName = name
+				return false
+			}
+			return true
+		})
+	}
+
+	data, _ := json.Marshal(res)
+	return string(data)
+}
+
+func NativeDnsQuery(domain, qtype string) string {
+	stateMu.Lock()
+	opt := lastOptions
+	stateMu.Unlock()
+
+	if !IsRunning() {
+		return "Error: Tailscaled is not running."
+	}
+
+	var msg dnsmessage.Message
+	msg.Header.ID = 0x1234
+	msg.Header.RecursionDesired = true
+	
+	t := dnsmessage.TypeA
+	if strings.ToUpper(qtype) == "AAAA" { t = dnsmessage.TypeAAAA }
+
+	name, err := dnsmessage.NewName(domain + ".")
+	if err != nil { return "Invalid domain" }
+
+	msg.Questions = []dnsmessage.Question{{Name: name, Type: t, Class: dnsmessage.ClassINET}}
+	query, _ := msg.Pack()
+	
+	fallbacks := []string{"8.8.8.8:53", "1.1.1.1:53"}
+	doh := ""
+	if opt != nil {
+		if opt.DnsFallbacks != "" {
+			fallbacks = strings.Split(opt.DnsFallbacks, ",")
+		}
+		doh = opt.DohFallback
+	}
+
+	resp := processDNSQuery(query, fallbacks, doh)
+	if resp == nil { return "No response" }
+
+	var respMsg dnsmessage.Message
+	if err := respMsg.Unpack(resp); err != nil { return "Error unpacking: " + err.Error() }
+
+	if len(respMsg.Answers) == 0 {
+		return "No answers (RCODE: " + respMsg.Header.RCode.String() + ")"
+	}
+
+	var results []string
+	for _, ans := range respMsg.Answers {
+		switch b := ans.Body.(type) {
+		case *dnsmessage.AResource:
+			results = append(results, net.IP(b.A[:]).String())
+		case *dnsmessage.AAAAResource:
+			results = append(results, net.IP(b.AAAA[:]).String())
+		case *dnsmessage.CNAMEResource:
+			results = append(results, b.CNAME.String())
+		default:
+			results = append(results, "Unknown record type")
+		}
+	}
+	return strings.Join(results, "\n")
+}
+
+func GetNetcheckFromAPI() string {
+	if !IsRunning() {
+		return "Error: Tailscaled is not running."
+	}
+	data, err := doLocalRequest("POST", "/localapi/v0/netcheck", nil)
+	if err != nil {
+		return "Error: " + err.Error()
+	}
+	return string(data)
+}
+
+
 
 func GetTaildropFilesFromAPI() string {
 	if !IsRunning() {
@@ -250,6 +407,7 @@ func ApplySettings(opt *StartOptions) {
 	stateMu.Lock()
 	lastOptions = opt
 	stateMu.Unlock()
+	GConfig.update(opt.Socks5Server, opt.Socks5User, opt.Socks5Pass, opt.DnsProxy)
 
 	// 3. DNS-only restart if only DNS parameters changed.
 	if old.DnsProxy != opt.DnsProxy ||
@@ -289,6 +447,7 @@ func Start(opt *StartOptions) {
 	PC = newPathControl(opt.ExecPath, opt.SocketPath, opt.StatePath)
 	lastOptions = opt
 	stateMu.Unlock()
+	GConfig.update(opt.Socks5Server, opt.Socks5User, opt.Socks5Pass, opt.DnsProxy)
 
 	killLeftoverDaemons(PC.Tailscaled())
 
@@ -351,7 +510,7 @@ func RestartDNS() {
 		}
 
 		slog.Info("Starting DNS proxy", "addr", opt.DnsProxy)
-		if err := startDNSProxy(ctx, opt.DnsProxy, opt.Socks5Server, opt.Socks5User, opt.Socks5Pass, fallbacks, doh); err != nil {
+		if err := startDNSProxy(ctx, opt.DnsProxy, fallbacks, doh); err != nil {
 			slog.Error("DNS proxy error", "err", err)
 		}
 	}()

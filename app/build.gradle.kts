@@ -10,7 +10,7 @@ import java.util.Properties
 val gitVersionCode = providers.exec {
     commandLine("git", "rev-list", "--count", "HEAD")
     workingDir = rootDir
-}.standardOutput.asText.map { it.trim().toInt() + 10 }.getOrElse(10)
+}.standardOutput.asText.map { it.trim().toInt() + 500 }.getOrElse(500)
 
 val baseVersion = providers.exec {
     commandLine("git", "describe", "--tags", "--always", "--abbrev=0")
