@@ -167,17 +167,19 @@ class TailscaledService : Service() {
         java.io.File(stateDir).mkdirs()
 
         return StartOptions().apply {
-            socks5Server = profilePrefs.getString("socks5", "127.0.0.1:48115")
-            socks5User   = profilePrefs.getString("socks5_user", "")
-            socks5Pass   = profilePrefs.getString("socks5_pass", "")
-            httpProxy    = profilePrefs.getString("httpproxy", "")
+            socks5Server = GlobalSettings.getString(this@TailscaledService, "socks5", "127.0.0.1:48115")
+            socks5User   = GlobalSettings.getString(this@TailscaledService, "socks5_user", "")
+            socks5Pass   = GlobalSettings.getString(this@TailscaledService, "socks5_pass", "")
+            httpProxy    = GlobalSettings.getString(this@TailscaledService, "httpproxy", "")
             controlProxy = GlobalSettings.getControlProxyUrl(this@TailscaledService)
-            dnsProxy     = profilePrefs.getString("dns_proxy", "127.0.0.1:1053") ?: "127.0.0.1:1053"
-            dnsFallbacks = profilePrefs.getString("dns_fallbacks", "8.8.8.8:53,1.1.1.1:53")
-            dohFallback  = profilePrefs.getString("doh_url", "https://1.1.1.1/dns-query")
+            dnsProxy     = GlobalSettings.getString(this@TailscaledService, "dns_proxy", "127.0.0.1:1053")
+            dnsFallbacks = GlobalSettings.getString(this@TailscaledService, "dns_fallbacks", "8.8.8.8:53,1.1.1.1:53")
+            dohFallback  = GlobalSettings.getString(this@TailscaledService, "doh_url", "https://1.1.1.1/dns-query")
+            
             authKey      = profilePrefs.getString("authkey", "")
             enableWebUI = profilePrefs.getBoolean("enable_webui", false)
             webUIAddr   = profilePrefs.getString("webui_addr", "127.0.0.1:8080")
+            
             taildropDir = "$stateDir/taildrop"
             java.io.File(taildropDir).mkdirs()
             execPath     = "${applicationInfo.nativeLibraryDir}/libtailscale.so"
@@ -191,16 +193,16 @@ class TailscaledService : Service() {
             val hostname = profilePrefs.getString("hostname", "")
             if (!hostname.isNullOrEmpty()) argsBuilder.append("--hostname=$hostname ")
             
-            val loginServer = profilePrefs.getString("login_server", "")
+            val loginServer = GlobalSettings.getString(this@TailscaledService, "login_server", "")
             if (!loginServer.isNullOrEmpty()) argsBuilder.append("--login-server=$loginServer ")
             
-            if (profilePrefs.getBoolean("accept_routes", false)) {
+            if (GlobalSettings.getBoolean(this@TailscaledService, "accept_routes", false)) {
                 argsBuilder.append("--accept-routes=true ")
             } else {
                 argsBuilder.append("--accept-routes=false ")
             }
             
-            if (profilePrefs.getBoolean("accept_dns", true)) {
+            if (GlobalSettings.getBoolean(this@TailscaledService, "accept_dns", true)) {
                 argsBuilder.append("--accept-dns=true ")
             } else {
                 argsBuilder.append("--accept-dns=false ")
@@ -223,11 +225,14 @@ class TailscaledService : Service() {
             } else {
                 argsBuilder.append("--advertise-exit-node=false ")
             }
-            
-            val rawArgs = profilePrefs.getString("extra_args_raw", "")
-            if (!rawArgs.isNullOrEmpty()) argsBuilder.append("$rawArgs")
-            
+
+            val extraArgs = GlobalSettings.getString(this@TailscaledService, "extra_args_raw", "")
+            if (extraArgs.isNotEmpty()) argsBuilder.append("$extraArgs ")
+
             extraUpArgs = argsBuilder.toString()
+            
+            val detailedLogs = GlobalSettings.getBoolean(this@TailscaledService, "detailed_logs", false)
+            Appctr.setLogLevel(if (detailedLogs) 0 else 1)
         }
     }
 

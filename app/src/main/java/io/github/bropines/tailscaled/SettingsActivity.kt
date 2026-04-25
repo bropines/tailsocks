@@ -55,35 +55,36 @@ fun SettingsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val activeAccount = remember { AccountManager.getActiveAccount(context) }
-    val prefs = remember(activeAccount.id) { context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE) }
+    val profilePrefs = remember(activeAccount.id) { context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE) }
     
+    // Global Settings
     var taildropRootUri by remember { mutableStateOf(GlobalSettings.getTaildropRootUri(context)) }
     var autoStart by remember { mutableStateOf(GlobalSettings.isAutoStartEnabled(context)) }
-    
     var showProxyDialog by remember { mutableStateOf(false) }
     var isProxyEnabled by remember { mutableStateOf(GlobalSettings.isCPProxyEnabled(context)) }
+    
+    var socks5 by remember { mutableStateOf(GlobalSettings.getString(context, "socks5", "127.0.0.1:48115")) }
+    var socks5User by remember { mutableStateOf(GlobalSettings.getString(context, "socks5_user", "")) }
+    var socks5Pass by remember { mutableStateOf(GlobalSettings.getString(context, "socks5_pass", "")) }
+    var httpProxy by remember { mutableStateOf(GlobalSettings.getString(context, "httpproxy", "")) }
+    var dnsProxy by remember { mutableStateOf(GlobalSettings.getString(context, "dns_proxy", "127.0.0.1:1053")) }
+    var dnsFallbacks by remember { mutableStateOf(GlobalSettings.getString(context, "dns_fallbacks", "8.8.8.8:53,1.1.1.1:53")) }
+    var dohUrl by remember { mutableStateOf(GlobalSettings.getString(context, "doh_url", "https://1.1.1.1/dns-query")) }
+    var loginServer by remember { mutableStateOf(GlobalSettings.getString(context, "login_server", "")) }
+    
+    var autoRefresh by remember { mutableStateOf(GlobalSettings.getBoolean(context, "auto_refresh", false)) }
+    var acceptRoutes by remember { mutableStateOf(GlobalSettings.getBoolean(context, "accept_routes", false)) }
+    var acceptDns by remember { mutableStateOf(GlobalSettings.getBoolean(context, "accept_dns", true)) }
+    var forceBg by remember { mutableStateOf(GlobalSettings.getBoolean(context, "force_bg", false)) }
+    var detailedLogs by remember { mutableStateOf(GlobalSettings.getBoolean(context, "detailed_logs", false)) }
+    var extraArgs by remember { mutableStateOf(GlobalSettings.getString(context, "extra_args_raw", "")) }
 
-    var authKey by remember { mutableStateOf(prefs.getString("authkey", "") ?: "") }
-    var socks5 by remember { mutableStateOf(prefs.getString("socks5", "127.0.0.1:48115") ?: "") }
-    var socks5User by remember { mutableStateOf(prefs.getString("socks5_user", "") ?: "") }
-    var socks5Pass by remember { mutableStateOf(prefs.getString("socks5_pass", "") ?: "") }
-    var httpProxy by remember { mutableStateOf(prefs.getString("httpproxy", "") ?: "") }
-    var controlProxy by remember { mutableStateOf(prefs.getString("control_proxy", "") ?: "") }
-    var hostname by remember { mutableStateOf(prefs.getString("hostname", "") ?: "") }
-    var loginServer by remember { mutableStateOf(prefs.getString("login_server", "") ?: "") }
-    var exitNodeIp by remember { mutableStateOf(prefs.getString("exit_node_ip", "") ?: "") }
-    var dnsProxy by remember { mutableStateOf(prefs.getString("dns_proxy", "127.0.0.1:1053") ?: "") }
-    var dnsFallbacks by remember { mutableStateOf(prefs.getString("dns_fallbacks", "8.8.8.8:53,1.1.1.1:53") ?: "") }
-    var extraArgs by remember { mutableStateOf(prefs.getString("extra_args_raw", "") ?: "") }
-    
-    var autoRefresh by remember { mutableStateOf(prefs.getBoolean("auto_refresh", false)) }
-    var acceptRoutes by remember { mutableStateOf(prefs.getBoolean("accept_routes", false)) }
-    var acceptDns by remember { mutableStateOf(prefs.getBoolean("accept_dns", true)) }
-    var forceBg by remember { mutableStateOf(prefs.getBoolean("force_bg", false)) }
-    
-    var enableWebUI by remember { mutableStateOf(prefs.getBoolean("enable_webui", false)) }
-    var webUIAddr by remember { mutableStateOf(prefs.getString("webui_addr", "127.0.0.1:8080") ?: "127.0.0.1:8080") }
-    var detailedLogs by remember { mutableStateOf(prefs.getBoolean("detailed_logs", false)) }
+    // Profile Settings
+    var authKey by remember { mutableStateOf(profilePrefs.getString("authkey", "") ?: "") }
+    var hostname by remember { mutableStateOf(profilePrefs.getString("hostname", "") ?: "") }
+    var exitNodeIp by remember { mutableStateOf(profilePrefs.getString("exit_node_ip", "") ?: "") }
+    var enableWebUI by remember { mutableStateOf(profilePrefs.getBoolean("enable_webui", false)) }
+    var webUIAddr by remember { mutableStateOf(profilePrefs.getString("webui_addr", "127.0.0.1:8080") ?: "127.0.0.1:8080") }
 
     val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) { GlobalSettings.setTaildropRootUri(context, uri); taildropRootUri = uri }
@@ -93,7 +94,7 @@ fun SettingsScreen(onBack: () -> Unit) {
         if (uri != null) {
             scope.launch(Dispatchers.IO) {
                 try {
-                    val allPrefs = prefs.all
+                    val allPrefs = profilePrefs.all
                     val backupData = mapOf("account" to activeAccount, "settings" to allPrefs)
                     context.contentResolver.openOutputStream(uri)?.use { it.write(Gson().toJson(backupData).toByteArray()) }
                     withContext(Dispatchers.Main) { Toast.makeText(context, "Backup saved", Toast.LENGTH_SHORT).show() }
@@ -104,15 +105,21 @@ fun SettingsScreen(onBack: () -> Unit) {
         }
     }
 
-    fun savePref(key: String, value: Any?) {
-        val editor = prefs.edit()
+    fun saveGlobalPref(key: String, value: Any?) {
+        when (value) {
+            is String -> GlobalSettings.setString(context, key, value)
+            is Boolean -> GlobalSettings.setBoolean(context, key, value)
+        }
+        context.startService(Intent(context, TailscaledService::class.java).apply { action = "APPLY_SETTINGS" })
+    }
+
+    fun saveProfilePref(key: String, value: Any?) {
+        val editor = profilePrefs.edit()
         when (value) {
             is String -> editor.putString(key, value)
             is Boolean -> editor.putBoolean(key, value)
-            is Int -> editor.putInt(key, value)
         }
         editor.apply()
-        if (key == "detailed_logs") Appctr.setLogLevel(if (value as Boolean) 0 else 1)
         context.startService(Intent(context, TailscaledService::class.java).apply { action = "APPLY_SETTINGS" })
     }
 
@@ -141,7 +148,7 @@ fun SettingsScreen(onBack: () -> Unit) {
             title = { Text("Reset Node State?") },
             text = { Text("This will call 'tailscale up --reset', clearing all flags and re-authenticating. Continue?") },
             confirmButton = {
-                Button(onClick = { savePref("do_reset", true); showResetDialog = false }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Reset") }
+                Button(onClick = { saveProfilePref("do_reset", true); showResetDialog = false }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Reset") }
             },
             dismissButton = { TextButton(onClick = { showResetDialog = false }) { Text("Cancel") } }
         )
@@ -176,17 +183,11 @@ fun SettingsScreen(onBack: () -> Unit) {
                     }
                 )
             }
-
-            HorizontalDivider(Modifier.padding(vertical = 16.dp))
-
-            SettingsSectionHeader("Account: ${activeAccount.name}")
-            SettingsEditItem("Auth Key", authKey, Icons.Default.VpnKey) { authKey = it; savePref("authkey", it) }
-            SettingsEditItem("Hostname", hostname, Icons.Default.Badge, onAction = { android.os.Build.MODEL.replace(" ", "-").lowercase() }, actionIcon = Icons.Default.AutoFixHigh) { hostname = it; savePref("hostname", it) }
             
-            SettingsSectionHeader("Networking")
-            SettingsEditItem("SOCKS5 Address", socks5, Icons.Default.Language) { socks5 = it; savePref("socks5", it) }
-            SettingsEditItem("SOCKS5 User", socks5User, Icons.Default.Person, onAction = { generateRandomString(8) }, actionIcon = Icons.Default.Casino) { socks5User = it; savePref("socks5_user", it) }
-            SettingsEditItem("SOCKS5 Pass", socks5Pass, Icons.Default.Password, onAction = { generateRandomString(12) }, actionIcon = Icons.Default.Casino) { socks5Pass = it; savePref("socks5_pass", it) }
+            SettingsSectionHeader("Global Networking")
+            SettingsEditItem("SOCKS5 Address", socks5, Icons.Default.Language) { socks5 = it; saveGlobalPref("socks5", it) }
+            SettingsEditItem("SOCKS5 User", socks5User, Icons.Default.Person, onAction = { generateRandomString(8) }, actionIcon = Icons.Default.Casino) { socks5User = it; saveGlobalPref("socks5_user", it) }
+            SettingsEditItem("SOCKS5 Pass", socks5Pass, Icons.Default.Password, onAction = { generateRandomString(12) }, actionIcon = Icons.Default.Casino) { socks5Pass = it; saveGlobalPref("socks5_pass", it) }
             
             Spacer(Modifier.height(8.dp))
             OutlinedButton(onClick = { copySagerNetLink() }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
@@ -194,26 +195,34 @@ fun SettingsScreen(onBack: () -> Unit) {
             }
             Spacer(Modifier.height(8.dp))
 
-            SettingsEditItem("HTTP Proxy", httpProxy, Icons.Default.Http) { httpProxy = it; savePref("httpproxy", it) }
-            SettingsEditItem("DNS Proxy", dnsProxy, Icons.Default.Toll) { dnsProxy = it; savePref("dns_proxy", it) }
-            SettingsEditItem("DNS Fallbacks", dnsFallbacks, Icons.Default.List, placeholder = "8.8.8.8:53,1.1.1.1:53") { dnsFallbacks = it; savePref("dns_fallbacks", it) }
-            SettingsExitNodeItem("Exit Node", exitNodeIp, Icons.Default.Input) { exitNodeIp = it; savePref("exit_node_ip", it) }
+            SettingsEditItem("HTTP Proxy", httpProxy, Icons.Default.Http) { httpProxy = it; saveGlobalPref("httpproxy", it) }
+            
+            SettingsSectionHeader("Global DNS")
+            SettingsEditItem("DNS Proxy", dnsProxy, Icons.Default.Toll) { dnsProxy = it; saveGlobalPref("dns_proxy", it) }
+            SettingsEditItem("DNS Fallbacks", dnsFallbacks, Icons.Default.List, placeholder = "8.8.8.8:53,1.1.1.1:53") { dnsFallbacks = it; saveGlobalPref("dns_fallbacks", it) }
+            SettingsEditItem("DoH Fallback", dohUrl, Icons.Default.Link, placeholder = "https://1.1.1.1/dns-query") { dohUrl = it; saveGlobalPref("doh_url", it) }
+
+            SettingsSectionHeader("Global Flags & Logs")
+            SettingsEditItem("Login Server (Headscale)", loginServer, Icons.Default.Cloud, placeholder = "https://controlplane.tailscale.com") { loginServer = it; saveGlobalPref("login_server", it) }
+            SettingsSwitchItem("Accept Routes", "Allow network to set routes", Icons.Default.Map, acceptRoutes) { acceptRoutes = it; saveGlobalPref("accept_routes", it) }
+            SettingsSwitchItem("Accept DNS", "Allow network to set DNS", Icons.Default.Dns, acceptDns) { acceptDns = it; saveGlobalPref("accept_dns", it) }
+            SettingsSwitchItem("Auto-Refresh", "Sync policies every 15s", Icons.Default.Sync, autoRefresh) { autoRefresh = it; saveGlobalPref("auto_refresh", it) }
+            SettingsSwitchItem("Force Background", "Keep WakeLock active", Icons.Default.BatteryFull, forceBg) { forceBg = it; saveGlobalPref("force_bg", it) }
+            SettingsSwitchItem("Detailed Logs", "Disable log filtering (noisy!)", Icons.Default.BugReport, detailedLogs) { detailedLogs = it; saveGlobalPref("detailed_logs", it) }
+            SettingsEditItem("Extra Arguments", extraArgs, Icons.Default.Code, "--flag=val ...") { extraArgs = it; saveGlobalPref("extra_args_raw", it) }
+
+            HorizontalDivider(Modifier.padding(vertical = 16.dp))
+
+            SettingsSectionHeader("Account Settings: ${activeAccount.name}")
+            SettingsEditItem("Auth Key", authKey, Icons.Default.VpnKey) { authKey = it; saveProfilePref("authkey", it) }
+            SettingsEditItem("Hostname", hostname, Icons.Default.Badge, onAction = { android.os.Build.MODEL.replace(" ", "-").lowercase() }, actionIcon = Icons.Default.AutoFixHigh) { hostname = it; saveProfilePref("hostname", it) }
+            SettingsExitNodeItem("Exit Node", exitNodeIp, Icons.Default.Input) { exitNodeIp = it; saveProfilePref("exit_node_ip", it) }
 
             SettingsSectionHeader("Web Interface")
-            SettingsSwitchItem("Enable Web UI", "Run built-in Tailscale web server", Icons.Default.Web, enableWebUI) { enableWebUI = it; savePref("enable_webui", it) }
-            if (enableWebUI) SettingsEditItem("Web UI Address", webUIAddr, Icons.Default.Link) { webUIAddr = it; savePref("webui_addr", it) }
+            SettingsSwitchItem("Enable Web UI", "Run built-in Tailscale web server", Icons.Default.Web, enableWebUI) { enableWebUI = it; saveProfilePref("enable_webui", it) }
+            if (enableWebUI) SettingsEditItem("Web UI Address", webUIAddr, Icons.Default.Link) { webUIAddr = it; saveProfilePref("webui_addr", it) }
 
-            SettingsSectionHeader("Flags & Logs")
-            SettingsSwitchItem("Accept Routes", "Allow network to set routes", Icons.Default.Map, acceptRoutes) { acceptRoutes = it; savePref("accept_routes", it) }
-            SettingsSwitchItem("Accept DNS", "Allow network to set DNS", Icons.Default.Dns, acceptDns) { acceptDns = it; savePref("accept_dns", it) }
-            SettingsSwitchItem("Auto-Refresh", "Sync policies every 15s", Icons.Default.Sync, autoRefresh) { autoRefresh = it; savePref("auto_refresh", it) }
-            SettingsSwitchItem("Force Background", "Keep WakeLock active", Icons.Default.BatteryFull, forceBg) { forceBg = it; savePref("force_bg", it) }
-            SettingsSwitchItem("Detailed Logs", "Disable log filtering (noisy!)", Icons.Default.BugReport, detailedLogs) { detailedLogs = it; savePref("detailed_logs", it) }
-
-            SettingsSectionHeader("Advanced")
-            SettingsEditItem("Extra Arguments", extraArgs, Icons.Default.Code, "--flag=val ...") { extraArgs = it; savePref("extra_args_raw", it) }
-            
-            Spacer(Modifier.height(16.dp))
+            SettingsSectionHeader("Advanced Profile")
             Button(onClick = { backupLauncher.launch("tailsocks_backup_${activeAccount.name}.json") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
                 Icon(Icons.Default.Backup, null); Spacer(Modifier.width(8.dp)); Text("Backup Account Settings")
             }
