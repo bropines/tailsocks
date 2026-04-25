@@ -60,11 +60,8 @@ fun SettingsScreen(onBack: () -> Unit) {
     var taildropRootUri by remember { mutableStateOf(GlobalSettings.getTaildropRootUri(context)) }
     var autoStart by remember { mutableStateOf(GlobalSettings.isAutoStartEnabled(context)) }
     
-    var cpType by remember { mutableStateOf(GlobalSettings.getCPField(context, "type", "SOCKS5")) }
-    var cpHost by remember { mutableStateOf(GlobalSettings.getCPField(context, "host")) }
-    var cpPort by remember { mutableStateOf(GlobalSettings.getCPField(context, "port")) }
-    var cpUser by remember { mutableStateOf(GlobalSettings.getCPField(context, "user")) }
-    var cpPass by remember { mutableStateOf(GlobalSettings.getCPField(context, "pass")) }
+    var showProxyDialog by remember { mutableStateOf(false) }
+    var isProxyEnabled by remember { mutableStateOf(GlobalSettings.isCPProxyEnabled(context)) }
 
     var authKey by remember { mutableStateOf(prefs.getString("authkey", "") ?: "") }
     var socks5 by remember { mutableStateOf(prefs.getString("socks5", "127.0.0.1:48115") ?: "") }
@@ -164,12 +161,21 @@ fun SettingsScreen(onBack: () -> Unit) {
             SettingsClickableItem("Taildrop Storage Folder", taildropRootUri?.path ?: "Uses app internal folder", Icons.Default.Folder) { folderPicker.launch(null) }
             SettingsSwitchItem("Auto-start on Boot", "Start TailSocks when device turns on", Icons.Default.PowerSettingsNew, autoStart) { GlobalSettings.setAutoStartEnabled(context, it); autoStart = it }
 
-            SettingsSectionHeader("Control Plane Proxy (Global)")
-            SettingsChoiceItem("Proxy Type", cpType, listOf("SOCKS5", "HTTP"), Icons.Default.Shield) { cpType = it; GlobalSettings.setCPField(context, "type", it); context.startService(Intent(context, TailscaledService::class.java).apply { action = "APPLY_SETTINGS" }) }
-            SettingsEditItem("Proxy Host", cpHost, Icons.Default.Dns, placeholder = "e.g. 1.2.3.4") { cpHost = it; GlobalSettings.setCPField(context, "host", it); context.startService(Intent(context, TailscaledService::class.java).apply { action = "APPLY_SETTINGS" }) }
-            SettingsEditItem("Proxy Port", cpPort, Icons.Default.Info, placeholder = "e.g. 1080") { cpPort = it; GlobalSettings.setCPField(context, "port", it); context.startService(Intent(context, TailscaledService::class.java).apply { action = "APPLY_SETTINGS" }) }
-            SettingsEditItem("Proxy User", cpUser, Icons.Default.Person, placeholder = "Optional") { cpUser = it; GlobalSettings.setCPField(context, "user", it); context.startService(Intent(context, TailscaledService::class.java).apply { action = "APPLY_SETTINGS" }) }
-            SettingsEditItem("Proxy Pass", cpPass, Icons.Default.Password, placeholder = "Optional") { cpPass = it; GlobalSettings.setCPField(context, "pass", it); context.startService(Intent(context, TailscaledService::class.java).apply { action = "APPLY_SETTINGS" }) }
+            SettingsClickableItem(
+                "Control Plane Proxy", 
+                if (isProxyEnabled) "Enabled (${GlobalSettings.getCPField(context, "type")})" else "Disabled",
+                Icons.Default.Shield
+            ) { showProxyDialog = true }
+
+            if (showProxyDialog) {
+                ControlProxyDialog(
+                    onDismiss = { showProxyDialog = false },
+                    onApply = { 
+                        isProxyEnabled = GlobalSettings.isCPProxyEnabled(context)
+                        context.startService(Intent(context, TailscaledService::class.java).apply { action = "APPLY_SETTINGS" })
+                    }
+                )
+            }
 
             HorizontalDivider(Modifier.padding(vertical = 16.dp))
 
@@ -218,6 +224,59 @@ fun SettingsScreen(onBack: () -> Unit) {
             Spacer(Modifier.height(32.dp))
         }
     }
+}
+
+@Composable
+fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
+    val context = LocalContext.current
+    var enabled by remember { mutableStateOf(GlobalSettings.isCPProxyEnabled(context)) }
+    var type by remember { mutableStateOf(GlobalSettings.getCPField(context, "type", "SOCKS5")) }
+    var host by remember { mutableStateOf(GlobalSettings.getCPField(context, "host")) }
+    var port by remember { mutableStateOf(GlobalSettings.getCPField(context, "port")) }
+    var user by remember { mutableStateOf(GlobalSettings.getCPField(context, "user")) }
+    var pass by remember { mutableStateOf(GlobalSettings.getCPField(context, "pass")) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Control Plane Proxy") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Enable Proxy", Modifier.weight(1f))
+                    Switch(checked = enabled, onCheckedChange = { enabled = it })
+                }
+                Spacer(Modifier.height(16.dp))
+                
+                Text("Proxy Type", style = MaterialTheme.typography.labelMedium)
+                Row {
+                    listOf("SOCKS5", "HTTP").forEach { t ->
+                        Row(Modifier.clickable { type = t }.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(selected = (type == t), onClick = null)
+                            Text(t, Modifier.padding(start = 4.dp))
+                        }
+                    }
+                }
+                
+                OutlinedTextField(value = host, onValueChange = { host = it }, label = { Text("Host") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                OutlinedTextField(value = port, onValueChange = { port = it }, label = { Text("Port") }, modifier = Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text(if(type == "HTTP") "8080" else "1080") })
+                OutlinedTextField(value = user, onValueChange = { user = it }, label = { Text("Username (Optional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                OutlinedTextField(value = pass, onValueChange = { pass = it }, label = { Text("Password (Optional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                GlobalSettings.setCPProxyEnabled(context, enabled)
+                GlobalSettings.setCPField(context, "type", type)
+                GlobalSettings.setCPField(context, "host", host)
+                GlobalSettings.setCPField(context, "port", port)
+                GlobalSettings.setCPField(context, "user", user)
+                GlobalSettings.setCPField(context, "pass", pass)
+                onApply()
+                onDismiss()
+            }) { Text("Apply & Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }
 
 @Composable

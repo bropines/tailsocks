@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"net/url"
 	"os"
 	"strings"
 	"os/exec"
@@ -291,19 +292,74 @@ func GetTaildropFilesFromAPI() string {
 	if !IsRunning() {
 		return "[]"
 	}
-	data, err := doLocalRequest("GET", "/localapi/v0/files/", nil)
+	
+	stateMu.Lock()
+	opt := lastOptions
+	stateMu.Unlock()
+	
+	if opt == nullOptions || opt.TaildropDir == "" {
+		return "[]"
+	}
+
+	data, err := doLocalRequest("GET", "/localapi/v0/files", nil)
 	if err != nil {
 		return "[]"
 	}
-	return string(data)
+
+	type waitingFile struct {
+		Name string
+		Size int64
+	}
+	var official []waitingFile
+	if err := json.Unmarshal(data, &official); err != nil {
+		return "[]"
+	}
+
+	type enrichedFile struct {
+		Name string
+		Size int64
+		Path string
+	}
+	res := make([]enrichedFile, 0, len(official))
+	for _, f := range official {
+		res = append(res, enrichedFile{
+			Name: f.Name,
+			Size: f.Size,
+			Path: filepath.Join(opt.TaildropDir, f.Name),
+		})
+	}
+
+	enrichedData, _ := json.Marshal(res)
+	return string(enrichedData)
 }
 
 func DeleteTaildropFileFromAPI(name string) bool {
 	if !IsRunning() {
 		return false
 	}
-	_, err := doLocalRequest("DELETE", "/localapi/v0/files/"+name, nil)
+	_, err := doLocalRequest("DELETE", "/localapi/v0/files/"+url.PathEscape(name), nil)
 	return err == nil
+}
+
+func GetTaildropDirContents() string {
+	stateMu.Lock()
+	opt := lastOptions
+	stateMu.Unlock()
+	if opt == nullOptions || opt.TaildropDir == "" { return "TaildropDir not set" }
+	entries, err := os.ReadDir(opt.TaildropDir)
+	if err != nil { return "Error: " + err.Error() }
+	var names []string
+	for _, e := range entries { names = append(names, e.Name()) }
+	if len(names) == 0 { return "Empty" }
+	return strings.Join(names, ", ")
+}
+
+func SaveTaildropFileToPath(name, destPath string) string {
+	if !IsRunning() { return "Tailscaled not running" }
+	data, err := doLocalRequest("GET", "/localapi/v0/files/"+url.PathEscape(name), nil)
+	if err != nil { return "Download failed: " + err.Error() }
+	if err := os.WriteFile(destPath, data, 0644); err != nil { return "Save failed: " + err.Error() }
+	return "OK"
 }
 
 func SendFileFromAPI(peerID, filePath string) string {
@@ -317,7 +373,7 @@ func SendFileFromAPI(peerID, filePath string) string {
 	}
 	defer f.Close()
 
-	name := filepath.Base(filePath)
+	name := url.PathEscape(filepath.Base(filePath))
 	// PUT /localapi/v0/file-put/<id>/<name>
 	data, err := doLocalRequest("PUT", "/localapi/v0/file-put/"+peerID+"/"+name, f)
 	if err != nil {
@@ -376,6 +432,8 @@ type StartOptions struct {
 	WebUIAddr     string
 	TaildropDir   string
 }
+
+var nullOptions = &StartOptions{}
 
 func SetLogLevel(level int32) {
 	stateMu.Lock()

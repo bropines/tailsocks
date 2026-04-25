@@ -5,6 +5,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 ## [1.9.1] - 2026-04-25
 ### Added
 - **Control Plane Proxy:** Added global settings to use an external SOCKS5/HTTP proxy for Tailscale coordination server requests. Supports authentication and easy configuration via separate fields (Type, Host, Port, User, Pass).
+- **Proxy Protocol Awareness:** Fixed "unknown Socks version" errors by correctly routing SOCKS5 traffic through `ALL_PROXY` while keeping `HTTP_PROXY` for traditional proxies.
 ### Fixed
 - **Diagnostics Reliability:** Fixed panics and Gson parsing errors in `NetcheckActivity`. Implemented "bulletproof" JSON handling for inconsistent Local API responses.
 - **Native Netcheck:** Implemented native `GetNetcheckFromAPI` using Go's `netcheck` package with a static `NetMon` to bypass Android permission issues.

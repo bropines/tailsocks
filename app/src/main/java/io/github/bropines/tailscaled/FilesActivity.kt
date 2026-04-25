@@ -155,7 +155,11 @@ fun FilesScreen(onBack: () -> Unit) {
             Column {
                 TopAppBar(title = { Column { Text("Taildrop Hub"); Text(activeAccount.name, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary) } },
                     navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-                    actions = { IconButton(onClick = { Appctr.forceRefresh(); refreshData() }) { Icon(Icons.Default.Refresh, "Refresh") } })
+                    actions = { IconButton(onClick = { 
+                        Appctr.forceRefresh(); 
+                        refreshData();
+                        android.util.Log.d("TaildropDebug", "Dir contents: ${Appctr.getTaildropDirContents()}")
+                    }) { Icon(Icons.Default.Refresh, "Refresh") } })
                 TabRow(selectedTabIndex = selectedTab) {
                     Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }, text = { Text("Inbox") })
                     Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }, text = { Text("Devices") })

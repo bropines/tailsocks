@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 )
 
@@ -41,11 +42,20 @@ func tailscaledCmd(p pathControl, socksAddr, httpAddr, socksUser, socksPass, tai
 	)
 
 	if controlProxy != "" {
-		c.Env = append(c.Env,
-			"HTTP_PROXY="+controlProxy,
-			"HTTPS_PROXY="+controlProxy,
-			"ALL_PROXY="+controlProxy,
-		)
+		if strings.HasPrefix(controlProxy, "socks") {
+			// Для SOCKS используем только ALL_PROXY и ПРИНУДИТЕЛЬНО очищаем HTTP(S)_PROXY
+			// Это предотвращает попытки Go отправить HTTP CONNECT (ошибка 67)
+			c.Env = append(c.Env, 
+				"ALL_PROXY="+controlProxy,
+				"HTTP_PROXY=",
+				"HTTPS_PROXY=",
+			)
+		} else {
+			c.Env = append(c.Env,
+				"HTTP_PROXY="+controlProxy,
+				"HTTPS_PROXY="+controlProxy,
+			)
+		}
 	}
 	if taildropDir != "" {
 		c.Env = append(c.Env, "TS_TAILDROP_DIR="+taildropDir)
