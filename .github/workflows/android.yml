@@ -1,4 +1,4 @@
-name: Android CI
+name: Android CI Chain
 
 on:
   push:
@@ -13,48 +13,60 @@ on:
       - '.github/workflows/android.yml'
   pull_request:
     branches: [ "main" ]
-    paths:
-      - 'app/**'
-      - 'appctr/**'
-      - 'build.gradle.kts'
-      - 'settings.gradle.kts'
-      - 'gradle/**'
-      - '.github/workflows/android.yml'
   workflow_dispatch:
     inputs:
       build_type:
-        description: 'Тип сборки (debug/release/all)'
+        description: 'Build type (debug/release/all)'
         required: true
         default: 'release'
         type: choice
-        options:
-          - 'debug'
-          - 'release'
-          - 'all'
-      skip_signing:
-        description: 'Пропустить подпись (только для debug)'
-        required: false
-        default: false
-        type: boolean
+        options: [ 'debug', 'release', 'all' ]
 
 permissions:
   contents: write
 
 jobs:
-  build:
+  build-core:
+    name: Build Go Core
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: "recursive"
-          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.23'
           cache-dependency-path: appctr/go.sum
+
+      - name: Build AppCtr Core
+        run: |
+          cd appctr
+          go install golang.org/x/mobile/cmd/gomobile@latest
+          gomobile init
+          sh build.sh
+
+      - name: Upload Core Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-artifacts
+          path: |
+            app/src/main/jniLibs/
+            appctr/build/outputs/aar/*.aar
+
+  build-apk:
+    name: Build Android APK
+    needs: build-core
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Core Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: core-artifacts
+          path: .
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -64,25 +76,15 @@ jobs:
           cache: gradle
 
       - name: Decode Keystore
-        if: |
-          (github.event_name == 'push' || github.event.inputs.build_type != 'debug') &&
-          github.event.inputs.skip_signing != 'true'
-        run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/release.jks
+        if: github.ref_type == 'tag' || github.event.inputs.build_type == 'release' || github.event_name == 'push'
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/release.jks
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-
-      - name: Build AppCtr Core (Gomobile + Patches)
-        run: |
-          cd appctr
-          go install golang.org/x/mobile/cmd/gomobile@latest
-          gomobile init
-          sh build.sh
 
       - name: Determine Gradle command
         id: gradle_command
         run: |
-          if [ "${{ github.event_name }}" == "push" ]; then
+          if [ "${{ github.event_name }}" == "push" ] || [ "${{ github.ref_type }}" == "tag" ]; then
             echo "command=app:assembleRelease" >> "$GITHUB_OUTPUT"
           else
             case "${{ github.event.inputs.build_type }}" in
@@ -93,27 +95,64 @@ jobs:
             esac
           fi
 
-      - name: Build Android App
+      - name: Build APK
         run: |
           chmod +x gradlew
           ./gradlew ${{ steps.gradle_command.outputs.command }} --stacktrace
         env:
-          KEYSTORE_FILE: ${{ (github.event.inputs.skip_signing != 'true') && 'release.jks' || 'debug.keystore' }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          ANDROID_HOME: /usr/local/lib/android/sdk
 
-      - name: Upload APK (artifact)
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: tailscaled-apks
+          name: tailsocks-apks
           path: app/build/outputs/apk/**/*.apk
 
-      - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+  release:
+    name: Create Release
+    needs: build-apk
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download APKs
+        uses: actions/download-artifact@v4
+        with:
+          name: tailsocks-apks
+          path: release-artifacts
+
+      - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: app/build/outputs/apk/**/*.apk
+          files: release-artifacts/**/*.apk
           generate_release_notes: true
           tag_name: ${{ github.ref_name }}
-          name: "Release ${{ github.ref_name }}"
+          name: "TailSocks ${{ github.ref_name }} - Native Local API"
+          body: |
+            ## TailSocks v1.9.0 - The Local API Revolution 🚀
+
+            This release marks the transition from CLI-based management to a high-performance **Native Local API** architecture.
+
+            ### 🏗 Core Changes
+            * **Local API Integration:** Complete removal of slow CLI calls for status, DNS, and connectivity checks.
+            * **Passive State Model:** Improved battery life and stability by trusting the Tailscale daemon's internal state machine.
+            * **Chain CI/CD:** Improved build pipeline with modular Go-core and Android-APK jobs.
+
+            ### 📡 Networking & DNS
+            * **Zero-Latency MagicDNS:** In-memory node cache for instant resolution.
+            * **Split DNS over SOCKS5:** Native support for corporate domain routing.
+            * **Universal Auth:** Support for Headscale and custom control planes via smart URL detection.
+
+            ### 🛠 UX & Settings
+            * **Global Settings:** Centralized networking, DNS, and system flags configuration across all profiles.
+            * **Taildrop Collector:** Reliable background file saving for userspace networking.
+            * **Deep Diagnostics:** Real-time visibility into WireGuard and magicsock telemetry.
+
+            ---
+            *Built with Tailscale Core v1.96.5*
