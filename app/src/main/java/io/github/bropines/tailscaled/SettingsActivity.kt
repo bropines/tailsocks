@@ -203,7 +203,6 @@ fun SettingsScreen(onBack: () -> Unit) {
             SettingsEditItem("DoH Fallback", dohUrl, Icons.Default.Link, placeholder = "https://1.1.1.1/dns-query") { dohUrl = it; saveGlobalPref("doh_url", it) }
 
             SettingsSectionHeader("Global Flags & Logs")
-            SettingsEditItem("Login Server (Headscale)", loginServer, Icons.Default.Cloud, placeholder = "https://controlplane.tailscale.com") { loginServer = it; saveGlobalPref("login_server", it) }
             SettingsSwitchItem("Accept Routes", "Allow network to set routes", Icons.Default.Map, acceptRoutes) { acceptRoutes = it; saveGlobalPref("accept_routes", it) }
             SettingsSwitchItem("Accept DNS", "Allow network to set DNS", Icons.Default.Dns, acceptDns) { acceptDns = it; saveGlobalPref("accept_dns", it) }
             SettingsSwitchItem("Auto-Refresh", "Sync policies every 15s", Icons.Default.Sync, autoRefresh) { autoRefresh = it; saveGlobalPref("auto_refresh", it) }
@@ -214,6 +213,7 @@ fun SettingsScreen(onBack: () -> Unit) {
             HorizontalDivider(Modifier.padding(vertical = 16.dp))
 
             SettingsSectionHeader("Account Settings: ${activeAccount.name}")
+            SettingsEditItem("Login Server (Headscale)", loginServer, Icons.Default.Cloud, placeholder = "https://controlplane.tailscale.com") { loginServer = it; saveProfilePref("login_server", it) }
             SettingsEditItem("Auth Key", authKey, Icons.Default.VpnKey) { authKey = it; saveProfilePref("authkey", it) }
             SettingsEditItem("Hostname", hostname, Icons.Default.Badge, onAction = { android.os.Build.MODEL.replace(" ", "-").lowercase() }, actionIcon = Icons.Default.AutoFixHigh) { hostname = it; saveProfilePref("hostname", it) }
             SettingsExitNodeItem("Exit Node", exitNodeIp, Icons.Default.Input) { exitNodeIp = it; saveProfilePref("exit_node_ip", it) }

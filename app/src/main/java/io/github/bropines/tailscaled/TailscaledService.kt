@@ -193,7 +193,7 @@ class TailscaledService : Service() {
             val hostname = profilePrefs.getString("hostname", "")
             if (!hostname.isNullOrEmpty()) argsBuilder.append("--hostname=$hostname ")
             
-            val loginServer = GlobalSettings.getString(this@TailscaledService, "login_server", "")
+            val loginServer = profilePrefs.getString("login_server", "")
             if (!loginServer.isNullOrEmpty()) argsBuilder.append("--login-server=$loginServer ")
             
             if (GlobalSettings.getBoolean(this@TailscaledService, "accept_routes", false)) {

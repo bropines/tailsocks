@@ -58,5 +58,3 @@ object GlobalSettings {
     fun setBoolean(context: Context, key: String, value: Boolean) = getPrefs(context).edit().putBoolean(key, value).apply()
 
     fun getCPField(context: Context, key: String, default: String = ""): String = getPrefs(context).getString("cp_$key", default) ?: default
-    fun setCPField(context: Context, key: String, value: String) = getPrefs(context).edit().putString("cp_$key", value).apply()
-}
