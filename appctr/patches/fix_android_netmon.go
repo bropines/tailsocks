@@ -61,7 +61,7 @@ func init() {
 		if err != nil {
 			// CRITICAL: On Android 10+ netlink is blocked. 
 			// Returning empty list is better than erroring out and breaking netcheck.
-			return nil, nil 
+			return []netmon.Interface{}, nil 
 		}
 
 		ret := make([]netmon.Interface, len(ifs))

@@ -60,7 +60,7 @@ func init() {
 		// 2. Fallback to anet
 		ifs, err := anet.Interfaces()
 		if err != nil {
-			return nil, nil // Graceful fallback
+			return []netmon.Interface{}, nil // Graceful fallback
 		}
 
 		ret := make([]netmon.Interface, len(ifs))

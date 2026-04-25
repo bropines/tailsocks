@@ -4,10 +4,10 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ## [1.9.1] - 2026-04-25
 ### Fixed
-- **Diagnostics Reliability:** Fixed Gson parsing error in `NetcheckActivity` by ensuring `appctr` always returns valid JSON and checks HTTP status codes.
-- **Native Netcheck:** Implemented native `GetNetcheckFromAPI` using the `tailscale.com/net/netcheck` package within the bridge to bypass daemon limitations on Android.
-- **Android Netmon Mitigation:** Implemented `TS_NET_STATE` environment variable to bridge Android interface states to the `tailscaled` core, resolving `netlinkrib` permission issues.
-- **Improved Diagnostics UI:** Enhanced `NetcheckActivity` to display detailed results including UDP/IPv6 status and DERP latencies.
+- **Diagnostics Reliability:** Fixed panics and Gson parsing errors in `NetcheckActivity`. Implemented "bulletproof" JSON handling for inconsistent Local API responses.
+- **Native Netcheck:** Implemented native `GetNetcheckFromAPI` using Go's `netcheck` package with a static `NetMon` to bypass Android permission issues.
+- **Android Netmon Mitigation:** Integrated `TS_NET_STATE` for seamless interface synchronization between Kotlin and Go core.
+- **Improved Diagnostics UI:** Added detailed network report (UDP, IPv4/v6, NAT type) and a **Copy to Clipboard** feature for easier debugging.
 
 ## [1.9.0] - 2026-04-25
 ### Added

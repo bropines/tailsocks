@@ -21,6 +21,7 @@ import (
 	"tailscale.com/client/local"
 	"tailscale.com/client/web"
 	"tailscale.com/net/netcheck"
+	"tailscale.com/net/netmon"
 	"tailscale.com/tailcfg"
 )
 
@@ -118,6 +119,9 @@ func GetStatusFromAPI() string {
 	data, err := doLocalRequest("GET", "/localapi/v0/status?peers=true", nil)
 	if err != nil {
 		return fmt.Sprintf(`{"Error": %q}`, err.Error())
+	}
+	if len(data) == 0 {
+		return `{"Error": "Status API returned empty response"}`
 	}
 	return string(data)
 }
@@ -254,10 +258,14 @@ func GetNetcheckFromAPI() string {
 		return fmt.Sprintf(`{"Error": "Failed to parse DERP map: %v"}`, err)
 	}
 
-	// 2. Запускаем нативный netcheck
+	// 2. Инициализируем монитор сети (статичный, без шины событий)
+	nm := netmon.NewStatic()
+	defer nm.Close()
+
+	// 3. Запускаем нативный netcheck
 	c := &netcheck.Client{
+		NetMon: nm,
 		Logf: func(format string, args ...any) {
-			// Log to slog
 			slog.Info(fmt.Sprintf("netcheck: "+format, args...))
 		},
 	}
@@ -267,7 +275,11 @@ func GetNetcheckFromAPI() string {
 		return fmt.Sprintf(`{"Error": "Netcheck failed: %v"}`, err)
 	}
 
-	// 3. Возвращаем JSON отчета
+	if report == nil {
+		return `{"Error": "Netcheck returned nil report"}`
+	}
+
+	// 4. Возвращаем JSON отчета
 	res, err := json.Marshal(report)
 	if err != nil {
 		return fmt.Sprintf(`{"Error": "JSON marshal failed: %v"}`, err)
