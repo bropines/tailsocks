@@ -21,12 +21,19 @@ Standard Android applications cannot route UDP packets into a userspace network 
 3.  **Split DNS (TCP-over-SOCKS5):** For domains matching corporate routes (e.g., `therodev.com`), the bridge wraps UDP queries into TCP frames and tunnels them via SOCKS5 to the specific internal resolver IP provided by the netmap.
 4.  **Smart Upstream Fallback:** Public queries (e.g., `google.com`) are attempted via Tailscale's `dns-query` API first. If the daemon returns a `SERVFAIL` (common in userspace-only mode), the bridge automatically falls back to user-configured system/DoH resolvers.
 
-## 4. Taildrop (JNI-less Implementation)
-Official Taildrop usually relies on complex system-level integrations. TailSocks implements a standalone manager:
-*   **Inbound:** Uses the `TS_TAILDROP_DIR` environment variable to point the core to an app-accessible directory. A background watcher in Go notifies the UI of new files.
-*   **Outbound:** Leverages the Android Storage Access Framework (SAF) to read files and streams them directly into the daemon's file-copy logic via the bridge.
+## 4. Native Diagnostics (Netcheck)
+*   **Android Limitations:** Permission restrictions (`netlinkrib: permission denied`) prevent the `tailscaled` daemon from identifying network interfaces, leading to failed diagnostics in the core.
+*   **Solution:** `appctr` implements a native `GetNetcheckFromAPI` method that runs the `tailscale.com/net/netcheck` package within the application process. 
+*   **Interface Synchronization:** Using `TS_NET_STATE` environment variable, the bridge passes interface states (injected from Kotlin) to the core. Netcheck uses a `NewStatic` network monitor to provide accurate STUN/DERP reports bypassing daemon limitations.
 
-## 5. Self-Healing & Stateless Configuration
+## 5. Taildrop & Files API
+TailSocks implements a robust file transfer manager:
+*   **Inbound:** Uses the `TS_TAILDROP_DIR` environment variable to point the core to an app-accessible directory.
+*   **DocumentsProvider:** `TailsocksFileProvider` exposes the app's internal `files` directory to the Android Storage Access Framework (SAF). This allows users to browse Taildrop files using the system "Files" app.
+*   **Outbound:** Leverages the SAF to read files and streams them into the daemon's `file-put` API via the bridge, with proper URL path escaping for reliability.
+
+## 6. Self-Healing & Stateless Configuration
 To mitigate "sticky" routing issues common in userspace engines:
 *   **Explicit State Enforcement:** Every `tailscale up` command includes explicit "negation flags" (e.g., `--exit-node=`) to force the daemon to clear previous settings that are no longer selected in the UI.
 *   **Health Validation Loop:** A background task periodically validates that the selected Exit Node exists in the current account's netmap, automatically clearing the configuration if the node becomes unreachable or invalid.
+*   **Control Plane Proxy:** Supports global SOCKS5/HTTP proxies for coordination server communication. Specifically routes SOCKS5 traffic through `ALL_PROXY` with forced `HTTP_PROXY` clearing to prevent protocol errors (e.g., "unknown Socks version").

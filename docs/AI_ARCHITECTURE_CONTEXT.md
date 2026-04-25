@@ -30,9 +30,14 @@ TailSocks avoids the Android `VpnService` entirely to allow coexistence with oth
 - **MagicDNS:** For internal domains (`*.ts.net`), it wraps UDP queries into TCP frames and tunnels them through the SOCKS5 proxy to `100.100.100.100:53`.
 - **Upstream:** External queries are bypassed to system resolvers.
 
-### 2. NAT Traversal (`magicsock`)
-- **Success Criteria:** `InMagicSock: true` in peer status.
-- **Stability:** Frequent `tailscale up` commands (configuration refreshes) reset the engine and break established P2P paths. **Avoid active management loops.**
+### 2. Native Diagnostics (Netcheck)
+- **Constraint:** `tailscaled` core cannot access `netlink` on Android 10+, making `netcheck` useless in the core daemon.
+- **Solution:** Native implementation in `appctr` using `tailscale.com/net/netcheck` with a `NewStatic` monitor. It uses interface data injected from Kotlin.
+
+### 3. External Control Proxy
+- **Format:** `socks5://user:pass@host:port` or `http://...`
+- **Routing:** SOCKS5 traffic must be routed via `ALL_PROXY`. 
+- **CRITICAL:** When using SOCKS, `HTTP_PROXY` and `HTTPS_PROXY` env variables must be explicitly cleared to prevent Go's default behavior of trying HTTP CONNECT (Error 67).
 
 ## ⚠️ Historical Pitfalls & Critical Fixes
 
@@ -44,26 +49,21 @@ TailSocks avoids the Android `VpnService` entirely to allow coexistence with oth
 - **Problem:** The daemon is stateful. If you stop passing `--exit-node`, it remembers the last one used.
 - **Fix:** We use "Stateless Flags". We explicitly pass negative values (e.g., `--exit-node=`, `--accept-routes=false`) to force the internal state machine to clear when a toggle is switched off in the UI.
 
-### 3. UI State Desync (Watchdog)
-- **Problem:** Depending only on broadcasts is fragile (Service can be killed).
-- **Fix:** A 2-second watchdog in `MainActivity` queries `Appctr.isRunning()` directly. UI state follows process reality, not just intent.
+### 3. Taildrop Pathing
+- **API Change:** Use `/localapi/v0/files` (no trailing slash) to get the file list.
+- **Data Enrichment:** The Local API doesn't return file paths. `appctr` must manually join `TS_TAILDROP_DIR` and the filename to provide valid paths to Kotlin.
 
 ## ⚙️ Intentional Platform Adaptation (Essential Hacks)
 
-The following components may look redundant but are critical for TailSocks functioning alongside Android's limitations and external tools like AdGuard.
-
 ### 1. Manual DNS Proxy (Port 1053)
-- **Why not 100.100.100.100?** Previous attempts to route directly to Tailscale's internal DNS coordinator failed due to Android's SOCKS5 routing quirks.
-- **AdGuard Synergy:** This proxy acts as a bridge for external DNS managers (AdGuard, exclave). It intercepts specific queries and forces them into the TS pool via TCP-wrapping.
 - **Bootstrap:** It allows name resolution to function *before* the system fully recognizes the userspace tunnel.
 
 ### 2. Network State Injection (`InjectNetworkState`)
-- **Purpose:** While the core has its own netmon, Android's process isolation often prevents it from seeing interface changes in real-time.
-- **Diagnostic Support:** This is an attempt to feed the `netcheck` engine enough data to function in a restricted environment.
+- **Purpose:** Feeding the `netcheck` engine and `netmon` enough data to function in a restricted environment.
 
-### 3. Exit Node Auto-Clearing
-- **UI Sync:** Due to the way the Kotlin UI handles IP strings from memory, the daemon can occasionally "choke" on stale or unreachable IPs. The auto-clearing loop prevents the app from getting stuck in a "black hole" routing state.
+### 3. DocumentsProvider (`TailsocksFileProvider`)
+- **Purpose:** Bridges the app's private storage to the system Files app, enabling manual Taildrop file management.
 
 ## 🛠 Engineering Standards & Commit Protocol
-- **Atomic Local Commits:** Always perform a `git commit` (without push) after every logical code change. This ensures transparency and easy diffing between development turns.
+- **Atomic Local Commits:** Always perform a `git commit` after every logical code change.
 - **Push Policy:** Only `git push` when explicitly requested by the user.
