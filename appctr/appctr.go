@@ -364,6 +364,7 @@ type StartOptions struct {
 	Socks5User    string
 	Socks5Pass    string
 	HttpProxy     string
+	ControlProxy  string
 	CloseCallBack Closer
 	AuthKey       string
 	ExtraUpArgs   string
@@ -442,6 +443,7 @@ func ApplySettings(opt *StartOptions) {
 	// Force a full restart if core paths or proxy settings changed.
 	if old.Socks5Server != opt.Socks5Server ||
 		old.HttpProxy != opt.HttpProxy ||
+		old.ControlProxy != opt.ControlProxy ||
 		old.Socks5User != opt.Socks5User ||
 		old.Socks5Pass != opt.Socks5Pass ||
 		old.StatePath != opt.StatePath {
@@ -507,7 +509,7 @@ func Start(opt *StartOptions) {
 	}
 
 	go func() {
-		err := tailscaledCmd(PC, opt.Socks5Server, opt.HttpProxy, opt.Socks5User, opt.Socks5Pass, opt.TaildropDir)
+		err := tailscaledCmd(PC, opt.Socks5Server, opt.HttpProxy, opt.Socks5User, opt.Socks5Pass, opt.TaildropDir, opt.ControlProxy)
 		if err != nil {
 			slog.Error("tailscaled cmd crashed", "err", err)
 		}

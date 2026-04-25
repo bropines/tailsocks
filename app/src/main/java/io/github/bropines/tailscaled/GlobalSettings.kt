@@ -42,4 +42,30 @@ object GlobalSettings {
             .putBoolean(KEY_AUTO_START, enabled)
             .apply()
     }
+
+    // Control Plane Proxy
+    fun getControlProxyUrl(context: Context): String {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val type = prefs.getString("cp_type", "") ?: ""
+        val host = prefs.getString("cp_host", "") ?: ""
+        val port = prefs.getString("cp_port", "") ?: ""
+        val user = prefs.getString("cp_user", "") ?: ""
+        val pass = prefs.getString("cp_pass", "") ?: ""
+
+        if (host.isEmpty()) return ""
+        
+        val auth = if (user.isNotEmpty()) "$user:$pass@" else ""
+        val scheme = type.lowercase().ifEmpty { "socks5" }
+        val p = port.ifEmpty { if (scheme == "http") "8080" else "1080" }
+        
+        return "$scheme://$auth$host:$p"
+    }
+
+    fun getCPField(context: Context, key: String, default: String = ""): String {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString("cp_$key", default) ?: default
+    }
+
+    fun setCPField(context: Context, key: String, value: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putString("cp_$key", value).apply()
+    }
 }

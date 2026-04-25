@@ -60,11 +60,18 @@ fun SettingsScreen(onBack: () -> Unit) {
     var taildropRootUri by remember { mutableStateOf(GlobalSettings.getTaildropRootUri(context)) }
     var autoStart by remember { mutableStateOf(GlobalSettings.isAutoStartEnabled(context)) }
     
+    var cpType by remember { mutableStateOf(GlobalSettings.getCPField(context, "type", "SOCKS5")) }
+    var cpHost by remember { mutableStateOf(GlobalSettings.getCPField(context, "host")) }
+    var cpPort by remember { mutableStateOf(GlobalSettings.getCPField(context, "port")) }
+    var cpUser by remember { mutableStateOf(GlobalSettings.getCPField(context, "user")) }
+    var cpPass by remember { mutableStateOf(GlobalSettings.getCPField(context, "pass")) }
+
     var authKey by remember { mutableStateOf(prefs.getString("authkey", "") ?: "") }
     var socks5 by remember { mutableStateOf(prefs.getString("socks5", "127.0.0.1:48115") ?: "") }
     var socks5User by remember { mutableStateOf(prefs.getString("socks5_user", "") ?: "") }
     var socks5Pass by remember { mutableStateOf(prefs.getString("socks5_pass", "") ?: "") }
     var httpProxy by remember { mutableStateOf(prefs.getString("httpproxy", "") ?: "") }
+    var controlProxy by remember { mutableStateOf(prefs.getString("control_proxy", "") ?: "") }
     var hostname by remember { mutableStateOf(prefs.getString("hostname", "") ?: "") }
     var loginServer by remember { mutableStateOf(prefs.getString("login_server", "") ?: "") }
     var exitNodeIp by remember { mutableStateOf(prefs.getString("exit_node_ip", "") ?: "") }
@@ -156,6 +163,13 @@ fun SettingsScreen(onBack: () -> Unit) {
             SettingsSectionHeader("Global Settings")
             SettingsClickableItem("Taildrop Storage Folder", taildropRootUri?.path ?: "Uses app internal folder", Icons.Default.Folder) { folderPicker.launch(null) }
             SettingsSwitchItem("Auto-start on Boot", "Start TailSocks when device turns on", Icons.Default.PowerSettingsNew, autoStart) { GlobalSettings.setAutoStartEnabled(context, it); autoStart = it }
+
+            SettingsSectionHeader("Control Plane Proxy (Global)")
+            SettingsChoiceItem("Proxy Type", cpType, listOf("SOCKS5", "HTTP"), Icons.Default.Shield) { cpType = it; GlobalSettings.setCPField(context, "type", it); context.startService(Intent(context, TailscaledService::class.java).apply { action = "APPLY_SETTINGS" }) }
+            SettingsEditItem("Proxy Host", cpHost, Icons.Default.Dns, placeholder = "e.g. 1.2.3.4") { cpHost = it; GlobalSettings.setCPField(context, "host", it); context.startService(Intent(context, TailscaledService::class.java).apply { action = "APPLY_SETTINGS" }) }
+            SettingsEditItem("Proxy Port", cpPort, Icons.Default.Info, placeholder = "e.g. 1080") { cpPort = it; GlobalSettings.setCPField(context, "port", it); context.startService(Intent(context, TailscaledService::class.java).apply { action = "APPLY_SETTINGS" }) }
+            SettingsEditItem("Proxy User", cpUser, Icons.Default.Person, placeholder = "Optional") { cpUser = it; GlobalSettings.setCPField(context, "user", it); context.startService(Intent(context, TailscaledService::class.java).apply { action = "APPLY_SETTINGS" }) }
+            SettingsEditItem("Proxy Pass", cpPass, Icons.Default.Password, placeholder = "Optional") { cpPass = it; GlobalSettings.setCPField(context, "pass", it); context.startService(Intent(context, TailscaledService::class.java).apply { action = "APPLY_SETTINGS" }) }
 
             HorizontalDivider(Modifier.padding(vertical = 16.dp))
 
@@ -269,6 +283,45 @@ fun SettingsEditItem(
                 ) 
             },
             confirmButton = { Button(onClick = { onSave(text); showDialog = false }) { Text("Save") } },
+            dismissButton = { TextButton(onClick = { showDialog = false }) { Text("Cancel") } }
+        )
+    }
+}
+
+@Composable
+fun SettingsChoiceItem(
+    title: String,
+    value: String,
+    options: List<String>,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onSave: (String) -> Unit
+) {
+    var showDialog by remember { mutableStateOf(false) }
+    ListItem(
+        headlineContent = { Text(title) },
+        supportingContent = { Text(value) },
+        leadingContent = { Icon(icon, null, tint = MaterialTheme.colorScheme.primary) },
+        modifier = Modifier.clickable { showDialog = true }
+    )
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text(title) },
+            text = {
+                Column {
+                    options.forEach { option ->
+                        Row(
+                            Modifier.fillMaxWidth().clickable { onSave(option); showDialog = false }.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(selected = (option == value), onClick = null)
+                            Spacer(Modifier.width(16.dp))
+                            Text(option)
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
             dismissButton = { TextButton(onClick = { showDialog = false }) { Text("Cancel") } }
         )
     }

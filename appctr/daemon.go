@@ -10,7 +10,7 @@ import (
 
 // Переменные cmd и stateMu удалены, так как они уже есть в appctr.go
 
-func tailscaledCmd(p pathControl, socksAddr, httpAddr, socksUser, socksPass, taildropDir string) error {
+func tailscaledCmd(p pathControl, socksAddr, httpAddr, socksUser, socksPass, taildropDir, controlProxy string) error {
 	rm(p.Tailscale(), p.Tailscaled())
 	ln(p.TailscaleCliSo(), p.Tailscale())
 	ln(p.TailscaledSo(), p.Tailscaled())
@@ -39,6 +39,14 @@ func tailscaledCmd(p pathControl, socksAddr, httpAddr, socksUser, socksPass, tai
 		"TS_AUTH_ONCE=true",
 		"TS_NET_STATE="+netState,
 	)
+
+	if controlProxy != "" {
+		c.Env = append(c.Env,
+			"HTTP_PROXY="+controlProxy,
+			"HTTPS_PROXY="+controlProxy,
+			"ALL_PROXY="+controlProxy,
+		)
+	}
 	if taildropDir != "" {
 		c.Env = append(c.Env, "TS_TAILDROP_DIR="+taildropDir)
 	}

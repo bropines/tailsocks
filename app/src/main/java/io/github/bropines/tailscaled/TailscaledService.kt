@@ -171,6 +171,7 @@ class TailscaledService : Service() {
             socks5User   = profilePrefs.getString("socks5_user", "")
             socks5Pass   = profilePrefs.getString("socks5_pass", "")
             httpProxy    = profilePrefs.getString("httpproxy", "")
+            controlProxy = GlobalSettings.getControlProxyUrl(this@TailscaledService)
             dnsProxy     = profilePrefs.getString("dns_proxy", "127.0.0.1:1053") ?: "127.0.0.1:1053"
             dnsFallbacks = profilePrefs.getString("dns_fallbacks", "8.8.8.8:53,1.1.1.1:53")
             dohFallback  = profilePrefs.getString("doh_url", "https://1.1.1.1/dns-query")
