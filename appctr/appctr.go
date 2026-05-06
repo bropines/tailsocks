@@ -178,7 +178,7 @@ func GetStatusFromAPI() string {
 	if !IsRunning() {
 		return `{"Error": "Tailscaled is not running."}`
 	}
-	// Важно: peers=true заставляет API вернуть список всех нод
+	slog.Info("LocalAPI: [GET] /localapi/v0/status?peers=true")
 	data, err := doLocalRequest("GET", "/localapi/v0/status?peers=true", nil)
 	if err != nil {
 		return fmt.Sprintf(`{"Error": %q}`, err.Error())
@@ -249,6 +249,7 @@ func GetDnsStatusJSON() string {
 }
 
 func NativeDnsQuery(domain, qtype string) string {
+	slog.Info("LocalAPI: DNS Query", "domain", domain, "type", qtype)
 	stateMu.Lock()
 	opt := lastOptions
 	stateMu.Unlock()
@@ -310,6 +311,7 @@ func GetNetcheckFromAPI() string {
 		return `{"Error": "Tailscaled is not running."}`
 	}
 
+	slog.Info("LocalAPI: [GET] /localapi/v0/derpmap (for netcheck)")
 	// 1. Получаем DERP map из демона
 	data, err := doLocalRequest("GET", "/localapi/v0/derpmap", nil)
 	if err != nil {
@@ -342,6 +344,7 @@ func GetNetcheckFromAPI() string {
 		return `{"Error": "Netcheck returned nil report"}`
 	}
 
+	slog.Info("LocalAPI: Netcheck completed")
 	// 4. Возвращаем JSON отчета
 	res, err := json.Marshal(report)
 	if err != nil {
@@ -452,6 +455,7 @@ func SetPrefs(prefsJson string) string {
 	if !IsRunning() {
 		return "Error: Tailscaled is not running."
 	}
+	slog.Info("LocalAPI: [PATCH] /localapi/v0/prefs", "payload", prefsJson)
 	// Tailscale LocalAPI использует PATCH для частичного обновления настроек (EditPrefs)
 	_, err := doLocalRequest("PATCH", "/localapi/v0/prefs", strings.NewReader(prefsJson))
 	if err != nil {
@@ -466,6 +470,7 @@ func DoLocalAPIRequest(method, path, body string) string {
 	if !IsRunning() {
 		return "Error: Tailscaled is not running."
 	}
+	slog.Info("LocalAPI: Manual Request", "method", method, "path", path)
 	var b io.Reader
 	if body != "" {
 		b = strings.NewReader(body)
