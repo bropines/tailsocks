@@ -446,6 +446,36 @@ func GetCoreVersion() string {
 	return coreVersion
 }
 
+// SetPrefs обновляет настройки через LocalAPI (например, Exit Nodes).
+// prefsJson должен быть JSON-строкой структуры ipn.MaskedPrefs.
+func SetPrefs(prefsJson string) string {
+	if !IsRunning() {
+		return "Error: Tailscaled is not running."
+	}
+	_, err := doLocalRequest("POST", "/localapi/v0/prefs", strings.NewReader(prefsJson))
+	if err != nil {
+		return "Error: " + err.Error()
+	}
+	return "OK"
+}
+
+// DoLocalAPIRequest выполняет произвольный запрос к LocalAPI.
+// Возвращает ответ в виде строки (обычно JSON).
+func DoLocalAPIRequest(method, path, body string) string {
+	if !IsRunning() {
+		return "Error: Tailscaled is not running."
+	}
+	var b io.Reader
+	if body != "" {
+		b = strings.NewReader(body)
+	}
+	data, err := doLocalRequest(method, path, b)
+	if err != nil {
+		return "Error: " + err.Error()
+	}
+	return string(data)
+}
+
 type Closer interface {
 	Close() error
 }

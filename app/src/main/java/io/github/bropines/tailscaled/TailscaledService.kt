@@ -208,18 +208,10 @@ class TailscaledService : Service() {
                 argsBuilder.append("--accept-dns=false ")
             }
             
-            val exitNodeIp = profilePrefs.getString("exit_node_ip", "")
-            if (!exitNodeIp.isNullOrEmpty()) {
-                argsBuilder.append("--exit-node=$exitNodeIp ")
-                if (profilePrefs.getBoolean("exit_node_allow_lan", false)) {
-                    argsBuilder.append("--exit-node-allow-lan-access=true ")
-                } else {
-                    argsBuilder.append("--exit-node-allow-lan-access=false ")
-                }
-            } else {
-                argsBuilder.append("--exit-node= ")
-            }
-            
+            // Exit Nodes теперь управляются динамически через LocalAPI (Appctr.setPrefs)
+            // в SettingsActivity. Мы больше не передаем их в 'up', чтобы не перезапускать 
+            // конфигурацию без необходимости.
+
             if (profilePrefs.getBoolean("advertise_exit_node", false)) {
                 argsBuilder.append("--advertise-exit-node=true ")
             } else {

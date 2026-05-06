@@ -59,28 +59,22 @@ func RunTailscaleArgs(parts ...string) string {
 }
 
 func GetLoginURL() string {
-	out := RunTailscaleCmd("status")
-	// Tailscale status output usually contains the login URL in a line starting with https://
-	// or after "To authenticate, visit:"
-	lines := strings.Split(out, "\n")
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if strings.Contains(trimmed, "https://") {
-			// Look for the start of the URL
-			idx := strings.Index(trimmed, "https://")
-			if idx != -1 {
-				// Potential URL found. Check if it's likely an auth URL.
-				// In CLI output, it's often the only URL or follows a specific prompt.
-				urlPart := trimmed[idx:]
-				// Split by space to get just the URL if there's trailing text
-				fields := strings.Fields(urlPart)
-				if len(fields) > 0 {
-					return fields[0]
-				}
-			}
-		}
+	if !IsRunning() {
+		return ""
 	}
-	return ""
+	data, err := doLocalRequest("GET", "/localapi/v0/status", nil)
+	if err != nil {
+		return ""
+	}
+
+	type status struct {
+		AuthURL string `json:"AuthURL"`
+	}
+	var s status
+	if err := json.Unmarshal(data, &s); err != nil {
+		return ""
+	}
+	return s.AuthURL
 }
 
 func registerMachineWithAuthKey(PC pathControl, opt *StartOptions) {

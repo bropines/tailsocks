@@ -5,7 +5,10 @@ All notable changes to the TailSocks project will be documented in this file. Th
 ## [1.9.0] - 2026-04-25
 ### Added
 - **Native Local API Integration:** Replaced major CLI calls (`status`, `netcheck`, `dns query`) with high-performance HTTP requests to the `tailscaled` Unix socket.
-- **Control Plane Proxy:** Added global settings to use an external SOCKS5/HTTP proxy for Tailscale coordination server requests. Supports authentication and easy configuration via separate fields (Type, Host, Port, User, Pass).
+- **Dynamic Exit Nodes:** Switching exit nodes now uses `POST /localapi/v0/prefs`, allowing instant updates without restarting the configuration or daemon.
+- **Enhanced LocalAPI Console:** The built-in terminal now supports direct HTTP requests to the local daemon (e.g., `/GET /localapi/v0/status`). Added presets for common API endpoints.
+- **Control Plane Proxy:** Added global settings to use an external SOCKS5/HTTP proxy for Tailscale coordination server requests.
+ Supports authentication and easy configuration via separate fields (Type, Host, Port, User, Pass).
 - **Reactive DNS Engine:** Implemented `IPN Bus Listener` using mask `1032` for real-time `NetMap` and `SplitDNSRoutes` synchronization.
 - **Zero-Latency MagicDNS:** In-memory node cache for FQDN and short-name resolution (0ms lookup time).
 - **Split DNS over SOCKS5:** Native TCP-wrapped DNS forwarding for corporate domains (e.g., `*.therodev.com`) through the SOCKS5 proxy.

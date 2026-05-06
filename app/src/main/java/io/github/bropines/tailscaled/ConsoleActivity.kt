@@ -111,10 +111,28 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
         if (commandHistory.isEmpty() || commandHistory.last() != cmd) commandHistory.add(cmd)
         historyPointer = -1
         isExecuting = true
-        outputText += "\n$ tailscale $cmd"
+        
+        val isLocalAPI = cmd.startsWith("/")
+        if (isLocalAPI) {
+            outputText += "\n$ LocalAPI $cmd"
+        } else {
+            outputText += "\n$ tailscale $cmd"
+        }
         
         coroutineScope.launch(Dispatchers.IO) {
-            val result = try { Appctr.runTailscaleCmd(cmd) } catch (e: Exception) { "Error: ${e.message}" }
+            val result = try { 
+                if (isLocalAPI) {
+                    // Парсим команду вида "/GET /localapi/v0/status [body]"
+                    val parts = cmd.trim().split(" ", limit = 3)
+                    val method = parts[0].removePrefix("/").uppercase()
+                    val path = if (parts.size > 1) parts[1] else "/"
+                    val body = if (parts.size > 2) parts[2] else ""
+                    Appctr.doLocalAPIRequest(method, path, body)
+                } else {
+                    Appctr.runTailscaleCmd(cmd) 
+                }
+            } catch (e: Exception) { "Error: ${e.message}" }
+            
             withContext(Dispatchers.Main) {
                 outputText += "\n$result\n$ "
                 isExecuting = false
@@ -146,7 +164,7 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
                 Column {
                     LazyRow(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         item { TextButton(onClick = { showAddPresetDialog = true }) { Text("+ Add") } }
-                        val basePresets = listOf("status", "netcheck", "ping 8.8.8.8")
+                        val basePresets = listOf("status", "/GET /localapi/v0/status", "/GET /localapi/v0/prefs", "netcheck", "ping 8.8.8.8")
                         items(basePresets + customPresets) { preset ->
                             ElevatedButton(onClick = { executeCmd(preset) }, modifier = Modifier.padding(horizontal = 4.dp)) { Text(preset) }
                         }

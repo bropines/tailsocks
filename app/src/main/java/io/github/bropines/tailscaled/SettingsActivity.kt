@@ -407,6 +407,21 @@ fun SettingsExitNodeItem(
     var exitNodes by remember { mutableStateOf<List<PeerData>>(emptyList()) }
     var isLoading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    fun applyExitNode(ip: String) {
+        onSave(ip)
+        scope.launch(Dispatchers.IO) {
+            // Mask 512 = ExitNodeID
+            val prefsJson = "{\"ExitNodeID\": \"$ip\", \"Mask\": 512}"
+            val res = Appctr.setPrefs(prefsJson)
+            if (res != "OK") {
+                withContext(Dispatchers.Main) {
+                    android.widget.Toast.makeText(context, "LocalAPI Error: $res", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
 
     ListItem(
         headlineContent = { Text(title) },
@@ -445,7 +460,7 @@ fun SettingsExitNodeItem(
                             ListItem(
                                 headlineContent = { Text("None") },
                                 leadingContent = { Icon(Icons.Default.Clear, null) },
-                                modifier = Modifier.clickable { onSave(""); showDialog = false }
+                                modifier = Modifier.clickable { applyExitNode(""); showDialog = false }
                             )
                         }
                         items(exitNodes.size) { i ->
@@ -454,7 +469,7 @@ fun SettingsExitNodeItem(
                                 headlineContent = { Text(node.getDisplayName()) },
                                 supportingContent = { Text(node.getPrimaryIp()) },
                                 leadingContent = { Icon(Icons.Default.VpnKey, null) },
-                                modifier = Modifier.clickable { onSave(node.getPrimaryIp()); showDialog = false }
+                                modifier = Modifier.clickable { applyExitNode(node.getPrimaryIp()); showDialog = false }
                             )
                         }
                     }
