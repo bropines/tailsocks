@@ -95,7 +95,6 @@ fun PeersScreen(onBack: () -> Unit) {
             TopAppBar(title = { Text("Network Devices") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
                 actions = { IconButton(onClick = { 
-                    Appctr.forceRefresh()
                     loadPeers() 
                 }) { Icon(Icons.Default.Refresh, "Refresh") } })
         }

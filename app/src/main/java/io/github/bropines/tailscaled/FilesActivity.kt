@@ -156,7 +156,6 @@ fun FilesScreen(onBack: () -> Unit) {
                 TopAppBar(title = { Column { Text("Taildrop Hub"); Text(activeAccount.name, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary) } },
                     navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
                     actions = { IconButton(onClick = { 
-                        Appctr.forceRefresh(); 
                         refreshData();
                         android.util.Log.d("TaildropDebug", "Dir contents: ${Appctr.getTaildropDirContents()}")
                     }) { Icon(Icons.Default.Refresh, "Refresh") } })
@@ -174,7 +173,7 @@ fun FilesScreen(onBack: () -> Unit) {
                 0 -> if (files.isEmpty() && !isLoading) EmptyState(Icons.Default.Inbox, "No incoming files") 
                     else LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(files) { f -> FileCard(f, { openTaildropFile(context, f) }, { handleSaveRequest(f) }, { 
-                            val deleted = if (BuildConfig.IS_DEV) Appctr.deleteTaildropFileFromAPI(f.Name) else Appctr.deleteTaildropFile(f.Path)
+                            val deleted = Appctr.deleteTaildropFileFromAPI(f.Name)
                             if (deleted) refreshData() 
                         }) }
                     }
@@ -245,7 +244,7 @@ private suspend fun sendSingleFileInActivity(context: Context, uri: Uri, peer: P
         val tmp = File(outDir, originalName)
         context.contentResolver.openInputStream(uri)?.use { i -> tmp.outputStream().use { o -> i.copyTo(o); o.flush() } }
         onProgress("Uploading...")
-        val res = if (BuildConfig.IS_DEV && !peer.id.isNullOrEmpty()) {
+        val res = if (!peer.id.isNullOrEmpty()) {
             Appctr.sendFileFromAPI(peer.id, tmp.absolutePath)
         } else {
             val target = peer.hostName ?: peer.dnsName ?: peer.getDisplayName()

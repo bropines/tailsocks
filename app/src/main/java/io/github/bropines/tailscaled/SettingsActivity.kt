@@ -113,14 +113,16 @@ fun SettingsScreen(onBack: () -> Unit) {
         context.startService(Intent(context, TailscaledService::class.java).apply { action = "APPLY_SETTINGS" })
     }
 
-    fun saveProfilePref(key: String, value: Any?) {
+    fun saveProfilePref(key: String, value: Any?, triggerService: Boolean = true) {
         val editor = profilePrefs.edit()
         when (value) {
             is String -> editor.putString(key, value)
             is Boolean -> editor.putBoolean(key, value)
         }
         editor.apply()
-        context.startService(Intent(context, TailscaledService::class.java).apply { action = "APPLY_SETTINGS" })
+        if (triggerService) {
+            context.startService(Intent(context, TailscaledService::class.java).apply { action = "APPLY_SETTINGS" })
+        }
     }
 
     fun copySagerNetLink() {
@@ -216,7 +218,10 @@ fun SettingsScreen(onBack: () -> Unit) {
             SettingsEditItem("Login Server (Headscale)", loginServer, Icons.Default.Cloud, placeholder = "https://controlplane.tailscale.com") { loginServer = it; saveProfilePref("login_server", it) }
             SettingsEditItem("Auth Key", authKey, Icons.Default.VpnKey) { authKey = it; saveProfilePref("authkey", it) }
             SettingsEditItem("Hostname", hostname, Icons.Default.Badge, onAction = { android.os.Build.MODEL.replace(" ", "-").lowercase() }, actionIcon = Icons.Default.AutoFixHigh) { hostname = it; saveProfilePref("hostname", it) }
-            SettingsExitNodeItem("Exit Node", exitNodeIp, Icons.Default.Input) { exitNodeIp = it; saveProfilePref("exit_node_ip", it) }
+            SettingsExitNodeItem("Exit Node", exitNodeIp, Icons.Default.Input) { 
+                exitNodeIp = it; 
+                saveProfilePref("exit_node_ip", it, triggerService = false) 
+            }
 
             SettingsSectionHeader("Web Interface")
             SettingsSwitchItem("Enable Web UI", "Run built-in Tailscale web server", Icons.Default.Web, enableWebUI) { enableWebUI = it; saveProfilePref("enable_webui", it) }

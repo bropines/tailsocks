@@ -166,6 +166,10 @@ class TailscaledService : Service() {
         val stateDir = "${filesDir.absolutePath}/states/${activeAccount.id}"
         java.io.File(stateDir).mkdirs()
 
+        val accRoutes = GlobalSettings.getBoolean(this@TailscaledService, "accept_routes", false)
+        val accDNS = GlobalSettings.getBoolean(this@TailscaledService, "accept_dns", true)
+        val host = profilePrefs.getString("hostname", "") ?: ""
+
         return StartOptions().apply {
             socks5Server = GlobalSettings.getString(this@TailscaledService, "socks5", "127.0.0.1:48115")
             socks5User   = GlobalSettings.getString(this@TailscaledService, "socks5_user", "")
@@ -189,24 +193,19 @@ class TailscaledService : Service() {
             doReset      = profilePrefs.getBoolean("do_reset", false)
             if (doReset) profilePrefs.edit().putBoolean("do_reset", false).apply()
 
+            // Передаем флаги напрямую для LocalAPI синхронизации в Go
+            hostname = host
+            acceptRoutes = accRoutes
+            acceptDNS = accDNS
+
             val argsBuilder = StringBuilder()
-            val hostname = profilePrefs.getString("hostname", "")
-            if (!hostname.isNullOrEmpty()) argsBuilder.append("--hostname=$hostname ")
+            if (host.isNotEmpty()) argsBuilder.append("--hostname=$host ")
             
             val loginServer = profilePrefs.getString("login_server", "")
             if (!loginServer.isNullOrEmpty()) argsBuilder.append("--login-server=$loginServer ")
             
-            if (GlobalSettings.getBoolean(this@TailscaledService, "accept_routes", false)) {
-                argsBuilder.append("--accept-routes=true ")
-            } else {
-                argsBuilder.append("--accept-routes=false ")
-            }
-            
-            if (GlobalSettings.getBoolean(this@TailscaledService, "accept_dns", true)) {
-                argsBuilder.append("--accept-dns=true ")
-            } else {
-                argsBuilder.append("--accept-dns=false ")
-            }
+            argsBuilder.append("--accept-routes=$accRoutes ")
+            argsBuilder.append("--accept-dns=$accDNS ")
             
             // Exit Nodes теперь управляются динамически через LocalAPI (Appctr.setPrefs)
             // в SettingsActivity. Мы больше не передаем их в 'up', чтобы не перезапускать 

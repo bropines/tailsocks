@@ -505,6 +505,9 @@ type StartOptions struct {
 	EnableWebUI   bool
 	WebUIAddr     string
 	TaildropDir   string
+	Hostname      string
+	AcceptRoutes  bool
+	AcceptDNS     bool
 }
 
 var nullOptions = &StartOptions{}
@@ -598,9 +601,50 @@ func ApplySettings(opt *StartOptions) {
 		RestartDNS()
 	}
 
-	// 4. Synchronize other settings (hostname, tags, etc.) via ReUp.
-	// This preserves the current session and waits for Netmap synchronization.
-	ReUp()
+	// 4. Dynamic sync via LocalAPI (Replacing CLI 'up' for simple changes)
+	// We only use CLI 'up' for initial registration or if AuthKey changed.
+	if opt.AuthKey != "" && opt.AuthKey != old.AuthKey {
+		slog.Info("AuthKey changed, triggering full ReUp")
+		ReUp()
+		return
+	}
+
+	if opt.DoReset {
+		slog.Info("Reset requested, triggering full ReUp")
+		ReUp()
+		return
+	}
+
+	// For other changes (hostname, accept-routes, etc.), use LocalAPI PATCH.
+	// This is much faster and doesn't trigger "applying configuration" CLI logs.
+	go func() {
+		// Wait a bit for the daemon to be fully stable if it just started
+		time.Sleep(500 * time.Millisecond)
+		
+		prefs := make(map[string]interface{})
+		
+		// Map our options to Tailscale Prefs
+		if opt.Hostname != "" { 
+			prefs["Hostname"] = opt.Hostname
+			prefs["HostnameSet"] = true
+		}
+		
+		// AcceptRoutes maps to RouteAll in Prefs
+		prefs["RouteAll"] = opt.AcceptRoutes
+		prefs["RouteAllSet"] = true
+		
+		// AcceptDNS maps to CorpDNS in Prefs
+		prefs["CorpDNS"] = opt.AcceptDNS
+		prefs["CorpDNSSet"] = true
+		
+		// WantRunning is always true for us
+		prefs["WantRunning"] = true
+		prefs["WantRunningSet"] = true
+
+		jsonData, _ := json.Marshal(prefs)
+		slog.Info("Syncing settings via LocalAPI", "payload", string(jsonData))
+		SetPrefs(string(jsonData))
+	}()
 }
 
 func ReUp() {
