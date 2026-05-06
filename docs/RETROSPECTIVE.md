@@ -25,13 +25,12 @@ We realized that the Tailscale daemon is a highly capable state machine that man
 2.  **Watchdog Monitoring:** The UI now observes the daemon's state via non-intrusive status queries and a process-check watchdog, rather than trying to control it.
 3.  **Isolation Priority:** Stability is achieved through clean filesystem isolation (unique state paths) rather than constant intervention.
 
-**Update (2026-04-25): The Local API & Native Core Evolution**
-Transitioning from CLI-based status polling to a reactive Local API model has marked the second major evolution of TailSocks.
--   **The "Mask 1032" Breakthrough:** Discovered that combining `NotifyInitialNetMap` (1024) and `NotifyEngine` (8) in the IPN bus listener provides immediate, high-fidelity network state that is otherwise hidden in standard status calls.
--   **CLI Overhead Elimination:** Moving informative screens (Peers, DNS, Netcheck) to native Go-HTTP requests reduced UI latency by ~80% and significantly improved battery efficiency by avoiding sub-process spawning.
--   **Native Netcheck Fix:** Overcame `netlinkrib` permission issues on Android 10+ by running the `netcheck` logic within the bridge process using a static network monitor and Kotlin-injected interface states.
--   **Proxy Protocol Pitfalls:** Learned that Go's proxy environment variables (`HTTP_PROXY`) can lead to protocol errors (SOCKS version 67) if not managed strictly. Correct implementation for SOCKS5 requires using `ALL_PROXY` and explicitly clearing `HTTP_PROXY`.
--   **Taildrop on Tagged Devices:** Confirmed that Tailscale explicitly disables Taildrop (returns 404/403) for nodes with Tags, as they lack a user-owned "Inbox".
+**Update (2026-05-06): Full Local API Sovereignty & Serve/Funnel**
+The project has reached 100% independence from CLI binary calls for lifecycle management.
+- **The ETag Breakthrough:** Discovered that Tailscale's `ServeConfig` API requires strict ETag synchronization via `If-Match` headers. Failure to provide a fresh ETag results in persistent 500 errors, which was resolved by embedding ETag extraction into the Go HTTP transport.
+- **Virtual Service Identity:** Successfully implemented Tailscale Services, allowing the Android client to host named virtual nodes (`svc:*`). This proved that the Android PIE daemon is capable of full L7 service advertisement.
+- **Proxy limitations on Android:** Confirmed that the Tailscale network stack on Android has deeply ingrained restrictions against SOCKS5 outbound proxies. Even with `netns` patching and `SetProxyFunc` hooks, the daemon prefers native HTTP proxies.
+- **Event Bus Maximization:** Moving to Mask `4095` eliminated all "stale state" issues in the UI, as the app now receives immediate delta updates for NetMap and Peers.
 
 **Conclusion:**
 Moving away from the PoC "active" model to a professional "passive" bridge and eventually to a native Local API architecture has resulted in the most stable and performant build of TailSocks to date.

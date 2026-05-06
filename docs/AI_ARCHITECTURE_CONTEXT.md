@@ -12,15 +12,17 @@ TailSocks avoids the Android `VpnService` entirely to allow coexistence with oth
 - **Mechanism:** Android extracts `.so` files from the APK's `jniLibs` into `applicationInfo.nativeLibraryDir` with execute (+x) permissions. We symlink them back to the data folder for path consistency.
 
 ### 2. The Communication Layer (`appctr`)
-- **Bridge:** A Go module (`appctr`) compiled via `gomobile bind` into an `.aar`.
-- **Lifecycle:** It spawns `tailscaled` as a subprocess via `os/exec`.
-- **API:** It provides a JNI-friendly interface for Kotlin to run CLI commands, manage logs, and control the daemon.
+- **Bridge:** A modular Go core (`appctr`) separated into `localapi.go`, `status.go`, `netcheck.go`, `dns.go`, and `taildrop.go` for better maintainability.
+- **Lifecycle:** 100% native control via LocalAPI. Spawns `tailscaled` and manages it via Unix socket requests (`/start`, `/logout`, `/prefs`). CLI binary calls are eliminated for standard operations.
+- **Serve & Funnel:** Managed via `POST /localapi/v0/serve-config`. 
+    - **CRITICAL:** Requires `ETag` synchronization. `GetServeConfig` embeds the ETag into the JSON, and `SetServeConfig` must extract it to populate the `If-Match` header.
+- **Event Bus:** Uses `/localapi/v0/watch-ipn-bus?mask=4095` for full real-time network state sync (Peers, NetMap, State).
 
 ### 3. Account Isolation
 - **Structure:** Each account has a unique ID.
 - **FS Isolation:** State is stored in `files/states/{id}/`.
 - **Preference Isolation:** Settings are in `appctr_{id}` SharedPreferences.
-- **Switching:** Requires a full daemon restart to swap the `--statedir` and machine keys.
+- **Switching:** Requires a full daemon restart to swap the `--statedir` and machine keys. Exit Nodes are strictly isolated per-profile and force-cleared via `PATCH /prefs` during switching.
 
 ## 📡 Networking & DNS
 
@@ -28,15 +30,15 @@ TailSocks avoids the Android `VpnService` entirely to allow coexistence with oth
 - **Problem:** No `VpnService` means no way to intercept system UDP/53 queries.
 - **Solution:** A custom Go DNS server on `127.0.0.1:1053`.
 - **MagicDNS:** For internal domains (`*.ts.net`), it wraps UDP queries into TCP frames and tunnels them through the SOCKS5 proxy to `100.100.100.100:53`.
-- **Upstream:** External queries are bypassed to system resolvers.
+- **Reliability:** `appctr.GetSelfDNSName` provides the official hostname directly from the daemon status for building service links.
 
 ### 2. Native Diagnostics (Netcheck)
-- **Constraint:** `tailscaled` core cannot access `netlink` on Android 10+, making `netcheck` useless in the core daemon.
-- **Solution:** Native implementation in `appctr` using `tailscale.com/net/netcheck` with a `NewStatic` monitor. It uses interface data injected from Kotlin.
+- **Constraint:** `tailscaled` core cannot access `netlink` on Android 10+.
+- **Solution:** Native implementation in `appctr/netcheck.go` using `tailscale.com/net/netcheck` with a `NewStatic` monitor.
 
 ### 3. External Control Proxy
-- **Format:** `socks5://user:pass@host:port` or `http://...`
-- **Routing:** SOCKS5 traffic must be routed via `ALL_PROXY`. 
+- **Constraint:** Android network stack often ignores SOCKS5 environment variables.
+- **Best Practice:** Prefer HTTP proxies via `HTTP_PROXY`. If SOCKS5 is used, it's routed via `ALL_PROXY`.
 - **CRITICAL:** When using SOCKS, `HTTP_PROXY` and `HTTPS_PROXY` env variables must be explicitly cleared to prevent Go's default behavior of trying HTTP CONNECT (Error 67).
 
 ## ⚠️ Historical Pitfalls & Critical Fixes
@@ -47,23 +49,11 @@ TailSocks avoids the Android `VpnService` entirely to allow coexistence with oth
 
 ### 2. "Sticky" Configurations
 - **Problem:** The daemon is stateful. If you stop passing `--exit-node`, it remembers the last one used.
-- **Fix:** We use "Stateless Flags". We explicitly pass negative values (e.g., `--exit-node=`, `--accept-routes=false`) to force the internal state machine to clear when a toggle is switched off in the UI.
+- **Fix:** We use "Stateless Flags" and explicit `PATCH` requests to zero-out fields (e.g., `ExitNodeID: "", ExitNodeIP: ""`).
 
-### 3. Taildrop Pathing
-- **API Change:** Use `/localapi/v0/files` (no trailing slash) to get the file list.
-- **Data Enrichment:** The Local API doesn't return file paths. `appctr` must manually join `TS_TAILDROP_DIR` and the filename to provide valid paths to Kotlin.
-
-## ⚙️ Intentional Platform Adaptation (Essential Hacks)
-
-### 1. Manual DNS Proxy (Port 1053)
-- **Bootstrap:** It allows name resolution to function *before* the system fully recognizes the userspace tunnel.
-
-### 2. Network State Injection (`InjectNetworkState`)
-- **Purpose:** Feeding the `netcheck` engine and `netmon` enough data to function in a restricted environment.
-
-### 3. DocumentsProvider (`TailsocksFileProvider`)
-- **Purpose:** Bridges the app's private storage to the system Files app, enabling manual Taildrop file management.
+### 3. JNI Stability
+- **Guard:** All critical JNI entry points in `appctr` use `recover()` to prevent a Go panic from crashing the host Android JVM.
 
 ## 🛠 Engineering Standards & Commit Protocol
 - **Atomic Local Commits:** Always perform a `git commit` after every logical code change.
-- **Push Policy:** Only `git push` when explicitly requested by the user.
+- **Release Strategy:** Major feature updates (like full LocalAPI migration) trigger a minor version bump (e.g., v1.10.0).

@@ -7,13 +7,10 @@ This document outlines the planned features, architectural improvements, and ref
 - [x] **File Sharing:** Taildrop implementation with Storage Access Framework integration.
 - [x] **Profile Isolation:** Multi-account system with independent state persistence.
 - [x] **Connectivity:** Custom DNS wrapping and Exit Node support.
+- [x] **Tailscale Serve/Funnel:** Native UI for service hosting and public internet exposure.
+- [x] **Local API v2:** 100% CLI-less operation via Go-HTTP bridge.
 
 ## Short-Term Goals
-- **Code Modernization:** Refactor `MainActivity` to utilize `ViewModel` patterns for state management.
+- **Service Monitoring:** Add health checks and request logs for hosted Serve/Funnel services.
+- **Advanced Networking:** Support for custom DERP maps and regional routing overrides.
 - **System Integration:** Implement Quick Settings Tiles for rapid connectivity toggling and account switching.
-- **Enhanced Monitoring:** Add real-time throughput graphs to the diagnostics interface.
-
-## Long-Term Goals
-- **Tailscale Serve/Funnel:** Implement support for exposing local services to the Tailnet.
-- **Architectural Hybridization:** Evaluate the integration of `tsnet` for specific features while maintaining the performance of the standalone daemon.
-- **VPN Mode:** Explore optional `VpnService` integration for transparent routing as an alternative to the proxy mode.

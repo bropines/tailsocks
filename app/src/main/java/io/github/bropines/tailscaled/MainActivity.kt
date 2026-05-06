@@ -527,7 +527,9 @@ fun MainScreen() {
                 MenuCard(title = "Settings", icon = Icons.Default.Settings, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                     context.startActivity(Intent(context, SettingsActivity::class.java))
                 }
-                Spacer(modifier = Modifier.weight(1f).padding(start = 8.dp))
+                MenuCard(title = "Serve", icon = Icons.Default.Public, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                    context.startActivity(Intent(context, ServeActivity::class.java))
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))

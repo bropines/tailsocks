@@ -47,6 +47,7 @@
                 android:resource="@xml/file_paths" />
         </provider>
         <activity android:name=".DnsActivity" android:exported="false" />
+        <activity android:name=".ServeActivity" android:exported="false" />
         <activity android:name=".ConsoleActivity" android:exported="false" android:windowSoftInputMode="adjustResize"/>
         <activity android:name=".PeersActivity" android:exported="false" />
 
