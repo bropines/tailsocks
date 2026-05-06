@@ -64,7 +64,7 @@ func listenToBus(ctx context.Context) error {
 		},
 	}
 
-	req, _ := http.NewRequestWithContext(ctx, "GET", "http://local-tailscaled.sock/localapi/v0/watch-ipn-bus?mask=1032", nil)
+	req, _ := http.NewRequestWithContext(ctx, "GET", "http://local-tailscaled.sock/localapi/v0/watch-ipn-bus?mask=8", nil)
 	resp, err := client.Do(req)
 	if err != nil { return err }
 	defer resp.Body.Close()
