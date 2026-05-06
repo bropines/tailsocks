@@ -412,8 +412,9 @@ fun SettingsExitNodeItem(
     fun applyExitNode(ip: String) {
         onSave(ip)
         scope.launch(Dispatchers.IO) {
-            // Mask 512 = ExitNodeID
-            val prefsJson = "{\"ExitNodeID\": \"$ip\", \"Mask\": 512}"
+            // В новых версиях Tailscale (v1.68+) MaskedPrefs использует индивидуальные bool-флаги 'Set'.
+            // ExitNodeIDSet: true сообщает демону, что мы хотим применить это поле.
+            val prefsJson = "{\"ExitNodeID\": \"$ip\", \"ExitNodeIDSet\": true}"
             val res = Appctr.setPrefs(prefsJson)
             if (res != "OK") {
                 withContext(Dispatchers.Main) {

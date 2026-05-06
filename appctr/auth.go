@@ -1,6 +1,7 @@
 package appctr
 
 import (
+	"encoding/json"
 	"log/slog"
 	"os"
 	"os/exec"
