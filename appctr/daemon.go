@@ -41,22 +41,24 @@ func tailscaledCmd(p pathControl, socksAddr, httpAddr, socksUser, socksPass, tai
 		"TS_NET_STATE="+netState,
 	)
 
+	// Proxy configuration
 	if controlProxy != "" {
-		if strings.HasPrefix(controlProxy, "socks") {
-			// Для SOCKS используем только ALL_PROXY и ПРИНУДИТЕЛЬНО очищаем HTTP(S)_PROXY
-			// Это предотвращает попытки Go отправить HTTP CONNECT (ошибка 67)
-			c.Env = append(c.Env, 
-				"ALL_PROXY="+controlProxy,
-				"HTTP_PROXY=",
-				"HTTPS_PROXY=",
-			)
+		if strings.HasPrefix(controlProxy, "socks5://") {
+			// Tailscale поддерживает нативный SOCKS5 через TS_SOCKS5_SERVER
+			proxyAddr := strings.TrimPrefix(controlProxy, "socks5://")
+			cmd.Env = append(cmd.Env, "TS_SOCKS5_SERVER="+proxyAddr)
+			slog.Info("Proxy: Using TS_SOCKS5_SERVER", "addr", proxyAddr)
+		} else if strings.HasPrefix(controlProxy, "http://") {
+			// Для HTTP используем TS_HTTP_PROXY
+			cmd.Env = append(cmd.Env, "TS_HTTP_PROXY="+controlProxy)
+			slog.Info("Proxy: Using TS_HTTP_PROXY", "url", controlProxy)
 		} else {
-			c.Env = append(c.Env,
-				"HTTP_PROXY="+controlProxy,
-				"HTTPS_PROXY="+controlProxy,
-			)
+			// Fallback для совместимости
+			cmd.Env = append(cmd.Env, "HTTP_PROXY="+controlProxy, "HTTPS_PROXY="+controlProxy)
+			slog.Info("Proxy: Using standard HTTP_PROXY", "url", controlProxy)
 		}
 	}
+
 	if taildropDir != "" {
 		c.Env = append(c.Env, "TS_TAILDROP_DIR="+taildropDir)
 	}

@@ -2,28 +2,16 @@ package appctr
 
 import (
 	"context"
-	"fmt"
-	"io"
+	"encoding/json"
 	"log/slog"
-	"net"
-	"net/url"
+	"net/http"
 	"os"
-	"strings"
 	"os/exec"
 	"sync"
 	"time"
-	"net/http"
-	"path/filepath"
-	"encoding/json"
 	_ "time/tzdata"
 
 	_ "golang.org/x/mobile/bind"
-	"golang.org/x/net/dns/dnsmessage"
-	"tailscale.com/client/local"
-	"tailscale.com/client/web"
-	"tailscale.com/net/netcheck"
-	"tailscale.com/net/netmon"
-	"tailscale.com/tailcfg"
 )
 
 var latestInterfaceState string
@@ -58,11 +46,9 @@ func InjectNetworkState(jsonState string) {
 	stateMu.Lock()
 	latestInterfaceState = jsonState
 	stateMu.Unlock()
-	
-	// Currently, InjectEvent cannot be called directly here as we lack a Monitor reference.
-	// The core is patched to use latestInterfaceState during getter calls.
 	slog.Info("Network state injected from Kotlin")
 }
+
 var cmd *exec.Cmd
 var PC pathControl
 var currentLogLevel int32 = 1
@@ -71,449 +57,6 @@ var taildropCancel context.CancelFunc
 var lastOptions *StartOptions
 var webServer *http.Server
 var coreVersion string = "unknown"
-
-func doLocalRequest(method, path string, body io.Reader) ([]byte, error) {
-	stateMu.Lock()
-	pc := PC
-	stateMu.Unlock()
-
-	if pc.Socket() == "" {
-		return nil, fmt.Errorf("socket path is empty")
-	}
-
-	client := http.Client{
-		Transport: &http.Transport{
-			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-				var d net.Dialer
-				return d.DialContext(ctx, "unix", pc.Socket())
-			},
-		},
-	}
-
-	req, err := http.NewRequest(method, "http://local-tailscaled.sock"+path, body)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(data))
-	}
-
-	return data, nil
-}
-
-func startTaildropCollector(ctx context.Context, taildropDir string) {
-	slog.Info("Starting Taildrop Collector", "dir", taildropDir)
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			if !IsRunning() {
-				continue
-			}
-			processIncomingFiles(taildropDir)
-		}
-	}
-}
-
-func processIncomingFiles(taildropDir string) {
-	data, err := doLocalRequest("GET", "/localapi/v0/files", nil)
-	if err != nil {
-		return
-	}
-
-	type waitingFile struct {
-		Name string
-		Size int64
-	}
-	var files []waitingFile
-	if err := json.Unmarshal(data, &files); err != nil {
-		return
-	}
-
-	if len(files) == 0 {
-		return
-	}
-
-	slog.Info("Taildrop: Found waiting files", "count", len(files))
-	if err := os.MkdirAll(taildropDir, 0755); err != nil {
-		slog.Error("Taildrop: Failed to create dir", "err", err)
-		return
-	}
-
-	for _, f := range files {
-		destPath := filepath.Join(taildropDir, f.Name)
-		slog.Info("Taildrop: Downloading file", "name", f.Name, "dest", destPath)
-		
-		content, err := doLocalRequest("GET", "/localapi/v0/files/"+url.PathEscape(f.Name), nil)
-		if err != nil {
-			slog.Error("Taildrop: Download failed", "name", f.Name, "err", err)
-			continue
-		}
-
-		if err := os.WriteFile(destPath, content, 0644); err != nil {
-			slog.Error("Taildrop: Save failed", "name", f.Name, "err", err)
-			continue
-		}
-		slog.Info("Taildrop: Saved successfully", "name", f.Name)
-	}
-}
-
-func GetStatusFromAPI() string {
-	if !IsRunning() {
-		return `{"Error": "Tailscaled is not running."}`
-	}
-	slog.Info("LocalAPI: [GET] /localapi/v0/status?peers=true")
-	data, err := doLocalRequest("GET", "/localapi/v0/status?peers=true", nil)
-	if err != nil {
-		return fmt.Sprintf(`{"Error": %q}`, err.Error())
-	}
-	if len(data) == 0 {
-		return `{"Error": "Status API returned empty response"}`
-	}
-	return string(data)
-}
-
-func GetDnsStatusJSON() string {
-	if !IsRunning() {
-		return "{}"
-	}
-
-	socks, _, _, dns := GConfig.get()
-	
-	// Собираем структуру, совместимую с DnsActivity.kt
-	type dnsAddr struct {
-		Addr string `json:"Addr"`
-	}
-	type tailnetInfo struct {
-		MagicDNSEnabled bool    `json:"MagicDNSEnabled"`
-		MagicDNSSuffix  string  `json:"MagicDNSSuffix"`
-		SelfDNSName     string  `json:"SelfDNSName"`
-	}
-	type status struct {
-		TailscaleDNS   bool                    `json:"TailscaleDNS"`
-		CurrentTailnet tailnetInfo             `json:"CurrentTailnet"`
-		SplitDNSRoutes map[string][]dnsAddr   `json:"SplitDNSRoutes"`
-	}
-
-	res := status{
-		TailscaleDNS: dns != "",
-		CurrentTailnet: tailnetInfo{
-			MagicDNSEnabled: magicDNSSuffix != "",
-			MagicDNSSuffix:  magicDNSSuffix,
-		},
-		SplitDNSRoutes: make(map[string][]dnsAddr),
-	}
-
-	// Заполняем маршруты из нашего кэша
-	splitDNSCache.Range(func(key, value interface{}) bool {
-		domain := key.(string)
-		ips := value.([]string)
-		var addrs []dnsAddr
-		for _, ip := range ips {
-			addrs = append(addrs, dnsAddr{Addr: ip})
-		}
-		res.SplitDNSRoutes[domain] = addrs
-		return true
-	})
-
-	// Пытаемся найти свое имя
-	if socks != "" { // Просто как индикатор что мы инициализированы
-		nodesCache.Range(func(key, value interface{}) bool {
-			name := key.(string)
-			if strings.HasSuffix(name, magicDNSSuffix) && !strings.Contains(strings.TrimSuffix(name, magicDNSSuffix), ".") {
-				res.CurrentTailnet.SelfDNSName = name
-				return false
-			}
-			return true
-		})
-	}
-
-	data, _ := json.Marshal(res)
-	return string(data)
-}
-
-func NativeDnsQuery(domain, qtype string) string {
-	slog.Info("LocalAPI: DNS Query", "domain", domain, "type", qtype)
-	stateMu.Lock()
-	opt := lastOptions
-	stateMu.Unlock()
-
-	if !IsRunning() {
-		return "Error: Tailscaled is not running."
-	}
-
-	var msg dnsmessage.Message
-	msg.Header.ID = 0x1234
-	msg.Header.RecursionDesired = true
-	
-	t := dnsmessage.TypeA
-	if strings.ToUpper(qtype) == "AAAA" { t = dnsmessage.TypeAAAA }
-
-	name, err := dnsmessage.NewName(domain + ".")
-	if err != nil { return "Invalid domain" }
-
-	msg.Questions = []dnsmessage.Question{{Name: name, Type: t, Class: dnsmessage.ClassINET}}
-	query, _ := msg.Pack()
-	
-	fallbacks := []string{"8.8.8.8:53", "1.1.1.1:53"}
-	doh := ""
-	if opt != nil {
-		if opt.DnsFallbacks != "" {
-			fallbacks = strings.Split(opt.DnsFallbacks, ",")
-		}
-		doh = opt.DohFallback
-	}
-
-	resp := processDNSQuery(query, fallbacks, doh)
-	if resp == nil { return "No response" }
-
-	var respMsg dnsmessage.Message
-	if err := respMsg.Unpack(resp); err != nil { return "Error unpacking: " + err.Error() }
-
-	if len(respMsg.Answers) == 0 {
-		return "No answers (RCODE: " + respMsg.Header.RCode.String() + ")"
-	}
-
-	var results []string
-	for _, ans := range respMsg.Answers {
-		switch b := ans.Body.(type) {
-		case *dnsmessage.AResource:
-			results = append(results, net.IP(b.A[:]).String())
-		case *dnsmessage.AAAAResource:
-			results = append(results, net.IP(b.AAAA[:]).String())
-		case *dnsmessage.CNAMEResource:
-			results = append(results, b.CNAME.String())
-		default:
-			results = append(results, "Unknown record type")
-		}
-	}
-	return strings.Join(results, "\n")
-}
-
-func GetNetcheckFromAPI() string {
-	if !IsRunning() {
-		return `{"Error": "Tailscaled is not running."}`
-	}
-
-	slog.Info("LocalAPI: [GET] /localapi/v0/derpmap (for netcheck)")
-	// 1. Получаем DERP map из демона
-	data, err := doLocalRequest("GET", "/localapi/v0/derpmap", nil)
-	if err != nil {
-		return fmt.Sprintf(`{"Error": "Failed to get DERP map: %v"}`, err)
-	}
-
-	var dm tailcfg.DERPMap
-	if err := json.Unmarshal(data, &dm); err != nil {
-		return fmt.Sprintf(`{"Error": "Failed to parse DERP map: %v"}`, err)
-	}
-
-	// 2. Инициализируем монитор сети (статичный, без шины событий)
-	nm := netmon.NewStatic()
-	defer nm.Close()
-
-	// 3. Запускаем нативный netcheck
-	c := &netcheck.Client{
-		NetMon: nm,
-		Logf: func(format string, args ...any) {
-			slog.Info(fmt.Sprintf("netcheck: "+format, args...))
-		},
-	}
-
-	report, err := c.GetReport(context.Background(), &dm, nil)
-	if err != nil {
-		return fmt.Sprintf(`{"Error": "Netcheck failed: %v"}`, err)
-	}
-
-	if report == nil {
-		return `{"Error": "Netcheck returned nil report"}`
-	}
-
-	slog.Info("LocalAPI: Netcheck completed")
-	// 4. Возвращаем JSON отчета
-	res, err := json.Marshal(report)
-	if err != nil {
-		return fmt.Sprintf(`{"Error": "JSON marshal failed: %v"}`, err)
-	}
-	return string(res)
-}
-
-func GetTaildropFilesFromAPI() string {
-	stateMu.Lock()
-	opt := lastOptions
-	stateMu.Unlock()
-	
-	if opt == nil || opt.TaildropDir == "" {
-		return "[]"
-	}
-
-	return GetWaitingFiles(opt.TaildropDir)
-}
-
-func DeleteTaildropFileFromAPI(name string) bool {
-	stateMu.Lock()
-	opt := lastOptions
-	stateMu.Unlock()
-	
-	if opt == nil || opt.TaildropDir == "" {
-		return false
-	}
-	
-	path := filepath.Join(opt.TaildropDir, name)
-	err := os.Remove(path)
-	if err != nil {
-		slog.Error("Taildrop: Failed to delete file", "path", path, "err", err)
-	}
-	return err == nil
-}
-
-func GetTaildropDirContents() string {
-	stateMu.Lock()
-	opt := lastOptions
-	stateMu.Unlock()
-	if opt == nullOptions || opt.TaildropDir == "" { return "TaildropDir not set" }
-	entries, err := os.ReadDir(opt.TaildropDir)
-	if err != nil { return "Error: " + err.Error() }
-	var names []string
-	for _, e := range entries { names = append(names, e.Name()) }
-	if len(names) == 0 { return "Empty" }
-	return strings.Join(names, ", ")
-}
-
-func SaveTaildropFileToPath(name, destPath string) string {
-	if !IsRunning() { return "Tailscaled not running" }
-	data, err := doLocalRequest("GET", "/localapi/v0/files/"+url.PathEscape(name), nil)
-	if err != nil { return "Download failed: " + err.Error() }
-	if err := os.WriteFile(destPath, data, 0644); err != nil { return "Save failed: " + err.Error() }
-	return "OK"
-}
-
-func SendFileFromAPI(peerID, filePath string) string {
-	if !IsRunning() {
-		return "Error: Tailscaled is not running."
-	}
-	
-	f, err := os.Open(filePath)
-	if err != nil {
-		return "Error: " + err.Error()
-	}
-	defer f.Close()
-
-	name := url.PathEscape(filepath.Base(filePath))
-	// PUT /localapi/v0/file-put/<id>/<name>
-	data, err := doLocalRequest("PUT", "/localapi/v0/file-put/"+peerID+"/"+name, f)
-	if err != nil {
-		return "Error: " + err.Error()
-	}
-	return string(data)
-}
-
-func GetBackendState() string {
-	if !IsRunning() {
-		return "Stopped"
-	}
-	data, err := doLocalRequest("GET", "/localapi/v0/status", nil)
-	if err != nil {
-		return "Error"
-	}
-	// Simple string parsing to avoid full JSON unmarshal for just one field
-	s := string(data)
-	idx := strings.Index(s, "\"BackendState\":\"")
-	if idx == -1 {
-		return "Unknown"
-	}
-	start := idx + len("\"BackendState\":\"")
-	end := strings.Index(s[start:], "\"")
-	if end == -1 {
-		return "Unknown"
-	}
-	return s[start : start+end]
-}
-
-func GetCoreVersion() string {
-	return coreVersion
-}
-
-// Login выполняет авторизацию через LocalAPI /start.
-func Login(authKey string) string {
-	if !IsRunning() {
-		return "Error: Tailscaled is not running."
-	}
-	slog.Info("LocalAPI: [POST] /localapi/v0/start", "has_key", authKey != "")
-	
-	// ipn.Options structure
-	opts := map[string]interface{}{
-		"AuthKey": authKey,
-	}
-	data, _ := json.Marshal(opts)
-	
-	_, err := doLocalRequest("POST", "/localapi/v0/start", strings.NewReader(string(data)))
-	if err != nil {
-		return "Error: " + err.Error()
-	}
-	return "OK"
-}
-
-// Logout выполняет выход через LocalAPI /logout.
-func Logout() string {
-	if !IsRunning() {
-		return "Error: Tailscaled is not running."
-	}
-	slog.Info("LocalAPI: [POST] /localapi/v0/logout")
-	_, err := doLocalRequest("POST", "/localapi/v0/logout", nil)
-	if err != nil {
-		return "Error: " + err.Error()
-	}
-	return "OK"
-}
-
-// SetPrefs обновляет настройки через LocalAPI (например, Exit Nodes).
-// prefsJson должен быть JSON-строкой структуры ipn.MaskedPrefs.
-func SetPrefs(prefsJson string) string {
-	if !IsRunning() {
-		return "Error: Tailscaled is not running."
-	}
-	slog.Info("LocalAPI: [PATCH] /localapi/v0/prefs", "payload", prefsJson)
-	// Tailscale LocalAPI использует PATCH для частичного обновления настроек (EditPrefs)
-	_, err := doLocalRequest("PATCH", "/localapi/v0/prefs", strings.NewReader(prefsJson))
-	if err != nil {
-		return "Error: " + err.Error()
-	}
-	return "OK"
-}
-
-// DoLocalAPIRequest выполняет произвольный запрос к LocalAPI.
-// Возвращает ответ в виде строки (обычно JSON).
-func DoLocalAPIRequest(method, path, body string) string {
-	if !IsRunning() {
-		return "Error: Tailscaled is not running."
-	}
-	slog.Info("LocalAPI: Manual Request", "method", method, "path", path)
-	var b io.Reader
-	if body != "" {
-		b = strings.NewReader(body)
-	}
-	data, err := doLocalRequest(method, path, b)
-	if err != nil {
-		return "Error: " + err.Error()
-	}
-	return string(data)
-}
 
 type Closer interface {
 	Close() error
@@ -576,30 +119,22 @@ func IsRunning() bool {
 	return cmd != nil && cmd.Process != nil
 }
 
-func GetLoginURLString() string {
-	return GetLoginURL()
-}
-
 func ApplySettings(opt *StartOptions) {
 	stateMu.Lock()
 	old := lastOptions
 	stateMu.Unlock()
 
-	// Start if not already running
 	if !IsRunning() {
 		slog.Info("Tailscaled not running, performing full start")
 		Start(opt)
 		return
 	}
 
-	// CRITICAL FIX: If login is in progress (Login URL present),
-	// block configuration updates to prevent session resets and 410 Gone errors.
 	if GetLoginURL() != "" {
 		slog.Info("Login in progress, ignoring ApplySettings to protect session")
 		return
 	}
 
-	// Initialize options if they don't exist
 	if old == nil {
 		stateMu.Lock()
 		lastOptions = opt
@@ -608,8 +143,6 @@ func ApplySettings(opt *StartOptions) {
 		return
 	}
 
-	// 1. Critical parameter check.
-	// Force a full restart if core paths or proxy settings changed.
 	if old.Socks5Server != opt.Socks5Server ||
 		old.HttpProxy != opt.HttpProxy ||
 		old.ControlProxy != opt.ControlProxy ||
@@ -621,13 +154,11 @@ func ApplySettings(opt *StartOptions) {
 		return
 	}
 
-	// 2. Update option cache
 	stateMu.Lock()
 	lastOptions = opt
 	stateMu.Unlock()
 	GConfig.update(opt.Socks5Server, opt.Socks5User, opt.Socks5Pass, opt.DnsProxy)
 
-	// 3. DNS-only restart if only DNS parameters changed.
 	if old.DnsProxy != opt.DnsProxy ||
 		old.DnsFallbacks != opt.DnsFallbacks ||
 		old.DohFallback != opt.DohFallback {
@@ -635,50 +166,33 @@ func ApplySettings(opt *StartOptions) {
 		RestartDNS()
 	}
 
-	// 4. Dynamic sync via LocalAPI (Replacing CLI 'up' for simple changes)
-	// We only use CLI 'up' for initial registration or if AuthKey changed.
 	if opt.AuthKey != "" && opt.AuthKey != old.AuthKey {
-		slog.Info("AuthKey changed, triggering full ReUp")
-		ReUp()
+		slog.Info("AuthKey changed, triggering Login via LocalAPI")
+		Login(opt.AuthKey)
 		return
 	}
 
 	if opt.DoReset {
-		slog.Info("Reset requested, triggering full ReUp")
-		ReUp()
+		slog.Info("Reset requested via Logout")
+		Logout()
 		return
 	}
 
-	// For other changes (hostname, accept-routes, etc.), use LocalAPI PATCH.
-	// This is much faster and doesn't trigger "applying configuration" CLI logs.
 	go func() {
-		// Wait a bit for the daemon to be fully stable if it just started
 		time.Sleep(500 * time.Millisecond)
-		
 		prefs := make(map[string]interface{})
-		
-		// Map our options to Tailscale Prefs
-		if opt.Hostname != "" { 
+		if opt.Hostname != "" {
 			prefs["Hostname"] = opt.Hostname
 			prefs["HostnameSet"] = true
 		}
-		
-		// AcceptRoutes maps to RouteAll in Prefs
 		prefs["RouteAll"] = opt.AcceptRoutes
 		prefs["RouteAllSet"] = true
-		
-		// AcceptDNS maps to CorpDNS in Prefs
 		prefs["CorpDNS"] = opt.AcceptDNS
 		prefs["CorpDNSSet"] = true
-		
-		// Sync Exit Node ID (Profile-specific)
-		// We always set this, even if empty, to clear it when switching profiles.
 		prefs["ExitNodeID"] = opt.ExitNodeID
 		prefs["ExitNodeIDSet"] = true
 		prefs["ExitNodeIP"] = ""
 		prefs["ExitNodeIPSet"] = true
-		
-		// WantRunning is always true for us
 		prefs["WantRunning"] = true
 		prefs["WantRunningSet"] = true
 
@@ -695,13 +209,15 @@ func ReUp() {
 	stateMu.Unlock()
 
 	if opt != nil && IsRunning() {
-		// If we are already waiting for login, don't trigger 'up' again
-		// as it might reset the pending session and cause 410 Gone.
 		if GetLoginURL() != "" {
-			slog.Info("Login is in progress, skipping ReUp to avoid 410 Gone")
+			slog.Info("Login is in progress, skipping ReUp")
 			return
 		}
-		go registerMachineWithAuthKey(pc, opt)
+		if opt.AuthKey != "" {
+			Login(opt.AuthKey)
+		} else {
+			go registerMachineWithAuthKey(pc, opt)
+		}
 	}
 }
 
@@ -736,7 +252,20 @@ func Start(opt *StartOptions) {
 		}
 	}()
 
-	go registerMachineWithAuthKey(PC, opt)
+	go func() {
+		// Wait for socket
+		for i := 0; i < 20; i++ {
+			if _, err := os.Stat(opt.SocketPath); err == nil {
+				break
+			}
+			time.Sleep(500 * time.Millisecond)
+		}
+		if opt.AuthKey != "" {
+			Login(opt.AuthKey)
+		} else {
+			registerMachineWithAuthKey(PC, opt)
+		}
+	}()
 
 	if opt.DnsProxy != "" {
 		RestartDNS()
@@ -765,9 +294,7 @@ func RestartDNS() {
 	}
 
 	go func() {
-		// Allow time for the previous proxy to release the socket
 		time.Sleep(500 * time.Millisecond)
-
 		ctx, cancel := context.WithCancel(context.Background())
 		stateMu.Lock()
 		dnsProxyCancel = cancel
@@ -792,7 +319,6 @@ func RestartDNS() {
 
 func Stop() {
 	StopWebUI()
-
 	stateMu.Lock()
 	defer stateMu.Unlock()
 
@@ -800,12 +326,10 @@ func Stop() {
 		dnsProxyCancel()
 		dnsProxyCancel = nil
 	}
-
 	if taildropCancel != nil {
 		taildropCancel()
 		taildropCancel = nil
 	}
-
 	if cmd != nil && cmd.Process != nil {
 		_ = cmd.Process.Signal(os.Interrupt)
 		go func(p *os.Process) {
@@ -816,11 +340,8 @@ func Stop() {
 	}
 }
 
-// --- Helper Functions ---
-
 func killLeftoverDaemons(daemonPath string) {
-    // Utility command for Android to terminate orphaned processes
-    _ = exec.Command("/system/bin/killall", "tailscaled").Run()
+	_ = exec.Command("/system/bin/killall", "tailscaled").Run()
 }
 
 func StartWebUI(addr string) {
@@ -833,12 +354,10 @@ func StartWebUI(addr string) {
 	stateMu.Unlock()
 
 	slog.Info("Web UI start requested", "addr", addr)
-
 	lc := &local.Client{
-		Socket: pc.Socket(),
+		Socket:        pc.Socket(),
 		UseSocketOnly: true,
 	}
-
 	ws, err := web.NewServer(web.ServerOpts{
 		Mode:        web.LoginServerMode,
 		LocalClient: lc,
@@ -850,14 +369,12 @@ func StartWebUI(addr string) {
 		slog.Error("Failed to create web server", "err", err)
 		return
 	}
-
 	stateMu.Lock()
 	webServer = &http.Server{
 		Addr:    addr,
 		Handler: ws,
 	}
 	stateMu.Unlock()
-
 	go func() {
 		slog.Info("Web UI listening", "addr", addr)
 		if err := webServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -874,7 +391,6 @@ func StopWebUI() {
 	ws := webServer
 	webServer = nil
 	stateMu.Unlock()
-
 	if ws != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
