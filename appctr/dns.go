@@ -24,15 +24,8 @@ var magicDNSSuffix string
 var busCancel context.CancelFunc
 var busMu sync.Mutex
 
-func FlushDNS() {
-	dnsCache.Range(func(key, value interface{}) bool {
-		dnsCache.Delete(key)
-		return true
-	})
-	slog.Info("DNS cache flushed")
-}
-
 func startIPNBusListener(ctx context.Context) {
+
 	slog.Info("Starting IPN Bus Listener (mask=1032)...")
 	for {
 		select {

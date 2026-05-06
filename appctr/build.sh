@@ -34,6 +34,9 @@ if [ ! -d "tailscale_src" ]; then
     echo "-> Injecting Android Netmon fix..."
     cp patches/fix_android_netmon.go tailscale_src/cmd/tailscaled/
 
+    echo "-> Enabling SOCKS support on Android..."
+    sed -i 's/!ios && !js && !android && //g' tailscale_src/net/netns/socks.go
+
     echo "-> Applying unified patch..."
     cd tailscale_src
     # Удаляем конфликтный файл, так как мы его вшили в ext.go (монолитный патч)

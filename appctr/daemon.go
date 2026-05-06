@@ -3,12 +3,12 @@ package appctr
 import (
 	"bufio"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"strings"
 	"sync"
 )
-
 // Переменные cmd и stateMu удалены, так как они уже есть в appctr.go
 
 func tailscaledCmd(p pathControl, socksAddr, httpAddr, socksUser, socksPass, taildropDir, controlProxy string) error {
@@ -41,24 +41,30 @@ func tailscaledCmd(p pathControl, socksAddr, httpAddr, socksUser, socksPass, tai
 		"TS_NET_STATE="+netState,
 	)
 
-	// Proxy configuration
+	// Proxy configuration (Outbound)
+	// We clear TS_SOCKS5_SERVER here to ensure it's only set via flags if needed
+	c.Env = append(c.Env, "TS_SOCKS5_SERVER=")
+
 	if controlProxy != "" {
 		if strings.HasPrefix(controlProxy, "socks5://") {
-			// Tailscale поддерживает нативный SOCKS5 через TS_SOCKS5_SERVER
-			proxyAddr := strings.TrimPrefix(controlProxy, "socks5://")
-			cmd.Env = append(cmd.Env, "TS_SOCKS5_SERVER="+proxyAddr)
-			slog.Info("Proxy: Using TS_SOCKS5_SERVER", "addr", proxyAddr)
-		} else if strings.HasPrefix(controlProxy, "http://") {
-			// Для HTTP используем TS_HTTP_PROXY
-			cmd.Env = append(cmd.Env, "TS_HTTP_PROXY="+controlProxy)
-			slog.Info("Proxy: Using TS_HTTP_PROXY", "url", controlProxy)
+			// Для SOCKS5 используем ALL_PROXY и ОБЯЗАТЕЛЬНО очищаем HTTP(S)_PROXY.
+			// Это критично для Go http.DefaultTransport и Tailscale Dialers.
+			c.Env = append(c.Env, 
+				"ALL_PROXY="+controlProxy,
+				"HTTP_PROXY=",
+				"HTTPS_PROXY=",
+			)
+			slog.Info("Proxy: Using SOCKS5 via ALL_PROXY", "url", controlProxy)
 		} else {
-			// Fallback для совместимости
-			cmd.Env = append(cmd.Env, "HTTP_PROXY="+controlProxy, "HTTPS_PROXY="+controlProxy)
-			slog.Info("Proxy: Using standard HTTP_PROXY", "url", controlProxy)
+			// Для HTTP(S) прокси используем стандартные переменные
+			c.Env = append(c.Env, 
+				"HTTP_PROXY="+controlProxy,
+				"HTTPS_PROXY="+controlProxy,
+				"ALL_PROXY=",
+			)
+			slog.Info("Proxy: Using HTTP via HTTP_PROXY", "url", controlProxy)
 		}
 	}
-
 	if taildropDir != "" {
 		c.Env = append(c.Env, "TS_TAILDROP_DIR="+taildropDir)
 	}

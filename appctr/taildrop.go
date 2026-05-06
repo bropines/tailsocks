@@ -3,7 +3,6 @@ package appctr
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"log/slog"
 	"net/url"
 	"os"
@@ -11,6 +10,34 @@ import (
 	"strings"
 	"time"
 )
+
+// GetWaitingFiles сканирует директорию Taildrop и возвращает JSON со списком файлов.
+func GetWaitingFiles(dir string) string {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return "[]"
+	}
+	type fileInfo struct {
+		Name string `json:"Name"`
+		Size int64  `json:"Size"`
+		Path string `json:"Path"`
+	}
+	var files []fileInfo
+	for _, e := range entries {
+		if !e.IsDir() {
+			info, err := e.Info()
+			if err == nil {
+				files = append(files, fileInfo{
+					Name: e.Name(),
+					Size: info.Size(),
+					Path: filepath.Join(dir, e.Name()),
+				})
+			}
+		}
+	}
+	data, _ := json.Marshal(files)
+	return string(data)
+}
 
 func startTaildropCollector(ctx context.Context, taildropDir string) {
 	slog.Info("Starting Taildrop Collector", "dir", taildropDir)
@@ -137,6 +164,7 @@ func SaveTaildropFileToPath(name, destPath string) string {
 	return "OK"
 }
 
+// SendFileFromAPI отправляет файл через LocalAPI PUT.
 func SendFileFromAPI(peerID, filePath string) string {
 	if !IsRunning() {
 		return "Error: Tailscaled is not running."
@@ -155,4 +183,9 @@ func SendFileFromAPI(peerID, filePath string) string {
 		return "Error: " + err.Error()
 	}
 	return string(data)
+}
+
+// SendFile - алиас для совместимости с Kotlin-слоем.
+func SendFile(target, filePath string) string {
+	return SendFileFromAPI(target, filePath)
 }

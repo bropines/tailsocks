@@ -1,7 +1,6 @@
 package appctr
 
 import (
-	"encoding/json"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -32,13 +31,13 @@ func RunTailscaleArgs(parts ...string) string {
 	}
 	args := append([]string{"--socket", PC.Socket()}, parts...)
 	c := exec.Command(PC.Tailscale(), args...)
-	
+
 	isRoutineCheck := len(parts) > 0 && (parts[0] == "status" || parts[0] == "dns" || parts[0] == "netcheck" || parts[0] == "ping")
 
 	if !isRoutineCheck {
 		slog.Info("Running Tailscale CLI", "args", parts)
 	}
-	
+
 	output, err := c.CombinedOutput()
 	outStr := string(output)
 
@@ -55,30 +54,12 @@ func RunTailscaleArgs(parts ...string) string {
 			slog.Info("CLI command output", "out", outStr)
 		}
 	}
-	
+
 	return outStr
 }
 
-func GetLoginURL() string {
-	if !IsRunning() {
-		return ""
-	}
-	data, err := doLocalRequest("GET", "/localapi/v0/status", nil)
-	if err != nil {
-		return ""
-	}
-
-	type status struct {
-		AuthURL string `json:"AuthURL"`
-	}
-	var s status
-	if err := json.Unmarshal(data, &s); err != nil {
-		return ""
-	}
-	return s.AuthURL
-}
-
 func registerMachineWithAuthKey(PC pathControl, opt *StartOptions) {
+
 	apiReady := false
 	
 	// Poll socket and API readiness in silent mode
