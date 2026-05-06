@@ -147,10 +147,18 @@ fun SettingsScreen(onBack: () -> Unit) {
     if (showResetDialog) {
         AlertDialog(
             onDismissRequest = { showResetDialog = false },
-            title = { Text("Reset Node State?") },
-            text = { Text("This will call 'tailscale up --reset', clearing all flags and re-authenticating. Continue?") },
+            title = { Text("Log out from Tailnet?") },
+            text = { Text("This will clear your current session and node state using native LocalAPI. You will need to re-authenticate. Continue?") },
             confirmButton = {
-                Button(onClick = { saveProfilePref("do_reset", true); showResetDialog = false }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Reset") }
+                Button(onClick = { 
+                    scope.launch(Dispatchers.IO) {
+                        Appctr.logout()
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "Logged out successfully", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    showResetDialog = false 
+                }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Log Out") }
             },
             dismissButton = { TextButton(onClick = { showResetDialog = false }) { Text("Cancel") } }
         )

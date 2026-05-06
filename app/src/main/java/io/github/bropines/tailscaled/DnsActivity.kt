@@ -83,6 +83,7 @@ fun DnsScreen(onBack: () -> Unit) {
                 }
                 return@launch
             }
+            Appctr.flushDNS() // Очищаем кэш в Go
             val json = Appctr.getDnsStatusJSON()
             val parsed = try {
                 Gson().fromJson(json, DnsStatus::class.java)

@@ -675,6 +675,8 @@ func ApplySettings(opt *StartOptions) {
 		// We always set this, even if empty, to clear it when switching profiles.
 		prefs["ExitNodeID"] = opt.ExitNodeID
 		prefs["ExitNodeIDSet"] = true
+		prefs["ExitNodeIP"] = ""
+		prefs["ExitNodeIPSet"] = true
 		
 		// WantRunning is always true for us
 		prefs["WantRunning"] = true
