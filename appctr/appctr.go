@@ -452,7 +452,8 @@ func SetPrefs(prefsJson string) string {
 	if !IsRunning() {
 		return "Error: Tailscaled is not running."
 	}
-	_, err := doLocalRequest("POST", "/localapi/v0/prefs", strings.NewReader(prefsJson))
+	// Tailscale LocalAPI использует PATCH для частичного обновления настроек (EditPrefs)
+	_, err := doLocalRequest("PATCH", "/localapi/v0/prefs", strings.NewReader(prefsJson))
 	if err != nil {
 		return "Error: " + err.Error()
 	}
