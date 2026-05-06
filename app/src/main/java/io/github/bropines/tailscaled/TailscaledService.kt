@@ -26,34 +26,10 @@ class TailscaledService : Service() {
     private val refreshHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private val refreshRunnable = object : Runnable {
         override fun run() {
+            // Больше не нужно вручную проверять и сбрасывать Exit Nodes здесь,
+            // так как LocalAPI синхронизация в ApplySettings позаботится о профиле-зависимых настройках.
             val activeAccount = AccountManager.getActiveAccount(this@TailscaledService)
             val profilePrefs = getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
-            
-            if (Appctr.isRunning()) {
-                val exitNodeIp = profilePrefs.getString("exit_node_ip", "")
-                if (!exitNodeIp.isNullOrEmpty()) {
-                    try {
-                        val pJson = Appctr.getStatusFromAPI()
-                        if (!pJson.startsWith("Error") && pJson.contains("\"Self\"")) {
-                            val status = Gson().fromJson(pJson, StatusResponse::class.java)
-                            var found = false
-                            if (status.self?.tailscaleIPs?.contains(exitNodeIp) == true) found = true
-                            status.peers?.values?.forEach { peer ->
-                                if (peer.tailscaleIPs?.contains(exitNodeIp) == true) found = true
-                            }
-                            
-                            if (!found && (status.self != null || !status.peers.isNullOrEmpty())) {
-                                Log.w(TAG, "Exit node $exitNodeIp not found in netmap. Auto-clearing it.")
-                                profilePrefs.edit().remove("exit_node_ip").apply()
-                                android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                    android.widget.Toast.makeText(this@TailscaledService, "Invalid Exit Node ($exitNodeIp) was automatically disabled.", android.widget.Toast.LENGTH_LONG).show()
-                                }
-                            }
-                        }
-                    } catch (e: Exception) {}
-                }
-            }
-            
             val interval = profilePrefs.getString("refresh_interval", "15000")?.toLongOrNull() ?: 15000L
             refreshHandler.postDelayed(this, interval)
         }
@@ -197,6 +173,7 @@ class TailscaledService : Service() {
             hostname = host
             acceptRoutes = accRoutes
             acceptDNS = accDNS
+            exitNodeID = profilePrefs.getString("exit_node_ip", "") ?: ""
 
             val argsBuilder = StringBuilder()
             if (host.isNotEmpty()) argsBuilder.append("--hostname=$host ")

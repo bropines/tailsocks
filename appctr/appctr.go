@@ -449,6 +449,39 @@ func GetCoreVersion() string {
 	return coreVersion
 }
 
+// Login выполняет авторизацию через LocalAPI /start.
+func Login(authKey string) string {
+	if !IsRunning() {
+		return "Error: Tailscaled is not running."
+	}
+	slog.Info("LocalAPI: [POST] /localapi/v0/start", "has_key", authKey != "")
+	
+	// ipn.Options structure
+	opts := map[string]interface{}{
+		"AuthKey": authKey,
+	}
+	data, _ := json.Marshal(opts)
+	
+	_, err := doLocalRequest("POST", "/localapi/v0/start", strings.NewReader(string(data)))
+	if err != nil {
+		return "Error: " + err.Error()
+	}
+	return "OK"
+}
+
+// Logout выполняет выход через LocalAPI /logout.
+func Logout() string {
+	if !IsRunning() {
+		return "Error: Tailscaled is not running."
+	}
+	slog.Info("LocalAPI: [POST] /localapi/v0/logout")
+	_, err := doLocalRequest("POST", "/localapi/v0/logout", nil)
+	if err != nil {
+		return "Error: " + err.Error()
+	}
+	return "OK"
+}
+
 // SetPrefs обновляет настройки через LocalAPI (например, Exit Nodes).
 // prefsJson должен быть JSON-строкой структуры ipn.MaskedPrefs.
 func SetPrefs(prefsJson string) string {
@@ -508,6 +541,7 @@ type StartOptions struct {
 	Hostname      string
 	AcceptRoutes  bool
 	AcceptDNS     bool
+	ExitNodeID    string
 }
 
 var nullOptions = &StartOptions{}
@@ -636,6 +670,11 @@ func ApplySettings(opt *StartOptions) {
 		// AcceptDNS maps to CorpDNS in Prefs
 		prefs["CorpDNS"] = opt.AcceptDNS
 		prefs["CorpDNSSet"] = true
+		
+		// Sync Exit Node ID (Profile-specific)
+		// We always set this, even if empty, to clear it when switching profiles.
+		prefs["ExitNodeID"] = opt.ExitNodeID
+		prefs["ExitNodeIDSet"] = true
 		
 		// WantRunning is always true for us
 		prefs["WantRunning"] = true
