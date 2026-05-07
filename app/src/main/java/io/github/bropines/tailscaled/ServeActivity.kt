@@ -30,6 +30,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+
 class ServeActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,7 +52,7 @@ fun ServeScreen(onBack: () -> Unit) {
     var config by remember { mutableStateOf<ServeConfig?>(null) }
     var selfDns by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(true) }
-    var selectedTab by remember { mutableIntStateOf(0) }
+    val pagerState = rememberPagerState(pageCount = { 2 })
     var showEditDialog by remember { mutableStateOf<ServeRuleEditData?>(null) }
     val context = androidx.compose.ui.platform.LocalContext.current
     val clipboard = LocalClipboardManager.current
@@ -71,7 +75,13 @@ fun ServeScreen(onBack: () -> Unit) {
         isLoading = true
         config = newConfig
         scope.launch(Dispatchers.IO) {
-            val res = Appctr.setServeConfig(Gson().toJson(newConfig))
+            // Если всё пусто - принудительно шлем пустой конфиг для очистки AllowFunnel и т.д.
+            val jsonPayload = if (newConfig.tcp == null && newConfig.web == null && newConfig.services == null && newConfig.allowFunnel == null) {
+                if (newConfig.etag != null) "{\"etag\": \"${newConfig.etag}\"}" else "{}"
+            } else {
+                Gson().toJson(newConfig)
+            }
+            val res = Appctr.setServeConfig(jsonPayload)
             withContext(Dispatchers.Main) {
                 isLoading = false
                 if (res != "OK") {
@@ -108,27 +118,30 @@ fun ServeScreen(onBack: () -> Unit) {
                         IconButton(onClick = { refresh() }) { Icon(Icons.Default.Refresh, "Refresh") }
                     }
                 )
-                TabRow(selectedTabIndex = selectedTab) {
-                    Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }, text = { Text("Serve") })
-                    Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }, text = { Text("Funnel") })
+                TabRow(selectedTabIndex = pagerState.currentPage) {
+                    Tab(selected = pagerState.currentPage == 0, onClick = { scope.launch { pagerState.animateScrollToPage(0) } }, text = { Text("Serve") })
+                    Tab(selected = pagerState.currentPage == 1, onClick = { scope.launch { pagerState.animateScrollToPage(1) } }, text = { Text("Funnel") })
                 }
             }
         },
         floatingActionButton = {
             FloatingActionButton(onClick = { 
                 showEditDialog = ServeRuleEditData(
-                    isFunnel = selectedTab == 1,
-                    port = if (selectedTab == 1) "443" else "10000"
+                    isFunnel = pagerState.currentPage == 1,
+                    port = if (pagerState.currentPage == 1) "443" else "10000"
                 ) 
             }) {
                 Icon(Icons.Default.Add, "Add Rule")
             }
         }
     ) { padding ->
-        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
-            if (isLoading && config == null) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            } else {
+        PullToRefreshBox(
+            isRefreshing = isLoading,
+            onRefresh = { refresh() },
+            modifier = Modifier.padding(padding).fillMaxSize()
+        ) {
+            HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
+                val isFunnelTab = page == 1
                 val serveItems = mutableListOf<@Composable () -> Unit>()
                 val funnelItems = mutableListOf<@Composable () -> Unit>()
 
@@ -138,7 +151,6 @@ fun ServeScreen(onBack: () -> Unit) {
                     val isWeb = handler.https == true || handler.http == true
                     val protocol = if (handler.https == true) "https" else "http"
                     
-                    // Funnel check for node (must be selfDns:port)
                     val funnelKey = if (selfDns.isNotEmpty()) "$selfDns:$port" else "*:$port"
                     val isFunnel = config?.allowFunnel?.get(funnelKey) == true || config?.allowFunnel?.get("*:$port") == true
 
@@ -193,7 +205,11 @@ fun ServeScreen(onBack: () -> Unit) {
                                 val newFunnel = config?.allowFunnel?.toMutableMap() ?: mutableMapOf()
                                 newFunnel.remove(funnelKey)
                                 newFunnel.remove("*:$port")
-                                saveConfig(config!!.copy(tcp = newTcp, web = newWeb, allowFunnel = if (newFunnel.isNotEmpty()) newFunnel else null))
+                                saveConfig(config!!.copy(
+                                    tcp = if (newTcp.isNotEmpty()) newTcp else null,
+                                    web = if (newWeb.isNotEmpty()) newWeb else null,
+                                    allowFunnel = if (newFunnel.isNotEmpty()) newFunnel else null
+                                ))
                             }
                         )
                     }
@@ -201,7 +217,7 @@ fun ServeScreen(onBack: () -> Unit) {
                     if (isFunnel) funnelItems.add(card) else serveItems.add(card)
                 }
 
-                // 2. Process Services (Always Serve)
+                // 2. Process Services
                 config?.services?.forEach { (svcName, svcConfig) ->
                     val cleanSvcName = svcName.removePrefix("svc:")
                     svcConfig.tcp?.forEach { (port, handler) ->
@@ -260,29 +276,26 @@ fun ServeScreen(onBack: () -> Unit) {
                                 onDelete = { 
                                     val newServices = config?.services?.toMutableMap() ?: mutableMapOf()
                                     newServices.remove(svcName)
-                                    saveConfig(config!!.copy(services = newServices))
+                                    saveConfig(config!!.copy(services = if (newServices.isNotEmpty()) newServices else null))
                                 }
                             )
                         }
                     }
                 }
 
-                val currentItems = if (selectedTab == 0) serveItems else funnelItems
+                val currentItems = if (isFunnelTab) funnelItems else serveItems
                 
                 if (currentItems.isEmpty() && !isLoading) {
-                    Column(modifier = Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(if (selectedTab == 1) Icons.Default.Language else Icons.Default.PublicOff, null, modifier = Modifier.size(64.dp), tint = Color.Gray)
+                    Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                        Icon(if (isFunnelTab) Icons.Default.Language else Icons.Default.PublicOff, null, modifier = Modifier.size(64.dp), tint = Color.Gray)
                         Spacer(Modifier.height(16.dp))
-                        Text(if (selectedTab == 1) "No active Funnel rules" else "No active Serve rules", style = MaterialTheme.typography.bodyLarge, color = Color.Gray)
+                        Text(if (isFunnelTab) "No active Funnel rules" else "No active Serve rules", style = MaterialTheme.typography.bodyLarge, color = Color.Gray)
                     }
                 } else {
                     LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(currentItems) { item -> item() }
+                        items(currentItems.size) { index -> currentItems[index]() }
                     }
                 }
-            }
-            if (isLoading && config != null) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter))
             }
         }
     }

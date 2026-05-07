@@ -29,6 +29,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+
 class PeersActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,8 +51,18 @@ fun PeersScreen(onBack: () -> Unit) {
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var selfPeer by remember { mutableStateOf<PeerData?>(null) }
     var peersList by remember { mutableStateOf<List<PeerData>>(emptyList()) }
+    var searchQuery by remember { mutableStateOf("") }
     var selectedPeer by remember { mutableStateOf<PeerData?>(null) }
     var peerForFileDrop by remember { mutableStateOf<PeerData?>(null) }
+
+    val filteredPeers = remember(peersList, searchQuery) {
+        if (searchQuery.isBlank()) peersList
+        else peersList.filter { 
+            it.getDisplayName().contains(searchQuery, ignoreCase = true) || 
+            it.getPrimaryIp().contains(searchQuery) ||
+            it.os?.contains(searchQuery, ignoreCase = true) == true
+        }
+    }
 
     val filePickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri != null && peerForFileDrop != null) { sendFileToPeer(context, uri, peerForFileDrop!!, coroutineScope) }
@@ -60,12 +76,6 @@ fun PeersScreen(onBack: () -> Unit) {
         
         coroutineScope.launch(Dispatchers.IO) {
             try {
-                // Принудительно очищаем списки для визуального фидбека
-                withContext(Dispatchers.Main) {
-                    selfPeer = null
-                    peersList = emptyList()
-                }
-                
                 // 2. Load peers status
                 val json = Appctr.getStatusFromAPI()
                 
@@ -92,14 +102,35 @@ fun PeersScreen(onBack: () -> Unit) {
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Network Devices") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-                actions = { IconButton(onClick = { 
-                    loadPeers() 
-                }) { Icon(Icons.Default.Refresh, "Refresh") } })
+            Column {
+                TopAppBar(title = { Text("Network Devices") },
+                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+                    actions = { IconButton(onClick = { 
+                        loadPeers() 
+                    }) { Icon(Icons.Default.Refresh, "Refresh") } })
+                
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    placeholder = { Text("Search by name, IP or OS...") },
+                    leadingIcon = { Icon(Icons.Default.Search, null) },
+                    trailingIcon = { if (searchQuery.isNotEmpty()) IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Default.Close, null) } },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    )
+                )
+            }
         }
     ) { padding ->
-        Box(Modifier.padding(padding).fillMaxSize()) {
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = { loadPeers() },
+            modifier = Modifier.padding(padding).fillMaxSize()
+        ) {
             if (errorMsg != null) {
                 Column(Modifier.align(Alignment.Center).padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(errorMsg!!, color = MaterialTheme.colorScheme.error, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
@@ -108,15 +139,14 @@ fun PeersScreen(onBack: () -> Unit) {
                 }
             } else {
                 LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
-                    if (selfPeer != null) {
+                    if (selfPeer != null && (searchQuery.isBlank() || selfPeer!!.getDisplayName().contains(searchQuery, ignoreCase = true))) {
                         item { PeerItem(selfPeer!!, true) { selectedPeer = selfPeer } }
                     }
-                    items(peersList) { p -> 
+                    items(filteredPeers) { p -> 
                         PeerItem(p, false) { selectedPeer = p } 
                     }
                 }
             }
-            if (isRefreshing) LinearProgressIndicator(Modifier.fillMaxWidth())
         }
 
         selectedPeer?.let { p ->

@@ -53,7 +53,12 @@ data class PeerData(
 ) {
     fun getPrimaryIp(): String = tailscaleIPs?.firstOrNull() ?: "0.0.0.0"
 
-    fun getDisplayName(): String = dnsName?.split(".")?.firstOrNull() ?: hostName ?: "Unknown"
+    fun getDisplayName(): String {
+        val dns = dnsName?.split(".")?.firstOrNull()
+        if (!dns.isNullOrEmpty()) return dns
+        if (!hostName.isNullOrEmpty()) return hostName
+        return getPrimaryIp()
+    }
 
     fun getDetailsList(): List<Pair<String, String>> {
         fun formatTime(t: String?): String {

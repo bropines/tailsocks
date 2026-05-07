@@ -176,6 +176,14 @@ fun SettingsScreen(onBack: () -> Unit) {
             
             SettingsSectionHeader("Global Settings")
             SettingsClickableItem("Taildrop Storage Folder", taildropRootUri?.path ?: "Uses app internal folder", Icons.Default.Folder) { folderPicker.launch(null) }
+            SettingsClickableItem("Battery Optimization", "Disable to prevent background sleep", Icons.Default.BatteryAlert) {
+                try {
+                    val intent = Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                    context.startActivity(intent)
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Cannot open battery settings", Toast.LENGTH_SHORT).show()
+                }
+            }
             SettingsSwitchItem("Auto-start on Boot", "Start TailSocks when device turns on", Icons.Default.PowerSettingsNew, autoStart) { GlobalSettings.setAutoStartEnabled(context, it); autoStart = it }
 
             SettingsClickableItem(

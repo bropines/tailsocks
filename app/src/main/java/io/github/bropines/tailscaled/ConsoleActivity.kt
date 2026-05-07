@@ -81,6 +81,7 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
 
     // ЗУМ
     var scale by remember { mutableFloatStateOf(1f) }
+    var softWrap by remember { mutableStateOf(false) }
 
     val commandHistory = remember { mutableStateListOf<String>() }
     var historyPointer by remember { mutableStateOf(-1) }
@@ -170,13 +171,26 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
                         }
                     }
                     Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = {
-                            if (commandHistory.isNotEmpty()) {
-                                if (historyPointer == -1) historyPointer = commandHistory.size - 1
-                                else if (historyPointer > 0) historyPointer--
-                                currentCommand = commandHistory[historyPointer]
-                            }
-                        }) { Icon(Icons.Default.KeyboardArrowUp, contentDescription = "History Up") }
+                        Column {
+                            IconButton(onClick = {
+                                if (commandHistory.isNotEmpty()) {
+                                    if (historyPointer == -1) historyPointer = commandHistory.size - 1
+                                    else if (historyPointer > 0) historyPointer--
+                                    currentCommand = commandHistory[historyPointer]
+                                }
+                            }) { Icon(Icons.Default.KeyboardArrowUp, contentDescription = "History Up") }
+                            IconButton(onClick = {
+                                if (commandHistory.isNotEmpty() && historyPointer != -1) {
+                                    if (historyPointer < commandHistory.size - 1) {
+                                        historyPointer++
+                                        currentCommand = commandHistory[historyPointer]
+                                    } else {
+                                        historyPointer = -1
+                                        currentCommand = ""
+                                    }
+                                }
+                            }) { Icon(Icons.Default.KeyboardArrowDown, contentDescription = "History Down") }
+                        }
                         OutlinedTextField(
                             value = currentCommand,
                             onValueChange = { currentCommand = it },
@@ -188,10 +202,15 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
                             shape = RoundedCornerShape(24.dp)
                         )
                         IconButton(onClick = { executeCmd(currentCommand) }) { Icon(Icons.Default.PlayArrow, contentDescription = "Run", tint = MaterialTheme.colorScheme.primary) }
-                        IconButton(onClick = {
-                            outputText = "$ "
-                            if (historyFile.exists()) historyFile.delete()
-                        }) { Icon(Icons.Default.Delete, contentDescription = "Clear", tint = MaterialTheme.colorScheme.error) }
+                        Column {
+                            IconButton(onClick = { softWrap = !softWrap }) { 
+                                Icon(if (softWrap) Icons.Default.WrapText else Icons.Default.FormatAlignLeft, contentDescription = "Toggle Wrap", tint = if (softWrap) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline) 
+                            }
+                            IconButton(onClick = {
+                                outputText = "$ "
+                                if (historyFile.exists()) historyFile.delete()
+                            }) { Icon(Icons.Default.Delete, contentDescription = "Clear", tint = MaterialTheme.colorScheme.error) }
+                        }
                     }
                 }
             }
@@ -213,10 +232,10 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurface,
                 fontFamily = FontFamily.Monospace,
                 fontSize = (14 * scale).sp,
-                softWrap = false, // <-- ФИКС ТЕРМИНАЛА: Отключаем перенос строк
+                softWrap = softWrap,
                 modifier = Modifier
                     .fillMaxSize()
-                    .horizontalScroll(horizontalScrollState) // <-- Добавляем скролл вбок
+                    .then(if (!softWrap) Modifier.horizontalScroll(horizontalScrollState) else Modifier)
                     .verticalScroll(verticalScrollState)
                     .padding(16.dp)
             )

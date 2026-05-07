@@ -34,6 +34,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 
 class FilesActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,7 +50,7 @@ class FilesActivity : ComponentActivity() {
 fun FilesScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var selectedTab by remember { mutableIntStateOf(0) }
+    val pagerState = rememberPagerState(pageCount = { 3 })
     val activeAccount = remember { AccountManager.getActiveAccount(context) }
     val taildropDir = remember(activeAccount.id) { File(context.filesDir, "states/${activeAccount.id}/taildrop").apply { if (!exists()) mkdirs() } }
 
@@ -130,7 +133,7 @@ fun FilesScreen(onBack: () -> Unit) {
     }
 
     LaunchedEffect(activeAccount.id) { refreshData() }
-    LaunchedEffect(selectedTab) { refreshData() }
+    LaunchedEffect(pagerState.currentPage) { refreshData() }
 
     fun handleSaveRequest(file: TaildropFile) {
         val rootUri = GlobalSettings.getTaildropRootUri(context)
@@ -157,41 +160,46 @@ fun FilesScreen(onBack: () -> Unit) {
                     navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
                     actions = { IconButton(onClick = { 
                         refreshData();
-                        android.util.Log.d("TaildropDebug", "Dir contents: ${Appctr.getTaildropDirContents()}")
                     }) { Icon(Icons.Default.Refresh, "Refresh") } })
-                TabRow(selectedTabIndex = selectedTab) {
-                    Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }, text = { Text("Inbox") })
-                    Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }, text = { Text("Devices") })
-                    Tab(selected = selectedTab == 2, onClick = { selectedTab = 2 }, text = { Text("History") })
+                TabRow(selectedTabIndex = pagerState.currentPage) {
+                    Tab(selected = pagerState.currentPage == 0, onClick = { scope.launch { pagerState.animateScrollToPage(0) } }, text = { Text("Inbox") })
+                    Tab(selected = pagerState.currentPage == 1, onClick = { scope.launch { pagerState.animateScrollToPage(1) } }, text = { Text("Devices") })
+                    Tab(selected = pagerState.currentPage == 2, onClick = { scope.launch { pagerState.animateScrollToPage(2) } }, text = { Text("History") })
                 }
             }
         },
         floatingActionButton = { FloatingActionButton(onClick = { filePickerLauncher.launch("*/*") }) { Icon(Icons.Default.FileUpload, "Send") } }
     ) { padding ->
-        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
-            when (selectedTab) {
-                0 -> if (files.isEmpty() && !isLoading) EmptyState(Icons.Default.Inbox, "No incoming files") 
-                    else LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(files) { f -> FileCard(f, { openTaildropFile(context, f) }, { handleSaveRequest(f) }, { 
-                            val deleted = Appctr.deleteTaildropFileFromAPI(f.Name)
-                            if (deleted) refreshData() 
-                        }) }
-                    }
-                1 -> if (peers.isEmpty() && selfPeer == null && !isLoading) EmptyState(Icons.Default.Devices, "No devices") 
-                    else LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
-                        if (selfPeer != null) {
-                            this@LazyColumn.item { PeerItem(selfPeer!!, true) {} }
+        PullToRefreshBox(
+            isRefreshing = isLoading,
+            onRefresh = { refreshData() },
+            modifier = Modifier.padding(padding).fillMaxSize()
+        ) {
+            HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
+                when (page) {
+                    0 -> if (files.isEmpty() && !isLoading) EmptyState(Icons.Default.Inbox, "No incoming files") 
+                        else LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(files) { f -> FileCard(f, { openTaildropFile(context, f) }, { handleSaveRequest(f) }, { 
+                                val deleted = Appctr.deleteTaildropFileFromAPI(f.Name)
+                                if (deleted) refreshData() 
+                            }) }
                         }
-                        this@LazyColumn.items(peers) { p -> 
-                            PeerItem(p, false) { Toast.makeText(context, "Use FAB to send", Toast.LENGTH_SHORT).show() }
+                    1 -> if (peers.isEmpty() && selfPeer == null && !isLoading) EmptyState(Icons.Default.Devices, "No devices") 
+                        else LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
+                            if (selfPeer != null) {
+                                item { PeerItem(selfPeer!!, true) {} }
+                            }
+                            items(peers) { p -> 
+                                PeerItem(p, false) { Toast.makeText(context, "Use FAB to send", Toast.LENGTH_SHORT).show() }
+                            }
                         }
-                    }
-                2 -> if (sentFiles.isEmpty() && !isLoading) EmptyState(Icons.Default.History, "No history yet") 
-                    else LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(sentFiles) { e -> SentFileCard(e) }
-                    }
+                    2 -> if (sentFiles.isEmpty() && !isLoading) EmptyState(Icons.Default.History, "No history yet") 
+                        else LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(sentFiles) { e -> SentFileCard(e) }
+                        }
+                }
             }
-            if (isLoading || isSavingFile) LinearProgressIndicator(Modifier.fillMaxWidth())
+            if (isSavingFile) LinearProgressIndicator(Modifier.fillMaxWidth())
             if (isSendingFile) Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(0.3f)), contentAlignment = Alignment.Center) {
                 Card(shape = RoundedCornerShape(16.dp)) {
                     Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) { 
