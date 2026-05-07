@@ -12,6 +12,8 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - **Android Netmon**: Fixed a potential panic and incorrect IP masking in the network monitoring layer for Android 10+.
 - **SOCKS5 Support**: Enabled SOCKS support in the Tailscale core specifically for the Android environment.
 - **Taildrop FS**: Improved robustness of Taildrop file operations on Android to avoid JNI panics by using a dedicated Go-based filesystem provider.
+- **VIP Service Advertisement (Critical)**: Fixed `SetServeConfig` to send `PATCH /prefs` with `AdvertiseServices` + `AdvertiseServicesSet: true` after every service-scoped configuration update. Previously, the daemon's `vipServicesFromPrefsLocked` had no knowledge of the service from the Prefs side, causing the coordination server to receive an incomplete `/vip-services` response and never activating the VIP DNS entry. This mirrors the exact behavior of the official `tailscale serve --service=svc:*` CLI command.
+
 
 ## [1.10.0] - 2026-05-06
 ### Added

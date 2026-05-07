@@ -279,18 +279,19 @@ func SetServeConfig(configJson string) string {
 		}
 	}
 
+	// Двухшаговый сброс + применение (аналогично SetServeConfig: POST {} → POST config).
+	// Шаг A: Сброс — снимаем все старые анонсы, чтобы не зависли svc: из предыдущей сессии.
+	slog.Info("LocalAPI: [PATCH] /localapi/v0/prefs (AdvertiseServices reset)")
+	doLocalRequest("PATCH", "/localapi/v0/prefs", strings.NewReader(`{"AdvertiseServices":[],"AdvertiseServicesSet":true}`))
+
 	if len(advertiseServices) > 0 {
+		// Шаг B: Применяем новый список сервисов.
 		prefsPayload, _ := json.Marshal(map[string]interface{}{
 			"AdvertiseServices":    advertiseServices,
 			"AdvertiseServicesSet": true,
 		})
-		slog.Info("LocalAPI: [PATCH] /localapi/v0/prefs (AdvertiseServices)", "services", advertiseServices)
+		slog.Info("LocalAPI: [PATCH] /localapi/v0/prefs (AdvertiseServices apply)", "services", advertiseServices)
 		doLocalRequest("PATCH", "/localapi/v0/prefs", strings.NewReader(string(prefsPayload)))
-	} else {
-		// Нет svc: сервисов в конфиге — явно обнуляем AdvertiseServices,
-		// чтобы удалённый сервис перестал анонсироваться контрол-сервером.
-		slog.Info("LocalAPI: [PATCH] /localapi/v0/prefs (AdvertiseServices cleared)")
-		doLocalRequest("PATCH", "/localapi/v0/prefs", strings.NewReader(`{"AdvertiseServices":[],"AdvertiseServicesSet":true}`))
 	}
 
 	return "OK"
