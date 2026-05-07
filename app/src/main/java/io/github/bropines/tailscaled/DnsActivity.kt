@@ -222,7 +222,11 @@ fun DnsScreen(onBack: () -> Unit) {
                 }
                 data.splitRoutes?.forEach { (domain, ips) ->
                     item {
-                        DnsInfoCard("Split Route: $domain", ips.joinToString("\n") { "• ${it.addr}" })
+                        DnsInfoCard(
+                            title = "Split Route: $domain", 
+                            content = ips.joinToString("\n") { "• ${it.addr}" },
+                            copyText = domain.trimEnd('.')
+                        )
                         Spacer(Modifier.height(8.dp))
                     }
                 }
@@ -235,22 +239,26 @@ fun DnsScreen(onBack: () -> Unit) {
 }
 
 @Composable
-fun DnsInfoCard(title: String, content: String) {
+fun DnsInfoCard(title: String, content: String, copyText: String? = null) {
     val context = LocalContext.current
+    val cleanTitle = title.trimEnd('.')
+    val cleanContent = content.trimEnd('.')
+    val textToCopy = copyText ?: cleanContent
+    
     Card(
         modifier = Modifier.fillMaxWidth().clickable {
             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            clipboard.setPrimaryClip(ClipData.newPlainText(title, content))
+            clipboard.setPrimaryClip(ClipData.newPlainText(cleanTitle, textToCopy))
             Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
         }, 
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(title, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
+                Text(cleanTitle, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
                 Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
             }
-            Text(content, fontFamily = FontFamily.Monospace, fontSize = 14.sp)
+            Text(cleanContent, fontFamily = FontFamily.Monospace, fontSize = 14.sp)
         }
     }
 }

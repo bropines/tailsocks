@@ -77,7 +77,7 @@ fun ServeScreen(onBack: () -> Unit) {
         scope.launch(Dispatchers.IO) {
             // Если всё пусто - принудительно шлем пустой конфиг для очистки AllowFunnel и т.д.
             val jsonPayload = if (newConfig.tcp == null && newConfig.web == null && newConfig.services == null && newConfig.allowFunnel == null) {
-                if (newConfig.etag != null) "{\"etag\": \"${newConfig.etag}\"}" else "{}"
+                if (newConfig.etag != null) "{\"etag\": \"${newConfig.etag}\", \"TCP\": {}, \"Web\": {}, \"AllowFunnel\": {}}" else "{\"TCP\": {}, \"Web\": {}, \"AllowFunnel\": {}}"
             } else {
                 Gson().toJson(newConfig)
             }

@@ -49,7 +49,9 @@ data class PeerData(
     @SerializedName("PeerAPIURL") val peerApiUrl: List<String>?,
     @SerializedName("TaildropTarget") val taildropTarget: Int?,
     @SerializedName("NoFileSharingReason") val noFileSharingReason: String?,
-    @SerializedName("Capabilities") val capabilities: List<String>?
+    @SerializedName("Capabilities") val capabilities: List<String>?,
+    @SerializedName("ShareeNode") val shareeNode: Boolean?,
+    @SerializedName("Tags") val tags: List<String>?
 ) {
     fun getPrimaryIp(): String = tailscaleIPs?.firstOrNull() ?: "0.0.0.0"
 

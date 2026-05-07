@@ -103,9 +103,10 @@ fun FilesScreen(onBack: () -> Unit) {
                 
                 if (!pJson.startsWith("Error")) {
                     val status = Gson().fromJson(pJson, StatusResponse::class.java)
-                    val newPeers = status.peers?.values?.toList()?.sortedWith(
-                        compareByDescending<PeerData> { it.online == true }.thenBy { it.getDisplayName() }
-                    ) ?: emptyList()
+                    val newPeers = status.peers?.values?.toList()
+                        ?.filter { it.id != status.self?.id && (!it.hostName.isNullOrBlank() || !it.dnsName.isNullOrBlank()) && it.shareeNode != true && it.hostName != "funnel-ingress-node" }
+                        ?.sortedWith(compareByDescending<PeerData> { it.online == true }.thenBy { it.getDisplayName() })
+                        ?: emptyList()
                     withContext(Dispatchers.Main) {
                         peers = newPeers
                         selfPeer = status.self

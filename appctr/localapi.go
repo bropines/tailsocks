@@ -250,6 +250,8 @@ func SetServeConfig(configJson string) string {
 
 	// STEP 2: Full reset of ServeConfig.
 	slog.Info("LocalAPI: ServeConfig [Step 1/2] Resetting config", "if_match", etag)
+	// We use a nil config by sending an empty object.
+	// For some daemon versions, we might need to be even more explicit if it doesn't clear AllowFunnel.
 	resetReq, _ := http.NewRequest("POST", "http://local-tailscaled.sock/localapi/v0/serve-config", strings.NewReader("{}"))
 	if etag != "" {
 		resetReq.Header.Set("If-Match", etag)
@@ -268,6 +270,14 @@ func SetServeConfig(configJson string) string {
 		resetResp.Body.Close()
 	} else {
 		slog.Error("LocalAPI: Reset request failed", "err", err)
+	}
+
+	// If the config is literally "{}", we might want to stop here to ensure everything is purged.
+	if string(cleanJson) == "{}" {
+		slog.Info("LocalAPI: Full purge requested, stopping after reset")
+		// Force one more attempt if reset didn't seem to return OK? 
+		// Actually, we'll trust Step 2 for now, but let's ensure nextEtag is updated.
+		return "OK"
 	}
 
 	if nextEtag == "" {

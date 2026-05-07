@@ -86,7 +86,11 @@ fun PeersScreen(onBack: () -> Unit) {
                 
                 withContext(Dispatchers.Main) {
                     selfPeer = status.self
-                    peersList = status.peers?.values?.toList()?.sortedByDescending { it.online == true } ?: emptyList()
+                    val selfId = status.self?.id
+                    peersList = status.peers?.values
+                        ?.filter { it.id != selfId && (!it.hostName.isNullOrBlank() || !it.dnsName.isNullOrBlank()) && it.shareeNode != true && it.hostName != "funnel-ingress-node" }
+                        ?.toList()
+                        ?.sortedByDescending { it.online == true } ?: emptyList()
                     isRefreshing = false
                 }
             } catch (e: Exception) {

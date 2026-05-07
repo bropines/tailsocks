@@ -60,8 +60,12 @@ fun PeerItem(peer: PeerData, isSelf: Boolean, onClick: () -> Unit) {
             }
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
-                Text(peer.getDisplayName(), fontWeight = FontWeight.Bold)
-                Text(peer.getPrimaryIp(), fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                val displayName = peer.getDisplayName()
+                val primaryIp = peer.getPrimaryIp()
+                Text(displayName, fontWeight = FontWeight.Bold)
+                if (displayName != primaryIp) {
+                    Text(primaryIp, fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
             if (peer.online == true || isSelf) {
                 Box(Modifier.size(10.dp).clip(CircleShape).background(Color(0xFF4CAF50)))
