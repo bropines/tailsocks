@@ -311,15 +311,16 @@ fun ServeScreen(onBack: () -> Unit) {
                         val handler = when (handlerType) {
                             "Proxy" -> HTTPHandler(proxy = if (target.startsWith("http")) target else "http://$target")
                             "Text" -> HTTPHandler(text = target)
-                            "Redirect" -> HTTPHandler(redirect = target)
+                            // Normalise: daemon requires a full URL with scheme.
+                            "Redirect" -> HTTPHandler(redirect = if (target.startsWith("http")) target else "https://$target")
                             else -> HTTPHandler(proxy = "http://$target")
                         }
                         svcWeb[hostKey] = WebServerConfig(handlers = mapOf("/" to handler))
                         val useHttps = isFunnel || transport == "HTTPS"
                         svcTcp[port] = TCPPortHandler(
-                            https = useHttps, 
-                            http = !useHttps, 
-                            tcpForward = null, 
+                            https = if (useHttps) true else null,
+                            http  = if (!useHttps) true else null,
+                            tcpForward = null,
                             terminateTLS = null,
                             disabled = isDisabled
                         )
@@ -344,16 +345,18 @@ fun ServeScreen(onBack: () -> Unit) {
                         val handler = when (handlerType) {
                             "Proxy" -> HTTPHandler(proxy = if (target.startsWith("http")) target else "http://$target")
                             "Text" -> HTTPHandler(text = target)
-                            "Redirect" -> HTTPHandler(redirect = target)
+                            // Normalise: daemon requires a full URL with scheme.
+                            "Redirect" -> HTTPHandler(redirect = if (target.startsWith("http")) target else "https://$target")
                             else -> HTTPHandler(proxy = "http://$target")
                         }
                         newWeb["*:$port"] = WebServerConfig(handlers = mapOf("/" to handler))
                         val useHttps = isFunnel || transport == "HTTPS"
-                        // ПРИНУДИТЕЛЬНОЕ ЗАНУЛЕНИЕ для предотвращения конфликта (Error 500)
+                        // Set only the active protocol field; the other must be null (absent in JSON),
+                        // not false — the daemon rejects configs where both fields are present.
                         newTcp[port] = TCPPortHandler(
-                            https = useHttps, 
-                            http = !useHttps, 
-                            tcpForward = null, 
+                            https = if (useHttps) true else null,
+                            http  = if (!useHttps) true else null,
+                            tcpForward = null,
                             terminateTLS = null,
                             disabled = isDisabled
                         )

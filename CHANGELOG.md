@@ -13,6 +13,12 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - **SOCKS5 Support**: Enabled SOCKS support in the Tailscale core specifically for the Android environment.
 - **Taildrop FS**: Improved robustness of Taildrop file operations on Android to avoid JNI panics by using a dedicated Go-based filesystem provider.
 - **VIP Service Advertisement (Critical)**: Fixed `SetServeConfig` to send `PATCH /prefs` with `AdvertiseServices` + `AdvertiseServicesSet: true` after every service-scoped configuration update. Previously, the daemon's `vipServicesFromPrefsLocked` had no knowledge of the service from the Prefs side, causing the coordination server to receive an incomplete `/vip-services` response and never activating the VIP DNS entry. This mirrors the exact behavior of the official `tailscale serve --service=svc:*` CLI command.
+- **AdvertiseServices Two-Step Sync**: The `AdvertiseServices` PATCH now uses a reset-then-apply pattern (Step A: clear with `[]`; Step B: apply new list), mirroring the same pattern used in `SetServeConfig`. This prevents stale `svc:` entries from persisting across renames or deletions.
+- **ServeConfig Redirect URL Normalisation**: The Serve UI now automatically prepends `https://` to redirect targets that do not include a scheme (e.g. `therodev.com` → `https://therodev.com`). The Tailscale daemon silently discards redirect handlers with no scheme.
+- **ServeConfig TCPPortHandler Protocol Field**: Fixed `http = false` / `https = false` being serialised as explicit `false` in JSON by Gson. The daemon treats a config with both `"HTTPS": true` and `"HTTP": false` as invalid and discards it. The fix: only the active field is set to `true`; the inactive field is left `null` (absent from JSON).
+
+### Changed
+- **Code Language**: All Russian-language comments across the `appctr/` Go package have been translated to English for consistency and maintainability.
 
 
 ## [1.10.0] - 2026-05-06
