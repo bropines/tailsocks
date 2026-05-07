@@ -2,6 +2,19 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [2.0.0-beta] - 2026-05-07
+### Added
+- **Major Serve & Funnel Overhaul**: Completely redesigned the architecture for exposing services.
+- **Enhanced Serve UI**: Introduced a chip-based interface for managing handlers, protocols, and host mappings.
+- **Wildcard Host Mapping**: Support for `*` hostnames in node-scoped rules.
+- **Improved State Management**: Reimplemented LocalAPI synchronization with a two-step "reset-then-apply" pattern to ensure configuration consistency.
+- **Auto-generated Links**: The UI now automatically constructs and allows copying of service URLs based on the current configuration.
+
+### Fixed
+- **Serve Persistence**: Resolved issues where Serve configurations would desync or fail to persist after daemon restarts.
+- **Funnel Visibility**: Fixed a bug preventing Funnel status from being correctly reflected in the UI.
+- **TCPPortHandler Serialization**: Corrected the protocol field mapping for raw TCP handlers.
+
 ## [1.11.0] - 2026-05-07
 ### Added
 - **Advertise Services on Android**: Enabled support for publishing Tailscale Services (`svc:`) and Serve/Funnel configurations to the coordination server.

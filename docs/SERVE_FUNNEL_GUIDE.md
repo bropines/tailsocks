@@ -1,5 +1,7 @@
 # Tailscale Serve, Funnel & Services: Complete Guide for TailSocks
 
+*Note: Starting from v2.0-beta, the Serve UI has been overhauled with a chip-based interface and two-step LocalAPI synchronization for improved reliability.*
+
 TailSocks allows you to expose local services to your Tailnet (Serve) or the public internet (Funnel) using Tailscale's userspace engine. Since TailSocks does not use a VPN TUN interface, these features are essential for making local resources accessible.
 
 ## 1. Tailscale Serve (Internal Access)
