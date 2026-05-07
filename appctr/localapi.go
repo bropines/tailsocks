@@ -264,8 +264,34 @@ func SetServeConfig(configJson string) string {
 		return fmt.Sprintf("HTTP %d: %s", applyResp.StatusCode, string(data))
 	}
 
-	// Кикаем демона, чтобы он обновил Hostinfo (ServicesHash) немедленно
-	doLocalRequest("PATCH", "/localapi/v0/prefs", strings.NewReader("{}"))
+	// ШАГ 3: Синхронизация AdvertiseServices в Prefs.
+	// Это критически важно: CLI выполняет PATCH /prefs с AdvertiseServices при каждом
+	// вызове `tailscale serve --service=svc:*`. Без этого демон не регистрирует сервис
+	// в своих Prefs, и его vipServicesFromPrefsLocked не включает сервис в ответ на
+	// c2n GET /vip-services. Контрольный сервер отказывается активировать анонс.
+	var advertiseServices []string
+	if svcMap, ok := tmp["Services"].(map[string]interface{}); ok {
+		for svcKey := range svcMap {
+			// Добавляем только svc: записи (формат "svc:name")
+			if strings.HasPrefix(svcKey, "svc:") {
+				advertiseServices = append(advertiseServices, svcKey)
+			}
+		}
+	}
+
+	if len(advertiseServices) > 0 {
+		prefsPayload, _ := json.Marshal(map[string]interface{}{
+			"AdvertiseServices":    advertiseServices,
+			"AdvertiseServicesSet": true,
+		})
+		slog.Info("LocalAPI: [PATCH] /localapi/v0/prefs (AdvertiseServices)", "services", advertiseServices)
+		doLocalRequest("PATCH", "/localapi/v0/prefs", strings.NewReader(string(prefsPayload)))
+	} else {
+		// Нет svc: сервисов в конфиге — явно обнуляем AdvertiseServices,
+		// чтобы удалённый сервис перестал анонсироваться контрол-сервером.
+		slog.Info("LocalAPI: [PATCH] /localapi/v0/prefs (AdvertiseServices cleared)")
+		doLocalRequest("PATCH", "/localapi/v0/prefs", strings.NewReader(`{"AdvertiseServices":[],"AdvertiseServicesSet":true}`))
+	}
 
 	return "OK"
 }
