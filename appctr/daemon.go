@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 )
-// Переменные cmd и stateMu удалены, так как они уже есть в appctr.go
+// cmd and stateMu are declared in appctr.go; do not redeclare here.
 
 func tailscaledCmd(p pathControl, socksAddr, httpAddr, socksUser, socksPass, taildropDir, controlProxy string) error {
 	rm(p.Tailscale(), p.Tailscaled())
@@ -47,8 +47,8 @@ func tailscaledCmd(p pathControl, socksAddr, httpAddr, socksUser, socksPass, tai
 
 	if controlProxy != "" {
 		if strings.HasPrefix(controlProxy, "socks5://") {
-			// Для SOCKS5 используем ALL_PROXY и ОБЯЗАТЕЛЬНО очищаем HTTP(S)_PROXY.
-			// Это критично для Go http.DefaultTransport и Tailscale Dialers.
+			// For SOCKS5: use ALL_PROXY and explicitly clear HTTP(S)_PROXY.
+			// This is critical for Go's http.DefaultTransport and Tailscale Dialers.
 			c.Env = append(c.Env, 
 				"ALL_PROXY="+controlProxy,
 				"HTTP_PROXY=",
@@ -56,7 +56,7 @@ func tailscaledCmd(p pathControl, socksAddr, httpAddr, socksUser, socksPass, tai
 			)
 			slog.Info("Proxy: Using SOCKS5 via ALL_PROXY", "url", controlProxy)
 		} else {
-			// Для HTTP(S) прокси используем стандартные переменные
+			// For HTTP(S) proxy use the standard environment variables.
 			c.Env = append(c.Env, 
 				"HTTP_PROXY="+controlProxy,
 				"HTTPS_PROXY="+controlProxy,

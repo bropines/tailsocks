@@ -11,14 +11,14 @@ import (
 	"tailscale.com/tailcfg"
 )
 
-// GetNetcheckFromAPI выполняет нативный сетевой тест, используя DERP map от демона.
+// GetNetcheckFromAPI runs a native network test using the DERP map from the daemon.
 func GetNetcheckFromAPI() string {
 	if !IsRunning() {
 		return `{"Error": "Tailscaled is not running."}`
 	}
 
 	slog.Info("LocalAPI: [GET] /localapi/v0/derpmap (for netcheck)")
-	// 1. Получаем DERP map из демона
+	// 1. Fetch DERP map from the daemon.
 	data, err := doLocalRequest("GET", "/localapi/v0/derpmap", nil)
 	if err != nil {
 		return fmt.Sprintf(`{"Error": "Failed to get DERP map: %v"}`, err)
@@ -29,11 +29,11 @@ func GetNetcheckFromAPI() string {
 		return fmt.Sprintf(`{"Error": "Failed to parse DERP map: %v"}`, err)
 	}
 
-	// 2. Инициализируем монитор сети (статичный, без шины событий)
+	// 2. Initialise a static network monitor (no event bus needed here).
 	nm := netmon.NewStatic()
 	defer nm.Close()
 
-	// 3. Запускаем нативный netcheck
+	// 3. Run the native netcheck.
 	c := &netcheck.Client{
 		NetMon: nm,
 		Logf: func(format string, args ...any) {
@@ -51,7 +51,7 @@ func GetNetcheckFromAPI() string {
 	}
 
 	slog.Info("LocalAPI: Netcheck completed")
-	// 4. Возвращаем JSON отчета
+	// 4. Return the JSON report.
 	res, err := json.Marshal(report)
 	if err != nil {
 		return fmt.Sprintf(`{"Error": "JSON marshal failed: %v"}`, err)

@@ -81,14 +81,14 @@ func listenToBus(ctx context.Context) error {
 		if err := dec.Decode(&msg); err != nil { return err }
 
 		if msg.NetMap != nil {
-			// 1. Суффикс
+			// 1. Update MagicDNS suffix.
 			if msg.NetMap.MagicDNSSuffix != "" {
 				magicDNSSuffix = strings.ToLower(strings.Trim(msg.NetMap.MagicDNSSuffix, "."))
 			} else if len(msg.NetMap.DNS.Domains) > 0 {
 				magicDNSSuffix = strings.ToLower(strings.Trim(msg.NetMap.DNS.Domains[0], "."))
 			}
 
-			// 2. Кэшируем ноды
+			// 2. Cache peer nodes.
 			nodesCount := 0
 			if msg.NetMap.SelfNode != nil {
 				if updateNodeInCache(msg.NetMap.SelfNode) { nodesCount++ }
@@ -97,7 +97,7 @@ func listenToBus(ctx context.Context) error {
 				if updateNodeInCache(p) { nodesCount++ }
 			}
 
-			// 3. Маршруты Split DNS
+			// 3. Split DNS routes.
 			routesCount := 0
 			if msg.NetMap.DNS.Routes != nil {
 				for domain, resolvers := range msg.NetMap.DNS.Routes {
@@ -245,14 +245,14 @@ func processDNSQuery(query []byte, fallbacks []string, dohUrl string) []byte {
 	isMagicDNS := magicDNSSuffix != "" && strings.HasSuffix(domain, magicDNSSuffix)
 	isShortName := !strings.Contains(domain, ".")
 
-	// 1. Поиск в кэше нод (MagicDNS)
+	// 1. Look up in the nodes cache (MagicDNS).
 	if isMagicDNS || isShortName {
 		if ips, ok := nodesCache.Load(domain); ok {
 			return packDNSResponse(msg, q, ips.([]string), query)
 		}
 	}
 
-	// 2. Split DNS (SOCKS5 TCP)
+	// 2. Split DNS (SOCKS5 TCP).
 	if !isMagicDNS {
 		splitServers := getSplitDNSServers(domain)
 		if len(splitServers) > 0 && socks != "" {

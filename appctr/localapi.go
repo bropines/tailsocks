@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-// doLocalRequest выполняет запрос к Unix-сокету демона.
+// doLocalRequest sends a request to the daemon's Unix socket.
 func doLocalRequest(method, path string, body io.Reader) ([]byte, error) {
 	stateMu.Lock()
 	pc := PC
@@ -54,7 +54,7 @@ func doLocalRequest(method, path string, body io.Reader) ([]byte, error) {
 	return data, nil
 }
 
-// DoLocalAPIRequest выполняет произвольный запрос к LocalAPI (для Консоли).
+// DoLocalAPIRequest executes an arbitrary LocalAPI request (used by the Console screen).
 func DoLocalAPIRequest(method, path, body string) string {
 	if !IsRunning() {
 		return "Error: Tailscaled is not running."
@@ -71,7 +71,7 @@ func DoLocalAPIRequest(method, path, body string) string {
 	return string(data)
 }
 
-// Login выполняет авторизацию через LocalAPI /start.
+// Login authenticates via LocalAPI /start.
 func Login(authKey string) string {
 	if !IsRunning() {
 		return "Error: Tailscaled is not running."
@@ -91,7 +91,7 @@ func Login(authKey string) string {
 	return "OK"
 }
 
-// Logout выполняет выход через LocalAPI /logout.
+// Logout signs out via LocalAPI /logout.
 func Logout() string {
 	if !IsRunning() {
 		return "Error: Tailscaled is not running."
@@ -104,7 +104,7 @@ func Logout() string {
 	return "OK"
 }
 
-// SetPrefs обновляет настройки через LocalAPI PATCH (EditPrefs).
+// SetPrefs updates preferences via LocalAPI PATCH (EditPrefs).
 func SetPrefs(prefsJson string) string {
 	if !IsRunning() {
 		return "Error: Tailscaled is not running."
@@ -117,7 +117,7 @@ func SetPrefs(prefsJson string) string {
 	return "OK"
 }
 
-// GetLoginURL возвращает URL для авторизации из статуса демона.
+// GetLoginURL returns the authentication URL from the daemon status.
 func GetLoginURL() string {
 	if !IsRunning() {
 		return ""
@@ -137,12 +137,12 @@ func GetLoginURL() string {
 	return s.AuthURL
 }
 
-// GetLoginURLString - алиас для совместимости с Kotlin-слоем.
+// GetLoginURLString is an alias for backwards compatibility with the Kotlin layer.
 func GetLoginURLString() string {
 	return GetLoginURL()
 }
 
-// GetServeConfig возвращает текущую конфигурацию Serve/Funnel.
+// GetServeConfig returns the current Serve/Funnel configuration.
 func GetServeConfig() string {
 	if !IsRunning() {
 		return `{"Error": "Tailscaled is not running."}`
@@ -174,7 +174,7 @@ func GetServeConfig() string {
 
 	etag := resp.Header.Get("Etag")
 
-	// Вшиваем ETag в JSON для Kotlin, если это объект
+	// Embed ETag into the JSON so Kotlin can extract it for subsequent writes.
 	s := string(data)
 	if strings.HasPrefix(s, "{") {
 		s = fmt.Sprintf(`{"etag":%q, %s`, etag, s[1:])
@@ -186,7 +186,7 @@ func GetServeConfig() string {
 	return s
 }
 
-// SetServeConfig обновляет конфигурацию Serve/Funnel.
+// SetServeConfig updates the Serve/Funnel configuration.
 func SetServeConfig(configJson string) string {
 	if !IsRunning() {
 		return "Error: Tailscaled is not running."
@@ -197,13 +197,13 @@ func SetServeConfig(configJson string) string {
 		return "Error: Backend is not in Running state (current: " + state + "). Wait a few seconds."
 	}
 
-	// Извлекаем etag из присланного JSON
+	// Extract the ETag from the incoming JSON (embedded by GetServeConfig).
 	var tmp map[string]interface{}
 	if err := json.Unmarshal([]byte(configJson), &tmp); err != nil {
 		return "Error: invalid JSON: " + err.Error()
 	}
 	etag, _ := tmp["etag"].(string)
-	delete(tmp, "etag") // Удаляем, чтобы не слать демону
+	delete(tmp, "etag") // Strip it before sending to the daemon.
 	cleanJson, _ := json.Marshal(tmp)
 
 	stateMu.Lock()
@@ -218,8 +218,8 @@ func SetServeConfig(configJson string) string {
 		},
 	}
 
-	// ШАГ 1: Полный сброс (Reset)
-	// Это ВАЖНО, чтобы очистить привязки портов перед сменой протокола (HTTP <-> HTTPS)
+	// STEP 1: Full reset.
+	// Required to clear port bindings before changing protocol (HTTP <-> HTTPS).
 	slog.Info("LocalAPI: ServeConfig [Step 1/2] Resetting config", "if_match", etag)
 	resetReq, _ := http.NewRequest("POST", "http://local-tailscaled.sock/localapi/v0/serve-config", strings.NewReader("{}"))
 	if etag != "" {
@@ -229,7 +229,7 @@ func SetServeConfig(configJson string) string {
 	resetResp, err := client.Do(resetReq)
 	var nextEtag = etag
 	if err == nil {
-		// Получаем новый ETag после сброса, чтобы использовать его во втором шаге
+		// Capture the new ETag returned after reset for use in Step 2.
 		if resetResp.StatusCode == http.StatusOK || resetResp.StatusCode == http.StatusNoContent {
 			nextEtag = resetResp.Header.Get("ETag")
 			slog.Info("LocalAPI: Reset successful", "new_etag", nextEtag)
@@ -242,10 +242,10 @@ func SetServeConfig(configJson string) string {
 		slog.Error("LocalAPI: Reset request failed", "err", err)
 	}
 
-	// Пауза, чтобы демон успел закрыть старые слушатели на портах
+	// Brief pause to let the daemon close old port listeners before applying new config.
 	time.Sleep(150 * time.Millisecond)
 
-	// ШАГ 2: Применение нового конфига
+	// STEP 2: Apply the new config.
 	slog.Info("LocalAPI: ServeConfig [Step 2/2] Applying new config", "if_match", nextEtag)
 	applyReq, _ := http.NewRequest("POST", "http://local-tailscaled.sock/localapi/v0/serve-config", strings.NewReader(string(cleanJson)))
 	if nextEtag != "" {
@@ -264,28 +264,28 @@ func SetServeConfig(configJson string) string {
 		return fmt.Sprintf("HTTP %d: %s", applyResp.StatusCode, string(data))
 	}
 
-	// ШАГ 3: Синхронизация AdvertiseServices в Prefs.
-	// Это критически важно: CLI выполняет PATCH /prefs с AdvertiseServices при каждом
-	// вызове `tailscale serve --service=svc:*`. Без этого демон не регистрирует сервис
-	// в своих Prefs, и его vipServicesFromPrefsLocked не включает сервис в ответ на
-	// c2n GET /vip-services. Контрольный сервер отказывается активировать анонс.
+	// STEP 3: Synchronise AdvertiseServices in Prefs.
+	// Critical: the official CLI (serve_v2.go) sends PATCH /prefs with AdvertiseServices
+	// on every `tailscale serve --service=svc:*` call. Without this the daemon's
+	// vipServicesFromPrefsLocked does not include the service in its c2n /vip-services
+	// response, so the coordination server never activates the VIP DNS entry.
 	var advertiseServices []string
 	if svcMap, ok := tmp["Services"].(map[string]interface{}); ok {
 		for svcKey := range svcMap {
-			// Добавляем только svc: записи (формат "svc:name")
+			// Include only service-scoped entries (format: "svc:name").
 			if strings.HasPrefix(svcKey, "svc:") {
 				advertiseServices = append(advertiseServices, svcKey)
 			}
 		}
 	}
 
-	// Двухшаговый сброс + применение (аналогично SetServeConfig: POST {} → POST config).
-	// Шаг A: Сброс — снимаем все старые анонсы, чтобы не зависли svc: из предыдущей сессии.
+	// Two-step reset + apply (mirrors the SetServeConfig POST {}→POST config pattern).
+	// Step A: Clear all previously advertised services to avoid stale svc: entries.
 	slog.Info("LocalAPI: [PATCH] /localapi/v0/prefs (AdvertiseServices reset)")
 	doLocalRequest("PATCH", "/localapi/v0/prefs", strings.NewReader(`{"AdvertiseServices":[],"AdvertiseServicesSet":true}`))
 
 	if len(advertiseServices) > 0 {
-		// Шаг B: Применяем новый список сервисов.
+		// Step B: Apply the new service list.
 		prefsPayload, _ := json.Marshal(map[string]interface{}{
 			"AdvertiseServices":    advertiseServices,
 			"AdvertiseServicesSet": true,

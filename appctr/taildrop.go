@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-// GetWaitingFiles сканирует директорию Taildrop и возвращает JSON со списком файлов.
+// GetWaitingFiles scans the Taildrop directory and returns a JSON list of files.
 func GetWaitingFiles(dir string) string {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -164,7 +164,7 @@ func SaveTaildropFileToPath(name, destPath string) string {
 	return "OK"
 }
 
-// SendFileFromAPI отправляет файл через LocalAPI PUT.
+// SendFileFromAPI sends a file via LocalAPI PUT.
 func SendFileFromAPI(peerID, filePath string) string {
 	if !IsRunning() {
 		return "Error: Tailscaled is not running."
@@ -185,7 +185,7 @@ func SendFileFromAPI(peerID, filePath string) string {
 	return string(data)
 }
 
-// SendFile - алиас для совместимости с Kotlin-слоем.
+// SendFile is an alias for backwards compatibility with the Kotlin layer.
 func SendFile(target, filePath string) string {
 	return SendFileFromAPI(target, filePath)
 }

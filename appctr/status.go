@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// GetStatusFromAPI возвращает JSON статус демона.
+// GetStatusFromAPI returns the daemon status as JSON.
 func GetStatusFromAPI() string {
 	if !IsRunning() {
 		return `{"Error": "Tailscaled is not running."}`
@@ -23,7 +23,7 @@ func GetStatusFromAPI() string {
 	return string(data)
 }
 
-// GetDnsStatusJSON возвращает информацию о DNS для DnsActivity.
+// GetDnsStatusJSON returns DNS information for DnsActivity.
 func GetDnsStatusJSON() string {
 	if !IsRunning() {
 		return "{}"
@@ -31,7 +31,7 @@ func GetDnsStatusJSON() string {
 
 	socks, _, _, dns := GConfig.get()
 
-	// Собираем структуру, совместимую с DnsActivity.kt
+	// Build the structure expected by DnsActivity.kt.
 	type dnsAddr struct {
 		Addr string `json:"Addr"`
 	}
@@ -55,7 +55,7 @@ func GetDnsStatusJSON() string {
 		SplitDNSRoutes: make(map[string][]dnsAddr),
 	}
 
-	// Заполняем маршруты из нашего кэша
+	// Populate Split DNS routes from cache.
 	splitDNSCache.Range(func(key, value interface{}) bool {
 		domain := key.(string)
 		ips := value.([]string)
@@ -67,7 +67,7 @@ func GetDnsStatusJSON() string {
 		return true
 	})
 
-	// Пытаемся найти свое имя
+	// Try to find own node name in the nodes cache.
 	if socks != "" { 
 		nodesCache.Range(func(key, value interface{}) bool {
 			name := key.(string)
@@ -83,7 +83,7 @@ func GetDnsStatusJSON() string {
 	return string(data)
 }
 
-// GetBackendState возвращает текущее состояние бэкенда (Running, Starting и т.д.).
+// GetBackendState returns the current backend state (Running, Starting, etc.).
 func GetBackendState() string {
 	if !IsRunning() {
 		return "Stopped"
@@ -102,7 +102,7 @@ func GetBackendState() string {
 	return res.BackendState
 }
 
-// GetSelfDNSName возвращает MagicDNS имя текущего устройства.
+// GetSelfDNSName returns the MagicDNS name of the current device.
 func GetSelfDNSName() string {
 	if !IsRunning() {
 		return ""
@@ -122,7 +122,7 @@ func GetSelfDNSName() string {
 	return strings.TrimSuffix(res.Self.DNSName, ".")
 }
 
-// GetCoreVersion возвращает версию Tailscale Core.
+// GetCoreVersion returns the Tailscale Core version string.
 func GetCoreVersion() string {
 	return coreVersion
 }

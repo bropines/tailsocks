@@ -10,7 +10,7 @@ import (
 	"sync"
 )
 
-// Структура для лога, которая полетит в Kotlin
+// LogEntry is the structured log record sent to Kotlin.
 type LogEntry struct {
 	Timestamp string `json:"timestamp"`
 	Level     string `json:"level"`
@@ -32,16 +32,14 @@ var logManager = &LogManager{
 func (lm *LogManager) AddLog(entry LogEntry) {
 	lm.mu.Lock()
 	if len(lm.logs) >= lm.maxSize {
-		// Очищаем половину, если переполнилось
+		// Discard the oldest half when the buffer is full.
 		lm.logs = lm.logs[len(lm.logs)/2:]
 	}
 	lm.logs = append(lm.logs, entry)
 	lm.mu.Unlock()
-
-	// Вещаем в лог-менеджер (уже добавлено выше)
 }
 
-// Отдаем чистый JSON для Android
+// GetLogsJSON returns the log buffer as a clean JSON array for Android.
 func (lm *LogManager) GetLogsJSON() string {
 	lm.mu.RLock()
 	defer lm.mu.RUnlock()
@@ -53,7 +51,7 @@ func (lm *LogManager) GetLogsJSON() string {
 	return string(bytes)
 }
 
-// Оставляем старый метод просто на всякий случай (например, для экспорта в txt)
+// GetLogs returns logs as plain text (e.g. for export to a .txt file).
 func (lm *LogManager) GetLogs() string {
 	lm.mu.RLock()
 	defer lm.mu.RUnlock()
@@ -70,12 +68,12 @@ func (lm *LogManager) ClearLogs() {
 	lm.logs = make([]LogEntry, 0, lm.maxSize)
 }
 
-// Экспортируем функции для gomobile
+// Exported wrappers for gomobile.
 func GetLogsJSON() string { return logManager.GetLogsJSON() }
 func GetLogs() string     { return logManager.GetLogs() }
 func ClearLogs()          { logManager.ClearLogs() }
 
-// --- Обработчик slog ---
+// --- slog handler ---
 
 type dualHandler struct {
 	textHandler slog.Handler
@@ -110,7 +108,7 @@ func (h *dualHandler) Handle(ctx context.Context, r slog.Record) error {
 
 	timestamp := r.Time.Local().Format("15:04:05")
 
-	// Определение категории
+	// Determine log category.
 	category := "OTHER"
 	lowerMsg := strings.ToLower(msg)
 	if r.Level >= slog.LevelError || strings.Contains(lowerMsg, "error") || strings.Contains(lowerMsg, "failed") {
