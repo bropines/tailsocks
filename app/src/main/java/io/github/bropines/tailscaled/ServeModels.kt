@@ -15,8 +15,7 @@ data class ServeConfig(
 @Keep
 data class ServiceConfig(
     @SerializedName("TCP") val tcp: Map<Int, TCPPortHandler>? = null,
-    @SerializedName("Web") val web: Map<String, WebServerConfig>? = null,
-    @SerializedName("AllowFunnel") val allowFunnel: Map<String, Boolean>? = null
+    @SerializedName("Web") val web: Map<String, WebServerConfig>? = null
 )
 
 @Keep

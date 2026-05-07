@@ -172,7 +172,7 @@ func GetServeConfig() string {
 		return fmt.Sprintf(`{"Error": %q}`, err.Error())
 	}
 
-	etag := resp.Header.Get("Etag")
+	etag := resp.Header.Get("ETag")
 
 	// Embed ETag into the JSON so Kotlin can extract it for subsequent writes.
 	s := string(data)
@@ -230,7 +230,25 @@ func SetServeConfig(configJson string) string {
 		},
 	}
 
-	// STEP 1: Full reset.
+	// STEP 1: Synchronise AdvertiseServices in Prefs.
+	// We do this BEFORE updating ServeConfig so the daemon already knows about the services
+	// when it receives rules for them. This avoids potential discards of service-scoped rules.
+	var advertiseServices []string
+	if svcMap, ok := tmp["Services"].(map[string]interface{}); ok {
+		for svcKey := range svcMap {
+			if strings.HasPrefix(svcKey, "svc:") {
+				advertiseServices = append(advertiseServices, svcKey)
+			}
+		}
+	}
+	prefsPayload, _ := json.Marshal(map[string]interface{}{
+		"AdvertiseServices":    advertiseServices,
+		"AdvertiseServicesSet": true,
+	})
+	slog.Info("LocalAPI: [PATCH] /localapi/v0/prefs (Sync AdvertiseServices)", "services", advertiseServices)
+	doLocalRequest("PATCH", "/localapi/v0/prefs", strings.NewReader(string(prefsPayload)))
+
+	// STEP 2: Full reset of ServeConfig.
 	slog.Info("LocalAPI: ServeConfig [Step 1/2] Resetting config", "if_match", etag)
 	resetReq, _ := http.NewRequest("POST", "http://local-tailscaled.sock/localapi/v0/serve-config", strings.NewReader("{}"))
 	if etag != "" {
@@ -252,19 +270,15 @@ func SetServeConfig(configJson string) string {
 		slog.Error("LocalAPI: Reset request failed", "err", err)
 	}
 
-	// If the reset didn't provide a new ETag, fetch it manually.
 	if nextEtag == "" {
 		nextEtag = fetchCurrentEtag(client, socket)
 		slog.Info("LocalAPI: Refetched ETag after reset", "etag", nextEtag)
 	}
 
-	// Brief pause to let the daemon close old port listeners.
 	time.Sleep(200 * time.Millisecond)
 
-	// STEP 2: Apply the new config.
-	slog.Info("LocalAPI: ServeConfig [Step 2/2] Applying new config", "if_match", nextEtag)
-	// We use fmt.Printf here as well to bypass any slog filtering if it exists.
-	fmt.Printf("LocalAPI: SetServeConfig payload: %s\n", string(cleanJson))
+	// STEP 3: Apply the new config.
+	slog.Info("LocalAPI: ServeConfig [Step 2/2] Applying new config", "if_match", nextEtag, "payload", string(cleanJson))
 	
 	applyReq, _ := http.NewRequest("POST", "http://local-tailscaled.sock/localapi/v0/serve-config", strings.NewReader(string(cleanJson)))
 	if nextEtag != "" {
@@ -285,36 +299,6 @@ func SetServeConfig(configJson string) string {
 
 	finalEtag := applyResp.Header.Get("ETag")
 	slog.Info("LocalAPI: Apply successful", "status", applyResp.StatusCode, "final_etag", finalEtag)
-
-	// STEP 3: Synchronise AdvertiseServices in Prefs.
-	// Critical: the official CLI (serve_v2.go) sends PATCH /prefs with AdvertiseServices
-	// on every `tailscale serve --service=svc:*` call. Without this the daemon's
-	// vipServicesFromPrefsLocked does not include the service in its c2n /vip-services
-	// response, so the coordination server never activates the VIP DNS entry.
-	var advertiseServices []string
-	if svcMap, ok := tmp["Services"].(map[string]interface{}); ok {
-		for svcKey := range svcMap {
-			// Include only service-scoped entries (format: "svc:name").
-			if strings.HasPrefix(svcKey, "svc:") {
-				advertiseServices = append(advertiseServices, svcKey)
-			}
-		}
-	}
-
-	// Two-step reset + apply (mirrors the SetServeConfig POST {}→POST config pattern).
-	// Step A: Clear all previously advertised services to avoid stale svc: entries.
-	slog.Info("LocalAPI: [PATCH] /localapi/v0/prefs (AdvertiseServices reset)")
-	doLocalRequest("PATCH", "/localapi/v0/prefs", strings.NewReader(`{"AdvertiseServices":[],"AdvertiseServicesSet":true}`))
-
-	if len(advertiseServices) > 0 {
-		// Step B: Apply the new service list.
-		prefsPayload, _ := json.Marshal(map[string]interface{}{
-			"AdvertiseServices":    advertiseServices,
-			"AdvertiseServicesSet": true,
-		})
-		slog.Info("LocalAPI: [PATCH] /localapi/v0/prefs (AdvertiseServices apply)", "services", advertiseServices)
-		doLocalRequest("PATCH", "/localapi/v0/prefs", strings.NewReader(string(prefsPayload)))
-	}
 
 	return "OK"
 }

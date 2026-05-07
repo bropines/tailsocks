@@ -214,7 +214,7 @@ fun ServeScreen(onBack: () -> Unit) {
 
                                 val isWeb = handler.https == true || handler.http == true
                                 val protocol = if (handler.https == true) "https" else "http"
-                                val isFunnel = svcConfig.allowFunnel?.get(hostKey) == true
+                                val isFunnel = config?.allowFunnel?.get(hostKey) == true
                                 val fullUrl = getLink(port, protocol, isFunnel, cleanSvcName)
                                 
                                 val webHandler = svcConfig.web?.get(hostKey)?.handlers?.get("/")
@@ -264,24 +264,26 @@ fun ServeScreen(onBack: () -> Unit) {
                                     onDelete = { 
                                         val newServices = config?.services?.toMutableMap() ?: mutableMapOf()
                                         newServices.remove(svcName)
-                                        saveConfig(config!!.copy(services = newServices))
+                                        val newGlobalFunnel = config?.allowFunnel?.toMutableMap() ?: mutableMapOf()
+                                        newGlobalFunnel.keys.filter { it.startsWith("$cleanSvcName.") && it.endsWith(":$port") }.forEach { newGlobalFunnel.remove(it) }
+                                        saveConfig(config!!.copy(services = newServices, allowFunnel = if (newGlobalFunnel.isNotEmpty()) newGlobalFunnel else null))
                                     },
                                     onFunnelToggle = { enabled ->
+                                        val newGlobalFunnel = config?.allowFunnel?.toMutableMap() ?: mutableMapOf()
                                         val newServices = config?.services?.toMutableMap() ?: mutableMapOf()
                                         val oldSvc = newServices[svcName] ?: ServiceConfig()
-                                        val newFunnel = oldSvc.allowFunnel?.toMutableMap() ?: mutableMapOf()
                                         val newTcp = oldSvc.tcp?.toMutableMap() ?: mutableMapOf()
                                         if (enabled) {
-                                            newFunnel[hostKey] = true
+                                            newGlobalFunnel[hostKey] = true
                                             val oldH = newTcp[port]
                                             if (oldH != null && oldH.http == true) {
                                                 newTcp[port] = oldH.copy(https = true, http = false)
                                             }
                                         } else {
-                                            newFunnel.remove(hostKey)
+                                            newGlobalFunnel.remove(hostKey)
                                         }
-                                        newServices[svcName] = oldSvc.copy(allowFunnel = newFunnel, tcp = newTcp)
-                                        saveConfig(config!!.copy(services = newServices))
+                                        newServices[svcName] = oldSvc.copy(tcp = if (newTcp.isNotEmpty()) newTcp else null)
+                                        saveConfig(config!!.copy(allowFunnel = if (newGlobalFunnel.isNotEmpty()) newGlobalFunnel else null, services = newServices))
                                     }
                                 )
                             }
@@ -316,26 +318,24 @@ fun ServeScreen(onBack: () -> Unit) {
                         newServices[oldSvcKey]?.let { oldSvc ->
                             val sTcp = oldSvc.tcp?.toMutableMap() ?: mutableMapOf()
                             val sWeb = oldSvc.web?.toMutableMap() ?: mutableMapOf()
-                            val sFunnel = oldSvc.allowFunnel?.toMutableMap() ?: mutableMapOf()
                             
                             sTcp.remove(oPort)
                             sWeb.keys.filter { it.endsWith(":$oPort") }.forEach { sWeb.remove(it) }
-                            sFunnel.keys.filter { it.endsWith(":$oPort") }.forEach { sFunnel.remove(it) }
+                            newGlobalFunnel.keys.filter { it.startsWith("${editData.oldServiceName}.") && it.endsWith(":$oPort") }.forEach { newGlobalFunnel.remove(it) }
                             
                             if (sTcp.isEmpty() && sWeb.isEmpty()) {
                                 newServices.remove(oldSvcKey)
                             } else {
                                 newServices[oldSvcKey] = oldSvc.copy(
                                     tcp = if (sTcp.isNotEmpty()) sTcp else null,
-                                    web = if (sWeb.isNotEmpty()) sWeb else null,
-                                    allowFunnel = if (sFunnel.isNotEmpty()) sFunnel else null
+                                    web = if (sWeb.isNotEmpty()) sWeb else null
                                 )
                             }
                         }
                     } else {
                         newTcp.remove(oPort)
                         newWeb.keys.filter { it.endsWith(":$oPort") }.forEach { newWeb.remove(it) }
-                        newGlobalFunnel.keys.filter { it.endsWith(":$oPort") }.forEach { newGlobalFunnel.remove(it) }
+                        newGlobalFunnel.keys.filter { it.startsWith("*:") && it.endsWith(":$oPort") }.forEach { newGlobalFunnel.remove(it) }
                     }
                 }
 
