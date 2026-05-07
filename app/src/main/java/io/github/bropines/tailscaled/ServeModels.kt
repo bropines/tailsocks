@@ -25,6 +25,7 @@ data class TCPPortHandler(
     @SerializedName("HTTP") val http: Boolean? = null,
     @SerializedName("TCPForward") val tcpForward: String? = null,
     @SerializedName("TerminateTLS") val terminateTLS: String? = null,
+    @SerializedName("ProxyProtocol") val proxyProtocol: Int? = null,
     @SerializedName("Disabled") val disabled: Boolean? = null
 )
 
@@ -37,5 +38,6 @@ data class WebServerConfig(
 data class HTTPHandler(
     @SerializedName("Path") val path: String? = null,
     @SerializedName("Proxy") val proxy: String? = null,
-    @SerializedName("Text") val text: String? = null
+    @SerializedName("Text") val text: String? = null,
+    @SerializedName("Redirect") val redirect: String? = null
 )

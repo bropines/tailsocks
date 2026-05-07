@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // doLocalRequest выполняет запрос к Unix-сокету демона.
@@ -192,8 +193,6 @@ func SetServeConfig(configJson string) string {
 	}
 
 	state := GetBackendState()
-	slog.Info("LocalAPI: SetServeConfig attempt", "backend_state", state)
-
 	if state != "Running" {
 		return "Error: Backend is not in Running state (current: " + state + "). Wait a few seconds."
 	}
@@ -205,43 +204,64 @@ func SetServeConfig(configJson string) string {
 	}
 	etag, _ := tmp["etag"].(string)
 	delete(tmp, "etag") // Удаляем, чтобы не слать демону
-
 	cleanJson, _ := json.Marshal(tmp)
 
 	stateMu.Lock()
-	pc := PC
+	socket := PC.Socket()
 	stateMu.Unlock()
 
 	client := http.Client{
 		Transport: &http.Transport{
 			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-				var d net.Dialer
-				return d.DialContext(ctx, "unix", pc.Socket())
+				return net.Dial("unix", socket)
 			},
 		},
 	}
 
-	req, err := http.NewRequest("POST", "http://local-tailscaled.sock/localapi/v0/serve-config", strings.NewReader(string(cleanJson)))
-	if err != nil {
-		return "Error: " + err.Error()
-	}
-
+	// ШАГ 1: Полный сброс (Reset)
+	// Это ВАЖНО, чтобы очистить привязки портов перед сменой протокола (HTTP <-> HTTPS)
+	slog.Info("LocalAPI: ServeConfig [Step 1/2] Resetting config", "if_match", etag)
+	resetReq, _ := http.NewRequest("POST", "http://local-tailscaled.sock/localapi/v0/serve-config", strings.NewReader("{}"))
 	if etag != "" {
-		req.Header.Set("If-Match", etag)
+		resetReq.Header.Set("If-Match", etag)
+	}
+	
+	resetResp, err := client.Do(resetReq)
+	var nextEtag = etag
+	if err == nil {
+		// Получаем новый ETag после сброса, чтобы использовать его во втором шаге
+		if resetResp.StatusCode == http.StatusOK || resetResp.StatusCode == http.StatusNoContent {
+			nextEtag = resetResp.Header.Get("ETag")
+			slog.Info("LocalAPI: Reset successful", "new_etag", nextEtag)
+		} else {
+			data, _ := io.ReadAll(resetResp.Body)
+			slog.Warn("LocalAPI: Reset returned non-OK status", "status", resetResp.StatusCode, "body", string(data))
+		}
+		resetResp.Body.Close()
+	} else {
+		slog.Error("LocalAPI: Reset request failed", "err", err)
 	}
 
-	slog.Info("LocalAPI: [POST] /localapi/v0/serve-config", "etag", etag, "payload", string(cleanJson))
+	// Пауза, чтобы демон успел закрыть старые слушатели на портах
+	time.Sleep(150 * time.Millisecond)
 
-	resp, err := client.Do(req)
+	// ШАГ 2: Применение нового конфига
+	slog.Info("LocalAPI: ServeConfig [Step 2/2] Applying new config", "if_match", nextEtag)
+	applyReq, _ := http.NewRequest("POST", "http://local-tailscaled.sock/localapi/v0/serve-config", strings.NewReader(string(cleanJson)))
+	if nextEtag != "" {
+		applyReq.Header.Set("If-Match", nextEtag)
+	}
+
+	applyResp, err := client.Do(applyReq)
 	if err != nil {
-		return "Error: " + err.Error()
+		return "Error (Apply): " + err.Error()
 	}
-	defer resp.Body.Close()
+	defer applyResp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
-		data, _ := io.ReadAll(resp.Body)
-		slog.Error("LocalAPI: SetServeConfig failed", "status", resp.StatusCode, "body", string(data))
-		return fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(data))
+	if applyResp.StatusCode != http.StatusOK && applyResp.StatusCode != http.StatusNoContent {
+		data, _ := io.ReadAll(applyResp.Body)
+		slog.Error("LocalAPI: SetServeConfig [Apply] failed", "status", applyResp.StatusCode, "body", string(data))
+		return fmt.Sprintf("HTTP %d: %s", applyResp.StatusCode, string(data))
 	}
 
 	// Кикаем демона, чтобы он обновил Hostinfo (ServicesHash) немедленно

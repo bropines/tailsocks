@@ -5,9 +5,12 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -86,7 +89,9 @@ fun ServeScreen(onBack: () -> Unit) {
             val parts = selfDns.split(".", limit = 2)
             if (parts.size < 2) "$serviceName.$selfDns" else "$serviceName.${parts[1]}"
         } else selfDns
-        return "$realProto://$baseDns:$port"
+        // Для стандартных портов 80/443 не показываем порт в ссылке
+        val portSuffix = if ((realProto == "http" && port == 80) || (realProto == "https" && port == 443)) "" else ":$port"
+        return "$realProto://$baseDns$portSuffix"
     }
 
     LaunchedEffect(Unit) { refresh() }
@@ -128,17 +133,39 @@ fun ServeScreen(onBack: () -> Unit) {
                             val isFunnel = config?.allowFunnel?.get(":$port") == true
                             val fullUrl = getLink(port, protocol, isFunnel)
                             
+                            val webHandler = config?.web?.get(":$port")?.handlers?.get("/")
+                            val detailText = when {
+                                webHandler?.proxy != null -> "Proxy -> ${webHandler.proxy}"
+                                webHandler?.text != null -> "Text: ${webHandler.text}"
+                                webHandler?.redirect != null -> "Redirect -> ${webHandler.redirect}"
+                                handler.tcpForward != null -> "Forward -> ${handler.tcpForward}"
+                                else -> "Web ($protocol)"
+                            }
+
                             ServeRuleCard(
                                 title = "Node Port $port",
-                                subtitle = handler.tcpForward ?: (if (handler.https == true) "Web (HTTPS)" else "Web (HTTP)"),
+                                subtitle = detailText,
                                 fullUrl = fullUrl,
                                 isFunnel = isFunnel,
+                                protocol = if (isWeb) protocol.uppercase() else "TCP",
                                 isDisabled = handler.disabled == true,
                                 onClick = {
                                     showEditDialog = ServeRuleEditData(
                                         port = port.toString(),
-                                        target = handler.tcpForward ?: "",
-                                        isWeb = isWeb,
+                                        target = when {
+                                            webHandler?.proxy != null -> webHandler.proxy
+                                            webHandler?.text != null -> webHandler.text
+                                            webHandler?.redirect != null -> webHandler.redirect
+                                            else -> handler.tcpForward ?: ""
+                                        },
+                                        mode = if (isWeb) "Web" else "TCP",
+                                        transport = if (handler.http == true) "HTTP" else "HTTPS",
+                                        handlerType = when {
+                                            webHandler?.proxy != null -> "Proxy"
+                                            webHandler?.text != null -> "Text"
+                                            webHandler?.redirect != null -> "Redirect"
+                                            else -> "Proxy"
+                                        },
                                         isDisabled = handler.disabled == true,
                                         isEditing = true
                                     )
@@ -158,8 +185,17 @@ fun ServeScreen(onBack: () -> Unit) {
                                 },
                                 onFunnelToggle = { enabled ->
                                     val newFunnel = config?.allowFunnel?.toMutableMap() ?: mutableMapOf()
-                                    if (enabled) newFunnel[":$port"] = true else newFunnel.remove(":$port")
-                                    saveConfig(config!!.copy(allowFunnel = newFunnel))
+                                    val newTcp = config?.tcp?.toMutableMap() ?: mutableMapOf()
+                                    if (enabled) {
+                                        newFunnel[":$port"] = true
+                                        val oldH = newTcp[port]
+                                        if (oldH != null && oldH.http == true) {
+                                            newTcp[port] = oldH.copy(https = true, http = false)
+                                        }
+                                    } else {
+                                        newFunnel.remove(":$port")
+                                    }
+                                    saveConfig(config!!.copy(allowFunnel = newFunnel, tcp = newTcp))
                                 }
                             )
                         }
@@ -175,17 +211,39 @@ fun ServeScreen(onBack: () -> Unit) {
                                 val isFunnel = svcConfig.allowFunnel?.get(":$port") == true
                                 val fullUrl = getLink(port, protocol, isFunnel, cleanSvcName)
                                 
+                                val webHandler = svcConfig.web?.get(":$port")?.handlers?.get("/")
+                                val detailText = when {
+                                    webHandler?.proxy != null -> "Proxy -> ${webHandler.proxy}"
+                                    webHandler?.text != null -> "Text: ${webHandler.text}"
+                                    webHandler?.redirect != null -> "Redirect -> ${webHandler.redirect}"
+                                    handler.tcpForward != null -> "Forward -> ${handler.tcpForward}"
+                                    else -> "Web ($protocol)"
+                                }
+
                                 ServeRuleCard(
                                     title = "Service: $cleanSvcName (Port $port)",
-                                    subtitle = handler.tcpForward ?: (if (handler.https == true) "Web (HTTPS)" else "Web (HTTP)"),
+                                    subtitle = detailText,
                                     fullUrl = fullUrl,
                                     isFunnel = isFunnel,
+                                    protocol = if (isWeb) protocol.uppercase() else "TCP",
                                     isDisabled = handler.disabled == true,
                                     onClick = { 
                                         showEditDialog = ServeRuleEditData(
                                             port = port.toString(),
-                                            target = handler.tcpForward ?: "",
-                                            isWeb = isWeb,
+                                            target = when {
+                                                webHandler?.proxy != null -> webHandler.proxy
+                                                webHandler?.text != null -> webHandler.text
+                                                webHandler?.redirect != null -> webHandler.redirect
+                                                else -> handler.tcpForward ?: ""
+                                            },
+                                            mode = if (isWeb) "Web" else "TCP",
+                                            transport = if (handler.http == true) "HTTP" else "HTTPS",
+                                            handlerType = when {
+                                                webHandler?.proxy != null -> "Proxy"
+                                                webHandler?.text != null -> "Text"
+                                                webHandler?.redirect != null -> "Redirect"
+                                                else -> "Proxy"
+                                            },
                                             serviceName = cleanSvcName,
                                             isDisabled = handler.disabled == true,
                                             isEditing = true
@@ -204,8 +262,17 @@ fun ServeScreen(onBack: () -> Unit) {
                                         val newServices = config?.services?.toMutableMap() ?: mutableMapOf()
                                         val oldSvc = newServices[svcName] ?: ServiceConfig()
                                         val newFunnel = oldSvc.allowFunnel?.toMutableMap() ?: mutableMapOf()
-                                        if (enabled) newFunnel[":$port"] = true else newFunnel.remove(":$port")
-                                        newServices[svcName] = oldSvc.copy(allowFunnel = newFunnel)
+                                        val newTcp = oldSvc.tcp?.toMutableMap() ?: mutableMapOf()
+                                        if (enabled) {
+                                            newFunnel[":$port"] = true
+                                            val oldH = newTcp[port]
+                                            if (oldH != null && oldH.http == true) {
+                                                newTcp[port] = oldH.copy(https = true, http = false)
+                                            }
+                                        } else {
+                                            newFunnel.remove(":$port")
+                                        }
+                                        newServices[svcName] = oldSvc.copy(allowFunnel = newFunnel, tcp = newTcp)
                                         saveConfig(config!!.copy(services = newServices))
                                     }
                                 )
@@ -224,31 +291,81 @@ fun ServeScreen(onBack: () -> Unit) {
         AddServeRuleDialog(
             data = data,
             onDismiss = { showEditDialog = null },
-            onConfirm = { port, target, isWeb, serviceName, isDisabled ->
+            onConfirm = { port, target, mode, transport, handlerType, serviceName, isDisabled ->
                 val currentConfig = config ?: ServeConfig()
                 
                 if (serviceName.isNotEmpty()) {
                     val svcKey = "svc:$serviceName"
                     val newServices = currentConfig.services?.toMutableMap() ?: mutableMapOf()
-                    val svcTcp = mutableMapOf<Int, TCPPortHandler>()
-                    val svcWeb = mutableMapOf<String, WebServerConfig>()
-                    if (isWeb) {
-                        svcWeb[":$port"] = WebServerConfig(handlers = mapOf("/" to HTTPHandler(proxy = "http://$target/")))
-                        svcTcp[port] = TCPPortHandler(https = true, disabled = isDisabled)
+                    val oldSvc = newServices[svcKey] ?: ServiceConfig()
+                    val svcTcp = oldSvc.tcp?.toMutableMap() ?: mutableMapOf()
+                    val svcWeb = oldSvc.web?.toMutableMap() ?: mutableMapOf()
+                    val isFunnel = oldSvc.allowFunnel?.get("*:$port") == true
+                    
+                    // Для сервисов (VIP) ОБЯЗАТЕЛЬНО используем полный FQDN, иначе будет 404
+                    val suffix = selfDns.substringAfter(".")
+                    val fqdn = "$serviceName.$suffix"
+                    val hostKey = "$fqdn:$port"
+
+                    if (mode == "Web") {
+                        val handler = when (handlerType) {
+                            "Proxy" -> HTTPHandler(proxy = if (target.startsWith("http")) target else "http://$target")
+                            "Text" -> HTTPHandler(text = target)
+                            "Redirect" -> HTTPHandler(redirect = target)
+                            else -> HTTPHandler(proxy = "http://$target")
+                        }
+                        svcWeb[hostKey] = WebServerConfig(handlers = mapOf("/" to handler))
+                        val useHttps = isFunnel || transport == "HTTPS"
+                        svcTcp[port] = TCPPortHandler(
+                            https = useHttps, 
+                            http = !useHttps, 
+                            tcpForward = null, 
+                            terminateTLS = null,
+                            disabled = isDisabled
+                        )
                     } else {
-                        svcTcp[port] = TCPPortHandler(tcpForward = target, disabled = isDisabled)
+                        svcTcp[port] = TCPPortHandler(
+                            tcpForward = target, 
+                            https = null, 
+                            http = null, 
+                            terminateTLS = null,
+                            disabled = isDisabled
+                        )
+                        svcWeb.remove(hostKey)
                     }
-                    newServices[svcKey] = ServiceConfig(tcp = svcTcp, web = if (isWeb) svcWeb else null)
+                    newServices[svcKey] = ServiceConfig(tcp = svcTcp, web = if (svcWeb.isNotEmpty()) svcWeb else null, allowFunnel = oldSvc.allowFunnel)
                     saveConfig(currentConfig.copy(services = newServices))
                 } else {
                     val newTcp = currentConfig.tcp?.toMutableMap() ?: mutableMapOf()
                     val newWeb = currentConfig.web?.toMutableMap() ?: mutableMapOf()
-                    if (isWeb) {
-                        newWeb[":$port"] = WebServerConfig(handlers = mapOf("/" to HTTPHandler(proxy = "http://$target/")))
-                        newTcp[port] = TCPPortHandler(https = true, disabled = isDisabled)
+                    val isFunnel = currentConfig.allowFunnel?.get("*:$port") == true
+                    
+                    if (mode == "Web") {
+                        val handler = when (handlerType) {
+                            "Proxy" -> HTTPHandler(proxy = if (target.startsWith("http")) target else "http://$target")
+                            "Text" -> HTTPHandler(text = target)
+                            "Redirect" -> HTTPHandler(redirect = target)
+                            else -> HTTPHandler(proxy = "http://$target")
+                        }
+                        newWeb["*:$port"] = WebServerConfig(handlers = mapOf("/" to handler))
+                        val useHttps = isFunnel || transport == "HTTPS"
+                        // ПРИНУДИТЕЛЬНОЕ ЗАНУЛЕНИЕ для предотвращения конфликта (Error 500)
+                        newTcp[port] = TCPPortHandler(
+                            https = useHttps, 
+                            http = !useHttps, 
+                            tcpForward = null, 
+                            terminateTLS = null,
+                            disabled = isDisabled
+                        )
                     } else {
-                        newTcp[port] = TCPPortHandler(tcpForward = target, disabled = isDisabled)
-                        newWeb.remove(":$port")
+                        newTcp[port] = TCPPortHandler(
+                            tcpForward = target, 
+                            https = null, 
+                            http = null, 
+                            terminateTLS = null,
+                            disabled = isDisabled
+                        )
+                        newWeb.remove("*:$port")
                     }
                     saveConfig(currentConfig.copy(tcp = newTcp, web = newWeb))
                 }
@@ -261,7 +378,9 @@ fun ServeScreen(onBack: () -> Unit) {
 data class ServeRuleEditData(
     val port: String = "10000",
     val target: String = "127.0.0.1:8080",
-    val isWeb: Boolean = false,
+    val mode: String = "Web", // Web or TCP
+    val transport: String = "HTTPS", // HTTP or HTTPS
+    val handlerType: String = "Proxy", // Proxy, Text, Redirect
     val isEditing: Boolean = false,
     val serviceName: String = "",
     val isDisabled: Boolean = false
@@ -269,7 +388,7 @@ data class ServeRuleEditData(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ServeRuleCard(title: String, subtitle: String, fullUrl: String, isFunnel: Boolean, isDisabled: Boolean, onClick: () -> Unit, onCopy: () -> Unit, onDelete: () -> Unit, onFunnelToggle: (Boolean) -> Unit) {
+fun ServeRuleCard(title: String, subtitle: String, fullUrl: String, isFunnel: Boolean, protocol: String, isDisabled: Boolean, onClick: () -> Unit, onCopy: () -> Unit, onDelete: () -> Unit, onFunnelToggle: (Boolean) -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable { onClick() },
         colors = if (isDisabled) CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)) else CardDefaults.cardColors()
@@ -278,6 +397,17 @@ fun ServeRuleCard(title: String, subtitle: String, fullUrl: String, isFunnel: Bo
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            color = when(protocol) {
+                                "HTTPS" -> Color(0xFF4CAF50)
+                                "HTTP" -> Color(0xFFFF9800)
+                                else -> MaterialTheme.colorScheme.primary
+                            },
+                            shape = MaterialTheme.shapes.extraSmall,
+                            modifier = Modifier.padding(end = 8.dp)
+                        ) {
+                            Text(protocol, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
+                        }
                         Text(title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                         if (isDisabled) {
                             Spacer(Modifier.width(8.dp))
@@ -313,10 +443,12 @@ fun ServeRuleCard(title: String, subtitle: String, fullUrl: String, isFunnel: Bo
 }
 
 @Composable
-fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm: (Int, String, Boolean, String, Boolean) -> Unit) {
+fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm: (Int, String, String, String, String, String, Boolean) -> Unit) {
     var port by remember { mutableStateOf(data.port) }
     var target by remember { mutableStateOf(data.target) }
-    var isWeb by remember { mutableStateOf(data.isWeb) }
+    var mode by remember { mutableStateOf(data.mode) }
+    var transport by remember { mutableStateOf(data.transport) }
+    var handlerType by remember { mutableStateOf(data.handlerType) }
     var serviceName by remember { mutableStateOf(data.serviceName) }
     var isDisabled by remember { mutableStateOf(data.isDisabled) }
 
@@ -324,22 +456,64 @@ fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm
         onDismissRequest = onDismiss,
         title = { Text(if (data.isEditing) "Edit Serve Rule" else "Add Serve Rule") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     value = serviceName,
                     onValueChange = { serviceName = it },
                     label = { Text("Service Name (optional)") },
                     placeholder = { Text("e.g. webapp") },
                     supportingText = { Text("Leave empty for Device-scoped rule") },
-                    enabled = !data.isEditing
+                    enabled = !data.isEditing,
+                    modifier = Modifier.fillMaxWidth()
                 )
                 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(selected = !isWeb, onClick = { isWeb = false })
-                    Text("TCP", modifier = Modifier.clickable { isWeb = false })
-                    Spacer(Modifier.width(16.dp))
-                    RadioButton(selected = isWeb, onClick = { isWeb = true })
-                    Text("Web", modifier = Modifier.clickable { isWeb = true })
+                Column {
+                    Text("Mode", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("Web", "TCP").forEach { m ->
+                            FilterChip(
+                                selected = mode == m,
+                                onClick = { 
+                                    mode = m
+                                    if (m == "Web" && port == "10000") port = "443"
+                                    if (m == "TCP" && (port == "443" || port == "80")) port = "10000"
+                                },
+                                label = { Text(m) }
+                            )
+                        }
+                    }
+                }
+
+                if (mode == "Web") {
+                    Column {
+                        Text("Transport", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf("HTTPS", "HTTP").forEach { t ->
+                                FilterChip(
+                                    selected = transport == t,
+                                    onClick = { 
+                                        transport = t 
+                                        if (t == "HTTPS" && port == "80") port = "443"
+                                        if (t == "HTTP" && port == "443") port = "80"
+                                    },
+                                    label = { Text(t) }
+                                )
+                            }
+                        }
+                    }
+
+                    Column {
+                        Text("Handler Type", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                            listOf("Proxy", "Text", "Redirect").forEach { h ->
+                                FilterChip(
+                                    selected = handlerType == h,
+                                    onClick = { handlerType = h },
+                                    label = { Text(h) }
+                                )
+                            }
+                        }
+                    }
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -352,17 +526,27 @@ fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm
                     onValueChange = { port = it }, 
                     label = { Text("Tailscale Port") },
                     supportingText = { Text("Funnel supports: 443, 8443, 10000") },
-                    enabled = !data.isEditing
+                    enabled = !data.isEditing,
+                    modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = target, 
                     onValueChange = { target = it }, 
-                    label = { Text(if (isWeb) "Local Address (e.g. 127.0.0.1:80)" else "Target Address (e.g. 127.0.0.1:8080)") }
+                    label = { 
+                        Text(when {
+                            mode == "TCP" -> "Target Address (e.g. 127.0.0.1:8080)"
+                            handlerType == "Proxy" -> "Target URL (e.g. 127.0.0.1:80)"
+                            handlerType == "Text" -> "Text content"
+                            handlerType == "Redirect" -> "Destination URL (e.g. https://google.com)"
+                            else -> "Target"
+                        })
+                    },
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         },
         confirmButton = {
-            Button(onClick = { onConfirm(port.toIntOrNull() ?: 10000, target, isWeb, serviceName, isDisabled) }) { Text(if (data.isEditing) "Save" else "Add") }
+            Button(onClick = { onConfirm(port.toIntOrNull() ?: 10000, target, mode, transport, handlerType, serviceName, isDisabled) }) { Text(if (data.isEditing) "Save" else "Add") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
