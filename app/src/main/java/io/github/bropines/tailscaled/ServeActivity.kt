@@ -7,7 +7,6 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -49,6 +48,7 @@ fun ServeScreen(onBack: () -> Unit) {
     var config by remember { mutableStateOf<ServeConfig?>(null) }
     var selfDns by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(true) }
+    var selectedTab by remember { mutableIntStateOf(0) }
     var showEditDialog by remember { mutableStateOf<ServeRuleEditData?>(null) }
     val context = androidx.compose.ui.platform.LocalContext.current
     val clipboard = LocalClipboardManager.current
@@ -98,18 +98,29 @@ fun ServeScreen(onBack: () -> Unit) {
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Serve & Funnel") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
-                },
-                actions = {
-                    IconButton(onClick = { refresh() }) { Icon(Icons.Default.Refresh, "Refresh") }
+            Column {
+                TopAppBar(
+                    title = { Text("Serve & Funnel") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+                    },
+                    actions = {
+                        IconButton(onClick = { refresh() }) { Icon(Icons.Default.Refresh, "Refresh") }
+                    }
+                )
+                TabRow(selectedTabIndex = selectedTab) {
+                    Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }, text = { Text("Serve") })
+                    Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }, text = { Text("Funnel") })
                 }
-            )
+            }
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showEditDialog = ServeRuleEditData() }) {
+            FloatingActionButton(onClick = { 
+                showEditDialog = ServeRuleEditData(
+                    isFunnel = selectedTab == 1,
+                    port = if (selectedTab == 1) "443" else "10000"
+                ) 
+            }) {
                 Icon(Icons.Default.Add, "Add Rule")
             }
         }
@@ -117,40 +128,107 @@ fun ServeScreen(onBack: () -> Unit) {
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
             if (isLoading && config == null) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            } else if (config == null || (config?.tcp.isNullOrEmpty() && config?.web.isNullOrEmpty() && config?.services.isNullOrEmpty())) {
-                Column(modifier = Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.PublicOff, null, modifier = Modifier.size(64.dp), tint = Color.Gray)
-                    Spacer(Modifier.height(16.dp))
-                    Text("No active rules", style = MaterialTheme.typography.bodyLarge, color = Color.Gray)
-                }
             } else {
-                LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // Node-scoped TCP Rules
-                    config?.tcp?.let { tcpMap ->
-                        items(tcpMap.toList()) { (port, handler) ->
-                            val hostKey = config?.web?.keys?.find { it.endsWith(":$port") } ?: "*:$port"
-                            val isWeb = handler.https == true || handler.http == true
-                            val protocol = if (handler.https == true) "https" else "http"
-                            val isFunnel = config?.allowFunnel?.get(hostKey) == true
-                            val fullUrl = getLink(port, protocol, isFunnel)
-                            
-                            val webHandler = config?.web?.get(hostKey)?.handlers?.get("/")
-                            val detailText = when {
-                                webHandler?.proxy != null -> "Proxy -> ${webHandler.proxy}"
-                                webHandler?.text != null -> "Text: ${webHandler.text}"
-                                webHandler?.redirect != null -> "Redirect -> ${webHandler.redirect}"
-                                handler.tcpForward != null -> "Forward -> ${handler.tcpForward}"
-                                else -> "Web ($protocol)"
-                            }
+                val serveItems = mutableListOf<@Composable () -> Unit>()
+                val funnelItems = mutableListOf<@Composable () -> Unit>()
 
+                // 1. Process Node-scoped Rules
+                config?.tcp?.forEach { (port, handler) ->
+                    val hostKey = config?.web?.keys?.find { it.endsWith(":$port") } ?: "*:$port"
+                    val isWeb = handler.https == true || handler.http == true
+                    val protocol = if (handler.https == true) "https" else "http"
+                    
+                    // Funnel check for node (must be selfDns:port)
+                    val funnelKey = if (selfDns.isNotEmpty()) "$selfDns:$port" else "*:$port"
+                    val isFunnel = config?.allowFunnel?.get(funnelKey) == true || config?.allowFunnel?.get("*:$port") == true
+
+                    val webHandler = config?.web?.get(hostKey)?.handlers?.get("/")
+                    val detailText = when {
+                        webHandler?.proxy != null -> "Proxy -> ${webHandler.proxy}"
+                        webHandler?.text != null -> "Text: ${webHandler.text}"
+                        webHandler?.redirect != null -> "Redirect -> ${webHandler.redirect}"
+                        handler.tcpForward != null -> "Forward -> ${handler.tcpForward}"
+                        else -> "Web ($protocol)"
+                    }
+
+                    val card = @Composable {
+                        ServeRuleCard(
+                            title = "Node Port $port",
+                            subtitle = detailText,
+                            fullUrl = getLink(port, protocol, isFunnel),
+                            protocol = if (isWeb) protocol.uppercase() else "TCP",
+                            isDisabled = handler.disabled == true,
+                            onClick = {
+                                showEditDialog = ServeRuleEditData(
+                                    port = port.toString(),
+                                    oldPort = port.toString(),
+                                    target = when {
+                                        webHandler?.proxy != null -> webHandler.proxy
+                                        webHandler?.text != null -> webHandler.text
+                                        webHandler?.redirect != null -> webHandler.redirect
+                                        else -> handler.tcpForward ?: ""
+                                    },
+                                    mode = if (isWeb) "Web" else "TCP",
+                                    transport = if (handler.https == true) "HTTPS" else "HTTP",
+                                    handlerType = when {
+                                        webHandler?.proxy != null -> "Proxy"
+                                        webHandler?.text != null -> "Text"
+                                        webHandler?.redirect != null -> "Redirect"
+                                        else -> "Proxy"
+                                    },
+                                    isDisabled = handler.disabled == true,
+                                    isFunnel = isFunnel,
+                                    isEditing = true
+                                )
+                            },
+                            onCopy = { 
+                                clipboard.setText(AnnotatedString(getLink(port, protocol, isFunnel)))
+                                Toast.makeText(context, "Link copied!", Toast.LENGTH_SHORT).show()
+                            },
+                            onDelete = { 
+                                val newTcp = config?.tcp?.toMutableMap() ?: mutableMapOf()
+                                newTcp.remove(port)
+                                val newWeb = config?.web?.toMutableMap() ?: mutableMapOf()
+                                newWeb.remove(hostKey)
+                                val newFunnel = config?.allowFunnel?.toMutableMap() ?: mutableMapOf()
+                                newFunnel.remove(funnelKey)
+                                newFunnel.remove("*:$port")
+                                saveConfig(config!!.copy(tcp = newTcp, web = newWeb, allowFunnel = if (newFunnel.isNotEmpty()) newFunnel else null))
+                            }
+                        )
+                    }
+
+                    if (isFunnel) funnelItems.add(card) else serveItems.add(card)
+                }
+
+                // 2. Process Services (Always Serve)
+                config?.services?.forEach { (svcName, svcConfig) ->
+                    val cleanSvcName = svcName.removePrefix("svc:")
+                    svcConfig.tcp?.forEach { (port, handler) ->
+                        val suffix = selfDns.substringAfter(".")
+                        val fqdn = "$cleanSvcName.$suffix"
+                        val hostKey = svcConfig.web?.keys?.find { it.endsWith(":$port") } ?: "$fqdn:$port"
+
+                        val isWeb = handler.https == true || handler.http == true
+                        val protocol = if (handler.https == true) "https" else "http"
+                        
+                        val webHandler = svcConfig.web?.get(hostKey)?.handlers?.get("/")
+                        val detailText = when {
+                            webHandler?.proxy != null -> "Proxy -> ${webHandler.proxy}"
+                            webHandler?.text != null -> "Text: ${webHandler.text}"
+                            webHandler?.redirect != null -> "Redirect -> ${webHandler.redirect}"
+                            handler.tcpForward != null -> "Forward -> ${handler.tcpForward}"
+                            else -> "Web ($protocol)"
+                        }
+
+                        serveItems.add {
                             ServeRuleCard(
-                                title = "Node Port $port",
+                                title = "Service: $cleanSvcName (Port $port)",
                                 subtitle = detailText,
-                                fullUrl = fullUrl,
-                                isFunnel = isFunnel,
+                                fullUrl = getLink(port, protocol, false, cleanSvcName),
                                 protocol = if (isWeb) protocol.uppercase() else "TCP",
                                 isDisabled = handler.disabled == true,
-                                onClick = {
+                                onClick = { 
                                     showEditDialog = ServeRuleEditData(
                                         port = port.toString(),
                                         oldPort = port.toString(),
@@ -168,126 +246,38 @@ fun ServeScreen(onBack: () -> Unit) {
                                             webHandler?.redirect != null -> "Redirect"
                                             else -> "Proxy"
                                         },
+                                        serviceName = cleanSvcName,
+                                        oldServiceName = cleanSvcName,
                                         isDisabled = handler.disabled == true,
+                                        isFunnel = false,
                                         isEditing = true
                                     )
                                 },
                                 onCopy = { 
-                                    clipboard.setText(AnnotatedString(fullUrl))
+                                    clipboard.setText(AnnotatedString(getLink(port, protocol, false, cleanSvcName)))
                                     Toast.makeText(context, "Link copied!", Toast.LENGTH_SHORT).show()
                                 },
                                 onDelete = { 
-                                    val newTcp = config?.tcp?.toMutableMap() ?: mutableMapOf()
-                                    newTcp.remove(port)
-                                    val newWeb = config?.web?.toMutableMap() ?: mutableMapOf()
-                                    newWeb.remove(hostKey)
-                                    val newFunnel = config?.allowFunnel?.toMutableMap() ?: mutableMapOf()
-                                    newFunnel.remove(hostKey)
-                                    saveConfig(config!!.copy(tcp = newTcp, web = newWeb, allowFunnel = newFunnel))
-                                },
-                                onFunnelToggle = { enabled ->
-                                    val newFunnel = config?.allowFunnel?.toMutableMap() ?: mutableMapOf()
-                                    val newTcp = config?.tcp?.toMutableMap() ?: mutableMapOf()
-                                    if (enabled) {
-                                        newFunnel[hostKey] = true
-                                        val oldH = newTcp[port]
-                                        if (oldH != null && oldH.http == true) {
-                                            newTcp[port] = oldH.copy(https = true, http = false)
-                                        }
-                                    } else {
-                                        newFunnel.remove(hostKey)
-                                    }
-                                    saveConfig(config!!.copy(allowFunnel = newFunnel, tcp = newTcp))
+                                    val newServices = config?.services?.toMutableMap() ?: mutableMapOf()
+                                    newServices.remove(svcName)
+                                    saveConfig(config!!.copy(services = newServices))
                                 }
                             )
                         }
                     }
+                }
 
-                    // Tailscale Services
-                    config?.services?.let { servicesMap ->
-                        items(servicesMap.toList()) { (svcName, svcConfig) ->
-                            val cleanSvcName = svcName.removePrefix("svc:")
-                            svcConfig.tcp?.forEach { (port, handler) ->
-                                val suffix = selfDns.substringAfter(".")
-                                val fqdn = "$cleanSvcName.$suffix"
-                                val hostKey = svcConfig.web?.keys?.find { it.endsWith(":$port") } ?: "$fqdn:$port"
-
-                                val isWeb = handler.https == true || handler.http == true
-                                val protocol = if (handler.https == true) "https" else "http"
-                                val isFunnel = config?.allowFunnel?.get(hostKey) == true
-                                val fullUrl = getLink(port, protocol, isFunnel, cleanSvcName)
-                                
-                                val webHandler = svcConfig.web?.get(hostKey)?.handlers?.get("/")
-                                val detailText = when {
-                                    webHandler?.proxy != null -> "Proxy -> ${webHandler.proxy}"
-                                    webHandler?.text != null -> "Text: ${webHandler.text}"
-                                    webHandler?.redirect != null -> "Redirect -> ${webHandler.redirect}"
-                                    handler.tcpForward != null -> "Forward -> ${handler.tcpForward}"
-                                    else -> "Web ($protocol)"
-                                }
-
-                                ServeRuleCard(
-                                    title = "Service: $cleanSvcName (Port $port)",
-                                    subtitle = detailText,
-                                    fullUrl = fullUrl,
-                                    isFunnel = isFunnel,
-                                    protocol = if (isWeb) protocol.uppercase() else "TCP",
-                                    isDisabled = handler.disabled == true,
-                                    onClick = { 
-                                        showEditDialog = ServeRuleEditData(
-                                            port = port.toString(),
-                                            oldPort = port.toString(),
-                                            target = when {
-                                                webHandler?.proxy != null -> webHandler.proxy
-                                                webHandler?.text != null -> webHandler.text
-                                                webHandler?.redirect != null -> webHandler.redirect
-                                                else -> handler.tcpForward ?: ""
-                                            },
-                                            mode = if (isWeb) "Web" else "TCP",
-                                            transport = if (handler.https == true) "HTTPS" else "HTTP",
-                                            handlerType = when {
-                                                webHandler?.proxy != null -> "Proxy"
-                                                webHandler?.text != null -> "Text"
-                                                webHandler?.redirect != null -> "Redirect"
-                                                else -> "Proxy"
-                                            },
-                                            serviceName = cleanSvcName,
-                                            oldServiceName = cleanSvcName,
-                                            isDisabled = handler.disabled == true,
-                                            isEditing = true
-                                        )
-                                    },
-                                    onCopy = { 
-                                        clipboard.setText(AnnotatedString(fullUrl))
-                                        Toast.makeText(context, "Link copied!", Toast.LENGTH_SHORT).show()
-                                    },
-                                    onDelete = { 
-                                        val newServices = config?.services?.toMutableMap() ?: mutableMapOf()
-                                        newServices.remove(svcName)
-                                        val newGlobalFunnel = config?.allowFunnel?.toMutableMap() ?: mutableMapOf()
-                                        newGlobalFunnel.keys.filter { it.startsWith("$cleanSvcName.") && it.endsWith(":$port") }.forEach { newGlobalFunnel.remove(it) }
-                                        saveConfig(config!!.copy(services = newServices, allowFunnel = if (newGlobalFunnel.isNotEmpty()) newGlobalFunnel else null))
-                                    },
-                                    onFunnelToggle = { enabled ->
-                                        val newGlobalFunnel = config?.allowFunnel?.toMutableMap() ?: mutableMapOf()
-                                        val newServices = config?.services?.toMutableMap() ?: mutableMapOf()
-                                        val oldSvc = newServices[svcName] ?: ServiceConfig()
-                                        val newTcp = oldSvc.tcp?.toMutableMap() ?: mutableMapOf()
-                                        if (enabled) {
-                                            newGlobalFunnel[hostKey] = true
-                                            val oldH = newTcp[port]
-                                            if (oldH != null && oldH.http == true) {
-                                                newTcp[port] = oldH.copy(https = true, http = false)
-                                            }
-                                        } else {
-                                            newGlobalFunnel.remove(hostKey)
-                                        }
-                                        newServices[svcName] = oldSvc.copy(tcp = if (newTcp.isNotEmpty()) newTcp else null)
-                                        saveConfig(config!!.copy(allowFunnel = if (newGlobalFunnel.isNotEmpty()) newGlobalFunnel else null, services = newServices))
-                                    }
-                                )
-                            }
-                        }
+                val currentItems = if (selectedTab == 0) serveItems else funnelItems
+                
+                if (currentItems.isEmpty() && !isLoading) {
+                    Column(modifier = Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(if (selectedTab == 1) Icons.Default.Language else Icons.Default.PublicOff, null, modifier = Modifier.size(64.dp), tint = Color.Gray)
+                        Spacer(Modifier.height(16.dp))
+                        Text(if (selectedTab == 1) "No active Funnel rules" else "No active Serve rules", style = MaterialTheme.typography.bodyLarge, color = Color.Gray)
+                    }
+                } else {
+                    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(currentItems) { item -> item() }
                     }
                 }
             }
@@ -321,7 +311,6 @@ fun ServeScreen(onBack: () -> Unit) {
                             
                             sTcp.remove(oPort)
                             sWeb.keys.filter { it.endsWith(":$oPort") }.forEach { sWeb.remove(it) }
-                            newGlobalFunnel.keys.filter { it.startsWith("${editData.oldServiceName}.") && it.endsWith(":$oPort") }.forEach { newGlobalFunnel.remove(it) }
                             
                             if (sTcp.isEmpty() && sWeb.isEmpty()) {
                                 newServices.remove(oldSvcKey)
@@ -335,12 +324,13 @@ fun ServeScreen(onBack: () -> Unit) {
                     } else {
                         newTcp.remove(oPort)
                         newWeb.keys.filter { it.endsWith(":$oPort") }.forEach { newWeb.remove(it) }
-                        newGlobalFunnel.keys.filter { it.startsWith("*:") && it.endsWith(":$oPort") }.forEach { newGlobalFunnel.remove(it) }
+                        newGlobalFunnel.remove("$selfDns:$oPort")
+                        newGlobalFunnel.remove("*:$oPort")
                     }
                 }
 
                 // 3. ADD NEW RULE
-                if (serviceName.isNotEmpty()) {
+                if (serviceName.isNotEmpty() && !editData.isFunnel) {
                     val svcKey = "svc:$serviceName"
                     val sCfg = newServices[svcKey] ?: ServiceConfig()
                     val sTcp = sCfg.tcp?.toMutableMap() ?: mutableMapOf()
@@ -381,7 +371,7 @@ fun ServeScreen(onBack: () -> Unit) {
                             else -> HTTPHandler(proxy = "http://$target")
                         }
                         newWeb[hostKey] = WebServerConfig(handlers = mapOf("/" to handler))
-                        val useHttps = transport == "HTTPS"
+                        val useHttps = editData.isFunnel || transport == "HTTPS"
                         newTcp[port] = TCPPortHandler(
                             https = if (useHttps) true else null,
                             http  = if (!useHttps) true else null,
@@ -389,6 +379,10 @@ fun ServeScreen(onBack: () -> Unit) {
                         )
                     } else {
                         newTcp[port] = TCPPortHandler(tcpForward = target, disabled = isDisabled)
+                    }
+
+                    if (editData.isFunnel) {
+                        newGlobalFunnel["$selfDns:$port"] = true
                     }
                 }
 
@@ -412,6 +406,7 @@ data class ServeRuleEditData(
     val transport: String = "HTTPS", // HTTP or HTTPS
     val handlerType: String = "Proxy", // Proxy, Text, Redirect
     val isEditing: Boolean = false,
+    val isFunnel: Boolean = false,
     val serviceName: String = "",
     val oldPort: String = "",
     val oldServiceName: String = "",
@@ -420,7 +415,7 @@ data class ServeRuleEditData(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ServeRuleCard(title: String, subtitle: String, fullUrl: String, isFunnel: Boolean, protocol: String, isDisabled: Boolean, onClick: () -> Unit, onCopy: () -> Unit, onDelete: () -> Unit, onFunnelToggle: (Boolean) -> Unit) {
+fun ServeRuleCard(title: String, subtitle: String, fullUrl: String, protocol: String, isDisabled: Boolean, onClick: () -> Unit, onCopy: () -> Unit, onDelete: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable { onClick() },
         colors = if (isDisabled) CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)) else CardDefaults.cardColors()
@@ -450,12 +445,6 @@ fun ServeRuleCard(title: String, subtitle: String, fullUrl: String, isFunnel: Bo
                     }
                     Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                 }
-                FilterChip(
-                    selected = isFunnel,
-                    onClick = { onFunnelToggle(!isFunnel) },
-                    label = { Text("Funnel", fontSize = 10.sp) },
-                    leadingIcon = { if (isFunnel) Icon(Icons.Default.Language, null, modifier = Modifier.size(16.dp)) else null }
-                )
                 IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, "Delete", tint = Color.Red) }
             }
             
@@ -476,6 +465,7 @@ fun ServeRuleCard(title: String, subtitle: String, fullUrl: String, isFunnel: Bo
 
 @Composable
 fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm: (Int, String, String, String, String, String, Boolean) -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     var port by remember { mutableStateOf(data.port) }
     var target by remember { mutableStateOf(data.target) }
     var mode by remember { mutableStateOf(data.mode) }
@@ -486,18 +476,20 @@ fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (data.isEditing) "Edit Serve Rule" else "Add Serve Rule") },
+        title = { Text(if (data.isEditing) "Edit ${if (data.isFunnel) "Funnel" else "Serve"} Rule" else "Add ${if (data.isFunnel) "Funnel" else "Serve"} Rule") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = serviceName,
-                    onValueChange = { serviceName = it },
-                    label = { Text("Service Name (optional)") },
-                    placeholder = { Text("e.g. webapp") },
-                    supportingText = { Text("Leave empty for Device-scoped rule") },
-                    enabled = !data.isEditing,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                if (!data.isFunnel) {
+                    OutlinedTextField(
+                        value = serviceName,
+                        onValueChange = { serviceName = it },
+                        label = { Text("Service Name (optional)") },
+                        placeholder = { Text("e.g. webapp") },
+                        supportingText = { Text("Leave empty for Device-scoped rule") },
+                        enabled = !data.isEditing,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
                 
                 Column {
                     Text("Mode", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
@@ -520,7 +512,9 @@ fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm
                     Column {
                         Text("Transport", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf("HTTPS", "HTTP").forEach { t ->
+                            // Funnel forces HTTPS
+                            val transports = if (data.isFunnel) listOf("HTTPS") else listOf("HTTPS", "HTTP")
+                            transports.forEach { t ->
                                 FilterChip(
                                     selected = transport == t,
                                     onClick = { 
@@ -557,7 +551,7 @@ fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm
                     value = port, 
                     onValueChange = { port = it }, 
                     label = { Text("Tailscale Port") },
-                    supportingText = { Text("Funnel supports: 443, 8443, 10000") },
+                    supportingText = { Text(if (data.isFunnel) "Funnel supports: 443, 8443, 10000" else "Any port for internal Serve") },
                     enabled = !data.isEditing,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -578,8 +572,16 @@ fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm
             }
         },
         confirmButton = {
-            Button(onClick = { onConfirm(port.toIntOrNull() ?: 10000, target, mode, transport, handlerType, serviceName, isDisabled) }) { Text(if (data.isEditing) "Save" else "Add") }
+            Button(onClick = { 
+                val p = port.toIntOrNull() ?: 10000
+                if (data.isFunnel && p !in listOf(443, 8443, 10000)) {
+                    Toast.makeText(context, "Funnel only supports ports 443, 8443, 10000", Toast.LENGTH_LONG).show()
+                } else {
+                    onConfirm(p, target, mode, transport, handlerType, serviceName, isDisabled)
+                }
+            }) { Text(if (data.isEditing) "Save" else "Add") }
         },
+
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
         }
