@@ -244,5 +244,8 @@ func SetServeConfig(configJson string) string {
 		return fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(data))
 	}
 
+	// Кикаем демона, чтобы он обновил Hostinfo (ServicesHash) немедленно
+	doLocalRequest("PATCH", "/localapi/v0/prefs", strings.NewReader("{}"))
+
 	return "OK"
 }

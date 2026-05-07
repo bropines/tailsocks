@@ -2,6 +2,17 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [1.11.0] - 2026-05-07
+### Added
+- **Advertise Services on Android**: Enabled support for publishing Tailscale Services (`svc:`) and Serve/Funnel configurations to the coordination server.
+- **C2N Protocol**: Re-enabled Client-to-Node (C2N) protocol in the core build to support remote service discovery.
+- **Immediate Hostinfo Update**: Added a trigger to update Hostinfo (ServicesHash) immediately after Serve configuration changes via LocalAPI.
+
+### Fixed
+- **Android Netmon**: Fixed a potential panic and incorrect IP masking in the network monitoring layer for Android 10+.
+- **SOCKS5 Support**: Enabled SOCKS support in the Tailscale core specifically for the Android environment.
+- **Taildrop FS**: Improved robustness of Taildrop file operations on Android to avoid JNI panics by using a dedicated Go-based filesystem provider.
+
 ## [1.10.0] - 2026-05-06
 ### Added
 - **Full CLI Elimination:** The application now controls the Tailscale daemon lifecycle exclusively via the native LocalAPI (`/start`, `/logout`, `/prefs`). External binary calls are reduced to 0 for standard operations.

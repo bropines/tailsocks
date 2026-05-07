@@ -4,15 +4,23 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"net"
 	"os"
 
 	"github.com/wlynxg/anet"
+	"tailscale.com/hostinfo"
 	"tailscale.com/net/netmon"
+	"tailscale.com/tailcfg"
 )
 
 func init() {
+	// 1. Mask as CLI to bypass mobile-specific policies on the coordinator side
+	hostinfo.RegisterHostinfoNewHook(func(hi *tailcfg.Hostinfo) {
+		hi.App = "tailscale-cli"
+		hi.DeviceModel = "Tailsocks"
+		hi.OS = "linux" // Critical: coordination server ignores services on "android" OS
+	})
+
 	netmon.RegisterInterfaceGetter(func() ([]netmon.Interface, error) {
 		// 1. Try to get state from environment variable (injected by appctr)
 		if envState := os.Getenv("TS_NET_STATE"); envState != "" {
@@ -40,7 +48,7 @@ func init() {
 						if ip != nil {
 							// On Android, we don't always know the mask, use /32 or /128
 							mask := net.CIDRMask(32, 32)
-							if ip.To4() == null {
+							if ip.To4() == nil {
 								mask = net.CIDRMask(128, 128)
 							}
 							ni.AltAddrs = append(ni.AltAddrs, &net.IPNet{IP: ip, Mask: mask})
@@ -83,5 +91,3 @@ func init() {
 		return ret, nil
 	})
 }
-
-var null = net.IP(nil)
