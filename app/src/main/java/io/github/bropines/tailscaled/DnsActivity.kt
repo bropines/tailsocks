@@ -68,6 +68,7 @@ class DnsActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DnsScreen(onBack: () -> Unit) {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var status by remember { mutableStateOf<DnsStatus?>(null) }
     var loading by remember { mutableStateOf(false) }
@@ -217,16 +218,48 @@ fun DnsScreen(onBack: () -> Unit) {
             // 2. СТАТУС
             status?.let { data ->
                 item {
-                    DnsInfoCard("Global State", "Active: ${data.active}\nMagicDNS: ${data.tailnet?.enabled}")
+                    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("Global State", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            Text("Active: ${data.active}\nMagicDNS: ${data.tailnet?.enabled}", fontFamily = FontFamily.Monospace, fontSize = 14.sp)
+                        }
+                    }
                     Spacer(Modifier.height(16.dp))
                 }
                 data.splitRoutes?.forEach { (domain, ips) ->
                     item {
-                        DnsInfoCard(
-                            title = "Split Route: $domain", 
-                            content = ips.joinToString("\n") { "• ${it.addr}" },
-                            copyText = domain.trimEnd('.')
-                        )
+                        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text("Split Route", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    val cleanDomain = domain.trimEnd('.')
+                                    Text(cleanDomain, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
+                                    IconButton(onClick = {
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                        clipboard.setPrimaryClip(ClipData.newPlainText("Domain", cleanDomain))
+                                        Toast.makeText(context, "Domain copied", Toast.LENGTH_SHORT).show()
+                                    }, modifier = Modifier.size(32.dp)) { 
+                                        Icon(Icons.Default.ContentCopy, "Copy domain", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary) 
+                                    }
+                                }
+                                Spacer(Modifier.height(8.dp))
+                                val ipsText = ips.joinToString("\n") { it.addr }
+                                Surface(
+                                    shape = MaterialTheme.shapes.small, 
+                                    color = MaterialTheme.colorScheme.surface,
+                                    modifier = Modifier.fillMaxWidth().clickable {
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                        clipboard.setPrimaryClip(ClipData.newPlainText("IPs", ipsText))
+                                        Toast.makeText(context, "IPs copied", Toast.LENGTH_SHORT).show()
+                                    }
+                                ) {
+                                    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Text(ips.joinToString("\n") { "• ${it.addr}" }, fontFamily = FontFamily.Monospace, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                                        Icon(Icons.Default.ContentCopy, "Copy IPs", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.outline)
+                                    }
+                                }
+                            }
+                        }
                         Spacer(Modifier.height(8.dp))
                     }
                 }
@@ -234,31 +267,6 @@ fun DnsScreen(onBack: () -> Unit) {
 
             if (loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
             item { Spacer(Modifier.height(32.dp)) }
-        }
-    }
-}
-
-@Composable
-fun DnsInfoCard(title: String, content: String, copyText: String? = null) {
-    val context = LocalContext.current
-    val cleanTitle = title.trimEnd('.')
-    val cleanContent = content.trimEnd('.')
-    val textToCopy = copyText ?: cleanContent
-    
-    Card(
-        modifier = Modifier.fillMaxWidth().clickable {
-            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            clipboard.setPrimaryClip(ClipData.newPlainText(cleanTitle, textToCopy))
-            Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
-        }, 
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(cleanTitle, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
-                Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
-            }
-            Text(cleanContent, fontFamily = FontFamily.Monospace, fontSize = 14.sp)
         }
     }
 }

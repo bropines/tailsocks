@@ -176,6 +176,7 @@ fun SettingsScreen(onBack: () -> Unit) {
             
             SettingsSectionHeader("Global Settings")
             SettingsClickableItem("Taildrop Storage Folder", taildropRootUri?.path ?: "Uses app internal folder", Icons.Default.Folder) { folderPicker.launch(null) }
+            Spacer(Modifier.height(8.dp))
             SettingsClickableItem("Battery Optimization", "Disable to prevent background sleep", Icons.Default.BatteryAlert) {
                 try {
                     val intent = Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
@@ -260,7 +261,7 @@ fun SettingsScreen(onBack: () -> Unit) {
 fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
     val context = LocalContext.current
     var enabled by remember { mutableStateOf(GlobalSettings.isCPProxyEnabled(context)) }
-    var type by remember { mutableStateOf(GlobalSettings.getCPField(context, "type", "SOCKS5")) }
+    val type = "HTTP"
     var host by remember { mutableStateOf(GlobalSettings.getCPField(context, "host")) }
     var port by remember { mutableStateOf(GlobalSettings.getCPField(context, "port")) }
     var user by remember { mutableStateOf(GlobalSettings.getCPField(context, "user")) }
@@ -277,18 +278,8 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
                 }
                 Spacer(Modifier.height(16.dp))
                 
-                Text("Proxy Type", style = MaterialTheme.typography.labelMedium)
-                Row {
-                    listOf("SOCKS5", "HTTP").forEach { t ->
-                        Row(Modifier.clickable { type = t }.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(selected = (type == t), onClick = null)
-                            Text(t, Modifier.padding(start = 4.dp))
-                        }
-                    }
-                }
-                
                 OutlinedTextField(value = host, onValueChange = { host = it }, label = { Text("Host") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                OutlinedTextField(value = port, onValueChange = { port = it }, label = { Text("Port") }, modifier = Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text(if(type == "HTTP") "8080" else "1080") })
+                OutlinedTextField(value = port, onValueChange = { port = it }, label = { Text("Port") }, modifier = Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text("8080") })
                 OutlinedTextField(value = user, onValueChange = { user = it }, label = { Text("Username (Optional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 OutlinedTextField(value = pass, onValueChange = { pass = it }, label = { Text("Password (Optional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
             }
