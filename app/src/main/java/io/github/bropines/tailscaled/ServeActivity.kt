@@ -54,6 +54,7 @@ fun ServeScreen(onBack: () -> Unit) {
     var isLoading by remember { mutableStateOf(true) }
     val pagerState = rememberPagerState(pageCount = { 2 })
     var showEditDialog by remember { mutableStateOf<ServeRuleEditData?>(null) }
+    var showClearDialog by remember { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
     val clipboard = LocalClipboardManager.current
 
@@ -115,6 +116,7 @@ fun ServeScreen(onBack: () -> Unit) {
                         IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
                     },
                     actions = {
+                        IconButton(onClick = { showClearDialog = true }) { Icon(Icons.Default.DeleteSweep, "Clear All") }
                         IconButton(onClick = { refresh() }) { Icon(Icons.Default.Refresh, "Refresh") }
                     }
                 )
@@ -408,6 +410,24 @@ fun ServeScreen(onBack: () -> Unit) {
                 ))
                 showEditDialog = null
             }
+        )
+    }
+
+    if (showClearDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearDialog = false },
+            title = { Text("Clear Serve & Funnel?") },
+            text = { Text("This will aggressively purge all local and remote Serve/Funnel configurations for this node. Are you sure?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showClearDialog = false
+                        saveConfig(ServeConfig(etag = config?.etag))
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) { Text("Purge") }
+            },
+            dismissButton = { TextButton(onClick = { showClearDialog = false }) { Text("Cancel") } }
         )
     }
 }
