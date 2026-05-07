@@ -186,6 +186,16 @@ func GetServeConfig() string {
 	return s
 }
 
+// fetchCurrentEtag retrieves the current ETag for serve-config from the daemon.
+func fetchCurrentEtag(client http.Client, socket string) string {
+	resp, err := client.Get("http://local-tailscaled.sock/localapi/v0/serve-config")
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	return resp.Header.Get("ETag")
+}
+
 // SetServeConfig updates the Serve/Funnel configuration.
 func SetServeConfig(configJson string) string {
 	if !IsRunning() {
@@ -203,7 +213,9 @@ func SetServeConfig(configJson string) string {
 		return "Error: invalid JSON: " + err.Error()
 	}
 	etag, _ := tmp["etag"].(string)
-	delete(tmp, "etag") // Strip it before sending to the daemon.
+	delete(tmp, "etag")
+
+	// DON'T delete Services! It's a valid part of the daemon's ServeConfig in this version.
 	cleanJson, _ := json.Marshal(tmp)
 
 	stateMu.Lock()
@@ -219,7 +231,6 @@ func SetServeConfig(configJson string) string {
 	}
 
 	// STEP 1: Full reset.
-	// Required to clear port bindings before changing protocol (HTTP <-> HTTPS).
 	slog.Info("LocalAPI: ServeConfig [Step 1/2] Resetting config", "if_match", etag)
 	resetReq, _ := http.NewRequest("POST", "http://local-tailscaled.sock/localapi/v0/serve-config", strings.NewReader("{}"))
 	if etag != "" {
@@ -229,12 +240,11 @@ func SetServeConfig(configJson string) string {
 	resetResp, err := client.Do(resetReq)
 	var nextEtag = etag
 	if err == nil {
-		// Capture the new ETag returned after reset for use in Step 2.
+		data, _ := io.ReadAll(resetResp.Body)
 		if resetResp.StatusCode == http.StatusOK || resetResp.StatusCode == http.StatusNoContent {
 			nextEtag = resetResp.Header.Get("ETag")
-			slog.Info("LocalAPI: Reset successful", "new_etag", nextEtag)
+			slog.Info("LocalAPI: Reset successful", "status", resetResp.StatusCode, "new_etag", nextEtag)
 		} else {
-			data, _ := io.ReadAll(resetResp.Body)
 			slog.Warn("LocalAPI: Reset returned non-OK status", "status", resetResp.StatusCode, "body", string(data))
 		}
 		resetResp.Body.Close()
@@ -242,11 +252,20 @@ func SetServeConfig(configJson string) string {
 		slog.Error("LocalAPI: Reset request failed", "err", err)
 	}
 
-	// Brief pause to let the daemon close old port listeners before applying new config.
-	time.Sleep(150 * time.Millisecond)
+	// If the reset didn't provide a new ETag, fetch it manually.
+	if nextEtag == "" {
+		nextEtag = fetchCurrentEtag(client, socket)
+		slog.Info("LocalAPI: Refetched ETag after reset", "etag", nextEtag)
+	}
+
+	// Brief pause to let the daemon close old port listeners.
+	time.Sleep(200 * time.Millisecond)
 
 	// STEP 2: Apply the new config.
 	slog.Info("LocalAPI: ServeConfig [Step 2/2] Applying new config", "if_match", nextEtag)
+	// We use fmt.Printf here as well to bypass any slog filtering if it exists.
+	fmt.Printf("LocalAPI: SetServeConfig payload: %s\n", string(cleanJson))
+	
 	applyReq, _ := http.NewRequest("POST", "http://local-tailscaled.sock/localapi/v0/serve-config", strings.NewReader(string(cleanJson)))
 	if nextEtag != "" {
 		applyReq.Header.Set("If-Match", nextEtag)
@@ -258,11 +277,14 @@ func SetServeConfig(configJson string) string {
 	}
 	defer applyResp.Body.Close()
 
+	applyData, _ := io.ReadAll(applyResp.Body)
 	if applyResp.StatusCode != http.StatusOK && applyResp.StatusCode != http.StatusNoContent {
-		data, _ := io.ReadAll(applyResp.Body)
-		slog.Error("LocalAPI: SetServeConfig [Apply] failed", "status", applyResp.StatusCode, "body", string(data))
-		return fmt.Sprintf("HTTP %d: %s", applyResp.StatusCode, string(data))
+		slog.Error("LocalAPI: SetServeConfig [Apply] failed", "status", applyResp.StatusCode, "body", string(applyData))
+		return fmt.Sprintf("HTTP %d: %s", applyResp.StatusCode, string(applyData))
 	}
+
+	finalEtag := applyResp.Header.Get("ETag")
+	slog.Info("LocalAPI: Apply successful", "status", applyResp.StatusCode, "final_etag", finalEtag)
 
 	// STEP 3: Synchronise AdvertiseServices in Prefs.
 	// Critical: the official CLI (serve_v2.go) sends PATCH /prefs with AdvertiseServices

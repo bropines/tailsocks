@@ -128,12 +128,13 @@ fun ServeScreen(onBack: () -> Unit) {
                     // Node-scoped TCP Rules
                     config?.tcp?.let { tcpMap ->
                         items(tcpMap.toList()) { (port, handler) ->
+                            val hostKey = config?.web?.keys?.find { it.endsWith(":$port") } ?: "*:$port"
                             val isWeb = handler.https == true || handler.http == true
                             val protocol = if (handler.https == true) "https" else "http"
-                            val isFunnel = config?.allowFunnel?.get(":$port") == true
+                            val isFunnel = config?.allowFunnel?.get(hostKey) == true
                             val fullUrl = getLink(port, protocol, isFunnel)
                             
-                            val webHandler = config?.web?.get(":$port")?.handlers?.get("/")
+                            val webHandler = config?.web?.get(hostKey)?.handlers?.get("/")
                             val detailText = when {
                                 webHandler?.proxy != null -> "Proxy -> ${webHandler.proxy}"
                                 webHandler?.text != null -> "Text: ${webHandler.text}"
@@ -152,6 +153,7 @@ fun ServeScreen(onBack: () -> Unit) {
                                 onClick = {
                                     showEditDialog = ServeRuleEditData(
                                         port = port.toString(),
+                                        oldPort = port.toString(),
                                         target = when {
                                             webHandler?.proxy != null -> webHandler.proxy
                                             webHandler?.text != null -> webHandler.text
@@ -159,7 +161,7 @@ fun ServeScreen(onBack: () -> Unit) {
                                             else -> handler.tcpForward ?: ""
                                         },
                                         mode = if (isWeb) "Web" else "TCP",
-                                        transport = if (handler.http == true) "HTTP" else "HTTPS",
+                                        transport = if (handler.https == true) "HTTPS" else "HTTP",
                                         handlerType = when {
                                             webHandler?.proxy != null -> "Proxy"
                                             webHandler?.text != null -> "Text"
@@ -178,22 +180,22 @@ fun ServeScreen(onBack: () -> Unit) {
                                     val newTcp = config?.tcp?.toMutableMap() ?: mutableMapOf()
                                     newTcp.remove(port)
                                     val newWeb = config?.web?.toMutableMap() ?: mutableMapOf()
-                                    newWeb.remove(":$port")
+                                    newWeb.remove(hostKey)
                                     val newFunnel = config?.allowFunnel?.toMutableMap() ?: mutableMapOf()
-                                    newFunnel.remove(":$port")
+                                    newFunnel.remove(hostKey)
                                     saveConfig(config!!.copy(tcp = newTcp, web = newWeb, allowFunnel = newFunnel))
                                 },
                                 onFunnelToggle = { enabled ->
                                     val newFunnel = config?.allowFunnel?.toMutableMap() ?: mutableMapOf()
                                     val newTcp = config?.tcp?.toMutableMap() ?: mutableMapOf()
                                     if (enabled) {
-                                        newFunnel[":$port"] = true
+                                        newFunnel[hostKey] = true
                                         val oldH = newTcp[port]
                                         if (oldH != null && oldH.http == true) {
                                             newTcp[port] = oldH.copy(https = true, http = false)
                                         }
                                     } else {
-                                        newFunnel.remove(":$port")
+                                        newFunnel.remove(hostKey)
                                     }
                                     saveConfig(config!!.copy(allowFunnel = newFunnel, tcp = newTcp))
                                 }
@@ -206,12 +208,16 @@ fun ServeScreen(onBack: () -> Unit) {
                         items(servicesMap.toList()) { (svcName, svcConfig) ->
                             val cleanSvcName = svcName.removePrefix("svc:")
                             svcConfig.tcp?.forEach { (port, handler) ->
+                                val suffix = selfDns.substringAfter(".")
+                                val fqdn = "$cleanSvcName.$suffix"
+                                val hostKey = svcConfig.web?.keys?.find { it.endsWith(":$port") } ?: "$fqdn:$port"
+
                                 val isWeb = handler.https == true || handler.http == true
                                 val protocol = if (handler.https == true) "https" else "http"
-                                val isFunnel = svcConfig.allowFunnel?.get(":$port") == true
+                                val isFunnel = svcConfig.allowFunnel?.get(hostKey) == true
                                 val fullUrl = getLink(port, protocol, isFunnel, cleanSvcName)
                                 
-                                val webHandler = svcConfig.web?.get(":$port")?.handlers?.get("/")
+                                val webHandler = svcConfig.web?.get(hostKey)?.handlers?.get("/")
                                 val detailText = when {
                                     webHandler?.proxy != null -> "Proxy -> ${webHandler.proxy}"
                                     webHandler?.text != null -> "Text: ${webHandler.text}"
@@ -230,6 +236,7 @@ fun ServeScreen(onBack: () -> Unit) {
                                     onClick = { 
                                         showEditDialog = ServeRuleEditData(
                                             port = port.toString(),
+                                            oldPort = port.toString(),
                                             target = when {
                                                 webHandler?.proxy != null -> webHandler.proxy
                                                 webHandler?.text != null -> webHandler.text
@@ -237,7 +244,7 @@ fun ServeScreen(onBack: () -> Unit) {
                                                 else -> handler.tcpForward ?: ""
                                             },
                                             mode = if (isWeb) "Web" else "TCP",
-                                            transport = if (handler.http == true) "HTTP" else "HTTPS",
+                                            transport = if (handler.https == true) "HTTPS" else "HTTP",
                                             handlerType = when {
                                                 webHandler?.proxy != null -> "Proxy"
                                                 webHandler?.text != null -> "Text"
@@ -245,6 +252,7 @@ fun ServeScreen(onBack: () -> Unit) {
                                                 else -> "Proxy"
                                             },
                                             serviceName = cleanSvcName,
+                                            oldServiceName = cleanSvcName,
                                             isDisabled = handler.disabled == true,
                                             isEditing = true
                                         )
@@ -264,13 +272,13 @@ fun ServeScreen(onBack: () -> Unit) {
                                         val newFunnel = oldSvc.allowFunnel?.toMutableMap() ?: mutableMapOf()
                                         val newTcp = oldSvc.tcp?.toMutableMap() ?: mutableMapOf()
                                         if (enabled) {
-                                            newFunnel[":$port"] = true
+                                            newFunnel[hostKey] = true
                                             val oldH = newTcp[port]
                                             if (oldH != null && oldH.http == true) {
                                                 newTcp[port] = oldH.copy(https = true, http = false)
                                             }
                                         } else {
-                                            newFunnel.remove(":$port")
+                                            newFunnel.remove(hostKey)
                                         }
                                         newServices[svcName] = oldSvc.copy(allowFunnel = newFunnel, tcp = newTcp)
                                         saveConfig(config!!.copy(services = newServices))
@@ -287,22 +295,57 @@ fun ServeScreen(onBack: () -> Unit) {
         }
     }
 
-    showEditDialog?.let { data ->
+    showEditDialog?.let { editData ->
         AddServeRuleDialog(
-            data = data,
+            data = editData,
             onDismiss = { showEditDialog = null },
             onConfirm = { port, target, mode, transport, handlerType, serviceName, isDisabled ->
                 val currentConfig = config ?: ServeConfig()
                 
+                // 1. Prepare mutable copies
+                val newTcp = currentConfig.tcp?.toMutableMap() ?: mutableMapOf()
+                val newWeb = currentConfig.web?.toMutableMap() ?: mutableMapOf()
+                val newGlobalFunnel = currentConfig.allowFunnel?.toMutableMap() ?: mutableMapOf()
+                val newServices = currentConfig.services?.toMutableMap() ?: mutableMapOf()
+
+                // 2. DELETE OLD RULE (if editing)
+                if (editData.isEditing) {
+                    val oPort = editData.oldPort.toIntOrNull() ?: editData.port.toIntOrNull() ?: 0
+                    if (editData.oldServiceName.isNotEmpty()) {
+                        val oldSvcKey = "svc:${editData.oldServiceName}"
+                        newServices[oldSvcKey]?.let { oldSvc ->
+                            val sTcp = oldSvc.tcp?.toMutableMap() ?: mutableMapOf()
+                            val sWeb = oldSvc.web?.toMutableMap() ?: mutableMapOf()
+                            val sFunnel = oldSvc.allowFunnel?.toMutableMap() ?: mutableMapOf()
+                            
+                            sTcp.remove(oPort)
+                            sWeb.keys.filter { it.endsWith(":$oPort") }.forEach { sWeb.remove(it) }
+                            sFunnel.keys.filter { it.endsWith(":$oPort") }.forEach { sFunnel.remove(it) }
+                            
+                            if (sTcp.isEmpty() && sWeb.isEmpty()) {
+                                newServices.remove(oldSvcKey)
+                            } else {
+                                newServices[oldSvcKey] = oldSvc.copy(
+                                    tcp = if (sTcp.isNotEmpty()) sTcp else null,
+                                    web = if (sWeb.isNotEmpty()) sWeb else null,
+                                    allowFunnel = if (sFunnel.isNotEmpty()) sFunnel else null
+                                )
+                            }
+                        }
+                    } else {
+                        newTcp.remove(oPort)
+                        newWeb.keys.filter { it.endsWith(":$oPort") }.forEach { newWeb.remove(it) }
+                        newGlobalFunnel.keys.filter { it.endsWith(":$oPort") }.forEach { newGlobalFunnel.remove(it) }
+                    }
+                }
+
+                // 3. ADD NEW RULE
                 if (serviceName.isNotEmpty()) {
                     val svcKey = "svc:$serviceName"
-                    val newServices = currentConfig.services?.toMutableMap() ?: mutableMapOf()
-                    val oldSvc = newServices[svcKey] ?: ServiceConfig()
-                    val svcTcp = oldSvc.tcp?.toMutableMap() ?: mutableMapOf()
-                    val svcWeb = oldSvc.web?.toMutableMap() ?: mutableMapOf()
-                    val isFunnel = oldSvc.allowFunnel?.get("*:$port") == true
+                    val sCfg = newServices[svcKey] ?: ServiceConfig()
+                    val sTcp = sCfg.tcp?.toMutableMap() ?: mutableMapOf()
+                    val sWeb = sCfg.web?.toMutableMap() ?: mutableMapOf()
                     
-                    // Для сервисов (VIP) ОБЯЗАТЕЛЬНО используем полный FQDN, иначе будет 404
                     val suffix = selfDns.substringAfter(".")
                     val fqdn = "$serviceName.$suffix"
                     val hostKey = "$fqdn:$port"
@@ -311,67 +354,51 @@ fun ServeScreen(onBack: () -> Unit) {
                         val handler = when (handlerType) {
                             "Proxy" -> HTTPHandler(proxy = if (target.startsWith("http")) target else "http://$target")
                             "Text" -> HTTPHandler(text = target)
-                            // Normalise: daemon requires a full URL with scheme.
                             "Redirect" -> HTTPHandler(redirect = if (target.startsWith("http")) target else "https://$target")
                             else -> HTTPHandler(proxy = "http://$target")
                         }
-                        svcWeb[hostKey] = WebServerConfig(handlers = mapOf("/" to handler))
-                        val useHttps = isFunnel || transport == "HTTPS"
-                        svcTcp[port] = TCPPortHandler(
+                        sWeb[hostKey] = WebServerConfig(handlers = mapOf("/" to handler))
+                        val useHttps = transport == "HTTPS"
+                        sTcp[port] = TCPPortHandler(
                             https = if (useHttps) true else null,
                             http  = if (!useHttps) true else null,
-                            tcpForward = null,
-                            terminateTLS = null,
                             disabled = isDisabled
                         )
                     } else {
-                        svcTcp[port] = TCPPortHandler(
-                            tcpForward = target, 
-                            https = null, 
-                            http = null, 
-                            terminateTLS = null,
-                            disabled = isDisabled
-                        )
-                        svcWeb.remove(hostKey)
+                        sTcp[port] = TCPPortHandler(tcpForward = target, disabled = isDisabled)
                     }
-                    newServices[svcKey] = ServiceConfig(tcp = svcTcp, web = if (svcWeb.isNotEmpty()) svcWeb else null, allowFunnel = oldSvc.allowFunnel)
-                    saveConfig(currentConfig.copy(services = newServices))
+                    newServices[svcKey] = sCfg.copy(
+                        tcp = if (sTcp.isNotEmpty()) sTcp else null,
+                        web = if (sWeb.isNotEmpty()) sWeb else null
+                    )
                 } else {
-                    val newTcp = currentConfig.tcp?.toMutableMap() ?: mutableMapOf()
-                    val newWeb = currentConfig.web?.toMutableMap() ?: mutableMapOf()
-                    val isFunnel = currentConfig.allowFunnel?.get("*:$port") == true
-                    
+                    val hostKey = "*:$port"
                     if (mode == "Web") {
                         val handler = when (handlerType) {
                             "Proxy" -> HTTPHandler(proxy = if (target.startsWith("http")) target else "http://$target")
                             "Text" -> HTTPHandler(text = target)
-                            // Normalise: daemon requires a full URL with scheme.
                             "Redirect" -> HTTPHandler(redirect = if (target.startsWith("http")) target else "https://$target")
                             else -> HTTPHandler(proxy = "http://$target")
                         }
-                        newWeb["*:$port"] = WebServerConfig(handlers = mapOf("/" to handler))
-                        val useHttps = isFunnel || transport == "HTTPS"
-                        // Set only the active protocol field; the other must be null (absent in JSON),
-                        // not false — the daemon rejects configs where both fields are present.
+                        newWeb[hostKey] = WebServerConfig(handlers = mapOf("/" to handler))
+                        val useHttps = transport == "HTTPS"
                         newTcp[port] = TCPPortHandler(
                             https = if (useHttps) true else null,
                             http  = if (!useHttps) true else null,
-                            tcpForward = null,
-                            terminateTLS = null,
                             disabled = isDisabled
                         )
                     } else {
-                        newTcp[port] = TCPPortHandler(
-                            tcpForward = target, 
-                            https = null, 
-                            http = null, 
-                            terminateTLS = null,
-                            disabled = isDisabled
-                        )
-                        newWeb.remove("*:$port")
+                        newTcp[port] = TCPPortHandler(tcpForward = target, disabled = isDisabled)
                     }
-                    saveConfig(currentConfig.copy(tcp = newTcp, web = newWeb))
                 }
+
+                saveConfig(ServeConfig(
+                    tcp = if (newTcp.isNotEmpty()) newTcp else null,
+                    web = if (newWeb.isNotEmpty()) newWeb else null,
+                    allowFunnel = if (newGlobalFunnel.isNotEmpty()) newGlobalFunnel else null,
+                    services = if (newServices.isNotEmpty()) newServices else null,
+                    etag = currentConfig.etag
+                ))
                 showEditDialog = null
             }
         )
@@ -386,6 +413,8 @@ data class ServeRuleEditData(
     val handlerType: String = "Proxy", // Proxy, Text, Redirect
     val isEditing: Boolean = false,
     val serviceName: String = "",
+    val oldPort: String = "",
+    val oldServiceName: String = "",
     val isDisabled: Boolean = false
 )
 
