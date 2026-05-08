@@ -37,3 +37,5 @@ The app uses **userspace-networking** exclusively. This allows TailSocks to run 
 ## 📜 License
 
 Distributed under the BSD-3-Clause License. See `LICENSE` for details.
+
+*Note: This project is not affiliated with Tailscale Inc.*
