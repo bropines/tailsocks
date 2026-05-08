@@ -20,6 +20,7 @@ TailSocks utilizes a hybrid bridge architecture to integrate the official Go-bas
 *   **Multi-Account Management:** Robust profile isolation. Each account maintains its own state directory (`files/states/{id}`) and independent machine keys.
 *   **Advanced DNS Proxy:** A tri-tier DNS resolver that handles MagicDNS (`*.ts.net`) and Split DNS by wrapping UDP queries into TCP frames, bypassing standard Android routing limitations.
 *   **Exit Node Support:** Full integration with Tailnet Exit Nodes, featuring an automated "Self-Healing" mechanism that clears invalid configurations during account or network transitions.
+*   **Serve & Funnel:** Expose local services to the Tailnet or the public internet with a native UI for managing HTTPS proxies, TCP forwarding, and virtual services (`svc:`).
 *   **Deep Diagnostics:** Real-time visibility into the userspace engine, including NAT traversal status (`InMagicSock`), byte counters (RX/TX), and WireGuard handshake telemetry.
 *   **SagerNet Integration:** Seamless export of SOCKS5/UDP credentials to third-party proxy clients via standardized URI schemes.
 
@@ -29,6 +30,8 @@ TailSocks utilizes a hybrid bridge architecture to integrate the official Go-bas
 *   [**Build Instructions**](docs/BUILDING.md) — Setting up the NDK environment and compiling the Go core.
 *   [**Project Evolution**](docs/RETROSPECTIVE.md) — History of the project from PoC to the current stable architecture.
 *   [**AdGuard Setup**](docs/ADGUARD.md) — Instructions for using TailSocks alongside system-wide ad-blockers.
+*   [**Serve & Funnel Guide**](docs/SERVE_FUNNEL_GUIDE.md) — How to expose local ports and virtual services.
+*   [**Roadmap**](docs/ROADMAP.md) — Planned features and short-term goals.
 
 ## 📜 License
 

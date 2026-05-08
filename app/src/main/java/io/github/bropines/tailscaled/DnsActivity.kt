@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,6 +30,12 @@ import com.google.gson.annotations.SerializedName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Toast
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.platform.LocalContext
 
 @Keep
 data class DnsAddr(@SerializedName("Addr") val addr: String)
@@ -61,6 +68,7 @@ class DnsActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DnsScreen(onBack: () -> Unit) {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var status by remember { mutableStateOf<DnsStatus?>(null) }
     var loading by remember { mutableStateOf(false) }
@@ -83,7 +91,8 @@ fun DnsScreen(onBack: () -> Unit) {
                 }
                 return@launch
             }
-            val json = Appctr.runTailscaleCmd("dns status --json")
+            Appctr.flushDNS() // Очищаем кэш в Go
+            val json = Appctr.getDnsStatusJSON()
             val parsed = try {
                 Gson().fromJson(json, DnsStatus::class.java)
             } catch (e: Exception) { null }
@@ -103,7 +112,7 @@ fun DnsScreen(onBack: () -> Unit) {
         focusManager.clearFocus()
         scope.launch(Dispatchers.IO) {
             val out = try {
-                Appctr.runTailscaleCmd("dns query ${domain.trim()}")
+                Appctr.nativeDnsQuery(domain.trim(), "A")
             } catch (e: Exception) { "Error: ${e.message}" }
             withContext(Dispatchers.Main) {
                 queryResult = out.trim()
@@ -209,12 +218,48 @@ fun DnsScreen(onBack: () -> Unit) {
             // 2. СТАТУС
             status?.let { data ->
                 item {
-                    DnsInfoCard("Global State", "Active: ${data.active}\nMagicDNS: ${data.tailnet?.enabled}")
+                    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("Global State", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            Text("Active: ${data.active}\nMagicDNS: ${data.tailnet?.enabled}", fontFamily = FontFamily.Monospace, fontSize = 14.sp)
+                        }
+                    }
                     Spacer(Modifier.height(16.dp))
                 }
                 data.splitRoutes?.forEach { (domain, ips) ->
                     item {
-                        DnsInfoCard("Split Route: $domain", ips.joinToString("\n") { "• ${it.addr}" })
+                        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text("Split Route", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    val cleanDomain = domain.trimEnd('.')
+                                    Text(cleanDomain, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
+                                    IconButton(onClick = {
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                        clipboard.setPrimaryClip(ClipData.newPlainText("Domain", cleanDomain))
+                                        Toast.makeText(context, "Domain copied", Toast.LENGTH_SHORT).show()
+                                    }, modifier = Modifier.size(32.dp)) { 
+                                        Icon(Icons.Default.ContentCopy, "Copy domain", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary) 
+                                    }
+                                }
+                                Spacer(Modifier.height(8.dp))
+                                val ipsText = ips.joinToString("\n") { it.addr }
+                                Surface(
+                                    shape = MaterialTheme.shapes.small, 
+                                    color = MaterialTheme.colorScheme.surface,
+                                    modifier = Modifier.fillMaxWidth().clickable {
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                        clipboard.setPrimaryClip(ClipData.newPlainText("IPs", ipsText))
+                                        Toast.makeText(context, "IPs copied", Toast.LENGTH_SHORT).show()
+                                    }
+                                ) {
+                                    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Text(ips.joinToString("\n") { "• ${it.addr}" }, fontFamily = FontFamily.Monospace, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                                        Icon(Icons.Default.ContentCopy, "Copy IPs", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.outline)
+                                    }
+                                }
+                            }
+                        }
                         Spacer(Modifier.height(8.dp))
                     }
                 }
@@ -222,16 +267,6 @@ fun DnsScreen(onBack: () -> Unit) {
 
             if (loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
             item { Spacer(Modifier.height(32.dp)) }
-        }
-    }
-}
-
-@Composable
-fun DnsInfoCard(title: String, content: String) {
-    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(title, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-            Text(content, fontFamily = FontFamily.Monospace, fontSize = 14.sp)
         }
     }
 }

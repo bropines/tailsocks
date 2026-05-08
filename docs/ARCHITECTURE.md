@@ -14,18 +14,33 @@ To support multiple Tailscale profiles on a single device, TailSocks implements 
 *   **Preference Scoping:** Settings are stored in account-specific `SharedPreferences` (`appctr_{id}`).
 *   **Process Lifecycle:** A full daemon termination and re-initialization occurs during account switching to prevent cross-account state leakage.
 
-## 3. DNS Implementation (UDP-to-TCP Wrapping)
-Standard Android applications cannot route UDP packets into a userspace network map without a TUN interface. TailSocks solves this using a tri-tier resolution logic:
-1.  **Local Peer Resolution:** If a query matches a known node in the local netmap, the bridge resolves the IP instantly from memory.
-2.  **UDP-to-TCP Proxying:** For internal domains (e.g., `*.ts.net`), the bridge intercepts UDP queries, wraps them into TCP frames, and tunnels them through the SOCKS5 interface to Tailscale’s internal DNS coordinator (`100.100.100.100`).
-3.  **Upstream Fallback:** Public queries (e.g., `google.com`) are routed natively to system resolvers or ad-blockers, ensuring zero DNS leaks and maximum performance.
+## 3. Native DNS Engine & Reactive Sync
+Standard Android applications cannot route UDP packets into a userspace network map without a TUN interface. TailSocks solves this using a reactive, multi-stage resolution logic:
+1.  **IPN Bus Synchronization:** The Go bridge maintains a persistent connection to the daemon's internal notification bus (`mask=1032`). This allows real-time tracking of `NetMap` changes, MagicDNS suffixes, and `SplitDNSRoutes`.
+2.  **In-Memory Peer Resolution:** All nodes in the network are cached by their FQDN and short names. Resolution of `*.ts.net` names occurs in **0ms** by querying the internal memory map directly.
+3.  **Split DNS (TCP-over-SOCKS5):** For domains matching corporate routes (e.g., `therodev.com`), the bridge wraps UDP queries into TCP frames and tunnels them via SOCKS5 to the specific internal resolver IP provided by the netmap.
+4.  **Smart Upstream Fallback:** Public queries (e.g., `google.com`) are attempted via Tailscale's `dns-query` API first. If the daemon returns a `SERVFAIL` (common in userspace-only mode), the bridge automatically falls back to user-configured system/DoH resolvers.
 
-## 4. Taildrop (JNI-less Implementation)
-Official Taildrop usually relies on complex system-level integrations. TailSocks implements a standalone manager:
-*   **Inbound:** Uses the `TS_TAILDROP_DIR` environment variable to point the core to an app-accessible directory. A background watcher in Go notifies the UI of new files.
-*   **Outbound:** Leverages the Android Storage Access Framework (SAF) to read files and streams them directly into the daemon's file-copy logic via the bridge.
+## 4. Native Diagnostics (Netcheck)
+*   **Android Limitations:** Permission restrictions (`netlinkrib: permission denied`) prevent the `tailscaled` daemon from identifying network interfaces, leading to failed diagnostics in the core.
+*   **Solution:** `appctr` implements a native `GetNetcheckFromAPI` method that runs the `tailscale.com/net/netcheck` package within the application process. 
+*   **Interface Synchronization:** Using `TS_NET_STATE` environment variable, the bridge passes interface states (injected from Kotlin) to the core. Netcheck uses a `NewStatic` network monitor to provide accurate STUN/DERP reports bypassing daemon limitations.
 
-## 5. Self-Healing & Stateless Configuration
+## 5. Taildrop & Files API
+TailSocks implements a robust file transfer manager:
+*   **Inbound:** Uses the `TS_TAILDROP_DIR` environment variable to point the core to an app-accessible directory.
+*   **DocumentsProvider:** `TailsocksFileProvider` exposes the app's internal `files` directory to the Android Storage Access Framework (SAF). This allows users to browse Taildrop files using the system "Files" app.
+*   **Outbound:** Leverages the SAF to read files and streams them into the daemon's `file-put` API via the bridge, with proper URL path escaping for reliability.
+
+## 6. Self-Healing & Stateless Configuration
 To mitigate "sticky" routing issues common in userspace engines:
 *   **Explicit State Enforcement:** Every `tailscale up` command includes explicit "negation flags" (e.g., `--exit-node=`) to force the daemon to clear previous settings that are no longer selected in the UI.
 *   **Health Validation Loop:** A background task periodically validates that the selected Exit Node exists in the current account's netmap, automatically clearing the configuration if the node becomes unreachable or invalid.
+*   **Control Plane Proxy:** Supports global SOCKS5/HTTP proxies for coordination server communication. Specifically routes SOCKS5 traffic through `ALL_PROXY` with forced `HTTP_PROXY` clearing to prevent protocol errors (e.g., "unknown Socks version").
+
+## 7. Patch Analysis & Dependencies
+TailSocks maintains minimal patches to the upstream Tailscale core to ensure mobile compatibility. These patches are located in `appctr/patches/` and inject necessary capabilities that cannot be replicated via the external LocalAPI:
+*   **`cmd/tailscaled/proxy.go`:** Adds `Username`/`Password` fields to the outbound SOCKS5 listener (read from env vars).
+*   **`feature/taildrop/ext.go`:** Registers a pure-Go `fsFileOps` to avoid Android JNI panics and points Taildrop to the app's isolated data dir.
+*   **`ipn/ipnlocal/local.go`:** Appends VIP services to the `HostInfo` struct so Virtual Services (`svc:`) are visible to the coordination server.
+*   **`fix_android_netmon.go`:** Implements a custom `netmon.InterfaceGetter` to work around `netlink` permission denials on Android 10+ and masks the `HostInfo` (OS, DeviceModel) to bypass mobile-specific policy restrictions on the Tailscale control plane.

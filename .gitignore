@@ -61,7 +61,11 @@ appctr/libtailscale_cli.so
 # Build artifacts
 tmp/
 appctr/tmp/
-appctr/tailscale_src/tmp/.gemini/skills/
+appctr/tailscale_src/tmp/
+.gemini/skills/
 
 *.txt
-*.txt:Zone.Identifier
+*.Zone.Identifier
+status.json
+.kotlin/
+.skills/

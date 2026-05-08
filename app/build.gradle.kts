@@ -10,7 +10,7 @@ import java.util.Properties
 val gitVersionCode = providers.exec {
     commandLine("git", "rev-list", "--count", "HEAD")
     workingDir = rootDir
-}.standardOutput.asText.map { it.trim().toInt() + 10 }.getOrElse(10)
+}.standardOutput.asText.map { it.trim().toInt() + 500 }.getOrElse(500)
 
 val baseVersion = providers.exec {
     commandLine("git", "describe", "--tags", "--always", "--abbrev=0")
@@ -64,11 +64,18 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
+            buildConfigField("boolean", "IS_DEV", "true")
+        }
+        create("dev") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".dev"
+            buildConfigField("boolean", "IS_DEV", "true")
         }
         release {
             isMinifyEnabled = false 
             isShrinkResources = false 
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            buildConfigField("boolean", "IS_DEV", "false")
             
             if (System.getenv("KEYSTORE_FILE") != null) {
                 signingConfig = signingConfigs.getByName("release")
@@ -82,13 +89,21 @@ android {
     }
 
     kotlin {
-        compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        jvmToolchain(17)
+    }
+
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            isUniversalApk = true
         }
     }
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     packaging {

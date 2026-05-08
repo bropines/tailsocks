@@ -3,14 +3,15 @@ package appctr
 import (
 	"bufio"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 )
+// cmd and stateMu are declared in appctr.go; do not redeclare here.
 
-// Переменные cmd и stateMu удалены, так как они уже есть в appctr.go
-
-func tailscaledCmd(p pathControl, socksAddr, httpAddr, socksUser, socksPass, taildropDir string) error {
+func tailscaledCmd(p pathControl, socksAddr, httpAddr, socksUser, socksPass, taildropDir, controlProxy string) error {
 	rm(p.Tailscale(), p.Tailscaled())
 	ln(p.TailscaleCliSo(), p.Tailscale())
 	ln(p.TailscaledSo(), p.Tailscaled())
@@ -29,11 +30,41 @@ func tailscaledCmd(p pathControl, socksAddr, httpAddr, socksUser, socksPass, tai
 	c := exec.Command(p.Tailscaled(), args...)
 	c.Dir = p.DataDir()
 
+	stateMu.Lock()
+	netState := latestInterfaceState
+	stateMu.Unlock()
+
 	c.Env = append(os.Environ(),
 		fmt.Sprintf("TS_LOGS_DIR=%s/logs", p.DataDir()),
 		"TS_NO_LOGS_NO_SUPPORT=true",
 		"TS_AUTH_ONCE=true",
+		"TS_NET_STATE="+netState,
 	)
+
+	// Proxy configuration (Outbound)
+	// We clear TS_SOCKS5_SERVER here to ensure it's only set via flags if needed
+	c.Env = append(c.Env, "TS_SOCKS5_SERVER=")
+
+	if controlProxy != "" {
+		if strings.HasPrefix(controlProxy, "socks5://") {
+			// For SOCKS5: use ALL_PROXY and explicitly clear HTTP(S)_PROXY.
+			// This is critical for Go's http.DefaultTransport and Tailscale Dialers.
+			c.Env = append(c.Env, 
+				"ALL_PROXY="+controlProxy,
+				"HTTP_PROXY=",
+				"HTTPS_PROXY=",
+			)
+			slog.Info("Proxy: Using SOCKS5 via ALL_PROXY", "url", controlProxy)
+		} else {
+			// For HTTP(S) proxy use the standard environment variables.
+			c.Env = append(c.Env, 
+				"HTTP_PROXY="+controlProxy,
+				"HTTPS_PROXY="+controlProxy,
+				"ALL_PROXY=",
+			)
+			slog.Info("Proxy: Using HTTP via HTTP_PROXY", "url", controlProxy)
+		}
+	}
 	if taildropDir != "" {
 		c.Env = append(c.Env, "TS_TAILDROP_DIR="+taildropDir)
 	}

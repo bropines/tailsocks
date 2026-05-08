@@ -2,36 +2,58 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
-## [1.8.1] - 2026-04-19
-### Changed
-- Migrated to a **Passive Management Model**: Removed aggressive configuration loops in favor of daemon-led state management.
-- Standardized SOCKS5 default port and endpoint configurations.
-- Disabled `Auto-Refresh` by default to improve battery efficiency.
+## [2.0.0-beta] - 2026-05-07
+### Added
+- **Major Serve & Funnel Overhaul**: Completely redesigned the architecture for exposing services.
+- **Enhanced Serve UI**: Introduced a chip-based interface for managing handlers, protocols, and host mappings.
+- **Wildcard Host Mapping**: Support for `*` hostnames in node-scoped rules.
+- **Improved State Management**: Reimplemented LocalAPI synchronization with a two-step "reset-then-apply" pattern to ensure configuration consistency.
+- **Auto-generated Links**: The UI now automatically constructs and allows copying of service URLs based on the current configuration.
 
 ### Fixed
-- Resolved `410 Gone` authentication errors by implementing login session protection in the Go bridge.
-- Fixed UI state synchronization issues using a direct process watchdog in `MainActivity`.
-- Stabilized account switching with a centralized `RESTART_ACTION` in the background service.
+- **Serve Persistence**: Resolved issues where Serve configurations would desync or fail to persist after daemon restarts.
+- **Funnel Visibility**: Fixed a bug preventing Funnel status from being correctly reflected in the UI.
+- **TCPPortHandler Serialization**: Corrected the protocol field mapping for raw TCP handlers.
 
-## [1.8.0] - 2026-04-19
+## [1.11.0] - 2026-05-07
 ### Added
-- **Taildrop Hub:** Fully custom file-sharing implementation with background reception and SAF support.
-- **Multi-Account Manager:** Profile isolation via independent state directories and machine keys.
-- **Deep Diagnostics:** Real-time visibility for `InMagicSock`, traffic counters, and WireGuard telemetry.
-- **Exit Node Integration:** Dedicated selector UI with automated validation and "Self-Healing" logic.
-- **Third-Party Integration:** SagerNet/Nekobox SOCKS5 URI generator.
+- **Advertise Services on Android**: Enabled support for publishing Tailscale Services (`svc:`) and Serve/Funnel configurations to the coordination server.
+- **C2N Protocol**: Re-enabled Client-to-Node (C2N) protocol in the core build to support remote service discovery.
+- **Immediate Hostinfo Update**: Added a trigger to update Hostinfo (ServicesHash) immediately after Serve configuration changes via LocalAPI.
+
+### Fixed
+- **Android Netmon**: Fixed a potential panic and incorrect IP masking in the network monitoring layer for Android 10+.
+- **SOCKS5 Support**: Enabled SOCKS support in the Tailscale core specifically for the Android environment.
+- **Taildrop FS**: Improved robustness of Taildrop file operations on Android to avoid JNI panics by using a dedicated Go-based filesystem provider.
+- **VIP Service Advertisement (Critical)**: Fixed `SetServeConfig` to send `PATCH /prefs` with `AdvertiseServices` + `AdvertiseServicesSet: true` after every service-scoped configuration update. Previously, the daemon's `vipServicesFromPrefsLocked` had no knowledge of the service from the Prefs side, causing the coordination server to receive an incomplete `/vip-services` response and never activating the VIP DNS entry. This mirrors the exact behavior of the official `tailscale serve --service=svc:*` CLI command.
+- **AdvertiseServices Two-Step Sync**: The `AdvertiseServices` PATCH now uses a reset-then-apply pattern (Step A: clear with `[]`; Step B: apply new list), mirroring the same pattern used in `SetServeConfig`. This prevents stale `svc:` entries from persisting across renames or deletions.
+- **ServeConfig HostPort Key Inconsistency**: Fixed a bug where node-scoped rules were rendered using `":port"` keys but saved using `"*:port"`, causing them to appear reset to default after a refresh. All keys are now normalized to `"*:port"` for node-scoped and `"fqdn:port"` for service-scoped rules.
+- **Robust ServeConfig ETag Handling**: Improved the Go bridge to fetch a fresh ETag via `GET` if the `POST` reset response doesn't provide one, ensuring consistent `If-Match` headers and preventing silent apply failures.
+- **ServeConfig Payload Sanitization**: Stripped Tailsocks-specific `etag` field from the JSON payload sent to the daemon. Re-enabled `Services` field transmission as it is required for VIP service advertisement in this version.
+- **Serve Rule Edit Logic**: Fixed UI desync in `ServeActivity.kt` where editing a rule would create a duplicate instead of updating the existing one. Added `oldPort` and `oldServiceName` tracking to ensure the previous rule is correctly deleted before applying the update.
 
 ### Changed
-- Enforced stable Tailscale core v1.96.x.
-- Implemented stateless configuration flow to ensure internal daemon state matches UI flags.
+- **Code Language**: All Russian-language comments across the `appctr/` Go package have been translated to English for consistency and maintainability.
 
-## [1.7.0] - 2026-04-17
-### Added
-- Initial support for Tailscale authentication and CLI integration.
-- Custom DNS Proxy for MagicDNS resolution over SOCKS5.
-- Background Service implementation for daemon persistence.
 
-## [1.6.0] - 2026-04-15
+## [1.10.0] - 2026-05-06
 ### Added
-- Initial stable PIE-binary execution on Android ARM64.
-- SOCKS5 proxy exposure.
+- **Full CLI Elimination:** The application now controls the Tailscale daemon lifecycle exclusively via the native LocalAPI (`/start`, `/logout`, `/prefs`). External binary calls are reduced to 0 for standard operations.
+- **Tailscale Serve & Funnel:** Comprehensive UI for exposing local ports to the Tailnet or the public internet. Supports both raw TCP and Web (HTTPS) modes.
+- **Tailscale Virtual Services:** Support for creating named services (e.g., `svc:webapp`) with dedicated TailVIPs and DNS names, managed directly from the Android UI.
+- **Smart Link Generator:** Integrated DNS resolver in the Serve UI that automatically builds and copies ready-to-use URLs for hosted services, including automatic `https` switching for Funnel.
+- **Rule Lifecycle Management:** Added ability to temporarily disable/enable rules without deleting them, and full editing support for existing configurations.
+- **Modular Go Core:** Massive refactoring of the `appctr` module. Separated logic into `localapi.go`, `status.go`, `netcheck.go`, `dns.go`, and `taildrop.go` for better maintainability.
+
+### Fixed
+- **Optimized Settings Sync:** `ApplySettings` now uses high-speed `PATCH` requests to LocalAPI instead of restarting the configuration via CLI. This results in instant UI responsiveness and cleaner logs.
+- **Reliable DNS Sync:** Increased IPN Bus Listener mask to `4095` to capture all network topology changes in real-time.
+- **Profile-Specific Exit Nodes:** Fixed "phantom" exit nodes when switching accounts. Settings are now strictly isolated and force-cleared via API during profile transitions.
+- **Diagnostics Reliability:** Rewrote `BackendState` detection to use robust JSON parsing, fixing intermittent "Unknown" state errors.
+- **Native Logout:** Replaced the legacy CLI reset mechanism with a clean, native API logout dialog.
+- **Stability Guard:** Added panic recovery in Go-JNI bridge to prevent the entire Android app from crashing during unexpected network events (e.g., server port scans).
+
+## [1.9.0] - 2026-04-25
+### Added
+- **Native Local API Integration:** Replaced major CLI calls (`status`, `netcheck`, `dns query`) with high-performance HTTP requests to the `tailscaled` Unix socket.
+...

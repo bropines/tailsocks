@@ -31,13 +31,13 @@ func RunTailscaleArgs(parts ...string) string {
 	}
 	args := append([]string{"--socket", PC.Socket()}, parts...)
 	c := exec.Command(PC.Tailscale(), args...)
-	
+
 	isRoutineCheck := len(parts) > 0 && (parts[0] == "status" || parts[0] == "dns" || parts[0] == "netcheck" || parts[0] == "ping")
 
 	if !isRoutineCheck {
 		slog.Info("Running Tailscale CLI", "args", parts)
 	}
-	
+
 	output, err := c.CombinedOutput()
 	outStr := string(output)
 
@@ -54,27 +54,12 @@ func RunTailscaleArgs(parts ...string) string {
 			slog.Info("CLI command output", "out", outStr)
 		}
 	}
-	
+
 	return outStr
 }
 
-func GetLoginURL() string {
-	out := RunTailscaleCmd("status")
-	if strings.Contains(out, "https://login.tailscale.com/a/") {
-		lines := strings.Split(out, "\n")
-		for _, line := range lines {
-			if strings.Contains(line, "https://login.tailscale.com/a/") {
-				idx := strings.Index(line, "https://")
-				if idx != -1 {
-					return strings.TrimSpace(line[idx:])
-				}
-			}
-		}
-	}
-	return ""
-}
-
 func registerMachineWithAuthKey(PC pathControl, opt *StartOptions) {
+
 	apiReady := false
 	
 	// Poll socket and API readiness in silent mode

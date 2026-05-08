@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -40,6 +41,18 @@ import kotlinx.coroutines.withContext
 import java.lang.Runtime
 
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
+
+fun isVersionNewer(current: String, latest: String): Boolean {
+    val c = current.removePrefix("v").substringBefore("-").split(".").map { it.toIntOrNull() ?: 0 }
+    val l = latest.removePrefix("v").substringBefore("-").split(".").map { it.toIntOrNull() ?: 0 }
+    for (i in 0 until maxOf(c.size, l.size)) {
+        val cVal = c.getOrNull(i) ?: 0
+        val lVal = l.getOrNull(i) ?: 0
+        if (lVal > cVal) return true
+        if (lVal < cVal) return false
+    }
+    return false
+}
 
 class MainActivity : ComponentActivity() {
 
@@ -111,7 +124,7 @@ class MainActivity : ComponentActivity() {
                     val response = connection.inputStream.bufferedReader().use { it.readText() }
                     val json = com.google.gson.Gson().fromJson(response, com.google.gson.JsonObject::class.java)
                     val tag = json.get("tag_name").asString
-                    if (tag.removePrefix("v") != currentVersion.removePrefix("v")) {
+                    if (isVersionNewer(currentVersion, tag)) {
                         withContext(Dispatchers.Main) {
                             Toast.makeText(this@MainActivity, "🚀 New TailSocks update available: $tag", Toast.LENGTH_LONG).show()
                         }
@@ -151,14 +164,22 @@ fun MainScreen() {
     LaunchedEffect(Unit) {
         var urlDetected = false
         while (true) {
-            val actualRunning = try { appctr.Appctr.isRunning() } catch (e: Exception) { false }
+            val isProcessAlive = try { appctr.Appctr.isRunning() } catch (e: Exception) { false }
             
-            // Sync state if not explicitly in transition
-            if (!isProcessing) {
-                proxyState = if (actualRunning) "ACTIVE" else "STOPPED"
+            if (isProcessAlive && BuildConfig.IS_DEV) {
+                val backendState = try { appctr.Appctr.getBackendState() } catch (e: Exception) { "Error" }
+                // If backend is in a terminal state but process is alive, we might need to reflect it
+                if (backendState == "Stopped" || backendState == "Error") {
+                    // Process is alive but API is not responding or backend is stopped
+                }
             }
 
-            if (actualRunning) {
+            // Sync state if not explicitly in transition
+            if (!isProcessing) {
+                proxyState = if (isProcessAlive) "ACTIVE" else "STOPPED"
+            }
+
+            if (isProcessAlive) {
                 val url = try { appctr.Appctr.getLoginURLString() } catch (e: Exception) { "" }
                 loginUrl = if (url.isNullOrBlank()) null else url
                 
@@ -302,6 +323,62 @@ fun MainScreen() {
         )
     }
 
+    if (accountMenuExpanded) {
+        ModalBottomSheet(onDismissRequest = { accountMenuExpanded = false }) {
+            Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+                Text("Switch Account", modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                androidx.compose.foundation.lazy.LazyColumn {
+                    items(accounts.value.size) { i ->
+                        val account = accounts.value[i]
+                        ListItem(
+                            headlineContent = { Text(account.name) },
+                            leadingContent = { Icon(Icons.Default.AccountCircle, null) },
+                            trailingContent = {
+                                if (account.id == activeAccount.id) Icon(Icons.Default.Check, null)
+                            },
+                            modifier = Modifier.clickable {
+                                accountMenuExpanded = false
+                                if (account.id != activeAccount.id) {
+                                    if (ProxyState.isActualRunning()) showSwitchConfirmDialog = account
+                                    else { AccountManager.setActiveAccount(context, account.id); activeAccount = account }
+                                }
+                            }
+                        )
+                    }
+                    item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
+                    item {
+                        ListItem(
+                            headlineContent = { Text("Rename Current") },
+                            leadingContent = { Icon(Icons.Default.Edit, null) },
+                            modifier = Modifier.clickable { accountMenuExpanded = false; showRenameAccountDialog = true }
+                        )
+                    }
+                    item {
+                        ListItem(
+                            headlineContent = { Text("Add Account") },
+                            leadingContent = { Icon(Icons.Default.Add, null) },
+                            modifier = Modifier.clickable { accountMenuExpanded = false; showAddAccountDialog = true }
+                        )
+                    }
+                    if (activeAccount.id != "default") {
+                        item {
+                            ListItem(
+                                headlineContent = { Text("Delete Current", color = MaterialTheme.colorScheme.error) },
+                                leadingContent = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                                modifier = Modifier.clickable {
+                                    accountMenuExpanded = false
+                                    AccountManager.deleteAccount(context, activeAccount.id)
+                                    activeAccount = AccountManager.getActiveAccount(context)
+                                    accounts.value = AccountManager.getAccounts(context)
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -316,60 +393,6 @@ fun MainScreen() {
                             )
                             Icon(Icons.Default.ArrowDropDown, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                         }
-
-                        DropdownMenu(
-                            expanded = accountMenuExpanded,
-                            onDismissRequest = { accountMenuExpanded = false }
-                        ) {
-                            accounts.value.forEach { account ->
-                                DropdownMenuItem(
-                                    text = { Text(account.name) },
-                                    onClick = {
-                                        accountMenuExpanded = false
-                                        if (account.id != activeAccount.id) {
-                                            if (ProxyState.isActualRunning()) {
-                                                showSwitchConfirmDialog = account
-                                            } else {
-                                                AccountManager.setActiveAccount(context, account.id)
-                                                activeAccount = account
-                                            }
-                                        }
-                                    },
-                                    trailingIcon = {
-                                        if (account.id == activeAccount.id) Icon(Icons.Default.Check, null)
-                                    }
-                                )
-                            }
-                            HorizontalDivider()
-                            DropdownMenuItem(
-                                text = { Text("Rename Current") },
-                                onClick = {
-                                    accountMenuExpanded = false
-                                    showRenameAccountDialog = true
-                                },
-                                leadingIcon = { Icon(Icons.Default.Edit, null) }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Add Account") },
-                                onClick = {
-                                    accountMenuExpanded = false
-                                    showAddAccountDialog = true
-                                },
-                                leadingIcon = { Icon(Icons.Default.Add, null) }
-                            )
-                            if (activeAccount.id != "default") {
-                                DropdownMenuItem(
-                                    text = { Text("Delete Current", color = MaterialTheme.colorScheme.error) },
-                                    onClick = {
-                                        accountMenuExpanded = false
-                                        AccountManager.deleteAccount(context, activeAccount.id)
-                                        activeAccount = AccountManager.getActiveAccount(context)
-                                        accounts.value = AccountManager.getAccounts(context)
-                                    },
-                                    leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) }
-                                )
-                            }
-                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -382,6 +405,9 @@ fun MainScreen() {
                         }) {
                             Icon(Icons.Default.Refresh, contentDescription = "Refresh Config")
                         }
+                    }
+                    IconButton(onClick = { showAboutDialog = true }) {
+                        Icon(Icons.Default.Info, contentDescription = "About & Licenses")
                     }
                 }
             )
@@ -496,7 +522,7 @@ fun MainScreen() {
             }
             Spacer(modifier = Modifier.height(16.dp))
             Row(modifier = Modifier.fillMaxWidth()) {
-                MenuCard(title = "Logs", icon = Icons.Default.Info, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                MenuCard(title = "Logs", icon = Icons.AutoMirrored.Filled.List, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                     context.startActivity(Intent(context, LogsActivity::class.java))
                 }
                 MenuCard(title = "Files", icon = Icons.Default.Folder, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
@@ -519,16 +545,12 @@ fun MainScreen() {
                 MenuCard(title = "Settings", icon = Icons.Default.Settings, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                     context.startActivity(Intent(context, SettingsActivity::class.java))
                 }
-                Spacer(modifier = Modifier.weight(1f).padding(start = 8.dp))
+                MenuCard(title = "Serve", icon = Icons.Default.Public, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                    context.startActivity(Intent(context, ServeActivity::class.java))
+                }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            TextButton(onClick = { showAboutDialog = true }) {
-                Icon(Icons.Default.Info, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("About & Licenses")
-            }
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 
@@ -565,7 +587,7 @@ fun MainScreen() {
                     }
                     
                     if (latestVersion != null) {
-                        val isNewer = latestVersion!!.removePrefix("v") != versionName.removePrefix("v")
+                        val isNewer = isVersionNewer(versionName, latestVersion!!)
                         if (isNewer) {
                             Spacer(Modifier.height(8.dp))
                             Surface(
@@ -672,7 +694,7 @@ fun StatusCard(state: String, isProcessing: Boolean, onToggle: () -> Unit) {
         color = backgroundColor,
         modifier = Modifier
             .fillMaxWidth()
-            .height(160.dp)
+            .height(130.dp)
             .alpha(if (isProcessing) 0.6f else 1f)
             .clickable(enabled = !isProcessing) { onToggle() },
         tonalElevation = 4.dp
@@ -728,7 +750,7 @@ fun MenuCard(title: String, icon: ImageVector, modifier: Modifier = Modifier, on
         ) {
             Icon(imageVector = icon, contentDescription = title, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
             Spacer(modifier = Modifier.height(8.dp))
-            Text(text = title, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+            Text(text = title, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, maxLines = 1, softWrap = false)
         }
     }
 }

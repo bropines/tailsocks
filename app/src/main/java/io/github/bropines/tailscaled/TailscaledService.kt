@@ -26,34 +26,10 @@ class TailscaledService : Service() {
     private val refreshHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private val refreshRunnable = object : Runnable {
         override fun run() {
+            // Больше не нужно вручную проверять и сбрасывать Exit Nodes здесь,
+            // так как LocalAPI синхронизация в ApplySettings позаботится о профиле-зависимых настройках.
             val activeAccount = AccountManager.getActiveAccount(this@TailscaledService)
             val profilePrefs = getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
-            
-            if (Appctr.isRunning()) {
-                val exitNodeIp = profilePrefs.getString("exit_node_ip", "")
-                if (!exitNodeIp.isNullOrEmpty()) {
-                    try {
-                        val pJson = Appctr.runTailscaleCmd("status --json")
-                        if (!pJson.startsWith("Error") && pJson.contains("\"Self\"")) {
-                            val status = Gson().fromJson(pJson, StatusResponse::class.java)
-                            var found = false
-                            if (status.self?.tailscaleIPs?.contains(exitNodeIp) == true) found = true
-                            status.peers?.values?.forEach { peer ->
-                                if (peer.tailscaleIPs?.contains(exitNodeIp) == true) found = true
-                            }
-                            
-                            if (!found && (status.self != null || !status.peers.isNullOrEmpty())) {
-                                Log.w(TAG, "Exit node $exitNodeIp not found in netmap. Auto-clearing it.")
-                                profilePrefs.edit().remove("exit_node_ip").apply()
-                                android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                    android.widget.Toast.makeText(this@TailscaledService, "Invalid Exit Node ($exitNodeIp) was automatically disabled.", android.widget.Toast.LENGTH_LONG).show()
-                                }
-                            }
-                        }
-                    } catch (e: Exception) {}
-                }
-            }
-            
             val interval = profilePrefs.getString("refresh_interval", "15000")?.toLongOrNull() ?: 15000L
             refreshHandler.postDelayed(this, interval)
         }
@@ -166,17 +142,24 @@ class TailscaledService : Service() {
         val stateDir = "${filesDir.absolutePath}/states/${activeAccount.id}"
         java.io.File(stateDir).mkdirs()
 
+        val accRoutes = GlobalSettings.getBoolean(this@TailscaledService, "accept_routes", false)
+        val accDNS = GlobalSettings.getBoolean(this@TailscaledService, "accept_dns", true)
+        val host = profilePrefs.getString("hostname", "") ?: ""
+
         return StartOptions().apply {
-            socks5Server = profilePrefs.getString("socks5", "127.0.0.1:48115")
-            socks5User   = profilePrefs.getString("socks5_user", "")
-            socks5Pass   = profilePrefs.getString("socks5_pass", "")
-            httpProxy    = profilePrefs.getString("httpproxy", "")
-            dnsProxy     = profilePrefs.getString("dns_proxy", "127.0.0.1:1053") ?: "127.0.0.1:1053"
-            dnsFallbacks = profilePrefs.getString("dns_fallbacks", "8.8.8.8:53,1.1.1.1:53")
-            dohFallback  = profilePrefs.getString("doh_url", "https://1.1.1.1/dns-query")
+            socks5Server = GlobalSettings.getString(this@TailscaledService, "socks5", "127.0.0.1:48115")
+            socks5User   = GlobalSettings.getString(this@TailscaledService, "socks5_user", "")
+            socks5Pass   = GlobalSettings.getString(this@TailscaledService, "socks5_pass", "")
+            httpProxy    = GlobalSettings.getString(this@TailscaledService, "httpproxy", "")
+            controlProxy = GlobalSettings.getControlProxyUrl(this@TailscaledService)
+            dnsProxy     = GlobalSettings.getString(this@TailscaledService, "dns_proxy", "127.0.0.1:1053")
+            dnsFallbacks = GlobalSettings.getString(this@TailscaledService, "dns_fallbacks", "8.8.8.8:53,1.1.1.1:53")
+            dohFallback  = GlobalSettings.getString(this@TailscaledService, "doh_url", "https://1.1.1.1/dns-query")
+            
             authKey      = profilePrefs.getString("authkey", "")
             enableWebUI = profilePrefs.getBoolean("enable_webui", false)
             webUIAddr   = profilePrefs.getString("webui_addr", "127.0.0.1:8080")
+            
             taildropDir = "$stateDir/taildrop"
             java.io.File(taildropDir).mkdirs()
             execPath     = "${applicationInfo.nativeLibraryDir}/libtailscale.so"
@@ -186,47 +169,38 @@ class TailscaledService : Service() {
             doReset      = profilePrefs.getBoolean("do_reset", false)
             if (doReset) profilePrefs.edit().putBoolean("do_reset", false).apply()
 
+            // Передаем флаги напрямую для LocalAPI синхронизации в Go
+            hostname = host
+            acceptRoutes = accRoutes
+            acceptDNS = accDNS
+            exitNodeID = profilePrefs.getString("exit_node_ip", "") ?: ""
+
             val argsBuilder = StringBuilder()
-            val hostname = profilePrefs.getString("hostname", "")
-            if (!hostname.isNullOrEmpty()) argsBuilder.append("--hostname=$hostname ")
+            if (host.isNotEmpty()) argsBuilder.append("--hostname=$host ")
             
             val loginServer = profilePrefs.getString("login_server", "")
             if (!loginServer.isNullOrEmpty()) argsBuilder.append("--login-server=$loginServer ")
             
-            if (profilePrefs.getBoolean("accept_routes", false)) {
-                argsBuilder.append("--accept-routes=true ")
-            } else {
-                argsBuilder.append("--accept-routes=false ")
-            }
+            argsBuilder.append("--accept-routes=$accRoutes ")
+            argsBuilder.append("--accept-dns=$accDNS ")
             
-            if (profilePrefs.getBoolean("accept_dns", true)) {
-                argsBuilder.append("--accept-dns=true ")
-            } else {
-                argsBuilder.append("--accept-dns=false ")
-            }
-            
-            val exitNodeIp = profilePrefs.getString("exit_node_ip", "")
-            if (!exitNodeIp.isNullOrEmpty()) {
-                argsBuilder.append("--exit-node=$exitNodeIp ")
-                if (profilePrefs.getBoolean("exit_node_allow_lan", false)) {
-                    argsBuilder.append("--exit-node-allow-lan-access=true ")
-                } else {
-                    argsBuilder.append("--exit-node-allow-lan-access=false ")
-                }
-            } else {
-                argsBuilder.append("--exit-node= ")
-            }
-            
+            // Exit Nodes теперь управляются динамически через LocalAPI (Appctr.setPrefs)
+            // в SettingsActivity. Мы больше не передаем их в 'up', чтобы не перезапускать 
+            // конфигурацию без необходимости.
+
             if (profilePrefs.getBoolean("advertise_exit_node", false)) {
                 argsBuilder.append("--advertise-exit-node=true ")
             } else {
                 argsBuilder.append("--advertise-exit-node=false ")
             }
-            
-            val rawArgs = profilePrefs.getString("extra_args_raw", "")
-            if (!rawArgs.isNullOrEmpty()) argsBuilder.append("$rawArgs")
-            
+
+            val extraArgs = GlobalSettings.getString(this@TailscaledService, "extra_args_raw", "")
+            if (extraArgs.isNotEmpty()) argsBuilder.append("$extraArgs ")
+
             extraUpArgs = argsBuilder.toString()
+            
+            val detailedLogs = GlobalSettings.getBoolean(this@TailscaledService, "detailed_logs", false)
+            Appctr.setLogLevel(if (detailedLogs) 0 else 1)
         }
     }
 

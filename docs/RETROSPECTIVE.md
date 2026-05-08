@@ -25,5 +25,16 @@ We realized that the Tailscale daemon is a highly capable state machine that man
 2.  **Watchdog Monitoring:** The UI now observes the daemon's state via non-intrusive status queries and a process-check watchdog, rather than trying to control it.
 3.  **Isolation Priority:** Stability is achieved through clean filesystem isolation (unique state paths) rather than constant intervention.
 
+**Update (2026-05-06): Full Local API Sovereignty & Serve/Funnel**
+The project has reached 100% independence from CLI binary calls for lifecycle management.
+- **The ETag Breakthrough:** Discovered that Tailscale's `ServeConfig` API requires strict ETag synchronization via `If-Match` headers. Failure to provide a fresh ETag results in persistent 500 errors, which was resolved by embedding ETag extraction into the Go HTTP transport.
+- **Virtual Service Identity:** Successfully implemented Tailscale Services, allowing the Android client to host named virtual nodes (`svc:*`). This proved that the Android PIE daemon is capable of full L7 service advertisement.
+- **Proxy limitations on Android:** Confirmed that the Tailscale network stack on Android has deeply ingrained restrictions against SOCKS5 outbound proxies. Even with `netns` patching and `SetProxyFunc` hooks, the daemon prefers native HTTP proxies.
+- **Event Bus Maximization:** Moving to Mask `4095` eliminated all "stale state" issues in the UI, as the app now receives immediate delta updates for NetMap and Peers.
+
 **Conclusion:**
-Moving away from the PoC "active" model to a professional "passive" bridge has resulted in the most stable build of TailSocks to date, resolving long-standing connectivity and authentication issues.
+Moving away from the PoC "active" model to a professional "passive" bridge and eventually to a native Local API architecture has resulted in the most stable and performant build of TailSocks to date.
+
+## Appendix: Key Investigations & Debugging
+*   **Serve Redirect Persistence:** We found that setting HTTP Redirect handlers via LocalAPI requires strict validation. The daemon rejects Redirect URLs without a scheme (`https://` is now auto-prepended). Additionally, sending conflicting boolean flags (e.g., `HTTPS: true` and `HTTP: false`) caused silent configuration resets. Kotlin models were adjusted to omit inactive flags entirely.
+*   **SOCKS5 & SagerNet Export:** To ensure seamless integration with proxy apps like SagerNet, TailSocks dynamically generates standardized `socks5://` URI schemes containing the correct authentication credentials injected at daemon startup via `TS_SOCKS5_USER` and `TS_SOCKS5_PASS`.

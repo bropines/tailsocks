@@ -41,6 +41,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.OutputStreamWriter
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 
 @Keep
 data class LogEntry(
@@ -86,6 +87,7 @@ fun LogsScreen(onBack: () -> Unit) {
     var searchQuery by remember { mutableStateOf("") }
     
     var isAutoScroll by remember { mutableStateOf(true) }
+    var isRefreshing by remember { mutableStateOf(false) }
     
     var scale by remember { mutableFloatStateOf(1f) }
     val listState = rememberLazyListState()
@@ -116,7 +118,8 @@ fun LogsScreen(onBack: () -> Unit) {
         }
     }
 
-    fun loadLogsData() {
+    fun loadLogsData(manual: Boolean = false) {
+        if (manual) isRefreshing = true
         coroutineScope.launch(Dispatchers.IO) {
             val jsonString = try { Appctr.getLogsJSON() } catch (e: Exception) { "[]" }
             val logsList: List<LogEntry> = try {
@@ -125,6 +128,7 @@ fun LogsScreen(onBack: () -> Unit) {
 
             withContext(Dispatchers.Main) {
                 allLogs = logsList
+                if (manual) isRefreshing = false
             }
         }
     }
@@ -197,7 +201,11 @@ fun LogsScreen(onBack: () -> Unit) {
             }) { Icon(Icons.Default.Delete, contentDescription = "Clear") }
         }
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = { loadLogsData(true) },
+            modifier = Modifier.fillMaxSize().padding(padding)
+        ) {
             SelectionContainer {
                 LazyColumn(
                     state = listState,

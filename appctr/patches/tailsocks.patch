@@ -81,13 +81,15 @@
  	return e, nil
  }
  
-@@ -241,6 +263,11 @@
+@@ -241,6 +263,13 @@
  		return
  	}
  
-+	fw, _ := mgr.WaitingFiles()
-+	if len(fw) > 0 {
-+		e.logf("Hedgehog: Received %d files via Taildrop", len(fw))
++	if mgr != nil {
++		fw, _ := mgr.WaitingFiles()
++		if len(fw) > 0 {
++			e.logf("Hedgehog: Received %d files via Taildrop", len(fw))
++		}
 +	}
 +
  	var n ipn.Notify
@@ -198,3 +200,31 @@
 +	if !filepath.IsLocal(baseName) { return "", ErrInvalidFileName }
 +	return filepath.Join(dir, baseName), nil
 +}
++--- ipn/ipnlocal/local.go.orig	2026-05-07 12:00:00.000000000 +0300
++++ ipn/ipnlocal/local.go	2026-05-07 12:00:00.000000000 +0300
+@@ -4886,10 +4886,11 @@
+ 
+ 	// Make a shallow copy of hostinfo so we can mutate
+ 	// at the Service field.
+-	if f, ok := b.extHost.Hooks().ShouldUploadServices.GetOk(); !ok || !f() {
+-		hi.Services = []tailcfg.Service{}
+-	}
+-
++	// Tailsocks: Allow advertising services on Android and include VIP services.
++	for _, vs := range b.vipServicesFromPrefsLocked(b.pm.CurrentPrefs()) {
++		hi.Services = append(hi.Services, tailcfg.Service{Proto: tailcfg.ServiceProto(vs.Name)})
++	}
++
+ 	// Don't mutate hi.Service's underlying array. Append to
+ 	// the slice with no free capacity.
+ 	c := len(hi.Services)
+--- ipn/ipnlocal/serve.go.orig	2026-05-07 12:00:00.000000000 +0300
++++ ipn/ipnlocal/serve.go	2026-05-07 12:00:00.000000000 +0300
+@@ -510,6 +510,7 @@
+ 			mak.Set(&services, svc, &tailcfg.VIPService{
+ 				Name:  svc,
+ 				Ports: config.ServicePortRange(),
++				Active: true,
+ 			})
+ 		}
+ 	}

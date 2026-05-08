@@ -2,17 +2,20 @@ package appctr
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net"
+	"net/http"
 	"os"
-	"strings"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
-	"net/http"
 	_ "time/tzdata"
 
 	_ "golang.org/x/mobile/bind"
+	"golang.org/x/net/dns/dnsmessage"
 	"tailscale.com/client/local"
 	"tailscale.com/client/web"
 )
@@ -20,26 +23,46 @@ import (
 var latestInterfaceState string
 var stateMu sync.Mutex
 
+type GlobalConfig struct {
+	mu         sync.RWMutex
+	Socks5Addr string
+	Socks5User string
+	Socks5Pass string
+	DNSAddr    string
+}
+
+func (c *GlobalConfig) get() (socks, user, pass, dns string) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.Socks5Addr, c.Socks5User, c.Socks5Pass, c.DNSAddr
+}
+
+func (c *GlobalConfig) update(socks, user, pass, dns string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.Socks5Addr = socks
+	c.Socks5User = user
+	c.Socks5Pass = pass
+	c.DNSAddr = dns
+}
+
+var GConfig GlobalConfig
+
 func InjectNetworkState(jsonState string) {
 	stateMu.Lock()
 	latestInterfaceState = jsonState
 	stateMu.Unlock()
-	
-	// Currently, InjectEvent cannot be called directly here as we lack a Monitor reference.
-	// The core is patched to use latestInterfaceState during getter calls.
 	slog.Info("Network state injected from Kotlin")
 }
+
 var cmd *exec.Cmd
 var PC pathControl
 var currentLogLevel int32 = 1
 var dnsProxyCancel context.CancelFunc
+var taildropCancel context.CancelFunc
 var lastOptions *StartOptions
 var webServer *http.Server
 var coreVersion string = "unknown"
-
-func GetCoreVersion() string {
-	return coreVersion
-}
 
 type Closer interface {
 	Close() error
@@ -53,6 +76,7 @@ type StartOptions struct {
 	Socks5User    string
 	Socks5Pass    string
 	HttpProxy     string
+	ControlProxy  string
 	CloseCallBack Closer
 	AuthKey       string
 	ExtraUpArgs   string
@@ -63,7 +87,13 @@ type StartOptions struct {
 	EnableWebUI   bool
 	WebUIAddr     string
 	TaildropDir   string
+	Hostname      string
+	AcceptRoutes  bool
+	AcceptDNS     bool
+	ExitNodeID    string
 }
+
+var nullOptions = &StartOptions{}
 
 func SetLogLevel(level int32) {
 	stateMu.Lock()
@@ -95,8 +125,80 @@ func IsRunning() bool {
 	return cmd != nil && cmd.Process != nil
 }
 
-func GetLoginURLString() string {
-	return GetLoginURL()
+// --- JNI Exported Functions (Static methods in Appctr class) ---
+
+func NativeDnsQuery(domain, qtype string) string {
+	slog.Info("LocalAPI: DNS Query", "domain", domain, "type", qtype)
+	stateMu.Lock()
+	opt := lastOptions
+	stateMu.Unlock()
+
+	if !IsRunning() {
+		return "Error: Tailscaled is not running."
+	}
+
+	var msg dnsmessage.Message
+	msg.Header.ID = 0x1234
+	msg.Header.RecursionDesired = true
+
+	t := dnsmessage.TypeA
+	if strings.ToUpper(qtype) == "AAAA" {
+		t = dnsmessage.TypeAAAA
+	}
+
+	name, err := dnsmessage.NewName(domain + ".")
+	if err != nil {
+		return "Invalid domain"
+	}
+
+	msg.Questions = []dnsmessage.Question{{Name: name, Type: t, Class: dnsmessage.ClassINET}}
+	query, _ := msg.Pack()
+
+	fallbacks := []string{"8.8.8.8:53", "1.1.1.1:53"}
+	doh := ""
+	if opt != nil {
+		if opt.DnsFallbacks != "" {
+			fallbacks = strings.Split(opt.DnsFallbacks, ",")
+		}
+		doh = opt.DohFallback
+	}
+
+	resp := processDNSQuery(query, fallbacks, doh)
+	if resp == nil {
+		return "No response"
+	}
+
+	var respMsg dnsmessage.Message
+	if err := respMsg.Unpack(resp); err != nil {
+		return "Error unpacking: " + err.Error()
+	}
+
+	if len(respMsg.Answers) == 0 {
+		return "No answers (RCODE: " + respMsg.Header.RCode.String() + ")"
+	}
+
+	var results []string
+	for _, ans := range respMsg.Answers {
+		switch b := ans.Body.(type) {
+		case *dnsmessage.AResource:
+			results = append(results, net.IP(b.A[:]).String())
+		case *dnsmessage.AAAAResource:
+			results = append(results, net.IP(b.AAAA[:]).String())
+		case *dnsmessage.CNAMEResource:
+			results = append(results, b.CNAME.String())
+		default:
+			results = append(results, "Unknown record type")
+		}
+	}
+	return strings.Join(results, "\n")
+}
+
+func FlushDNS() {
+	dnsCache.Range(func(key, value interface{}) bool {
+		dnsCache.Delete(key)
+		return true
+	})
+	slog.Info("DNS cache flushed")
 }
 
 func ApplySettings(opt *StartOptions) {
@@ -104,21 +206,17 @@ func ApplySettings(opt *StartOptions) {
 	old := lastOptions
 	stateMu.Unlock()
 
-	// Start if not already running
 	if !IsRunning() {
 		slog.Info("Tailscaled not running, performing full start")
 		Start(opt)
 		return
 	}
 
-	// CRITICAL FIX: If login is in progress (Login URL present),
-	// block configuration updates to prevent session resets and 410 Gone errors.
 	if GetLoginURL() != "" {
 		slog.Info("Login in progress, ignoring ApplySettings to protect session")
 		return
 	}
 
-	// Initialize options if they don't exist
 	if old == nil {
 		stateMu.Lock()
 		lastOptions = opt
@@ -127,10 +225,9 @@ func ApplySettings(opt *StartOptions) {
 		return
 	}
 
-	// 1. Critical parameter check.
-	// Force a full restart if core paths or proxy settings changed.
 	if old.Socks5Server != opt.Socks5Server ||
 		old.HttpProxy != opt.HttpProxy ||
+		old.ControlProxy != opt.ControlProxy ||
 		old.Socks5User != opt.Socks5User ||
 		old.Socks5Pass != opt.Socks5Pass ||
 		old.StatePath != opt.StatePath {
@@ -139,12 +236,11 @@ func ApplySettings(opt *StartOptions) {
 		return
 	}
 
-	// 2. Update option cache
 	stateMu.Lock()
 	lastOptions = opt
 	stateMu.Unlock()
+	GConfig.update(opt.Socks5Server, opt.Socks5User, opt.Socks5Pass, opt.DnsProxy)
 
-	// 3. DNS-only restart if only DNS parameters changed.
 	if old.DnsProxy != opt.DnsProxy ||
 		old.DnsFallbacks != opt.DnsFallbacks ||
 		old.DohFallback != opt.DohFallback {
@@ -152,9 +248,40 @@ func ApplySettings(opt *StartOptions) {
 		RestartDNS()
 	}
 
-	// 4. Synchronize other settings (hostname, tags, etc.) via ReUp.
-	// This preserves the current session and waits for Netmap synchronization.
-	ReUp()
+	if opt.AuthKey != "" && opt.AuthKey != old.AuthKey {
+		slog.Info("AuthKey changed, triggering Login via LocalAPI")
+		Login(opt.AuthKey)
+		return
+	}
+
+	if opt.DoReset {
+		slog.Info("Reset requested via Logout")
+		Logout()
+		return
+	}
+
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		prefs := make(map[string]interface{})
+		if opt.Hostname != "" {
+			prefs["Hostname"] = opt.Hostname
+			prefs["HostnameSet"] = true
+		}
+		prefs["RouteAll"] = opt.AcceptRoutes
+		prefs["RouteAllSet"] = true
+		prefs["CorpDNS"] = opt.AcceptDNS
+		prefs["CorpDNSSet"] = true
+		prefs["ExitNodeID"] = opt.ExitNodeID
+		prefs["ExitNodeIDSet"] = true
+		prefs["ExitNodeIP"] = ""
+		prefs["ExitNodeIPSet"] = true
+		prefs["WantRunning"] = true
+		prefs["WantRunningSet"] = true
+
+		jsonData, _ := json.Marshal(prefs)
+		slog.Info("Syncing settings via LocalAPI", "payload", string(jsonData))
+		SetPrefs(string(jsonData))
+	}()
 }
 
 func ReUp() {
@@ -164,13 +291,15 @@ func ReUp() {
 	stateMu.Unlock()
 
 	if opt != nil && IsRunning() {
-		// If we are already waiting for login, don't trigger 'up' again
-		// as it might reset the pending session and cause 410 Gone.
 		if GetLoginURL() != "" {
-			slog.Info("Login is in progress, skipping ReUp to avoid 410 Gone")
+			slog.Info("Login is in progress, skipping ReUp")
 			return
 		}
-		go registerMachineWithAuthKey(pc, opt)
+		if opt.AuthKey != "" {
+			Login(opt.AuthKey)
+		} else {
+			go registerMachineWithAuthKey(pc, opt)
+		}
 	}
 }
 
@@ -182,6 +311,7 @@ func Start(opt *StartOptions) {
 	PC = newPathControl(opt.ExecPath, opt.SocketPath, opt.StatePath)
 	lastOptions = opt
 	stateMu.Unlock()
+	GConfig.update(opt.Socks5Server, opt.Socks5User, opt.Socks5Pass, opt.DnsProxy)
 
 	killLeftoverDaemons(PC.Tailscaled())
 
@@ -194,7 +324,7 @@ func Start(opt *StartOptions) {
 	}
 
 	go func() {
-		err := tailscaledCmd(PC, opt.Socks5Server, opt.HttpProxy, opt.Socks5User, opt.Socks5Pass, opt.TaildropDir)
+		err := tailscaledCmd(PC, opt.Socks5Server, opt.HttpProxy, opt.Socks5User, opt.Socks5Pass, opt.TaildropDir, opt.ControlProxy)
 		if err != nil {
 			slog.Error("tailscaled cmd crashed", "err", err)
 		}
@@ -204,10 +334,31 @@ func Start(opt *StartOptions) {
 		}
 	}()
 
-	go registerMachineWithAuthKey(PC, opt)
+	go func() {
+		// Wait for socket
+		for i := 0; i < 20; i++ {
+			if _, err := os.Stat(opt.SocketPath); err == nil {
+				break
+			}
+			time.Sleep(500 * time.Millisecond)
+		}
+		if opt.AuthKey != "" {
+			Login(opt.AuthKey)
+		} else {
+			registerMachineWithAuthKey(PC, opt)
+		}
+	}()
 
 	if opt.DnsProxy != "" {
 		RestartDNS()
+	}
+
+	if opt.TaildropDir != "" {
+		stateMu.Lock()
+		ctx, cancel := context.WithCancel(context.Background())
+		taildropCancel = cancel
+		stateMu.Unlock()
+		go startTaildropCollector(ctx, opt.TaildropDir)
 	}
 }
 
@@ -225,9 +376,7 @@ func RestartDNS() {
 	}
 
 	go func() {
-		// Allow time for the previous proxy to release the socket
 		time.Sleep(500 * time.Millisecond)
-
 		ctx, cancel := context.WithCancel(context.Background())
 		stateMu.Lock()
 		dnsProxyCancel = cancel
@@ -244,7 +393,7 @@ func RestartDNS() {
 		}
 
 		slog.Info("Starting DNS proxy", "addr", opt.DnsProxy)
-		if err := startDNSProxy(ctx, opt.DnsProxy, opt.Socks5Server, opt.Socks5User, opt.Socks5Pass, fallbacks, doh); err != nil {
+		if err := startDNSProxy(ctx, opt.DnsProxy, fallbacks, doh); err != nil {
 			slog.Error("DNS proxy error", "err", err)
 		}
 	}()
@@ -252,7 +401,6 @@ func RestartDNS() {
 
 func Stop() {
 	StopWebUI()
-
 	stateMu.Lock()
 	defer stateMu.Unlock()
 
@@ -260,7 +408,10 @@ func Stop() {
 		dnsProxyCancel()
 		dnsProxyCancel = nil
 	}
-
+	if taildropCancel != nil {
+		taildropCancel()
+		taildropCancel = nil
+	}
 	if cmd != nil && cmd.Process != nil {
 		_ = cmd.Process.Signal(os.Interrupt)
 		go func(p *os.Process) {
@@ -271,11 +422,8 @@ func Stop() {
 	}
 }
 
-// --- Helper Functions ---
-
 func killLeftoverDaemons(daemonPath string) {
-    // Utility command for Android to terminate orphaned processes
-    _ = exec.Command("/system/bin/killall", "tailscaled").Run()
+	_ = exec.Command("/system/bin/killall", "tailscaled").Run()
 }
 
 func StartWebUI(addr string) {
@@ -288,12 +436,10 @@ func StartWebUI(addr string) {
 	stateMu.Unlock()
 
 	slog.Info("Web UI start requested", "addr", addr)
-
 	lc := &local.Client{
-		Socket: pc.Socket(),
+		Socket:        pc.Socket(),
 		UseSocketOnly: true,
 	}
-
 	ws, err := web.NewServer(web.ServerOpts{
 		Mode:        web.LoginServerMode,
 		LocalClient: lc,
@@ -305,14 +451,12 @@ func StartWebUI(addr string) {
 		slog.Error("Failed to create web server", "err", err)
 		return
 	}
-
 	stateMu.Lock()
 	webServer = &http.Server{
 		Addr:    addr,
 		Handler: ws,
 	}
 	stateMu.Unlock()
-
 	go func() {
 		slog.Info("Web UI listening", "addr", addr)
 		if err := webServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -329,7 +473,6 @@ func StopWebUI() {
 	ws := webServer
 	webServer = nil
 	stateMu.Unlock()
-
 	if ws != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
