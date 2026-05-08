@@ -100,6 +100,7 @@ jobs:
           chmod +x gradlew
           ./gradlew ${{ steps.gradle_command.outputs.command }} --stacktrace
         env:
+          KEYSTORE_FILE: release.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
@@ -133,18 +134,4 @@ jobs:
           files: release-artifacts/**/*.apk
           generate_release_notes: true
           tag_name: ${{ github.ref_name }}
-          name: "TailSocks ${{ github.ref_name }} - Native Local API"
-          body: |
-            ## TailSocks ${{ github.ref_name }} - The Local API Revolution 🚀
-
-            This release marks the transition from CLI-based management to a high-performance **Native Local API** architecture.
-
-            ### 🏗 Key Highlights
-            * **Full LocalAPI Migration:** Zero external CLI calls for core operations.
-            * **New Serve & Funnel UI:** Overhauled interface with Virtual Service support and auto-links.
-            * **Backup & Restore:** ZIP-based app data archiving and account settings import/export.
-            * **QOL Improvements:** Pull-to-refresh, searchable peers, and swipeable navigation.
-            * **Loopback Stability:** Fixed SOCKS5 self-dialing and Taildrop initialization panics.
-
-            ---
-            *Built with Tailscale Core v1.98.1*
+          name: "TailSocks ${{ github.ref_name }}"
