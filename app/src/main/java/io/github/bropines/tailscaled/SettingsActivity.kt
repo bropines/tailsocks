@@ -289,6 +289,15 @@ fun SettingsScreen(onBack: () -> Unit) {
         Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
             
             SettingsSectionHeader("Global Settings")
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { fullBackupLauncher.launch("tailsocks_full_backup.zip") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) {
+                    Icon(Icons.Default.Archive, null); Spacer(Modifier.width(8.dp)); Text("Backup (ZIP)", maxLines = 1)
+                }
+                OutlinedButton(onClick = { fullRestoreLauncher.launch("application/zip") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) {
+                    Icon(Icons.Default.SettingsBackupRestore, null); Spacer(Modifier.width(8.dp)); Text("Restore", maxLines = 1)
+                }
+            }
+            Spacer(Modifier.height(16.dp))
             SettingsClickableItem("Taildrop Storage Folder", taildropRootUri?.path ?: "Uses app internal folder", Icons.Default.Folder) { folderPicker.launch(null) }
             Spacer(Modifier.height(8.dp))
             SettingsClickableItem("Battery Optimization", "Disable to prevent background sleep", Icons.Default.BatteryAlert) {
