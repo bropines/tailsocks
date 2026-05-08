@@ -31,7 +31,7 @@ Funnel extends Serve by allowing traffic from the **public internet** to reach y
 
 ### ACL Configuration (example):
 Add this to your tailnet policy via the Tailscale Admin Console:
-```hujson
+```json
 "nodeAttrs": [
     {
         "target": ["tag:server", "my-phone@example.com"],
