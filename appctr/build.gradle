@@ -1,2 +1,6 @@
 configurations.maybeCreate("default")
-artifacts.add("default", file('tmp/appctr.aar'))
+def aarFile = file('tmp/appctr.aar')
+if (!aarFile.exists()) {
+    aarFile = file('appctr.aar')
+}
+artifacts.add("default", aarFile)

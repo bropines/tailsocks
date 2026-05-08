@@ -53,7 +53,7 @@ jobs:
           name: core-artifacts
           path: |
             app/src/main/jniLibs/
-            appctr/build/outputs/aar/*.aar
+            appctr/tmp/appctr.aar
 
   build-apk:
     name: Build Android APK
@@ -135,24 +135,16 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: "TailSocks ${{ github.ref_name }} - Native Local API"
           body: |
-            ## TailSocks v1.9.0 - The Local API Revolution 🚀
+            ## TailSocks ${{ github.ref_name }} - The Local API Revolution 🚀
 
             This release marks the transition from CLI-based management to a high-performance **Native Local API** architecture.
 
-            ### 🏗 Core Changes
-            * **Local API Integration:** Complete removal of slow CLI calls for status, DNS, and connectivity checks.
-            * **Passive State Model:** Improved battery life and stability by trusting the Tailscale daemon's internal state machine.
-            * **Chain CI/CD:** Improved build pipeline with modular Go-core and Android-APK jobs.
-
-            ### 📡 Networking & DNS
-            * **Zero-Latency MagicDNS:** In-memory node cache for instant resolution.
-            * **Split DNS over SOCKS5:** Native support for corporate domain routing.
-            * **Universal Auth:** Support for Headscale and custom control planes via smart URL detection.
-
-            ### 🛠 UX & Settings
-            * **Global Settings:** Centralized networking, DNS, and system flags configuration across all profiles.
-            * **Taildrop Collector:** Reliable background file saving for userspace networking.
-            * **Deep Diagnostics:** Real-time visibility into WireGuard and magicsock telemetry.
+            ### 🏗 Key Highlights
+            * **Full LocalAPI Migration:** Zero external CLI calls for core operations.
+            * **New Serve & Funnel UI:** Overhauled interface with Virtual Service support and auto-links.
+            * **Backup & Restore:** ZIP-based app data archiving and account settings import/export.
+            * **QOL Improvements:** Pull-to-refresh, searchable peers, and swipeable navigation.
+            * **Loopback Stability:** Fixed SOCKS5 self-dialing and Taildrop initialization panics.
 
             ---
-            *Built with Tailscale Core v1.96.5*
+            *Built with Tailscale Core v1.98.1*
