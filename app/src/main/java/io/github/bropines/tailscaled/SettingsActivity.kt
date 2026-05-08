@@ -105,6 +105,120 @@ fun SettingsScreen(onBack: () -> Unit) {
         }
     }
 
+    val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            scope.launch(Dispatchers.IO) {
+                try {
+                    val jsonBytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    if (jsonBytes != null) {
+                        val jsonString = String(jsonBytes)
+                        val backupData = Gson().fromJson(jsonString, Map::class.java)
+                        val settings = backupData["settings"] as? Map<String, Any>
+                        if (settings != null) {
+                            val editor = profilePrefs.edit()
+                            settings.forEach { (k, v) ->
+                                when (v) {
+                                    is String -> editor.putString(k, v)
+                                    is Boolean -> editor.putBoolean(k, v)
+                                    is Double -> editor.putFloat(k, v.toFloat()) // Gson parses numbers as Double
+                                    is Float -> editor.putFloat(k, v)
+                                    is Int -> editor.putInt(k, v)
+                                    is Long -> editor.putLong(k, v)
+                                }
+                            }
+                            editor.apply()
+                            withContext(Dispatchers.Main) { 
+                                Toast.makeText(context, "Settings restored successfully. Please restart the app.", Toast.LENGTH_LONG).show() 
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) { Toast.makeText(context, "Restore failed: ${e.message}", Toast.LENGTH_LONG).show() }
+                }
+            }
+        }
+    }
+
+    val fullBackupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        if (uri != null) {
+            scope.launch(Dispatchers.IO) {
+                try {
+                    context.contentResolver.openOutputStream(uri)?.use { os ->
+                        java.util.zip.ZipOutputStream(os).use { zos ->
+                            // Backup shared_prefs
+                            val prefsDir = File(context.applicationInfo.dataDir, "shared_prefs")
+                            if (prefsDir.exists()) {
+                                prefsDir.walkTopDown().filter { it.isFile }.forEach { file ->
+                                    val entryName = "shared_prefs/${file.name}"
+                                    zos.putNextEntry(java.util.zip.ZipEntry(entryName))
+                                    file.inputStream().use { it.copyTo(zos) }
+                                    zos.closeEntry()
+                                }
+                            }
+                            // Backup states
+                            val statesDir = File(context.filesDir, "states")
+                            if (statesDir.exists()) {
+                                statesDir.walkTopDown().filter { it.isFile }.forEach { file ->
+                                    val entryName = "files/states/${file.relativeTo(statesDir).path}"
+                                    zos.putNextEntry(java.util.zip.ZipEntry(entryName))
+                                    file.inputStream().use { it.copyTo(zos) }
+                                    zos.closeEntry()
+                                }
+                            }
+                            // Backup Sent History
+                            val historyFile = File(context.filesDir, "sent_history.json")
+                            if (historyFile.exists()) {
+                                zos.putNextEntry(java.util.zip.ZipEntry("files/sent_history.json"))
+                                historyFile.inputStream().use { it.copyTo(zos) }
+                                zos.closeEntry()
+                            }
+                        }
+                    }
+                    withContext(Dispatchers.Main) { Toast.makeText(context, "Full backup saved", Toast.LENGTH_SHORT).show() }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) { Toast.makeText(context, "Full backup failed: ${e.message}", Toast.LENGTH_LONG).show() }
+                }
+            }
+        }
+    }
+
+    val fullRestoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            scope.launch(Dispatchers.IO) {
+                try {
+                    context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                        java.util.zip.ZipInputStream(inputStream).use { zis ->
+                            var entry = zis.nextEntry
+                            while (entry != null) {
+                                if (!entry.isDirectory) {
+                                    val targetFile: File? = when {
+                                        entry.name.startsWith("shared_prefs/") -> {
+                                            File(context.applicationInfo.dataDir, entry.name)
+                                        }
+                                        entry.name.startsWith("files/") -> {
+                                            val subPath = entry.name.substring("files/".length)
+                                            File(context.filesDir, subPath)
+                                        }
+                                        else -> null
+                                    }
+                                    if (targetFile != null) {
+                                        targetFile.parentFile?.mkdirs()
+                                        targetFile.outputStream().use { fos -> zis.copyTo(fos) }
+                                    }
+                                }
+                                zis.closeEntry()
+                                entry = zis.nextEntry
+                            }
+                        }
+                    }
+                    withContext(Dispatchers.Main) { Toast.makeText(context, "Full restore complete. Please FORCE RESTART the app.", Toast.LENGTH_LONG).show() }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) { Toast.makeText(context, "Full restore failed: ${e.message}", Toast.LENGTH_LONG).show() }
+                }
+            }
+        }
+    }
+
     fun saveGlobalPref(key: String, value: Any?) {
         when (value) {
             is String -> GlobalSettings.setString(context, key, value)
@@ -245,8 +359,13 @@ fun SettingsScreen(onBack: () -> Unit) {
             if (enableWebUI) SettingsEditItem("Web UI Address", webUIAddr, Icons.Default.Link) { webUIAddr = it; saveProfilePref("webui_addr", it) }
 
             SettingsSectionHeader("Advanced Profile")
-            Button(onClick = { backupLauncher.launch("tailsocks_backup_${activeAccount.name}.json") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
-                Icon(Icons.Default.Backup, null); Spacer(Modifier.width(8.dp)); Text("Backup Account Settings")
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { backupLauncher.launch("tailsocks_backup_${activeAccount.name}.json") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) {
+                    Icon(Icons.Default.Backup, null); Spacer(Modifier.width(8.dp)); Text("Backup", maxLines = 1)
+                }
+                OutlinedButton(onClick = { restoreLauncher.launch("application/json") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) {
+                    Icon(Icons.Default.SettingsBackupRestore, null); Spacer(Modifier.width(8.dp)); Text("Import", maxLines = 1)
+                }
             }
             Spacer(Modifier.height(8.dp))
             OutlinedButton(onClick = { showResetDialog = true }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
@@ -269,7 +388,7 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Control Plane Proxy") },
+        title = { Text("Control Plane Proxy HTTP(S)") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Row(verticalAlignment = Alignment.CenterVertically) {

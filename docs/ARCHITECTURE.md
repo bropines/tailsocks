@@ -37,3 +37,10 @@ To mitigate "sticky" routing issues common in userspace engines:
 *   **Explicit State Enforcement:** Every `tailscale up` command includes explicit "negation flags" (e.g., `--exit-node=`) to force the daemon to clear previous settings that are no longer selected in the UI.
 *   **Health Validation Loop:** A background task periodically validates that the selected Exit Node exists in the current account's netmap, automatically clearing the configuration if the node becomes unreachable or invalid.
 *   **Control Plane Proxy:** Supports global SOCKS5/HTTP proxies for coordination server communication. Specifically routes SOCKS5 traffic through `ALL_PROXY` with forced `HTTP_PROXY` clearing to prevent protocol errors (e.g., "unknown Socks version").
+
+## 7. Patch Analysis & Dependencies
+TailSocks maintains minimal patches to the upstream Tailscale core to ensure mobile compatibility. These patches are located in `appctr/patches/` and inject necessary capabilities that cannot be replicated via the external LocalAPI:
+*   **`cmd/tailscaled/proxy.go`:** Adds `Username`/`Password` fields to the outbound SOCKS5 listener (read from env vars).
+*   **`feature/taildrop/ext.go`:** Registers a pure-Go `fsFileOps` to avoid Android JNI panics and points Taildrop to the app's isolated data dir.
+*   **`ipn/ipnlocal/local.go`:** Appends VIP services to the `HostInfo` struct so Virtual Services (`svc:`) are visible to the coordination server.
+*   **`fix_android_netmon.go`:** Implements a custom `netmon.InterfaceGetter` to work around `netlink` permission denials on Android 10+ and masks the `HostInfo` (OS, DeviceModel) to bypass mobile-specific policy restrictions on the Tailscale control plane.

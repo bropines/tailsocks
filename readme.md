@@ -30,6 +30,8 @@ TailSocks utilizes a hybrid bridge architecture to integrate the official Go-bas
 *   [**Build Instructions**](docs/BUILDING.md) — Setting up the NDK environment and compiling the Go core.
 *   [**Project Evolution**](docs/RETROSPECTIVE.md) — History of the project from PoC to the current stable architecture.
 *   [**AdGuard Setup**](docs/ADGUARD.md) — Instructions for using TailSocks alongside system-wide ad-blockers.
+*   [**Serve & Funnel Guide**](docs/SERVE_FUNNEL_GUIDE.md) — How to expose local ports and virtual services.
+*   [**Roadmap**](docs/ROADMAP.md) — Planned features and short-term goals.
 
 ## 📜 License
 

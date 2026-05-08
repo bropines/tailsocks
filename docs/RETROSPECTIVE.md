@@ -34,3 +34,7 @@ The project has reached 100% independence from CLI binary calls for lifecycle ma
 
 **Conclusion:**
 Moving away from the PoC "active" model to a professional "passive" bridge and eventually to a native Local API architecture has resulted in the most stable and performant build of TailSocks to date.
+
+## Appendix: Key Investigations & Debugging
+*   **Serve Redirect Persistence:** We found that setting HTTP Redirect handlers via LocalAPI requires strict validation. The daemon rejects Redirect URLs without a scheme (`https://` is now auto-prepended). Additionally, sending conflicting boolean flags (e.g., `HTTPS: true` and `HTTP: false`) caused silent configuration resets. Kotlin models were adjusted to omit inactive flags entirely.
+*   **SOCKS5 & SagerNet Export:** To ensure seamless integration with proxy apps like SagerNet, TailSocks dynamically generates standardized `socks5://` URI schemes containing the correct authentication credentials injected at daemon startup via `TS_SOCKS5_USER` and `TS_SOCKS5_PASS`.
