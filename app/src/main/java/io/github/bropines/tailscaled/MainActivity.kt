@@ -512,18 +512,42 @@ fun MainScreen() {
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                MenuCard(title = "Console", icon = Icons.Default.PlayArrow, modifier = Modifier.weight(1f)) { context.startActivity(Intent(context, ConsoleActivity::class.java)) }
-                MenuCard(title = "Peers", icon = Icons.Default.Share, modifier = Modifier.weight(1f)) { context.startActivity(Intent(context, PeersActivity::class.java)) }
-                MenuCard(title = "Logs", icon = Icons.Default.Info, modifier = Modifier.weight(1f)) { context.startActivity(Intent(context, LogsActivity::class.java)) }
-                MenuCard(title = "Files", icon = Icons.Default.Folder, modifier = Modifier.weight(1f)) { context.startActivity(Intent(context, FilesActivity::class.java)) }
+            Row(modifier = Modifier.fillMaxWidth()) {
+                MenuCard(title = "Console", icon = Icons.Default.PlayArrow, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                    context.startActivity(Intent(context, ConsoleActivity::class.java))
+                }
+                MenuCard(title = "Peers", icon = Icons.Default.Share, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                    context.startActivity(Intent(context, PeersActivity::class.java))
+                }
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                MenuCard(title = "DNS", icon = Icons.Default.Language, modifier = Modifier.weight(1f)) { context.startActivity(Intent(context, DnsActivity::class.java)) }
-                MenuCard(title = "Netcheck", icon = Icons.Default.Refresh, modifier = Modifier.weight(1f)) { context.startActivity(Intent(context, NetcheckActivity::class.java)) }
-                MenuCard(title = "Settings", icon = Icons.Default.Settings, modifier = Modifier.weight(1f)) { context.startActivity(Intent(context, SettingsActivity::class.java)) }
-                MenuCard(title = "Serve", icon = Icons.Default.Public, modifier = Modifier.weight(1f)) { context.startActivity(Intent(context, ServeActivity::class.java)) }
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                MenuCard(title = "Logs", icon = Icons.AutoMirrored.Filled.List, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                    context.startActivity(Intent(context, LogsActivity::class.java))
+                }
+                MenuCard(title = "Files", icon = Icons.Default.Folder, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                    context.startActivity(Intent(context, FilesActivity::class.java))
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                MenuCard(title = "DNS", icon = Icons.Default.Language, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                    context.startActivity(Intent(context, DnsActivity::class.java))
+                }
+                MenuCard(title = "Netcheck", icon = Icons.Default.Refresh, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                    context.startActivity(Intent(context, NetcheckActivity::class.java))
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                MenuCard(title = "Settings", icon = Icons.Default.Settings, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                    context.startActivity(Intent(context, SettingsActivity::class.java))
+                }
+                MenuCard(title = "Serve", icon = Icons.Default.Public, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                    context.startActivity(Intent(context, ServeActivity::class.java))
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -716,17 +740,17 @@ fun StatusCard(state: String, isProcessing: Boolean, onToggle: () -> Unit) {
 @Composable
 fun MenuCard(title: String, icon: ImageVector, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Surface(
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surfaceContainer,
         modifier = modifier.clickable { onClick() }
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Icon(imageVector = icon, contentDescription = title, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(text = title, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, fontSize = 11.sp, maxLines = 1, softWrap = false)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = title, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, maxLines = 1, softWrap = false)
         }
     }
 }
