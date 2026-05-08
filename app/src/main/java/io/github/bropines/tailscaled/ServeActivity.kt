@@ -306,7 +306,7 @@ fun ServeScreen(onBack: () -> Unit) {
         AddServeRuleDialog(
             data = editData,
             onDismiss = { showEditDialog = null },
-            onConfirm = { port, target, mode, transport, handlerType, serviceName, isDisabled ->
+            onConfirm = { port, target, mode, transport, handlerType, serviceName, isDisabled, proxyProtocol ->
                 val currentConfig = config ?: ServeConfig()
                 
                 // 1. Prepare mutable copies
@@ -370,7 +370,11 @@ fun ServeScreen(onBack: () -> Unit) {
                             disabled = isDisabled
                         )
                     } else {
-                        sTcp[port] = TCPPortHandler(tcpForward = target, disabled = isDisabled)
+                        sTcp[port] = TCPPortHandler(
+                            tcpForward = target, 
+                            disabled = isDisabled,
+                            proxyProtocol = if (proxyProtocol > 0) proxyProtocol else null
+                        )
                     }
                     newServices[svcKey] = sCfg.copy(
                         tcp = if (sTcp.isNotEmpty()) sTcp else null,
@@ -393,7 +397,11 @@ fun ServeScreen(onBack: () -> Unit) {
                             disabled = isDisabled
                         )
                     } else {
-                        newTcp[port] = TCPPortHandler(tcpForward = target, disabled = isDisabled)
+                        newTcp[port] = TCPPortHandler(
+                            tcpForward = target, 
+                            disabled = isDisabled,
+                            proxyProtocol = if (proxyProtocol > 0) proxyProtocol else null
+                        )
                     }
 
                     if (editData.isFunnel) {
@@ -438,6 +446,7 @@ data class ServeRuleEditData(
     val mode: String = "Web", // Web or TCP
     val transport: String = "HTTPS", // HTTP or HTTPS
     val handlerType: String = "Proxy", // Proxy, Text, Redirect
+    val proxyProtocol: Int = 0, // 0=None, 1=v1, 2=v2
     val isEditing: Boolean = false,
     val isFunnel: Boolean = false,
     val serviceName: String = "",
@@ -497,7 +506,7 @@ fun ServeRuleCard(title: String, subtitle: String, fullUrl: String, protocol: St
 }
 
 @Composable
-fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm: (Int, String, String, String, String, String, Boolean) -> Unit) {
+fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm: (Int, String, String, String, String, String, Boolean, Int) -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var port by remember { mutableStateOf(data.port) }
     var target by remember { mutableStateOf(data.target) }
@@ -506,6 +515,7 @@ fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm
     var handlerType by remember { mutableStateOf(data.handlerType) }
     var serviceName by remember { mutableStateOf(data.serviceName) }
     var isDisabled by remember { mutableStateOf(data.isDisabled) }
+    var proxyProtocol by remember { mutableIntStateOf(data.proxyProtocol) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -573,6 +583,19 @@ fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm
                             }
                         }
                     }
+                } else {
+                    Column {
+                        Text("Proxy Protocol", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(0 to "None", 1 to "v1", 2 to "v2").forEach { (v, label) ->
+                                FilterChip(
+                                    selected = proxyProtocol == v,
+                                    onClick = { proxyProtocol = v },
+                                    label = { Text(label) }
+                                )
+                            }
+                        }
+                    }
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -610,7 +633,7 @@ fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm
                 if (data.isFunnel && p !in listOf(443, 8443, 10000)) {
                     Toast.makeText(context, "Funnel only supports ports 443, 8443, 10000", Toast.LENGTH_LONG).show()
                 } else {
-                    onConfirm(p, target, mode, transport, handlerType, serviceName, isDisabled)
+                    onConfirm(p, target, mode, transport, handlerType, serviceName, isDisabled, proxyProtocol)
                 }
             }) { Text(if (data.isEditing) "Save" else "Add") }
         },

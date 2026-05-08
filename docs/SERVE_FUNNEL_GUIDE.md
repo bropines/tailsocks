@@ -45,10 +45,11 @@ Add this to your tailnet policy via the Tailscale Admin Console:
 ## 3. Tailscale Services (`svc:`)
 Tailscale Services allow you to host a service under a **different hostname** than your machine name. For example, your machine `my-phone` can host a service at `webapp.tailnet-1234.ts.net`.
 
-### Features:
+### Features & Limitations:
 *   **Independent Hostname:** Accessible via `https://service-name.tailnet.ts.net`.
-*   **Tun Mode (L3):** When enabled, it forwards all traffic (TCP/UDP) for that hostname to the device, similar to a dedicated virtual machine.
-*   **ACL Requirements:** Requires a `tag` or `service` definition in your ACLs.
+*   **Manual Approval Required:** After creating a virtual service in TailSocks, you **must** log into the Tailscale Admin Console (Web UI), navigate to the "Machines" tab, find the new service, and manually approve it before it becomes accessible on the Tailnet.
+*   **No L3 Tun Mode:** Because TailSocks runs in userspace-networking mode without a VpnService, the L3 Tun mode (forwarding all traffic to a virtual IP) is **not supported**. You can only use Serve/Funnel on specific ports.
+*   **ACL Requirements:** Requires a `tag` or `service` definition in your ACLs if you are using advanced policies.
 
 ---
 
