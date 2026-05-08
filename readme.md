@@ -6,23 +6,24 @@
 
 TailSocks is a high-performance, lightweight Android client for [Tailscale](https://tailscale.com/) that operates exclusively in **userspace-networking mode**. It provides a complete Tailscale environment—including Taildrop and Exit Nodes—without utilizing Android's `VpnService`, enabling seamless coexistence with other VPN and firewall applications.
 
+## ✨ Key Features
+
+*   **Native LocalAPI v2:** 100% CLI-less management via a high-performance Go-HTTP bridge. Near-instant status updates and configuration changes.
+*   **Multi-Account System:** Create and switch between multiple independent Tailscale profiles, each with its own isolated state and machine keys.
+*   **Tailscale Serve & Funnel:** Expose local services to your Tailnet or the public internet with a native UI for managing HTTPS proxies, TCP forwarding, and virtual services (`svc:`).
+*   **Taildrop Hub:** Comprehensive file sharing support. Receive, preview, and save files to any folder using Android's Storage Access Framework.
+*   **Exit Node Support:** Full integration with Tailnet Exit Nodes, featuring automated self-healing during account or network transitions.
+*   **Deep Diagnostics:** Real-time visibility into the userspace engine, including WireGuard handshake telemetry and NAT traversal status (`InMagicSock`).
+*   **MagicDNS & Split DNS:** Low-latency DNS resolution with in-memory caching and corporate domain routing.
+
 ## 🏗 System Architecture
 
-TailSocks utilizes a hybrid bridge architecture to integrate the official Go-based Tailscale core with a modern Android management interface:
+TailSocks operates as a hybrid application:
+1.  **Tailscale Core:** A pure Go environment (based on `tsnet`) compiled for Android and patched for mobile environments.
+2.  **Go-Kotlin Bridge (`appctr`):** A high-speed bridge using `gomobile` that exposes the Tailscale LocalAPI and status bus to the Android frontend.
+3.  **Modern UI:** A 100% Jetpack Compose frontend optimized for efficiency, density, and ease of use.
 
-*   **Optimized Core:** The `tailscaled` daemon is compiled as a Position Independent Executable (PIE) and patched specifically for Android's network monitoring restrictions.
-*   **Management Bridge (`appctr`):** A Go-based controller compiled via `gomobile` that manages the daemon's lifecycle, implements account isolation, and handles low-level networking logic.
-*   **Passive State Model:** Starting from v1.8.1, the system utilizes a passive management approach, trusting the daemon's internal state machine for recovery and policy synchronization, which significantly improves connection stability and battery efficiency.
-
-## 🚀 Key Features
-
-*   **Taildrop Hub:** A custom implementation of Tailscale's file-sharing protocol with background reception support and integration with the Android Storage Access Framework (SAF).
-*   **Multi-Account Management:** Robust profile isolation. Each account maintains its own state directory (`files/states/{id}`) and independent machine keys.
-*   **Advanced DNS Proxy:** A tri-tier DNS resolver that handles MagicDNS (`*.ts.net`) and Split DNS by wrapping UDP queries into TCP frames, bypassing standard Android routing limitations.
-*   **Exit Node Support:** Full integration with Tailnet Exit Nodes, featuring an automated "Self-Healing" mechanism that clears invalid configurations during account or network transitions.
-*   **Serve & Funnel:** Expose local services to the Tailnet or the public internet with a native UI for managing HTTPS proxies, TCP forwarding, and virtual services (`svc:`).
-*   **Deep Diagnostics:** Real-time visibility into the userspace engine, including NAT traversal status (`InMagicSock`), byte counters (RX/TX), and WireGuard handshake telemetry.
-*   **SagerNet Integration:** Seamless export of SOCKS5/UDP credentials to third-party proxy clients via standardized URI schemes.
+The app uses **userspace-networking** exclusively. This allows TailSocks to run without requiring Android's `VpnService` permission, enabling it to work alongside other VPNs (like AdGuard or WireGuard).
 
 ## 📚 Documentation
 
