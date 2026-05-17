@@ -106,11 +106,16 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           ANDROID_HOME: /usr/local/lib/android/sdk
 
+      - name: Prepare APKs for upload
+        run: |
+          mkdir -p flattened-apks
+          find app/build/outputs/apk -name "*.apk" -exec cp {} flattened-apks/ \;
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: tailsocks-apks
-          path: app/build/outputs/apk/**/*.apk
+          path: flattened-apks/*.apk
 
   release:
     name: Create Release
