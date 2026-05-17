@@ -201,6 +201,42 @@ func FlushDNS() {
 	slog.Info("DNS cache flushed")
 }
 
+func syncSettings(opt *StartOptions) {
+	if opt == nil {
+		return
+	}
+	go func() {
+		// Wait for socket to be ready
+		for i := 0; i < 20; i++ {
+			if _, err := os.Stat(opt.SocketPath); err == nil {
+				break
+			}
+			time.Sleep(500 * time.Millisecond)
+		}
+
+		time.Sleep(500 * time.Millisecond)
+		prefs := make(map[string]interface{})
+		if opt.Hostname != "" {
+			prefs["Hostname"] = opt.Hostname
+			prefs["HostnameSet"] = true
+		}
+		prefs["RouteAll"] = opt.AcceptRoutes
+		prefs["RouteAllSet"] = true
+		prefs["CorpDNS"] = opt.AcceptDNS
+		prefs["CorpDNSSet"] = true
+		prefs["ExitNodeID"] = opt.ExitNodeID
+		prefs["ExitNodeIDSet"] = true
+		prefs["ExitNodeIP"] = ""
+		prefs["ExitNodeIPSet"] = true
+		prefs["WantRunning"] = true
+		prefs["WantRunningSet"] = true
+
+		jsonData, _ := json.Marshal(prefs)
+		slog.Info("Syncing settings via LocalAPI", "payload", string(jsonData))
+		SetPrefs(string(jsonData))
+	}()
+}
+
 func ApplySettings(opt *StartOptions) {
 	stateMu.Lock()
 	old := lastOptions
@@ -222,6 +258,7 @@ func ApplySettings(opt *StartOptions) {
 		lastOptions = opt
 		stateMu.Unlock()
 		ReUp()
+		syncSettings(opt)
 		return
 	}
 
@@ -260,28 +297,7 @@ func ApplySettings(opt *StartOptions) {
 		return
 	}
 
-	go func() {
-		time.Sleep(500 * time.Millisecond)
-		prefs := make(map[string]interface{})
-		if opt.Hostname != "" {
-			prefs["Hostname"] = opt.Hostname
-			prefs["HostnameSet"] = true
-		}
-		prefs["RouteAll"] = opt.AcceptRoutes
-		prefs["RouteAllSet"] = true
-		prefs["CorpDNS"] = opt.AcceptDNS
-		prefs["CorpDNSSet"] = true
-		prefs["ExitNodeID"] = opt.ExitNodeID
-		prefs["ExitNodeIDSet"] = true
-		prefs["ExitNodeIP"] = ""
-		prefs["ExitNodeIPSet"] = true
-		prefs["WantRunning"] = true
-		prefs["WantRunningSet"] = true
-
-		jsonData, _ := json.Marshal(prefs)
-		slog.Info("Syncing settings via LocalAPI", "payload", string(jsonData))
-		SetPrefs(string(jsonData))
-	}()
+	syncSettings(opt)
 }
 
 func ReUp() {
@@ -347,6 +363,7 @@ func Start(opt *StartOptions) {
 		} else {
 			registerMachineWithAuthKey(PC, opt)
 		}
+		syncSettings(opt)
 	}()
 
 	if opt.DnsProxy != "" {
