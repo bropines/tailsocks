@@ -65,12 +65,34 @@ class LogsActivity : ComponentActivity() {
 fun getDebugHeader(context: Context): String {
     val verName = try { context.packageManager.getPackageInfo(context.packageName, 0).versionName } catch (e: Exception) { "unknown" }
     val coreVer = try { Appctr.getCoreVersion() } catch (e: Exception) { "unknown" }
+    val activeAccount = AccountManager.getActiveAccount(context)
+    val prefs = context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
+    
+    val hostname = prefs.getString("hostname", "") ?: ""
+    val socks5 = prefs.getString("socks5", "127.0.0.1:1055") ?: "127.0.0.1:1055"
+    val httpProxy = prefs.getString("http_proxy", "") ?: ""
+    val dnsProxy = prefs.getString("dns_proxy", "") ?: ""
+    val acceptRoutes = prefs.getBoolean("accept_routes", true)
+    val acceptDNS = prefs.getBoolean("accept_dns", true)
+    val exitNodeSet = prefs.getString("exit_node_id", "")?.isNotEmpty() == true
+    val authKeySet = prefs.getString("authkey", "")?.isNotEmpty() == true
+
     return """
         --- TAILSOCKS DEBUG INFO ---
         App Version: $verName
         Tailscale Core: $coreVer
         Device: ${Build.MANUFACTURER} ${Build.MODEL} (Android ${Build.VERSION.RELEASE}, API ${Build.VERSION.SDK_INT})
         Arch: ${Build.SUPPORTED_ABIS.joinToString(", ")}
+        
+        Settings:
+        hostname: $hostname
+        socks5: $socks5
+        httpProxy: $httpProxy
+        dnsProxy: $dnsProxy
+        acceptRoutes: $acceptRoutes
+        acceptDNS: $acceptDNS
+        exitNode: ${if (exitNodeSet) "Enabled" else "Disabled"}
+        authKey: ${if (authKeySet) "Present" else "Empty"}
         ----------------------------
         
     """.trimIndent()

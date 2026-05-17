@@ -201,33 +201,6 @@ func FlushDNS() {
 	slog.Info("DNS cache flushed")
 }
 
-func logSettings(opt *StartOptions) {
-	if opt == nil {
-		return
-	}
-	
-	exitNodeStatus := "Disabled"
-	if opt.ExitNodeID != "" {
-		exitNodeStatus = "Enabled"
-	}
-
-	authKeyStatus := "Empty"
-	if opt.AuthKey != "" {
-		authKeyStatus = "Present"
-	}
-
-	slog.Info("\n--- Settings ---\n" +
-		fmt.Sprintf("hostname: %s\n", opt.Hostname) +
-		fmt.Sprintf("socks5: %s\n", opt.Socks5Server) +
-		fmt.Sprintf("httpProxy: %s\n", opt.HttpProxy) +
-		fmt.Sprintf("dnsProxy: %s\n", opt.DnsProxy) +
-		fmt.Sprintf("acceptRoutes: %v\n", opt.AcceptRoutes) +
-		fmt.Sprintf("acceptDNS: %v\n", opt.AcceptDNS) +
-		fmt.Sprintf("exitNode: %s\n", exitNodeStatus) +
-		fmt.Sprintf("authKey: %s\n", authKeyStatus) +
-		"----------------")
-}
-
 func syncSettings(opt *StartOptions) {
 	if opt == nil {
 		return
@@ -324,7 +297,6 @@ func ApplySettings(opt *StartOptions) {
 		return
 	}
 
-	logSettings(opt)
 	syncSettings(opt)
 }
 
