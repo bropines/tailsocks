@@ -63,11 +63,6 @@ android {
 
     buildTypes {
         debug {
-            applicationIdSuffix = ".debug"
-            buildConfigField("boolean", "IS_DEV", "true")
-        }
-        create("dev") {
-            initWith(getByName("debug"))
             applicationIdSuffix = ".dev"
             buildConfigField("boolean", "IS_DEV", "true")
         }
