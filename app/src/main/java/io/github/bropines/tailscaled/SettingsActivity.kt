@@ -358,9 +358,10 @@ fun SettingsScreen(onBack: () -> Unit) {
             SettingsEditItem("Login Server (Headscale)", loginServer, Icons.Default.Cloud, placeholder = "https://controlplane.tailscale.com") { loginServer = it; saveProfilePref("login_server", it) }
             SettingsEditItem("Auth Key", authKey, Icons.Default.VpnKey) { authKey = it; saveProfilePref("authkey", it) }
             SettingsEditItem("Hostname", hostname, Icons.Default.Badge, onAction = { android.os.Build.MODEL.replace(" ", "-").lowercase() }, actionIcon = Icons.Default.AutoFixHigh) { hostname = it; saveProfilePref("hostname", it) }
-            SettingsExitNodeItem("Exit Node", exitNodeIp, Icons.Default.Input) { 
-                exitNodeIp = it; 
-                saveProfilePref("exit_node_ip", it, triggerService = false) 
+            SettingsExitNodeItem("Exit Node", exitNodeIp, Icons.Default.Input) { id, ip ->
+                exitNodeIp = ip
+                saveProfilePref("exit_node_ip", ip, triggerService = false)
+                saveProfilePref("exit_node_id", id, triggerService = false)
             }
 
             SettingsSectionHeader("Web Interface")
@@ -541,7 +542,7 @@ fun SettingsExitNodeItem(
     title: String, 
     currentValue: String, 
     icon: androidx.compose.ui.graphics.vector.ImageVector, 
-    onSave: (String) -> Unit
+    onSave: (String, String) -> Unit
 ) {
     var showDialog by remember { mutableStateOf(false) }
     var exitNodes by remember { mutableStateOf<List<PeerData>>(emptyList()) }
@@ -549,12 +550,12 @@ fun SettingsExitNodeItem(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    fun applyExitNode(ip: String) {
-        onSave(ip)
+    fun applyExitNode(id: String, ip: String) {
+        onSave(id, ip)
         scope.launch(Dispatchers.IO) {
             // В новых версиях Tailscale (v1.68+) MaskedPrefs использует индивидуальные bool-флаги 'Set'.
             // ExitNodeIDSet: true сообщает демону, что мы хотим применить это поле.
-            val prefsJson = "{\"ExitNodeID\": \"$ip\", \"ExitNodeIDSet\": true}"
+            val prefsJson = "{\"ExitNodeID\": \"$id\", \"ExitNodeIDSet\": true}"
             val res = Appctr.setPrefs(prefsJson)
             if (res != "OK") {
                 withContext(Dispatchers.Main) {
@@ -601,7 +602,7 @@ fun SettingsExitNodeItem(
                             ListItem(
                                 headlineContent = { Text("None") },
                                 leadingContent = { Icon(Icons.Default.Clear, null) },
-                                modifier = Modifier.clickable { applyExitNode(""); showDialog = false }
+                                modifier = Modifier.clickable { applyExitNode("", ""); showDialog = false }
                             )
                         }
                         items(exitNodes.size) { i ->
@@ -610,7 +611,7 @@ fun SettingsExitNodeItem(
                                 headlineContent = { Text(node.getDisplayName()) },
                                 supportingContent = { Text(node.getPrimaryIp()) },
                                 leadingContent = { Icon(Icons.Default.VpnKey, null) },
-                                modifier = Modifier.clickable { applyExitNode(node.getPrimaryIp()); showDialog = false }
+                                modifier = Modifier.clickable { applyExitNode(node.id ?: "", node.getPrimaryIp()); showDialog = false }
                             )
                         }
                     }

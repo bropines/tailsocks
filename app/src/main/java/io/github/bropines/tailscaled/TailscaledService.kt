@@ -173,7 +173,7 @@ class TailscaledService : Service() {
             hostname = host
             acceptRoutes = accRoutes
             acceptDNS = accDNS
-            exitNodeID = profilePrefs.getString("exit_node_ip", "") ?: ""
+            exitNodeID = profilePrefs.getString("exit_node_id", "") ?: ""
 
             val argsBuilder = StringBuilder()
             if (host.isNotEmpty()) argsBuilder.append("--hostname=$host ")

@@ -2,6 +2,11 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [2.0.4-beta] - 2026-05-18
+### Fixed
+- **Exit Node Routing**: Fixed an issue where traffic was not routed through the exit node due to incorrect use of IP address as ExitNodeID. Now using node's StableID as required by Tailscale LocalAPI.
+- **Exit Node State Loading**: Improved restoration of exit node settings upon service restart by correctly loading the StableID from profile preferences.
+
 ## [2.0.0-beta] - 2026-05-07
 ### Added
 - **Major Serve & Funnel Overhaul**: Completely redesigned the architecture for exposing services.
