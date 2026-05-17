@@ -160,6 +160,23 @@ fun MainScreen() {
     var loginUrl by remember { mutableStateOf<String?>(null) }
     var show410Warning by remember { mutableStateOf(false) }
 
+    var showExitNodeSheet by remember { mutableStateOf(false) }
+    var exitNodes by remember { mutableStateOf<List<PeerData>>(emptyList()) }
+    var isExitNodesLoading by remember { mutableStateOf(false) }
+
+    fun applyExitNode(id: String, ip: String) {
+        exitNodeIp = ip
+        val editor = prefs.edit()
+        editor.putString("exit_node_ip", ip)
+        editor.putString("exit_node_id", id)
+        editor.apply()
+        
+        scope.launch(Dispatchers.IO) {
+            val prefsJson = "{\"ExitNodeID\": \"$id\", \"ExitNodeIDSet\": true}"
+            appctr.Appctr.setPrefs(prefsJson)
+        }
+    }
+
     // Watchdog: Sync UI state with actual daemon status
     LaunchedEffect(Unit) {
         var urlDetected = false
@@ -444,22 +461,54 @@ fun MainScreen() {
                 }
             }
 
-            if (proxyState == "ACTIVE" && exitNodeIp.isNotEmpty()) {
+            if (proxyState == "ACTIVE") {
                 Surface(
-                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    color = if (exitNodeIp.isNotEmpty()) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                     shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp).clickable {
+                        showExitNodeSheet = true
+                        isExitNodesLoading = true
+                        scope.launch(Dispatchers.IO) {
+                            try {
+                                val pJson = appctr.Appctr.getStatusFromAPI()
+                                if (!pJson.startsWith("Error")) {
+                                    val status = com.google.gson.Gson().fromJson(pJson, StatusResponse::class.java)
+                                    val nodes = status.peers?.values?.filter { it.exitNodeOption == true }?.toList() ?: emptyList()
+                                    withContext(Dispatchers.Main) { exitNodes = nodes }
+                                }
+                            } catch (e: Exception) {}
+                            withContext(Dispatchers.Main) { isExitNodesLoading = false }
+                        }
+                    }
                 ) {
                     Row(
                         modifier = Modifier.padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                        Icon(
+                            if (exitNodeIp.isNotEmpty()) Icons.Default.Lock else Icons.Default.Public, 
+                            contentDescription = null, 
+                            tint = if (exitNodeIp.isNotEmpty()) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.primary
+                        )
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
-                            Text("Traffic is routed", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                            Text("Via exit node: $exitNodeIp", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                            Text(
+                                if (exitNodeIp.isNotEmpty()) "Traffic is routed" else "Exit Node: None", 
+                                fontWeight = FontWeight.Bold, 
+                                color = if (exitNodeIp.isNotEmpty()) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                if (exitNodeIp.isNotEmpty()) "Via exit node: $exitNodeIp" else "Tap to select exit node", 
+                                style = MaterialTheme.typography.bodySmall, 
+                                color = if (exitNodeIp.isNotEmpty()) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
+                        Spacer(modifier = Modifier.weight(1f))
+                        Icon(
+                            Icons.Default.KeyboardArrowRight, 
+                            null, 
+                            tint = if (exitNodeIp.isNotEmpty()) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
@@ -673,6 +722,40 @@ fun MainScreen() {
             },
             dismissButton = { TextButton(onClick = { showAboutDialog = false }) { Text("Close") } }
         )
+    }
+
+    if (showExitNodeSheet) {
+        ModalBottomSheet(onDismissRequest = { showExitNodeSheet = false }) {
+            Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+                Text("Select Exit Node", modifier = Modifier.padding(20.dp), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                if (isExitNodesLoading) {
+                    Box(Modifier.fillMaxWidth().height(100.dp), Alignment.Center) { CircularProgressIndicator() }
+                } else if (exitNodes.isEmpty()) {
+                    Box(Modifier.fillMaxWidth().height(100.dp), Alignment.Center) { 
+                        Text("No exit nodes available", color = MaterialTheme.colorScheme.outline)
+                    }
+                } else {
+                    androidx.compose.foundation.lazy.LazyColumn {
+                        item {
+                            ListItem(
+                                headlineContent = { Text("None") },
+                                leadingContent = { Icon(Icons.Default.Clear, null) },
+                                modifier = Modifier.clickable { applyExitNode("", ""); showExitNodeSheet = false }
+                            )
+                        }
+                        items(exitNodes.size) { i ->
+                            val node = exitNodes[i]
+                            ListItem(
+                                headlineContent = { Text(node.getDisplayName()) },
+                                supportingContent = { Text(node.getPrimaryIp()) },
+                                leadingContent = { Icon(Icons.Default.VpnKey, null) },
+                                modifier = Modifier.clickable { applyExitNode(node.id ?: "", node.getPrimaryIp()); showExitNodeSheet = false }
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
