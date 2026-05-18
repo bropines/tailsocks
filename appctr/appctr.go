@@ -228,12 +228,20 @@ func syncSettings(opt *StartOptions) {
 		prefs["ExitNodeIDSet"] = true
 		prefs["ExitNodeIP"] = ""
 		prefs["ExitNodeIPSet"] = true
+		prefs["RunWebClient"] = opt.EnableWebUI
+		prefs["RunWebClientSet"] = true
 		prefs["WantRunning"] = true
 		prefs["WantRunningSet"] = true
 
 		jsonData, _ := json.Marshal(prefs)
 		slog.Info("Syncing settings via LocalAPI", "payload", string(jsonData))
 		SetPrefs(string(jsonData))
+
+		if opt.EnableWebUI {
+			StartWebUI(opt.WebUIAddr)
+		} else {
+			StopWebUI()
+		}
 	}()
 }
 

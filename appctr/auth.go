@@ -116,10 +116,4 @@ func registerMachineWithAuthKey(PC pathControl, opt *StartOptions) {
 			slog.Info("Tailscale configuration applied successfully")
 		}
 	}()
-
-	if opt.EnableWebUI {
-		StartWebUI(opt.WebUIAddr)
-	} else {
-		StopWebUI()
-	}
 }
