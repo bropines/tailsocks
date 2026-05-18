@@ -3,9 +3,15 @@
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
 ## [2.0.4-beta] - 2026-05-18
+### Added
+- Quick Exit Node switcher on the main dashboard.
+- Forced settings synchronization on Go core startup.
+- Detailed system info in log exports.
+
 ### Fixed
-- **Exit Node Routing**: Fixed an issue where traffic was not routed through the exit node due to incorrect use of IP address as ExitNodeID. Now using node's StableID as required by Tailscale LocalAPI.
-- **Exit Node State Loading**: Improved restoration of exit node settings upon service restart by correctly loading the StableID from profile preferences.
+- Exit Node routing (switched to StableID).
+- Consolidated `debug` and `dev` build types.
+- Flattened CI artifact structure.
 
 ## [2.0.0-beta] - 2026-05-07
 ### Added
