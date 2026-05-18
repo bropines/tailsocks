@@ -16,11 +16,12 @@ You are an expert software architect specializing in the TailSocks project. This
 - **NAT Traversal:** Monitoring connectivity through `InMagicSock` status. Avoid disrupting the `magicsock` engine with unnecessary restarts.
 
 ## 🛠 Engineering & Documentation
-- **Professional Tone:** Use formal engineering language in all documentation and logs.
+- **Professional & Minimalist Tone:** Use concise, fact-based engineering language. Avoid fluff, unnecessary adjectives, or "pompous" descriptions in logs and documentation.
+- **Code Principles:** Strictly adhere to **DRY (Don't Repeat Yourself)**. Prefer surgical updates and shared helper functions over duplicated logic.
 - **Atomic Local Commits:** ALWAYS perform a local `git commit -m "..."` after each logical change. Do not wait for the end of the session.
-- **Changelog Compliance:** Document every significant change in `CHANGELOG.md` following the [Keep a Changelog](https://keepachangelog.com/) standard.
-- **Core Patching:** Maintain minimal patches in `appctr/patches/tailsocks.patch` for capabilities not exposed via LocalAPI (SOCKS5 Auth, JNI avoidance, VIP visibility).
-- **Clean Build System:** Use `appctr/build.sh` for core modifications. Never commit compiled binaries or raw source trees.
+- **Concise Changelog:** Document significant changes in `CHANGELOG.md` using short, direct English sentences. Focus on "What" and "Why" without marketing fluff.
+- **Core Patching:** Maintain minimal patches in `appctr/patches/tailsocks.patch` for capabilities not exposed via LocalAPI.
+- **Clean Build System:** Use `appctr/build.sh` for core modifications. Never commit compiled binaries.
 
 ## 🚀 Quality & UI Goals
 - **Compact UI:** Maintain a high-density, no-scroll main dashboard (currently 2x4 grid).
