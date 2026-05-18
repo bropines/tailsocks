@@ -454,8 +454,14 @@ func killLeftoverDaemons(daemonPath string) {
 func StartWebUI(addr string) {
 	stateMu.Lock()
 	if webServer != nil {
+		if webServer.Addr == addr {
+			stateMu.Unlock()
+			return
+		}
+		// Address changed, need to restart
 		stateMu.Unlock()
-		return
+		StopWebUI()
+		stateMu.Lock()
 	}
 	pc := PC
 	stateMu.Unlock()
