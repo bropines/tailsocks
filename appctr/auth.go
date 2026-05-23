@@ -1,6 +1,7 @@
 package appctr
 
 import (
+	"encoding/json"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -27,7 +28,7 @@ func RunTailscaleCmd(commandStr string) string {
 
 func RunTailscaleArgs(parts ...string) string {
 	if !IsRunning() {
-		return "Error: Tailscaled is not running."
+		return "Error: " + errNotRunning.Error()
 	}
 	args := append([]string{"--socket", PC.Socket()}, parts...)
 	c := exec.Command(PC.Tailscale(), args...)
@@ -58,16 +59,15 @@ func RunTailscaleArgs(parts ...string) string {
 	return outStr
 }
 
-func registerMachineWithAuthKey(PC pathControl, opt *StartOptions) {
-
+// registerMachineWithAuthKey waits for the daemon socket to be ready, then
+// applies initial authentication and preferences via LocalAPI (CLI-free).
+func registerMachineWithAuthKey(pc pathControl, opt *StartOptions) {
+	// Poll until socket exists and LocalAPI responds.
 	apiReady := false
-	
-	// Poll socket and API readiness in silent mode
 	for i := 1; i <= 20; i++ {
-		if _, err := os.Stat(PC.Socket()); err == nil {
-			out := RunTailscaleCmd("status")
-			// Ensure the API is responsive
-			if !strings.Contains(out, "failed to connect") && !strings.Contains(out, "not running") {
+		if _, err := os.Stat(pc.Socket()); err == nil {
+			data, err := doLocalRequest("GET", "/localapi/v0/status", nil)
+			if err == nil && len(data) > 0 {
 				apiReady = true
 				break
 			}
@@ -80,40 +80,29 @@ func registerMachineWithAuthKey(PC pathControl, opt *StartOptions) {
 		return
 	}
 
-	// Single log entry to indicate configuration start
 	slog.Info("Daemon is ready, applying configuration...")
 
-	args := []string{"--socket", PC.Socket(), "up", "--timeout", "60s"}
-	
 	if opt.DoReset {
-		args = append(args, "--reset")
+		// Logout clears existing state; daemon will enter NeedsLogin.
+		slog.Info("LocalAPI: reset requested, logging out")
+		Logout()
+		time.Sleep(500 * time.Millisecond)
 	}
 
 	if opt.AuthKey != "" {
-		args = append(args, "--auth-key", opt.AuthKey)
-	} else if opt.DoReset {
-		// If we are explicitly resetting and have no auth key, 
-		// we likely want a fresh interactive login.
-		args = append(args, "--force-reauth")
-	}
-
-	if opt.ExtraUpArgs != "" {
-		args = append(args, strings.Fields(opt.ExtraUpArgs)...)
-	}
-
-	// Execute in background to avoid blocking the main thread
-	go func() {
-		c := exec.Command(PC.Tailscale(), args...)
-		output, err := c.CombinedOutput()
-		outStr := string(output)
-		if err != nil {
-			if strings.Contains(outStr, "invalid key") {
-				slog.Error("Critical: Invalid Auth Key")
+		slog.Info("LocalAPI: authenticating with auth key")
+		go func() {
+			payload, _ := json.Marshal(map[string]string{"AuthKey": opt.AuthKey})
+			_, err := doLocalRequest("POST", "/localapi/v0/start", strings.NewReader(string(payload)))
+			if err != nil {
+				if strings.Contains(err.Error(), "invalid") {
+					slog.Error("Critical: Invalid Auth Key", "err", err)
+				} else {
+					slog.Error("LocalAPI: /start failed", "err", err)
+				}
 			} else {
-				slog.Error("Tailscale up failed", "err", err, "out", outStr)
+				slog.Info("LocalAPI: authentication request sent")
 			}
-		} else {
-			slog.Info("Tailscale configuration applied successfully")
-		}
-	}()
+		}()
+	}
 }
