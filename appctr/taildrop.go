@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 )
 
@@ -128,24 +127,8 @@ func DeleteTaildropFileFromAPI(name string) bool {
 	return err == nil
 }
 
-func GetTaildropDirContents() string {
-	opt := getLastOptions()
-	if opt == nil || opt.TaildropDir == "" {
-		return "TaildropDir not set"
-	}
-	entries, err := os.ReadDir(opt.TaildropDir)
-	if err != nil {
-		return "Error: " + err.Error()
-	}
-	var names []string
-	for _, e := range entries {
-		names = append(names, e.Name())
-	}
-	if len(names) == 0 {
-		return "Empty"
-	}
-	return strings.Join(names, ", ")
-}
+
+
 
 func SaveTaildropFileToPath(name, destPath string) string {
 	if !IsRunning() {
