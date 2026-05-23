@@ -15,6 +15,10 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Extracted Go HTTP local client and state helpers, removed unused aliases.
 - Replaced tailscale up CLI call with LocalAPI /start.
 
+### Fixed
+- Version name calculation in Gradle and CI builds by fetching full git history with tags.
+- Suffix tolerance in the application update checker version comparison.
+
 ## [2.0.4-beta] - 2026-05-18
 ### Added
 - Quick Exit Node switcher on the main dashboard.
