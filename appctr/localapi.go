@@ -3,6 +3,7 @@ package appctr
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -11,6 +12,21 @@ import (
 	"strings"
 	"time"
 )
+
+// errNotRunning is returned when the daemon process is not active.
+var errNotRunning = errors.New("tailscaled is not running")
+
+// newLocalClient returns an http.Client that dials the daemon's Unix socket.
+func newLocalClient(socketPath string) http.Client {
+	return http.Client{
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+				var d net.Dialer
+				return d.DialContext(ctx, "unix", socketPath)
+			},
+		},
+	}
+}
 
 // doLocalRequest sends a request to the daemon's Unix socket.
 func doLocalRequest(method, path string, body io.Reader) ([]byte, error) {
@@ -22,14 +38,7 @@ func doLocalRequest(method, path string, body io.Reader) ([]byte, error) {
 		return nil, fmt.Errorf("socket path is empty")
 	}
 
-	client := http.Client{
-		Transport: &http.Transport{
-			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-				var d net.Dialer
-				return d.DialContext(ctx, "unix", pc.Socket())
-			},
-		},
-	}
+	client := newLocalClient(pc.Socket())
 
 	req, err := http.NewRequest(method, "http://local-tailscaled.sock"+path, body)
 	if err != nil {
@@ -57,7 +66,7 @@ func doLocalRequest(method, path string, body io.Reader) ([]byte, error) {
 // DoLocalAPIRequest executes an arbitrary LocalAPI request (used by the Console screen).
 func DoLocalAPIRequest(method, path, body string) string {
 	if !IsRunning() {
-		return "Error: Tailscaled is not running."
+		return "Error: " + errNotRunning.Error()
 	}
 	slog.Info("LocalAPI: Manual Request", "method", method, "path", path)
 	var b io.Reader
@@ -74,7 +83,7 @@ func DoLocalAPIRequest(method, path, body string) string {
 // Login authenticates via LocalAPI /start.
 func Login(authKey string) string {
 	if !IsRunning() {
-		return "Error: Tailscaled is not running."
+		return "Error: " + errNotRunning.Error()
 	}
 	slog.Info("LocalAPI: [POST] /localapi/v0/start", "has_key", authKey != "")
 
@@ -94,7 +103,7 @@ func Login(authKey string) string {
 // Logout signs out via LocalAPI /logout.
 func Logout() string {
 	if !IsRunning() {
-		return "Error: Tailscaled is not running."
+		return "Error: " + errNotRunning.Error()
 	}
 	slog.Info("LocalAPI: [POST] /localapi/v0/logout")
 	_, err := doLocalRequest("POST", "/localapi/v0/logout", nil)
@@ -107,7 +116,7 @@ func Logout() string {
 // SetPrefs updates preferences via LocalAPI PATCH (EditPrefs).
 func SetPrefs(prefsJson string) string {
 	if !IsRunning() {
-		return "Error: Tailscaled is not running."
+		return "Error: " + errNotRunning.Error()
 	}
 	slog.Info("LocalAPI: [PATCH] /localapi/v0/prefs", "payload", prefsJson)
 	_, err := doLocalRequest("PATCH", "/localapi/v0/prefs", strings.NewReader(prefsJson))
@@ -137,29 +146,19 @@ func GetLoginURL() string {
 	return s.AuthURL
 }
 
-// GetLoginURLString is an alias for backwards compatibility with the Kotlin layer.
-func GetLoginURLString() string {
-	return GetLoginURL()
-}
+
 
 // GetServeConfig returns the current Serve/Funnel configuration.
 func GetServeConfig() string {
 	if !IsRunning() {
-		return `{"Error": "Tailscaled is not running."}`
+		return `{"Error": "` + errNotRunning.Error() + `"}`
 	}
 
 	stateMu.Lock()
 	pc := PC
 	stateMu.Unlock()
 
-	client := http.Client{
-		Transport: &http.Transport{
-			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-				var d net.Dialer
-				return d.DialContext(ctx, "unix", pc.Socket())
-			},
-		},
-	}
+	client := newLocalClient(pc.Socket())
 
 	resp, err := client.Get("http://local-tailscaled.sock/localapi/v0/serve-config")
 	if err != nil {
@@ -187,7 +186,7 @@ func GetServeConfig() string {
 }
 
 // fetchCurrentEtag retrieves the current ETag for serve-config from the daemon.
-func fetchCurrentEtag(client http.Client, socket string) string {
+func fetchCurrentEtag(client http.Client) string {
 	resp, err := client.Get("http://local-tailscaled.sock/localapi/v0/serve-config")
 	if err != nil {
 		return ""
@@ -199,7 +198,7 @@ func fetchCurrentEtag(client http.Client, socket string) string {
 // SetServeConfig updates the Serve/Funnel configuration.
 func SetServeConfig(configJson string) string {
 	if !IsRunning() {
-		return "Error: Tailscaled is not running."
+		return "Error: " + errNotRunning.Error()
 	}
 
 	state := GetBackendState()
@@ -222,13 +221,7 @@ func SetServeConfig(configJson string) string {
 	socket := PC.Socket()
 	stateMu.Unlock()
 
-	client := http.Client{
-		Transport: &http.Transport{
-			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-				return net.Dial("unix", socket)
-			},
-		},
-	}
+	client := newLocalClient(socket)
 
 	// STEP 1: Synchronise AdvertiseServices in Prefs.
 	// We do this BEFORE updating ServeConfig so the daemon already knows about the services
@@ -281,7 +274,7 @@ func SetServeConfig(configJson string) string {
 	}
 
 	if nextEtag == "" {
-		nextEtag = fetchCurrentEtag(client, socket)
+		nextEtag = fetchCurrentEtag(client)
 		slog.Info("LocalAPI: Refetched ETag after reset", "etag", nextEtag)
 	}
 

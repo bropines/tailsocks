@@ -14,7 +14,7 @@ import (
 // GetNetcheckFromAPI runs a native network test using the DERP map from the daemon.
 func GetNetcheckFromAPI() string {
 	if !IsRunning() {
-		return `{"Error": "Tailscaled is not running."}`
+		return `{"Error": "` + errNotRunning.Error() + `"}`
 	}
 
 	slog.Info("LocalAPI: [GET] /localapi/v0/derpmap (for netcheck)")
@@ -36,9 +36,7 @@ func GetNetcheckFromAPI() string {
 	// 3. Run the native netcheck.
 	c := &netcheck.Client{
 		NetMon: nm,
-		Logf: func(format string, args ...any) {
-			slog.Info(fmt.Sprintf("netcheck: "+format, args...))
-		},
+		Logf:   func(format string, args ...any) { slog.Info("netcheck", "msg", fmt.Sprintf(format, args...)) },
 	}
 
 	report, err := c.GetReport(context.Background(), &dm, nil)

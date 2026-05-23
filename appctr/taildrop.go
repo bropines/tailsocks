@@ -11,6 +11,13 @@ import (
 	"time"
 )
 
+// getLastOptions safely retrieves the last StartOptions under stateMu.
+func getLastOptions() *StartOptions {
+	stateMu.Lock()
+	defer stateMu.Unlock()
+	return lastOptions
+}
+
 // GetWaitingFiles scans the Taildrop directory and returns a JSON list of files.
 func GetWaitingFiles(dir string) string {
 	entries, err := os.ReadDir(dir)
@@ -101,26 +108,18 @@ func processIncomingFiles(taildropDir string) {
 }
 
 func GetTaildropFilesFromAPI() string {
-	stateMu.Lock()
-	opt := lastOptions
-	stateMu.Unlock()
-
+	opt := getLastOptions()
 	if opt == nil || opt.TaildropDir == "" {
 		return "[]"
 	}
-
 	return GetWaitingFiles(opt.TaildropDir)
 }
 
 func DeleteTaildropFileFromAPI(name string) bool {
-	stateMu.Lock()
-	opt := lastOptions
-	stateMu.Unlock()
-
+	opt := getLastOptions()
 	if opt == nil || opt.TaildropDir == "" {
 		return false
 	}
-
 	path := filepath.Join(opt.TaildropDir, name)
 	err := os.Remove(path)
 	if err != nil {
@@ -130,9 +129,7 @@ func DeleteTaildropFileFromAPI(name string) bool {
 }
 
 func GetTaildropDirContents() string {
-	stateMu.Lock()
-	opt := lastOptions
-	stateMu.Unlock()
+	opt := getLastOptions()
 	if opt == nil || opt.TaildropDir == "" {
 		return "TaildropDir not set"
 	}
@@ -152,7 +149,7 @@ func GetTaildropDirContents() string {
 
 func SaveTaildropFileToPath(name, destPath string) string {
 	if !IsRunning() {
-		return "Tailscaled not running"
+		return "Error: " + errNotRunning.Error()
 	}
 	data, err := doLocalRequest("GET", "/localapi/v0/files/"+url.PathEscape(name), nil)
 	if err != nil {
@@ -164,10 +161,10 @@ func SaveTaildropFileToPath(name, destPath string) string {
 	return "OK"
 }
 
-// SendFileFromAPI sends a file via LocalAPI PUT.
+// SendFileFromAPI sends a file to a peer via LocalAPI PUT.
 func SendFileFromAPI(peerID, filePath string) string {
 	if !IsRunning() {
-		return "Error: Tailscaled is not running."
+		return "Error: " + errNotRunning.Error()
 	}
 
 	f, err := os.Open(filePath)
@@ -183,9 +180,4 @@ func SendFileFromAPI(peerID, filePath string) string {
 		return "Error: " + err.Error()
 	}
 	return string(data)
-}
-
-// SendFile is an alias for backwards compatibility with the Kotlin layer.
-func SendFile(target, filePath string) string {
-	return SendFileFromAPI(target, filePath)
 }
