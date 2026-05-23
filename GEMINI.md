@@ -29,4 +29,13 @@ You are an expert software architect specializing in the TailSocks project. This
 - **Data Portability:** Support full app state backups (ZIP) and individual account exports (JSON).
 - **Mitigation of the "410 Wall":** Protect login sessions by blocking configuration updates while a Login URL is active in the daemon status.
 
+## 🤖 AI & LLM Guidelines
+- **CI/CD Versioning:** Always use `fetch-depth: 0` in checkout actions of the workflow when Gradle build processes are executed. This is required because Gradle uses `git describe` to determine the version code and name.
+- **Version Suffix Compatibility:** Version names must follow these formats:
+  - Release builds: `v<version>(release)` (e.g. `v2.0.5-beta(release)`)
+  - Debug/Dev builds: `v<version>-<6_char_hash>-dev` (e.g. `v2.0.5-beta-081be9-dev`)
+  Use `.replace(Regex("[^0-9.]"), "")` inside version comparison code (like `isVersionNewer` in `MainActivity.kt`) to clean version name string before splitting, which prevents crashes or wrong checks with non-numeric suffixes like `(release)`.
+- **Russian Translation:** The user prefers communicating in Russian. Respond to user queries in clear, professional Russian, but maintain English for logs and code.
+- **Atomic Commits:** Make incremental, atomic Git commits after every logical change, rather than staging all modifications at the end.
+
 TEMP: The user is Russian-speaking, answer him in Russian.
