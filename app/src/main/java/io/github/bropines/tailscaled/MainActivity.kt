@@ -59,16 +59,30 @@ class MainActivity : ComponentActivity() {
     private val requestPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ -> }
 
+    private val showAccountSwitcher = mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         checkNotificationPermission()
         handleAppStartup()
         checkForUpdatesSilent()
+        handleIntent(intent)
 
         setContent {
             TailSocksTheme {
-                MainScreen()
+                MainScreen(showAccountSwitcher)
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        if (intent?.action == "android.service.quicksettings.action.QS_TILE_PREFERENCES") {
+            showAccountSwitcher.value = true
         }
     }
 
@@ -137,7 +151,7 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen() {
+fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     
@@ -151,6 +165,14 @@ fun MainScreen() {
     var newAccountName by remember { mutableStateOf("") }
     var accountMenuExpanded by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
+    var isBatteryOptimizationsIgnored by remember { mutableStateOf(true) }
+
+    LaunchedEffect(showAccountSwitcher.value) {
+        if (showAccountSwitcher.value) {
+            accountMenuExpanded = true
+            showAccountSwitcher.value = false
+        }
+    }
 
     val prefs = remember(activeAccount.id) { context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE) }
     
@@ -213,6 +235,15 @@ fun MainScreen() {
                 show410Warning = false
                 urlDetected = false
             }
+
+            // Check battery optimization status
+            val pm = context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+            isBatteryOptimizationsIgnored = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                pm.isIgnoringBatteryOptimizations(context.packageName)
+            } else {
+                true
+            }
+
             delay(2000)
         }
     }
@@ -439,6 +470,34 @@ fun MainScreen() {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(12.dp))
+
+            if (!isBatteryOptimizationsIgnored) {
+                Surface(
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp).clickable {
+                        try {
+                            val intent = Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Cannot open battery settings", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.BatteryAlert, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("Battery Optimization Enabled", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
+                            Text("TailSocks may be killed in the background. Tap to disable.", 
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                        }
+                    }
+                }
+            }
 
             if (show410Warning) {
                 Surface(

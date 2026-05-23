@@ -39,6 +39,14 @@ class ProxyTileService : TileService() {
         
         tile.state = if (isRunning) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
         tile.label = "Tailscale"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            try {
+                val activeAccount = AccountManager.getActiveAccount(this)
+                tile.subtitle = activeAccount.name
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
         tile.updateTile()
     }
 }
