@@ -18,6 +18,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 ### Fixed
 - Version name calculation in Gradle and CI builds by fetching full git history with tags.
 - Suffix tolerance in the application update checker version comparison.
+- Restricted CI build triggers to execute only on Go, Kotlin, and Actions file changes.
 
 ## [2.0.4-beta] - 2026-05-18
 ### Added
