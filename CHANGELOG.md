@@ -2,6 +2,19 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [2.0.5-beta] - 2026-05-23
+### Added
+- Active account name display in Quick Settings tile subtitle.
+- Account switcher bottom sheet triggered directly from Quick Settings tile settings.
+- Battery optimization warning card on main screen with direct settings shortcut.
+- TCP-based backend health monitoring in Serve & Funnel screens.
+- Serve & Funnel log viewer tab filtering requests.
+- Account dropdown selection and refresh button in Share screen.
+
+### Refactored
+- Extracted Go HTTP local client and state helpers, removed unused aliases.
+- Replaced tailscale up CLI call with LocalAPI /start.
+
 ## [2.0.4-beta] - 2026-05-18
 ### Added
 - Quick Exit Node switcher on the main dashboard.
