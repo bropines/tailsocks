@@ -60,6 +60,7 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
     var isSending by remember { mutableStateOf(false) }
     var sendProgressText by remember { mutableStateOf("") }
     var errorMsg by remember { mutableStateOf<String?>(null) }
+    var accountMenuExpanded by remember { mutableStateOf(false) }
 
     fun loadPeers() {
         isLoadingPeers = true
@@ -83,15 +84,37 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
                     Text("Send to...", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                     Text("${fileUris.size} files", style = MaterialTheme.typography.bodySmall)
                 }
-                Surface(onClick = {
-                    if (accounts.size > 1) {
-                        val next = accounts[(accounts.indexOf(currentAccount) + 1) % accounts.size]
-                        AccountManager.setActiveAccount(context, next.id)
-                        currentAccount = next
-                        context.startService(Intent(context, TailscaledService::class.java).apply { action = "APPLY_SETTINGS" })
+                IconButton(onClick = { loadPeers() }) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                }
+                Spacer(Modifier.width(8.dp))
+                Box {
+                    Surface(onClick = {
+                        accountMenuExpanded = true
+                    }, shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
+                            Text(currentAccount.name)
+                            Icon(Icons.Default.ArrowDropDown, null, modifier = Modifier.size(16.dp))
+                        }
                     }
-                }, shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
-                    Text(currentAccount.name, Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+                    DropdownMenu(expanded = accountMenuExpanded, onDismissRequest = { accountMenuExpanded = false }) {
+                        accounts.forEach { acc ->
+                            DropdownMenuItem(
+                                text = { Text(acc.name) },
+                                leadingIcon = {
+                                    if (acc.id == currentAccount.id) Icon(Icons.Default.Check, null)
+                                },
+                                onClick = {
+                                    accountMenuExpanded = false
+                                    if (acc.id != currentAccount.id) {
+                                        AccountManager.setActiveAccount(context, acc.id)
+                                        currentAccount = acc
+                                        context.startService(Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" })
+                                    }
+                                }
+                            )
+                        }
+                    }
                 }
             }
 
