@@ -133,10 +133,33 @@ jobs:
           name: tailsocks-apks
           path: release-artifacts
 
+      - name: Extract Release Notes from CHANGELOG
+        id: changelog_reader
+        run: |
+          python3 -c "
+          import re, os
+          tag = os.environ.get('TAG_NAME', '')
+          version = tag.lstrip('v')
+          body = ''
+          if os.path.exists('CHANGELOG.md'):
+              with open('CHANGELOG.md', 'r', encoding='utf-8') as f:
+                  content = f.read()
+              pattern = rf'(?s)(##\s*\[{re.escape(version)}\].*?)(?=\n##\s*\[|\Z)'
+              match = re.search(pattern, content)
+              if match:
+                  section = match.group(1).strip()
+                  lines = section.splitlines()
+                  body = '\n'.join(lines[1:]).strip() if len(lines) > 1 else ''
+          with open('release_notes.txt', 'w', encoding='utf-8') as out:
+              out.write(body)
+          "
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           files: release-artifacts/**/*.apk
-          generate_release_notes: true
+          body_path: release_notes.txt
           tag_name: ${{ github.ref_name }}
           name: "TailSocks ${{ github.ref_name }}"
