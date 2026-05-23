@@ -23,7 +23,7 @@ val gitHash = providers.exec {
 }.standardOutput.asText.map { it.trim() }.getOrElse("unknown")
 
 val isRelease = gradle.startParameter.taskNames.any { it.contains("release", ignoreCase = true) }
-val gitVersionName = if (isRelease) baseVersion else "$baseVersion-$gitHash-dev"
+val gitVersionName = if (isRelease) "v$baseVersion(release)" else "v$baseVersion-$gitHash-dev"
 
 println("-> Build VersionCode: $gitVersionCode")
 println("-> Build VersionName: $gitVersionName")
