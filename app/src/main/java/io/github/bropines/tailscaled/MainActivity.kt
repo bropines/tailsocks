@@ -43,8 +43,10 @@ import java.lang.Runtime
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 
 fun isVersionNewer(current: String, latest: String): Boolean {
-    val c = current.removePrefix("v").substringBefore("-").split(".").map { it.toIntOrNull() ?: 0 }
-    val l = latest.removePrefix("v").substringBefore("-").split(".").map { it.toIntOrNull() ?: 0 }
+    val cleanCurrent = current.removePrefix("v").substringBefore("-").replace(Regex("[^0-9.]"), "")
+    val cleanLatest = latest.removePrefix("v").substringBefore("-").replace(Regex("[^0-9.]"), "")
+    val c = cleanCurrent.split(".").map { it.toIntOrNull() ?: 0 }
+    val l = cleanLatest.split(".").map { it.toIntOrNull() ?: 0 }
     for (i in 0 until maxOf(c.size, l.size)) {
         val cVal = c.getOrNull(i) ?: 0
         val lVal = l.getOrNull(i) ?: 0
