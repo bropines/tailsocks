@@ -152,8 +152,8 @@ private suspend fun sendFilesWithProgress(context: Context, uris: List<Uri>, pee
             val outDir = File(context.cacheDir, "share_out").apply { mkdirs() }
             val tmp = File(outDir, originalName)
             context.contentResolver.openInputStream(uri)?.use { input -> tmp.outputStream().use { output -> input.copyTo(output); output.flush() } }
-            val target = peer.hostName ?: peer.dnsName ?: peer.getDisplayName()
-            Appctr.sendFile(target, tmp.absolutePath)
+            val target = if (!peer.id.isNullOrEmpty()) peer.id else (peer.hostName ?: peer.dnsName ?: peer.getDisplayName())
+            Appctr.sendFileFromAPI(target, tmp.absolutePath)
             logSentFile(context, originalName, peer.getDisplayName())
             tmp.delete()
         } catch (e: Exception) {}

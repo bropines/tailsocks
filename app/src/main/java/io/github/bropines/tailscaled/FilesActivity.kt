@@ -253,12 +253,8 @@ private suspend fun sendSingleFileInActivity(context: Context, uri: Uri, peer: P
         val tmp = File(outDir, originalName)
         context.contentResolver.openInputStream(uri)?.use { i -> tmp.outputStream().use { o -> i.copyTo(o); o.flush() } }
         onProgress("Uploading...")
-        val res = if (!peer.id.isNullOrEmpty()) {
-            Appctr.sendFileFromAPI(peer.id, tmp.absolutePath)
-        } else {
-            val target = peer.hostName ?: peer.dnsName ?: peer.getDisplayName()
-            Appctr.sendFile(target, tmp.absolutePath)
-        }
+        val target = if (!peer.id.isNullOrEmpty()) peer.id else (peer.hostName ?: peer.dnsName ?: peer.getDisplayName())
+        val res = Appctr.sendFileFromAPI(target, tmp.absolutePath)
         
         if (res.isBlank() || !(res.contains("error", true) || res.contains("failed", true))) {
             logSentFile(context, originalName, peer.getDisplayName())

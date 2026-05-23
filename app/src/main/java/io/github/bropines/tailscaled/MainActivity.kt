@@ -219,7 +219,7 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
             }
 
             if (isProcessAlive) {
-                val url = try { appctr.Appctr.getLoginURLString() } catch (e: Exception) { "" }
+                val url = try { appctr.Appctr.getLoginURL() } catch (e: Exception) { "" }
                 loginUrl = if (url.isNullOrBlank()) null else url
                 
                 if (loginUrl != null) urlDetected = true

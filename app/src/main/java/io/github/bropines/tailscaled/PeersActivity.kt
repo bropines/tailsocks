@@ -167,8 +167,8 @@ private fun sendFileToPeer(context: Context, uri: Uri, peer: PeerData, scope: Co
             val outDir = File(context.cacheDir, "peer_out").apply { mkdirs() }
             val tmp = File(outDir, originalName)
             context.contentResolver.openInputStream(uri)?.use { i -> tmp.outputStream().use { o -> i.copyTo(o); o.flush() } }
-            val target = peer.hostName ?: peer.dnsName ?: peer.getDisplayName()
-            Appctr.sendFile(target, tmp.absolutePath)
+            val target = if (!peer.id.isNullOrEmpty()) peer.id else (peer.hostName ?: peer.dnsName ?: peer.getDisplayName())
+            Appctr.sendFileFromAPI(target, tmp.absolutePath)
             logSentFile(context, originalName, peer.getDisplayName())
             tmp.delete()
             withContext(Dispatchers.Main) { Toast.makeText(context, "Sent!", Toast.LENGTH_SHORT).show() }
