@@ -511,7 +511,7 @@ fun ServeScreen(onBack: () -> Unit) {
                         web = if (sWeb.isNotEmpty()) sWeb else null
                     )
                 } else {
-                    val hostKey = "*:$port"
+                    val hostKey = if (selfDns.isNotEmpty()) "$selfDns:$port" else "*:$port"
                     if (mode == "Web") {
                         val handler = when (handlerType) {
                             "Proxy" -> HTTPHandler(proxy = if (target.startsWith("http")) target else "http://$target")
