@@ -2,6 +2,10 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [2.0.6-beta] - 2026-05-24
+### Fixed
+- Serve/Funnel HTTP 404 error by replacing wildcard asterisk host key with node's FQDN in serve-config.
+
 ## [2.0.5-beta] - 2026-05-23
 ### Added
 - Active account name display in Quick Settings tile subtitle.
