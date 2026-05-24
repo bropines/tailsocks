@@ -39,6 +39,7 @@ app/src/main/jniLibs/**/*.a
 .vscode/
 *.swp
 *~
+.antigravitycli/
 
 # --- [ Signing & Secrets ] ---
 *.jks
