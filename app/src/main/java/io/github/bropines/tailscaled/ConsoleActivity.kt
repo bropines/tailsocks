@@ -197,8 +197,10 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
                         item { TextButton(onClick = { showAddPresetDialog = true }) { Text("+ Add") } }
                         val basePresets = listOf("status", "/GET /localapi/v0/status", "/GET /localapi/v0/prefs", "netcheck", "ping 8.8.8.8")
                         items(basePresets + customPresets) { preset ->
-                            ElevatedButton(
-                                onClick = { /* handled via combinedClickable */ },
+                            Surface(
+                                shape = ButtonDefaults.elevatedShape,
+                                color = ButtonDefaults.elevatedButtonColors().containerColor,
+                                shadowElevation = 2.dp,
                                 modifier = Modifier
                                     .padding(horizontal = 4.dp)
                                     .combinedClickable(
@@ -208,7 +210,18 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
                                             focusRequester.requestFocus()
                                         }
                                     )
-                            ) { Text(preset) }
+                            ) {
+                                Box(
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = preset,
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = ButtonDefaults.elevatedButtonColors().contentColor
+                                    )
+                                }
+                            }
                         }
                     }
                     Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
