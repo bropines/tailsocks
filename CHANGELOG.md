@@ -3,6 +3,14 @@
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
 ## [2.0.6-beta] - 2026-05-24
+### Added
+- Persistent command history in Terminal console stored locally in `console_cmd_history.dat`.
+- Support for inserting preset commands into terminal input by long-pressing preset buttons.
+
+### Changed
+- Moved text wrapping and console clearing buttons to the TopAppBar.
+- Removed deprecated Auto-Refresh switch from Global Flags Settings.
+
 ### Fixed
 - Serve/Funnel HTTP 404 error by replacing wildcard asterisk host key with node's FQDN in serve-config.
 
