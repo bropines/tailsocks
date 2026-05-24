@@ -228,3 +228,16 @@
  			})
  		}
  	}
+--- ipn/localapi/cert.go.orig	2026-05-24 00:00:00.000000000 +0000
++++ ipn/localapi/cert.go	2026-05-24 00:00:00.000000000 +0000
+@@ -4,3 +4,3 @@
+ 
+-//go:build !ios && !android && !js && !ts_omit_acme
++//go:build !ios && !js && !ts_omit_acme
+ 
+--- ipn/localapi/disabled_stubs.go.orig	2026-05-24 00:00:00.000000000 +0000
++++ ipn/localapi/disabled_stubs.go	2026-05-24 00:00:00.000000000 +0000
+@@ -4,3 +4,3 @@
+ 
+-//go:build ios || android || js
++//go:build ios || js

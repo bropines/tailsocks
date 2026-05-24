@@ -14,6 +14,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Fixed
 - Serve/Funnel HTTP 404 error by replacing wildcard asterisk host key with node's FQDN in serve-config.
+- Serve/Funnel HTTP 404 error when exporting TLS certificates by enabling the `/cert` endpoint compilation on Android.
 
 ## [2.0.5-beta] - 2026-05-23
 ### Added
