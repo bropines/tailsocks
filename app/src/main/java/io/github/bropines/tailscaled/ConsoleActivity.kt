@@ -184,8 +184,6 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
                         IconButton(onClick = {
                             outputText = "$ "
                             if (historyFile.exists()) historyFile.delete()
-                            commandHistory.clear()
-                            if (cmdHistoryFile.exists()) cmdHistoryFile.delete()
                         }) { Icon(Icons.Default.Delete, contentDescription = "Clear", tint = MaterialTheme.colorScheme.error) }
                     }
                 )

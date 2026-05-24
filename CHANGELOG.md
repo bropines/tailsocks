@@ -4,7 +4,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ## [2.0.6-beta] - 2026-05-24
 ### Added
-- Persistent command history in Terminal console stored locally in `console_cmd_history.dat`.
+- Persistent command history in Terminal console stored locally in `console_cmd_history.dat` (decoupled from clear screen action).
 - Support for inserting preset commands into terminal input by long-pressing preset buttons.
 
 ### Changed
