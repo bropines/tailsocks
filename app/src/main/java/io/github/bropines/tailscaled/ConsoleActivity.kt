@@ -7,6 +7,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -62,7 +64,7 @@ class ConsoleActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
     val context = LocalContext.current
@@ -74,6 +76,7 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
 
     val prefs = remember { context.getSharedPreferences("console_presets", Context.MODE_PRIVATE) }
     val historyFile = remember { File(context.filesDir, "console_history.dat") }
+    val cmdHistoryFile = remember { File(context.filesDir, "console_cmd_history.dat") }
 
     var outputText by remember { mutableStateOf("$ ") }
     var currentCommand by remember { mutableStateOf("") }
@@ -92,10 +95,20 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
     var showAddPresetDialog by remember { mutableStateOf(false) }
     var newPresetCmd by remember { mutableStateOf("") }
 
+    fun saveCommandHistory() {
+        try { cmdHistoryFile.writeText(commandHistory.joinToString("\n")) } catch (e: Exception) {}
+    }
+
     LaunchedEffect(Unit) {
         if (historyFile.exists()) {
             try { outputText = historyFile.readText() } catch (e: Exception) {}
             verticalScrollState.animateScrollTo(verticalScrollState.maxValue)
+        }
+        if (cmdHistoryFile.exists()) {
+            try {
+                val lines = cmdHistoryFile.readLines()
+                commandHistory.addAll(lines)
+            } catch (e: Exception) {}
         }
         if (initialCmd.isNotEmpty()) currentCommand = initialCmd
         focusRequester.requestFocus()
@@ -104,12 +117,16 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
     DisposableEffect(Unit) {
         onDispose {
             try { historyFile.writeText(outputText) } catch (e: Exception) {}
+            saveCommandHistory()
         }
     }
 
     fun executeCmd(cmd: String) {
         if (cmd.isBlank()) return
-        if (commandHistory.isEmpty() || commandHistory.last() != cmd) commandHistory.add(cmd)
+        if (commandHistory.isEmpty() || commandHistory.last() != cmd) {
+            commandHistory.add(cmd)
+            saveCommandHistory()
+        }
         historyPointer = -1
         isExecuting = true
         
@@ -155,6 +172,21 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
                     title = { Text("Tailscale Terminal") },
                     navigationIcon = {
                         IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+                    },
+                    actions = {
+                        IconButton(onClick = { softWrap = !softWrap }) { 
+                            Icon(
+                                if (softWrap) Icons.Default.WrapText else Icons.Default.FormatAlignLeft, 
+                                contentDescription = "Toggle Wrap", 
+                                tint = if (softWrap) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                            ) 
+                        }
+                        IconButton(onClick = {
+                            outputText = "$ "
+                            if (historyFile.exists()) historyFile.delete()
+                            commandHistory.clear()
+                            if (cmdHistoryFile.exists()) cmdHistoryFile.delete()
+                        }) { Icon(Icons.Default.Delete, contentDescription = "Clear", tint = MaterialTheme.colorScheme.error) }
                     }
                 )
                 if (isExecuting) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
@@ -167,7 +199,18 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
                         item { TextButton(onClick = { showAddPresetDialog = true }) { Text("+ Add") } }
                         val basePresets = listOf("status", "/GET /localapi/v0/status", "/GET /localapi/v0/prefs", "netcheck", "ping 8.8.8.8")
                         items(basePresets + customPresets) { preset ->
-                            ElevatedButton(onClick = { executeCmd(preset) }, modifier = Modifier.padding(horizontal = 4.dp)) { Text(preset) }
+                            ElevatedButton(
+                                onClick = { /* handled via combinedClickable */ },
+                                modifier = Modifier
+                                    .padding(horizontal = 4.dp)
+                                    .combinedClickable(
+                                        onClick = { executeCmd(preset) },
+                                        onLongClick = {
+                                            currentCommand = preset
+                                            focusRequester.requestFocus()
+                                        }
+                                    )
+                            ) { Text(preset) }
                         }
                     }
                     Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -202,15 +245,6 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
                             shape = RoundedCornerShape(24.dp)
                         )
                         IconButton(onClick = { executeCmd(currentCommand) }) { Icon(Icons.Default.PlayArrow, contentDescription = "Run", tint = MaterialTheme.colorScheme.primary) }
-                        Column {
-                            IconButton(onClick = { softWrap = !softWrap }) { 
-                                Icon(if (softWrap) Icons.Default.WrapText else Icons.Default.FormatAlignLeft, contentDescription = "Toggle Wrap", tint = if (softWrap) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline) 
-                            }
-                            IconButton(onClick = {
-                                outputText = "$ "
-                                if (historyFile.exists()) historyFile.delete()
-                            }) { Icon(Icons.Default.Delete, contentDescription = "Clear", tint = MaterialTheme.colorScheme.error) }
-                        }
                     }
                 }
             }
