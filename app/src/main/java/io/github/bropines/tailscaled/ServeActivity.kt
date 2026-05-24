@@ -2,6 +2,8 @@ package io.github.bropines.tailscaled
 
 import android.os.Bundle
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.clickable
@@ -77,6 +79,25 @@ fun ServeScreen(onBack: () -> Unit) {
     val clipboard = LocalClipboardManager.current
     var healthMap by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
     var serveLogs by remember { mutableStateOf<List<LogEntry>>(emptyList()) }
+
+    var pendingCertData by remember { mutableStateOf("") }
+    var showCertExportDialog by remember { mutableStateOf(false) }
+    val certSaveLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/x-pem-file")) { uri ->
+        if (uri != null && pendingCertData.isNotEmpty()) {
+            scope.launch(Dispatchers.IO) {
+                try {
+                    context.contentResolver.openOutputStream(uri)?.use { it.write(pendingCertData.toByteArray()) }
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "Certificate saved successfully", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "Save failed: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        }
+    }
 
     fun loadServeLogs() {
         scope.launch(Dispatchers.IO) {
@@ -197,6 +218,11 @@ fun ServeScreen(onBack: () -> Unit) {
                         IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
                     },
                     actions = {
+                        if (selfDns.isNotEmpty()) {
+                            IconButton(onClick = { showCertExportDialog = true }) { 
+                                Icon(Icons.Default.Security, "Export HTTPS Cert") 
+                            }
+                        }
                         IconButton(onClick = { showClearDialog = true }) { Icon(Icons.Default.DeleteSweep, "Clear All") }
                         IconButton(onClick = { refresh() }) { Icon(Icons.Default.Refresh, "Refresh") }
                     }
@@ -566,6 +592,54 @@ fun ServeScreen(onBack: () -> Unit) {
                 ) { Text("Purge") }
             },
             dismissButton = { TextButton(onClick = { showClearDialog = false }) { Text("Cancel") } }
+        )
+    }
+
+    if (showCertExportDialog) {
+        AlertDialog(
+            onDismissRequest = { showCertExportDialog = false },
+            title = { Text("Export HTTPS Certificate") },
+            text = { Text("You are exporting the Let's Encrypt TLS certificate and private key pair for $selfDns.\n\nChoose how you want to export it:") },
+            confirmButton = {
+                Button(onClick = {
+                    scope.launch(Dispatchers.IO) {
+                        val pemData = try { Appctr.getCertificatePair(selfDns) } catch (e: Exception) { "Error: ${e.message}" }
+                        withContext(Dispatchers.Main) {
+                            if (pemData.startsWith("Error")) {
+                                Toast.makeText(context, pemData, Toast.LENGTH_LONG).show()
+                            } else {
+                                pendingCertData = pemData
+                                certSaveLauncher.launch("${selfDns}.pem")
+                            }
+                        }
+                    }
+                    showCertExportDialog = false
+                }) { 
+                    Icon(Icons.Default.Download, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Save to File") 
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    scope.launch(Dispatchers.IO) {
+                        val pemData = try { Appctr.getCertificatePair(selfDns) } catch (e: Exception) { "Error: ${e.message}" }
+                        withContext(Dispatchers.Main) {
+                            if (pemData.startsWith("Error")) {
+                                Toast.makeText(context, pemData, Toast.LENGTH_LONG).show()
+                            } else {
+                                clipboard.setText(AnnotatedString(pemData))
+                                Toast.makeText(context, "Certificate copied to clipboard!", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                    showCertExportDialog = false
+                }) { 
+                    Icon(Icons.Default.ContentCopy, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Copy to Clipboard") 
+                }
+            }
         )
     }
 }

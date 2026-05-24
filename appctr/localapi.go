@@ -305,3 +305,16 @@ func SetServeConfig(configJson string) string {
 
 	return "OK"
 }
+
+// GetCertificatePair returns the PEM-encoded certificate and private key pair for a domain.
+func GetCertificatePair(domain string) string {
+	if !IsRunning() {
+		return "Error: " + errNotRunning.Error()
+	}
+	slog.Info("LocalAPI: [GET] /localapi/v0/cert/" + domain + "?type=pair")
+	data, err := doLocalRequest("GET", "/localapi/v0/cert/"+domain+"?type=pair", nil)
+	if err != nil {
+		return "Error: " + err.Error()
+	}
+	return string(data)
+}

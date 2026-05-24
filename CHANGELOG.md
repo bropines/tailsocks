@@ -6,6 +6,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 ### Added
 - Persistent command history in Terminal console stored locally in `console_cmd_history.dat` (decoupled from clear screen action).
 - Support for inserting preset commands into terminal input by long-pressing preset buttons.
+- Native LocalAPI Let's Encrypt TLS certificate pair export in Serve & Funnel screen.
 
 ### Changed
 - Moved text wrapping and console clearing buttons to the TopAppBar.
