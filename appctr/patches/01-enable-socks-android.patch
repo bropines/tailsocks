@@ -1,0 +1,11 @@
+--- orig/net/netns/socks.go	2026-05-21 21:27:19.000000000 +0300
++++ tailscale_src/net/netns/socks.go	2026-05-24 18:53:16.995237649 +0300
+@@ -1,7 +1,7 @@
+ // Copyright (c) Tailscale Inc & contributors
+ // SPDX-License-Identifier: BSD-3-Clause
+ 
+-//go:build !ios && !js && !android && !ts_omit_useproxy
++//go:build !ios && !js && !ts_omit_useproxy
+ 
+ package netns
+ 

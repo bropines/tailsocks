@@ -1,0 +1,19 @@
+--- orig/cmd/tailscaled/proxy.go	2026-05-21 21:27:19.000000000 +0300
++++ tailscale_src/cmd/tailscaled/proxy.go	2026-05-24 18:53:16.995237649 +0300
+@@ -15,6 +15,7 @@
+ 	"net"
+ 	"net/http"
+ 	"net/http/httputil"
++	"os"
+ 	"strings"
+ 
+ 	"tailscale.com/feature"
+@@ -96,6 +97,8 @@
+ 		}
+ 		if socksListener != nil {
+ 			ss := &socks5.Server{
++				Username: os.Getenv("TS_SOCKS5_USER"),
++				Password: os.Getenv("TS_SOCKS5_PASS"),
+ 				Logf:   logger.WithPrefix(logf, "socks5: "),
+ 				Dialer: dialer.UserDial,
+ 			}
