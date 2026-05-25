@@ -198,6 +198,7 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
         scope.launch(Dispatchers.IO) {
             val prefsJson = "{\"ExitNodeID\": \"$id\", \"ExitNodeIDSet\": true}"
             appctr.Appctr.setPrefs(prefsJson)
+            updateAllWidgets(context)
         }
     }
 

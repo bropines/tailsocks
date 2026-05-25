@@ -132,5 +132,7 @@ dependencies {
     implementation(libs.navigation.compose)
     
     implementation("androidx.compose.material:material-icons-extended:1.7.0")
+    implementation(libs.androidx.glance.appwidget)
+    implementation(libs.androidx.glance.material3)
     debugImplementation(libs.androidx.ui.tooling)
 }

@@ -31,6 +31,12 @@ class TailscaledService : Service() {
             val activeAccount = AccountManager.getActiveAccount(this@TailscaledService)
             val profilePrefs = getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
             val interval = profilePrefs.getString("refresh_interval", "15000")?.toLongOrNull() ?: 15000L
+            
+            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+            if (Appctr.isRunning() && powerManager.isInteractive) {
+                updateAllWidgets(this@TailscaledService)
+            }
+            
             refreshHandler.postDelayed(this, interval)
         }
     }
@@ -218,14 +224,7 @@ class TailscaledService : Service() {
     
     private fun updateTile() {
         TileService.requestListeningState(this, ComponentName(this, ProxyTileService::class.java))
-        val intent = Intent(this, ExitNodeWidgetProvider::class.java).apply {
-            action = android.appwidget.AppWidgetManager.ACTION_APPWIDGET_UPDATE
-            val ids = android.appwidget.AppWidgetManager.getInstance(this@TailscaledService).getAppWidgetIds(
-                ComponentName(this@TailscaledService, ExitNodeWidgetProvider::class.java)
-            )
-            putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
-        }
-        sendBroadcast(intent)
+        updateAllWidgets(this@TailscaledService)
     }
     private fun updateNotification(status: String) = notificationManager.notify(1, buildNotification(status))
 

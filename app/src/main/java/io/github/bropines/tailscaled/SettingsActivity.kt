@@ -693,6 +693,7 @@ fun SettingsExitNodeItem(
                     android.widget.Toast.makeText(context, "LocalAPI Error: $res", android.widget.Toast.LENGTH_SHORT).show()
                 }
             }
+            updateAllWidgets(context)
         }
     }
 

@@ -185,6 +185,7 @@ fun ServeScreen(onBack: () -> Unit) {
                 Gson().toJson(newConfig)
             }
             val res = Appctr.setServeConfig(jsonPayload)
+            updateAllWidgets(context)
             withContext(Dispatchers.Main) {
                 isLoading = false
                 if (res != "OK") {

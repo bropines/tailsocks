@@ -96,17 +96,44 @@
             </intent-filter>
         </provider>
 
-        <!-- Exit Node & Service Toggle Widget -->
-        <receiver android:name=".ExitNodeWidgetProvider" android:exported="false" android:label="TailSocks Switcher">
+        <!-- TailSocks Switcher (Toggle) Widget -->
+        <receiver android:name=".ServiceToggleWidgetReceiver" android:exported="false" android:label="TailSocks Switcher">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="TOGGLE_SERVICE" />
-                <action android:name="TOGGLE_EXIT_NODE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/widget_info" />
+                android:resource="@xml/widget_info_service" />
         </receiver>
 
+        <!-- Exit Node Toggle Widget -->
+        <receiver android:name=".ExitNodeToggleWidgetReceiver" android:exported="false" android:label="TailSocks Exit Node">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_exit_node" />
+        </receiver>
+
+        <!-- Stats Dashboard Widget -->
+        <receiver android:name=".StatsWidgetReceiver" android:exported="false" android:label="TailSocks Dashboard">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_stats" />
+        </receiver>
+
+        <!-- Serve Config Status Widget -->
+        <receiver android:name=".ServeWidgetReceiver" android:exported="false" android:label="TailSocks Serve">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_serve" />
+        </receiver>
     </application>
 </manifest>
