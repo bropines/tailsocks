@@ -29,7 +29,7 @@ echo "-> Applying atomic patches..."
 for p in patches/*.patch; do
     if [ -f "$p" ]; then
         echo "Applying patch: $(basename "$p")"
-        patch -p0 -d tailscale_src < "$p"
+        patch -p1 -d tailscale_src < "$p"
     fi
 done
 
