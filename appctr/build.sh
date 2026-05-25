@@ -26,26 +26,23 @@ else
 fi
 
 echo "[1/4] Preparing and Patching Tailscale sources..."
-if [ ! -d "tailscale_src" ]; then
-    echo "-> Downloading sources..."
+if [ ! -d "orig" ]; then
+    echo "-> Downloading clean sources to orig/..."
     curl -sL "https://github.com/tailscale/tailscale/archive/refs/tags/${TS_VERSION}.tar.gz" | tar -xz
-    mv tailscale-${TS_VERSION#v} tailscale_src
+    mv tailscale-${TS_VERSION#v} orig
+fi
 
-    echo "-> Injecting Android Netmon fix..."
-    cp patches/fix_android_netmon.go tailscale_src/cmd/tailscaled/
+if [ ! -d "tailscale_src" ]; then
+    echo "-> Copying orig/ to tailscale_src/..."
+    cp -r orig tailscale_src
 
-    echo "-> Enabling SOCKS support on Android..."
-    sed -i 's/!ios && !js && !android && //g' tailscale_src/net/netns/socks.go
-
-    echo "-> Applying unified patch..."
-    cd tailscale_src
-    # Удаляем конфликтный файл, так как мы его вшили в ext.go (монолитный патч)
-    rm -f feature/taildrop/fileops_fs.go
-    
-    if [ -f "../patches/tailsocks.patch" ]; then
-        patch -p0 < ../patches/tailsocks.patch
-    fi
-    cd ..
+    echo "-> Applying atomic patches..."
+    for p in patches/*.patch; do
+        if [ -f "$p" ]; then
+            echo "Applying patch: $(basename "$p")"
+            patch -p1 -d tailscale_src < "$p"
+        fi
+    done
 
     echo "✅ Sources patched successfully."
 else
