@@ -22,8 +22,11 @@ rm -f patches/*.patch
 # Re-create atomic patches by running diff on modified components
 echo "-> Generating atomic patches..."
 
-# 01-enable-socks-android.patch (net/netns/socks.go)
-diff -u orig/net/netns/socks.go tailscale_src/net/netns/socks.go > patches/01-enable-socks-android.patch || true
+# 01-enable-socks-android.patch (net/netns/socks.go and netns.go)
+{
+    diff -u orig/net/netns/socks.go tailscale_src/net/netns/socks.go || true
+    diff -u orig/net/netns/netns.go tailscale_src/net/netns/netns.go || true
+} > patches/01-enable-socks-android.patch
 
 # 02-socks5-auth.patch (cmd/tailscaled/proxy.go)
 diff -u orig/cmd/tailscaled/proxy.go tailscale_src/cmd/tailscaled/proxy.go > patches/02-socks5-auth.patch || true

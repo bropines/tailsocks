@@ -10,6 +10,9 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Add `recreate_patches.sh` utility to automatically generate atomic patches.
 - Update `build.sh` to apply all patches in alphabetical order using `patch -p1`.
 
+### Fixed
+- Fixed SOCKS5 proxy support in userspace-networking mode on Android by ensuring `wrapDialer` is called even when network namespace (`netns`) routing is disabled.
+
 ## [2.0.6-beta] - 2026-05-24
 ### Added
 - Persistent command history in Terminal console stored locally in `console_cmd_history.dat` (decoupled from clear screen action).
