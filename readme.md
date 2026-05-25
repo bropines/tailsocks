@@ -2,7 +2,7 @@
 
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](LICENSE)
 [![GitHub Release](https://img.shields.io/github/v/release/bropines/tailsocks)](https://github.com/bropines/tailsocks/releases)
-[![Core](https://img.shields.io/badge/Tailscale_Core-v1.96.x-green.svg)](https://github.com/tailscale/tailscale/tags)
+[![Core](https://img.shields.io/badge/Tailscale_Core-v1.98.x-green.svg)](https://github.com/tailscale/tailscale/tags)
 
 TailSocks is a high-performance, lightweight Android client for [Tailscale](https://tailscale.com/) that operates exclusively in **userspace-networking mode**. It provides a complete Tailscale environment—including Taildrop and Exit Nodes—without utilizing Android's `VpnService`, enabling seamless coexistence with other VPN and firewall applications.
 

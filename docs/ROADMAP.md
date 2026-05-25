@@ -14,7 +14,7 @@ This document outlines the planned features, architectural improvements, and ref
 - [x] **Search & Filter:** Implement search functionality for Peer list and Logs.
 - [x] **Battery Optimization UI:** Add a prompt to help users whitelist the app from system battery restrictions.
 - [x] **Account Switching in Tiles:** Enhance Quick Settings to allow switching between profiles.
-- [x] **Socks5 proxy to Control Panel** Patch for the control panel to work through a proxy (for countries where the official TS is blocked)
+- [x] **Socks5 proxy to Control Panel:** Added SOCKS5/HTTP proxy support for control plane traffic with atomic patches and netns bypass fix.
 
 ## Plans
 - [ ] **Advanced Networking:** Support for custom DERP maps and regional routing overrides.
