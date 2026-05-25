@@ -2,6 +2,13 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [2.0.8-beta] - 2026-05-25
+### Added
+- Reimplemented Home Screen widgets using Jetpack Glance (Material 3 styling with dynamic colors).
+- Introduced 4 new Glance widgets: Service Toggle (2x1), Exit Node Toggle (2x1), detailed Stats Dashboard (3x3), and Serve & Funnel status (2x1) with a "Purge Rules" shortcut.
+- Support for immediate manual state refresh by clicking on the background of any widget.
+- Added native initial/preview layouts to resolve widget preview and load inflation failures on HyperOS devices.
+
 ## [2.0.7-beta] - 2026-05-25
 ### Changed
 - Omit `HTTP_PROXY` and `HTTPS_PROXY` environment variables when SOCKS5 proxy is used to avoid routing conflicts.
