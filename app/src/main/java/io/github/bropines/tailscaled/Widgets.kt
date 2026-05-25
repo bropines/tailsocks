@@ -36,7 +36,6 @@ import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
-import androidx.glance.unit.ColorProvider
 import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -61,6 +60,7 @@ fun updateAllWidgets(context: Context) {
 
 // ----------------------------------------------------------------
 // Widget I: Service Toggle (2×1)
+// Text top, button bottom
 // ----------------------------------------------------------------
 class ServiceToggleWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -74,29 +74,36 @@ class ServiceToggleWidget : GlanceAppWidget() {
                         .fillMaxSize()
                         .background(GlanceTheme.colors.widgetBackground)
                         .cornerRadius(20.dp)
-                        .padding(16.dp),
-                    horizontalAlignment = Alignment.Horizontal.CenterHorizontally,
-                    verticalAlignment = Alignment.Vertical.CenterVertically
+                        .padding(16.dp)
+                        .clickable(actionRunCallback<RefreshAllActionCallback>()),
+                    horizontalAlignment = Alignment.Horizontal.CenterHorizontally
                 ) {
                     Text("TailSocks",
                         style = TextStyle(
                             color = GlanceTheme.colors.onSurface,
-                            fontSize = 16.sp,
+                            fontSize = 18.sp,
                             fontWeight = FontWeight.Bold))
-                    Spacer(GlanceModifier.height(4.dp))
+                    Spacer(GlanceModifier.height(2.dp))
                     Text(activeAccount.name,
                         style = TextStyle(
                             color = GlanceTheme.colors.primary,
-                            fontSize = 13.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Medium))
-                    Spacer(GlanceModifier.height(12.dp))
+                    Spacer(GlanceModifier.height(2.dp))
+                    Text(
+                        text = if (isRunning) "● Active" else "○ Stopped",
+                        style = TextStyle(
+                            color = if (isRunning) GlanceTheme.colors.primary else GlanceTheme.colors.outline,
+                            fontSize = 14.sp))
+
+                    Spacer(GlanceModifier.defaultWeight())
+
                     Button(
                         text = if (isRunning) "Stop Service" else "Start Service",
                         onClick = actionRunCallback<ToggleServiceActionCallback>(),
                         colors = ButtonDefaults.buttonColors(
                             backgroundColor = if (isRunning) GlanceTheme.colors.error else GlanceTheme.colors.primary,
-                            contentColor = if (isRunning) GlanceTheme.colors.onError else GlanceTheme.colors.onPrimary
-                        ),
+                            contentColor = if (isRunning) GlanceTheme.colors.onError else GlanceTheme.colors.onPrimary),
                         modifier = GlanceModifier.fillMaxWidth().height(44.dp)
                     )
                 }
@@ -111,6 +118,7 @@ class ServiceToggleWidgetReceiver : GlanceAppWidgetReceiver() {
 
 // ----------------------------------------------------------------
 // Widget II: Exit Node Toggle (2×1)
+// Text top, button bottom
 // ----------------------------------------------------------------
 class ExitNodeToggleWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -123,39 +131,36 @@ class ExitNodeToggleWidget : GlanceAppWidget() {
             GlanceTheme {
                 val ctx = LocalContext.current
 
-                Row(
+                Column(
                     modifier = GlanceModifier
                         .fillMaxSize()
                         .background(GlanceTheme.colors.widgetBackground)
                         .cornerRadius(20.dp)
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.Vertical.CenterVertically
+                        .padding(16.dp)
+                        .clickable(actionRunCallback<RefreshAllActionCallback>()),
+                    horizontalAlignment = Alignment.Horizontal.CenterHorizontally
                 ) {
-                    Column(
-                        modifier = GlanceModifier.defaultWeight()
-                            .clickable(actionStartActivity(Intent(ctx, MainActivity::class.java)))
-                    ) {
-                        Text("Exit Node",
-                            style = TextStyle(
-                                color = GlanceTheme.colors.onSurface,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold))
-                        Spacer(GlanceModifier.height(4.dp))
-                        Text(
-                            text = if (isActive) exitNodeIp else "Not active",
-                            style = TextStyle(
-                                color = if (isActive) GlanceTheme.colors.primary else GlanceTheme.colors.outline,
-                                fontSize = 14.sp))
-                    }
-                    Spacer(GlanceModifier.width(8.dp))
+                    Text("Exit Node",
+                        style = TextStyle(
+                            color = GlanceTheme.colors.onSurface,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold))
+                    Spacer(GlanceModifier.height(2.dp))
+                    Text(
+                        text = if (isActive) exitNodeIp else "Not active",
+                        style = TextStyle(
+                            color = if (isActive) GlanceTheme.colors.primary else GlanceTheme.colors.outline,
+                            fontSize = 15.sp))
+
+                    Spacer(GlanceModifier.defaultWeight())
+
                     Button(
-                        text = if (isActive) "OFF" else "ON",
+                        text = if (isActive) "Disable Exit Node" else "Enable Exit Node",
                         onClick = actionRunCallback<ToggleExitNodeActionCallback>(),
                         colors = ButtonDefaults.buttonColors(
                             backgroundColor = if (isActive) GlanceTheme.colors.errorContainer else GlanceTheme.colors.primary,
-                            contentColor = if (isActive) GlanceTheme.colors.onErrorContainer else GlanceTheme.colors.onPrimary
-                        ),
-                        modifier = GlanceModifier.width(72.dp).height(44.dp)
+                            contentColor = if (isActive) GlanceTheme.colors.onErrorContainer else GlanceTheme.colors.onPrimary),
+                        modifier = GlanceModifier.fillMaxWidth().height(44.dp)
                     )
                 }
             }
@@ -169,6 +174,7 @@ class ExitNodeToggleWidgetReceiver : GlanceAppWidgetReceiver() {
 
 // ----------------------------------------------------------------
 // Widget III: Stats Dashboard (3×3)
+// Header → status → divider → stats → buttons
 // ----------------------------------------------------------------
 class StatsWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -198,8 +204,7 @@ class StatsWidget : GlanceAppWidget() {
         }
 
         val trafficText = "↑ ${formatFileSize(txBytes)}  ↓ ${formatFileSize(rxBytes)}"
-        val statusLabel = if (isRunning) "ACTIVE" else "STOPPED"
-        val btnLabel = if (isRunning) "Stop" else "Start"
+        val statusLabel = if (isRunning) "● Active" else "○ Stopped"
 
         provideContent {
             GlanceTheme {
@@ -212,6 +217,7 @@ class StatsWidget : GlanceAppWidget() {
                         .background(GlanceTheme.colors.widgetBackground)
                         .cornerRadius(20.dp)
                         .padding(16.dp)
+                        .clickable(actionRunCallback<RefreshAllActionCallback>())
                 ) {
                     // Header
                     Row(
@@ -221,45 +227,38 @@ class StatsWidget : GlanceAppWidget() {
                         Text("TailSocks",
                             style = TextStyle(
                                 color = GlanceTheme.colors.onSurface,
-                                fontSize = 18.sp,
+                                fontSize = 20.sp,
                                 fontWeight = FontWeight.Bold),
                             modifier = GlanceModifier.clickable(actionStartActivity(mainIntent)))
                         Spacer(GlanceModifier.defaultWeight())
                         Text(activeAccount.name,
                             style = TextStyle(
                                 color = GlanceTheme.colors.primary,
-                                fontSize = 13.sp,
+                                fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold))
                     }
 
-                    Spacer(GlanceModifier.height(10.dp))
+                    Spacer(GlanceModifier.height(8.dp))
 
                     // Status row
                     Row(
                         modifier = GlanceModifier.fillMaxWidth(),
                         verticalAlignment = Alignment.Vertical.CenterVertically
                     ) {
-                        Box(
-                            modifier = GlanceModifier
-                                .size(10.dp)
-                                .background(if (isRunning) GlanceTheme.colors.primary else GlanceTheme.colors.error)
-                                .cornerRadius(5.dp)
-                        ) {}
-                        Spacer(GlanceModifier.width(8.dp))
                         Text(statusLabel,
                             style = TextStyle(
                                 color = if (isRunning) GlanceTheme.colors.primary else GlanceTheme.colors.outline,
-                                fontSize = 14.sp,
+                                fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold))
                         Spacer(GlanceModifier.defaultWeight())
                         Text(
                             text = if (exitNodeIp.isNotEmpty()) "Exit: $exitNodeIp" else "Exit: None",
                             style = TextStyle(
                                 color = GlanceTheme.colors.onSurfaceVariant,
-                                fontSize = 13.sp))
+                                fontSize = 14.sp))
                     }
 
-                    Spacer(GlanceModifier.height(10.dp))
+                    Spacer(GlanceModifier.height(8.dp))
 
                     // Divider
                     Box(modifier = GlanceModifier
@@ -267,36 +266,36 @@ class StatsWidget : GlanceAppWidget() {
                         .height(1.dp)
                         .background(GlanceTheme.colors.outline)) {}
 
-                    Spacer(GlanceModifier.height(10.dp))
+                    Spacer(GlanceModifier.height(8.dp))
 
                     // Stats
                     Text("IP: $selfIp",
                         style = TextStyle(
                             color = GlanceTheme.colors.onSurface,
-                            fontSize = 15.sp))
+                            fontSize = 16.sp))
                     Spacer(GlanceModifier.height(4.dp))
                     Row(modifier = GlanceModifier.fillMaxWidth()) {
                         Text("Peers: $peersOnline / $peersTotal",
                             style = TextStyle(
                                 color = GlanceTheme.colors.onSurfaceVariant,
-                                fontSize = 14.sp))
+                                fontSize = 15.sp))
                         Spacer(GlanceModifier.defaultWeight())
                         Text(trafficText,
                             style = TextStyle(
                                 color = GlanceTheme.colors.onSurfaceVariant,
-                                fontSize = 14.sp))
+                                fontSize = 15.sp))
                     }
 
                     Spacer(GlanceModifier.defaultWeight())
 
-                    // Actions
+                    // Actions row at bottom
                     Row(
                         modifier = GlanceModifier.fillMaxWidth(),
                         verticalAlignment = Alignment.Vertical.CenterVertically
                     ) {
                         Button(
-                            text = "↻ Refresh",
-                            onClick = actionRunCallback<RefreshStatsActionCallback>(),
+                            text = "↻",
+                            onClick = actionRunCallback<RefreshAllActionCallback>(),
                             colors = ButtonDefaults.buttonColors(
                                 backgroundColor = GlanceTheme.colors.secondaryContainer,
                                 contentColor = GlanceTheme.colors.onSecondaryContainer),
@@ -313,7 +312,7 @@ class StatsWidget : GlanceAppWidget() {
                         )
                         Spacer(GlanceModifier.width(8.dp))
                         Button(
-                            text = btnLabel,
+                            text = if (isRunning) "Stop" else "Start",
                             onClick = actionRunCallback<ToggleServiceActionCallback>(),
                             colors = ButtonDefaults.buttonColors(
                                 backgroundColor = if (isRunning) GlanceTheme.colors.error else GlanceTheme.colors.primary,
@@ -333,6 +332,7 @@ class StatsWidgetReceiver : GlanceAppWidgetReceiver() {
 
 // ----------------------------------------------------------------
 // Widget IV: Serve & Funnel Status (2×1)
+// Text top, button bottom
 // ----------------------------------------------------------------
 class ServeWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -364,47 +364,45 @@ class ServeWidget : GlanceAppWidget() {
                 val ctx = LocalContext.current
                 val serveIntent = Intent(ctx, ServeActivity::class.java)
 
-                Row(
+                Column(
                     modifier = GlanceModifier
                         .fillMaxSize()
                         .background(GlanceTheme.colors.widgetBackground)
                         .cornerRadius(20.dp)
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.Vertical.CenterVertically
+                        .padding(16.dp)
+                        .clickable(actionRunCallback<RefreshAllActionCallback>()),
+                    horizontalAlignment = Alignment.Horizontal.CenterHorizontally
                 ) {
-                    Column(
-                        modifier = GlanceModifier.defaultWeight()
-                            .clickable(actionStartActivity(serveIntent))
-                    ) {
-                        Text(statusText,
-                            style = TextStyle(
-                                color = GlanceTheme.colors.onSurface,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold))
-                        Spacer(GlanceModifier.height(4.dp))
-                        Text(rulesText,
-                            style = TextStyle(
-                                color = if (hasRules) GlanceTheme.colors.primary else GlanceTheme.colors.outline,
-                                fontSize = 14.sp))
-                    }
-                    Spacer(GlanceModifier.width(8.dp))
+                    Text(statusText,
+                        style = TextStyle(
+                            color = GlanceTheme.colors.onSurface,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold))
+                    Spacer(GlanceModifier.height(2.dp))
+                    Text(rulesText,
+                        style = TextStyle(
+                            color = if (hasRules) GlanceTheme.colors.primary else GlanceTheme.colors.outline,
+                            fontSize = 15.sp))
+
+                    Spacer(GlanceModifier.defaultWeight())
+
                     if (isRunning && hasRules) {
                         Button(
-                            text = "Purge",
+                            text = "Purge All Rules",
                             onClick = actionRunCallback<ClearServeActionCallback>(),
                             colors = ButtonDefaults.buttonColors(
                                 backgroundColor = GlanceTheme.colors.error,
                                 contentColor = GlanceTheme.colors.onError),
-                            modifier = GlanceModifier.width(80.dp).height(44.dp)
+                            modifier = GlanceModifier.fillMaxWidth().height(44.dp)
                         )
                     } else {
                         Button(
-                            text = "Open",
+                            text = "Open Serve",
                             onClick = actionStartActivity(serveIntent),
                             colors = ButtonDefaults.buttonColors(
                                 backgroundColor = GlanceTheme.colors.secondaryContainer,
                                 contentColor = GlanceTheme.colors.onSecondaryContainer),
-                            modifier = GlanceModifier.width(80.dp).height(44.dp)
+                            modifier = GlanceModifier.fillMaxWidth().height(44.dp)
                         )
                     }
                 }
@@ -420,6 +418,14 @@ class ServeWidgetReceiver : GlanceAppWidgetReceiver() {
 // ----------------------------------------------------------------
 // Action Callbacks
 // ----------------------------------------------------------------
+
+/** Refresh all widgets — used as background tap handler */
+class RefreshAllActionCallback : ActionCallback {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        updateAllWidgets(context)
+    }
+}
+
 class ToggleServiceActionCallback : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
         val isRunning = ProxyState.isActualRunning()
@@ -481,12 +487,6 @@ class ToggleExitNodeActionCallback : ActionCallback {
                 }
             }
         }
-        updateAllWidgets(context)
-    }
-}
-
-class RefreshStatsActionCallback : ActionCallback {
-    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
         updateAllWidgets(context)
     }
 }
