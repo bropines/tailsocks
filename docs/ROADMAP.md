@@ -17,4 +17,7 @@ This document outlines the planned features, architectural improvements, and ref
 - [x] **Socks5 proxy to Control Panel:** Added SOCKS5/HTTP proxy support for control plane traffic with atomic patches and netns bypass fix.
 
 ## Plans
+- [ ] **Encrypted Backups:** Manual app state backups encrypted with a user-defined password (AES-GCM) to protect node keys.
+- [ ] **Exit Node Switcher Widget & Tiles:** Add a home screen widget and enhance Quick Settings Tiles to display active profile, connection state, and quick exit node toggles.
+- [ ] **Traffic Analyzer & Diagnostics:** Add an in-app real-time connection logger to inspect active Tailnet connections and MagicDNS requests.
 - [ ] **Advanced Networking:** Support for custom DERP maps and regional routing overrides.
