@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -46,23 +47,28 @@ func tailscaledCmd(p pathControl, socksAddr, httpAddr, socksUser, socksPass, tai
 	c.Env = append(c.Env, "TS_SOCKS5_SERVER=")
 
 	if controlProxy != "" {
+		proxyURL, err := url.Parse(controlProxy)
+		var host string
+		if err == nil {
+			host = proxyURL.Hostname()
+		}
+
 		if strings.HasPrefix(controlProxy, "socks5://") {
-			// For SOCKS5: use ALL_PROXY and explicitly clear HTTP(S)_PROXY.
-			// This is critical for Go's http.DefaultTransport and Tailscale Dialers.
-			c.Env = append(c.Env, 
-				"ALL_PROXY="+controlProxy,
-				"HTTP_PROXY=",
-				"HTTPS_PROXY=",
-			)
+			// For SOCKS5: use ALL_PROXY only. Do NOT add HTTP_PROXY or HTTPS_PROXY.
+			c.Env = append(c.Env, "ALL_PROXY="+controlProxy)
 			slog.Info("Proxy: Using SOCKS5 via ALL_PROXY", "url", controlProxy)
 		} else {
 			// For HTTP(S) proxy use the standard environment variables.
 			c.Env = append(c.Env, 
 				"HTTP_PROXY="+controlProxy,
 				"HTTPS_PROXY="+controlProxy,
-				"ALL_PROXY=",
 			)
 			slog.Info("Proxy: Using HTTP via HTTP_PROXY", "url", controlProxy)
+		}
+
+		if host != "" {
+			c.Env = append(c.Env, "NO_PROXY="+host)
+			slog.Info("Proxy: Added NO_PROXY bypass", "host", host)
 		}
 	}
 	if taildropDir != "" {
