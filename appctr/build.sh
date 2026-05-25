@@ -26,15 +26,10 @@ else
 fi
 
 echo "[1/4] Preparing and Patching Tailscale sources..."
-if [ ! -d "orig" ]; then
-    echo "-> Downloading clean sources to orig/..."
-    curl -sL "https://github.com/tailscale/tailscale/archive/refs/tags/${TS_VERSION}.tar.gz" | tar -xz
-    mv tailscale-${TS_VERSION#v} orig
-fi
-
 if [ ! -d "tailscale_src" ]; then
-    echo "-> Copying orig/ to tailscale_src/..."
-    cp -r orig tailscale_src
+    echo "-> Downloading sources..."
+    curl -sL "https://github.com/tailscale/tailscale/archive/refs/tags/${TS_VERSION}.tar.gz" | tar -xz
+    mv tailscale-${TS_VERSION#v} tailscale_src
 
     echo "-> Applying atomic patches..."
     for p in patches/*.patch; do
