@@ -389,7 +389,7 @@ fun SettingsScreen(onBack: () -> Unit) {
 fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
     val context = LocalContext.current
     var enabled by remember { mutableStateOf(GlobalSettings.isCPProxyEnabled(context)) }
-    val type = "HTTP"
+    var type by remember { mutableStateOf(GlobalSettings.getCPField(context, "type", "SOCKS5")) }
     var host by remember { mutableStateOf(GlobalSettings.getCPField(context, "host")) }
     var port by remember { mutableStateOf(GlobalSettings.getCPField(context, "port")) }
     var user by remember { mutableStateOf(GlobalSettings.getCPField(context, "user")) }
@@ -397,7 +397,7 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Control Plane Proxy HTTP(S)") },
+        title = { Text("Control Plane Proxy") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -405,9 +405,24 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
                     Switch(checked = enabled, onCheckedChange = { enabled = it })
                 }
                 Spacer(Modifier.height(16.dp))
+
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Proxy Type", Modifier.weight(1f))
+                    FilterChip(
+                        selected = type == "SOCKS5",
+                        onClick = { type = "SOCKS5" },
+                        label = { Text("SOCKS5") }
+                    )
+                    FilterChip(
+                        selected = type == "HTTP",
+                        onClick = { type = "HTTP" },
+                        label = { Text("HTTP") }
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
                 
                 OutlinedTextField(value = host, onValueChange = { host = it }, label = { Text("Host") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                OutlinedTextField(value = port, onValueChange = { port = it }, label = { Text("Port") }, modifier = Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text("8080") })
+                OutlinedTextField(value = port, onValueChange = { port = it }, label = { Text("Port") }, modifier = Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text(if (type == "HTTP") "8080" else "1080") })
                 OutlinedTextField(value = user, onValueChange = { user = it }, label = { Text("Username (Optional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 OutlinedTextField(value = pass, onValueChange = { pass = it }, label = { Text("Password (Optional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
             }
