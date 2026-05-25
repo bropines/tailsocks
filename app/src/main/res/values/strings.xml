@@ -62,4 +62,10 @@
     <!-- Dialogs -->
     <string name="version_format">Version %1$s</string>
     <string name="notification_title">Tailscaled is active</string>
+
+    <!-- Widget Descriptions -->
+    <string name="widget_desc_service">Start or stop the TailSocks proxy service</string>
+    <string name="widget_desc_exit">Toggle Exit Node routing on/off</string>
+    <string name="widget_desc_stats">Dashboard with connection stats, peers, and traffic</string>
+    <string name="widget_desc_serve">Active Serve and Funnel rules overview</string>
 </resources>
