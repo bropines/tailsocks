@@ -2,6 +2,14 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [2.0.7-beta] - 2026-05-25
+### Changed
+- Omit `HTTP_PROXY` and `HTTPS_PROXY` environment variables when SOCKS5 proxy is used to avoid routing conflicts.
+- Inject `NO_PROXY` environment variable containing the proxy host/IP to prevent connection loops.
+- Modularize Tailscale source patches into separate atomic patch files.
+- Add `recreate_patches.sh` utility to automatically generate atomic patches.
+- Update `build.sh` to apply all patches in alphabetical order using `patch -p1`.
+
 ## [2.0.6-beta] - 2026-05-24
 ### Added
 - Persistent command history in Terminal console stored locally in `console_cmd_history.dat` (decoupled from clear screen action).
