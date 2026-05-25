@@ -1,6 +1,6 @@
 --- orig/net/netns/socks.go	2026-05-21 21:27:19.000000000 +0300
-+++ tailscale_src/net/netns/socks.go	2026-05-24 18:53:16.995237649 +0300
-@@ -1,7 +1,7 @@
++++ tailscale_src/net/netns/socks.go	2026-05-25 17:22:05.239797169 +0300
+@@ -1,19 +1,42 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause
  
@@ -9,3 +9,41 @@
  
  package netns
  
+-import "golang.org/x/net/proxy"
++import (
++	"fmt"
++	"log/slog"
++	"os"
++	"golang.org/x/net/proxy"
++)
+ 
+ func init() {
+ 	wrapDialer = wrapSocks
+ }
+ 
+ func wrapSocks(d Dialer) Dialer {
+-	if cd, ok := proxy.FromEnvironmentUsing(d).(Dialer); ok {
+-		return cd
++	allProxy := os.Getenv("ALL_PROXY")
++	allProxyLower := os.Getenv("all_proxy")
++	slog.Info("wrapSocks called", "ALL_PROXY", allProxy, "all_proxy", allProxyLower)
++
++	cd := proxy.FromEnvironmentUsing(d)
++	if cd == nil {
++		slog.Info("wrapSocks: FromEnvironmentUsing returned nil")
++		return d
++	}
++
++	if cd == d {
++		slog.Info("wrapSocks: FromEnvironmentUsing returned the original dialer (no proxy)")
++		return d
+ 	}
++
++	if dialer, ok := cd.(Dialer); ok {
++		slog.Info("wrapSocks: successfully wrapped dialer with SOCKS proxy", "type", fmt.Sprintf("%T", dialer))
++		return dialer
++	}
++
++	slog.Info("wrapSocks: wrapped dialer does not implement Dialer interface", "type", fmt.Sprintf("%T", cd))
+ 	return d
+ }
