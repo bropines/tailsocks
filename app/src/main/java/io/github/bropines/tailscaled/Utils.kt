@@ -51,3 +51,61 @@ fun formatFileSize(size: Long): String {
     val digitGroups = (Math.log10(size.toDouble()) / Math.log10(1024.0)).toInt()
     return String.format("%.1f %s", size / Math.pow(1024.0, digitGroups.toDouble()), units[digitGroups])
 }
+
+object BackupCrypto {
+    private const val ITERATIONS = 10000
+    private const val KEY_LENGTH = 256
+    private const val SALT_LENGTH = 16
+    private const val IV_LENGTH = 12
+
+    fun encrypt(data: ByteArray, password: CharArray): ByteArray {
+        val salt = ByteArray(SALT_LENGTH)
+        java.security.SecureRandom().nextBytes(salt)
+
+        val factory = javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
+        val spec = javax.crypto.spec.PBEKeySpec(password, salt, ITERATIONS, KEY_LENGTH)
+        val tmp = factory.generateSecret(spec)
+        val secretKey = javax.crypto.spec.SecretKeySpec(tmp.encoded, "AES")
+
+        val cipher = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding")
+        val iv = ByteArray(IV_LENGTH)
+        java.security.SecureRandom().nextBytes(iv)
+        val gcmSpec = javax.crypto.spec.GCMParameterSpec(128, iv)
+        cipher.init(javax.crypto.Cipher.ENCRYPT_MODE, secretKey, gcmSpec)
+
+        val ciphertext = cipher.doFinal(data)
+
+        val result = ByteArray(SALT_LENGTH + IV_LENGTH + ciphertext.size)
+        System.arraycopy(salt, 0, result, 0, SALT_LENGTH)
+        System.arraycopy(iv, 0, result, SALT_LENGTH, IV_LENGTH)
+        System.arraycopy(ciphertext, 0, result, SALT_LENGTH + IV_LENGTH, ciphertext.size)
+        return result
+    }
+
+    fun decrypt(encryptedData: ByteArray, password: CharArray): ByteArray {
+        if (encryptedData.size < SALT_LENGTH + IV_LENGTH) {
+            throw IllegalArgumentException("Data too short")
+        }
+
+        val salt = ByteArray(SALT_LENGTH)
+        val iv = ByteArray(IV_LENGTH)
+        System.arraycopy(encryptedData, 0, salt, 0, SALT_LENGTH)
+        System.arraycopy(encryptedData, SALT_LENGTH, iv, 0, IV_LENGTH)
+
+        val ciphertextLength = encryptedData.size - SALT_LENGTH - IV_LENGTH
+        val ciphertext = ByteArray(ciphertextLength)
+        System.arraycopy(encryptedData, SALT_LENGTH + IV_LENGTH, ciphertext, 0, ciphertextLength)
+
+        val factory = javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
+        val spec = javax.crypto.spec.PBEKeySpec(password, salt, ITERATIONS, KEY_LENGTH)
+        val tmp = factory.generateSecret(spec)
+        val secretKey = javax.crypto.spec.SecretKeySpec(tmp.encoded, "AES")
+
+        val cipher = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding")
+        val gcmSpec = javax.crypto.spec.GCMParameterSpec(128, iv)
+        cipher.init(javax.crypto.Cipher.DECRYPT_MODE, secretKey, gcmSpec)
+
+        return cipher.doFinal(ciphertext)
+    }
+}
+

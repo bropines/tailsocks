@@ -96,5 +96,17 @@
             </intent-filter>
         </provider>
 
+        <!-- Exit Node & Service Toggle Widget -->
+        <receiver android:name=".ExitNodeWidgetProvider" android:exported="false" android:label="TailSocks Switcher">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="TOGGLE_SERVICE" />
+                <action android:name="TOGGLE_EXIT_NODE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info" />
+        </receiver>
+
     </application>
 </manifest>

@@ -216,7 +216,17 @@ class TailscaledService : Service() {
         applicationContext.sendBroadcast(Intent("STOP"))
     }
     
-    private fun updateTile() = TileService.requestListeningState(this, ComponentName(this, ProxyTileService::class.java))
+    private fun updateTile() {
+        TileService.requestListeningState(this, ComponentName(this, ProxyTileService::class.java))
+        val intent = Intent(this, ExitNodeWidgetProvider::class.java).apply {
+            action = android.appwidget.AppWidgetManager.ACTION_APPWIDGET_UPDATE
+            val ids = android.appwidget.AppWidgetManager.getInstance(this@TailscaledService).getAppWidgetIds(
+                ComponentName(this@TailscaledService, ExitNodeWidgetProvider::class.java)
+            )
+            putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+        }
+        sendBroadcast(intent)
+    }
     private fun updateNotification(status: String) = notificationManager.notify(1, buildNotification(status))
 
     private fun buildNotification(status: String): Notification {

@@ -1,5 +1,6 @@
 package io.github.bropines.tailscaled
 
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.service.quicksettings.Tile
@@ -38,11 +39,18 @@ class ProxyTileService : TileService() {
         val isRunning = ProxyState.isUserLetRunning(this)
         
         tile.state = if (isRunning) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
-        tile.label = "Tailscale"
+        tile.label = "TailSocks"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             try {
                 val activeAccount = AccountManager.getActiveAccount(this)
-                tile.subtitle = activeAccount.name
+                val prefs = getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
+                val exitNodeIp = prefs.getString("exit_node_ip", "") ?: ""
+                
+                if (isRunning && exitNodeIp.isNotEmpty()) {
+                    tile.subtitle = "${activeAccount.name} ($exitNodeIp)"
+                } else {
+                    tile.subtitle = activeAccount.name
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
             }

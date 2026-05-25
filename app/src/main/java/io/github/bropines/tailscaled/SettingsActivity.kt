@@ -86,6 +86,13 @@ fun SettingsScreen(onBack: () -> Unit) {
     var enableWebUI by remember { mutableStateOf(profilePrefs.getBoolean("enable_webui", false)) }
     var webUIAddr by remember { mutableStateOf(profilePrefs.getString("webui_addr", "127.0.0.1:8080") ?: "127.0.0.1:8080") }
 
+    var backupPassword by remember { mutableStateOf("") }
+    var showBackupPasswordDialog by remember { mutableStateOf(false) }
+
+    var restorePassword by remember { mutableStateOf("") }
+    var showRestorePasswordDialog by remember { mutableStateOf(false) }
+    var pendingRestoreUri by remember { mutableStateOf<Uri?>(null) }
+
     val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) { GlobalSettings.setTaildropRootUri(context, uri); taildropRootUri = uri }
     }
@@ -139,44 +146,48 @@ fun SettingsScreen(onBack: () -> Unit) {
         }
     }
 
-    val fullBackupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+    val fullBackupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         if (uri != null) {
             scope.launch(Dispatchers.IO) {
                 try {
-                    context.contentResolver.openOutputStream(uri)?.use { os ->
-                        java.util.zip.ZipOutputStream(os).use { zos ->
-                            // Backup shared_prefs
-                            val prefsDir = File(context.applicationInfo.dataDir, "shared_prefs")
-                            if (prefsDir.exists()) {
-                                prefsDir.walkTopDown().filter { it.isFile }.forEach { file ->
-                                    val entryName = "shared_prefs/${file.name}"
-                                    zos.putNextEntry(java.util.zip.ZipEntry(entryName))
-                                    file.inputStream().use { it.copyTo(zos) }
-                                    zos.closeEntry()
-                                }
-                            }
-                            // Backup states
-                            val statesDir = File(context.filesDir, "states")
-                            if (statesDir.exists()) {
-                                statesDir.walkTopDown().filter { it.isFile }.forEach { file ->
-                                    val entryName = "files/states/${file.relativeTo(statesDir).path}"
-                                    zos.putNextEntry(java.util.zip.ZipEntry(entryName))
-                                    file.inputStream().use { it.copyTo(zos) }
-                                    zos.closeEntry()
-                                }
-                            }
-                            // Backup Sent History
-                            val historyFile = File(context.filesDir, "sent_history.json")
-                            if (historyFile.exists()) {
-                                zos.putNextEntry(java.util.zip.ZipEntry("files/sent_history.json"))
-                                historyFile.inputStream().use { it.copyTo(zos) }
+                    val baos = java.io.ByteArrayOutputStream()
+                    java.util.zip.ZipOutputStream(baos).use { zos ->
+                        // Backup shared_prefs
+                        val prefsDir = File(context.applicationInfo.dataDir, "shared_prefs")
+                        if (prefsDir.exists()) {
+                            prefsDir.walkTopDown().filter { it.isFile }.forEach { file ->
+                                val entryName = "shared_prefs/${file.name}"
+                                zos.putNextEntry(java.util.zip.ZipEntry(entryName))
+                                file.inputStream().use { it.copyTo(zos) }
                                 zos.closeEntry()
                             }
                         }
+                        // Backup states
+                        val statesDir = File(context.filesDir, "states")
+                        if (statesDir.exists()) {
+                            statesDir.walkTopDown().filter { it.isFile }.forEach { file ->
+                                val entryName = "files/states/${file.relativeTo(statesDir).path}"
+                                zos.putNextEntry(java.util.zip.ZipEntry(entryName))
+                                file.inputStream().use { it.copyTo(zos) }
+                                zos.closeEntry()
+                            }
+                        }
+                        // Backup Sent History
+                        val historyFile = File(context.filesDir, "sent_history.json")
+                        if (historyFile.exists()) {
+                            zos.putNextEntry(java.util.zip.ZipEntry("files/sent_history.json"))
+                            historyFile.inputStream().use { it.copyTo(zos) }
+                            zos.closeEntry()
+                        }
                     }
-                    withContext(Dispatchers.Main) { Toast.makeText(context, "Full backup saved", Toast.LENGTH_SHORT).show() }
+                    val zipBytes = baos.toByteArray()
+                    val encryptedBytes = BackupCrypto.encrypt(zipBytes, backupPassword.toCharArray())
+                    context.contentResolver.openOutputStream(uri)?.use { it.write(encryptedBytes) }
+                    withContext(Dispatchers.Main) { Toast.makeText(context, "Encrypted backup saved", Toast.LENGTH_SHORT).show() }
                 } catch (e: Exception) {
                     withContext(Dispatchers.Main) { Toast.makeText(context, "Full backup failed: ${e.message}", Toast.LENGTH_LONG).show() }
+                } finally {
+                    backupPassword = ""
                 }
             }
         }
@@ -184,37 +195,49 @@ fun SettingsScreen(onBack: () -> Unit) {
 
     val fullRestoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
-            scope.launch(Dispatchers.IO) {
-                try {
-                    context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                        java.util.zip.ZipInputStream(inputStream).use { zis ->
-                            var entry = zis.nextEntry
-                            while (entry != null) {
-                                if (!entry.isDirectory) {
-                                    val targetFile: File? = when {
-                                        entry.name.startsWith("shared_prefs/") -> {
-                                            File(context.applicationInfo.dataDir, entry.name)
-                                        }
-                                        entry.name.startsWith("files/") -> {
-                                            val subPath = entry.name.substring("files/".length)
-                                            File(context.filesDir, subPath)
-                                        }
-                                        else -> null
-                                    }
-                                    if (targetFile != null) {
-                                        targetFile.parentFile?.mkdirs()
-                                        targetFile.outputStream().use { fos -> zis.copyTo(fos) }
-                                    }
+            pendingRestoreUri = uri
+            showRestorePasswordDialog = true
+        }
+    }
+
+    fun performRestore(uri: Uri, passwordStr: String) {
+        scope.launch(Dispatchers.IO) {
+            try {
+                val encryptedBytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                if (encryptedBytes == null) {
+                    withContext(Dispatchers.Main) { Toast.makeText(context, "Failed to read backup file", Toast.LENGTH_LONG).show() }
+                    return@launch
+                }
+                val decryptedBytes = BackupCrypto.decrypt(encryptedBytes, passwordStr.toCharArray())
+                java.util.zip.ZipInputStream(java.io.ByteArrayInputStream(decryptedBytes)).use { zis ->
+                    var entry = zis.nextEntry
+                    while (entry != null) {
+                        if (!entry.isDirectory) {
+                            val targetFile: File? = when {
+                                entry.name.startsWith("shared_prefs/") -> {
+                                    File(context.applicationInfo.dataDir, entry.name)
                                 }
-                                zis.closeEntry()
-                                entry = zis.nextEntry
+                                entry.name.startsWith("files/") -> {
+                                    val subPath = entry.name.substring("files/".length)
+                                    File(context.filesDir, subPath)
+                                }
+                                else -> null
+                            }
+                            if (targetFile != null) {
+                                targetFile.parentFile?.mkdirs()
+                                targetFile.outputStream().use { fos -> zis.copyTo(fos) }
                             }
                         }
+                        zis.closeEntry()
+                        entry = zis.nextEntry
                     }
-                    withContext(Dispatchers.Main) { Toast.makeText(context, "Full restore complete. Please FORCE RESTART the app.", Toast.LENGTH_LONG).show() }
-                } catch (e: Exception) {
-                    withContext(Dispatchers.Main) { Toast.makeText(context, "Full restore failed: ${e.message}", Toast.LENGTH_LONG).show() }
                 }
+                withContext(Dispatchers.Main) { Toast.makeText(context, "Full restore complete. Please FORCE RESTART the app.", Toast.LENGTH_LONG).show() }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { Toast.makeText(context, "Full restore failed: Invalid password or corrupted file", Toast.LENGTH_LONG).show() }
+            } finally {
+                restorePassword = ""
+                pendingRestoreUri = null
             }
         }
     }
@@ -290,10 +313,10 @@ fun SettingsScreen(onBack: () -> Unit) {
             
             SettingsSectionHeader("Global Settings")
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { fullBackupLauncher.launch("tailsocks_full_backup.zip") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) {
+                Button(onClick = { showBackupPasswordDialog = true }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) {
                     Icon(Icons.Default.Archive, null); Spacer(Modifier.width(8.dp)); Text("Backup (ZIP)", maxLines = 1)
                 }
-                OutlinedButton(onClick = { fullRestoreLauncher.launch("application/zip") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) {
+                OutlinedButton(onClick = { fullRestoreLauncher.launch("*/*") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) {
                     Icon(Icons.Default.SettingsBackupRestore, null); Spacer(Modifier.width(8.dp)); Text("Restore", maxLines = 1)
                 }
             }
@@ -382,6 +405,100 @@ fun SettingsScreen(onBack: () -> Unit) {
             }
             Spacer(Modifier.height(32.dp))
         }
+    }
+
+    if (showBackupPasswordDialog) {
+        var tempPassword by remember { mutableStateOf("") }
+        var isPasswordVisible by remember { mutableStateOf(false) }
+        AlertDialog(
+            onDismissRequest = { showBackupPasswordDialog = false },
+            title = { Text("Backup Encryption Password") },
+            text = {
+                Column {
+                    Text("Enter a password to encrypt your backup. You will need this password to restore your state.", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = tempPassword,
+                        onValueChange = { tempPassword = it },
+                        label = { Text("Password") },
+                        singleLine = true,
+                        visualTransformation = if (isPasswordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
+                                Icon(if (isPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility, null)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (tempPassword.isNotBlank()) {
+                            backupPassword = tempPassword
+                            showBackupPasswordDialog = false
+                            fullBackupLauncher.launch("tailsocks_full_backup.enc")
+                        } else {
+                            Toast.makeText(context, "Password cannot be empty", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                ) { Text("Backup") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBackupPasswordDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showRestorePasswordDialog && pendingRestoreUri != null) {
+        var tempPassword by remember { mutableStateOf("") }
+        var isPasswordVisible by remember { mutableStateOf(false) }
+        AlertDialog(
+            onDismissRequest = { 
+                showRestorePasswordDialog = false
+                pendingRestoreUri = null
+            },
+            title = { Text("Backup Decryption Password") },
+            text = {
+                Column {
+                    Text("Enter the password that was used to encrypt this backup.", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = tempPassword,
+                        onValueChange = { tempPassword = it },
+                        label = { Text("Password") },
+                        singleLine = true,
+                        visualTransformation = if (isPasswordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
+                                Icon(if (isPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility, null)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (tempPassword.isNotBlank()) {
+                            val uri = pendingRestoreUri!!
+                            showRestorePasswordDialog = false
+                            performRestore(uri, tempPassword)
+                        } else {
+                            Toast.makeText(context, "Password cannot be empty", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                ) { Text("Restore") }
+            },
+            dismissButton = {
+                TextButton(onClick = { 
+                    showRestorePasswordDialog = false
+                    pendingRestoreUri = null
+                }) { Text("Cancel") }
+            }
+        )
     }
 }
 
