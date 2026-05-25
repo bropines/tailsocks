@@ -70,3 +70,6 @@ appctr/tailscale_src/tmp/
 status.json
 .kotlin/
 .skills/
+
+# Tailscale pristine source copy
+appctr/orig/
