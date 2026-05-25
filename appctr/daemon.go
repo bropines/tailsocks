@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"log/slog"
-	"net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -47,12 +46,6 @@ func tailscaledCmd(p pathControl, socksAddr, httpAddr, socksUser, socksPass, tai
 	c.Env = append(c.Env, "TS_SOCKS5_SERVER=")
 
 	if controlProxy != "" {
-		proxyURL, err := url.Parse(controlProxy)
-		var host string
-		if err == nil {
-			host = proxyURL.Hostname()
-		}
-
 		if strings.HasPrefix(controlProxy, "socks5://") {
 			// For SOCKS5: use ALL_PROXY only. Do NOT add HTTP_PROXY or HTTPS_PROXY.
 			c.Env = append(c.Env, "ALL_PROXY="+controlProxy)
@@ -64,11 +57,6 @@ func tailscaledCmd(p pathControl, socksAddr, httpAddr, socksUser, socksPass, tai
 				"HTTPS_PROXY="+controlProxy,
 			)
 			slog.Info("Proxy: Using HTTP via HTTP_PROXY", "url", controlProxy)
-		}
-
-		if host != "" {
-			c.Env = append(c.Env, "NO_PROXY="+host)
-			slog.Info("Proxy: Added NO_PROXY bypass", "host", host)
 		}
 	}
 	if taildropDir != "" {
