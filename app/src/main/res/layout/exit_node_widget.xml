@@ -140,7 +140,6 @@
 
         <Button
             android:id="@+id/widget_btn_toggle_exit"
-            style="?android:attr/buttonStyleSmall"
             android:layout_width="wrap_content"
             android:layout_height="32dp"
             android:layout_marginEnd="6dp"
@@ -152,7 +151,6 @@
 
         <Button
             android:id="@+id/widget_btn_toggle_service"
-            style="?android:attr/buttonStyleSmall"
             android:layout_width="wrap_content"
             android:layout_height="32dp"
             android:background="#1565C0"
