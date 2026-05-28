@@ -79,22 +79,34 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, modifier = Modifier.fillMaxHeight(0.85f)) {
         Column(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Send to...", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Text("${fileUris.size} files", style = MaterialTheme.typography.bodySmall)
+                    Text("Send to...", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("${fileUris.size} files", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 IconButton(onClick = { loadPeers() }) {
                     Icon(Icons.Default.Refresh, contentDescription = "Refresh")
                 }
                 Spacer(Modifier.width(8.dp))
                 Box {
-                    Surface(onClick = {
-                        accountMenuExpanded = true
-                    }, shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
-                            Text(currentAccount.name)
-                            Icon(Icons.Default.ArrowDropDown, null, modifier = Modifier.size(16.dp))
+                    Surface(
+                        onClick = { accountMenuExpanded = true },
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color.Transparent,
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.5.dp,
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                        )
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Default.AccountCircle, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(6.dp))
+                            Text(currentAccount.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                            Spacer(Modifier.width(4.dp))
+                            Icon(Icons.Default.ArrowDropDown, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                         }
                     }
                     DropdownMenu(expanded = accountMenuExpanded, onDismissRequest = { accountMenuExpanded = false }) {
@@ -121,14 +133,38 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
             if (isLoadingPeers) Box(Modifier.fillMaxWidth().height(200.dp), Alignment.Center) { CircularProgressIndicator() }
             else if (errorMsg != null) Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(errorMsg!!, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center); Button(onClick = { loadPeers() }) { Text("Retry") }
-            } else LazyColumn(Modifier.weight(1f)) {
-                items(peers) { p -> PeerShareItem(p, !isSending) {
-                    isSending = true
-                    scope.launch(Dispatchers.IO) {
-                        sendFilesWithProgress(context, fileUris, p) { sendProgressText = it }
-                        withContext(Dispatchers.Main) { isSending = false; onDismiss() }
+            } else Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                    ),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                    )
+                ) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        contentPadding = PaddingValues(bottom = 16.dp)
+                    ) {
+                        items(peers) { p -> 
+                            PeerShareItem(p, !isSending) {
+                                isSending = true
+                                scope.launch(Dispatchers.IO) {
+                                    sendFilesWithProgress(context, fileUris, p) { sendProgressText = it }
+                                    withContext(Dispatchers.Main) { isSending = false; onDismiss() }
+                                }
+                            } 
+                        }
                     }
-                } }
+                }
             }
         }
     }

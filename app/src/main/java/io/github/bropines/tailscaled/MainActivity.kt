@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -57,6 +58,28 @@ fun isVersionNewer(current: String, latest: String): Boolean {
         if (lVal < cVal) return false
     }
     return false
+}
+
+fun downloadAndCacheAvatar(context: Context, accountId: String, urlStr: String) {
+    try {
+        val url = java.net.URL(urlStr)
+        val connection = url.openConnection() as java.net.HttpURLConnection
+        connection.doInput = true
+        connection.connectTimeout = 5000
+        connection.readTimeout = 5000
+        connection.connect()
+        val input = connection.inputStream
+        val avatarsDir = java.io.File(context.filesDir, "avatars").apply { mkdirs() }
+        val targetFile = java.io.File(avatarsDir, "$accountId.png")
+        val output = java.io.FileOutputStream(targetFile)
+        input.use { inStream ->
+            output.use { outStream ->
+                inStream.copyTo(outStream)
+            }
+        }
+    } catch (e: Exception) {
+        android.util.Log.e("AvatarSync", "Failed to download avatar: ${e.message}")
+    }
 }
 
 class MainActivity : ComponentActivity() {
@@ -208,6 +231,7 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
     // Watchdog: Sync UI state with actual daemon status
     LaunchedEffect(Unit) {
         var urlDetected = false
+        var lastAvatarSync = 0L
         while (true) {
             val isProcessAlive = try { appctr.Appctr.isRunning() } catch (e: Exception) { false }
             
@@ -236,6 +260,30 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
 
                 val lastErr = try { appctr.Appctr.getLastError() } catch (e: Exception) { "" }
                 if (lastErr == "410_GONE") show410Warning = true
+
+                // Background avatar sync
+                val now = System.currentTimeMillis()
+                if (now - lastAvatarSync > 30000) { // Every 30 seconds
+                    lastAvatarSync = now
+                    scope.launch(Dispatchers.IO) {
+                        try {
+                            val pJson = appctr.Appctr.getStatusFromAPI()
+                            if (!pJson.startsWith("Error")) {
+                                val status = com.google.gson.Gson().fromJson(pJson, StatusResponse::class.java)
+                                val selfUser = status.users?.values?.firstOrNull()
+                                val picUrl = selfUser?.profilePicUrl
+                                if (!picUrl.isNullOrEmpty() && picUrl != activeAccount.avatarUrl) {
+                                    downloadAndCacheAvatar(context, activeAccount.id, picUrl)
+                                    AccountManager.updateAccountAvatar(context, activeAccount.id, picUrl)
+                                    withContext(Dispatchers.Main) {
+                                        accounts.value = AccountManager.getAccounts(context)
+                                        activeAccount = AccountManager.getActiveAccount(context)
+                                    }
+                                }
+                            }
+                        } catch (e: Exception) {}
+                    }
+                }
             } else {
                 loginUrl = null
                 show410Warning = false
@@ -379,24 +427,45 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
 
     if (accountMenuExpanded) {
         ModalBottomSheet(onDismissRequest = { accountMenuExpanded = false }) {
+            val activeAvatarFile = remember(activeAccount.id) { java.io.File(context.filesDir, "avatars/${activeAccount.id}.png") }
+            val activeBitmap = remember(activeAvatarFile) {
+                if (activeAvatarFile.exists()) {
+                    try {
+                        android.graphics.BitmapFactory.decodeFile(activeAvatarFile.absolutePath)
+                    } catch (e: Exception) { null }
+                } else null
+            }
+
             Column(
                 modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Box(
-                    modifier = Modifier
-                        .padding(top = 8.dp, bottom = 12.dp)
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Default.ManageAccounts,
+                if (activeBitmap != null) {
+                    androidx.compose.foundation.Image(
+                        bitmap = activeBitmap.asImageBitmap(),
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier
+                            .padding(top = 8.dp, bottom = 12.dp)
+                            .size(48.dp)
+                            .clip(CircleShape),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
                     )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 8.dp, bottom = 12.dp)
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.ManageAccounts,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 }
                 Text(
                     "Switch Account",
@@ -439,12 +508,48 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    Icons.Default.AccountCircle,
-                                    null,
-                                    tint = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(24.dp)
-                                )
+                                val avatarFile = remember(account.id) { java.io.File(context.filesDir, "avatars/${account.id}.png") }
+                                val bitmap = remember(avatarFile) {
+                                    if (avatarFile.exists()) {
+                                        try {
+                                            android.graphics.BitmapFactory.decodeFile(avatarFile.absolutePath)
+                                        } catch (e: Exception) { null }
+                                    } else null
+                                }
+
+                                if (bitmap != null) {
+                                    androidx.compose.foundation.Image(
+                                        bitmap = bitmap.asImageBitmap(),
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .size(26.dp)
+                                            .clip(CircleShape),
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                    )
+                                } else {
+                                    val nameLower = account.name.lowercase()
+                                    val (smartIcon, smartColor) = when {
+                                        nameLower.contains("github") -> Icons.Default.Hub to Color(0xFFFCC624)
+                                        nameLower.contains("headscale") -> Icons.Default.Cloud to Color(0xFF0078D4)
+                                        nameLower.contains("google") || nameLower.contains("gmail") -> Icons.Default.Email to Color(0xFFE91E63)
+                                        else -> Icons.Default.AccountCircle to (if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    
+                                    Box(
+                                        modifier = Modifier
+                                            .size(26.dp)
+                                            .clip(CircleShape)
+                                            .background(smartColor.copy(alpha = 0.12f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            smartIcon,
+                                            null,
+                                            tint = smartColor,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
                                 Spacer(Modifier.width(16.dp))
                                 Text(
                                     account.name,

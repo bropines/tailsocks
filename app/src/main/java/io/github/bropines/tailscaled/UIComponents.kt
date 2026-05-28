@@ -89,17 +89,76 @@ fun PeerItem(peer: PeerData, isSelf: Boolean, onClick: () -> Unit) {
 
 @Composable
 fun PeerShareItem(peer: PeerData, enabled: Boolean, onClick: () -> Unit) {
-    ListItem(
-        headlineContent = { Text(peer.getDisplayName(), fontWeight = FontWeight.SemiBold) },
-        supportingContent = { Text(peer.os ?: "Device") },
-        leadingContent = {
-            Box(Modifier.size(42.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.Devices, null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+    val osIcon = when (peer.os?.lowercase()) {
+        "android" -> Icons.Default.Android
+        "windows" -> Icons.Default.DesktopWindows
+        "linux" -> Icons.Default.Terminal
+        "darwin", "macos", "ios" -> Icons.Default.Devices
+        else -> Icons.Default.Devices
+    }
+    val osColor = when (peer.os?.lowercase()) {
+        "android" -> Color(0xFF3DDC84)
+        "windows" -> Color(0xFF0078D4)
+        "linux" -> Color(0xFFFCC624)
+        else -> MaterialTheme.colorScheme.primary
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .clickable(enabled = enabled) { onClick() },
+        shape = RoundedCornerShape(14.dp),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+        ),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(osColor.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    osIcon,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = osColor
+                )
             }
-        },
-        trailingContent = { if (peer.online == true) Box(Modifier.size(10.dp).clip(CircleShape).background(Color(0xFF4CAF50))) },
-        modifier = Modifier.clickable(enabled = enabled) { onClick() }
-    )
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    peer.getDisplayName(),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    peer.os ?: "Device",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (peer.online == true) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF4CAF50))
+                )
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -119,6 +178,17 @@ fun PeerDetailsModal(
 
     val configuration = LocalConfiguration.current
     val maxHeight = (configuration.screenHeightDp * 0.85f).dp
+
+    val pingText = when {
+        pingResult == null -> "Ping"
+        pingResult == "Pinging..." -> "Pinging..."
+        pingResult!!.contains("pong from") -> {
+            val parts = pingResult!!.split(" ")
+            val time = parts.find { it.contains("ms") } ?: parts.lastOrNull()?.trim() ?: ""
+            "Ping: $time"
+        }
+        else -> "Ping: Failed"
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -181,10 +251,6 @@ fun PeerDetailsModal(
                         Spacer(Modifier.width(8.dp))
                         Box(Modifier.size(8.dp).clip(CircleShape).background(statusColor))
                     }
-                    pingResult?.let { 
-                        Spacer(Modifier.height(4.dp))
-                        Text(it, color = MaterialTheme.colorScheme.primary, fontFamily = FontFamily.Monospace, fontSize = 11.sp, fontWeight = FontWeight.Medium) 
-                    }
                 }
                 
                 if (onNextPeer != null) {
@@ -215,7 +281,7 @@ fun PeerDetailsModal(
                 ) {
                     Icon(Icons.Default.Bolt, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Ping", fontWeight = FontWeight.SemiBold)
+                    Text(pingText, fontWeight = FontWeight.SemiBold)
                 }
                 Button(
                     onClick = onSendFileClick,
@@ -223,7 +289,7 @@ fun PeerDetailsModal(
                     shape = RoundedCornerShape(14.dp),
                     contentPadding = PaddingValues(horizontal = 8.dp)
                 ) {
-                    Icon(Icons.Default.FileUpload, null, Modifier.size(18.dp))
+                    Icon(Icons.Default.Send, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text("Send File", fontWeight = FontWeight.SemiBold)
                 }
@@ -234,11 +300,15 @@ fun PeerDetailsModal(
                     .weight(1f, fill = false)
                     .padding(horizontal = 16.dp, vertical = 6.dp)
             ) {
-                ElevatedCard(
+                Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.elevatedCardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                    ),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
                     )
                 ) {
                     LazyColumn(

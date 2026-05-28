@@ -6,7 +6,8 @@ import com.google.gson.reflect.TypeToken
 
 data class TailscaleAccount(
     val id: String,
-    val name: String
+    val name: String,
+    val avatarUrl: String? = null
 )
 
 object AccountManager {
@@ -54,11 +55,22 @@ object AccountManager {
         // Clean up data
         val stateDir = java.io.File(context.filesDir, "states/$id")
         if (stateDir.exists()) stateDir.deleteRecursively()
+        
+        // Clean up avatar
+        val avatarFile = java.io.File(context.filesDir, "avatars/$id.png")
+        if (avatarFile.exists()) avatarFile.delete()
     }
 
     fun renameAccount(context: Context, id: String, newName: String) {
         val accounts = getAccounts(context).map {
             if (it.id == id) it.copy(name = newName) else it
+        }
+        saveAccounts(context, accounts)
+    }
+
+    fun updateAccountAvatar(context: Context, id: String, avatarUrl: String) {
+        val accounts = getAccounts(context).map {
+            if (it.id == id) it.copy(avatarUrl = avatarUrl) else it
         }
         saveAccounts(context, accounts)
     }
