@@ -13,6 +13,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Redesigned the "Send to..." file sharing overlay sheet into a modern contoured layout with an explicit bordered account selector.
 - Redesigned the peer details bottom sheet by integrating real-time ping latency directly into the primary ping button and restoring the classic paper plane send icon.
 - Upgraded cards in details and share overlays to outlined container cards using `surfaceContainerLow` for pristine contrast on AMOLED themes.
+- Unified peer OS icon and color-coded styling across device lists, taildrop, and details dialogs.
 
 ### Fixed
 - Fixed DNS caching when switching profiles/accounts by flushing split DNS cache, nodes cache, and resetting MagicDNS suffix.
