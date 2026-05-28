@@ -7,6 +7,11 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Added custom tags (`--advertise-tags`) and subnet routes (`--advertise-routes`) configuration to the profile settings screen.
 - Real-time display of actually applied device tags fetched from the LocalAPI status response in the settings screen.
 - Interactive tag suggestion chips inside the configuration dialog showing all unique active tags found across network hosts.
+- Added peer tags indicator to the network devices list and details modal.
+- Added swipe and button-based horizontal navigation to switch between peers in the details modal.
+
+### Changed
+- Made the peer details modal header more compact by reducing paddings, button heights, and title font sizes to fit more info on screen.
 
 ## [2.0.8-beta] - 2026-05-25
 ### Added

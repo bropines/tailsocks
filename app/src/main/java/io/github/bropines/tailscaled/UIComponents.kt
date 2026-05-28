@@ -116,11 +116,14 @@ fun PeerDetailsModal(
     var pingResult by remember { mutableStateOf<String?>(null) }
     var dragAmount by remember { mutableFloatStateOf(0f) }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState
+    ) {
         Column(
             Modifier
                 .fillMaxWidth()
-                .padding(bottom = 32.dp)
+                .padding(top = 4.dp, bottom = 16.dp)
                 .pointerInput(peer.id) {
                     detectHorizontalDragGestures(
                         onDragEnd = {
@@ -138,7 +141,7 @@ fun PeerDetailsModal(
                 }
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (onPrevPeer != null) {
@@ -150,8 +153,8 @@ fun PeerDetailsModal(
                 }
                 
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(peer.getDisplayName(), fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    pingResult?.let { Text(it, color = MaterialTheme.colorScheme.primary, fontFamily = FontFamily.Monospace, fontSize = 14.sp) }
+                    Text(peer.getDisplayName(), fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    pingResult?.let { Text(it, color = MaterialTheme.colorScheme.primary, fontFamily = FontFamily.Monospace, fontSize = 12.sp) }
                 }
                 
                 if (onNextPeer != null) {
@@ -163,16 +166,24 @@ fun PeerDetailsModal(
                 }
             }
 
-            Row(Modifier.padding(horizontal = 24.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(onClick = {
-                    pingResult = "Pinging..."
-                    scope.launch(Dispatchers.IO) {
-                        val out = try { Appctr.runTailscaleCmd("ping ${peer.getPrimaryIp()}") } catch (e: Exception) { "Error" }
-                        val pong = out.split("\n").find { it.contains("pong from") } ?: "Failed"
-                        withContext(Dispatchers.Main) { pingResult = pong.trim() }
-                    }
-                }, modifier = Modifier.weight(1f)) { Text("Ping") }
-                FilledTonalButton(onClick = onSendFileClick, modifier = Modifier.weight(1f)) {
+            Row(Modifier.padding(horizontal = 24.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(
+                    onClick = {
+                        pingResult = "Pinging..."
+                        scope.launch(Dispatchers.IO) {
+                            val out = try { Appctr.runTailscaleCmd("ping ${peer.getPrimaryIp()}") } catch (e: Exception) { "Error" }
+                            val pong = out.split("\n").find { it.contains("pong from") } ?: "Failed"
+                            withContext(Dispatchers.Main) { pingResult = pong.trim() }
+                        }
+                    },
+                    modifier = Modifier.weight(1f).height(36.dp),
+                    contentPadding = PaddingValues(vertical = 0.dp)
+                ) { Text("Ping") }
+                FilledTonalButton(
+                    onClick = onSendFileClick,
+                    modifier = Modifier.weight(1f).height(36.dp),
+                    contentPadding = PaddingValues(vertical = 0.dp)
+                ) {
                     Icon(Icons.Default.Send, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Send File")
                 }
             }
