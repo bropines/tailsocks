@@ -11,10 +11,17 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -24,6 +31,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -41,7 +49,37 @@ import java.net.URLEncoder
 class SettingsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { TailSocksTheme { SettingsScreen(onBack = { finish() }) } }
+        setContent {
+            val context = LocalContext.current
+            var appTheme by remember { mutableStateOf(GlobalSettings.getAppTheme(context)) }
+            var themePreset by remember { mutableStateOf(GlobalSettings.getThemePreset(context)) }
+            var dynamicColor by remember { mutableStateOf(GlobalSettings.isDynamicColorEnabled(context)) }
+
+            TailSocksTheme(
+                appTheme = appTheme,
+                themePreset = themePreset,
+                dynamicColorEnabled = dynamicColor
+            ) {
+                SettingsScreen(
+                    onBack = { finish() },
+                    currentTheme = appTheme,
+                    onThemeChange = { 
+                        appTheme = it
+                        GlobalSettings.setAppTheme(context, it)
+                    },
+                    currentPreset = themePreset,
+                    onPresetChange = {
+                        themePreset = it
+                        GlobalSettings.setThemePreset(context, it)
+                    },
+                    currentDynamicColor = dynamicColor,
+                    onDynamicColorChange = {
+                        dynamicColor = it
+                        GlobalSettings.setDynamicColorEnabled(context, it)
+                    }
+                )
+            }
+        }
     }
 }
 
@@ -50,14 +88,33 @@ fun generateRandomString(length: Int = 12): String {
     return (1..length).map { allowedChars.random() }.joinToString("")
 }
 
+data class PresetItem(val id: String, val color: Color, val name: String)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onBack: () -> Unit) {
+fun SettingsScreen(
+    onBack: () -> Unit,
+    currentTheme: String,
+    onThemeChange: (String) -> Unit,
+    currentPreset: String,
+    onPresetChange: (String) -> Unit,
+    currentDynamicColor: Boolean,
+    onDynamicColorChange: (Boolean) -> Unit
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val activeAccount = remember { AccountManager.getActiveAccount(context) }
     val profilePrefs = remember(activeAccount.id) { context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE) }
     
+    // Tab Navigation State
+    var selectedTab by remember { mutableStateOf(0) }
+    val tabs = listOf(
+        Pair("Стиль", Icons.Default.Palette),
+        Pair("Сеть", Icons.Default.Language),
+        Pair("DNS", Icons.Default.Dns),
+        Pair("Профиль", Icons.Default.AccountCircle)
+    )
+
     // Global Settings
     var taildropRootUri by remember { mutableStateOf(GlobalSettings.getTaildropRootUri(context)) }
     var autoStart by remember { mutableStateOf(GlobalSettings.isAutoStartEnabled(context)) }
@@ -133,9 +190,9 @@ fun SettingsScreen(onBack: () -> Unit) {
                     val allPrefs = profilePrefs.all
                     val backupData = mapOf("account" to activeAccount, "settings" to allPrefs)
                     context.contentResolver.openOutputStream(uri)?.use { it.write(Gson().toJson(backupData).toByteArray()) }
-                    withContext(Dispatchers.Main) { Toast.makeText(context, "Backup saved", Toast.LENGTH_SHORT).show() }
+                    withContext(Dispatchers.Main) { Toast.makeText(context, "Бэкап сохранен", Toast.LENGTH_SHORT).show() }
                 } catch (e: Exception) {
-                    withContext(Dispatchers.Main) { Toast.makeText(context, "Backup failed: ${e.message}", Toast.LENGTH_LONG).show() }
+                    withContext(Dispatchers.Main) { Toast.makeText(context, "Ошибка бэкапа: ${e.message}", Toast.LENGTH_LONG).show() }
                 }
             }
         }
@@ -156,7 +213,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                                 when (v) {
                                     is String -> editor.putString(k, v)
                                     is Boolean -> editor.putBoolean(k, v)
-                                    is Double -> editor.putFloat(k, v.toFloat()) // Gson parses numbers as Double
+                                    is Double -> editor.putFloat(k, v.toFloat())
                                     is Float -> editor.putFloat(k, v)
                                     is Int -> editor.putInt(k, v)
                                     is Long -> editor.putLong(k, v)
@@ -164,12 +221,12 @@ fun SettingsScreen(onBack: () -> Unit) {
                             }
                             editor.apply()
                             withContext(Dispatchers.Main) { 
-                                Toast.makeText(context, "Settings restored successfully. Please restart the app.", Toast.LENGTH_LONG).show() 
+                                Toast.makeText(context, "Настройки успешно импортированы. Перезапустите службу.", Toast.LENGTH_LONG).show() 
                             }
                         }
                     }
                 } catch (e: Exception) {
-                    withContext(Dispatchers.Main) { Toast.makeText(context, "Restore failed: ${e.message}", Toast.LENGTH_LONG).show() }
+                    withContext(Dispatchers.Main) { Toast.makeText(context, "Импорт не удался: ${e.message}", Toast.LENGTH_LONG).show() }
                 }
             }
         }
@@ -181,7 +238,6 @@ fun SettingsScreen(onBack: () -> Unit) {
                 try {
                     val baos = java.io.ByteArrayOutputStream()
                     java.util.zip.ZipOutputStream(baos).use { zos ->
-                        // Backup shared_prefs
                         val prefsDir = File(context.applicationInfo.dataDir, "shared_prefs")
                         if (prefsDir.exists()) {
                             prefsDir.walkTopDown().filter { it.isFile }.forEach { file ->
@@ -191,7 +247,6 @@ fun SettingsScreen(onBack: () -> Unit) {
                                 zos.closeEntry()
                             }
                         }
-                        // Backup states
                         val statesDir = File(context.filesDir, "states")
                         if (statesDir.exists()) {
                             statesDir.walkTopDown().filter { it.isFile }.forEach { file ->
@@ -201,7 +256,6 @@ fun SettingsScreen(onBack: () -> Unit) {
                                 zos.closeEntry()
                             }
                         }
-                        // Backup Sent History
                         val historyFile = File(context.filesDir, "sent_history.json")
                         if (historyFile.exists()) {
                             zos.putNextEntry(java.util.zip.ZipEntry("files/sent_history.json"))
@@ -212,9 +266,9 @@ fun SettingsScreen(onBack: () -> Unit) {
                     val zipBytes = baos.toByteArray()
                     val encryptedBytes = BackupCrypto.encrypt(zipBytes, backupPassword.toCharArray())
                     context.contentResolver.openOutputStream(uri)?.use { it.write(encryptedBytes) }
-                    withContext(Dispatchers.Main) { Toast.makeText(context, "Encrypted backup saved", Toast.LENGTH_SHORT).show() }
+                    withContext(Dispatchers.Main) { Toast.makeText(context, "Зашифрованный ZIP бэкап сохранен", Toast.LENGTH_SHORT).show() }
                 } catch (e: Exception) {
-                    withContext(Dispatchers.Main) { Toast.makeText(context, "Full backup failed: ${e.message}", Toast.LENGTH_LONG).show() }
+                    withContext(Dispatchers.Main) { Toast.makeText(context, "Ошибка ZIP бэкапа: ${e.message}", Toast.LENGTH_LONG).show() }
                 } finally {
                     backupPassword = ""
                 }
@@ -234,7 +288,7 @@ fun SettingsScreen(onBack: () -> Unit) {
             try {
                 val encryptedBytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
                 if (encryptedBytes == null) {
-                    withContext(Dispatchers.Main) { Toast.makeText(context, "Failed to read backup file", Toast.LENGTH_LONG).show() }
+                    withContext(Dispatchers.Main) { Toast.makeText(context, "Не удалось прочитать файл бэкапа", Toast.LENGTH_LONG).show() }
                     return@launch
                 }
                 val decryptedBytes = BackupCrypto.decrypt(encryptedBytes, passwordStr.toCharArray())
@@ -261,9 +315,9 @@ fun SettingsScreen(onBack: () -> Unit) {
                         entry = zis.nextEntry
                     }
                 }
-                withContext(Dispatchers.Main) { Toast.makeText(context, "Full restore complete. Please FORCE RESTART the app.", Toast.LENGTH_LONG).show() }
+                withContext(Dispatchers.Main) { Toast.makeText(context, "Импорт завершен. ПРИНУДИТЕЛЬНО ПЕРЕЗАПУСТИТЕ приложение.", Toast.LENGTH_LONG).show() }
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) { Toast.makeText(context, "Full restore failed: Invalid password or corrupted file", Toast.LENGTH_LONG).show() }
+                withContext(Dispatchers.Main) { Toast.makeText(context, "Ошибка импорта: неверный пароль или поврежденный файл", Toast.LENGTH_LONG).show() }
             } finally {
                 restorePassword = ""
                 pendingRestoreUri = null
@@ -303,9 +357,9 @@ fun SettingsScreen(onBack: () -> Unit) {
             }
             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText("SagerNet SOCKS5", link))
-            Toast.makeText(context, "SagerNet link copied!", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Ссылка SagerNet скопирована", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
-            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Ошибка: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -313,156 +367,386 @@ fun SettingsScreen(onBack: () -> Unit) {
     if (showResetDialog) {
         AlertDialog(
             onDismissRequest = { showResetDialog = false },
-            title = { Text("Log out from Tailnet?") },
-            text = { Text("This will clear your current session and node state using native LocalAPI. You will need to re-authenticate. Continue?") },
+            title = { Text("Выйти из Tailnet?") },
+            text = { Text("Это очистит текущую сессию и состояние ноды через native LocalAPI. Вам потребуется повторная авторизация. Продолжить?") },
             confirmButton = {
                 Button(onClick = { 
                     scope.launch(Dispatchers.IO) {
                         Appctr.logout()
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Logged out successfully", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Сессия успешно сброшена", Toast.LENGTH_SHORT).show()
                         }
                     }
                     showResetDialog = false 
-                }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Log Out") }
+                }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Выйти") }
             },
-            dismissButton = { TextButton(onClick = { showResetDialog = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { showResetDialog = false }) { Text("Отмена") } }
         )
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } }
+                title = { Text("Настройки", fontWeight = FontWeight.Bold) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Назад") } }
             )
         }
     ) { padding ->
-        Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-            
-            SettingsSectionHeader("Global Settings")
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { showBackupPasswordDialog = true }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) {
-                    Icon(Icons.Default.Archive, null); Spacer(Modifier.width(8.dp)); Text("Backup (ZIP)", maxLines = 1)
-                }
-                OutlinedButton(onClick = { fullRestoreLauncher.launch("*/*") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) {
-                    Icon(Icons.Default.SettingsBackupRestore, null); Spacer(Modifier.width(8.dp)); Text("Restore", maxLines = 1)
-                }
-            }
-            Spacer(Modifier.height(16.dp))
-            SettingsClickableItem("Taildrop Storage Folder", taildropRootUri?.path ?: "Uses app internal folder", Icons.Default.Folder) { folderPicker.launch(null) }
-            Spacer(Modifier.height(8.dp))
-            SettingsClickableItem("Battery Optimization", "Disable to prevent background sleep", Icons.Default.BatteryAlert) {
-                try {
-                    val intent = Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-                    context.startActivity(intent)
-                } catch (e: Exception) {
-                    Toast.makeText(context, "Cannot open battery settings", Toast.LENGTH_SHORT).show()
+        Column(
+            Modifier
+                .padding(padding)
+                .fillMaxSize()
+        ) {
+            // Modern Tab Layout
+            ScrollableTabRow(
+                selectedTabIndex = selectedTab,
+                edgePadding = 12.dp,
+                divider = { HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant) }
+            ) {
+                tabs.forEachIndexed { index, (title, icon) ->
+                    Tab(
+                        selected = selectedTab == index,
+                        onClick = { selectedTab = index },
+                        text = { Text(title, fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal) },
+                        icon = { Icon(icon, null, modifier = Modifier.size(20.dp)) }
+                    )
                 }
             }
-            SettingsSwitchItem("Auto-start on Boot", "Start TailSocks when device turns on", Icons.Default.PowerSettingsNew, autoStart) { GlobalSettings.setAutoStartEnabled(context, it); autoStart = it }
 
-            SettingsClickableItem(
-                "Control Plane Proxy", 
-                if (isProxyEnabled) "Enabled (${GlobalSettings.getCPField(context, "type")})" else "Disabled",
-                Icons.Default.Shield
-            ) { showProxyDialog = true }
+            // Animated Tab Content transitions
+            AnimatedContent(
+                targetState = selectedTab,
+                transitionSpec = {
+                    fadeIn() togetherWith fadeOut()
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                label = "TabTransition"
+            ) { targetTab ->
+                Column(
+                    Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp)
+                ) {
+                    when (targetTab) {
+                        0 -> { // TAB 0: Personalization & System
+                            SettingsCard(title = "Персонализация") {
+                                // Theme selector (Chips row)
+                                val themeOptions = listOf(
+                                    Triple("system", Icons.Default.Settings, "Система"),
+                                    Triple("light", Icons.Default.LightMode, "Светлая"),
+                                    Triple("dark", Icons.Default.DarkMode, "Темная"),
+                                    Triple("amoled", Icons.Default.OfflineBolt, "Amoled")
+                                )
+                                Column(Modifier.padding(bottom = 8.dp)) {
+                                    Text("Оформление интерфейса", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Spacer(Modifier.height(8.dp))
+                                    Row(
+                                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        themeOptions.forEach { (id, icon, label) ->
+                                            val isSelected = currentTheme == id
+                                            FilterChip(
+                                                selected = isSelected,
+                                                onClick = { onThemeChange(id) },
+                                                label = { Text(label) },
+                                                leadingIcon = { Icon(icon, null, modifier = Modifier.size(16.dp)) },
+                                                colors = FilterChipDefaults.filterChipColors(
+                                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                                )
+                                            )
+                                        }
+                                    }
+                                }
 
-            if (showProxyDialog) {
-                ControlProxyDialog(
-                    onDismiss = { showProxyDialog = false },
-                    onApply = { 
-                        isProxyEnabled = GlobalSettings.isCPProxyEnabled(context)
-                        context.startService(Intent(context, TailscaledService::class.java).apply { action = "APPLY_SETTINGS" })
+                                // Theme preset selector (Color Circles)
+                                if (!currentDynamicColor || android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) {
+                                    Spacer(Modifier.height(12.dp))
+                                    val presets = listOf(
+                                        PresetItem("default", Color(0xFF6750A4), "Дефолт"),
+                                        PresetItem("lavender", Color(0xFF704E9B), "Лаванда"),
+                                        PresetItem("emerald", Color(0xFF006B54), "Изумруд"),
+                                        PresetItem("sapphire", Color(0xFF005FAF), "Сапфир"),
+                                        PresetItem("amber", Color(0xFF825500), "Янтарь"),
+                                        PresetItem("monochrome", Color(0xFF1D2023), "Монохром")
+                                    )
+                                    Column {
+                                        Text("Цветовая палитра", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Spacer(Modifier.height(8.dp))
+                                        Row(
+                                            Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        ) {
+                                            presets.forEach { item ->
+                                                val isSelected = currentPreset == item.id
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(36.dp)
+                                                        .background(item.color, shape = CircleShape)
+                                                        .clickable { onPresetChange(item.id) }
+                                                        .border(
+                                                            width = if (isSelected) 3.dp else 1.dp,
+                                                            color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                                            shape = CircleShape
+                                                        ),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    if (isSelected) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Check,
+                                                            contentDescription = null,
+                                                            tint = Color.White,
+                                                            modifier = Modifier.size(18.dp)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Dynamic Colors switcher (Android 12+)
+                                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                                    Spacer(Modifier.height(12.dp))
+                                    Row(
+                                        Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(Modifier.weight(1f)) {
+                                            Text("Динамические цвета", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                            Text("Цвета системы Material You", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                                        }
+                                        Switch(checked = currentDynamicColor, onCheckedChange = onDynamicColorChange)
+                                    }
+                                }
+                            }
+
+                            Spacer(Modifier.height(12.dp))
+
+                            SettingsCard(title = "Хранилище") {
+                                SettingsClickableItem(
+                                    "Папка Taildrop",
+                                    taildropRootUri?.path ?: "Используется внутреннее хранилище",
+                                    Icons.Default.Folder
+                                ) { folderPicker.launch(null) }
+                            }
+
+                            Spacer(Modifier.height(12.dp))
+
+                            SettingsCard(title = "Резервное копирование и Система") {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Button(
+                                        onClick = { showBackupPasswordDialog = true },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Icon(Icons.Default.Archive, null)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text("Экспорт (ZIP)", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
+                                    OutlinedButton(
+                                        onClick = { fullRestoreLauncher.launch("*/*") },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Icon(Icons.Default.SettingsBackupRestore, null)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text("Импорт ZIP", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
+                                }
+                                Spacer(Modifier.height(12.dp))
+                                SettingsClickableItem("Оптимизация батареи", "Отключить ограничение фонового сна", Icons.Default.BatteryAlert) {
+                                    try {
+                                        val intent = Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Не удалось открыть настройки батареи", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                SettingsSwitchItem("Автостарт при загрузке", "Запускать службу при включении устройства", Icons.Default.PowerSettingsNew, autoStart) {
+                                    GlobalSettings.setAutoStartEnabled(context, it)
+                                    autoStart = it
+                                }
+                            }
+                        }
+
+                        1 -> { // TAB 1: Network & Proxy
+                            SettingsCard(title = "SOCKS5 Proxy (Внутренний)") {
+                                SettingsEditItem("Адрес SOCKS5", socks5, Icons.Default.Language) { socks5 = it; saveGlobalPref("socks5", it) }
+                                SettingsEditItem("Пользователь SOCKS5", socks5User, Icons.Default.Person, onAction = { generateRandomString(8) }, actionIcon = Icons.Default.Casino) { socks5User = it; saveGlobalPref("socks5_user", it) }
+                                SettingsEditItem("Пароль SOCKS5", socks5Pass, Icons.Default.Password, onAction = { generateRandomString(12) }, actionIcon = Icons.Default.Casino) { socks5Pass = it; saveGlobalPref("socks5_pass", it) }
+                                Spacer(Modifier.height(12.dp))
+                                OutlinedButton(onClick = { copySagerNetLink() }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+                                    Icon(Icons.Default.Share, null)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Скопировать ссылку для SagerNet")
+                                }
+                            }
+
+                            Spacer(Modifier.height(12.dp))
+
+                            SettingsCard(title = "HTTP Proxy") {
+                                SettingsEditItem("Адрес HTTP Proxy", httpProxy, Icons.Default.Http) { httpProxy = it; saveGlobalPref("httpproxy", it) }
+                            }
+
+                            Spacer(Modifier.height(12.dp))
+
+                            SettingsCard(title = "Проксирование управления") {
+                                SettingsClickableItem(
+                                    "Control Plane Proxy", 
+                                    if (isProxyEnabled) "Включен (${GlobalSettings.getCPField(context, "type")})" else "Отключен",
+                                    Icons.Default.Shield
+                                ) { showProxyDialog = true }
+                            }
+
+                            Spacer(Modifier.height(12.dp))
+
+                            SettingsCard(title = "Служебные анонсы") {
+                                SettingsEditItem(
+                                    title = "Advertise Tags (Теги)",
+                                    value = advertiseTags,
+                                    icon = Icons.Default.Label,
+                                    placeholder = "tag:server, tag:mobile",
+                                    description = "Запросить теги прав доступа для этой ноды",
+                                    suggestions = availableNetworkTags
+                                ) { 
+                                    advertiseTags = it
+                                    saveProfilePref("advertise_tags", it) 
+                                }
+                                if (appliedTags.isNotEmpty()) {
+                                    Text(
+                                        text = "Активные теги: " + appliedTags.joinToString(", "),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 4.dp)
+                                    )
+                                }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                SettingsEditItem(
+                                    title = "Advertise Routes (Подсети)",
+                                    value = advertiseRoutes,
+                                    icon = Icons.Default.Map,
+                                    placeholder = "10.0.0.0/24, 192.168.1.0/24",
+                                    description = "Маршрутизировать локальные подсети в Tailnet"
+                                ) { 
+                                    advertiseRoutes = it
+                                    saveProfilePref("advertise_routes", it) 
+                                }
+                            }
+                        }
+
+                        2 -> { // TAB 2: DNS Settings
+                            SettingsCard(title = "Прокси DNS") {
+                                SettingsEditItem("DNS Proxy Address", dnsProxy, Icons.Default.Toll) { dnsProxy = it; saveGlobalPref("dns_proxy", it) }
+                            }
+
+                            Spacer(Modifier.height(12.dp))
+
+                            SettingsCard(title = "Резервные сервера DNS") {
+                                SettingsEditItem("DNS Fallbacks", dnsFallbacks, Icons.Default.List, placeholder = "8.8.8.8:53,1.1.1.1:53") { dnsFallbacks = it; saveGlobalPref("dns_fallbacks", it) }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                SettingsEditItem("DoH Fallback URL", dohUrl, Icons.Default.Link, placeholder = "https://1.1.1.1/dns-query") { dohUrl = it; saveGlobalPref("doh_url", it) }
+                            }
+
+                            Spacer(Modifier.height(12.dp))
+
+                            SettingsCard(title = "Флаги и Логи") {
+                                SettingsSwitchItem("Принимать маршруты (Routes)", "Разрешить сети прописывать роуты", Icons.Default.Map, acceptRoutes) { acceptRoutes = it; saveGlobalPref("accept_routes", it) }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                SettingsSwitchItem("Принимать DNS", "Использовать DNS сервера сети", Icons.Default.Dns, acceptDns) { acceptDns = it; saveGlobalPref("accept_dns", it) }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                SettingsSwitchItem("Поддерживать фоновый режим", "Предотвращать засыпание службы через WakeLock", Icons.Default.BatteryFull, forceBg) { forceBg = it; saveGlobalPref("force_bg", it) }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                SettingsSwitchItem("Детальный лог", "Подробное логирование без фильтрации", Icons.Default.BugReport, detailedLogs) { detailedLogs = it; saveGlobalPref("detailed_logs", it) }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                SettingsEditItem("Дополнительные аргументы", extraArgs, Icons.Default.Code, "--flag=val ...") { extraArgs = it; saveGlobalPref("extra_args_raw", it) }
+                            }
+                        }
+
+                        3 -> { // TAB 3: Account Profile & Advanced
+                            SettingsCard(title = "Аккаунт: ${activeAccount.name}") {
+                                SettingsEditItem("Сервер авторизации (Headscale)", loginServer, Icons.Default.Cloud, placeholder = "https://controlplane.tailscale.com") { loginServer = it; saveProfilePref("login_server", it) }
+                                SettingsEditItem("Ключ авторизации (Auth Key)", authKey, Icons.Default.VpnKey) { authKey = it; saveProfilePref("authkey", it) }
+                                SettingsEditItem("Имя устройства (Hostname)", hostname, Icons.Default.Badge, onAction = { android.os.Build.MODEL.replace(" ", "-").lowercase() }, actionIcon = Icons.Default.AutoFixHigh) { hostname = it; saveProfilePref("hostname", it) }
+                                SettingsExitNodeItem("Выходной узел (Exit Node)", exitNodeIp, Icons.Default.Input) { id, ip ->
+                                    exitNodeIp = ip
+                                    saveProfilePref("exit_node_ip", ip, triggerService = false)
+                                    saveProfilePref("exit_node_id", id, triggerService = false)
+                                }
+                            }
+
+                            Spacer(Modifier.height(12.dp))
+
+                            SettingsCard(title = "Веб-интерфейс") {
+                                SettingsSwitchItem("Встроить Web UI", "Запустить локальный веб-сервер панели управления", Icons.Default.Web, enableWebUI) { enableWebUI = it; saveProfilePref("enable_webui", it) }
+                                if (enableWebUI) {
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                    SettingsEditItem("Адрес Web UI", webUIAddr, Icons.Default.Link) { webUIAddr = it; saveProfilePref("webui_addr", it) }
+                                }
+                            }
+
+                            Spacer(Modifier.height(12.dp))
+
+                            SettingsCard(title = "Резервное копирование аккаунта") {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Button(
+                                        onClick = { backupLauncher.launch("tailsocks_backup_${activeAccount.name}.json") },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Icon(Icons.Default.Backup, null)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text("Экспорт JSON", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
+                                    OutlinedButton(
+                                        onClick = { restoreLauncher.launch("application/json") },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Icon(Icons.Default.SettingsBackupRestore, null)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text("Импорт JSON", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
+                                }
+                                Spacer(Modifier.height(12.dp))
+                                OutlinedButton(
+                                    onClick = { showResetDialog = true },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                                ) {
+                                    Icon(Icons.Default.RestartAlt, null)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Сбросить состояние ноды")
+                                }
+                            }
+                        }
                     }
-                )
-            }
-            
-            SettingsSectionHeader("Global Networking")
-            SettingsEditItem("SOCKS5 Address", socks5, Icons.Default.Language) { socks5 = it; saveGlobalPref("socks5", it) }
-            SettingsEditItem("SOCKS5 User", socks5User, Icons.Default.Person, onAction = { generateRandomString(8) }, actionIcon = Icons.Default.Casino) { socks5User = it; saveGlobalPref("socks5_user", it) }
-            SettingsEditItem("SOCKS5 Pass", socks5Pass, Icons.Default.Password, onAction = { generateRandomString(12) }, actionIcon = Icons.Default.Casino) { socks5Pass = it; saveGlobalPref("socks5_pass", it) }
-            
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(onClick = { copySagerNetLink() }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
-                Icon(Icons.Default.Share, null); Spacer(Modifier.width(8.dp)); Text("Copy SagerNet Link")
-            }
-            Spacer(Modifier.height(8.dp))
-
-            SettingsEditItem("HTTP Proxy", httpProxy, Icons.Default.Http) { httpProxy = it; saveGlobalPref("httpproxy", it) }
-            
-            SettingsSectionHeader("Global DNS")
-            SettingsEditItem("DNS Proxy", dnsProxy, Icons.Default.Toll) { dnsProxy = it; saveGlobalPref("dns_proxy", it) }
-            SettingsEditItem("DNS Fallbacks", dnsFallbacks, Icons.Default.List, placeholder = "8.8.8.8:53,1.1.1.1:53") { dnsFallbacks = it; saveGlobalPref("dns_fallbacks", it) }
-            SettingsEditItem("DoH Fallback", dohUrl, Icons.Default.Link, placeholder = "https://1.1.1.1/dns-query") { dohUrl = it; saveGlobalPref("doh_url", it) }
-
-            SettingsSectionHeader("Global Flags & Logs")
-            SettingsSwitchItem("Accept Routes", "Allow network to set routes", Icons.Default.Map, acceptRoutes) { acceptRoutes = it; saveGlobalPref("accept_routes", it) }
-            SettingsSwitchItem("Accept DNS", "Allow network to set DNS", Icons.Default.Dns, acceptDns) { acceptDns = it; saveGlobalPref("accept_dns", it) }
-            SettingsSwitchItem("Force Background", "Keep WakeLock active", Icons.Default.BatteryFull, forceBg) { forceBg = it; saveGlobalPref("force_bg", it) }
-            SettingsSwitchItem("Detailed Logs", "Disable log filtering (noisy!)", Icons.Default.BugReport, detailedLogs) { detailedLogs = it; saveGlobalPref("detailed_logs", it) }
-            SettingsEditItem("Extra Arguments", extraArgs, Icons.Default.Code, "--flag=val ...") { extraArgs = it; saveGlobalPref("extra_args_raw", it) }
-
-            HorizontalDivider(Modifier.padding(vertical = 16.dp))
-
-            SettingsSectionHeader("Account Settings: ${activeAccount.name}")
-            SettingsEditItem("Login Server (Headscale)", loginServer, Icons.Default.Cloud, placeholder = "https://controlplane.tailscale.com") { loginServer = it; saveProfilePref("login_server", it) }
-            SettingsEditItem("Auth Key", authKey, Icons.Default.VpnKey) { authKey = it; saveProfilePref("authkey", it) }
-            SettingsEditItem("Hostname", hostname, Icons.Default.Badge, onAction = { android.os.Build.MODEL.replace(" ", "-").lowercase() }, actionIcon = Icons.Default.AutoFixHigh) { hostname = it; saveProfilePref("hostname", it) }
-            SettingsExitNodeItem("Exit Node", exitNodeIp, Icons.Default.Input) { id, ip ->
-                exitNodeIp = ip
-                saveProfilePref("exit_node_ip", ip, triggerService = false)
-                saveProfilePref("exit_node_id", id, triggerService = false)
-            }
-            SettingsEditItem(
-                title = "Advertise Tags",
-                value = advertiseTags,
-                icon = Icons.Default.Label,
-                placeholder = "tag:server, tag:mobile",
-                description = "Запросить права доступа по тегам для этого устройства",
-                suggestions = availableNetworkTags
-            ) { 
-                advertiseTags = it
-                saveProfilePref("advertise_tags", it) 
-            }
-            if (appliedTags.isNotEmpty()) {
-                Text(
-                    text = "Applied Tags: " + appliedTags.joinToString(", "),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(start = 56.dp, top = 2.dp, bottom = 8.dp)
-                )
-            }
-            SettingsEditItem(
-                title = "Advertise Routes",
-                value = advertiseRoutes,
-                icon = Icons.Default.Map,
-                placeholder = "10.0.0.0/24, 192.168.1.0/24",
-                description = "Анонсировать локальные подсети в Tailnet"
-            ) { 
-                advertiseRoutes = it
-                saveProfilePref("advertise_routes", it) 
-            }
-
-            SettingsSectionHeader("Web Interface")
-            SettingsSwitchItem("Enable Web UI", "Run built-in Tailscale web server", Icons.Default.Web, enableWebUI) { enableWebUI = it; saveProfilePref("enable_webui", it) }
-            if (enableWebUI) SettingsEditItem("Web UI Address", webUIAddr, Icons.Default.Link) { webUIAddr = it; saveProfilePref("webui_addr", it) }
-
-            SettingsSectionHeader("Advanced Profile")
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { backupLauncher.launch("tailsocks_backup_${activeAccount.name}.json") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) {
-                    Icon(Icons.Default.Backup, null); Spacer(Modifier.width(8.dp)); Text("Backup", maxLines = 1)
-                }
-                OutlinedButton(onClick = { restoreLauncher.launch("application/json") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) {
-                    Icon(Icons.Default.SettingsBackupRestore, null); Spacer(Modifier.width(8.dp)); Text("Import", maxLines = 1)
+                    Spacer(Modifier.height(32.dp))
                 }
             }
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(onClick = { showResetDialog = true }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
-                Icon(Icons.Default.RestartAlt, null); Spacer(Modifier.width(8.dp)); Text("Reset Node State")
-            }
-            Spacer(Modifier.height(32.dp))
         }
+    }
+
+    if (showProxyDialog) {
+        ControlProxyDialog(
+            onDismiss = { showProxyDialog = false },
+            onApply = { 
+                isProxyEnabled = GlobalSettings.isCPProxyEnabled(context)
+                context.startService(Intent(context, TailscaledService::class.java).apply { action = "APPLY_SETTINGS" })
+            }
+        )
     }
 
     if (showBackupPasswordDialog) {
@@ -470,15 +754,15 @@ fun SettingsScreen(onBack: () -> Unit) {
         var isPasswordVisible by remember { mutableStateOf(false) }
         AlertDialog(
             onDismissRequest = { showBackupPasswordDialog = false },
-            title = { Text("Backup Encryption Password") },
+            title = { Text("Пароль шифрования бэкапа") },
             text = {
                 Column {
-                    Text("Enter a password to encrypt your backup. You will need this password to restore your state.", style = MaterialTheme.typography.bodyMedium)
+                    Text("Введите пароль для шифрования архива с настройками и ключами. Он потребуется для восстановления.", style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
                         value = tempPassword,
                         onValueChange = { tempPassword = it },
-                        label = { Text("Password") },
+                        label = { Text("Пароль") },
                         singleLine = true,
                         visualTransformation = if (isPasswordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
                         trailingIcon = {
@@ -498,13 +782,13 @@ fun SettingsScreen(onBack: () -> Unit) {
                             showBackupPasswordDialog = false
                             fullBackupLauncher.launch("tailsocks_full_backup.enc")
                         } else {
-                            Toast.makeText(context, "Password cannot be empty", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Пароль не может быть пустым", Toast.LENGTH_SHORT).show()
                         }
                     }
-                ) { Text("Backup") }
+                ) { Text("Экспортировать") }
             },
             dismissButton = {
-                TextButton(onClick = { showBackupPasswordDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { showBackupPasswordDialog = false }) { Text("Отмена") }
             }
         )
     }
@@ -517,15 +801,15 @@ fun SettingsScreen(onBack: () -> Unit) {
                 showRestorePasswordDialog = false
                 pendingRestoreUri = null
             },
-            title = { Text("Backup Decryption Password") },
+            title = { Text("Пароль расшифровки бэкапа") },
             text = {
                 Column {
-                    Text("Enter the password that was used to encrypt this backup.", style = MaterialTheme.typography.bodyMedium)
+                    Text("Введите пароль, который использовался для создания этого бэкапа.", style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
                         value = tempPassword,
                         onValueChange = { tempPassword = it },
-                        label = { Text("Password") },
+                        label = { Text("Пароль") },
                         singleLine = true,
                         visualTransformation = if (isPasswordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
                         trailingIcon = {
@@ -545,18 +829,46 @@ fun SettingsScreen(onBack: () -> Unit) {
                             showRestorePasswordDialog = false
                             performRestore(uri, tempPassword)
                         } else {
-                            Toast.makeText(context, "Password cannot be empty", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Пароль не может быть пустым", Toast.LENGTH_SHORT).show()
                         }
                     }
-                ) { Text("Restore") }
+                ) { Text("Импортировать") }
             },
             dismissButton = {
                 TextButton(onClick = { 
                     showRestorePasswordDialog = false
                     pendingRestoreUri = null
-                }) { Text("Cancel") }
+                }) { Text("Отмена") }
             }
         )
+    }
+}
+
+@Composable
+fun SettingsCard(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+            content()
+        }
     }
 }
 
@@ -616,11 +928,6 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
-}
-
-@Composable
-fun SettingsSectionHeader(title: String) {
-    Text(text = title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 12.dp))
 }
 
 @Composable
@@ -786,8 +1093,6 @@ fun SettingsExitNodeItem(
     fun applyExitNode(id: String, ip: String) {
         onSave(id, ip)
         scope.launch(Dispatchers.IO) {
-            // В новых версиях Tailscale (v1.68+) MaskedPrefs использует индивидуальные bool-флаги 'Set'.
-            // ExitNodeIDSet: true сообщает демону, что мы хотим применить это поле.
             val prefsJson = "{\"ExitNodeID\": \"$id\", \"ExitNodeIDSet\": true}"
             val res = Appctr.setPrefs(prefsJson)
             if (res != "OK") {
@@ -854,3 +1159,4 @@ fun SettingsExitNodeItem(
         }
     }
 }
+

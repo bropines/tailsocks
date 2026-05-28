@@ -8,6 +8,9 @@ object GlobalSettings {
     private const val KEY_TAILDROP_ROOT_URI = "taildrop_root_uri"
     private const val KEY_AUTO_START = "auto_start"
     private const val KEY_CP_ENABLED = "cp_enabled"
+    private const val KEY_APP_THEME = "app_theme"
+    private const val KEY_THEME_PRESET = "theme_preset"
+    private const val KEY_DYNAMIC_COLOR = "dynamic_color"
 
     private fun getPrefs(context: Context) = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
@@ -59,4 +62,13 @@ object GlobalSettings {
 
     fun getCPField(context: Context, key: String, default: String = ""): String = getPrefs(context).getString("cp_$key", default) ?: default
     fun setCPField(context: Context, key: String, value: String) = getPrefs(context).edit().putString("cp_$key", value).apply()
+
+    fun getAppTheme(context: Context): String = getString(context, KEY_APP_THEME, "system")
+    fun setAppTheme(context: Context, theme: String) = setString(context, KEY_APP_THEME, theme)
+
+    fun getThemePreset(context: Context): String = getString(context, KEY_THEME_PRESET, "default")
+    fun setThemePreset(context: Context, preset: String) = setString(context, KEY_THEME_PRESET, preset)
+
+    fun isDynamicColorEnabled(context: Context): Boolean = getBoolean(context, KEY_DYNAMIC_COLOR, true)
+    fun setDynamicColorEnabled(context: Context, enabled: Boolean) = setBoolean(context, KEY_DYNAMIC_COLOR, enabled)
 }
