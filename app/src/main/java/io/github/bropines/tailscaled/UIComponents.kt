@@ -118,7 +118,8 @@ fun PeerDetailsModal(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState
+        sheetState = sheetState,
+        modifier = Modifier.fillMaxHeight(0.6f)
     ) {
         Column(
             Modifier
