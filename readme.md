@@ -53,23 +53,59 @@ TailSocks is a high-performance, lightweight Android client for [Tailscale](http
 
 <table width="100%">
   <tr>
-    <td width="50%" align="center">
-      <strong>Tabbed Settings UI</strong><br/>
-      <img src="docs/screenshot_settings.png" alt="Settings Redesign" width="300"/>
+    <td width="33%" align="center">
+      <strong>Main Dashboard</strong><br/>
+      <img src="docs/screenshot_main.png" alt="Main Dashboard" width="220"/>
     </td>
-    <td width="50%" align="center">
-      <strong>Emerald Theme Preset</strong><br/>
-      <img src="docs/screenshot_theme_emerald.png" alt="Emerald Theme" width="300"/>
+    <td width="33%" align="center">
+      <strong>Settings (Style Tab)</strong><br/>
+      <img src="docs/screenshot_settings_style.png" alt="Settings Style" width="220"/>
+    </td>
+    <td width="33%" align="center">
+      <strong>Settings (Network Tab)</strong><br/>
+      <img src="docs/screenshot_settings_network.png" alt="Settings Network" width="220"/>
     </td>
   </tr>
   <tr>
-    <td width="50%" align="center">
-      <strong>Amber Theme & AMOLED Mode</strong><br/>
-      <img src="docs/screenshot_theme_amber.png" alt="Amber AMOLED Theme" width="300"/>
+    <td width="33%" align="center">
+      <strong>Settings (Core Tab)</strong><br/>
+      <img src="docs/screenshot_settings_core.png" alt="Settings Core" width="220"/>
     </td>
-    <td width="50%" align="center">
-      <strong>Taildrive Share Management</strong><br/>
-      <img src="docs/screenshot_taildrive.png" alt="Taildrive Shares" width="300"/>
+    <td width="33%" align="center">
+      <strong>Settings (Profile Tab)</strong><br/>
+      <img src="docs/screenshot_settings_profile.png" alt="Settings Profile" width="220"/>
+    </td>
+    <td width="33%" align="center">
+      <strong>Taildrive Shares</strong><br/>
+      <img src="docs/screenshot_taildrive.png" alt="Taildrive" width="220"/>
+    </td>
+  </tr>
+  <tr>
+    <td width="33%" align="center">
+      <strong>Serve & Funnel</strong><br/>
+      <img src="docs/screenshot_serve.png" alt="Serve & Funnel" width="220"/>
+    </td>
+    <td width="33%" align="center">
+      <strong>Taildrop Hub</strong><br/>
+      <img src="docs/screenshot_files.png" alt="Taildrop Hub" width="220"/>
+    </td>
+    <td width="33%" align="center">
+      <strong>Peers List</strong><br/>
+      <img src="docs/screenshot_peers.png" alt="Peers list" width="220"/>
+    </td>
+  </tr>
+  <tr>
+    <td width="33%" align="center">
+      <strong>Network Diagnostics</strong><br/>
+      <img src="docs/screenshot_netcheck.png" alt="Netcheck Diagnostics" width="220"/>
+    </td>
+    <td width="33%" align="center">
+      <strong>System Logs</strong><br/>
+      <img src="docs/screenshot_logs.png" alt="System Logs" width="220"/>
+    </td>
+    <td width="33%" align="center">
+      <strong>Widgets Showcase</strong><br/>
+      <img src="docs/screenshot_widgets.png" alt="Widgets Showcase" width="220"/>
     </td>
   </tr>
 </table>
