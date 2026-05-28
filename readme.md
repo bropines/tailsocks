@@ -20,36 +20,36 @@ TailSocks is a high-performance, lightweight Android client for [Tailscale](http
 
 ---
 
-## Key Features
+## ✨ Key Features
 
-### 1. Taildrive (WebDAV Shared Folders) [New]
+### 📂 1. Taildrive (WebDAV Shared Folders) [New]
 * **Built-in WebDAV Server:** Share local device folders with your entire Tailnet directly using Tailscale's standard drive integration.
 * **Storage Access Framework:** Integrate physical path mappings for Storage Access Framework (SAF) folder selections.
 * **Seamless Cross-Platform Compatibility:** Fixed path case-sensitivity issues, ensuring flawless operation when mounting shares from Windows, macOS, or Linux.
 * **Granular Control:** Easy-to-use directory management interface with full path validation and permission handling (`MANAGE_EXTERNAL_STORAGE`).
 
-### 2. Redesigned Settings & Reactive Theme Engine [New]
+### 🎨 2. Redesigned Settings & Reactive Theme Engine [New]
 * **Tabbed Categorization:** The settings interface is split into four clean, swipeable tabs (Style, Network, Core, Profile) to eliminate long vertical scrolling.
 * **Custom Theme Engine:** Native support for System, Light, Dark, and **AMOLED** (pure black `#000000` background for optimal battery efficiency).
 * **7 Color Presets:** Instantly toggle between pre-configured styles: Default (Material 3), Lavender, Emerald, Sapphire, Amber, Monochrome, and a sleek **TokioNight** palette.
 * **Fully Reactive Theme Synced:** Live visual theme switches propagate instantly across all active screens in real-time, without forcing activity restarts.
 * **Material You:** Full support for dynamic color customization on Android 12+ devices.
 
-### 3. Native LocalAPI Architecture
+### 🔌 3. Native LocalAPI Architecture
 * **CLI-less Sovereignty:** TailSocks manages the Tailscale engine entirely via the Unix socket (`tailscaled.sock`) using LocalAPI v0.
 * **Account Isolation:** Multi-account profile separation, saving profile configurations in independent states under `files/states/{id}/`.
 
-### 4. Serve & Funnel Overlays
+### 🌐 4. Serve & Funnel Overlays
 * **In-App Proxy Control:** Expose local web applications or services to your private Tailnet or the public internet with native rules.
 * **Reset-then-Apply:** Guaranteed stateless configuration state on every update to prevent policy synchronization desyncs.
 
-### 5. SOCKS5 & DNS Wrappers
+### 🛡️ 5. SOCKS5 & DNS Wrappers
 * **Coexistence-Friendly:** Operates cleanly alongside system-wide adblockers (e.g. AdGuard) or external wireguard clients.
 * **DNS Wrapping:** Resolves MagicDNS and Split DNS queries via an internal DNS-over-TCP proxy wrapper (port 1053) that routes queries through a SOCKS5 tunnel.
 
 ---
 
-## Screenshots
+## 📸 Screenshots
 
 <table width="100%">
   <tr>
@@ -76,7 +76,7 @@ TailSocks is a high-performance, lightweight Android client for [Tailscale](http
 
 ---
 
-## System Architecture
+## 🏗️ System Architecture
 
 TailSocks is built as a hybrid high-performance platform:
 1. **Tailscale Core:** A tailored Go environment compiled as a shared library (`libtailscale.so`) via `appctr/build.sh`.
@@ -93,7 +93,7 @@ graph TD
 
 ---
 
-## Documentation
+## 📚 Documentation
 
 * [**Architecture Deep Dive**](docs/ARCHITECTURE.md) — Technical details on DNS wrapping and account isolation.
 * [**Build Instructions**](docs/BUILDING.md) — Setting up the NDK environment and compiling the Go core.
@@ -104,7 +104,17 @@ graph TD
 
 ---
 
-## License
+## 🤝 Credits & Acknowledgements
+
+This project would not be possible without the excellent work of the following developers and projects:
+
+* **App Developer:** [Bropines](https://github.com/bropines)
+* **Patch Developer:** [Asutorufa](https://github.com/Asutorufa) for the essential Android [tailscale patches](https://github.com/Asutorufa/tailscale).
+* **Core Network Engine:** [Tailscale Inc.](https://github.com/tailscale/tailscale) for their incredible userspace core engine (`tsnet`).
+
+---
+
+## 📜 License
 
 Distributed under the BSD-3-Clause License. See `LICENSE` for details.
 
