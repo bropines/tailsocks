@@ -1,0 +1,36 @@
+--- orig/net/tstun/wrap.go	2026-05-21 21:27:19.000000000 +0300
++++ tailscale_src/net/tstun/wrap.go	2026-05-28 21:31:49.588493207 +0300
+@@ -448,6 +448,21 @@
+ 	return t.tdev.File()
+ }
+ 
++// IsFakeTUN reports whether the underlying TUN device is a fake TUN.
++func (t *Wrapper) IsFakeTUN() bool {
++	if t == nil || t.tdev == nil {
++		return false
++	}
++	type fakeTunDetector interface {
++		IsFakeTun() bool
++	}
++	if f, ok := t.tdev.(fakeTunDetector); ok {
++		return f.IsFakeTun()
++	}
++	return false
++}
++
++
+ func (t *Wrapper) MTU() (int, error) {
+ 	return t.tdev.MTU()
+ }
+--- orig/wgengine/netstack/netstack.go	2026-05-21 21:27:19.000000000 +0300
++++ tailscale_src/wgengine/netstack/netstack.go	2026-05-28 21:31:53.420492082 +0300
+@@ -1063,6 +1063,9 @@
+ 		// send traffic destined for the local device, hence must
+ 		// be injected 'inbound'.
+ 		sendToHost := ns.shouldSendToHost(pkt)
++		if sendToHost && ns.isSelfDst(pkt) && ns.tundev != nil && ns.tundev.IsFakeTUN() {
++			sendToHost = false
++		}
+ 
+ 		// pkt has a non-zero refcount, so injection methods takes
+ 		// ownership of one count and will decrement on completion.

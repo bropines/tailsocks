@@ -55,4 +55,11 @@ diff -N -r -u orig/drive tailscale_src/drive > patches/07-taildrive-android.patc
 # 08-netstack-cgnat.patch (cmd/tailscaled/netstack.go)
 diff -u orig/cmd/tailscaled/netstack.go tailscale_src/cmd/tailscaled/netstack.go > patches/08-netstack-cgnat.patch || true
 
+# 09-netstack-loopback.patch (net/tstun/wrap.go and wgengine/netstack/netstack.go)
+{
+    diff -u orig/net/tstun/wrap.go tailscale_src/net/tstun/wrap.go || true
+    diff -u orig/wgengine/netstack/netstack.go tailscale_src/wgengine/netstack/netstack.go || true
+} > patches/09-netstack-loopback.patch
+
 echo "✅ Atomic patches generated successfully in appctr/patches/."
+
