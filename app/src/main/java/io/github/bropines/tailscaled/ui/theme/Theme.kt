@@ -173,14 +173,7 @@ fun ColorScheme.toAmoled(): ColorScheme {
     return this.copy(
         background = Color(0xFF000000),
         surface = Color(0xFF000000),
-        surfaceDim = Color(0xFF080808),
-        surfaceBright = Color(0xFF121212),
-        surfaceVariant = Color(0xFF0F0F0F),
-        surfaceContainer = Color(0xFF0A0A0A),
-        surfaceContainerLow = Color(0xFF050505),
-        surfaceContainerLowest = Color(0xFF000000),
-        surfaceContainerHigh = Color(0xFF151515),
-        surfaceContainerHighest = Color(0xFF1F1F1F)
+        surfaceContainerLowest = Color(0xFF000000)
     )
 }
 
