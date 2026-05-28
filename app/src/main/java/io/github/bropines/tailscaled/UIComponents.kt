@@ -8,9 +8,11 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -112,9 +114,29 @@ fun PeerDetailsModal(
     val scope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var pingResult by remember { mutableStateOf<String?>(null) }
+    var dragAmount by remember { mutableFloatStateOf(0f) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        Column(Modifier.fillMaxWidth().statusBarsPadding().padding(bottom = 32.dp)) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(bottom = 32.dp)
+                .pointerInput(peer.id) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            if (dragAmount > 100f) {
+                                onPrevPeer?.invoke()
+                            } else if (dragAmount < -100f) {
+                                onNextPeer?.invoke()
+                            }
+                            dragAmount = 0f
+                        },
+                        onHorizontalDrag = { _, dragAmountDelta ->
+                            dragAmount += dragAmountDelta
+                        }
+                    )
+                }
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
