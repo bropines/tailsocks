@@ -154,7 +154,18 @@ fun PeersScreen(onBack: () -> Unit) {
         }
 
         selectedPeer?.let { p ->
-            PeerDetailsModal(p, { selectedPeer = null }, { peerForFileDrop = p; filePickerLauncher.launch("*/*") })
+            val allSelectablePeers = listOfNotNull(selfPeer) + filteredPeers
+            val currentIndex = allSelectablePeers.indexOf(p)
+            val prevPeer = if (currentIndex > 0) allSelectablePeers[currentIndex - 1] else null
+            val nextPeer = if (currentIndex < allSelectablePeers.size - 1) allSelectablePeers[currentIndex + 1] else null
+
+            PeerDetailsModal(
+                peer = p,
+                onDismiss = { selectedPeer = null },
+                onSendFileClick = { peerForFileDrop = p; filePickerLauncher.launch("*/*") },
+                onPrevPeer = if (prevPeer != null) { { selectedPeer = prevPeer } } else null,
+                onNextPeer = if (nextPeer != null) { { selectedPeer = nextPeer } } else null
+            )
         }
     }
 }

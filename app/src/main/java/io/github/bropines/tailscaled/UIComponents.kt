@@ -14,6 +14,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -99,18 +101,46 @@ fun PeerShareItem(peer: PeerData, enabled: Boolean, onClick: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PeerDetailsModal(peer: PeerData, onDismiss: () -> Unit, onSendFileClick: () -> Unit = {}) {
+fun PeerDetailsModal(
+    peer: PeerData,
+    onDismiss: () -> Unit,
+    onSendFileClick: () -> Unit = {},
+    onPrevPeer: (() -> Unit)? = null,
+    onNextPeer: (() -> Unit)? = null
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var pingResult by remember { mutableStateOf<String?>(null) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        Column(Modifier.fillMaxWidth().padding(bottom = 32.dp)) {
-            Column(Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
-                Text(peer.getDisplayName(), fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                pingResult?.let { Text(it, color = MaterialTheme.colorScheme.primary, fontFamily = FontFamily.Monospace, fontSize = 14.sp) }
+        Column(Modifier.fillMaxWidth().statusBarsPadding().padding(bottom = 32.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (onPrevPeer != null) {
+                    IconButton(onClick = onPrevPeer) {
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous")
+                    }
+                } else {
+                    Spacer(Modifier.size(48.dp))
+                }
+                
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(peer.getDisplayName(), fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    pingResult?.let { Text(it, color = MaterialTheme.colorScheme.primary, fontFamily = FontFamily.Monospace, fontSize = 14.sp) }
+                }
+                
+                if (onNextPeer != null) {
+                    IconButton(onClick = onNextPeer) {
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next")
+                    }
+                } else {
+                    Spacer(Modifier.size(48.dp))
+                }
             }
+
             Row(Modifier.padding(horizontal = 24.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button(onClick = {
                     pingResult = "Pinging..."
@@ -124,10 +154,24 @@ fun PeerDetailsModal(peer: PeerData, onDismiss: () -> Unit, onSendFileClick: () 
                     Icon(Icons.Default.Send, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Send File")
                 }
             }
-            LazyColumn(Modifier.fillMaxWidth()) {
+            LazyColumn(Modifier.fillMaxWidth().weight(1f, fill = false)) {
                 items(peer.getDetailsList()) { (l, v) ->
-                    ListItem(headlineContent = { Text(l, style = MaterialTheme.typography.bodySmall) }, supportingContent = { Text(v, fontFamily = FontFamily.Monospace) },
-                        modifier = Modifier.clickable { (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText(l, v)) })
+                    ListItem(
+                        headlineContent = { Text(l, style = MaterialTheme.typography.bodySmall) },
+                        supportingContent = { Text(v, fontFamily = FontFamily.Monospace) },
+                        trailingContent = {
+                            Icon(
+                                imageVector = Icons.Default.ContentCopy,
+                                contentDescription = "Copy",
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            )
+                        },
+                        modifier = Modifier.clickable {
+                            (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText(l, v))
+                            Toast.makeText(context, "$l copied to clipboard!", Toast.LENGTH_SHORT).show()
+                        }
+                    )
                 }
             }
         }
