@@ -22,30 +22,31 @@ TailSocks is a high-performance, lightweight Android client for [Tailscale](http
 
 ## ✨ Key Features
 
-### 📂 1. Taildrive (WebDAV Shared Folders) [New]
-* **Built-in WebDAV Server:** Share local device folders with your entire Tailnet directly using Tailscale's standard drive integration.
+### 🔌 1. Native LocalAPI Architecture
+* **CLI-less Sovereignty:** Complete Tailscale daemon management directly via the Unix socket (`tailscaled.sock`) using LocalAPI v0.
+* **Account Isolation:** Switch between multiple profiles with strictly separated credentials, keypairs, and states stored inside isolated folders.
+
+### 🛡️ 2. SOCKS5, DNS & Control Plane Proxy
+* **Control Plane Tunneling:** Route Control Plane traffic through a custom HTTP/SOCKS5 proxy, enabling connection to Tailscale in regions where the service is blocked or restricted.
+* **Coexistence-Friendly:** Seamlessly runs alongside system-wide adblockers (e.g., AdGuard) or other active VPN clients.
+* **DNS Wrapping:** Routes MagicDNS and Split DNS queries over an internal TCP proxy wrapper through the SOCKS5 tunnel.
+
+### 🌐 3. Tailscale Serve & Funnel Overlays
+* **In-App Proxy Control:** Expose local ports and services securely to your private Tailnet or the public internet with a native UI.
+* **Reset-then-Apply State:** Employs clean config updates on every synchronization to prevent policy desyncs.
+
+### 🚀 4. Taildrop Hub & System Share Sheet
+* **File Sharing Hub:** Receive, preview, and organize incoming files locally.
+* **Direct Send via Share Sheet:** Share files directly from any system file manager or third-party apps using the native Android Share menu (available on devices without TAG restrictions).
+
+### 📂 5. Taildrive (WebDAV Shared Folders)
+* **Built-in WebDAV Server:** Share local device directories with your entire Tailnet using Tailscale's standard drive integration.
 * **Storage Access Framework:** Integrate physical path mappings for Storage Access Framework (SAF) folder selections.
-* **Seamless Cross-Platform Compatibility:** Fixed path case-sensitivity issues, ensuring flawless operation when mounting shares from Windows, macOS, or Linux.
-* **Granular Control:** Easy-to-use directory management interface with full path validation and permission handling (`MANAGE_EXTERNAL_STORAGE`).
+* **Seamless Cross-Platform Compatibility:** Features path case-insensitivity fixes to ensure stable operation when mounting shares from Windows, macOS, or Linux clients.
 
-### 🎨 2. Redesigned Settings & Reactive Theme Engine [New]
-* **Tabbed Categorization:** The settings interface is split into four clean, swipeable tabs (Style, Network, Core, Profile) to eliminate long vertical scrolling.
-* **Custom Theme Engine:** Native support for System, Light, Dark, and **AMOLED** (pure black `#000000` background for optimal battery efficiency).
-* **7 Color Presets:** Instantly toggle between pre-configured styles: Default (Material 3), Lavender, Emerald, Sapphire, Amber, Monochrome, and a sleek **TokioNight** palette.
-* **Fully Reactive Theme Synced:** Live visual theme switches propagate instantly across all active screens in real-time, without forcing activity restarts.
-* **Material You:** Full support for dynamic color customization on Android 12+ devices.
-
-### 🔌 3. Native LocalAPI Architecture
-* **CLI-less Sovereignty:** TailSocks manages the Tailscale engine entirely via the Unix socket (`tailscaled.sock`) using LocalAPI v0.
-* **Account Isolation:** Multi-account profile separation, saving profile configurations in independent states under `files/states/{id}/`.
-
-### 🌐 4. Serve & Funnel Overlays
-* **In-App Proxy Control:** Expose local web applications or services to your private Tailnet or the public internet with native rules.
-* **Reset-then-Apply:** Guaranteed stateless configuration state on every update to prevent policy synchronization desyncs.
-
-### 🛡️ 5. SOCKS5 & DNS Wrappers
-* **Coexistence-Friendly:** Operates cleanly alongside system-wide adblockers (e.g. AdGuard) or external wireguard clients.
-* **DNS Wrapping:** Resolves MagicDNS and Split DNS queries via an internal DNS-over-TCP proxy wrapper (port 1053) that routes queries through a SOCKS5 tunnel.
+### 📦 6. Exit Node Routing & Settings Backups
+* **Exit Nodes:** Route all your internet traffic through any authorized peer on your Tailnet with auto-healing and LAN access support.
+* **Full App State Backups:** Export and import settings, profiles, and SOCKS5 parameters in secure ZIP/JSON archives for seamless data portability.
 
 ---
 
