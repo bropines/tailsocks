@@ -23,8 +23,52 @@
  	return t.tdev.MTU()
  }
 --- orig/wgengine/netstack/netstack.go	2026-05-21 21:27:19.000000000 +0300
-+++ tailscale_src/wgengine/netstack/netstack.go	2026-05-28 22:09:36.611882664 +0300
-@@ -1057,12 +1057,30 @@
++++ tailscale_src/wgengine/netstack/netstack.go	2026-05-28 22:31:21.475528572 +0300
+@@ -942,6 +942,21 @@
+ }
+ 
+ func (ns *Impl) DialContextTCP(ctx context.Context, ipp netip.AddrPort) (*gonet.TCPConn, error) {
++	var localAddr netip.Addr
++	isIPv6 := ipp.Addr().Is6()
++	for _, protocolAddr := range ns.ipstack.AllAddresses()[nicID] {
++		ap := protocolAddr.AddressWithPrefix
++		ip := netaddrIPFromNetstackIP(ap.Address)
++		if ip.IsValid() && ip.Is6() == isIPv6 && ns.isLocalIP(ip) {
++			localAddr = ip
++			break
++		}
++	}
++
++	if localAddr.IsValid() {
++		return ns.DialContextTCPWithBind(ctx, localAddr, ipp)
++	}
++
+ 	remoteAddress := tcpip.FullAddress{
+ 		NIC:  nicID,
+ 		Addr: tcpip.AddrFromSlice(ipp.Addr().AsSlice()),
+@@ -979,6 +994,21 @@
+ }
+ 
+ func (ns *Impl) DialContextUDP(ctx context.Context, ipp netip.AddrPort) (*gonet.UDPConn, error) {
++	var localAddr netip.Addr
++	isIPv6 := ipp.Addr().Is6()
++	for _, protocolAddr := range ns.ipstack.AllAddresses()[nicID] {
++		ap := protocolAddr.AddressWithPrefix
++		ip := netaddrIPFromNetstackIP(ap.Address)
++		if ip.IsValid() && ip.Is6() == isIPv6 && ns.isLocalIP(ip) {
++			localAddr = ip
++			break
++		}
++	}
++
++	if localAddr.IsValid() {
++		return ns.DialContextUDPWithBind(ctx, localAddr, ipp)
++	}
++
+ 	remoteAddress := &tcpip.FullAddress{
+ 		NIC:  nicID,
+ 		Addr: tcpip.AddrFromSlice(ipp.Addr().AsSlice()),
+@@ -1057,12 +1087,30 @@
  			ns.logf("[v2] packet Write out: % x", stack.PayloadSince(pkt.NetworkHeader()).AsSlice())
  		}
  
@@ -60,7 +104,7 @@
  
  		// pkt has a non-zero refcount, so injection methods takes
  		// ownership of one count and will decrement on completion.
-@@ -1077,6 +1095,10 @@
+@@ -1077,6 +1125,10 @@
  			// earmarked for the host. Neither the inbound path (fakeTUN Write is a
  			// no-op) nor the outbound path (WireGuard has no peer for our own IP)
  			// can handle these.
@@ -71,7 +115,7 @@
  			if ns.isSelfDst(pkt) {
  				ns.linkEP.DeliverLoopback(pkt)
  				continue
-@@ -1181,6 +1203,13 @@
+@@ -1181,6 +1233,13 @@
  	return ns.atomicIsLocalIPFunc.Load()(ip)
  }
  
