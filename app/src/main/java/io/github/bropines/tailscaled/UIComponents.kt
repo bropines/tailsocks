@@ -118,7 +118,7 @@ fun PeerDetailsModal(
     var dragAmount by remember { mutableFloatStateOf(0f) }
 
     val configuration = LocalConfiguration.current
-    val maxHeight = (configuration.screenHeightDp * 0.7f).dp
+    val maxHeight = (configuration.screenHeightDp * 0.85f).dp
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
