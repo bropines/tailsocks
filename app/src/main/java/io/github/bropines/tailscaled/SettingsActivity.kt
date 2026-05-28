@@ -109,7 +109,7 @@ fun SettingsScreen(
     // Tab Navigation State
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf(
-        Pair("Style", Icons.Default.Palette),
+        Pair("APP", Icons.Default.Palette),
         Pair("Network", Icons.Default.Language),
         Pair("Core", Icons.Default.Tune),
         Pair("Profile", Icons.Default.AccountCircle)
