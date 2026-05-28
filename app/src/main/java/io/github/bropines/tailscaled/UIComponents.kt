@@ -27,6 +27,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -116,14 +117,17 @@ fun PeerDetailsModal(
     var pingResult by remember { mutableStateOf<String?>(null) }
     var dragAmount by remember { mutableFloatStateOf(0f) }
 
+    val configuration = LocalConfiguration.current
+    val maxHeight = (configuration.screenHeightDp * 0.7f).dp
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        modifier = Modifier.fillMaxHeight(0.6f)
+        sheetState = sheetState
     ) {
         Column(
             Modifier
                 .fillMaxWidth()
+                .heightIn(max = maxHeight)
                 .padding(top = 4.dp, bottom = 16.dp)
                 .pointerInput(peer.id) {
                     detectHorizontalDragGestures(

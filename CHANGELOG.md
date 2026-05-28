@@ -12,6 +12,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Changed
 - Made the peer details modal header more compact by reducing paddings, button heights, and title font sizes to fit more info on screen.
+- Restricted the maximum content height of the peer details bottom sheet to 70% of the screen height (using heightIn on the inner Column) to prevent it from covering the entire screen while remaining anchored to the bottom.
 
 ## [2.0.8-beta] - 2026-05-25
 ### Added
