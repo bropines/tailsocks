@@ -1,0 +1,20 @@
+--- orig/cmd/tailscaled/netstack.go	2026-05-21 21:27:19.000000000 +0300
++++ tailscale_src/cmd/tailscaled/netstack.go	2026-05-28 21:17:48.720719353 +0300
+@@ -11,6 +11,7 @@
+ 	"net"
+ 	"net/netip"
+ 
++	"tailscale.com/net/tsaddr"
+ 	"tailscale.com/tsd"
+ 	"tailscale.com/types/logger"
+ 	"tailscale.com/wgengine/netstack"
+@@ -46,6 +47,9 @@
+ 	if onlyNetstack {
+ 		e := sys.Engine.Get()
+ 		dialer.UseNetstackForIP = func(ip netip.Addr) bool {
++			if ip == tsaddr.TailscaleServiceIP() || ip == tsaddr.TailscaleServiceIPv6() {
++				return true
++			}
+ 			_, ok := e.PeerForIP(ip)
+ 			return ok
+ 		}

@@ -52,4 +52,7 @@ diff -N -u /dev/null tailscale_src/cmd/tailscaled/fix_android_netmon.go > patche
 # 07-taildrive-android.patch (drive)
 diff -N -r -u orig/drive tailscale_src/drive > patches/07-taildrive-android.patch || true
 
+# 08-netstack-cgnat.patch (cmd/tailscaled/netstack.go)
+diff -u orig/cmd/tailscaled/netstack.go tailscale_src/cmd/tailscaled/netstack.go > patches/08-netstack-cgnat.patch || true
+
 echo "✅ Atomic patches generated successfully in appctr/patches/."
