@@ -1,5 +1,5 @@
 --- orig/cmd/tailscaled/proxy.go	2026-05-21 21:27:19.000000000 +0300
-+++ tailscale_src/cmd/tailscaled/proxy.go	2026-05-25 16:53:08.727840325 +0300
++++ tailscale_src/cmd/tailscaled/proxy.go	2026-05-28 22:09:36.591882671 +0300
 @@ -15,6 +15,7 @@
  	"net"
  	"net/http"

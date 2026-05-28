@@ -1,6 +1,18 @@
+diff -N -r -u orig/drive/driveimpl/drive_test.go tailscale_src/drive/driveimpl/drive_test.go
+--- orig/drive/driveimpl/drive_test.go	2026-05-21 21:27:19.000000000 +0300
++++ tailscale_src/drive/driveimpl/drive_test.go	2026-05-28 22:14:20.999804925 +0300
+@@ -512,7 +512,7 @@
+ 	r := &remote{
+ 		ln:          ln,
+ 		fileServer:  fileServer,
+-		fs:          NewFileSystemForRemote(log.Printf),
++		fs:          NewFileSystemForRemote(log.Printf, nil),
+ 		shares:      make(map[string]string),
+ 		permissions: make(map[string]drive.Permission),
+ 	}
 diff -N -r -u orig/drive/driveimpl/fileserver.go tailscale_src/drive/driveimpl/fileserver.go
 --- orig/drive/driveimpl/fileserver.go	2026-05-21 21:27:19.000000000 +0300
-+++ tailscale_src/drive/driveimpl/fileserver.go	2026-05-28 12:45:37.210267110 +0300
++++ tailscale_src/drive/driveimpl/fileserver.go	2026-05-28 22:09:36.607882667 +0300
 @@ -10,6 +10,7 @@
  	"fmt"
  	"net"
@@ -27,9 +39,69 @@ diff -N -r -u orig/drive/driveimpl/fileserver.go tailscale_src/drive/driveimpl/f
  	s.sharesMu.RLock()
  	h, found := s.shareHandlers[share]
  	s.sharesMu.RUnlock()
+diff -N -r -u orig/drive/driveimpl/remote_impl.go tailscale_src/drive/driveimpl/remote_impl.go
+--- orig/drive/driveimpl/remote_impl.go	2026-05-21 21:27:19.000000000 +0300
++++ tailscale_src/drive/driveimpl/remote_impl.go	2026-05-28 22:13:59.059810190 +0300
+@@ -27,27 +27,33 @@
+ 	"tailscale.com/drive/driveimpl/compositedav"
+ 	"tailscale.com/drive/driveimpl/dirfs"
+ 	"tailscale.com/drive/driveimpl/shared"
++	"tailscale.com/net/tsaddr"
++	"tailscale.com/net/tsdial"
+ 	"tailscale.com/safesocket"
+ 	"tailscale.com/types/logger"
+ )
+ 
+-func NewFileSystemForRemote(logf logger.Logf) *FileSystemForRemote {
++func NewFileSystemForRemote(logf logger.Logf, getDialer func() *tsdial.Dialer) *FileSystemForRemote {
+ 	if logf == nil {
+ 		logf = log.Printf
+ 	}
+ 	fs := &FileSystemForRemote{
+ 		logf:        logf,
+ 		lockSystem:  webdav.NewMemLS(),
++		getDialer:   getDialer,
+ 		children:    make(map[string]*compositedav.Child),
+ 		userServers: make(map[string]*userServer),
+ 	}
+ 	return fs
+ }
+ 
+-// FileSystemForRemote implements drive.FileSystemForRemote.
++// FileSystemForRemote is the drive filesystem exposed to remote nodes. It
++// provides a unified WebDAV interface to local directories that have been
++// shared.
+ type FileSystemForRemote struct {
+ 	logf       logger.Logf
+ 	lockSystem webdav.LockSystem
++	getDialer  func() *tsdial.Dialer
+ 
+ 	// mu guards the below values. Acquire a write lock before updating any of
+ 	// them, acquire a read lock before reading any of them.
+@@ -185,9 +191,18 @@
+ 					return nil, err
+ 				}
+ 
+-				_, err = netip.ParseAddrPort(addr)
++				ipp, err := netip.ParseAddrPort(addr)
+ 				if err == nil {
+-					// this is a regular network address, dial normally
++					// this is a regular network address
++					if tsaddr.IsTailscaleIP(ipp.Addr()) {
++						var dialer *tsdial.Dialer
++						if s.getDialer != nil {
++							dialer = s.getDialer()
++						}
++						if dialer != nil {
++							return dialer.UserDial(ctx, "tcp", addr)
++						}
++					}
+ 					var std net.Dialer
+ 					return std.DialContext(ctx, "tcp", addr)
+ 				}
 diff -N -r -u orig/drive/remote_android.go tailscale_src/drive/remote_android.go
 --- orig/drive/remote_android.go	1970-01-01 03:00:00.000000000 +0300
-+++ tailscale_src/drive/remote_android.go	2026-05-28 11:42:54.118149540 +0300
++++ tailscale_src/drive/remote_android.go	2026-05-28 22:09:36.607882667 +0300
 @@ -0,0 +1,13 @@
 +// Copyright (c) Tailscale Inc & contributors
 +// SPDX-License-Identifier: BSD-3-Clause
@@ -46,7 +118,7 @@ diff -N -r -u orig/drive/remote_android.go tailscale_src/drive/remote_android.go
 +}
 diff -N -r -u orig/drive/remote_unix.go tailscale_src/drive/remote_unix.go
 --- orig/drive/remote_unix.go	2026-05-21 21:27:19.000000000 +0300
-+++ tailscale_src/drive/remote_unix.go	2026-05-28 11:42:58.526149638 +0300
++++ tailscale_src/drive/remote_unix.go	2026-05-28 22:09:36.607882667 +0300
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause

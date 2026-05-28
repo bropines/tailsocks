@@ -1,5 +1,5 @@
 --- orig/net/tstun/wrap.go	2026-05-21 21:27:19.000000000 +0300
-+++ tailscale_src/net/tstun/wrap.go	2026-05-28 21:31:49.588493207 +0300
++++ tailscale_src/net/tstun/wrap.go	2026-05-28 22:09:36.611882664 +0300
 @@ -448,6 +448,21 @@
  	return t.tdev.File()
  }
@@ -23,7 +23,7 @@
  	return t.tdev.MTU()
  }
 --- orig/wgengine/netstack/netstack.go	2026-05-21 21:27:19.000000000 +0300
-+++ tailscale_src/wgengine/netstack/netstack.go	2026-05-28 21:44:45.624284061 +0300
++++ tailscale_src/wgengine/netstack/netstack.go	2026-05-28 22:09:36.611882664 +0300
 @@ -1057,12 +1057,30 @@
  			ns.logf("[v2] packet Write out: % x", stack.PayloadSince(pkt.NetworkHeader()).AsSlice())
  		}

@@ -61,5 +61,15 @@ diff -u orig/cmd/tailscaled/netstack.go tailscale_src/cmd/tailscaled/netstack.go
     diff -u orig/wgengine/netstack/netstack.go tailscale_src/wgengine/netstack/netstack.go || true
 } > patches/09-netstack-loopback.patch
 
+# 10-taildrive-userspace-dial.patch (drive/driveimpl/remote_impl.go and cmd/tailscaled and tests)
+{
+    diff -u orig/drive/driveimpl/remote_impl.go tailscale_src/drive/driveimpl/remote_impl.go || true
+    diff -u orig/cmd/tailscaled/tailscaled_drive.go tailscale_src/cmd/tailscaled/tailscaled_drive.go || true
+    diff -u orig/cmd/tailscaled/tailscaled_windows.go tailscale_src/cmd/tailscaled/tailscaled_windows.go || true
+    diff -u orig/drive/driveimpl/drive_test.go tailscale_src/drive/driveimpl/drive_test.go || true
+    diff -u orig/ipn/ipnlocal/local_test.go tailscale_src/ipn/ipnlocal/local_test.go || true
+} > patches/10-taildrive-userspace-dial.patch
+
 echo "✅ Atomic patches generated successfully in appctr/patches/."
+
 
