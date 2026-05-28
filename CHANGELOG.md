@@ -2,13 +2,6 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
-## [2.2.0-beta] - 2026-05-28
-### Added
-- Redesigned the entire Settings screen using modern scrollable tabs (Style, Network, DNS, Profile) to completely eliminate long scroll pages.
-- Implemented a custom styling and theme engine supporting System, Light, Dark, and Amoled (pure black) modes.
-- Added 6 beautiful color presets (Default, Lavender, Emerald, Sapphire, Amber, Monochrome) with live visual color previews in Settings.
-- Support for Material You dynamic colors on Android 12+ devices.
-
 ## [2.1.0-beta] - 2026-05-28
 ### Added
 - Added experimental Taildrive support utilizing the WebDAV file server integrated into the Tailscale Go core.
@@ -16,6 +9,10 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Added dedicated Taildrive management screen (`TaildriveActivity`) to toggle the file server and manage shares.
 - Added a Taildrive entry card to the main dashboard.
 - Registered physical path mappings for Storage Access Framework (SAF) folder selections.
+- Redesigned the entire Settings screen using modern scrollable tabs (Style, Network, Core, Profile) to completely eliminate long scroll pages.
+- Implemented a custom styling and theme engine supporting System, Light, Dark, and Amoled (pure black) modes.
+- Added 7 beautiful color presets (Default, Lavender, Emerald, Sapphire, Amber, Monochrome, TokioNight) with live visual color previews in Settings.
+- Support for Material You dynamic colors on Android 12+ devices.
 
 ### Fixed
 - Fixed a 404 Not Found issue (empty directories in Windows File Explorer) by performing case-insensitive matching on the requested share names in the WebDAV file server, aligning with the daemon's lowercased share registration.
