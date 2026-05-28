@@ -8,10 +8,13 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -77,8 +80,19 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
 
     LaunchedEffect(currentAccount) { loadPeers() }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, modifier = Modifier.fillMaxHeight(0.85f)) {
-        Column(Modifier.fillMaxSize()) {
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val maxHeight = (configuration.screenHeightDp * 0.85f).dp
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = maxHeight)
+                .navigationBarsPadding()
+        ) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Send to...", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -109,12 +123,46 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
                             Icon(Icons.Default.ArrowDropDown, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                         }
                     }
-                    DropdownMenu(expanded = accountMenuExpanded, onDismissRequest = { accountMenuExpanded = false }) {
+                    DropdownMenu(
+                        expanded = accountMenuExpanded,
+                        onDismissRequest = { accountMenuExpanded = false },
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier
+                            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                            .border(
+                                1.dp,
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                                RoundedCornerShape(16.dp)
+                            )
+                    ) {
                         accounts.forEach { acc ->
+                            val isActive = acc.id == currentAccount.id
                             DropdownMenuItem(
-                                text = { Text(acc.name) },
+                                text = { 
+                                    Text(
+                                        acc.name, 
+                                        fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                    ) 
+                                },
                                 leadingIcon = {
-                                    if (acc.id == currentAccount.id) Icon(Icons.Default.Check, null)
+                                    Box(
+                                        modifier = Modifier
+                                            .size(28.dp)
+                                            .clip(CircleShape)
+                                            .background(
+                                                if (isActive) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            if (isActive) Icons.Default.Check else Icons.Default.AccountCircle,
+                                            contentDescription = null,
+                                            tint = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
                                 },
                                 onClick = {
                                     accountMenuExpanded = false
@@ -123,7 +171,11 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
                                         currentAccount = acc
                                         context.startService(Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" })
                                     }
-                                }
+                                },
+                                colors = MenuDefaults.itemColors(
+                                    textColor = MaterialTheme.colorScheme.onSurface,
+                                    leadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             )
                         }
                     }
@@ -136,7 +188,7 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
             } else Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f)
+                    .weight(1f, fill = false)
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 Card(
