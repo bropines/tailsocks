@@ -98,7 +98,11 @@ class TailscaledService : Service() {
         
         if (action == "STOP_ACTION") { stopMe(); return START_NOT_STICKY }
         if (action == "REFRESH_ACTION" || action == "APPLY_SETTINGS") {
-            Thread { Appctr.applySettings(buildStartOptions()) }.start()
+            Thread {
+                Appctr.applySettings(buildStartOptions())
+                try { Thread.sleep(1500) } catch (e: Exception) {}
+                applyTagsAndRoutes(this@TailscaledService)
+            }.start()
             return START_STICKY
         }
         if (action == "RESTART_ACTION") {
@@ -135,6 +139,9 @@ class TailscaledService : Service() {
                 Appctr.start(options)
                 updateNotification("Active")
                 applicationContext.sendBroadcast(Intent("START"))
+                
+                try { Thread.sleep(2500) } catch (e: Exception) {}
+                applyTagsAndRoutes(this@TailscaledService)
             } catch (e: Exception) { 
                 Log.e(TAG, "Start failed", e)
                 stopMe() 
@@ -241,6 +248,31 @@ class TailscaledService : Service() {
         return NotificationCompat.Builder(this, channelId)
             .setContentTitle("TailSocks").setContentText(status).setSmallIcon(android.R.drawable.ic_secure).setOngoing(true).setContentIntent(pendingIntent)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", stopPendingIntent).build()
+    }
+
+    private fun applyTagsAndRoutes(context: Context) {
+        val activeAccount = AccountManager.getActiveAccount(context)
+        val profilePrefs = context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
+        val tagsStr = profilePrefs.getString("advertise_tags", "") ?: ""
+        val routesStr = profilePrefs.getString("advertise_routes", "") ?: ""
+
+        val tags = tagsStr.split(",").map { it.trim() }.filter { it.isNotEmpty() }.map {
+            if (it.startsWith("tag:")) it else "tag:$it"
+        }
+        val routes = routesStr.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+
+        val payload = mapOf(
+            "AdvertiseTags" to tags,
+            "AdvertiseTagsSet" to true,
+            "AdvertiseRoutes" to routes,
+            "AdvertiseRoutesSet" to true
+        )
+        val json = Gson().toJson(payload)
+        Log.d(TAG, "Syncing tags & routes via LocalAPI: $json")
+        val res = Appctr.setPrefs(json)
+        if (res != "OK") {
+            Log.e(TAG, "Failed to apply tags & routes: $res")
+        }
     }
 
     override fun onDestroy() {

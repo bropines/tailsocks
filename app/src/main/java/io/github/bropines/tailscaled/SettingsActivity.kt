@@ -86,6 +86,25 @@ fun SettingsScreen(onBack: () -> Unit) {
     var enableWebUI by remember { mutableStateOf(profilePrefs.getBoolean("enable_webui", false)) }
     var webUIAddr by remember { mutableStateOf(profilePrefs.getString("webui_addr", "127.0.0.1:8080") ?: "127.0.0.1:8080") }
 
+    var advertiseTags by remember { mutableStateOf(profilePrefs.getString("advertise_tags", "") ?: "") }
+    var advertiseRoutes by remember { mutableStateOf(profilePrefs.getString("advertise_routes", "") ?: "") }
+    var appliedTags by remember { mutableStateOf<List<String>>(emptyList()) }
+
+    LaunchedEffect(activeAccount.id) {
+        scope.launch(Dispatchers.IO) {
+            try {
+                val pJson = Appctr.getStatusFromAPI()
+                if (!pJson.startsWith("Error")) {
+                    val status = Gson().fromJson(pJson, StatusResponse::class.java)
+                    val selfTags = status.self?.tags ?: emptyList()
+                    withContext(Dispatchers.Main) { appliedTags = selfTags }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     var backupPassword by remember { mutableStateOf("") }
     var showBackupPasswordDialog by remember { mutableStateOf(false) }
 
@@ -384,6 +403,22 @@ fun SettingsScreen(onBack: () -> Unit) {
                 exitNodeIp = ip
                 saveProfilePref("exit_node_ip", ip, triggerService = false)
                 saveProfilePref("exit_node_id", id, triggerService = false)
+            }
+            SettingsEditItem("Advertise Tags", advertiseTags, Icons.Default.Label, placeholder = "tag:server, tag:mobile") { 
+                advertiseTags = it
+                saveProfilePref("advertise_tags", it) 
+            }
+            if (appliedTags.isNotEmpty()) {
+                Text(
+                    text = "Applied Tags: " + appliedTags.joinToString(", "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = 56.dp, top = 2.dp, bottom = 8.dp)
+                )
+            }
+            SettingsEditItem("Advertise Routes", advertiseRoutes, Icons.Default.Map, placeholder = "10.0.0.0/24, 192.168.1.0/24") { 
+                advertiseRoutes = it
+                saveProfilePref("advertise_routes", it) 
             }
 
             SettingsSectionHeader("Web Interface")
