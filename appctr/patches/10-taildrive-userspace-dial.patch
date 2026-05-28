@@ -1,62 +1,3 @@
---- orig/drive/driveimpl/remote_impl.go	2026-05-21 21:27:19.000000000 +0300
-+++ tailscale_src/drive/driveimpl/remote_impl.go	2026-05-28 22:13:59.059810190 +0300
-@@ -27,27 +27,33 @@
- 	"tailscale.com/drive/driveimpl/compositedav"
- 	"tailscale.com/drive/driveimpl/dirfs"
- 	"tailscale.com/drive/driveimpl/shared"
-+	"tailscale.com/net/tsaddr"
-+	"tailscale.com/net/tsdial"
- 	"tailscale.com/safesocket"
- 	"tailscale.com/types/logger"
- )
- 
--func NewFileSystemForRemote(logf logger.Logf) *FileSystemForRemote {
-+func NewFileSystemForRemote(logf logger.Logf, getDialer func() *tsdial.Dialer) *FileSystemForRemote {
- 	if logf == nil {
- 		logf = log.Printf
- 	}
- 	fs := &FileSystemForRemote{
- 		logf:        logf,
- 		lockSystem:  webdav.NewMemLS(),
-+		getDialer:   getDialer,
- 		children:    make(map[string]*compositedav.Child),
- 		userServers: make(map[string]*userServer),
- 	}
- 	return fs
- }
- 
--// FileSystemForRemote implements drive.FileSystemForRemote.
-+// FileSystemForRemote is the drive filesystem exposed to remote nodes. It
-+// provides a unified WebDAV interface to local directories that have been
-+// shared.
- type FileSystemForRemote struct {
- 	logf       logger.Logf
- 	lockSystem webdav.LockSystem
-+	getDialer  func() *tsdial.Dialer
- 
- 	// mu guards the below values. Acquire a write lock before updating any of
- 	// them, acquire a read lock before reading any of them.
-@@ -185,9 +191,18 @@
- 					return nil, err
- 				}
- 
--				_, err = netip.ParseAddrPort(addr)
-+				ipp, err := netip.ParseAddrPort(addr)
- 				if err == nil {
--					// this is a regular network address, dial normally
-+					// this is a regular network address
-+					if tsaddr.IsTailscaleIP(ipp.Addr()) {
-+						var dialer *tsdial.Dialer
-+						if s.getDialer != nil {
-+							dialer = s.getDialer()
-+						}
-+						if dialer != nil {
-+							return dialer.UserDial(ctx, "tcp", addr)
-+						}
-+					}
- 					var std net.Dialer
- 					return std.DialContext(ctx, "tcp", addr)
- 				}
 --- orig/cmd/tailscaled/tailscaled_drive.go	2026-05-21 21:27:19.000000000 +0300
 +++ tailscale_src/cmd/tailscaled/tailscaled_drive.go	2026-05-28 22:14:03.779809026 +0300
 @@ -10,6 +10,7 @@
@@ -105,17 +46,6 @@
  
  	publicLogID, _ := logid.ParsePublicID(logID)
  	err = startIPNServer(ctx, log.Printf, publicLogID, sys)
---- orig/drive/driveimpl/drive_test.go	2026-05-21 21:27:19.000000000 +0300
-+++ tailscale_src/drive/driveimpl/drive_test.go	2026-05-28 22:14:20.999804925 +0300
-@@ -512,7 +512,7 @@
- 	r := &remote{
- 		ln:          ln,
- 		fileServer:  fileServer,
--		fs:          NewFileSystemForRemote(log.Printf),
-+		fs:          NewFileSystemForRemote(log.Printf, nil),
- 		shares:      make(map[string]string),
- 		permissions: make(map[string]drive.Permission),
- 	}
 --- orig/ipn/ipnlocal/local_test.go	2026-05-21 21:27:19.000000000 +0300
 +++ tailscale_src/ipn/ipnlocal/local_test.go	2026-05-28 22:14:26.531803370 +0300
 @@ -4593,7 +4593,7 @@
