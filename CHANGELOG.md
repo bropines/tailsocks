@@ -2,6 +2,16 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [2.1.1-beta] - 2026-05-28
+### Changed
+- Renamed the "Style" settings tab to "APP" to better reflect its purpose.
+
+### Fixed
+- Fixed DNS caching when switching profiles/accounts by flushing split DNS cache, nodes cache, and resetting MagicDNS suffix.
+- Fixed direct WebDAV connectivity to Taildrive at `100.100.100.100:8080` in userspace-networking mode by implementing loopback routing of self-addressed packets in netstack when a fake TUN device is used.
+- Fixed `unexpected end of stream` errors when opening remote peer shares by routing remote peer WebDAV traffic through the `tsdial.Dialer` while keeping local loopback traffic routed normally.
+- Fixed outbound TCP/UDP Source IP selection in netstack by automatically binding outgoing connections to the node's local Tailscale IP.
+
 ## [2.1.0-beta] - 2026-05-28
 ### Added
 - Added experimental Taildrive support utilizing the WebDAV file server integrated into the Tailscale Go core.
@@ -14,15 +24,8 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Added 7 beautiful color presets (Default, Lavender, Emerald, Sapphire, Amber, Monochrome, TokioNight) with live visual color previews in Settings.
 - Support for Material You dynamic colors on Android 12+ devices.
 
-### Changed
-- Renamed the "Style" settings tab to "APP" to better reflect its purpose.
-
 ### Fixed
 - Fixed a 404 Not Found issue (empty directories in Windows File Explorer) by performing case-insensitive matching on the requested share names in the WebDAV file server, aligning with the daemon's lowercased share registration.
-- Fixed DNS caching when switching profiles/accounts by flushing split DNS cache, nodes cache, and resetting MagicDNS suffix.
-- Fixed direct WebDAV connectivity to Taildrive at `100.100.100.100:8080` in userspace-networking mode by implementing loopback routing of self-addressed packets in netstack when a fake TUN device is used.
-- Fixed `unexpected end of stream` errors when opening remote peer shares by routing remote peer WebDAV traffic through the `tsdial.Dialer` while keeping local loopback traffic routed normally.
-- Fixed outbound TCP/UDP Source IP selection in netstack by automatically binding outgoing connections to the node's local Tailscale IP.
 
 
 ## [2.0.9-beta] - 2026-05-28
