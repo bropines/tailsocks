@@ -97,6 +97,10 @@ data class PeerData(
             "Taildrop Target" to (taildropTarget?.toString() ?: "Unknown")
         )
         
+        if (!tags.isNullOrEmpty()) {
+            list.add("Tags" to tags.joinToString(", "))
+        }
+        
         if (!noFileSharingReason.isNullOrEmpty()) {
             list.add("No File Sharing" to noFileSharingReason)
         }

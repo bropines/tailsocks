@@ -66,6 +66,14 @@ fun PeerItem(peer: PeerData, isSelf: Boolean, onClick: () -> Unit) {
                 if (displayName != primaryIp) {
                     Text(primaryIp, fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+                if (!peer.tags.isNullOrEmpty()) {
+                    Text(
+                        text = peer.tags.joinToString(", "),
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
             if (peer.online == true || isSelf) {
                 Box(Modifier.size(10.dp).clip(CircleShape).background(Color(0xFF4CAF50)))

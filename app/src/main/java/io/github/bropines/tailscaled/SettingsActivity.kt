@@ -414,7 +414,14 @@ fun SettingsScreen(onBack: () -> Unit) {
                 saveProfilePref("exit_node_ip", ip, triggerService = false)
                 saveProfilePref("exit_node_id", id, triggerService = false)
             }
-            SettingsEditItem("Advertise Tags", advertiseTags, Icons.Default.Label, placeholder = "tag:server, tag:mobile", suggestions = availableNetworkTags) { 
+            SettingsEditItem(
+                title = "Advertise Tags",
+                value = advertiseTags,
+                icon = Icons.Default.Label,
+                placeholder = "tag:server, tag:mobile",
+                description = "Запросить права доступа по тегам для этого устройства",
+                suggestions = availableNetworkTags
+            ) { 
                 advertiseTags = it
                 saveProfilePref("advertise_tags", it) 
             }
@@ -426,7 +433,13 @@ fun SettingsScreen(onBack: () -> Unit) {
                     modifier = Modifier.padding(start = 56.dp, top = 2.dp, bottom = 8.dp)
                 )
             }
-            SettingsEditItem("Advertise Routes", advertiseRoutes, Icons.Default.Map, placeholder = "10.0.0.0/24, 192.168.1.0/24") { 
+            SettingsEditItem(
+                title = "Advertise Routes",
+                value = advertiseRoutes,
+                icon = Icons.Default.Map,
+                placeholder = "10.0.0.0/24, 192.168.1.0/24",
+                description = "Анонсировать локальные подсети в Tailnet"
+            ) { 
                 advertiseRoutes = it
                 saveProfilePref("advertise_routes", it) 
             }
@@ -639,6 +652,7 @@ fun SettingsEditItem(
     value: String, 
     icon: androidx.compose.ui.graphics.vector.ImageVector, 
     placeholder: String = "", 
+    description: String = "",
     suggestions: List<String> = emptyList(),
     onAction: (() -> String)? = null,
     actionIcon: androidx.compose.ui.graphics.vector.ImageVector? = null,
@@ -649,7 +663,15 @@ fun SettingsEditItem(
     LaunchedEffect(showDialog) { if (showDialog) text = value }
     ListItem(
         headlineContent = { Text(title) },
-        supportingContent = { Text(if (value.isEmpty()) placeholder.ifEmpty { "Not set" } else value, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        supportingContent = { 
+            Text(
+                text = if (value.isEmpty()) {
+                    if (description.isNotEmpty()) description else (placeholder.ifEmpty { "Not set" })
+                } else value, 
+                maxLines = 1, 
+                overflow = TextOverflow.Ellipsis
+            ) 
+        },
         leadingContent = { Icon(icon, null, tint = MaterialTheme.colorScheme.primary) },
         modifier = Modifier.clickable { showDialog = true }
     )
@@ -664,6 +686,8 @@ fun SettingsEditItem(
                         onValueChange = { text = it }, 
                         modifier = Modifier.fillMaxWidth(), 
                         singleLine = true,
+                        label = { if (placeholder.isNotEmpty()) Text("Example: $placeholder") },
+                        placeholder = { if (placeholder.isNotEmpty()) Text(placeholder) },
                         trailingIcon = if (onAction != null && actionIcon != null) {
                             { IconButton(onClick = { text = onAction() }) { Icon(actionIcon, null) } }
                         } else null
