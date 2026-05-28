@@ -6,6 +6,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 ### Added
 - Added custom tags (`--advertise-tags`) and subnet routes (`--advertise-routes`) configuration to the profile settings screen.
 - Real-time display of actually applied device tags fetched from the LocalAPI status response in the settings screen.
+- Interactive tag suggestion chips inside the configuration dialog showing all unique active tags found across network hosts.
 
 ## [2.0.8-beta] - 2026-05-25
 ### Added

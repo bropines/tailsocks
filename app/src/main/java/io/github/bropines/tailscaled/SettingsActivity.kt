@@ -12,6 +12,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -89,6 +90,7 @@ fun SettingsScreen(onBack: () -> Unit) {
     var advertiseTags by remember { mutableStateOf(profilePrefs.getString("advertise_tags", "") ?: "") }
     var advertiseRoutes by remember { mutableStateOf(profilePrefs.getString("advertise_routes", "") ?: "") }
     var appliedTags by remember { mutableStateOf<List<String>>(emptyList()) }
+    var availableNetworkTags by remember { mutableStateOf<List<String>>(emptyList()) }
 
     LaunchedEffect(activeAccount.id) {
         scope.launch(Dispatchers.IO) {
@@ -98,6 +100,14 @@ fun SettingsScreen(onBack: () -> Unit) {
                     val status = Gson().fromJson(pJson, StatusResponse::class.java)
                     val selfTags = status.self?.tags ?: emptyList()
                     withContext(Dispatchers.Main) { appliedTags = selfTags }
+
+                    val netTags = mutableSetOf<String>()
+                    selfTags.forEach { netTags.add(it) }
+                    status.peers?.values?.forEach { peer ->
+                        peer.tags?.forEach { netTags.add(it) }
+                    }
+                    val sortedTags = netTags.toList().sorted()
+                    withContext(Dispatchers.Main) { availableNetworkTags = sortedTags }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -404,7 +414,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                 saveProfilePref("exit_node_ip", ip, triggerService = false)
                 saveProfilePref("exit_node_id", id, triggerService = false)
             }
-            SettingsEditItem("Advertise Tags", advertiseTags, Icons.Default.Label, placeholder = "tag:server, tag:mobile") { 
+            SettingsEditItem("Advertise Tags", advertiseTags, Icons.Default.Label, placeholder = "tag:server, tag:mobile", suggestions = availableNetworkTags) { 
                 advertiseTags = it
                 saveProfilePref("advertise_tags", it) 
             }
@@ -629,6 +639,7 @@ fun SettingsEditItem(
     value: String, 
     icon: androidx.compose.ui.graphics.vector.ImageVector, 
     placeholder: String = "", 
+    suggestions: List<String> = emptyList(),
     onAction: (() -> String)? = null,
     actionIcon: androidx.compose.ui.graphics.vector.ImageVector? = null,
     onSave: (String) -> Unit
@@ -647,15 +658,47 @@ fun SettingsEditItem(
             onDismissRequest = { showDialog = false },
             title = { Text(title) },
             text = { 
-                OutlinedTextField(
-                    value = text, 
-                    onValueChange = { text = it }, 
-                    modifier = Modifier.fillMaxWidth(), 
-                    singleLine = true,
-                    trailingIcon = if (onAction != null && actionIcon != null) {
-                        { IconButton(onClick = { text = onAction() }) { Icon(actionIcon, null) } }
-                    } else null
-                ) 
+                Column {
+                    OutlinedTextField(
+                        value = text, 
+                        onValueChange = { text = it }, 
+                        modifier = Modifier.fillMaxWidth(), 
+                        singleLine = true,
+                        trailingIcon = if (onAction != null && actionIcon != null) {
+                            { IconButton(onClick = { text = onAction() }) { Icon(actionIcon, null) } }
+                        } else null
+                    )
+                    if (suggestions.isNotEmpty()) {
+                        Spacer(Modifier.height(8.dp))
+                        Text("Suggested:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            suggestions.forEach { tag ->
+                                val cleanTag = if (tag.startsWith("tag:")) tag else "tag:$tag"
+                                val isSelected = text.split(",").map { it.trim() }.contains(cleanTag)
+                                
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = {
+                                        val currentTags = text.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toMutableList()
+                                        if (currentTags.contains(cleanTag)) {
+                                            currentTags.remove(cleanTag)
+                                        } else {
+                                            currentTags.add(cleanTag)
+                                        }
+                                        text = currentTags.joinToString(", ")
+                                    },
+                                    label = { Text(tag) }
+                                )
+                            }
+                        }
+                    }
+                }
             },
             confirmButton = { Button(onClick = { onSave(text); showDialog = false }) { Text("Save") } },
             dismissButton = { TextButton(onClick = { showDialog = false }) { Text("Cancel") } }
