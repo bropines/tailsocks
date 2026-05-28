@@ -89,6 +89,16 @@ fun TaildriveScreen(onBack: () -> Unit) {
         showAddDialog = true
     }
 
+    var editingShare: LocalShare? by remember { mutableStateOf<LocalShare?>(null) }
+
+    val showEditShareDialog = { share: LocalShare, onSubmit: (LocalShare) -> Unit ->
+        editingShare = share
+        dialogNameInput = share.name
+        dialogPathInput = share.path
+        onDialogSubmit = onSubmit
+        showAddDialog = true
+    }
+
     // Launcher for directory picker (SAF)
     val dirPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
@@ -259,12 +269,30 @@ fun TaildriveScreen(onBack: () -> Unit) {
                                     Text(share.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
                                     Text(share.path, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
-                                IconButton(onClick = {
-                                    shares.remove(share)
-                                    saveShares(prefs, shares)
-                                    triggerServiceSettingsUpdate(context)
-                                }) {
-                                    Icon(Icons.Default.Delete, "Delete", tint = MaterialTheme.colorScheme.error)
+                                Row {
+                                    IconButton(onClick = {
+                                        showEditShareDialog(share) { updatedShare ->
+                                            val index = shares.indexOf(share)
+                                            if (index != -1) {
+                                                if (shares.any { it != share && it.name.lowercase() == updatedShare.name.lowercase() }) {
+                                                    Toast.makeText(context, "Share name already exists", Toast.LENGTH_SHORT).show()
+                                                } else {
+                                                    shares[index] = updatedShare
+                                                    saveShares(prefs, shares)
+                                                    triggerServiceSettingsUpdate(context)
+                                                }
+                                            }
+                                        }
+                                    }) {
+                                        Icon(Icons.Default.Edit, "Edit", tint = MaterialTheme.colorScheme.primary)
+                                    }
+                                    IconButton(onClick = {
+                                        shares.remove(share)
+                                        saveShares(prefs, shares)
+                                        triggerServiceSettingsUpdate(context)
+                                    }) {
+                                        Icon(Icons.Default.Delete, "Delete", tint = MaterialTheme.colorScheme.error)
+                                    }
                                 }
                             }
                         }
@@ -273,11 +301,14 @@ fun TaildriveScreen(onBack: () -> Unit) {
             }
         }
 
-        // Custom Add Share Dialog
+        // Custom Add/Edit Share Dialog
         if (showAddDialog && onDialogSubmit != null) {
             AlertDialog(
-                onDismissRequest = { showAddDialog = false },
-                title = { Text("Add Folder Share") },
+                onDismissRequest = { 
+                    showAddDialog = false
+                    editingShare = null
+                },
+                title = { Text(if (editingShare != null) "Edit Folder Share" else "Add Folder Share") },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
@@ -310,15 +341,19 @@ fun TaildriveScreen(onBack: () -> Unit) {
                                 } else {
                                     onDialogSubmit?.invoke(LocalShare(dialogNameInput, dialogPathInput))
                                     showAddDialog = false
+                                    editingShare = null
                                 }
                             }
                         }
                     ) {
-                        Text("Add")
+                        Text(if (editingShare != null) "Save" else "Add")
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showAddDialog = false }) {
+                    TextButton(onClick = { 
+                        showAddDialog = false
+                        editingShare = null
+                    }) {
                         Text("Cancel")
                     }
                 }
