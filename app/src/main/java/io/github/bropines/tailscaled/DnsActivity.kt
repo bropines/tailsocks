@@ -79,7 +79,7 @@ fun DnsScreen(onBack: () -> Unit) {
     var isQuerying by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
 
-    fun refresh() {
+    fun refresh(doFlush: Boolean) {
         loading = true
         errorText = null
         scope.launch(Dispatchers.IO) {
@@ -91,7 +91,9 @@ fun DnsScreen(onBack: () -> Unit) {
                 }
                 return@launch
             }
-            Appctr.flushDNS() // Очищаем кэш в Go
+            if (doFlush) {
+                Appctr.flushDNS() // Очищаем кэш в Go
+            }
             val json = Appctr.getDnsStatusJSON()
             val parsed = try {
                 Gson().fromJson(json, DnsStatus::class.java)
@@ -121,14 +123,14 @@ fun DnsScreen(onBack: () -> Unit) {
         }
     }
 
-    LaunchedEffect(Unit) { refresh() }
+    LaunchedEffect(Unit) { refresh(doFlush = false) }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("DNS Management") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) } },
-                actions = { IconButton(onClick = { refresh() }) { Icon(Icons.Default.Refresh, null) } }
+                actions = { IconButton(onClick = { refresh(doFlush = true) }) { Icon(Icons.Default.Refresh, null) } }
             )
         }
     ) { padding ->
