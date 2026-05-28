@@ -158,8 +158,33 @@ fun PeerDetailsModal(
                 }
                 
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(peer.getDisplayName(), fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    pingResult?.let { Text(it, color = MaterialTheme.colorScheme.primary, fontFamily = FontFamily.Monospace, fontSize = 12.sp) }
+                    val osIcon = when (peer.os?.lowercase()) {
+                        "android" -> Icons.Default.Android
+                        "windows" -> Icons.Default.DesktopWindows
+                        "linux" -> Icons.Default.Terminal
+                        "darwin", "macos", "ios" -> Icons.Default.Devices
+                        else -> Icons.Default.Devices
+                    }
+                    val statusColor = if (peer.online == true) Color(0xFF4CAF50) else Color(0xFF9E9E9E)
+                    
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Icon(osIcon, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(8.dp))
+                        Text(peer.getDisplayName(), fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Spacer(Modifier.width(8.dp))
+                        Box(Modifier.size(8.dp).clip(CircleShape).background(statusColor))
+                    }
+                    pingResult?.let { 
+                        Spacer(Modifier.height(4.dp))
+                        Text(it, color = MaterialTheme.colorScheme.primary, fontFamily = FontFamily.Monospace, fontSize = 11.sp, fontWeight = FontWeight.Medium) 
+                    }
                 }
                 
                 if (onNextPeer != null) {
@@ -171,8 +196,11 @@ fun PeerDetailsModal(
                 }
             }
 
-            Row(Modifier.padding(horizontal = 24.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                OutlinedButton(
                     onClick = {
                         pingResult = "Pinging..."
                         scope.launch(Dispatchers.IO) {
@@ -181,35 +209,82 @@ fun PeerDetailsModal(
                             withContext(Dispatchers.Main) { pingResult = pong.trim() }
                         }
                     },
-                    modifier = Modifier.weight(1f).height(36.dp),
-                    contentPadding = PaddingValues(vertical = 0.dp)
-                ) { Text("Ping") }
-                FilledTonalButton(
-                    onClick = onSendFileClick,
-                    modifier = Modifier.weight(1f).height(36.dp),
-                    contentPadding = PaddingValues(vertical = 0.dp)
+                    modifier = Modifier.weight(1f).height(46.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp)
                 ) {
-                    Icon(Icons.Default.Send, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Send File")
+                    Icon(Icons.Default.Bolt, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Ping", fontWeight = FontWeight.SemiBold)
+                }
+                Button(
+                    onClick = onSendFileClick,
+                    modifier = Modifier.weight(1f).height(46.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp)
+                ) {
+                    Icon(Icons.Default.FileUpload, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Send File", fontWeight = FontWeight.SemiBold)
                 }
             }
-            LazyColumn(Modifier.fillMaxWidth().weight(1f, fill = false)) {
-                items(peer.getDetailsList()) { (l, v) ->
-                    ListItem(
-                        headlineContent = { Text(l, style = MaterialTheme.typography.bodySmall) },
-                        supportingContent = { Text(v, fontFamily = FontFamily.Monospace) },
-                        trailingContent = {
-                            Icon(
-                                imageVector = Icons.Default.ContentCopy,
-                                contentDescription = "Copy",
-                                modifier = Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                            )
-                        },
-                        modifier = Modifier.clickable {
-                            (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText(l, v))
-                            Toast.makeText(context, "$l copied to clipboard!", Toast.LENGTH_SHORT).show()
-                        }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false)
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+            ) {
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.elevatedCardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
                     )
+                ) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        contentPadding = PaddingValues(bottom = 8.dp)
+                    ) {
+                        items(peer.getDetailsList()) { (l, v) ->
+                            val isTechnical = l in listOf("IPv4", "IPv6", "Allowed IPs", "Node ID", "Tailscale Version", "Current Addr", "Peer API")
+                            
+                            ListItem(
+                                headlineContent = { 
+                                    Text(
+                                        l, 
+                                        style = MaterialTheme.typography.bodySmall, 
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                                    ) 
+                                },
+                                supportingContent = { 
+                                    Text(
+                                        v, 
+                                        fontFamily = if (isTechnical) FontFamily.Monospace else FontFamily.Default,
+                                        fontSize = if (isTechnical) 13.sp else 14.sp,
+                                        fontWeight = if (isTechnical) FontWeight.Normal else FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.padding(top = 2.dp)
+                                    ) 
+                                },
+                                trailingContent = {
+                                    Icon(
+                                        imageVector = Icons.Default.ContentCopy,
+                                        contentDescription = "Copy",
+                                        modifier = Modifier.size(14.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                    )
+                                },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText(l, v))
+                                        Toast.makeText(context, "$l copied to clipboard!", Toast.LENGTH_SHORT).show()
+                                    }
+                            )
+                        }
+                    }
                 }
             }
         }

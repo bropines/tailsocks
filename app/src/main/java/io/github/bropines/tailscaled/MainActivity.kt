@@ -14,10 +14,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -376,53 +379,142 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
 
     if (accountMenuExpanded) {
         ModalBottomSheet(onDismissRequest = { accountMenuExpanded = false }) {
-            Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
-                Text("Switch Account", modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                androidx.compose.foundation.lazy.LazyColumn {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .padding(top = 8.dp, bottom = 12.dp)
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.ManageAccounts,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Text(
+                    "Switch Account",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(Modifier.height(16.dp))
+
+                androidx.compose.foundation.lazy.LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .weight(1f, fill = false),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     items(accounts.value.size) { i ->
                         val account = accounts.value[i]
-                        ListItem(
-                            headlineContent = { Text(account.name) },
-                            leadingContent = { Icon(Icons.Default.AccountCircle, null) },
-                            trailingContent = {
-                                if (account.id == activeAccount.id) Icon(Icons.Default.Check, null)
-                            },
-                            modifier = Modifier.clickable {
-                                accountMenuExpanded = false
-                                if (account.id != activeAccount.id) {
-                                    if (ProxyState.isActualRunning()) showSwitchConfirmDialog = account
-                                    else { AccountManager.setActiveAccount(context, account.id); activeAccount = account }
+                        val isActive = account.id == activeAccount.id
+                        
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    accountMenuExpanded = false
+                                    if (account.id != activeAccount.id) {
+                                        if (ProxyState.isActualRunning()) showSwitchConfirmDialog = account
+                                        else { AccountManager.setActiveAccount(context, account.id); activeAccount = account }
+                                    }
+                                },
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isActive) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                            border = if (isActive) androidx.compose.foundation.BorderStroke(
+                                1.5.dp,
+                                MaterialTheme.colorScheme.primary
+                            ) else null
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.AccountCircle,
+                                    null,
+                                    tint = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(Modifier.width(16.dp))
+                                Text(
+                                    account.name,
+                                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                if (isActive) {
+                                    Icon(
+                                        Icons.Default.Check,
+                                        null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
                                 }
                             }
-                        )
+                        }
                     }
-                    item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
-                    item {
-                        ListItem(
-                            headlineContent = { Text("Rename Current") },
-                            leadingContent = { Icon(Icons.Default.Edit, null) },
-                            modifier = Modifier.clickable { accountMenuExpanded = false; showRenameAccountDialog = true }
-                        )
+                }
+                
+                Spacer(Modifier.height(20.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    FilledTonalButton(
+                        onClick = { accountMenuExpanded = false; showAddAccountDialog = true },
+                        modifier = Modifier.weight(1f).height(44.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp)
+                    ) {
+                        Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Add", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     }
-                    item {
-                        ListItem(
-                            headlineContent = { Text("Add Account") },
-                            leadingContent = { Icon(Icons.Default.Add, null) },
-                            modifier = Modifier.clickable { accountMenuExpanded = false; showAddAccountDialog = true }
-                        )
+
+                    OutlinedButton(
+                        onClick = { accountMenuExpanded = false; showRenameAccountDialog = true },
+                        modifier = Modifier.weight(1f).height(44.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp)
+                    ) {
+                        Icon(Icons.Default.Edit, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Rename", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     }
+
                     if (activeAccount.id != "default") {
-                        item {
-                            ListItem(
-                                headlineContent = { Text("Delete Current", color = MaterialTheme.colorScheme.error) },
-                                leadingContent = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
-                                modifier = Modifier.clickable {
-                                    accountMenuExpanded = false
-                                    AccountManager.deleteAccount(context, activeAccount.id)
-                                    activeAccount = AccountManager.getActiveAccount(context)
-                                    accounts.value = AccountManager.getAccounts(context)
-                                }
-                            )
+                        Button(
+                            onClick = {
+                                accountMenuExpanded = false
+                                AccountManager.deleteAccount(context, activeAccount.id)
+                                activeAccount = AccountManager.getActiveAccount(context)
+                                accounts.value = AccountManager.getAccounts(context)
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                contentColor = MaterialTheme.colorScheme.onErrorContainer
+                            ),
+                            modifier = Modifier.weight(1f).height(44.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp)
+                        ) {
+                            Icon(Icons.Default.Delete, null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Delete", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
