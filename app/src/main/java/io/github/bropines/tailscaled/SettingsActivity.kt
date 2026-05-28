@@ -549,7 +549,7 @@ fun SettingsScreen(
                                     ) {
                                         Icon(Icons.Default.Archive, null)
                                         Spacer(Modifier.width(8.dp))
-                                        Text("Backup (ZIP)", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text("Backup (ZIP)", textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                                     }
                                     OutlinedButton(
                                         onClick = { fullRestoreLauncher.launch("*/*") },
@@ -558,7 +558,7 @@ fun SettingsScreen(
                                     ) {
                                         Icon(Icons.Default.SettingsBackupRestore, null)
                                         Spacer(Modifier.width(8.dp))
-                                        Text("Restore ZIP", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text("Restore ZIP", textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                                     }
                                 }
                                 Spacer(Modifier.height(12.dp))
@@ -707,7 +707,7 @@ fun SettingsScreen(
                                     ) {
                                         Icon(Icons.Default.Backup, null)
                                         Spacer(Modifier.width(8.dp))
-                                        Text("Backup", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text("Backup", textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                                     }
                                     OutlinedButton(
                                         onClick = { restoreLauncher.launch("application/json") },
@@ -716,7 +716,7 @@ fun SettingsScreen(
                                     ) {
                                         Icon(Icons.Default.SettingsBackupRestore, null)
                                         Spacer(Modifier.width(8.dp))
-                                        Text("Import", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text("Import", textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                                     }
                                 }
                                 Spacer(Modifier.height(12.dp))
@@ -932,7 +932,12 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
 
 @Composable
 fun SettingsClickableItem(title: String, subtitle: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
-    Surface(onClick = onClick, shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)) {
+    Surface(
+        onClick = onClick, 
+        shape = RoundedCornerShape(12.dp), 
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        modifier = Modifier.padding(vertical = 4.dp)
+    ) {
         ListItem(
             headlineContent = { Text(title) },
             supportingContent = { Text(subtitle, style = MaterialTheme.typography.bodySmall) },
@@ -945,12 +950,20 @@ fun SettingsClickableItem(title: String, subtitle: String, icon: androidx.compos
 
 @Composable
 fun SettingsSwitchItem(title: String, subtitle: String, icon: androidx.compose.ui.graphics.vector.ImageVector, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    ListItem(
-        headlineContent = { Text(title) },
-        supportingContent = { Text(subtitle, style = MaterialTheme.typography.bodySmall) },
-        leadingContent = { Icon(icon, null, tint = MaterialTheme.colorScheme.primary) },
-        trailingContent = { Switch(checked = checked, onCheckedChange = onCheckedChange) }
-    )
+    Surface(
+        onClick = { onCheckedChange(!checked) }, 
+        shape = RoundedCornerShape(12.dp), 
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        modifier = Modifier.padding(vertical = 4.dp)
+    ) {
+        ListItem(
+            headlineContent = { Text(title) },
+            supportingContent = { Text(subtitle, style = MaterialTheme.typography.bodySmall) },
+            leadingContent = { Icon(icon, null, tint = MaterialTheme.colorScheme.primary) },
+            trailingContent = { Switch(checked = checked, onCheckedChange = onCheckedChange) },
+            colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
+        )
+    }
 }
 
 @Composable
@@ -968,20 +981,27 @@ fun SettingsEditItem(
     var showDialog by remember { mutableStateOf(false) }
     var text by remember { mutableStateOf(value) }
     LaunchedEffect(showDialog) { if (showDialog) text = value }
-    ListItem(
-        headlineContent = { Text(title) },
-        supportingContent = { 
-            Text(
-                text = if (value.isEmpty()) {
-                    if (description.isNotEmpty()) description else (placeholder.ifEmpty { "Not set" })
-                } else value, 
-                maxLines = 1, 
-                overflow = TextOverflow.Ellipsis
-            ) 
-        },
-        leadingContent = { Icon(icon, null, tint = MaterialTheme.colorScheme.primary) },
-        modifier = Modifier.clickable { showDialog = true }
-    )
+    Surface(
+        onClick = { showDialog = true }, 
+        shape = RoundedCornerShape(12.dp), 
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        modifier = Modifier.padding(vertical = 4.dp)
+    ) {
+        ListItem(
+            headlineContent = { Text(title) },
+            supportingContent = { 
+                Text(
+                    text = if (value.isEmpty()) {
+                        if (description.isNotEmpty()) description else (placeholder.ifEmpty { "Not set" })
+                    } else value, 
+                    maxLines = 1, 
+                    overflow = TextOverflow.Ellipsis
+                ) 
+            },
+            leadingContent = { Icon(icon, null, tint = MaterialTheme.colorScheme.primary) },
+            colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
+        )
+    }
     if (showDialog) {
         AlertDialog(
             onDismissRequest = { showDialog = false },
@@ -1046,12 +1066,19 @@ fun SettingsChoiceItem(
     onSave: (String) -> Unit
 ) {
     var showDialog by remember { mutableStateOf(false) }
-    ListItem(
-        headlineContent = { Text(title) },
-        supportingContent = { Text(value) },
-        leadingContent = { Icon(icon, null, tint = MaterialTheme.colorScheme.primary) },
-        modifier = Modifier.clickable { showDialog = true }
-    )
+    Surface(
+        onClick = { showDialog = true },
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        modifier = Modifier.padding(vertical = 4.dp)
+    ) {
+        ListItem(
+            headlineContent = { Text(title) },
+            supportingContent = { Text(value) },
+            leadingContent = { Icon(icon, null, tint = MaterialTheme.colorScheme.primary) },
+            colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
+        )
+    }
     if (showDialog) {
         AlertDialog(
             onDismissRequest = { showDialog = false },
@@ -1104,11 +1131,8 @@ fun SettingsExitNodeItem(
         }
     }
 
-    ListItem(
-        headlineContent = { Text(title) },
-        supportingContent = { Text(if (currentValue.isEmpty()) "None" else currentValue, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        leadingContent = { Icon(icon, null, tint = MaterialTheme.colorScheme.primary) },
-        modifier = Modifier.clickable { 
+    Surface(
+        onClick = { 
             showDialog = true 
             isLoading = true
             scope.launch(Dispatchers.IO) {
@@ -1122,8 +1146,18 @@ fun SettingsExitNodeItem(
                 } catch (e: Exception) {}
                 withContext(Dispatchers.Main) { isLoading = false }
             }
-        }
-    )
+        },
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        modifier = Modifier.padding(vertical = 4.dp)
+    ) {
+        ListItem(
+            headlineContent = { Text(title) },
+            supportingContent = { Text(if (currentValue.isEmpty()) "None" else currentValue, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            leadingContent = { Icon(icon, null, tint = MaterialTheme.colorScheme.primary) },
+            colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
+        )
+    }
 
     if (showDialog) {
         ModalBottomSheet(onDismissRequest = { showDialog = false }) {
