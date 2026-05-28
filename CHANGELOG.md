@@ -21,6 +21,8 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Fixed a 404 Not Found issue (empty directories in Windows File Explorer) by performing case-insensitive matching on the requested share names in the WebDAV file server, aligning with the daemon's lowercased share registration.
 - Fixed DNS caching when switching profiles/accounts by flushing split DNS cache, nodes cache, and resetting MagicDNS suffix.
 - Fixed direct WebDAV connectivity to Taildrive at `100.100.100.100:8080` in userspace-networking mode by implementing loopback routing of self-addressed packets in netstack when a fake TUN device is used.
+- Fixed `unexpected end of stream` errors when opening remote peer shares by routing remote peer WebDAV traffic through the `tsdial.Dialer` while keeping local loopback traffic routed normally.
+
 
 ## [2.0.9-beta] - 2026-05-28
 ### Added
