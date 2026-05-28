@@ -16,6 +16,8 @@
 
 ---
 
+> this is a temporary version of the readme written by ai, later I will update it in more detail, as well as write a wiki. 
+
 TailSocks is a high-performance, lightweight Android client for [Tailscale](https://tailscale.com/) that operates exclusively in **userspace-networking mode** (via `tsnet`). 
 </br>It provides a complete Tailscale environment—including Taildrop, Exit Nodes, and Serve/Funnel—without utilizing Android's `VpnService` permission, enabling seamless coexistence with other VPN and firewall applications.
 
