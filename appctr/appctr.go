@@ -198,6 +198,15 @@ func FlushDNS() {
 		dnsCache.Delete(key)
 		return true
 	})
+	splitDNSCache.Range(func(key, value interface{}) bool {
+		splitDNSCache.Delete(key)
+		return true
+	})
+	nodesCache.Range(func(key, value interface{}) bool {
+		nodesCache.Delete(key)
+		return true
+	})
+	magicDNSSuffix = ""
 	slog.Info("DNS cache flushed")
 }
 
@@ -427,6 +436,7 @@ func RestartDNS() {
 func Stop() {
 	StopWebUI()
 	_ = StopDriveServer()
+	FlushDNS()
 	stateMu.Lock()
 	defer stateMu.Unlock()
 
