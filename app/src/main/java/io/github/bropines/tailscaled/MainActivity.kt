@@ -1101,17 +1101,9 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
 
                                 items(exitNodes) { node ->
                                     val isSelected = node.id == currentExitNodeId || node.getPrimaryIp() == exitNodeIp
-                                    val osIcon = when (node.os?.lowercase()) {
-                                        "android" -> Icons.Default.Android
-                                        "windows" -> Icons.Default.DesktopWindows
-                                        "linux" -> Icons.Default.Terminal
-                                        else -> Icons.Default.VpnKey
-                                    }
-                                    val osColor = when (node.os?.lowercase()) {
-                                        "android" -> Color(0xFF3DDC84)
-                                        "windows" -> Color(0xFF0078D4)
-                                        "linux" -> Color(0xFFFCC624)
-                                        else -> MaterialTheme.colorScheme.primary
+                                    val (osIcon, osColor) = getOsVisuals(node.os).let { (icon, color) ->
+                                        if (icon == Icons.Default.Devices) Icons.Default.VpnKey to MaterialTheme.colorScheme.primary
+                                        else icon to color
                                     }
                                     Card(
                                         modifier = Modifier

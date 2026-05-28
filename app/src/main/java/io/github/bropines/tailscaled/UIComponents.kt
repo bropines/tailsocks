@@ -44,6 +44,26 @@ import java.util.*
 
 // --- ПИРЫ ---
 
+fun getOsVisuals(os: String?): Pair<ImageVector, Color> {
+    val osLower = os?.lowercase().orEmpty()
+    val icon = when {
+        osLower.contains("android") -> Icons.Default.Android
+        osLower.contains("windows") -> Icons.Default.DesktopWindows
+        osLower.contains("linux") -> Icons.Default.Terminal
+        osLower.contains("macos") || osLower.contains("darwin") -> Icons.Default.DesktopMac
+        osLower.contains("ios") -> Icons.Default.PhoneIphone
+        else -> Icons.Default.Devices
+    }
+    val color = when {
+        osLower.contains("android") -> Color(0xFF3DDC84)
+        osLower.contains("windows") -> Color(0xFF0078D4)
+        osLower.contains("linux") -> Color(0xFFFCC624)
+        osLower.contains("macos") || osLower.contains("darwin") || osLower.contains("ios") -> Color(0xFFAF52DE) // Apple Purple
+        else -> Color(0xFF9E9E9E)
+    }
+    return icon to color
+}
+
 @Composable
 fun PeerItem(peer: PeerData, isSelf: Boolean, onClick: () -> Unit) {
     Surface(
@@ -52,15 +72,19 @@ fun PeerItem(peer: PeerData, isSelf: Boolean, onClick: () -> Unit) {
         color = if (isSelf) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer
     ) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
+            val (osIcon, osColor) = getOsVisuals(peer.os)
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(osColor.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
                 Icon(
-                    when (peer.os?.lowercase()) {
-                        "android" -> Icons.Default.Android
-                        "windows" -> Icons.Default.DesktopWindows
-                        "linux" -> Icons.Default.Terminal
-                        else -> Icons.Default.Devices
-                    },
-                    null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    osIcon,
+                    null,
+                    modifier = Modifier.size(20.dp),
+                    tint = osColor
                 )
             }
             Spacer(Modifier.width(16.dp))
@@ -89,19 +113,7 @@ fun PeerItem(peer: PeerData, isSelf: Boolean, onClick: () -> Unit) {
 
 @Composable
 fun PeerShareItem(peer: PeerData, enabled: Boolean, onClick: () -> Unit) {
-    val osIcon = when (peer.os?.lowercase()) {
-        "android" -> Icons.Default.Android
-        "windows" -> Icons.Default.DesktopWindows
-        "linux" -> Icons.Default.Terminal
-        "darwin", "macos", "ios" -> Icons.Default.Devices
-        else -> Icons.Default.Devices
-    }
-    val osColor = when (peer.os?.lowercase()) {
-        "android" -> Color(0xFF3DDC84)
-        "windows" -> Color(0xFF0078D4)
-        "linux" -> Color(0xFFFCC624)
-        else -> MaterialTheme.colorScheme.primary
-    }
+    val (osIcon, osColor) = getOsVisuals(peer.os)
 
     Card(
         modifier = Modifier
@@ -228,13 +240,7 @@ fun PeerDetailsModal(
                 }
                 
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    val osIcon = when (peer.os?.lowercase()) {
-                        "android" -> Icons.Default.Android
-                        "windows" -> Icons.Default.DesktopWindows
-                        "linux" -> Icons.Default.Terminal
-                        "darwin", "macos", "ios" -> Icons.Default.Devices
-                        else -> Icons.Default.Devices
-                    }
+                    val (osIcon, osColor) = getOsVisuals(peer.os)
                     val statusColor = if (peer.online == true) Color(0xFF4CAF50) else Color(0xFF9E9E9E)
                     
                     Row(
@@ -245,7 +251,7 @@ fun PeerDetailsModal(
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                             .padding(horizontal = 12.dp, vertical = 6.dp)
                     ) {
-                        Icon(osIcon, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                        Icon(osIcon, null, modifier = Modifier.size(16.dp), tint = osColor)
                         Spacer(Modifier.width(8.dp))
                         Text(peer.getDisplayName(), fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Spacer(Modifier.width(8.dp))
