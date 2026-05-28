@@ -55,57 +55,57 @@ TailSocks is a high-performance, lightweight Android client for [Tailscale](http
   <tr>
     <td width="33%" align="center">
       <strong>Main Dashboard</strong><br/>
-      <img src="docs/screenshot_main.png" alt="Main Dashboard" width="220"/>
+      <img width="414" height="898" alt="YourPhoneAppProxy_Mp5unC4ocd" src="https://github.com/user-attachments/assets/1d948d16-b6bf-4652-9bce-6e862bdfd90d" />
     </td>
     <td width="33%" align="center">
-      <strong>Settings (Style Tab)</strong><br/>
-      <img src="docs/screenshot_settings_style.png" alt="Settings Style" width="220"/>
+      <strong>Account Switch</strong><br/>
+      <img width="414" height="898" alt="YourPhoneAppProxy_EDRBtG1xTP" src="https://github.com/user-attachments/assets/4aa9e88d-c02b-472a-96ad-267314233e70" />
     </td>
     <td width="33%" align="center">
-      <strong>Settings (Network Tab)</strong><br/>
-      <img src="docs/screenshot_settings_network.png" alt="Settings Network" width="220"/>
+      <strong>Peers</strong><br/>
+      <img width="414" height="898" alt="YourPhoneAppProxy_KZX6ZCkFdW" src="https://github.com/user-attachments/assets/26b374e9-a25e-4395-9b84-27cf756e59f1" />
     </td>
   </tr>
   <tr>
     <td width="33%" align="center">
-      <strong>Settings (Core Tab)</strong><br/>
-      <img src="docs/screenshot_settings_core.png" alt="Settings Core" width="220"/>
+      <strong>Logs</strong><br/>
+<img width="827" height="1795" alt="image" src="https://github.com/user-attachments/assets/57813442-7158-49ea-95dc-f2b6377f0030" />
     </td>
     <td width="33%" align="center">
-      <strong>Settings (Profile Tab)</strong><br/>
-      <img src="docs/screenshot_settings_profile.png" alt="Settings Profile" width="220"/>
+      <strong>Taildrop</strong><br/>
+<img width="414" height="898" alt="YourPhoneAppProxy_OFKPGKEK67" src="https://github.com/user-attachments/assets/41d23cbc-4d67-4ec4-9477-2f5e95c1ec8d" />
     </td>
     <td width="33%" align="center">
       <strong>Taildrive Shares</strong><br/>
-      <img src="docs/screenshot_taildrive.png" alt="Taildrive" width="220"/>
+<img width="414" height="898" alt="YourPhoneAppProxy_6g3df2AmEt" src="https://github.com/user-attachments/assets/d02c7e01-0454-42ce-8b0e-83faca773b66" />
     </td>
   </tr>
   <tr>
     <td width="33%" align="center">
-      <strong>Serve & Funnel</strong><br/>
-      <img src="docs/screenshot_serve.png" alt="Serve & Funnel" width="220"/>
+      <strong>DNS</strong><br/>
+<img width="414" height="898" alt="YourPhoneAppProxy_w7R6iwVP8D" src="https://github.com/user-attachments/assets/faea8000-94ae-4c55-b4be-8d577d5a5fa9" />
     </td>
     <td width="33%" align="center">
-      <strong>Taildrop Hub</strong><br/>
-      <img src="docs/screenshot_files.png" alt="Taildrop Hub" width="220"/>
+      <strong>Settings (App)</strong><br/>
+<img width="414" height="898" alt="YourPhoneAppProxy_beqAVWrtKa" src="https://github.com/user-attachments/assets/3cc0d9c6-77a9-4444-a020-b8a606e54952" />
     </td>
     <td width="33%" align="center">
-      <strong>Peers List</strong><br/>
-      <img src="docs/screenshot_peers.png" alt="Peers list" width="220"/>
+      <strong>Settings(Profile)</strong><br/>
+<img width="414" height="898" alt="YourPhoneAppProxy_zRFafgJI5U" src="https://github.com/user-attachments/assets/c3421fb3-cf46-4029-bb2a-f8f895114921" />
     </td>
   </tr>
   <tr>
     <td width="33%" align="center">
       <strong>Network Diagnostics</strong><br/>
-      <img src="docs/screenshot_netcheck.png" alt="Netcheck Diagnostics" width="220"/>
+<img width="414" height="898" alt="YourPhoneAppProxy_zqT21qGtNI" src="https://github.com/user-attachments/assets/1f711954-7e2e-430a-9d57-5a7130105cae" />
     </td>
     <td width="33%" align="center">
-      <strong>System Logs</strong><br/>
-      <img src="docs/screenshot_logs.png" alt="System Logs" width="220"/>
+      <strong>Serve & Funnel</strong><br/>
+<img width="414" height="898" alt="YourPhoneAppProxy_O696uHYR6w" src="https://github.com/user-attachments/assets/a4538bf6-edc6-45d2-a648-5a377797c0a8" />
     </td>
     <td width="33%" align="center">
-      <strong>Widgets Showcase</strong><br/>
-      <img src="docs/screenshot_widgets.png" alt="Widgets Showcase" width="220"/>
+      <strong>Send to... (TailDrop)</strong><br/>
+<img width="414" height="898" alt="image" src="https://github.com/user-attachments/assets/fe051494-745c-431e-ad77-05bdd05857cb" />
     </td>
   </tr>
 </table>
