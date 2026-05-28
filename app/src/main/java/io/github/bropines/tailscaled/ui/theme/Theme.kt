@@ -1,9 +1,10 @@
 package io.github.bropines.tailscaled.ui.theme
 
+import android.content.Context
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import io.github.bropines.tailscaled.GlobalSettings
@@ -186,10 +187,37 @@ fun TailSocksTheme(
 ) {
     val context = LocalContext.current
 
-    // Resolve theme parameters (either passed as state or read from preferences)
-    val actualAppTheme = appTheme ?: GlobalSettings.getAppTheme(context)
-    val actualPreset = themePreset ?: GlobalSettings.getThemePreset(context)
-    val actualDynamic = dynamicColorEnabled ?: GlobalSettings.isDynamicColorEnabled(context)
+    // Reactive Compose states initialized with current preferences
+    var resolvedTheme by remember { mutableStateOf(GlobalSettings.getAppTheme(context)) }
+    var resolvedPreset by remember { mutableStateOf(GlobalSettings.getThemePreset(context)) }
+    var resolvedDynamic by remember { mutableStateOf(GlobalSettings.isDynamicColorEnabled(context)) }
+
+    // If explicit states are passed (e.g. inside Settings screen for real-time visual updates), use them
+    LaunchedEffect(appTheme, themePreset, dynamicColorEnabled) {
+        if (appTheme != null) resolvedTheme = appTheme
+        if (themePreset != null) resolvedPreset = themePreset
+        if (dynamicColorEnabled != null) resolvedDynamic = dynamicColorEnabled
+    }
+
+    // Shared preferences listener to instantly trigger updates on back press / background screens
+    DisposableEffect(context) {
+        val sharedPrefs = context.getSharedPreferences("tailsocks_global", Context.MODE_PRIVATE)
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            when (key) {
+                "app_theme" -> resolvedTheme = GlobalSettings.getAppTheme(context)
+                "theme_preset" -> resolvedPreset = GlobalSettings.getThemePreset(context)
+                "dynamic_color" -> resolvedDynamic = GlobalSettings.isDynamicColorEnabled(context)
+            }
+        }
+        sharedPrefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose {
+            sharedPrefs.unregisterOnSharedPreferenceChangeListener(listener)
+        }
+    }
+
+    val actualAppTheme = resolvedTheme
+    val actualPreset = resolvedPreset
+    val actualDynamic = resolvedDynamic
 
     // Determine dark mode
     val systemDark = isSystemInDarkTheme()
