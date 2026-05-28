@@ -10,6 +10,9 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Added a Taildrive entry card to the main dashboard.
 - Registered physical path mappings for Storage Access Framework (SAF) folder selections.
 
+### Fixed
+- Fixed a 404 Not Found issue (empty directories in Windows File Explorer) by performing case-insensitive matching on the requested share names in the WebDAV file server, aligning with the daemon's lowercased share registration.
+
 ## [2.0.9-beta] - 2026-05-28
 ### Added
 - Added custom tags (`--advertise-tags`) and subnet routes (`--advertise-routes`) configuration to the profile settings screen.
