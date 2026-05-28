@@ -23,8 +23,8 @@
  	return t.tdev.MTU()
  }
 --- orig/wgengine/netstack/netstack.go	2026-05-21 21:27:19.000000000 +0300
-+++ tailscale_src/wgengine/netstack/netstack.go	2026-05-28 21:40:55.376345721 +0300
-@@ -1057,12 +1057,29 @@
++++ tailscale_src/wgengine/netstack/netstack.go	2026-05-28 21:44:45.624284061 +0300
+@@ -1057,12 +1057,30 @@
  			ns.logf("[v2] packet Write out: % x", stack.PayloadSince(pkt.NetworkHeader()).AsSlice())
  		}
  
@@ -43,8 +43,9 @@
 +			dst = netip.AddrFrom16(v.DestinationAddress().As16())
 +		}
 +
++		isDstLocal := ns.isLocalToNetstack(dst)
  		sendToHost := ns.shouldSendToHost(pkt)
-+		if sendToHost && ns.isSelfDst(pkt) && ns.tundev != nil && ns.tundev.IsFakeTUN() {
++		if sendToHost && ns.tundev != nil && ns.tundev.IsFakeTUN() && (ns.isLocalToNetstack(src) || isDstLocal) {
 +			sendToHost = false
 +		}
 +
@@ -59,13 +60,28 @@
  
  		// pkt has a non-zero refcount, so injection methods takes
  		// ownership of one count and will decrement on completion.
-@@ -1077,7 +1094,8 @@
+@@ -1077,6 +1095,10 @@
  			// earmarked for the host. Neither the inbound path (fakeTUN Write is a
  			// no-op) nor the outbound path (WireGuard has no peer for our own IP)
  			// can handle these.
--			if ns.isSelfDst(pkt) {
-+			isServiceDst := dst == serviceIP || dst == serviceIPv6
-+			if ns.isSelfDst(pkt) || (isServiceDst && ns.tundev != nil && ns.tundev.IsFakeTUN()) {
++			if (ns.isSelfDst(pkt) || isDstLocal) && ns.tundev != nil && ns.tundev.IsFakeTUN() {
++				ns.linkEP.DeliverLoopback(pkt)
++				continue
++			}
+ 			if ns.isSelfDst(pkt) {
  				ns.linkEP.DeliverLoopback(pkt)
  				continue
- 			}
+@@ -1181,6 +1203,13 @@
+ 	return ns.atomicIsLocalIPFunc.Load()(ip)
+ }
+ 
++// isLocalToNetstack reports whether ip is handled locally by this netstack instance
++// (either as a node local IP, service IP, or VIP service IP).
++func (ns *Impl) isLocalToNetstack(ip netip.Addr) bool {
++	return ns.isLocalIP(ip) || ip == serviceIP || ip == serviceIPv6 || ns.isVIPServiceIP(ip)
++}
++
++
+ // isVIPServiceIP reports whether ip is an IP address that's
+ // assigned to a VIP service.
+ func (ns *Impl) isVIPServiceIP(ip netip.Addr) bool {
