@@ -22,6 +22,7 @@ data class StatusResponse(
 @Keep
 data class PeerData(
     @SerializedName("ID") val id: String?,
+    @SerializedName("UserID") val userID: Long?,
     @SerializedName("HostName") val hostName: String?,
     @SerializedName("DNSName") val dnsName: String?,
     @SerializedName("OS") val os: String?,

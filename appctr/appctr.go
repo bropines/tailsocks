@@ -198,6 +198,10 @@ func FlushDNS() {
 		dnsCache.Delete(key)
 		return true
 	})
+	slog.Info("DNS cache flushed")
+}
+
+func ResetDNSMetadata() {
 	splitDNSCache.Range(func(key, value interface{}) bool {
 		splitDNSCache.Delete(key)
 		return true
@@ -207,7 +211,7 @@ func FlushDNS() {
 		return true
 	})
 	magicDNSSuffix = ""
-	slog.Info("DNS cache flushed")
+	slog.Info("DNS split routes and nodes metadata reset")
 }
 
 func syncSettings(opt *StartOptions) {
@@ -437,6 +441,7 @@ func Stop() {
 	StopWebUI()
 	_ = StopDriveServer()
 	FlushDNS()
+	ResetDNSMetadata()
 	stateMu.Lock()
 	defer stateMu.Unlock()
 

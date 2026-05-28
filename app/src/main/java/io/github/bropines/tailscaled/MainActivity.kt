@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.automirrored.filled.*
@@ -270,7 +271,8 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                             val pJson = appctr.Appctr.getStatusFromAPI()
                             if (!pJson.startsWith("Error")) {
                                 val status = com.google.gson.Gson().fromJson(pJson, StatusResponse::class.java)
-                                val selfUser = status.users?.values?.firstOrNull()
+                                val selfUserId = status.self?.userID
+                                val selfUser = status.users?.get(selfUserId?.toString()) ?: status.users?.values?.firstOrNull()
                                 val picUrl = selfUser?.profilePicUrl
                                 if (!picUrl.isNullOrEmpty() && picUrl != activeAccount.avatarUrl) {
                                     downloadAndCacheAvatar(context, activeAccount.id, picUrl)
@@ -984,32 +986,196 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
     }
 
     if (showExitNodeSheet) {
-        ModalBottomSheet(onDismissRequest = { showExitNodeSheet = false }) {
-            Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
-                Text("Select Exit Node", modifier = Modifier.padding(20.dp), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+        val maxHeight = (configuration.screenHeightDp * 0.85f).dp
+
+        ModalBottomSheet(
+            onDismissRequest = { showExitNodeSheet = false }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = maxHeight)
+                    .navigationBarsPadding()
+            ) {
+                Text(
+                    "Select Exit Node",
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+
                 if (isExitNodesLoading) {
-                    Box(Modifier.fillMaxWidth().height(100.dp), Alignment.Center) { CircularProgressIndicator() }
+                    Box(Modifier.fillMaxWidth().height(120.dp), Alignment.Center) { CircularProgressIndicator() }
                 } else if (exitNodes.isEmpty()) {
-                    Box(Modifier.fillMaxWidth().height(100.dp), Alignment.Center) { 
+                    Box(Modifier.fillMaxWidth().height(120.dp), Alignment.Center) { 
                         Text("No exit nodes available", color = MaterialTheme.colorScheme.outline)
                     }
                 } else {
-                    androidx.compose.foundation.lazy.LazyColumn {
-                        item {
-                            ListItem(
-                                headlineContent = { Text("None") },
-                                leadingContent = { Icon(Icons.Default.Clear, null) },
-                                modifier = Modifier.clickable { applyExitNode("", ""); showExitNodeSheet = false }
+                    val currentExitNodeId = remember(showExitNodeSheet) { prefs.getString("exit_node_id", "") ?: "" }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f, fill = false)
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                            ),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
                             )
-                        }
-                        items(exitNodes.size) { i ->
-                            val node = exitNodes[i]
-                            ListItem(
-                                headlineContent = { Text(node.getDisplayName()) },
-                                supportingContent = { Text(node.getPrimaryIp()) },
-                                leadingContent = { Icon(Icons.Default.VpnKey, null) },
-                                modifier = Modifier.clickable { applyExitNode(node.id ?: "", node.getPrimaryIp()); showExitNodeSheet = false }
-                            )
+                        ) {
+                            androidx.compose.foundation.lazy.LazyColumn(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                contentPadding = PaddingValues(bottom = 16.dp)
+                            ) {
+                                item {
+                                    val isSelected = exitNodeIp.isEmpty()
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 6.dp)
+                                            .clickable { applyExitNode("", ""); showExitNodeSheet = false },
+                                        shape = RoundedCornerShape(14.dp),
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            1.dp,
+                                            if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                                        ),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
+                                        )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(38.dp)
+                                                    .clip(CircleShape)
+                                                    .background(
+                                                        if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
+                                                    ),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.Clear,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(18.dp),
+                                                    tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                            Spacer(Modifier.width(16.dp))
+                                            Column(Modifier.weight(1f)) {
+                                                Text(
+                                                    "None",
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 15.sp,
+                                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                                )
+                                                Text(
+                                                    "Route traffic directly",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                            if (isSelected) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(8.dp)
+                                                        .clip(CircleShape)
+                                                        .background(MaterialTheme.colorScheme.primary)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                items(exitNodes) { node ->
+                                    val isSelected = node.id == currentExitNodeId || node.getPrimaryIp() == exitNodeIp
+                                    val osIcon = when (node.os?.lowercase()) {
+                                        "android" -> Icons.Default.Android
+                                        "windows" -> Icons.Default.DesktopWindows
+                                        "linux" -> Icons.Default.Terminal
+                                        else -> Icons.Default.VpnKey
+                                    }
+                                    val osColor = when (node.os?.lowercase()) {
+                                        "android" -> Color(0xFF3DDC84)
+                                        "windows" -> Color(0xFF0078D4)
+                                        "linux" -> Color(0xFFFCC624)
+                                        else -> MaterialTheme.colorScheme.primary
+                                    }
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 6.dp)
+                                            .clickable { applyExitNode(node.id ?: "", node.getPrimaryIp()); showExitNodeSheet = false },
+                                        shape = RoundedCornerShape(14.dp),
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            1.dp,
+                                            if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                                        ),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
+                                        )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(38.dp)
+                                                    .clip(CircleShape)
+                                                    .background(
+                                                        if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                                        else osColor.copy(alpha = 0.12f)
+                                                    ),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    osIcon,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(18.dp),
+                                                    tint = if (isSelected) MaterialTheme.colorScheme.primary else osColor
+                                                )
+                                            }
+                                            Spacer(Modifier.width(16.dp))
+                                            Column(Modifier.weight(1f)) {
+                                                Text(
+                                                    node.getDisplayName(),
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 15.sp,
+                                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                                )
+                                                Text(
+                                                    node.getPrimaryIp(),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                            if (isSelected) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(8.dp)
+                                                        .clip(CircleShape)
+                                                        .background(MaterialTheme.colorScheme.primary)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
