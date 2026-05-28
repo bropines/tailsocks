@@ -109,10 +109,10 @@ fun SettingsScreen(
     // Tab Navigation State
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf(
-        Pair("Стиль", Icons.Default.Palette),
-        Pair("Сеть", Icons.Default.Language),
+        Pair("Style", Icons.Default.Palette),
+        Pair("Network", Icons.Default.Language),
         Pair("DNS", Icons.Default.Dns),
-        Pair("Профиль", Icons.Default.AccountCircle)
+        Pair("Profile", Icons.Default.AccountCircle)
     )
 
     // Global Settings
@@ -190,9 +190,9 @@ fun SettingsScreen(
                     val allPrefs = profilePrefs.all
                     val backupData = mapOf("account" to activeAccount, "settings" to allPrefs)
                     context.contentResolver.openOutputStream(uri)?.use { it.write(Gson().toJson(backupData).toByteArray()) }
-                    withContext(Dispatchers.Main) { Toast.makeText(context, "Бэкап сохранен", Toast.LENGTH_SHORT).show() }
+                    withContext(Dispatchers.Main) { Toast.makeText(context, "Backup saved", Toast.LENGTH_SHORT).show() }
                 } catch (e: Exception) {
-                    withContext(Dispatchers.Main) { Toast.makeText(context, "Ошибка бэкапа: ${e.message}", Toast.LENGTH_LONG).show() }
+                    withContext(Dispatchers.Main) { Toast.makeText(context, "Backup failed: ${e.message}", Toast.LENGTH_LONG).show() }
                 }
             }
         }
@@ -221,12 +221,12 @@ fun SettingsScreen(
                             }
                             editor.apply()
                             withContext(Dispatchers.Main) { 
-                                Toast.makeText(context, "Настройки успешно импортированы. Перезапустите службу.", Toast.LENGTH_LONG).show() 
+                                Toast.makeText(context, "Settings restored successfully. Please restart the app.", Toast.LENGTH_LONG).show() 
                             }
                         }
                     }
                 } catch (e: Exception) {
-                    withContext(Dispatchers.Main) { Toast.makeText(context, "Импорт не удался: ${e.message}", Toast.LENGTH_LONG).show() }
+                    withContext(Dispatchers.Main) { Toast.makeText(context, "Restore failed: ${e.message}", Toast.LENGTH_LONG).show() }
                 }
             }
         }
@@ -266,9 +266,9 @@ fun SettingsScreen(
                     val zipBytes = baos.toByteArray()
                     val encryptedBytes = BackupCrypto.encrypt(zipBytes, backupPassword.toCharArray())
                     context.contentResolver.openOutputStream(uri)?.use { it.write(encryptedBytes) }
-                    withContext(Dispatchers.Main) { Toast.makeText(context, "Зашифрованный ZIP бэкап сохранен", Toast.LENGTH_SHORT).show() }
+                    withContext(Dispatchers.Main) { Toast.makeText(context, "Encrypted backup saved", Toast.LENGTH_SHORT).show() }
                 } catch (e: Exception) {
-                    withContext(Dispatchers.Main) { Toast.makeText(context, "Ошибка ZIP бэкапа: ${e.message}", Toast.LENGTH_LONG).show() }
+                    withContext(Dispatchers.Main) { Toast.makeText(context, "Full backup failed: ${e.message}", Toast.LENGTH_LONG).show() }
                 } finally {
                     backupPassword = ""
                 }
@@ -288,7 +288,7 @@ fun SettingsScreen(
             try {
                 val encryptedBytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
                 if (encryptedBytes == null) {
-                    withContext(Dispatchers.Main) { Toast.makeText(context, "Не удалось прочитать файл бэкапа", Toast.LENGTH_LONG).show() }
+                    withContext(Dispatchers.Main) { Toast.makeText(context, "Failed to read backup file", Toast.LENGTH_LONG).show() }
                     return@launch
                 }
                 val decryptedBytes = BackupCrypto.decrypt(encryptedBytes, passwordStr.toCharArray())
@@ -315,9 +315,9 @@ fun SettingsScreen(
                         entry = zis.nextEntry
                     }
                 }
-                withContext(Dispatchers.Main) { Toast.makeText(context, "Импорт завершен. ПРИНУДИТЕЛЬНО ПЕРЕЗАПУСТИТЕ приложение.", Toast.LENGTH_LONG).show() }
+                withContext(Dispatchers.Main) { Toast.makeText(context, "Full restore complete. Please FORCE RESTART the app.", Toast.LENGTH_LONG).show() }
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) { Toast.makeText(context, "Ошибка импорта: неверный пароль или поврежденный файл", Toast.LENGTH_LONG).show() }
+                withContext(Dispatchers.Main) { Toast.makeText(context, "Full restore failed: Invalid password or corrupted file", Toast.LENGTH_LONG).show() }
             } finally {
                 restorePassword = ""
                 pendingRestoreUri = null
@@ -357,9 +357,9 @@ fun SettingsScreen(
             }
             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText("SagerNet SOCKS5", link))
-            Toast.makeText(context, "Ссылка SagerNet скопирована", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "SagerNet link copied!", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
-            Toast.makeText(context, "Ошибка: ${e.message}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -367,28 +367,28 @@ fun SettingsScreen(
     if (showResetDialog) {
         AlertDialog(
             onDismissRequest = { showResetDialog = false },
-            title = { Text("Выйти из Tailnet?") },
-            text = { Text("Это очистит текущую сессию и состояние ноды через native LocalAPI. Вам потребуется повторная авторизация. Продолжить?") },
+            title = { Text("Log out from Tailnet?") },
+            text = { Text("This will clear your current session and node state using native LocalAPI. You will need to re-authenticate. Continue?") },
             confirmButton = {
                 Button(onClick = { 
                     scope.launch(Dispatchers.IO) {
                         Appctr.logout()
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Сессия успешно сброшена", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Logged out successfully", Toast.LENGTH_SHORT).show()
                         }
                     }
                     showResetDialog = false 
-                }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Выйти") }
+                }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Log Out") }
             },
-            dismissButton = { TextButton(onClick = { showResetDialog = false }) { Text("Отмена") } }
+            dismissButton = { TextButton(onClick = { showResetDialog = false }) { Text("Cancel") } }
         )
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Настройки", fontWeight = FontWeight.Bold) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Назад") } }
+                title = { Text("Settings", fontWeight = FontWeight.Bold) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } }
             )
         }
     ) { padding ->
@@ -432,16 +432,16 @@ fun SettingsScreen(
                 ) {
                     when (targetTab) {
                         0 -> { // TAB 0: Personalization & System
-                            SettingsCard(title = "Персонализация") {
+                            SettingsCard(title = "Personalization") {
                                 // Theme selector (Chips row)
                                 val themeOptions = listOf(
-                                    Triple("system", Icons.Default.Settings, "Система"),
-                                    Triple("light", Icons.Default.LightMode, "Светлая"),
-                                    Triple("dark", Icons.Default.DarkMode, "Темная"),
+                                    Triple("system", Icons.Default.Settings, "System"),
+                                    Triple("light", Icons.Default.LightMode, "Light"),
+                                    Triple("dark", Icons.Default.DarkMode, "Dark"),
                                     Triple("amoled", Icons.Default.OfflineBolt, "Amoled")
                                 )
                                 Column(Modifier.padding(bottom = 8.dp)) {
-                                    Text("Оформление интерфейса", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("Interface Theme", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Spacer(Modifier.height(8.dp))
                                     Row(
                                         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -467,15 +467,15 @@ fun SettingsScreen(
                                 if (!currentDynamicColor || android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) {
                                     Spacer(Modifier.height(12.dp))
                                     val presets = listOf(
-                                        PresetItem("default", Color(0xFF6750A4), "Дефолт"),
-                                        PresetItem("lavender", Color(0xFF704E9B), "Лаванда"),
-                                        PresetItem("emerald", Color(0xFF006B54), "Изумруд"),
-                                        PresetItem("sapphire", Color(0xFF005FAF), "Сапфир"),
-                                        PresetItem("amber", Color(0xFF825500), "Янтарь"),
-                                        PresetItem("monochrome", Color(0xFF1D2023), "Монохром")
+                                        PresetItem("default", Color(0xFF6750A4), "Default"),
+                                        PresetItem("lavender", Color(0xFF704E9B), "Lavender"),
+                                        PresetItem("emerald", Color(0xFF006B54), "Emerald"),
+                                        PresetItem("sapphire", Color(0xFF005FAF), "Sapphire"),
+                                        PresetItem("amber", Color(0xFF825500), "Amber"),
+                                        PresetItem("monochrome", Color(0xFF1D2023), "Monochrome")
                                     )
                                     Column {
-                                        Text("Цветовая палитра", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("Color Palette", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         Spacer(Modifier.height(8.dp))
                                         Row(
                                             Modifier.fillMaxWidth(),
@@ -517,8 +517,8 @@ fun SettingsScreen(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Column(Modifier.weight(1f)) {
-                                            Text("Динамические цвета", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                                            Text("Цвета системы Material You", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                                            Text("Dynamic Colors", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                            Text("Use Material You system colors", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                                         }
                                         Switch(checked = currentDynamicColor, onCheckedChange = onDynamicColorChange)
                                     }
@@ -527,17 +527,17 @@ fun SettingsScreen(
 
                             Spacer(Modifier.height(12.dp))
 
-                            SettingsCard(title = "Хранилище") {
+                            SettingsCard(title = "Storage") {
                                 SettingsClickableItem(
-                                    "Папка Taildrop",
-                                    taildropRootUri?.path ?: "Используется внутреннее хранилище",
+                                    "Taildrop Storage Folder",
+                                    taildropRootUri?.path ?: "Uses app internal folder",
                                     Icons.Default.Folder
                                 ) { folderPicker.launch(null) }
                             }
 
                             Spacer(Modifier.height(12.dp))
 
-                            SettingsCard(title = "Резервное копирование и Система") {
+                            SettingsCard(title = "System & Backup") {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -549,7 +549,7 @@ fun SettingsScreen(
                                     ) {
                                         Icon(Icons.Default.Archive, null)
                                         Spacer(Modifier.width(8.dp))
-                                        Text("Экспорт (ZIP)", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text("Backup (ZIP)", maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     }
                                     OutlinedButton(
                                         onClick = { fullRestoreLauncher.launch("*/*") },
@@ -558,20 +558,20 @@ fun SettingsScreen(
                                     ) {
                                         Icon(Icons.Default.SettingsBackupRestore, null)
                                         Spacer(Modifier.width(8.dp))
-                                        Text("Импорт ZIP", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text("Restore ZIP", maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     }
                                 }
                                 Spacer(Modifier.height(12.dp))
-                                SettingsClickableItem("Оптимизация батареи", "Отключить ограничение фонового сна", Icons.Default.BatteryAlert) {
+                                SettingsClickableItem("Battery Optimization", "Disable to prevent background sleep", Icons.Default.BatteryAlert) {
                                     try {
                                         val intent = Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
                                         context.startActivity(intent)
                                     } catch (e: Exception) {
-                                        Toast.makeText(context, "Не удалось открыть настройки батареи", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Cannot open battery settings", Toast.LENGTH_SHORT).show()
                                     }
                                 }
                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                SettingsSwitchItem("Автостарт при загрузке", "Запускать службу при включении устройства", Icons.Default.PowerSettingsNew, autoStart) {
+                                SettingsSwitchItem("Auto-start on Boot", "Start TailSocks when device turns on", Icons.Default.PowerSettingsNew, autoStart) {
                                     GlobalSettings.setAutoStartEnabled(context, it)
                                     autoStart = it
                                 }
@@ -579,43 +579,43 @@ fun SettingsScreen(
                         }
 
                         1 -> { // TAB 1: Network & Proxy
-                            SettingsCard(title = "SOCKS5 Proxy (Внутренний)") {
-                                SettingsEditItem("Адрес SOCKS5", socks5, Icons.Default.Language) { socks5 = it; saveGlobalPref("socks5", it) }
-                                SettingsEditItem("Пользователь SOCKS5", socks5User, Icons.Default.Person, onAction = { generateRandomString(8) }, actionIcon = Icons.Default.Casino) { socks5User = it; saveGlobalPref("socks5_user", it) }
-                                SettingsEditItem("Пароль SOCKS5", socks5Pass, Icons.Default.Password, onAction = { generateRandomString(12) }, actionIcon = Icons.Default.Casino) { socks5Pass = it; saveGlobalPref("socks5_pass", it) }
+                            SettingsCard(title = "SOCKS5 Proxy (Internal)") {
+                                SettingsEditItem("SOCKS5 Address", socks5, Icons.Default.Language) { socks5 = it; saveGlobalPref("socks5", it) }
+                                SettingsEditItem("SOCKS5 Username", socks5User, Icons.Default.Person, onAction = { generateRandomString(8) }, actionIcon = Icons.Default.Casino) { socks5User = it; saveGlobalPref("socks5_user", it) }
+                                SettingsEditItem("SOCKS5 Password", socks5Pass, Icons.Default.Password, onAction = { generateRandomString(12) }, actionIcon = Icons.Default.Casino) { socks5Pass = it; saveGlobalPref("socks5_pass", it) }
                                 Spacer(Modifier.height(12.dp))
                                 OutlinedButton(onClick = { copySagerNetLink() }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
                                     Icon(Icons.Default.Share, null)
                                     Spacer(Modifier.width(8.dp))
-                                    Text("Скопировать ссылку для SagerNet")
+                                    Text("Copy SagerNet Link")
                                 }
                             }
 
                             Spacer(Modifier.height(12.dp))
 
                             SettingsCard(title = "HTTP Proxy") {
-                                SettingsEditItem("Адрес HTTP Proxy", httpProxy, Icons.Default.Http) { httpProxy = it; saveGlobalPref("httpproxy", it) }
+                                SettingsEditItem("HTTP Proxy Address", httpProxy, Icons.Default.Http) { httpProxy = it; saveGlobalPref("httpproxy", it) }
                             }
 
                             Spacer(Modifier.height(12.dp))
 
-                            SettingsCard(title = "Проксирование управления") {
+                            SettingsCard(title = "Control Plane Proxy") {
                                 SettingsClickableItem(
                                     "Control Plane Proxy", 
-                                    if (isProxyEnabled) "Включен (${GlobalSettings.getCPField(context, "type")})" else "Отключен",
+                                    if (isProxyEnabled) "Enabled (${GlobalSettings.getCPField(context, "type")})" else "Disabled",
                                     Icons.Default.Shield
                                 ) { showProxyDialog = true }
                             }
 
                             Spacer(Modifier.height(12.dp))
 
-                            SettingsCard(title = "Служебные анонсы") {
+                            SettingsCard(title = "Service Advertisements") {
                                 SettingsEditItem(
-                                    title = "Advertise Tags (Теги)",
+                                    title = "Advertise Tags",
                                     value = advertiseTags,
                                     icon = Icons.Default.Label,
                                     placeholder = "tag:server, tag:mobile",
-                                    description = "Запросить теги прав доступа для этой ноды",
+                                    description = "Request access control tags for this node",
                                     suggestions = availableNetworkTags
                                 ) { 
                                     advertiseTags = it
@@ -623,7 +623,7 @@ fun SettingsScreen(
                                 }
                                 if (appliedTags.isNotEmpty()) {
                                     Text(
-                                        text = "Активные теги: " + appliedTags.joinToString(", "),
+                                        text = "Applied Tags: " + appliedTags.joinToString(", "),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 4.dp)
@@ -631,11 +631,11 @@ fun SettingsScreen(
                                 }
                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
                                 SettingsEditItem(
-                                    title = "Advertise Routes (Подсети)",
+                                    title = "Advertise Routes",
                                     value = advertiseRoutes,
                                     icon = Icons.Default.Map,
                                     placeholder = "10.0.0.0/24, 192.168.1.0/24",
-                                    description = "Маршрутизировать локальные подсети в Tailnet"
+                                    description = "Advertise local subnets into Tailnet"
                                 ) { 
                                     advertiseRoutes = it
                                     saveProfilePref("advertise_routes", it) 
@@ -644,13 +644,13 @@ fun SettingsScreen(
                         }
 
                         2 -> { // TAB 2: DNS Settings
-                            SettingsCard(title = "Прокси DNS") {
+                            SettingsCard(title = "DNS Proxy") {
                                 SettingsEditItem("DNS Proxy Address", dnsProxy, Icons.Default.Toll) { dnsProxy = it; saveGlobalPref("dns_proxy", it) }
                             }
 
                             Spacer(Modifier.height(12.dp))
 
-                            SettingsCard(title = "Резервные сервера DNS") {
+                            SettingsCard(title = "Fallback DNS Servers") {
                                 SettingsEditItem("DNS Fallbacks", dnsFallbacks, Icons.Default.List, placeholder = "8.8.8.8:53,1.1.1.1:53") { dnsFallbacks = it; saveGlobalPref("dns_fallbacks", it) }
                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
                                 SettingsEditItem("DoH Fallback URL", dohUrl, Icons.Default.Link, placeholder = "https://1.1.1.1/dns-query") { dohUrl = it; saveGlobalPref("doh_url", it) }
@@ -658,25 +658,25 @@ fun SettingsScreen(
 
                             Spacer(Modifier.height(12.dp))
 
-                            SettingsCard(title = "Флаги и Логи") {
-                                SettingsSwitchItem("Принимать маршруты (Routes)", "Разрешить сети прописывать роуты", Icons.Default.Map, acceptRoutes) { acceptRoutes = it; saveGlobalPref("accept_routes", it) }
+                            SettingsCard(title = "Flags & Logs") {
+                                SettingsSwitchItem("Accept Routes", "Allow network to configure routes", Icons.Default.Map, acceptRoutes) { acceptRoutes = it; saveGlobalPref("accept_routes", it) }
                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                SettingsSwitchItem("Принимать DNS", "Использовать DNS сервера сети", Icons.Default.Dns, acceptDns) { acceptDns = it; saveGlobalPref("accept_dns", it) }
+                                SettingsSwitchItem("Accept DNS", "Allow network to configure DNS", Icons.Default.Dns, acceptDns) { acceptDns = it; saveGlobalPref("accept_dns", it) }
                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                SettingsSwitchItem("Поддерживать фоновый режим", "Предотвращать засыпание службы через WakeLock", Icons.Default.BatteryFull, forceBg) { forceBg = it; saveGlobalPref("force_bg", it) }
+                                SettingsSwitchItem("Force Background", "Keep WakeLock active in background", Icons.Default.BatteryFull, forceBg) { forceBg = it; saveGlobalPref("force_bg", it) }
                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                SettingsSwitchItem("Детальный лог", "Подробное логирование без фильтрации", Icons.Default.BugReport, detailedLogs) { detailedLogs = it; saveGlobalPref("detailed_logs", it) }
+                                SettingsSwitchItem("Detailed Logs", "Disable log filtering (noisy!)", Icons.Default.BugReport, detailedLogs) { detailedLogs = it; saveGlobalPref("detailed_logs", it) }
                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                SettingsEditItem("Дополнительные аргументы", extraArgs, Icons.Default.Code, "--flag=val ...") { extraArgs = it; saveGlobalPref("extra_args_raw", it) }
+                                SettingsEditItem("Extra Arguments", extraArgs, Icons.Default.Code, "--flag=val ...") { extraArgs = it; saveGlobalPref("extra_args_raw", it) }
                             }
                         }
 
                         3 -> { // TAB 3: Account Profile & Advanced
-                            SettingsCard(title = "Аккаунт: ${activeAccount.name}") {
-                                SettingsEditItem("Сервер авторизации (Headscale)", loginServer, Icons.Default.Cloud, placeholder = "https://controlplane.tailscale.com") { loginServer = it; saveProfilePref("login_server", it) }
-                                SettingsEditItem("Ключ авторизации (Auth Key)", authKey, Icons.Default.VpnKey) { authKey = it; saveProfilePref("authkey", it) }
-                                SettingsEditItem("Имя устройства (Hostname)", hostname, Icons.Default.Badge, onAction = { android.os.Build.MODEL.replace(" ", "-").lowercase() }, actionIcon = Icons.Default.AutoFixHigh) { hostname = it; saveProfilePref("hostname", it) }
-                                SettingsExitNodeItem("Выходной узел (Exit Node)", exitNodeIp, Icons.Default.Input) { id, ip ->
+                            SettingsCard(title = "Account Settings: ${activeAccount.name}") {
+                                SettingsEditItem("Login Server (Headscale)", loginServer, Icons.Default.Cloud, placeholder = "https://controlplane.tailscale.com") { loginServer = it; saveProfilePref("login_server", it) }
+                                SettingsEditItem("Auth Key", authKey, Icons.Default.VpnKey) { authKey = it; saveProfilePref("authkey", it) }
+                                SettingsEditItem("Hostname", hostname, Icons.Default.Badge, onAction = { android.os.Build.MODEL.replace(" ", "-").lowercase() }, actionIcon = Icons.Default.AutoFixHigh) { hostname = it; saveProfilePref("hostname", it) }
+                                SettingsExitNodeItem("Exit Node", exitNodeIp, Icons.Default.Input) { id, ip ->
                                     exitNodeIp = ip
                                     saveProfilePref("exit_node_ip", ip, triggerService = false)
                                     saveProfilePref("exit_node_id", id, triggerService = false)
@@ -685,17 +685,17 @@ fun SettingsScreen(
 
                             Spacer(Modifier.height(12.dp))
 
-                            SettingsCard(title = "Веб-интерфейс") {
-                                SettingsSwitchItem("Встроить Web UI", "Запустить локальный веб-сервер панели управления", Icons.Default.Web, enableWebUI) { enableWebUI = it; saveProfilePref("enable_webui", it) }
+                            SettingsCard(title = "Web Interface") {
+                                SettingsSwitchItem("Enable Web UI", "Run built-in Tailscale web server", Icons.Default.Web, enableWebUI) { enableWebUI = it; saveProfilePref("enable_webui", it) }
                                 if (enableWebUI) {
                                     HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                    SettingsEditItem("Адрес Web UI", webUIAddr, Icons.Default.Link) { webUIAddr = it; saveProfilePref("webui_addr", it) }
+                                    SettingsEditItem("Web UI Address", webUIAddr, Icons.Default.Link) { webUIAddr = it; saveProfilePref("webui_addr", it) }
                                 }
                             }
 
                             Spacer(Modifier.height(12.dp))
 
-                            SettingsCard(title = "Резервное копирование аккаунта") {
+                            SettingsCard(title = "Advanced Profile") {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -707,7 +707,7 @@ fun SettingsScreen(
                                     ) {
                                         Icon(Icons.Default.Backup, null)
                                         Spacer(Modifier.width(8.dp))
-                                        Text("Экспорт JSON", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text("Backup", maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     }
                                     OutlinedButton(
                                         onClick = { restoreLauncher.launch("application/json") },
@@ -716,7 +716,7 @@ fun SettingsScreen(
                                     ) {
                                         Icon(Icons.Default.SettingsBackupRestore, null)
                                         Spacer(Modifier.width(8.dp))
-                                        Text("Импорт JSON", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text("Import", maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     }
                                 }
                                 Spacer(Modifier.height(12.dp))
@@ -728,7 +728,7 @@ fun SettingsScreen(
                                 ) {
                                     Icon(Icons.Default.RestartAlt, null)
                                     Spacer(Modifier.width(8.dp))
-                                    Text("Сбросить состояние ноды")
+                                    Text("Reset Node State")
                                 }
                             }
                         }
@@ -754,15 +754,15 @@ fun SettingsScreen(
         var isPasswordVisible by remember { mutableStateOf(false) }
         AlertDialog(
             onDismissRequest = { showBackupPasswordDialog = false },
-            title = { Text("Пароль шифрования бэкапа") },
+            title = { Text("Backup Encryption Password") },
             text = {
                 Column {
-                    Text("Введите пароль для шифрования архива с настройками и ключами. Он потребуется для восстановления.", style = MaterialTheme.typography.bodyMedium)
+                    Text("Enter a password to encrypt your backup. You will need this password to restore your state.", style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
                         value = tempPassword,
                         onValueChange = { tempPassword = it },
-                        label = { Text("Пароль") },
+                        label = { Text("Password") },
                         singleLine = true,
                         visualTransformation = if (isPasswordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
                         trailingIcon = {
@@ -782,13 +782,13 @@ fun SettingsScreen(
                             showBackupPasswordDialog = false
                             fullBackupLauncher.launch("tailsocks_full_backup.enc")
                         } else {
-                            Toast.makeText(context, "Пароль не может быть пустым", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Password cannot be empty", Toast.LENGTH_SHORT).show()
                         }
                     }
-                ) { Text("Экспортировать") }
+                ) { Text("Backup") }
             },
             dismissButton = {
-                TextButton(onClick = { showBackupPasswordDialog = false }) { Text("Отмена") }
+                TextButton(onClick = { showBackupPasswordDialog = false }) { Text("Cancel") }
             }
         )
     }
@@ -801,15 +801,15 @@ fun SettingsScreen(
                 showRestorePasswordDialog = false
                 pendingRestoreUri = null
             },
-            title = { Text("Пароль расшифровки бэкапа") },
+            title = { Text("Backup Decryption Password") },
             text = {
                 Column {
-                    Text("Введите пароль, который использовался для создания этого бэкапа.", style = MaterialTheme.typography.bodyMedium)
+                    Text("Enter the password that was used to encrypt this backup.", style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
                         value = tempPassword,
                         onValueChange = { tempPassword = it },
-                        label = { Text("Пароль") },
+                        label = { Text("Password") },
                         singleLine = true,
                         visualTransformation = if (isPasswordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
                         trailingIcon = {
@@ -829,16 +829,16 @@ fun SettingsScreen(
                             showRestorePasswordDialog = false
                             performRestore(uri, tempPassword)
                         } else {
-                            Toast.makeText(context, "Пароль не может быть пустым", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Password cannot be empty", Toast.LENGTH_SHORT).show()
                         }
                     }
-                ) { Text("Импортировать") }
+                ) { Text("Restore") }
             },
             dismissButton = {
                 TextButton(onClick = { 
                     showRestorePasswordDialog = false
                     pendingRestoreUri = null
-                }) { Text("Отмена") }
+                }) { Text("Cancel") }
             }
         )
     }
@@ -1159,4 +1159,3 @@ fun SettingsExitNodeItem(
         }
     }
 }
-
