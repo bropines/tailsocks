@@ -33,6 +33,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -112,8 +115,17 @@ fun TaildriveScreen(onBack: () -> Unit) {
     }
 
     // Update permission status when returning to activity
-    LaunchedEffect(Unit) {
-        hasStoragePermission = checkStoragePermission(context)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                hasStoragePermission = checkStoragePermission(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     Scaffold(

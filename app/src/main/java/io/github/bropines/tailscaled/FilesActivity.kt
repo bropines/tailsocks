@@ -1,6 +1,7 @@
 package io.github.bropines.tailscaled
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
@@ -159,9 +160,14 @@ fun FilesScreen(onBack: () -> Unit) {
             Column {
                 TopAppBar(title = { Column { Text("Taildrop Hub"); Text(activeAccount.name, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary) } },
                     navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-                    actions = { IconButton(onClick = { 
-                        refreshData();
-                    }) { Icon(Icons.Default.Refresh, "Refresh") } })
+                    actions = {
+                        IconButton(onClick = {
+                            context.startActivity(Intent(context, TaildriveActivity::class.java))
+                        }) { Icon(Icons.Default.Storage, "Taildrive") }
+                        IconButton(onClick = { 
+                            refreshData();
+                        }) { Icon(Icons.Default.Refresh, "Refresh") }
+                    })
                 TabRow(selectedTabIndex = pagerState.currentPage) {
                     Tab(selected = pagerState.currentPage == 0, onClick = { scope.launch { pagerState.animateScrollToPage(0) } }, text = { Text("Inbox") })
                     Tab(selected = pagerState.currentPage == 1, onClick = { scope.launch { pagerState.animateScrollToPage(1) } }, text = { Text("Devices") })

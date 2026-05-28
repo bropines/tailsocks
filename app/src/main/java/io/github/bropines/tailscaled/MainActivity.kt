@@ -662,14 +662,6 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-            Row(modifier = Modifier.fillMaxWidth()) {
-                MenuCard(title = "Taildrive", icon = Icons.Default.Storage, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                    context.startActivity(Intent(context, TaildriveActivity::class.java))
-                }
-                Spacer(modifier = Modifier.weight(1f).padding(start = 8.dp))
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 
