@@ -56,7 +56,7 @@ func doLocalRequest(method, path string, body io.Reader) ([]byte, error) {
 		return nil, err
 	}
 
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusCreated {
 		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(data))
 	}
 
