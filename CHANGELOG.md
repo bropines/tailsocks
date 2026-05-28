@@ -2,6 +2,13 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [2.2.0-beta] - 2026-05-28
+### Added
+- Redesigned the entire Settings screen using modern scrollable tabs (Style, Network, DNS, Profile) to completely eliminate long scroll pages.
+- Implemented a custom styling and theme engine supporting System, Light, Dark, and Amoled (pure black) modes.
+- Added 6 beautiful color presets (Default, Lavender, Emerald, Sapphire, Amber, Monochrome) with live visual color previews in Settings.
+- Support for Material You dynamic colors on Android 12+ devices.
+
 ## [2.1.0-beta] - 2026-05-28
 ### Added
 - Added experimental Taildrive support utilizing the WebDAV file server integrated into the Tailscale Go core.
