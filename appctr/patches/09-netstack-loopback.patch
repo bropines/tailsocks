@@ -23,14 +23,49 @@
  	return t.tdev.MTU()
  }
 --- orig/wgengine/netstack/netstack.go	2026-05-21 21:27:19.000000000 +0300
-+++ tailscale_src/wgengine/netstack/netstack.go	2026-05-28 21:31:53.420492082 +0300
-@@ -1063,6 +1063,9 @@
- 		// send traffic destined for the local device, hence must
- 		// be injected 'inbound'.
++++ tailscale_src/wgengine/netstack/netstack.go	2026-05-28 21:40:55.376345721 +0300
+@@ -1057,12 +1057,29 @@
+ 			ns.logf("[v2] packet Write out: % x", stack.PayloadSince(pkt.NetworkHeader()).AsSlice())
+ 		}
+ 
+-		// In the normal case, netstack synthesizes the bytes for
+-		// traffic which should transit back into WG and go to peers.
+-		// However, some uses of netstack (presently, magic DNS)
+-		// send traffic destined for the local device, hence must
+-		// be injected 'inbound'.
++		var src, dst netip.Addr
++		switch v := pkt.Network().(type) {
++		case header.IPv4:
++			src = netip.AddrFrom4(v.SourceAddress().As4())
++			dst = netip.AddrFrom4(v.DestinationAddress().As4())
++		case header.IPv6:
++			src = netip.AddrFrom16(v.SourceAddress().As16())
++			dst = netip.AddrFrom16(v.DestinationAddress().As16())
++		}
++
  		sendToHost := ns.shouldSendToHost(pkt)
 +		if sendToHost && ns.isSelfDst(pkt) && ns.tundev != nil && ns.tundev.IsFakeTUN() {
 +			sendToHost = false
 +		}
++
++		if src == serviceIP || dst == serviceIP || src == serviceIPv6 || dst == serviceIPv6 {
++			isFake := false
++			if ns.tundev != nil {
++				isFake = ns.tundev.IsFakeTUN()
++			}
++			ns.logf("netstack inject ts-service: src=%v dst=%v sendToHost=%v isSelfDst=%v isFake=%v",
++				src, dst, sendToHost, ns.isSelfDst(pkt), isFake)
++		}
  
  		// pkt has a non-zero refcount, so injection methods takes
  		// ownership of one count and will decrement on completion.
+@@ -1077,7 +1094,8 @@
+ 			// earmarked for the host. Neither the inbound path (fakeTUN Write is a
+ 			// no-op) nor the outbound path (WireGuard has no peer for our own IP)
+ 			// can handle these.
+-			if ns.isSelfDst(pkt) {
++			isServiceDst := dst == serviceIP || dst == serviceIPv6
++			if ns.isSelfDst(pkt) || (isServiceDst && ns.tundev != nil && ns.tundev.IsFakeTUN()) {
+ 				ns.linkEP.DeliverLoopback(pkt)
+ 				continue
+ 			}
