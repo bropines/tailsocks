@@ -472,13 +472,14 @@ fun SettingsScreen(
                                         PresetItem("emerald", Color(0xFF006B54), "Emerald"),
                                         PresetItem("sapphire", Color(0xFF005FAF), "Sapphire"),
                                         PresetItem("amber", Color(0xFF825500), "Amber"),
-                                        PresetItem("monochrome", Color(0xFF1D2023), "Monochrome")
+                                        PresetItem("monochrome", Color(0xFF1D2023), "Monochrome"),
+                                        PresetItem("tokionight", Color(0xFF7AA2F7), "TokioNight")
                                     )
                                     Column {
                                         Text("Color Palette", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         Spacer(Modifier.height(8.dp))
                                         Row(
-                                            Modifier.fillMaxWidth(),
+                                            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                                         ) {
                                             presets.forEach { item ->

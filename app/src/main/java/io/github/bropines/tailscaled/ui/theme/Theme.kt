@@ -165,9 +165,34 @@ private val MonochromeDark = darkColorScheme(
     onSecondary = Color(0xFF2F3033),
     secondaryContainer = Color(0xFF46474B),
     onSecondaryContainer = Color(0xFFE1E2E6),
-    background = Color(0xFF16181A),
-    surface = Color(0xFF16181A)
 )
+
+// 7. TOKIO NIGHT PRESET (VSCode/Neovim inspired deep blue-violet)
+private val TokioNightLight = lightColorScheme(
+    primary = Color(0xFF3854A6),
+    onPrimary = Color(0xFFFFFFFF),
+    primaryContainer = Color(0xFFDCE1FF),
+    onPrimaryContainer = Color(0xFF001453),
+    secondary = Color(0xFF0F4B6E),
+    onSecondary = Color(0xFFFFFFFF),
+    secondaryContainer = Color(0xFFCBE6FF),
+    onSecondaryContainer = Color(0xFF001E30),
+    background = Color(0xFFF9FAFB),
+    surface = Color(0xFFF9FAFB)
+)
+private val TokioNightDark = darkColorScheme(
+    primary = Color(0xFF7AA2F7),
+    onPrimary = Color(0xFF15161E),
+    primaryContainer = Color(0xFF2E3D5F),
+    onPrimaryContainer = Color(0xFFDCE1FF),
+    secondary = Color(0xFFB4F9F8),
+    onSecondary = Color(0xFF1A1B26),
+    secondaryContainer = Color(0xFF1F2335),
+    onSecondaryContainer = Color(0xFFC0CAF5),
+    background = Color(0xFF1A1B26),
+    surface = Color(0xFF16161E)
+)
+
 
 // Amoled pure black transformation
 fun ColorScheme.toAmoled(): ColorScheme {
@@ -240,6 +265,7 @@ fun TailSocksTheme(
                 "sapphire" -> if (isDark) SapphireDark else SapphireLight
                 "amber" -> if (isDark) AmberDark else AmberLight
                 "monochrome" -> if (isDark) MonochromeDark else MonochromeLight
+                "tokionight" -> if (isDark) TokioNightDark else TokioNightLight
                 else -> if (isDark) DefaultDark else DefaultLight
             }
         }
