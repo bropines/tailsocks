@@ -111,7 +111,7 @@ fun SettingsScreen(
     val tabs = listOf(
         Pair("Style", Icons.Default.Palette),
         Pair("Network", Icons.Default.Language),
-        Pair("DNS", Icons.Default.Dns),
+        Pair("Core", Icons.Default.Tune),
         Pair("Profile", Icons.Default.AccountCircle)
     )
 
@@ -643,7 +643,7 @@ fun SettingsScreen(
                             }
                         }
 
-                        2 -> { // TAB 2: DNS Settings
+                        2 -> { // TAB 2: Core Settings
                             SettingsCard(title = "DNS Proxy") {
                                 SettingsEditItem("DNS Proxy Address", dnsProxy, Icons.Default.Toll) { dnsProxy = it; saveGlobalPref("dns_proxy", it) }
                             }
