@@ -1,0 +1,29 @@
+diff -N -r -u orig/drive/remote_android.go tailscale_src/drive/remote_android.go
+--- orig/drive/remote_android.go	1970-01-01 03:00:00.000000000 +0300
++++ tailscale_src/drive/remote_android.go	2026-05-28 11:42:54.118149540 +0300
+@@ -0,0 +1,13 @@
++// Copyright (c) Tailscale Inc & contributors
++// SPDX-License-Identifier: BSD-3-Clause
++
++//go:build android
++
++package drive
++
++func doAllowShareAs() bool {
++	// Android does not support running commands as different users (su/sudo)
++	// inside the app sandbox, so we force doAllowShareAs to return false.
++	// This makes Tailscale use the single file server instance directly.
++	return false
++}
+diff -N -r -u orig/drive/remote_unix.go tailscale_src/drive/remote_unix.go
+--- orig/drive/remote_unix.go	2026-05-21 21:27:19.000000000 +0300
++++ tailscale_src/drive/remote_unix.go	2026-05-28 11:42:58.526149638 +0300
+@@ -1,7 +1,7 @@
+ // Copyright (c) Tailscale Inc & contributors
+ // SPDX-License-Identifier: BSD-3-Clause
+ 
+-//go:build unix
++//go:build unix && !android
+ 
+ package drive
+ 

@@ -49,4 +49,7 @@ diff -N -r -u orig/feature/taildrop tailscale_src/feature/taildrop > patches/03-
 # 06-android-netmon.patch (creates cmd/tailscaled/fix_android_netmon.go)
 diff -N -u /dev/null tailscale_src/cmd/tailscaled/fix_android_netmon.go > patches/06-android-netmon.patch || true
 
+# 07-taildrive-android.patch (drive)
+diff -N -r -u orig/drive tailscale_src/drive > patches/07-taildrive-android.patch || true
+
 echo "✅ Atomic patches generated successfully in appctr/patches/."

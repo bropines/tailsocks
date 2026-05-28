@@ -19,6 +19,9 @@ import appctr.StartOptions
 import com.google.gson.Gson
 
 class TailscaledService : Service() {
+    companion object {
+        const val ACTION_APPLY_SETTINGS = "APPLY_SETTINGS"
+    }
     private val TAG = "TailscaledService"
     private val notificationManager by lazy { getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager }
     private var wakeLock: PowerManager.WakeLock? = null
@@ -97,11 +100,12 @@ class TailscaledService : Service() {
         val action = intent?.action
         
         if (action == "STOP_ACTION") { stopMe(); return START_NOT_STICKY }
-        if (action == "REFRESH_ACTION" || action == "APPLY_SETTINGS") {
+        if (action == "REFRESH_ACTION" || action == "APPLY_SETTINGS" || action == ACTION_APPLY_SETTINGS) {
             Thread {
                 Appctr.applySettings(buildStartOptions())
                 try { Thread.sleep(1500) } catch (e: Exception) {}
                 applyTagsAndRoutes(this@TailscaledService)
+                applyTaildrive(this@TailscaledService)
             }.start()
             return START_STICKY
         }
@@ -142,6 +146,7 @@ class TailscaledService : Service() {
                 
                 try { Thread.sleep(2500) } catch (e: Exception) {}
                 applyTagsAndRoutes(this@TailscaledService)
+                applyTaildrive(this@TailscaledService)
             } catch (e: Exception) { 
                 Log.e(TAG, "Start failed", e)
                 stopMe() 
@@ -220,6 +225,7 @@ class TailscaledService : Service() {
     private fun stopMe() {
         ProxyState.setUserState(this, false)
         refreshHandler.removeCallbacks(refreshRunnable)
+        try { Appctr.stopDriveServer() } catch (e: Exception) {}
         Appctr.stop()
         try { Runtime.getRuntime().exec("killall tailscaled") } catch (e: Exception) {}
         if (wakeLock?.isHeld == true) wakeLock?.release()
@@ -272,6 +278,39 @@ class TailscaledService : Service() {
         val res = Appctr.setPrefs(json)
         if (res != "OK") {
             Log.e(TAG, "Failed to apply tags & routes: $res")
+        }
+    }
+
+    private fun applyTaildrive(context: Context) {
+        val activeAccount = AccountManager.getActiveAccount(context)
+        val profilePrefs = context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
+        val taildriveEnabled = profilePrefs.getBoolean("taildrive_enabled", false)
+
+        if (!Appctr.isRunning()) {
+            Log.d(TAG, "Taildrive: Tailscaled is not running, skipping.")
+            return
+        }
+
+        if (taildriveEnabled) {
+            try {
+                Log.d(TAG, "Taildrive: Enabling server...")
+                val addr = Appctr.startDriveServer()
+                Log.d(TAG, "Taildrive: Server started on $addr")
+                val sharesJson = profilePrefs.getString("taildrive_shares", "[]") ?: "[]"
+                Log.d(TAG, "Taildrive: Updating shares: $sharesJson")
+                Appctr.updateDriveShares(sharesJson)
+                Log.d(TAG, "Taildrive: Shares updated successfully")
+            } catch (e: Exception) {
+                Log.e(TAG, "Taildrive: Failed to start server or update shares", e)
+            }
+        } else {
+            try {
+                Log.d(TAG, "Taildrive: Disabling server...")
+                Appctr.stopDriveServer()
+                Log.d(TAG, "Taildrive: Server stopped")
+            } catch (e: Exception) {
+                Log.e(TAG, "Taildrive: Failed to stop server", e)
+            }
         }
     }
 

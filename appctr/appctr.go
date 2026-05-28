@@ -426,6 +426,7 @@ func RestartDNS() {
 
 func Stop() {
 	StopWebUI()
+	_ = StopDriveServer()
 	stateMu.Lock()
 	defer stateMu.Unlock()
 

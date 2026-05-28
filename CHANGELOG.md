@@ -2,6 +2,14 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [2.1.0-beta] - 2026-05-28
+### Added
+- Added experimental Taildrive support utilizing the WebDAV file server integrated into the Tailscale Go core.
+- Added `MANAGE_EXTERNAL_STORAGE` permission (All Files Access) to allow sharing any folder from the device storage.
+- Added dedicated Taildrive management screen (`TaildriveActivity`) to toggle the file server and manage shares.
+- Added a Taildrive entry card to the main dashboard.
+- Registered physical path mappings for Storage Access Framework (SAF) folder selections.
+
 ## [2.0.9-beta] - 2026-05-28
 ### Added
 - Added custom tags (`--advertise-tags`) and subnet routes (`--advertise-routes`) configuration to the profile settings screen.
