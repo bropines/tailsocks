@@ -222,7 +222,7 @@ fun TaildriveScreen(onBack: () -> Unit) {
                                 requestStoragePermission(context)
                             } else {
                                 isEnabled = checked
-                                prefs.edit().putBoolean("taildrive_enabled", checked).apply()
+                                prefs.edit().putBoolean("taildrive_enabled", checked).commit()
                                 triggerServiceSettingsUpdate(context)
                             }
                         }
@@ -389,7 +389,7 @@ private fun requestStoragePermission(context: Context) {
 
 private fun saveShares(prefs: SharedPreferences, shares: List<LocalShare>) {
     val json = Gson().toJson(shares)
-    prefs.edit().putString("taildrive_shares", json).apply()
+    prefs.edit().putString("taildrive_shares", json).commit()
 }
 
 private fun triggerServiceSettingsUpdate(context: Context) {
