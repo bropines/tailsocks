@@ -22,6 +22,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Fixed DNS caching when switching profiles/accounts by flushing split DNS cache, nodes cache, and resetting MagicDNS suffix.
 - Fixed direct WebDAV connectivity to Taildrive at `100.100.100.100:8080` in userspace-networking mode by implementing loopback routing of self-addressed packets in netstack when a fake TUN device is used.
 - Fixed `unexpected end of stream` errors when opening remote peer shares by routing remote peer WebDAV traffic through the `tsdial.Dialer` while keeping local loopback traffic routed normally.
+- Fixed outbound TCP/UDP Source IP selection in netstack by automatically binding outgoing connections to the node's local Tailscale IP.
 
 
 ## [2.0.9-beta] - 2026-05-28
