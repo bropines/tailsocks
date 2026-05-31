@@ -2,11 +2,14 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
-## [2.1.1-beta] - 2026-05-28
+## [2.1.2-beta] - 2026-05-31
 ### Added
 - Added secure, high-performance WebDAV reverse-proxy helper in Taildrive to map the remote Quad100 (`100.100.100.100:8080`) gateway to a custom local port (default `33445`).
 - Added robust Basic Authentication support to the local WebDAV proxy with a cryptographically secure, random password generator on first-time enable.
 - Integrated absolute WebDAV `Destination` and `Host` header rewriting inside the reverse proxy to guarantee seamless rename, copy, and move operations from external file managers.
+
+## [2.1.1-beta] - 2026-05-28
+### Added
 - Added remote ProfilePicURL synchronization from LocalAPI status with automatic background caching.
 - Added native circular avatar bitmap rendering in account switcher, falling back to color-coded provider badges (GitHub, Google, Headscale).
 - Added OS-themed visual icons and custom card design for peer items in the Share overlay sheet.
