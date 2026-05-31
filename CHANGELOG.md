@@ -2,6 +2,11 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [2.1.3-beta] - 2026-05-31
+### Added
+- Added native ARM 32-bit (`armeabi-v7a`) compilation and packaging support to the build system for compatibility with older EMUI/Android architectures.
+- Added native Intel x86 and x86_64 compilation and packaging support to the build system for compatibility with emulators and x86-based Android devices.
+
 ## [2.1.2-beta] - 2026-05-31
 ### Added
 - Added secure, high-performance WebDAV reverse-proxy helper in Taildrive to map the remote Quad100 (`100.100.100.100:8080`) gateway to a custom local port (default `33445`).
@@ -12,8 +17,6 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Fixed Tailnet-internal DNS fallback routing in userspace mode by forwarding queries to CGNAT IP addresses over SOCKS5 TCP tunnels instead of direct UDP.
 - Redesigned AMOLED mode as a separate toggle to allow pure black theme when auto-switching via System theme.
 - Migrated legacy `amoled` theme preference to `dark` theme with `amoled_mode` enabled.
-- Added native ARM 32-bit (`armeabi-v7a`) compilation and packaging support to the build system for compatibility with older EMUI/Android architectures.
-- Added native Intel x86 and x86_64 compilation and packaging support to the build system for compatibility with emulators and x86-based Android devices.
 
 ## [2.1.1-beta] - 2026-05-28
 ### Added
