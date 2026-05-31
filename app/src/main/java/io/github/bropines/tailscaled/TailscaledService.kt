@@ -226,6 +226,7 @@ class TailscaledService : Service() {
         ProxyState.setUserState(this, false)
         refreshHandler.removeCallbacks(refreshRunnable)
         try { Appctr.stopDriveServer() } catch (e: Exception) {}
+        try { Appctr.stopDriveProxy() } catch (e: Exception) {}
         Appctr.stop()
         try { Runtime.getRuntime().exec("killall tailscaled") } catch (e: Exception) {}
         if (wakeLock?.isHeld == true) wakeLock?.release()
@@ -285,6 +286,7 @@ class TailscaledService : Service() {
         val activeAccount = AccountManager.getActiveAccount(context)
         val profilePrefs = context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
         val taildriveEnabled = profilePrefs.getBoolean("taildrive_enabled", false)
+        val proxyEnabled = profilePrefs.getBoolean("taildrive_proxy_enabled", false)
 
         if (!Appctr.isRunning()) {
             Log.d(TAG, "Taildrive: Tailscaled is not running, skipping.")
@@ -310,6 +312,30 @@ class TailscaledService : Service() {
                 Log.d(TAG, "Taildrive: Server stopped")
             } catch (e: Exception) {
                 Log.e(TAG, "Taildrive: Failed to stop server", e)
+            }
+        }
+
+        if (proxyEnabled) {
+            try {
+                val port = profilePrefs.getString("taildrive_proxy_port", "33445") ?: "33445"
+                val authEnabled = profilePrefs.getBoolean("taildrive_proxy_auth_enabled", false)
+                val user = if (authEnabled) (profilePrefs.getString("taildrive_proxy_username", "tailsocks") ?: "tailsocks") else ""
+                val pass = if (authEnabled) (profilePrefs.getString("taildrive_proxy_password", "") ?: "") else ""
+                val localAddr = "127.0.0.1:$port"
+
+                Log.d(TAG, "Taildrive Proxy: Enabling proxy on $localAddr (auth=$authEnabled)...")
+                Appctr.startDriveProxy(localAddr, user, pass)
+                Log.d(TAG, "Taildrive Proxy: Proxy started successfully")
+            } catch (e: Exception) {
+                Log.e(TAG, "Taildrive Proxy: Failed to start proxy", e)
+            }
+        } else {
+            try {
+                Log.d(TAG, "Taildrive Proxy: Disabling proxy...")
+                Appctr.stopDriveProxy()
+                Log.d(TAG, "Taildrive Proxy: Proxy stopped")
+            } catch (e: Exception) {
+                Log.e(TAG, "Taildrive Proxy: Failed to stop proxy", e)
             }
         }
     }
