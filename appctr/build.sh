@@ -7,10 +7,6 @@ if [ -z "$ANDROID_NDK_HOME" ]; then
     exit 1
 fi
 
-# Settings for Android ARM64
-export CC="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang"
-export CGO_ENABLED=1
-
 # Determine Tailscale version
 if [ -n "$TS_VER_TAG" ]; then
     echo "-> Using provided Tailscale version: $TS_VER_TAG"
@@ -48,30 +44,53 @@ go mod tidy
 
 TAGS="ts_omit_systray,ts_omit_kube,ts_omit_aws,ts_omit_bird,ts_omit_qrcodes,ts_omit_desktop_sessions,ts_omit_dbus,ts_omit_networkmanager,ts_omit_resolved,ts_omit_sdnotify,ts_omit_tpm,ts_omit_logtail,ts_omit_synology,ts_omit_syspolicy,ts_omit_ssh,ts_omit_iptables,ts_omit_tap,ts_omit_linuxdnsfight,ts_omit_captiveportal,ts_omit_appconnectors,ts_omit_completion,ts_omit_completion_scripts,ts_omit_oauthkey"
 
-echo "-> Compiling Daemon (Core)..."
+echo "-> Compiling Daemon (Core) [ARM64]..."
+export CC="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang"
+export CGO_ENABLED=1
 GOOS=android GOARCH=arm64 go build \
     -buildmode=pie \
     -tags "$TAGS" \
     -ldflags="-s -w -checklinkname=0" \
-    -o tmp/libtailscale.so ./cmd/tailscaled
+    -o tmp/libtailscale_arm64.so ./cmd/tailscaled
 
-echo "-> Compiling CLI (Console)..."
+echo "-> Compiling CLI (Console) [ARM64]..."
 GOOS=android GOARCH=arm64 go build \
     -buildmode=pie \
     -tags "$TAGS" \
     -ldflags="-s -w -checklinkname=0" \
-    -o tmp/libtailscale_cli.so ./cmd/tailscale
+    -o tmp/libtailscale_cli_arm64.so ./cmd/tailscale
+
+echo "-> Compiling Daemon (Core) [ARM 32-bit]..."
+export CC="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang"
+export CGO_ENABLED=1
+GOOS=android GOARCH=arm GOARM=7 go build \
+    -buildmode=pie \
+    -tags "$TAGS" \
+    -ldflags="-s -w -checklinkname=0" \
+    -o tmp/libtailscale_arm.so ./cmd/tailscaled
+
+echo "-> Compiling CLI (Console) [ARM 32-bit]..."
+GOOS=android GOARCH=arm GOARM=7 go build \
+    -buildmode=pie \
+    -tags "$TAGS" \
+    -ldflags="-s -w -checklinkname=0" \
+    -o tmp/libtailscale_cli_arm.so ./cmd/tailscale
 
 cd ..
 
 echo "[3/4] Building appctr.aar (Gomobile Bridge)..."
 go mod tidy
 mkdir -p tmp
-gomobile bind -ldflags="-s -w -buildid= -checklinkname=0 -X appctr.coreVersion=$TS_VERSION" -trimpath -target="android/arm64" -androidapi 21 -tags "$TAGS" -o tmp/appctr.aar -v .
+unset CC
+gomobile bind -ldflags="-s -w -buildid= -checklinkname=0 -X appctr.coreVersion=$TS_VERSION" -trimpath -target="android/arm,android/arm64" -androidapi 21 -tags "$TAGS" -o tmp/appctr.aar -v .
 
 echo "[4/4] Copying binaries to jniLibs..."
 mkdir -p ../app/src/main/jniLibs/arm64-v8a
-cp tailscale_src/tmp/libtailscale.so ../app/src/main/jniLibs/arm64-v8a/
-cp tailscale_src/tmp/libtailscale_cli.so ../app/src/main/jniLibs/arm64-v8a/
+cp tailscale_src/tmp/libtailscale_arm64.so ../app/src/main/jniLibs/arm64-v8a/libtailscale.so
+cp tailscale_src/tmp/libtailscale_cli_arm64.so ../app/src/main/jniLibs/arm64-v8a/libtailscale_cli.so
+
+mkdir -p ../app/src/main/jniLibs/armeabi-v7a
+cp tailscale_src/tmp/libtailscale_arm.so ../app/src/main/jniLibs/armeabi-v7a/libtailscale.so
+cp tailscale_src/tmp/libtailscale_cli_arm.so ../app/src/main/jniLibs/armeabi-v7a/libtailscale_cli.so
 
 echo "✅ Done! Ready to assemble APK."
