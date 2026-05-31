@@ -317,11 +317,12 @@ class TailscaledService : Service() {
 
         if (proxyEnabled) {
             try {
+                val ip = profilePrefs.getString("taildrive_proxy_ip", "127.0.0.1") ?: "127.0.0.1"
                 val port = profilePrefs.getString("taildrive_proxy_port", "33445") ?: "33445"
                 val authEnabled = profilePrefs.getBoolean("taildrive_proxy_auth_enabled", false)
                 val user = if (authEnabled) (profilePrefs.getString("taildrive_proxy_username", "tailsocks") ?: "tailsocks") else ""
                 val pass = if (authEnabled) (profilePrefs.getString("taildrive_proxy_password", "") ?: "") else ""
-                val localAddr = "127.0.0.1:$port"
+                val localAddr = "$ip:$port"
 
                 Log.d(TAG, "Taildrive Proxy: Enabling proxy on $localAddr (auth=$authEnabled)...")
                 Appctr.startDriveProxy(localAddr, user, pass)
