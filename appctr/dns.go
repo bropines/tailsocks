@@ -235,6 +235,21 @@ func processDNSQuery(query []byte, fallbacks []string, dohUrl string) []byte {
 
 	q := msg.Questions[0]
 	domain := strings.ToLower(strings.Trim(q.Name.String(), "."))
+
+	// Auto-append MagicDNS suffix for convenience in lookup tools
+	if magicDNSSuffix != "" {
+		if !strings.Contains(domain, ".") {
+			// Short name, e.g. "personal-pinus-poco" -> "personal-pinus-poco.tail8a412.ts.net"
+			domain = domain + "." + magicDNSSuffix
+		} else if strings.HasSuffix(domain, ".ts.net") && !strings.HasSuffix(domain, "."+magicDNSSuffix) {
+			// Ends with ".ts.net" but missing tailnet ID, e.g. "personal-pinus-poco.ts.net" -> "personal-pinus-poco.tail8a412.ts.net"
+			parts := strings.Split(domain, ".")
+			if len(parts) >= 2 && parts[len(parts)-2] == "ts" && parts[len(parts)-1] == "net" {
+				host := strings.Join(parts[:len(parts)-2], ".")
+				domain = host + "." + magicDNSSuffix
+			}
+		}
+	}
 	
 	if strings.HasSuffix(domain, ".arpa") {
 		return tryFallbackDNS(query, fallbacks, dohUrl)
@@ -319,9 +334,17 @@ func packDNSResponse(msg dnsmessage.Message, q dnsmessage.Question, ips []string
 }
 
 func tryFallbackDNS(query []byte, fallbacks []string, dohUrl string) []byte {
+	socks, user, pass, _ := GConfig.get()
 	for _, server := range fallbacks {
-		resp, err := forwardDNSviaUDP(query, server)
-		if err == nil { return resp }
+		host, _, err := net.SplitHostPort(server)
+		if err == nil && socks != "" && (strings.HasPrefix(host, "100.") || strings.HasSuffix(host, ".ts.net")) {
+			// Tunnel Tailscale-internal DNS queries over TCP SOCKS5 to work in userspace mode
+			resp, err := forwardDNSviaSOCKS5(query, socks, user, pass, server)
+			if err == nil { return resp }
+		} else {
+			resp, err := forwardDNSviaUDP(query, server)
+			if err == nil { return resp }
+		}
 	}
 	if dohUrl != "none" && dohUrl != "" {
 		resp, err := forwardDNSviaDoH(query, dohUrl)
