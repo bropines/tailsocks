@@ -2,6 +2,13 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [2.1.4-beta] - 2026-06-01
+### Added
+- Added comprehensive Tailscale public Admin API (api.tailscale.com/api/v2) integration to manage tailnet resources.
+- Integrated profile-specific Admin API credential storage within account preferences (`appctr_{id}`) for strict account isolation.
+- Implemented a dedicated "Admin Console" dashboard with three tabs: Devices (manage node authorization, expiration, and deletion), Auth Keys (generate new keys with tags/ephemeral configurations, revoke active keys), and DNS (toggle MagicDNS and manage global nameservers).
+- Added a shortcut button in the main screen's top app bar for immediate access to the Admin Console.
+
 ## [2.1.3-beta] - 2026-05-31
 ### Added
 - Added native ARM 32-bit (`armeabi-v7a`) compilation and packaging support to the build system for compatibility with older EMUI/Android architectures.
