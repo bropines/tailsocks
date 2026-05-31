@@ -77,6 +77,7 @@ fun TaildriveScreen(onBack: () -> Unit) {
 
     var hasStoragePermission by remember { mutableStateOf(checkStoragePermission(context)) }
     var isProxyEnabled by remember { mutableStateOf(prefs.getBoolean("taildrive_proxy_enabled", false)) }
+    var proxyIp by remember { mutableStateOf(prefs.getString("taildrive_proxy_ip", "127.0.0.1") ?: "127.0.0.1") }
     var proxyPort by remember { mutableStateOf(prefs.getString("taildrive_proxy_port", "33445") ?: "33445") }
     var isProxyAuthEnabled by remember { mutableStateOf(prefs.getBoolean("taildrive_proxy_auth_enabled", false)) }
     var proxyUsername by remember { mutableStateOf(prefs.getString("taildrive_proxy_username", "tailsocks") ?: "tailsocks") }
@@ -284,6 +285,22 @@ fun TaildriveScreen(onBack: () -> Unit) {
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         Spacer(modifier = Modifier.height(12.dp))
 
+                        // IP Input Field
+                        OutlinedTextField(
+                            value = proxyIp,
+                            onValueChange = { ip ->
+                                proxyIp = ip
+                                prefs.edit().putString("taildrive_proxy_ip", ip).commit()
+                                triggerServiceSettingsUpdate(context)
+                            },
+                            label = { Text("Local Proxy IP") },
+                            placeholder = { Text("127.0.0.1") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
                         // Port Input Field
                         OutlinedTextField(
                             value = proxyPort,
@@ -357,11 +374,11 @@ fun TaildriveScreen(onBack: () -> Unit) {
                         Spacer(modifier = Modifier.height(12.dp))
 
                         // Copyable URL Card
-                        val formattedUrl = remember(proxyPort, isProxyAuthEnabled, proxyUsername, proxyPassword) {
+                        val formattedUrl = remember(proxyIp, proxyPort, isProxyAuthEnabled, proxyUsername, proxyPassword) {
                             if (isProxyAuthEnabled && proxyUsername.isNotEmpty() && proxyPassword.isNotEmpty()) {
-                                "http://$proxyUsername:$proxyPassword@127.0.0.1:$proxyPort"
+                                "http://$proxyUsername:$proxyPassword@$proxyIp:$proxyPort"
                             } else {
-                                "http://127.0.0.1:$proxyPort"
+                                "http://$proxyIp:$proxyPort"
                             }
                         }
 
