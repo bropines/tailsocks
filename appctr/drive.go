@@ -183,8 +183,9 @@ func StartDriveProxy(localAddr, username, password string) error {
 	defer driveProxyServerMu.Unlock()
 
 	if driveProxyServer != nil {
-		slog.Info("Taildrive Proxy: Server already running")
-		return nil
+		slog.Info("Taildrive Proxy: Recreating proxy to apply new settings", "addr", localAddr, "has_auth", username != "")
+		_ = driveProxyServer.Shutdown(context.Background())
+		driveProxyServer = nil
 	}
 
 	socks, user, pass, _ := GConfig.get()
