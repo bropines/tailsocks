@@ -10,6 +10,8 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Supported customizable local proxy IP addresses (e.g. `127.99.33.1` or any custom loopback address) in Taildrive proxy configuration.
 - Fixed MagicDNS name resolution lookup inside the DNS diagnostic tool by automatically appending the tailnet suffix to short names.
 - Fixed Tailnet-internal DNS fallback routing in userspace mode by forwarding queries to CGNAT IP addresses over SOCKS5 TCP tunnels instead of direct UDP.
+- Redesigned AMOLED mode as a separate toggle to allow pure black theme when auto-switching via System theme.
+- Migrated legacy `amoled` theme preference to `dark` theme with `amoled_mode` enabled.
 
 ## [2.1.1-beta] - 2026-05-28
 ### Added
