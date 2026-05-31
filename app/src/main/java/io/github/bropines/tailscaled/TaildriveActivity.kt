@@ -76,6 +76,26 @@ fun TaildriveScreen(onBack: () -> Unit) {
     val shares = remember { mutableStateListOf<LocalShare>().apply { addAll(initialShares) } }
 
     var hasStoragePermission by remember { mutableStateOf(checkStoragePermission(context)) }
+    var isProxyEnabled by remember { mutableStateOf(prefs.getBoolean("taildrive_proxy_enabled", false)) }
+    var proxyPort by remember { mutableStateOf(prefs.getString("taildrive_proxy_port", "33445") ?: "33445") }
+    var isProxyAuthEnabled by remember { mutableStateOf(prefs.getBoolean("taildrive_proxy_auth_enabled", false)) }
+    var proxyUsername by remember { mutableStateOf(prefs.getString("taildrive_proxy_username", "tailsocks") ?: "tailsocks") }
+    var proxyPassword by remember {
+        val pass = prefs.getString("taildrive_proxy_password", "") ?: ""
+        mutableStateOf(pass)
+    }
+
+    // Generate secure random password on first-time auth enable
+    LaunchedEffect(isProxyEnabled, isProxyAuthEnabled) {
+        if (isProxyEnabled && isProxyAuthEnabled && proxyPassword.isEmpty()) {
+            val chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+            val generated = (1..8).map { chars.random() }.joinToString("")
+            proxyPassword = generated
+            prefs.edit().putString("taildrive_proxy_password", generated).commit()
+            triggerServiceSettingsUpdate(context)
+        }
+    }
+
     var showAddDialog by remember { mutableStateOf(false) }
 
     var dialogPathInput by remember { mutableStateOf("") }
@@ -227,6 +247,160 @@ fun TaildriveScreen(onBack: () -> Unit) {
                             }
                         }
                     )
+                }
+            }
+
+            // Enable TailDrive Proxy Card
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Enable TailDrive Proxy", fontWeight = FontWeight.Bold)
+                            Text(
+                                "Access remote shared directories from local apps.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = isProxyEnabled,
+                            onCheckedChange = { checked ->
+                                isProxyEnabled = checked
+                                prefs.edit().putBoolean("taildrive_proxy_enabled", checked).commit()
+                                triggerServiceSettingsUpdate(context)
+                            }
+                        )
+                    }
+
+                    if (isProxyEnabled) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Port Input Field
+                        OutlinedTextField(
+                            value = proxyPort,
+                            onValueChange = { port ->
+                                val cleanPort = port.filter { it.isDigit() }
+                                proxyPort = cleanPort
+                                prefs.edit().putString("taildrive_proxy_port", cleanPort).commit()
+                                triggerServiceSettingsUpdate(context)
+                            },
+                            label = { Text("Local Proxy Port") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Require Authentication Row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text("Require Authentication", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    "Secure local proxy using Basic Authentication.",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = isProxyAuthEnabled,
+                                onCheckedChange = { checked ->
+                                    isProxyAuthEnabled = checked
+                                    prefs.edit().putBoolean("taildrive_proxy_auth_enabled", checked).commit()
+                                    triggerServiceSettingsUpdate(context)
+                                }
+                            )
+                        }
+
+                        if (isProxyAuthEnabled) {
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            OutlinedTextField(
+                                value = proxyUsername,
+                                onValueChange = { user ->
+                                    proxyUsername = user
+                                    prefs.edit().putString("taildrive_proxy_username", user).commit()
+                                    triggerServiceSettingsUpdate(context)
+                                },
+                                label = { Text("Username") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            OutlinedTextField(
+                                value = proxyPassword,
+                                onValueChange = { pass ->
+                                    proxyPassword = pass
+                                    prefs.edit().putString("taildrive_proxy_password", pass).commit()
+                                    triggerServiceSettingsUpdate(context)
+                                },
+                                label = { Text("Password") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Copyable URL Card
+                        val formattedUrl = remember(proxyPort, isProxyAuthEnabled, proxyUsername, proxyPassword) {
+                            if (isProxyAuthEnabled && proxyUsername.isNotEmpty() && proxyPassword.isNotEmpty()) {
+                                "http://$proxyUsername:$proxyPassword@127.0.0.1:$proxyPort"
+                            } else {
+                                "http://127.0.0.1:$proxyPort"
+                            }
+                        }
+
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("WebDAV URL (Tap to Copy)", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = formattedUrl,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                        val clip = android.content.ClipData.newPlainText("WebDAV URL", formattedUrl)
+                                        clipboard.setPrimaryClip(clip)
+                                        Toast.makeText(context, "URL copied to clipboard", Toast.LENGTH_SHORT).show()
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ContentCopy,
+                                        contentDescription = "Copy URL",
+                                        tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
