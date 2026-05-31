@@ -7,6 +7,9 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Added secure, high-performance WebDAV reverse-proxy helper in Taildrive to map the remote Quad100 (`100.100.100.100:8080`) gateway to a custom local port (default `33445`).
 - Added robust Basic Authentication support to the local WebDAV proxy with a cryptographically secure, random password generator on first-time enable.
 - Integrated absolute WebDAV `Destination` and `Host` header rewriting inside the reverse proxy to guarantee seamless rename, copy, and move operations from external file managers.
+- Supported customizable local proxy IP addresses (e.g. `127.99.33.1` or any custom loopback address) in Taildrive proxy configuration.
+- Fixed MagicDNS name resolution lookup inside the DNS diagnostic tool by automatically appending the tailnet suffix to short names.
+- Fixed Tailnet-internal DNS fallback routing in userspace mode by forwarding queries to CGNAT IP addresses over SOCKS5 TCP tunnels instead of direct UDP.
 
 ## [2.1.1-beta] - 2026-05-28
 ### Added
