@@ -656,6 +656,11 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                             Icon(Icons.Default.Refresh, contentDescription = "Refresh Config")
                         }
                     }
+                    IconButton(onClick = {
+                        context.startActivity(Intent(context, AdminApiActivity::class.java))
+                    }) {
+                        Icon(Icons.Default.AdminPanelSettings, contentDescription = "Admin API")
+                    }
                     IconButton(onClick = { showAboutDialog = true }) {
                         Icon(Icons.Default.Info, contentDescription = "About & Licenses")
                     }
