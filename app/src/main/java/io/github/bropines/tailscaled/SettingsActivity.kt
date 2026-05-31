@@ -152,8 +152,14 @@ fun SettingsScreen(
     var exitNodeIp by remember { mutableStateOf(profilePrefs.getString("exit_node_ip", "") ?: "") }
     var enableWebUI by remember { mutableStateOf(profilePrefs.getBoolean("enable_webui", false)) }
     var webUIAddr by remember { mutableStateOf(profilePrefs.getString("webui_addr", "127.0.0.1:8080") ?: "127.0.0.1:8080") }
-    var adminApiToken by remember { mutableStateOf(profilePrefs.getString("admin_api_token", "") ?: "") }
-    var adminApiTailnet by remember { mutableStateOf(profilePrefs.getString("admin_api_tailnet", "") ?: "") }
+    val globalApiPrefs = remember { context.getSharedPreferences("admin_api_keys", Context.MODE_PRIVATE) }
+    var adminApiTailnet by remember { mutableStateOf(profilePrefs.getString("last_known_tailnet", "") ?: "") }
+    var adminApiToken by remember { mutableStateOf("") }
+    LaunchedEffect(adminApiTailnet) {
+        adminApiToken = if (adminApiTailnet.isNotEmpty()) {
+            globalApiPrefs.getString(adminApiTailnet, "") ?: ""
+        } else ""
+    }
 
     var advertiseTags by remember { mutableStateOf(profilePrefs.getString("advertise_tags", "") ?: "") }
     var advertiseRoutes by remember { mutableStateOf(profilePrefs.getString("advertise_routes", "") ?: "") }
@@ -720,14 +726,25 @@ fun SettingsScreen(
                             Spacer(Modifier.height(12.dp))
 
                             SettingsCard(title = "Admin Console API") {
-                                SettingsEditItem("API Access Token", adminApiToken, Icons.Default.VpnKey, placeholder = "tskey-api-...") { 
-                                    adminApiToken = it
-                                    saveProfilePref("admin_api_token", it, triggerService = false) 
+                                SettingsEditItem("Tailnet Name", adminApiTailnet, Icons.Default.CloudQueue, placeholder = "e.g. taila1b2.ts.net") { 
+                                    val oldTailnet = adminApiTailnet
+                                    adminApiTailnet = it
+                                    saveProfilePref("last_known_tailnet", it, triggerService = false)
+                                    if (it.isNotEmpty() && oldTailnet.isNotEmpty() && oldTailnet != it) {
+                                        val tok = globalApiPrefs.getString(oldTailnet, "") ?: ""
+                                        if (tok.isNotEmpty()) {
+                                            globalApiPrefs.edit().putString(it, tok).apply()
+                                        }
+                                    }
                                 }
                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                SettingsEditItem("Tailnet Name", adminApiTailnet, Icons.Default.CloudQueue, placeholder = "default (-)") { 
-                                    adminApiTailnet = it
-                                    saveProfilePref("admin_api_tailnet", it, triggerService = false) 
+                                SettingsEditItem("API Access Token", adminApiToken, Icons.Default.VpnKey, placeholder = "tskey-api-...") { 
+                                    adminApiToken = it
+                                    if (adminApiTailnet.isNotEmpty()) {
+                                        globalApiPrefs.edit().putString(adminApiTailnet, it).apply()
+                                    } else {
+                                        Toast.makeText(context, "Please set Tailnet Name first", Toast.LENGTH_SHORT).show()
+                                    }
                                 }
                             }
 

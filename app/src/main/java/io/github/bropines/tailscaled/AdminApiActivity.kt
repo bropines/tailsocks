@@ -18,7 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -55,40 +55,79 @@ class AdminApiActivity : ComponentActivity() {
 @Composable
 fun AdminApiMainScreen(onBack: () -> Unit) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val activeAccount = remember { AccountManager.getActiveAccount(context) }
     val profilePrefs = remember(activeAccount.id) { context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE) }
-    
-    var token by remember { mutableStateOf(profilePrefs.getString("admin_api_token", "") ?: "") }
-    var tailnet by remember { mutableStateOf(profilePrefs.getString("admin_api_tailnet", "") ?: "") }
-    
-    var isSetupMode by remember { mutableStateOf(token.isBlank()) }
+    val globalPrefs = remember { context.getSharedPreferences("admin_api_keys", Context.MODE_PRIVATE) }
 
-    if (isSetupMode) {
-        AdminApiSetupScreen(
+    var resolvedTailnet by remember { mutableStateOf(profilePrefs.getString("last_known_tailnet", "") ?: "") }
+    var token by remember { mutableStateOf("") }
+    var isLoadingSuffix by remember { mutableStateOf(true) }
+
+    // Fetch magicDnsSuffix from LocalAPI on start
+    LaunchedEffect(activeAccount.id) {
+        scope.launch(Dispatchers.IO) {
+            try {
+                val pJson = appctr.Appctr.getStatusFromAPI()
+                if (!pJson.startsWith("Error")) {
+                    val status = com.google.gson.Gson().fromJson(pJson, StatusResponse::class.java)
+                    val suffix = status.magicDnsSuffix?.trim()?.removeSuffix(".")
+                    if (!suffix.isNullOrBlank()) {
+                        profilePrefs.edit().putString("last_known_tailnet", suffix).apply()
+                        withContext(Dispatchers.Main) {
+                            resolvedTailnet = suffix
+                        }
+                    }
+                }
+            } catch (e: Exception) {}
+            finally {
+                withContext(Dispatchers.Main) {
+                    isLoadingSuffix = false
+                }
+            }
+        }
+    }
+
+    // Load API token whenever resolvedTailnet changes
+    LaunchedEffect(resolvedTailnet) {
+        if (resolvedTailnet.isNotEmpty()) {
+            token = globalPrefs.getString(resolvedTailnet, "") ?: ""
+        }
+    }
+
+    if (isLoadingSuffix) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+    } else if (resolvedTailnet.isBlank()) {
+        AdminApiNoTailnetScreen(
             onBack = onBack,
-            onSave = { enteredToken, enteredTailnet ->
-                profilePrefs.edit()
-                    .putString("admin_api_token", enteredToken)
-                    .putString("admin_api_tailnet", enteredTailnet)
-                    .apply()
+            onSaveTailnet = { enteredTailnet ->
+                profilePrefs.edit().putString("last_known_tailnet", enteredTailnet).apply()
+                resolvedTailnet = enteredTailnet
+            }
+        )
+    } else if (token.isBlank()) {
+        AdminApiSetupScreen(
+            tailnet = resolvedTailnet,
+            onBack = onBack,
+            onSave = { enteredToken ->
+                globalPrefs.edit().putString(resolvedTailnet, enteredToken).apply()
                 token = enteredToken
-                tailnet = enteredTailnet
-                isSetupMode = false
+            },
+            onResetTailnet = {
+                profilePrefs.edit().remove("last_known_tailnet").apply()
+                resolvedTailnet = ""
             }
         )
     } else {
         AdminApiDashboardScreen(
             token = token,
-            tailnet = tailnet,
+            tailnet = resolvedTailnet,
             onBack = onBack,
             onDisconnect = {
-                profilePrefs.edit()
-                    .remove("admin_api_token")
-                    .remove("admin_api_tailnet")
-                    .apply()
+                globalPrefs.edit().remove(resolvedTailnet).apply()
                 token = ""
-                tailnet = ""
-                isSetupMode = true
             }
         )
     }
@@ -96,13 +135,98 @@ fun AdminApiMainScreen(onBack: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AdminApiSetupScreen(
+fun AdminApiNoTailnetScreen(
     onBack: () -> Unit,
-    onSave: (String, String) -> Unit
+    onSaveTailnet: (String) -> Unit
+) {
+    val context = LocalContext.current
+    var enteredTailnet by remember { mutableStateOf("") }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Admin API Setup") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(24.dp)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.CloudOff,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.outline,
+                modifier = Modifier.size(80.dp)
+            )
+
+            Text(
+                text = "Tailnet Not Detected",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
+
+            Text(
+                text = "TailSocks must be connected to the VPN at least once to automatically detect your Tailnet domain.\n\nAlternatively, you can specify your Tailnet domain manually below:",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            OutlinedTextField(
+                value = enteredTailnet,
+                onValueChange = { enteredTailnet = it },
+                label = { Text("Tailnet Domain Name") },
+                placeholder = { Text("e.g. taila1b2.ts.net") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            Button(
+                onClick = {
+                    if (enteredTailnet.isBlank()) {
+                        Toast.makeText(context, "Tailnet domain is required", Toast.LENGTH_SHORT).show()
+                    } else {
+                        onSaveTailnet(enteredTailnet.trim())
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.Check, null)
+                Spacer(Modifier.width(8.dp))
+                Text("Set Tailnet Name")
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AdminApiSetupScreen(
+    tailnet: String,
+    onBack: () -> Unit,
+    onSave: (String) -> Unit,
+    onResetTailnet: () -> Unit
 ) {
     val context = LocalContext.current
     var enteredToken by remember { mutableStateOf("") }
-    var enteredTailnet by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -139,8 +263,27 @@ fun AdminApiSetupScreen(
                 textAlign = TextAlign.Center
             )
 
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f))
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Active Tailnet Domain", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                        Text(tailnet, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
+                    }
+                    TextButton(onClick = onResetTailnet) {
+                        Text("Edit")
+                    }
+                }
+            }
+
             Text(
-                text = "Configure Tailscale public API Access Token to manage your tailnet (devices, auth keys, and DNS settings) directly from the application.",
+                text = "Please enter the Tailscale public API Access Token to manage this tailnet.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -158,19 +301,6 @@ fun AdminApiSetupScreen(
                 shape = RoundedCornerShape(12.dp)
             )
 
-            OutlinedTextField(
-                value = enteredTailnet,
-                onValueChange = { enteredTailnet = it },
-                label = { Text("Tailnet Name (Optional)") },
-                placeholder = { Text("Use - for default tailnet") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                supportingText = {
-                    Text("Leave blank or use '-' to automatically query the tailnet associated with this token.")
-                }
-            )
-
             Spacer(Modifier.height(16.dp))
 
             Button(
@@ -178,7 +308,7 @@ fun AdminApiSetupScreen(
                     if (enteredToken.isBlank()) {
                         Toast.makeText(context, "API Access Token is required", Toast.LENGTH_SHORT).show()
                     } else {
-                        onSave(enteredToken.trim(), enteredTailnet.trim())
+                        onSave(enteredToken.trim())
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(48.dp),
@@ -258,7 +388,12 @@ fun AdminApiDashboardScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Admin Console") },
+                title = { 
+                    Column {
+                        Text("Admin Console") 
+                        Text(tailnet, fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -366,7 +501,7 @@ fun AdminApiDashboardScreen(
         AlertDialog(
             onDismissRequest = { showDisconnectConfirm = false },
             title = { Text("Disconnect API?") },
-            text = { Text("This will remove the API credentials for this profile. Continue?") },
+            text = { Text("This will remove the API credentials for this tailnet ($tailnet). Continue?") },
             confirmButton = {
                 Button(
                     onClick = {
