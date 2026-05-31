@@ -707,7 +707,7 @@ fun DeviceDetailBottomSheet(
                     onClick = { showTagsDialog = true },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Icon(Icons.Default.Label, null)
+                    Icon(Icons.AutoMirrored.Filled.Label, null)
                     Spacer(Modifier.width(4.dp))
                     Text("Tags")
                 }
