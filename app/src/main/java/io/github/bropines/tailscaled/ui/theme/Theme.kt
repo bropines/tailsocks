@@ -208,6 +208,7 @@ fun TailSocksTheme(
     appTheme: String? = null,
     themePreset: String? = null,
     dynamicColorEnabled: Boolean? = null,
+    amoledModeEnabled: Boolean? = null,
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
@@ -216,12 +217,14 @@ fun TailSocksTheme(
     var resolvedTheme by remember { mutableStateOf(GlobalSettings.getAppTheme(context)) }
     var resolvedPreset by remember { mutableStateOf(GlobalSettings.getThemePreset(context)) }
     var resolvedDynamic by remember { mutableStateOf(GlobalSettings.isDynamicColorEnabled(context)) }
+    var resolvedAmoled by remember { mutableStateOf(GlobalSettings.getBoolean(context, "amoled_mode", false)) }
 
     // If explicit states are passed (e.g. inside Settings screen for real-time visual updates), use them
-    LaunchedEffect(appTheme, themePreset, dynamicColorEnabled) {
+    LaunchedEffect(appTheme, themePreset, dynamicColorEnabled, amoledModeEnabled) {
         if (appTheme != null) resolvedTheme = appTheme
         if (themePreset != null) resolvedPreset = themePreset
         if (dynamicColorEnabled != null) resolvedDynamic = dynamicColorEnabled
+        if (amoledModeEnabled != null) resolvedAmoled = amoledModeEnabled
     }
 
     // Shared preferences listener to instantly trigger updates on back press / background screens
@@ -232,6 +235,7 @@ fun TailSocksTheme(
                 "app_theme" -> resolvedTheme = GlobalSettings.getAppTheme(context)
                 "theme_preset" -> resolvedPreset = GlobalSettings.getThemePreset(context)
                 "dynamic_color" -> resolvedDynamic = GlobalSettings.isDynamicColorEnabled(context)
+                "amoled_mode" -> resolvedAmoled = GlobalSettings.getBoolean(context, "amoled_mode", false)
             }
         }
         sharedPrefs.registerOnSharedPreferenceChangeListener(listener)
@@ -243,12 +247,13 @@ fun TailSocksTheme(
     val actualAppTheme = resolvedTheme
     val actualPreset = resolvedPreset
     val actualDynamic = resolvedDynamic
+    val actualAmoled = resolvedAmoled
 
     // Determine dark mode
     val systemDark = isSystemInDarkTheme()
     val isDark = when (actualAppTheme) {
         "light" -> false
-        "dark", "amoled" -> true
+        "dark" -> true
         else -> systemDark
     }
 
@@ -272,7 +277,7 @@ fun TailSocksTheme(
     }
 
     // Apply Amoled pure black adjustments if enabled and dark mode is active
-    if (actualAppTheme == "amoled" && isDark) {
+    if (actualAmoled && isDark) {
         colorScheme = colorScheme.toAmoled()
     }
 

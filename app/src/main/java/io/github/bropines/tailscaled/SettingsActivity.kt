@@ -54,11 +54,13 @@ class SettingsActivity : ComponentActivity() {
             var appTheme by remember { mutableStateOf(GlobalSettings.getAppTheme(context)) }
             var themePreset by remember { mutableStateOf(GlobalSettings.getThemePreset(context)) }
             var dynamicColor by remember { mutableStateOf(GlobalSettings.isDynamicColorEnabled(context)) }
+            var amoledMode by remember { mutableStateOf(GlobalSettings.getBoolean(context, "amoled_mode", false)) }
 
             TailSocksTheme(
                 appTheme = appTheme,
                 themePreset = themePreset,
-                dynamicColorEnabled = dynamicColor
+                dynamicColorEnabled = dynamicColor,
+                amoledModeEnabled = amoledMode
             ) {
                 SettingsScreen(
                     onBack = { finish() },
@@ -76,6 +78,11 @@ class SettingsActivity : ComponentActivity() {
                     onDynamicColorChange = {
                         dynamicColor = it
                         GlobalSettings.setDynamicColorEnabled(context, it)
+                    },
+                    currentAmoledMode = amoledMode,
+                    onAmoledModeChange = {
+                        amoledMode = it
+                        GlobalSettings.setBoolean(context, "amoled_mode", it)
                     }
                 )
             }
@@ -99,7 +106,9 @@ fun SettingsScreen(
     currentPreset: String,
     onPresetChange: (String) -> Unit,
     currentDynamicColor: Boolean,
-    onDynamicColorChange: (Boolean) -> Unit
+    onDynamicColorChange: (Boolean) -> Unit,
+    currentAmoledMode: Boolean,
+    onAmoledModeChange: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -437,8 +446,7 @@ fun SettingsScreen(
                                 val themeOptions = listOf(
                                     Triple("system", Icons.Default.Settings, "System"),
                                     Triple("light", Icons.Default.LightMode, "Light"),
-                                    Triple("dark", Icons.Default.DarkMode, "Dark"),
-                                    Triple("amoled", Icons.Default.OfflineBolt, "Amoled")
+                                    Triple("dark", Icons.Default.DarkMode, "Dark")
                                 )
                                 Column(Modifier.padding(bottom = 8.dp)) {
                                     Text("Interface Theme", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -523,6 +531,19 @@ fun SettingsScreen(
                                         }
                                         Switch(checked = currentDynamicColor, onCheckedChange = onDynamicColorChange)
                                     }
+                                }
+
+                                // AMOLED Black switcher
+                                Spacer(Modifier.height(12.dp))
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text("AMOLED Black", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                        Text("Pure black background in dark mode", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                                    }
+                                    Switch(checked = currentAmoledMode, onCheckedChange = onAmoledModeChange)
                                 }
                             }
 

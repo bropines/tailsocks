@@ -63,7 +63,15 @@ object GlobalSettings {
     fun getCPField(context: Context, key: String, default: String = ""): String = getPrefs(context).getString("cp_$key", default) ?: default
     fun setCPField(context: Context, key: String, value: String) = getPrefs(context).edit().putString("cp_$key", value).apply()
 
-    fun getAppTheme(context: Context): String = getString(context, KEY_APP_THEME, "system")
+    fun getAppTheme(context: Context): String {
+        val theme = getString(context, KEY_APP_THEME, "system")
+        if (theme == "amoled") {
+            setAppTheme(context, "dark")
+            setBoolean(context, "amoled_mode", true)
+            return "dark"
+        }
+        return theme
+    }
     fun setAppTheme(context: Context, theme: String) = setString(context, KEY_APP_THEME, theme)
 
     fun getThemePreset(context: Context): String = getString(context, KEY_THEME_PRESET, "default")
