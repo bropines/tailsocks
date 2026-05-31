@@ -1,19 +1,27 @@
 package appctr
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net"
+	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"strings"
 	"sync"
 
+	"golang.org/x/net/proxy"
 	"tailscale.com/drive"
 	"tailscale.com/drive/driveimpl"
 )
 
 var (
-	driveServer   *driveimpl.FileServer
-	driveServerMu sync.Mutex
+	driveServer        *driveimpl.FileServer
+	driveServerMu      sync.Mutex
+	driveProxyServer   *http.Server
+	driveProxyServerMu sync.Mutex
 )
 
 // StartDriveServer starts the built-in Taildrive WebDAV file server
@@ -166,4 +174,115 @@ func UpdateDriveShares(sharesJson string) error {
 
 	slog.Info("Taildrive: All shares updated successfully", "total", len(entries))
 	return nil
+}
+
+// StartDriveProxy starts the WebDAV reverse-proxy on the specified local address
+// with optional Basic Authentication, targetting Quad100 (100.100.100.100:8080).
+func StartDriveProxy(localAddr, username, password string) error {
+	driveProxyServerMu.Lock()
+	defer driveProxyServerMu.Unlock()
+
+	if driveProxyServer != nil {
+		slog.Info("Taildrive Proxy: Server already running")
+		return nil
+	}
+
+	socks, user, pass, _ := GConfig.get()
+	if socks == "" {
+		return fmt.Errorf("SOCKS5 proxy is not running")
+	}
+
+	var auth *proxy.Auth
+	if user != "" || pass != "" {
+		auth = &proxy.Auth{User: user, Password: pass}
+	}
+
+	targetUrl, err := url.Parse("http://100.100.100.100:8080")
+	if err != nil {
+		return err
+	}
+
+	dialer, err := proxy.SOCKS5("tcp", socks, auth, proxy.Direct)
+	if err != nil {
+		return fmt.Errorf("failed to create SOCKS5 dialer: %w", err)
+	}
+
+	transport := &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return dialer.Dial(network, addr)
+		},
+	}
+
+	reverseProxy := httputil.NewSingleHostReverseProxy(targetUrl)
+	reverseProxy.Transport = transport
+
+	originalDirector := reverseProxy.Director
+	reverseProxy.Director = func(req *http.Request) {
+		originalDirector(req)
+		req.Host = targetUrl.Host
+
+		// Rewrite Destination header for WebDAV MOVE/COPY
+		if dest := req.Header.Get("Destination"); dest != "" {
+			if parsedDest, err := url.Parse(dest); err == nil {
+				parsedDest.Scheme = targetUrl.Scheme
+				parsedDest.Host = targetUrl.Host
+				req.Header.Set("Destination", parsedDest.String())
+			}
+		}
+	}
+
+	// Wrap in Basic Auth handler if credentials are provided
+	var handler http.Handler = reverseProxy
+	if username != "" && password != "" {
+		handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			u, p, ok := req.BasicAuth()
+			if !ok || u != username || p != password {
+				w.Header().Set("WWW-Authenticate", `Basic realm="Taildrive Proxy"`)
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+			reverseProxy.ServeHTTP(w, req)
+		})
+	}
+
+	server := &http.Server{
+		Addr:    localAddr,
+		Handler: handler,
+	}
+	driveProxyServer = server
+
+	go func() {
+		slog.Info("Taildrive Proxy: Server started listening", "addr", localAddr)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			slog.Error("Taildrive Proxy: Server error", "error", err)
+			driveProxyServerMu.Lock()
+			if driveProxyServer == server {
+				driveProxyServer = nil
+			}
+			driveProxyServerMu.Unlock()
+		}
+	}()
+
+	return nil
+}
+
+// StopDriveProxy stops the WebDAV reverse-proxy.
+func StopDriveProxy() error {
+	driveProxyServerMu.Lock()
+	defer driveProxyServerMu.Unlock()
+
+	if driveProxyServer == nil {
+		slog.Info("Taildrive Proxy: Server is not running")
+		return nil
+	}
+
+	slog.Info("Taildrive Proxy: Stopping server...")
+	err := driveProxyServer.Shutdown(context.Background())
+	driveProxyServer = nil
+	if err != nil {
+		slog.Error("Taildrive Proxy: Error stopping server", "error", err)
+	} else {
+		slog.Info("Taildrive Proxy: Server stopped OK")
+	}
+	return err
 }
