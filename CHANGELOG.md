@@ -13,6 +13,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Redesigned AMOLED mode as a separate toggle to allow pure black theme when auto-switching via System theme.
 - Migrated legacy `amoled` theme preference to `dark` theme with `amoled_mode` enabled.
 - Added native ARM 32-bit (`armeabi-v7a`) compilation and packaging support to the build system for compatibility with older EMUI/Android architectures.
+- Added native Intel x86 and x86_64 compilation and packaging support to the build system for compatibility with emulators and x86-based Android devices.
 
 ## [2.1.1-beta] - 2026-05-28
 ### Added
