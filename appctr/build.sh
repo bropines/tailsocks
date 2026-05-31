@@ -76,13 +76,45 @@ GOOS=android GOARCH=arm GOARM=7 go build \
     -ldflags="-s -w -checklinkname=0" \
     -o tmp/libtailscale_cli_arm.so ./cmd/tailscale
 
+echo "-> Compiling Daemon (Core) [x86 32-bit]..."
+export CC="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/i686-linux-android21-clang"
+export CGO_ENABLED=1
+GOOS=android GOARCH=386 go build \
+    -buildmode=pie \
+    -tags "$TAGS" \
+    -ldflags="-s -w -checklinkname=0" \
+    -o tmp/libtailscale_x86.so ./cmd/tailscaled
+
+echo "-> Compiling CLI (Console) [x86 32-bit]..."
+GOOS=android GOARCH=386 go build \
+    -buildmode=pie \
+    -tags "$TAGS" \
+    -ldflags="-s -w -checklinkname=0" \
+    -o tmp/libtailscale_cli_x86.so ./cmd/tailscale
+
+echo "-> Compiling Daemon (Core) [x86_64 64-bit]..."
+export CC="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android21-clang"
+export CGO_ENABLED=1
+GOOS=android GOARCH=amd64 go build \
+    -buildmode=pie \
+    -tags "$TAGS" \
+    -ldflags="-s -w -checklinkname=0" \
+    -o tmp/libtailscale_x86_64.so ./cmd/tailscaled
+
+echo "-> Compiling CLI (Console) [x86_64 64-bit]..."
+GOOS=android GOARCH=amd64 go build \
+    -buildmode=pie \
+    -tags "$TAGS" \
+    -ldflags="-s -w -checklinkname=0" \
+    -o tmp/libtailscale_cli_x86_64.so ./cmd/tailscale
+
 cd ..
 
 echo "[3/4] Building appctr.aar (Gomobile Bridge)..."
 go mod tidy
 mkdir -p tmp
 unset CC
-gomobile bind -ldflags="-s -w -buildid= -checklinkname=0 -X appctr.coreVersion=$TS_VERSION" -trimpath -target="android/arm,android/arm64" -androidapi 21 -tags "$TAGS" -o tmp/appctr.aar -v .
+gomobile bind -ldflags="-s -w -buildid= -checklinkname=0 -X appctr.coreVersion=$TS_VERSION" -trimpath -target="android/arm,android/arm64,android/386,android/amd64" -androidapi 21 -tags "$TAGS" -o tmp/appctr.aar -v .
 
 echo "[4/4] Copying binaries to jniLibs..."
 mkdir -p ../app/src/main/jniLibs/arm64-v8a
@@ -92,5 +124,13 @@ cp tailscale_src/tmp/libtailscale_cli_arm64.so ../app/src/main/jniLibs/arm64-v8a
 mkdir -p ../app/src/main/jniLibs/armeabi-v7a
 cp tailscale_src/tmp/libtailscale_arm.so ../app/src/main/jniLibs/armeabi-v7a/libtailscale.so
 cp tailscale_src/tmp/libtailscale_cli_arm.so ../app/src/main/jniLibs/armeabi-v7a/libtailscale_cli.so
+
+mkdir -p ../app/src/main/jniLibs/x86
+cp tailscale_src/tmp/libtailscale_x86.so ../app/src/main/jniLibs/x86/libtailscale.so
+cp tailscale_src/tmp/libtailscale_cli_x86.so ../app/src/main/jniLibs/x86/libtailscale_cli.so
+
+mkdir -p ../app/src/main/jniLibs/x86_64
+cp tailscale_src/tmp/libtailscale_x86_64.so ../app/src/main/jniLibs/x86_64/libtailscale.so
+cp tailscale_src/tmp/libtailscale_cli_x86_64.so ../app/src/main/jniLibs/x86_64/libtailscale_cli.so
 
 echo "✅ Done! Ready to assemble APK."
