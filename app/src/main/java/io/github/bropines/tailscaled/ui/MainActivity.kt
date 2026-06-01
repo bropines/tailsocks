@@ -1,0 +1,1267 @@
+package io.github.bropines.tailscaled.ui
+import io.github.bropines.tailscaled.R
+import io.github.bropines.tailscaled.BuildConfig
+
+import io.github.bropines.tailscaled.admin.*
+import io.github.bropines.tailscaled.core.*
+import io.github.bropines.tailscaled.models.*
+
+import android.Manifest
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
+import android.os.Bundle
+import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.lang.Runtime
+
+import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
+
+fun isVersionNewer(current: String, latest: String): Boolean {
+    val cleanCurrent = current.removePrefix("v").substringBefore("-").replace(Regex("[^0-9.]"), "")
+    val cleanLatest = latest.removePrefix("v").substringBefore("-").replace(Regex("[^0-9.]"), "")
+    val c = cleanCurrent.split(".").map { it.toIntOrNull() ?: 0 }
+    val l = cleanLatest.split(".").map { it.toIntOrNull() ?: 0 }
+    for (i in 0 until maxOf(c.size, l.size)) {
+        val cVal = c.getOrNull(i) ?: 0
+        val lVal = l.getOrNull(i) ?: 0
+        if (lVal > cVal) return true
+        if (lVal < cVal) return false
+    }
+    return false
+}
+
+fun downloadAndCacheAvatar(context: Context, accountId: String, urlStr: String) {
+    try {
+        val url = java.net.URL(urlStr)
+        val connection = url.openConnection() as java.net.HttpURLConnection
+        connection.doInput = true
+        connection.connectTimeout = 5000
+        connection.readTimeout = 5000
+        connection.connect()
+        val input = connection.inputStream
+        val avatarsDir = java.io.File(context.filesDir, "avatars").apply { mkdirs() }
+        val targetFile = java.io.File(avatarsDir, "$accountId.png")
+        val output = java.io.FileOutputStream(targetFile)
+        input.use { inStream ->
+            output.use { outStream ->
+                inStream.copyTo(outStream)
+            }
+        }
+    } catch (e: Exception) {
+        android.util.Log.e("AvatarSync", "Failed to download avatar: ${e.message}")
+    }
+}
+
+class MainActivity : ComponentActivity() {
+
+    private val requestPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ -> }
+
+    private val showAccountSwitcher = mutableStateOf(false)
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        checkNotificationPermission()
+        handleAppStartup()
+        checkForUpdatesSilent()
+        handleIntent(intent)
+
+        setContent {
+            TailSocksTheme {
+                MainScreen(showAccountSwitcher)
+            }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        if (intent?.action == "android.service.quicksettings.action.QS_TILE_PREFERENCES") {
+            showAccountSwitcher.value = true
+        }
+    }
+
+    private fun handleAppStartup() {
+        val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+        val appctrPrefs = getSharedPreferences("appctr", Context.MODE_PRIVATE)
+        
+        try {
+            val packageInfo = packageManager.getPackageInfo(packageName, 0)
+            val currentUpdateTime = packageInfo.lastUpdateTime
+            val savedUpdateTime = prefs.getLong("last_update_time", 0)
+
+            if (savedUpdateTime != currentUpdateTime) {
+                Runtime.getRuntime().exec("killall tailscaled")
+                prefs.edit().putLong("last_update_time", currentUpdateTime).apply()
+            }
+        } catch (e: Exception) {}
+
+        val forceBg = appctrPrefs.getBoolean("force_bg", false)
+
+        if (ProxyState.isUserLetRunning(this) && !ProxyState.isActualRunning()) {
+            if (forceBg) {
+                val authKey = appctrPrefs.getString("authkey", "") ?: ""
+                if (authKey.isNotBlank()) {
+                    val intent = Intent(this, TailscaledService::class.java).apply { action = "START_ACTION" }
+                    ContextCompat.startForegroundService(this, intent)
+                } else {
+                    ProxyState.setUserState(this, false)
+                }
+            } else {
+                ProxyState.setUserState(this, false)
+            }
+        }
+    }
+
+    private fun checkNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
+
+    private fun checkForUpdatesSilent() {
+        val scope = kotlinx.coroutines.MainScope()
+        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val currentVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0.0"
+                val connection = java.net.URL("https://api.github.com/repos/bropines/tailsocks/releases/latest").openConnection() as java.net.HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.setRequestProperty("Accept", "application/vnd.github.v3+json")
+                if (connection.responseCode == 200) {
+                    val response = connection.inputStream.bufferedReader().use { it.readText() }
+                    val json = com.google.gson.Gson().fromJson(response, com.google.gson.JsonObject::class.java)
+                    val tag = json.get("tag_name").asString
+                    if (isVersionNewer(currentVersion, tag)) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(this@MainActivity, "🚀 New TailSocks update available: $tag", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            } catch (e: Exception) {}
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    
+    var activeAccount by remember { mutableStateOf(AccountManager.getActiveAccount(context)) }
+    val accounts = remember { mutableStateOf(AccountManager.getAccounts(context)) }
+    
+    var showAddAccountDialog by remember { mutableStateOf(false) }
+    var showRenameAccountDialog by remember { mutableStateOf(false) }
+    var showSwitchConfirmDialog by remember { mutableStateOf<TailscaleAccount?>(null) }
+    
+    var newAccountName by remember { mutableStateOf("") }
+    var accountMenuExpanded by remember { mutableStateOf(false) }
+    var showAboutDialog by remember { mutableStateOf(false) }
+    var isBatteryOptimizationsIgnored by remember { mutableStateOf(true) }
+
+    LaunchedEffect(showAccountSwitcher.value) {
+        if (showAccountSwitcher.value) {
+            accountMenuExpanded = true
+            showAccountSwitcher.value = false
+        }
+    }
+
+    val prefs = remember(activeAccount.id) { context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE) }
+    
+    var proxyState by remember { mutableStateOf(if (ProxyState.isActualRunning()) "ACTIVE" else "STOPPED") }
+    var exitNodeIp by remember { mutableStateOf(prefs.getString("exit_node_ip", "") ?: "") }
+    var isProcessing by remember { mutableStateOf(false) }
+    var loginUrl by remember { mutableStateOf<String?>(null) }
+    var show410Warning by remember { mutableStateOf(false) }
+
+    var showExitNodeSheet by remember { mutableStateOf(false) }
+    var exitNodes by remember { mutableStateOf<List<PeerData>>(emptyList()) }
+    var isExitNodesLoading by remember { mutableStateOf(false) }
+
+    fun applyExitNode(id: String, ip: String) {
+        exitNodeIp = ip
+        val editor = prefs.edit()
+        editor.putString("exit_node_ip", ip)
+        editor.putString("exit_node_id", id)
+        editor.apply()
+        
+        scope.launch(Dispatchers.IO) {
+            val prefsJson = "{\"ExitNodeID\": \"$id\", \"ExitNodeIDSet\": true}"
+            appctr.Appctr.setPrefs(prefsJson)
+            updateAllWidgets(context)
+        }
+    }
+
+    // Watchdog: Sync UI state with actual daemon status
+    LaunchedEffect(Unit) {
+        var urlDetected = false
+        var lastAvatarSync = 0L
+        while (true) {
+            val isProcessAlive = try { appctr.Appctr.isRunning() } catch (e: Exception) { false }
+            
+            if (isProcessAlive && BuildConfig.IS_DEV) {
+                val backendState = try { appctr.Appctr.getBackendState() } catch (e: Exception) { "Error" }
+                // If backend is in a terminal state but process is alive, we might need to reflect it
+                if (backendState == "Stopped" || backendState == "Error") {
+                    // Process is alive but API is not responding or backend is stopped
+                }
+            }
+
+            // Sync state if not explicitly in transition
+            if (!isProcessing) {
+                proxyState = if (isProcessAlive) "ACTIVE" else "STOPPED"
+            }
+
+            if (isProcessAlive) {
+                val url = try { appctr.Appctr.getLoginURL() } catch (e: Exception) { "" }
+                loginUrl = if (url.isNullOrBlank()) null else url
+                
+                if (loginUrl != null) urlDetected = true
+                else if (urlDetected) {
+                    show410Warning = false
+                    urlDetected = false
+                }
+
+                val lastErr = try { appctr.Appctr.getLastError() } catch (e: Exception) { "" }
+                if (lastErr == "410_GONE") show410Warning = true
+
+                // Background avatar sync
+                val now = System.currentTimeMillis()
+                if (now - lastAvatarSync > 30000) { // Every 30 seconds
+                    lastAvatarSync = now
+                    scope.launch(Dispatchers.IO) {
+                        try {
+                            val pJson = appctr.Appctr.getStatusFromAPI()
+                            if (!pJson.startsWith("Error")) {
+                                val status = com.google.gson.Gson().fromJson(pJson, StatusResponse::class.java)
+                                val selfUserId = status.self?.userID
+                                val selfUser = status.users?.get(selfUserId?.toString()) ?: status.users?.values?.firstOrNull()
+                                val picUrl = selfUser?.profilePicUrl
+                                if (!picUrl.isNullOrEmpty() && picUrl != activeAccount.avatarUrl) {
+                                    downloadAndCacheAvatar(context, activeAccount.id, picUrl)
+                                    AccountManager.updateAccountAvatar(context, activeAccount.id, picUrl)
+                                    withContext(Dispatchers.Main) {
+                                        accounts.value = AccountManager.getAccounts(context)
+                                        activeAccount = AccountManager.getActiveAccount(context)
+                                    }
+                                }
+                            }
+                        } catch (e: Exception) {}
+                    }
+                }
+            } else {
+                loginUrl = null
+                show410Warning = false
+                urlDetected = false
+            }
+
+            // Check battery optimization status
+            val pm = context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+            isBatteryOptimizationsIgnored = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                pm.isIgnoringBatteryOptimizations(context.packageName)
+            } else {
+                true
+            }
+
+            delay(2000)
+        }
+    }
+
+    DisposableEffect(prefs) {
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
+            if (key == "exit_node_ip") {
+                exitNodeIp = sharedPreferences.getString("exit_node_ip", "") ?: ""
+            }
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        exitNodeIp = prefs.getString("exit_node_ip", "") ?: ""
+        onDispose {
+            prefs.unregisterOnSharedPreferenceChangeListener(listener)
+        }
+    }
+
+    DisposableEffect(context) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                when (intent.action) {
+                    "STARTING" -> { proxyState = "STARTING"; isProcessing = true }
+                    "START" -> {
+                        proxyState = "ACTIVE"
+                        isProcessing = false
+                        exitNodeIp = prefs.getString("exit_node_ip", "") ?: ""
+                        show410Warning = false
+                    }
+                    "STOP" -> { proxyState = "STOPPED"; isProcessing = false }
+                }
+            }
+        }
+        val filter = IntentFilter().apply {
+            addAction("STARTING")
+            addAction("START")
+            addAction("STOP")
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
+        } else {
+            context.registerReceiver(receiver, filter)
+        }
+        onDispose {
+            try { context.unregisterReceiver(receiver) } catch (e: Exception) {}
+        }
+    }
+
+    if (showAddAccountDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddAccountDialog = false },
+            title = { Text("Add Account") },
+            text = {
+                OutlinedTextField(
+                    value = newAccountName,
+                    onValueChange = { newAccountName = it },
+                    label = { Text("Account Name") },
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    if (newAccountName.isNotBlank()) {
+                        val acc = AccountManager.addAccount(context, newAccountName)
+                        accounts.value = AccountManager.getAccounts(context)
+                        AccountManager.setActiveAccount(context, acc.id)
+                        activeAccount = acc
+                        newAccountName = ""
+                        showAddAccountDialog = false
+
+                        if (ProxyState.isActualRunning()) {
+                            context.startService(Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" })
+                        }
+                    }
+                }) { Text("Add") }
+            },
+            dismissButton = { TextButton(onClick = { showAddAccountDialog = false }) { Text("Cancel") } }
+        )
+    }
+
+    if (showRenameAccountDialog) {
+        var renameText by remember { mutableStateOf(activeAccount.name) }
+        AlertDialog(
+            onDismissRequest = { showRenameAccountDialog = false },
+            title = { Text("Rename Account") },
+            text = {
+                OutlinedTextField(
+                    value = renameText,
+                    onValueChange = { renameText = it },
+                    label = { Text("New Name") },
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    if (renameText.isNotBlank()) {
+                        AccountManager.renameAccount(context, activeAccount.id, renameText)
+                        accounts.value = AccountManager.getAccounts(context)
+                        activeAccount = AccountManager.getActiveAccount(context)
+                        showRenameAccountDialog = false
+                    }
+                }) { Text("Rename") }
+            },
+            dismissButton = { TextButton(onClick = { showRenameAccountDialog = false }) { Text("Cancel") } }
+        )
+    }
+
+    if (showSwitchConfirmDialog != null) {
+        AlertDialog(
+            onDismissRequest = { showSwitchConfirmDialog = null },
+            title = { Text("Switch Account?") },
+            text = { Text("Switching to '${showSwitchConfirmDialog!!.name}' will restart the core. Are you sure?") },
+            confirmButton = {
+                Button(onClick = {
+                    val target = showSwitchConfirmDialog!!
+                    showSwitchConfirmDialog = null
+                    isProcessing = true
+
+                    // Move core logic to Service via RESTART_ACTION
+                    AccountManager.setActiveAccount(context, target.id)
+                    activeAccount = target
+                    context.startService(Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" })
+                }) { Text("Restart & Switch") }
+            },
+            dismissButton = { TextButton(onClick = { showSwitchConfirmDialog = null }) { Text("Cancel") } }
+        )
+    }
+
+    if (accountMenuExpanded) {
+        ModalBottomSheet(onDismissRequest = { accountMenuExpanded = false }) {
+            val activeAvatarFile = remember(activeAccount.id) { java.io.File(context.filesDir, "avatars/${activeAccount.id}.png") }
+            val activeBitmap = remember(activeAvatarFile) {
+                if (activeAvatarFile.exists()) {
+                    try {
+                        android.graphics.BitmapFactory.decodeFile(activeAvatarFile.absolutePath)
+                    } catch (e: Exception) { null }
+                } else null
+            }
+
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                if (activeBitmap != null) {
+                    androidx.compose.foundation.Image(
+                        bitmap = activeBitmap.asImageBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .padding(top = 8.dp, bottom = 12.dp)
+                            .size(48.dp)
+                            .clip(CircleShape),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 8.dp, bottom = 12.dp)
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.ManageAccounts,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+                Text(
+                    "Switch Account",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(Modifier.height(16.dp))
+
+                androidx.compose.foundation.lazy.LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .weight(1f, fill = false),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(accounts.value.size) { i ->
+                        val account = accounts.value[i]
+                        val isActive = account.id == activeAccount.id
+                        
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    accountMenuExpanded = false
+                                    if (account.id != activeAccount.id) {
+                                        if (ProxyState.isActualRunning()) showSwitchConfirmDialog = account
+                                        else { AccountManager.setActiveAccount(context, account.id); activeAccount = account }
+                                    }
+                                },
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isActive) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                            border = if (isActive) androidx.compose.foundation.BorderStroke(
+                                1.5.dp,
+                                MaterialTheme.colorScheme.primary
+                            ) else null
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                val avatarFile = remember(account.id) { java.io.File(context.filesDir, "avatars/${account.id}.png") }
+                                val bitmap = remember(avatarFile) {
+                                    if (avatarFile.exists()) {
+                                        try {
+                                            android.graphics.BitmapFactory.decodeFile(avatarFile.absolutePath)
+                                        } catch (e: Exception) { null }
+                                    } else null
+                                }
+
+                                if (bitmap != null) {
+                                    androidx.compose.foundation.Image(
+                                        bitmap = bitmap.asImageBitmap(),
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .size(26.dp)
+                                            .clip(CircleShape),
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                    )
+                                } else {
+                                    val nameLower = account.name.lowercase()
+                                    val (smartIcon, smartColor) = when {
+                                        nameLower.contains("github") -> Icons.Default.Hub to Color(0xFFFCC624)
+                                        nameLower.contains("headscale") -> Icons.Default.Cloud to Color(0xFF0078D4)
+                                        nameLower.contains("google") || nameLower.contains("gmail") -> Icons.Default.Email to Color(0xFFE91E63)
+                                        else -> Icons.Default.AccountCircle to (if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    
+                                    Box(
+                                        modifier = Modifier
+                                            .size(26.dp)
+                                            .clip(CircleShape)
+                                            .background(smartColor.copy(alpha = 0.12f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            smartIcon,
+                                            null,
+                                            tint = smartColor,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                                Spacer(Modifier.width(16.dp))
+                                Text(
+                                    account.name,
+                                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                if (isActive) {
+                                    Icon(
+                                        Icons.Default.Check,
+                                        null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                Spacer(Modifier.height(20.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    FilledTonalButton(
+                        onClick = { accountMenuExpanded = false; showAddAccountDialog = true },
+                        modifier = Modifier.weight(1f).height(44.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp)
+                    ) {
+                        Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Add", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    }
+
+                    OutlinedButton(
+                        onClick = { accountMenuExpanded = false; showRenameAccountDialog = true },
+                        modifier = Modifier.weight(1f).height(44.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp)
+                    ) {
+                        Icon(Icons.Default.Edit, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Rename", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    }
+
+                    if (activeAccount.id != "default") {
+                        Button(
+                            onClick = {
+                                accountMenuExpanded = false
+                                AccountManager.deleteAccount(context, activeAccount.id)
+                                activeAccount = AccountManager.getActiveAccount(context)
+                                accounts.value = AccountManager.getAccounts(context)
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                contentColor = MaterialTheme.colorScheme.onErrorContainer
+                            ),
+                            modifier = Modifier.weight(1f).height(44.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp)
+                        ) {
+                            Icon(Icons.Default.Delete, null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Delete", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column(modifier = Modifier.clickable { accountMenuExpanded = true }) {
+                        Text("TailSocks", style = MaterialTheme.typography.titleMedium)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                activeAccount.name,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Icon(Icons.Default.ArrowDropDown, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                actions = {
+                    if (proxyState == "ACTIVE") {
+                        IconButton(onClick = { 
+                            val intent = Intent(context, TailscaledService::class.java).apply { action = "REFRESH_ACTION" }
+                            context.startService(intent)
+                            Toast.makeText(context, "Refreshing configuration...", Toast.LENGTH_SHORT).show()
+                        }) {
+                            Icon(Icons.Default.Refresh, contentDescription = "Refresh Config")
+                        }
+                    }
+                    IconButton(onClick = {
+                        context.startActivity(Intent(context, AdminApiActivity::class.java))
+                    }) {
+                        Icon(Icons.Default.AdminPanelSettings, contentDescription = "Admin API")
+                    }
+                    IconButton(onClick = { showAboutDialog = true }) {
+                        Icon(Icons.Default.Info, contentDescription = "About & Licenses")
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(horizontal = 24.dp)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(modifier = Modifier.height(12.dp))
+
+            if (!isBatteryOptimizationsIgnored) {
+                Surface(
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp).clickable {
+                        try {
+                            val intent = Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Cannot open battery settings", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.BatteryAlert, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("Battery Optimization Enabled", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
+                            Text("TailSocks may be killed in the background. Tap to disable.", 
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                        }
+                    }
+                }
+            }
+
+            if (show410Warning) {
+                Surface(
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("Network Sync Warning", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
+                            Text("Initial machine map parsing may take 1-3 minutes due to network backoff. Please do not restart.", 
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                        }
+                    }
+                }
+            }
+
+            if (proxyState == "ACTIVE") {
+                Surface(
+                    color = if (exitNodeIp.isNotEmpty()) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp).clickable {
+                        showExitNodeSheet = true
+                        isExitNodesLoading = true
+                        scope.launch(Dispatchers.IO) {
+                            try {
+                                val pJson = appctr.Appctr.getStatusFromAPI()
+                                if (!pJson.startsWith("Error")) {
+                                    val status = com.google.gson.Gson().fromJson(pJson, StatusResponse::class.java)
+                                    val nodes = status.peers?.values?.filter { it.exitNodeOption == true }?.toList() ?: emptyList()
+                                    withContext(Dispatchers.Main) { exitNodes = nodes }
+                                }
+                            } catch (e: Exception) {}
+                            withContext(Dispatchers.Main) { isExitNodesLoading = false }
+                        }
+                    }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            if (exitNodeIp.isNotEmpty()) Icons.Default.Lock else Icons.Default.Public, 
+                            contentDescription = null, 
+                            tint = if (exitNodeIp.isNotEmpty()) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                if (exitNodeIp.isNotEmpty()) "Traffic is routed" else "Exit Node: None", 
+                                fontWeight = FontWeight.Bold, 
+                                color = if (exitNodeIp.isNotEmpty()) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                if (exitNodeIp.isNotEmpty()) "Via exit node: $exitNodeIp" else "Tap to select exit node", 
+                                style = MaterialTheme.typography.bodySmall, 
+                                color = if (exitNodeIp.isNotEmpty()) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Spacer(modifier = Modifier.weight(1f))
+                        Icon(
+                            Icons.Default.KeyboardArrowRight, 
+                            null, 
+                            tint = if (exitNodeIp.isNotEmpty()) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            StatusCard(state = proxyState, isProcessing = isProcessing) {
+                if (isProcessing) return@StatusCard
+
+                if (proxyState == "ACTIVE" || proxyState == "STARTING") {
+                    isProcessing = true
+                    val intent = Intent(context, TailscaledService::class.java).apply { action = "STOP_ACTION" }
+                    context.startService(intent)
+                } else {
+                    val currentSocks = prefs.getString("socks5", "127.0.0.1:1055") ?: "127.0.0.1:1055"
+
+                    if (currentSocks.isBlank()) {
+                        Toast.makeText(context, "🚫 Error: SOCKS5 address cannot be empty!", Toast.LENGTH_LONG).show()
+                        return@StatusCard
+                    }
+
+                    isProcessing = true
+                    val intent = Intent(context, TailscaledService::class.java).apply { action = "START_ACTION" }
+                    ContextCompat.startForegroundService(context, intent)
+                }
+            }
+
+            if (loginUrl != null) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth().clickable {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(loginUrl)))
+                    }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.AccountCircle, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("Login Required", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Text("Tap to authenticate via browser", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        }
+                        Spacer(modifier = Modifier.weight(1f))
+                        Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Row(modifier = Modifier.fillMaxWidth()) {
+                MenuCard(title = "Console", icon = Icons.Default.PlayArrow, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                    context.startActivity(Intent(context, ConsoleActivity::class.java))
+                }
+                MenuCard(title = "Peers", icon = Icons.Default.Share, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                    context.startActivity(Intent(context, PeersActivity::class.java))
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                MenuCard(title = "Logs", icon = Icons.AutoMirrored.Filled.List, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                    context.startActivity(Intent(context, LogsActivity::class.java))
+                }
+                MenuCard(title = "Files", icon = Icons.Default.Folder, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                    context.startActivity(Intent(context, FilesActivity::class.java))
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                MenuCard(title = "DNS", icon = Icons.Default.Language, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                    context.startActivity(Intent(context, DnsActivity::class.java))
+                }
+                MenuCard(title = "Netcheck", icon = Icons.Default.Refresh, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                    context.startActivity(Intent(context, NetcheckActivity::class.java))
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                MenuCard(title = "Settings", icon = Icons.Default.Settings, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                    context.startActivity(Intent(context, SettingsActivity::class.java))
+                }
+                MenuCard(title = "Serve", icon = Icons.Default.Public, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                    context.startActivity(Intent(context, ServeActivity::class.java))
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+
+    if (showAboutDialog) {
+        val versionName = remember {
+            try { context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?" }
+            catch (e: Exception) { "?" }
+        }
+        val coreVer = remember {
+            try { appctr.Appctr.getCoreVersion() } catch (e: Exception) { "unknown" }
+        }
+        var latestVersion by remember { mutableStateOf<String?>(null) }
+        var isCheckingUpdate by remember { mutableStateOf(false) }
+
+        AlertDialog(
+            onDismissRequest = { showAboutDialog = false },
+            title = { 
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.width(12.dp))
+                    Text("About TailSocks")
+                }
+            },
+            text = { 
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text("App Version: $versionName", fontWeight = FontWeight.Bold)
+                            Text("Tailscale Core: $coreVer", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    
+                    if (latestVersion != null) {
+                        val isNewer = isVersionNewer(versionName, latestVersion!!)
+                        if (isNewer) {
+                            Spacer(Modifier.height(8.dp))
+                            Surface(
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Download, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("New version: $latestVersion", color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+                    Text("Proxy is running via official Tailscale core.\nLicense: BSD-3-Clause\n")
+                    
+                    TextButton(
+                        onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/bropines"))) },
+                        modifier = Modifier.height(32.dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) { Text("App Developer: Bropines") }
+                    
+                    TextButton(
+                        onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Asutorufa/tailscale"))) },
+                        modifier = Modifier.height(32.dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) { Text("Patch Developer: Asutorufa") }
+
+                    TextButton(
+                        onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/tailscale/tailscale"))) },
+                        modifier = Modifier.height(32.dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) { Text("Core Developer: Tailscale") }
+
+                    Spacer(Modifier.height(12.dp))
+                    Button(
+                        onClick = {
+                            isCheckingUpdate = true
+                            scope.launch(Dispatchers.IO) {
+                                try {
+                                    val connection = java.net.URL("https://api.github.com/repos/bropines/tailsocks/releases/latest").openConnection() as java.net.HttpURLConnection
+                                    connection.requestMethod = "GET"
+                                    connection.setRequestProperty("Accept", "application/vnd.github.v3+json")
+                                    if (connection.responseCode == 200) {
+                                        val response = connection.inputStream.bufferedReader().use { it.readText() }
+                                        val json = com.google.gson.Gson().fromJson(response, com.google.gson.JsonObject::class.java)
+                                        val tag = json.get("tag_name").asString
+                                        withContext(Dispatchers.Main) {
+                                            latestVersion = tag
+                                            isCheckingUpdate = false
+                                        }
+                                    } else { throw Exception("HTTP ${connection.responseCode}") }
+                                } catch (e: Exception) {
+                                    withContext(Dispatchers.Main) {
+                                        Toast.makeText(context, "Check failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                                        isCheckingUpdate = false
+                                    }
+                                }
+                            }
+                        },
+                        enabled = !isCheckingUpdate,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                    ) {
+                        if (isCheckingUpdate) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSecondary)
+                        } else {
+                            Text("Check for App Updates")
+                        }
+                    }
+                } 
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val url = if (latestVersion != null) "https://github.com/bropines/tailsocks/releases/latest" 
+                             else "https://github.com/bropines/tailscaled-socks5-android"
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                    showAboutDialog = false
+                }) { Text(if (latestVersion != null) "Download" else "GitHub") }
+            },
+            dismissButton = { TextButton(onClick = { showAboutDialog = false }) { Text("Close") } }
+        )
+    }
+
+    if (showExitNodeSheet) {
+        val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+        val maxHeight = (configuration.screenHeightDp * 0.85f).dp
+
+        ModalBottomSheet(
+            onDismissRequest = { showExitNodeSheet = false }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = maxHeight)
+                    .navigationBarsPadding()
+            ) {
+                Text(
+                    "Select Exit Node",
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+
+                if (isExitNodesLoading) {
+                    Box(Modifier.fillMaxWidth().height(120.dp), Alignment.Center) { CircularProgressIndicator() }
+                } else if (exitNodes.isEmpty()) {
+                    Box(Modifier.fillMaxWidth().height(120.dp), Alignment.Center) { 
+                        Text("No exit nodes available", color = MaterialTheme.colorScheme.outline)
+                    }
+                } else {
+                    val currentExitNodeId = remember(showExitNodeSheet) { prefs.getString("exit_node_id", "") ?: "" }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f, fill = false)
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                            ),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                            )
+                        ) {
+                            androidx.compose.foundation.lazy.LazyColumn(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                contentPadding = PaddingValues(bottom = 16.dp)
+                            ) {
+                                item {
+                                    val isSelected = exitNodeIp.isEmpty()
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 6.dp)
+                                            .clickable { applyExitNode("", ""); showExitNodeSheet = false },
+                                        shape = RoundedCornerShape(14.dp),
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            1.dp,
+                                            if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                                        ),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
+                                        )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(38.dp)
+                                                    .clip(CircleShape)
+                                                    .background(
+                                                        if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
+                                                    ),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.Clear,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(18.dp),
+                                                    tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                            Spacer(Modifier.width(16.dp))
+                                            Column(Modifier.weight(1f)) {
+                                                Text(
+                                                    "None",
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 15.sp,
+                                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                                )
+                                                Text(
+                                                    "Route traffic directly",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                            if (isSelected) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(8.dp)
+                                                        .clip(CircleShape)
+                                                        .background(MaterialTheme.colorScheme.primary)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                items(exitNodes) { node ->
+                                    val isSelected = node.id == currentExitNodeId || node.getPrimaryIp() == exitNodeIp
+                                    val (osIcon, osColor) = getOsVisuals(node.os).let { (icon, color) ->
+                                        if (icon == Icons.Default.Devices) Icons.Default.VpnKey to MaterialTheme.colorScheme.primary
+                                        else icon to color
+                                    }
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 6.dp)
+                                            .clickable { applyExitNode(node.id ?: "", node.getPrimaryIp()); showExitNodeSheet = false },
+                                        shape = RoundedCornerShape(14.dp),
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            1.dp,
+                                            if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                                        ),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
+                                        )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(38.dp)
+                                                    .clip(CircleShape)
+                                                    .background(
+                                                        if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                                        else osColor.copy(alpha = 0.12f)
+                                                    ),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    osIcon,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(18.dp),
+                                                    tint = if (isSelected) MaterialTheme.colorScheme.primary else osColor
+                                                )
+                                            }
+                                            Spacer(Modifier.width(16.dp))
+                                            Column(Modifier.weight(1f)) {
+                                                Text(
+                                                    node.getDisplayName(),
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 15.sp,
+                                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                                )
+                                                Text(
+                                                    node.getPrimaryIp(),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                            if (isSelected) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(8.dp)
+                                                        .clip(CircleShape)
+                                                        .background(MaterialTheme.colorScheme.primary)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun StatusCard(state: String, isProcessing: Boolean, onToggle: () -> Unit) {
+    val backgroundColor = when (state) {
+        "ACTIVE" -> MaterialTheme.colorScheme.primaryContainer
+        "STARTING" -> MaterialTheme.colorScheme.tertiaryContainer
+        else -> MaterialTheme.colorScheme.surfaceContainerHigh
+    }
+    val contentColor = when (state) {
+        "ACTIVE" -> MaterialTheme.colorScheme.onPrimaryContainer
+        "STARTING" -> MaterialTheme.colorScheme.onTertiaryContainer
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    Surface(
+        shape = RoundedCornerShape(28.dp),
+        color = backgroundColor,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(130.dp)
+            .alpha(if (isProcessing) 0.6f else 1f)
+            .clickable(enabled = !isProcessing) { onToggle() },
+        tonalElevation = 4.dp
+    ) {
+        Column(
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = when(state) {
+                    "ACTIVE" -> Icons.Default.CheckCircle
+                    "STARTING" -> Icons.Default.Refresh
+                    else -> Icons.Default.CheckCircle
+                },
+                contentDescription = null,
+                tint = contentColor,
+                modifier = Modifier.size(48.dp).padding(bottom = 16.dp)
+            )
+            Text(
+                text = when(state) {
+                    "ACTIVE" -> "Active"
+                    "STARTING" -> "Starting..."
+                    else -> "Stopped"
+                },
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = contentColor
+            )
+            Text(
+                text = when {
+                    isProcessing -> "Please wait..."
+                    state == "ACTIVE" -> "Service is running • Tap to stop"
+                    state == "STARTING" -> "Waking up the daemon..."
+                    else -> "Tap to connect"
+                },
+                modifier = Modifier.alpha(0.6f).padding(top = 4.dp),
+                color = contentColor
+            )
+        }
+    }
+}
+
+@Composable
+fun MenuCard(title: String, icon: ImageVector, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        modifier = modifier.clickable { onClick() }
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(imageVector = icon, contentDescription = title, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = title, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, maxLines = 1, softWrap = false)
+        }
+    }
+}

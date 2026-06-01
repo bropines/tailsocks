@@ -23,7 +23,7 @@
         android:theme="@style/Theme.Tailscaled" 
         tools:targetApi="34">
 
-        <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTask">
+        <activity android:name=".ui.MainActivity" android:exported="true" android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -33,11 +33,11 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".SettingsActivity" android:exported="false" />
-        <activity android:name=".NetcheckActivity" android:exported="false" />
-        <activity android:name=".FilesActivity" android:exported="false" />
-        <activity android:name=".LogsActivity" android:exported="false" />
-        <activity android:name=".TaildriveActivity" android:exported="false" />
+        <activity android:name=".ui.SettingsActivity" android:exported="false" />
+        <activity android:name=".ui.NetcheckActivity" android:exported="false" />
+        <activity android:name=".ui.FilesActivity" android:exported="false" />
+        <activity android:name=".ui.LogsActivity" android:exported="false" />
+        <activity android:name=".ui.TaildriveActivity" android:exported="false" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -48,15 +48,15 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
-        <activity android:name=".DnsActivity" android:exported="false" />
-        <activity android:name=".ServeActivity" android:exported="false" />
-        <activity android:name=".ConsoleActivity" android:exported="false" android:windowSoftInputMode="adjustResize"/>
-        <activity android:name=".PeersActivity" android:exported="false" />
-        <activity android:name=".AdminApiActivity" android:exported="false" />
+        <activity android:name=".ui.DnsActivity" android:exported="false" />
+        <activity android:name=".ui.ServeActivity" android:exported="false" />
+        <activity android:name=".ui.ConsoleActivity" android:exported="false" android:windowSoftInputMode="adjustResize"/>
+        <activity android:name=".ui.PeersActivity" android:exported="false" />
+        <activity android:name=".admin.AdminApiActivity" android:exported="false" />
 
-        <activity android:name=".ToggleActivity" android:exported="false" android:theme="@android:style/Theme.NoDisplay" android:excludeFromRecents="true" />
+        <activity android:name=".ui.ToggleActivity" android:exported="false" android:theme="@android:style/Theme.NoDisplay" android:excludeFromRecents="true" />
 
-        <activity android:name=".ShareActivity" android:exported="true" android:theme="@style/Theme.Tailscaled.Transparent">
+        <activity android:name=".ui.ShareActivity" android:exported="true" android:theme="@style/Theme.Tailscaled.Transparent">
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -69,27 +69,27 @@
             </intent-filter>
         </activity>
 
-        <service android:name=".TailscaledService" android:directBootAware="true" android:exported="false" android:foregroundServiceType="specialUse">
+        <service android:name=".core.TailscaledService" android:directBootAware="true" android:exported="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="tailscale node service" />
         </service>
 
-        <service android:name=".ProxyTileService" android:exported="true" android:label="TailSocks" android:icon="@drawable/ic_launcher_foreground" android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+        <service android:name=".core.ProxyTileService" android:exported="true" android:label="TailSocks" android:icon="@drawable/ic_launcher_foreground" android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
         </service>
 
-        <receiver android:name=".BootReceiver" android:enabled="true" android:exported="false">
+        <receiver android:name=".core.BootReceiver" android:enabled="true" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
             </intent-filter>
         </receiver>
 
-        <receiver android:name=".TailDropReceiver" android:exported="false" />
+        <receiver android:name=".ui.TailDropReceiver" android:exported="false" />
 
         <provider
-            android:name=".TailsocksFileProvider"
+            android:name=".core.TailsocksFileProvider"
             android:authorities="${applicationId}.documents"
             android:exported="true"
             android:grantUriPermissions="true"
@@ -100,7 +100,7 @@
         </provider>
 
         <!-- TailSocks Switcher (Toggle) Widget -->
-        <receiver android:name=".ServiceToggleWidgetReceiver" android:exported="false" android:label="TailSocks Switcher">
+        <receiver android:name=".ui.ServiceToggleWidgetReceiver" android:exported="false" android:label="TailSocks Switcher">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -110,7 +110,7 @@
         </receiver>
 
         <!-- Exit Node Toggle Widget -->
-        <receiver android:name=".ExitNodeToggleWidgetReceiver" android:exported="false" android:label="TailSocks Exit Node">
+        <receiver android:name=".ui.ExitNodeToggleWidgetReceiver" android:exported="false" android:label="TailSocks Exit Node">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -120,7 +120,7 @@
         </receiver>
 
         <!-- Stats Dashboard Widget -->
-        <receiver android:name=".StatsWidgetReceiver" android:exported="false" android:label="TailSocks Dashboard">
+        <receiver android:name=".ui.StatsWidgetReceiver" android:exported="false" android:label="TailSocks Dashboard">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -130,7 +130,7 @@
         </receiver>
 
         <!-- Serve Config Status Widget -->
-        <receiver android:name=".ServeWidgetReceiver" android:exported="false" android:label="TailSocks Serve">
+        <receiver android:name=".ui.ServeWidgetReceiver" android:exported="false" android:label="TailSocks Serve">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>

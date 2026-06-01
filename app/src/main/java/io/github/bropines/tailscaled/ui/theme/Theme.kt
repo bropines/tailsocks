@@ -1,5 +1,8 @@
 package io.github.bropines.tailscaled.ui.theme
 
+import io.github.bropines.tailscaled.core.GlobalSettings
+import io.github.bropines.tailscaled.core.*
+
 import android.content.Context
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -7,7 +10,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import io.github.bropines.tailscaled.GlobalSettings
 
 // ==========================================
 // COLOR PRESETS SCHEMES DEFINITIONS (M3)
