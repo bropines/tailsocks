@@ -82,6 +82,8 @@ fun AdminApiDashboardScreen(
     var dnsSearchPaths by remember { mutableStateOf<List<String>>(emptyList()) }
     var users by remember { mutableStateOf<List<ApiUser>>(emptyList()) }
     var tailnetSettings by remember { mutableStateOf<TailnetSettings?>(null) }
+    var selectedUser by remember { mutableStateOf<ApiUser?>(null) }
+    var allTailnetTags by remember { mutableStateOf<List<String>>(emptyList()) }
 
     // Cache Timestamps
     var lastDevicesFetch by remember { mutableLongStateOf(0L) }
@@ -107,8 +109,10 @@ fun AdminApiDashboardScreen(
                     0 -> {
                         if (force || now - lastDevicesFetch >= cacheDuration || devices.isEmpty()) {
                             val list = client.listDevices()
+                            val tagsList = client.getTailnetTags()
                             withContext(Dispatchers.Main) {
                                 devices = list
+                                allTailnetTags = tagsList
                                 lastDevicesFetch = now
                             }
                         }
@@ -315,7 +319,8 @@ fun AdminApiDashboardScreen(
                             }
                         )
                         3 -> UsersTabContent(
-                            users = users
+                            users = users,
+                            onUserClick = { selectedUser = it }
                         )
                         4 -> TailnetSettingsTabContent(
                             settings = tailnetSettings,
@@ -424,6 +429,8 @@ fun AdminApiDashboardScreen(
     selectedDevice?.let { device ->
         DeviceDetailBottomSheet(
             device = device,
+            client = client,
+            allTailnetTags = allTailnetTags,
             onDismiss = { selectedDevice = null },
             onRename = { newName ->
                 scope.launch(Dispatchers.IO) {
@@ -497,6 +504,109 @@ fun AdminApiDashboardScreen(
                             Toast.makeText(context, "Device tags updated", Toast.LENGTH_SHORT).show()
                             selectedDevice = null
                             refreshTab(0, force = true)
+                        }
+                    } catch (e: Exception) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            },
+            onToggleKeyExpiryDisabled = { disabled ->
+                scope.launch(Dispatchers.IO) {
+                    try {
+                        client.setDeviceKeyExpiryDisabled(device.id, disabled)
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "Key expiry updated", Toast.LENGTH_SHORT).show()
+                            selectedDevice = null
+                            refreshTab(0, force = true)
+                        }
+                    } catch (e: Exception) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            }
+        )
+    }
+
+    selectedUser?.let { user ->
+        UserDetailBottomSheet(
+            user = user,
+            onDismiss = { selectedUser = null },
+            onRoleChange = { newRole ->
+                scope.launch(Dispatchers.IO) {
+                    try {
+                        client.changeUserRole(user.id, newRole)
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "Role updated to ${newRole.uppercase()}", Toast.LENGTH_SHORT).show()
+                            selectedUser = null
+                            refreshTab(3, force = true)
+                        }
+                    } catch (e: Exception) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            },
+            onApprove = {
+                scope.launch(Dispatchers.IO) {
+                    try {
+                        client.approveUser(user.id)
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "User approved", Toast.LENGTH_SHORT).show()
+                            selectedUser = null
+                            refreshTab(3, force = true)
+                        }
+                    } catch (e: Exception) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            },
+            onSuspend = {
+                scope.launch(Dispatchers.IO) {
+                    try {
+                        client.suspendUser(user.id)
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "User suspended", Toast.LENGTH_SHORT).show()
+                            selectedUser = null
+                            refreshTab(3, force = true)
+                        }
+                    } catch (e: Exception) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            },
+            onRestore = {
+                scope.launch(Dispatchers.IO) {
+                    try {
+                        client.restoreUser(user.id)
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "User restored", Toast.LENGTH_SHORT).show()
+                            selectedUser = null
+                            refreshTab(3, force = true)
+                        }
+                    } catch (e: Exception) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            },
+            onDelete = {
+                scope.launch(Dispatchers.IO) {
+                    try {
+                        client.deleteUser(user.id)
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "User deleted", Toast.LENGTH_SHORT).show()
+                            selectedUser = null
+                            refreshTab(3, force = true)
                         }
                     } catch (e: Exception) {
                         withContext(Dispatchers.Main) {
