@@ -15,6 +15,10 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Added Proxy settings (Direct, Local SOCKS5, Custom SOCKS5) to route API traffic (including routing via the active VPN / Exit Node).
 - Added a shortcut button in the main screen's top app bar for immediate access to the Admin Console.
 
+### Changed
+- Restructured the entire Kotlin codebase by organizing all source files into modular `admin`, `core`, `models`, and `ui` packages to improve project maintainability.
+- Split the monolithic `AdminApiActivity.kt` into 8 separate, focused UI files under the `admin` package.
+
 ## [2.1.3-beta] - 2026-05-31
 ### Added
 - Added native ARM 32-bit (`armeabi-v7a`) compilation and packaging support to the build system for compatibility with older EMUI/Android architectures.
