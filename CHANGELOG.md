@@ -5,8 +5,14 @@ All notable changes to the TailSocks project will be documented in this file. Th
 ## [2.1.4-beta] - 2026-06-01
 ### Added
 - Added comprehensive Tailscale public Admin API (api.tailscale.com/api/v2) integration to manage tailnet resources.
-- Integrated profile-specific Admin API credential storage within account preferences (`appctr_{id}`) for strict account isolation.
-- Implemented a dedicated "Admin Console" dashboard with three tabs: Devices (manage node authorization, expiration, and deletion), Auth Keys (generate new keys with tags/ephemeral configurations, revoke active keys), and DNS (toggle MagicDNS and manage global nameservers).
+- Integrated profile-specific Admin API credential storage mapped to tailnet domains for shared credentials across profiles.
+- Implemented a dedicated "Admin Console" dashboard with 5 tabs: Devices, Auth Keys, DNS, Users, and Settings.
+- Added 60-second in-memory caching and request throttling to avoid redundant API network queries during navigation.
+- Added Split DNS (Domain-specific Nameservers) and DNS Search Paths management under the DNS tab.
+- Added Tailnet settings management (Device Approval, User Approval, Auto-updates, and Default Key Expiry duration).
+- Added Users list tab showing roles (Owner, Admin, Member), statuses, and device counts.
+- Added OAuth Client Credentials integration to automatically fetch and refresh short-lived API access tokens in the background.
+- Added Proxy settings (Direct, Local SOCKS5, Custom SOCKS5) to route API traffic (including routing via the active VPN / Exit Node).
 - Added a shortcut button in the main screen's top app bar for immediate access to the Admin Console.
 
 ## [2.1.3-beta] - 2026-05-31
