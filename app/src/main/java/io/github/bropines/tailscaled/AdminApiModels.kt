@@ -53,3 +53,47 @@ data class DnsPreferences(
 data class DnsNameserversResponse(
     @SerializedName("dns") val dns: List<String>?
 )
+
+@Keep
+data class ApiUser(
+    @SerializedName("id") val id: String,
+    @SerializedName("displayName") val displayName: String?,
+    @SerializedName("loginName") val loginName: String,
+    @SerializedName("profilePicUrl") val profilePicUrl: String?,
+    @SerializedName("created") val created: String?,
+    @SerializedName("type") val type: String?,
+    @SerializedName("role") val role: String?,
+    @SerializedName("status") val status: String?,
+    @SerializedName("deviceCount") val deviceCount: Int?
+)
+
+@Keep
+data class ListUsersResponse(
+    @SerializedName("users") val users: List<ApiUser>?
+)
+
+@Keep
+data class DnsSearchPaths(
+    @SerializedName("searchPaths") val searchPaths: List<String>
+)
+
+@Keep
+data class TailnetSettings(
+    @SerializedName("aclsExternallyManagedOn") val aclsExternallyManagedOn: Boolean?,
+    @SerializedName("aclsExternalLink") val aclsExternalLink: String?,
+    @SerializedName("devicesApprovalOn") val devicesApprovalOn: Boolean?,
+    @SerializedName("devicesAutoUpdatesOn") val devicesAutoUpdatesOn: Boolean?,
+    @SerializedName("devicesKeyDurationDays") val devicesKeyDurationDays: Int?,
+    @SerializedName("usersApprovalOn") val usersApprovalOn: Boolean?,
+    @SerializedName("usersRoleAllowedToJoinExternalTailnets") val usersRoleAllowedToJoinExternalTailnets: String?,
+    @SerializedName("networkFlowLoggingOn") val networkFlowLoggingOn: Boolean?,
+    @SerializedName("regionalRoutingOn") val regionalRoutingOn: Boolean?
+)
+
+@Keep
+data class OauthTokenResponse(
+    @SerializedName("access_token") val accessToken: String,
+    @SerializedName("token_type") val tokenType: String,
+    @SerializedName("expires_in") val expiresIn: Long
+)
+
