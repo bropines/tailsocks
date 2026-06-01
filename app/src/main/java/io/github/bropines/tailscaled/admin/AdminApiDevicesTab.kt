@@ -10,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -30,6 +31,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun DevicesTabContent(
@@ -138,12 +142,15 @@ fun DeviceRow(
 @Composable
 fun DeviceDetailBottomSheet(
     device: ApiDevice,
+    client: TailscaleApiClient,
+    allTailnetTags: List<String>,
     onDismiss: () -> Unit,
     onRename: (String) -> Unit,
     onAuthorize: (Boolean) -> Unit,
     onExpire: () -> Unit,
     onDelete: () -> Unit,
-    onUpdateTags: (List<String>) -> Unit
+    onUpdateTags: (List<String>) -> Unit,
+    onToggleKeyExpiryDisabled: (Boolean) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val configuration = LocalConfiguration.current
@@ -153,6 +160,27 @@ fun DeviceDetailBottomSheet(
     var showTagsDialog by remember { mutableStateOf(false) }
     var showExpireConfirm by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    // Routing and Subnets Local State
+    var deviceRoutes by remember { mutableStateOf<DeviceRoutes?>(null) }
+    var isLoadingRoutes by remember { mutableStateOf(true) }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(device.id) {
+        scope.launch(Dispatchers.IO) {
+            try {
+                val r = client.getDeviceRoutes(device.id)
+                withContext(Dispatchers.Main) {
+                    deviceRoutes = r
+                    isLoadingRoutes = false
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    isLoadingRoutes = false
+                }
+            }
+        }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -222,6 +250,127 @@ fun DeviceDetailBottomSheet(
                     DetailRow("Authorization", if (device.authorized == true) "Approved" else "Required")
                     if (!device.tags.isNullOrEmpty()) {
                         DetailRow("Tags", device.tags.joinToString(", "))
+                    }
+                }
+            }
+
+            // Key Expiry Row Control
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Disable Key Expiry", fontWeight = FontWeight.Bold)
+                        Text("Prevent key from expiring on this specific device.", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                    }
+                    Switch(
+                        checked = device.keyExpiryDisabled == true,
+                        onCheckedChange = { onToggleKeyExpiryDisabled(it) }
+                    )
+                }
+            }
+
+            // Routing & Subnets Settings Control
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Routing & Subnets", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+
+                    if (isLoadingRoutes) {
+                        Box(Modifier.fillMaxWidth().height(80.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                        }
+                    } else {
+                        val routes = deviceRoutes
+                        if (routes == null || (routes.advertisedRoutes.isNullOrEmpty() && routes.enabledRoutes.isNullOrEmpty())) {
+                            Text("No subnet routes or exit nodes advertised by this device.", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
+                        } else {
+                            val advertised = routes.advertisedRoutes ?: emptyList()
+                            val enabled = routes.enabledRoutes ?: emptyList()
+
+                            val isExitNodeAdvertised = advertised.contains("0.0.0.0/0")
+                            val isExitNodeEnabled = enabled.contains("0.0.0.0/0")
+
+                            if (isExitNodeAdvertised) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("Use as Exit Node", fontWeight = FontWeight.Medium)
+                                        Text("Route internet traffic through this device.", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                                    }
+                                    Switch(
+                                        checked = isExitNodeEnabled,
+                                        onCheckedChange = { useAsExitNode ->
+                                            scope.launch(Dispatchers.IO) {
+                                                try {
+                                                    val newEnabled = enabled.toMutableList()
+                                                    if (useAsExitNode) {
+                                                        if (!newEnabled.contains("0.0.0.0/0")) newEnabled.add("0.0.0.0/0")
+                                                        if (!newEnabled.contains("::/0") && advertised.contains("::/0")) newEnabled.add("::/0")
+                                                    } else {
+                                                        newEnabled.remove("0.0.0.0/0")
+                                                        newEnabled.remove("::/0")
+                                                    }
+                                                    val res = client.setDeviceRoutes(device.id, newEnabled)
+                                                    withContext(Dispatchers.Main) {
+                                                        deviceRoutes = res
+                                                    }
+                                                } catch (e: Exception) {}
+                                            }
+                                        }
+                                    )
+                                }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            }
+
+                            val otherAdvertised = advertised.filter { it != "0.0.0.0/0" && it != "::/0" }
+                            if (otherAdvertised.isEmpty()) {
+                                if (!isExitNodeAdvertised) {
+                                    Text("No subnet routes advertised.", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
+                                }
+                            } else {
+                                Text("Advertised Subnets", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                otherAdvertised.forEach { route ->
+                                    val isRouteEnabled = enabled.contains(route)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(route, fontFamily = FontFamily.Monospace, fontSize = 13.sp)
+                                        Switch(
+                                            checked = isRouteEnabled,
+                                            onCheckedChange = { enableRoute ->
+                                                scope.launch(Dispatchers.IO) {
+                                                    try {
+                                                        val newEnabled = enabled.toMutableList()
+                                                        if (enableRoute) {
+                                                            if (!newEnabled.contains(route)) newEnabled.add(route)
+                                                        } else {
+                                                            newEnabled.remove(route)
+                                                        }
+                                                        val res = client.setDeviceRoutes(device.id, newEnabled)
+                                                        withContext(Dispatchers.Main) {
+                                                            deviceRoutes = res
+                                                        }
+                                                    } catch (e: Exception) {}
+                                                }
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -307,25 +456,56 @@ fun DeviceDetailBottomSheet(
 
     if (showTagsDialog) {
         var tempTags by remember { mutableStateOf(device.tags?.joinToString(", ") ?: "") }
+        val selectedTags = remember { mutableStateListOf<String>().apply { addAll(device.tags ?: emptyList()) } }
+
         AlertDialog(
             onDismissRequest = { showTagsDialog = false },
             title = { Text("Edit Device Tags") },
             text = {
-                OutlinedTextField(
-                    value = tempTags,
-                    onValueChange = { tempTags = it },
-                    placeholder = { Text("tag:server, tag:prod") },
-                    label = { Text("Tags (comma separated)") },
-                    supportingText = { Text("Tags must start with 'tag:' prefix") }
-                )
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    if (allTailnetTags.isNotEmpty()) {
+                        Text("Available ACL Tags:", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        androidx.compose.foundation.lazy.LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            contentPadding = PaddingValues(bottom = 8.dp)
+                        ) {
+                            items(allTailnetTags) { tag ->
+                                val isSelected = selectedTags.contains(tag)
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = {
+                                        if (isSelected) {
+                                            selectedTags.remove(tag)
+                                        } else {
+                                            selectedTags.add(tag)
+                                        }
+                                    },
+                                    label = { Text(tag.removePrefix("tag:")) }
+                                )
+                            }
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = tempTags,
+                        onValueChange = { tempTags = it },
+                        placeholder = { Text("tag:server, tag:prod") },
+                        label = { Text("Custom Tags (comma separated)") },
+                        supportingText = { Text("Tags must start with 'tag:' prefix") }
+                    )
+                }
             },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        val tagsList = tempTags.split(",")
+                        val inputTags = tempTags.split(",")
                             .map { it.trim() }
                             .filter { it.startsWith("tag:") }
-                        onUpdateTags(tagsList)
+                        val finalTags = (selectedTags + inputTags).distinct()
+                        onUpdateTags(finalTags)
                         showTagsDialog = false
                     }
                 ) {
