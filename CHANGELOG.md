@@ -7,6 +7,9 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Added comprehensive Tailscale public Admin API (api.tailscale.com/api/v2) integration to manage tailnet resources.
 - Integrated profile-specific Admin API credential storage mapped to tailnet domains for shared credentials across profiles.
 - Implemented a dedicated "Admin Console" dashboard with 5 tabs: Devices, Auth Keys, DNS, Users, and Settings.
+- Added interactive User Management (suspension, restoration, manual approval, deletion, and role configuration) inside the Users tab.
+- Added Device Key Expiry controls and advertised subnet routing / Exit Node activation toggles inside the Device Detail sheet.
+- Added visual ACL-parsed tag selector chips to the Edit Device Tags dialog.
 - Added 60-second in-memory caching and request throttling to avoid redundant API network queries during navigation.
 - Added Split DNS (Domain-specific Nameservers) and DNS Search Paths management under the DNS tab.
 - Added Tailnet settings management (Device Approval, User Approval, Auto-updates, and Default Key Expiry duration).
