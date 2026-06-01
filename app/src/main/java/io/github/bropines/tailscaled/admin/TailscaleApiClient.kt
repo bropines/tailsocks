@@ -294,4 +294,52 @@ class TailscaleApiClient(
     fun revokeKey(keyId: String) {
         request("DELETE", "/tailnet/$tailnet/keys/$keyId")
     }
+
+    // User Management
+    fun changeUserRole(userId: String, role: String) {
+        request("POST", "/users/$userId/role", mapOf("role" to role))
+    }
+
+    fun approveUser(userId: String) {
+        request("POST", "/users/$userId/approve")
+    }
+
+    fun suspendUser(userId: String) {
+        request("POST", "/users/$userId/suspend")
+    }
+
+    fun restoreUser(userId: String) {
+        request("POST", "/users/$userId/restore")
+    }
+
+    fun deleteUser(userId: String) {
+        request("POST", "/users/$userId/delete")
+    }
+
+    // Key Expiry
+    fun setDeviceKeyExpiryDisabled(deviceId: String, disabled: Boolean) {
+        request("POST", "/device/$deviceId/key", mapOf("keyExpiryDisabled" to disabled))
+    }
+
+    // Device Routes
+    fun getDeviceRoutes(deviceId: String): DeviceRoutes {
+        val json = request("GET", "/device/$deviceId/routes")
+        return Gson().fromJson(json, DeviceRoutes::class.java)
+    }
+
+    fun setDeviceRoutes(deviceId: String, routes: List<String>): DeviceRoutes {
+        val json = request("POST", "/device/$deviceId/routes", mapOf("routes" to routes))
+        return Gson().fromJson(json, DeviceRoutes::class.java)
+    }
+
+    // ACL Tags
+    fun getTailnetTags(): List<String> {
+        return try {
+            val json = request("GET", "/tailnet/$tailnet/acl")
+            val tagRegex = Regex("""\"(tag:[a-zA-Z0-9-_\/]+)\"""")
+            tagRegex.findAll(json).map { it.groupValues[1] }.distinct().sorted().toList()
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
 }
