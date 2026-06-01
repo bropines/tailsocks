@@ -103,3 +103,9 @@ data class OauthTokenResponse(
     @SerializedName("expires_in") val expiresIn: Long
 )
 
+@Keep
+data class DeviceRoutes(
+    @SerializedName("advertisedRoutes") val advertisedRoutes: List<String>?,
+    @SerializedName("enabledRoutes") val enabledRoutes: List<String>?
+)
+
