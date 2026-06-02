@@ -35,60 +35,14 @@ import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AdminApiLogsTabContent(client: TailscaleApiClient) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-
-    var auditLogs by remember { mutableStateOf<List<ApiAuditLogEntry>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var isRefreshing by remember { mutableStateOf(false) }
-    var daysRange by remember { mutableIntStateOf(7) } // Default 7 days
+fun AdminApiLogsTabContent(
+    auditLogs: List<ApiAuditLogEntry>,
+    daysRange: Int,
+    onDaysRangeChange: (Int) -> Unit,
+    isLoading: Boolean
+) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedActionFilter by remember { mutableStateOf("ALL") }
-
-    var lastFetchTime by remember { mutableLongStateOf(0L) }
-    var lastFetchedRange by remember { mutableIntStateOf(-1) }
-
-    fun getRfc3339Time(timeMs: Long): String {
-        val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
-        sdf.timeZone = TimeZone.getTimeZone("UTC")
-        return sdf.format(Date(timeMs))
-    }
-
-    fun loadAuditLogs(forceRefresh: Boolean = false) {
-        val now = System.currentTimeMillis()
-        val rangeChanged = daysRange != lastFetchedRange
-        if (!forceRefresh && !rangeChanged && now - lastFetchTime < 60 * 1000L && auditLogs.isNotEmpty()) {
-            return
-        }
-
-        if (forceRefresh) isRefreshing = true else isLoading = true
-        scope.launch(Dispatchers.IO) {
-            try {
-                val nowMs = System.currentTimeMillis()
-                val end = getRfc3339Time(nowMs)
-                val start = getRfc3339Time(nowMs - daysRange * 24 * 60 * 60 * 1000L)
-                val logsList = client.getAuditLogs(start, end)
-                withContext(Dispatchers.Main) {
-                    auditLogs = logsList
-                    lastFetchTime = now
-                    lastFetchedRange = daysRange
-                    isLoading = false
-                    isRefreshing = false
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Error loading audit logs: ${e.message}", Toast.LENGTH_LONG).show()
-                    isLoading = false
-                    isRefreshing = false
-                }
-            }
-        }
-    }
-
-    LaunchedEffect(daysRange) {
-        loadAuditLogs(forceRefresh = false)
-    }
 
     val filteredLogs = remember(auditLogs, searchQuery, selectedActionFilter) {
         auditLogs.filter { log ->
@@ -139,7 +93,7 @@ fun AdminApiLogsTabContent(client: TailscaleApiClient) {
                         DropdownMenuItem(
                             text = { Text("$days Days") },
                             onClick = {
-                                daysRange = days
+                                onDaysRangeChange(days)
                                 expandedRangeDropdown = false
                             }
                         )
@@ -179,9 +133,7 @@ fun AdminApiLogsTabContent(client: TailscaleApiClient) {
             )
         }
 
-        PullToRefreshBox(
-            isRefreshing = isRefreshing,
-            onRefresh = { loadAuditLogs(forceRefresh = true) },
+        Box(
             modifier = Modifier.weight(1f).fillMaxWidth()
         ) {
             if (isLoading) {

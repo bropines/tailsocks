@@ -14,6 +14,9 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Replaced the gear proxy icon in the TopAppBar with a router icon.
 - Reimplemented device detail sheet rows as individual copyable blocks wrapped inside SelectionContainers.
 
+### Changed
+- Lifted audit logs state (logs list, range, and cache timestamps) to `AdminApiDashboardScreen` to enable proper 60-second cache throttling and prevent data reset when switching tabs.
+
 ## [2.1.5-beta] - 2026-06-02
 ### Added
 - Added biometric authentication lock screen (fingerprint/face with device credential fallback) upon entering the Admin Console.

@@ -32,6 +32,10 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.TimeZone
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -94,6 +98,9 @@ fun AdminApiDashboardScreen(
     var selectedServiceInfo by remember { mutableStateOf<VIPServiceInfo?>(null) }
     var showCreateWebhookDialog by remember { mutableStateOf(false) }
 
+    var auditLogs by remember { mutableStateOf<List<ApiAuditLogEntry>>(emptyList()) }
+    var auditLogsDaysRange by remember { mutableIntStateOf(7) }
+
     // Cache Timestamps
     var lastDevicesFetch by remember { mutableLongStateOf(0L) }
     var lastKeysFetch by remember { mutableLongStateOf(0L) }
@@ -102,12 +109,20 @@ fun AdminApiDashboardScreen(
     var lastServicesFetch by remember { mutableLongStateOf(0L) }
     var lastWebhooksFetch by remember { mutableLongStateOf(0L) }
     var lastSettingsFetch by remember { mutableLongStateOf(0L) }
+    var lastAuditLogsFetch by remember { mutableLongStateOf(0L) }
+    var lastFetchedAuditLogsRange by remember { mutableIntStateOf(-1) }
 
     var selectedDevice by remember { mutableStateOf<ApiDevice?>(null) }
     var showCreateKeyDialog by remember { mutableStateOf(false) }
     var generatedKeyToShow by remember { mutableStateOf<String?>(null) }
     var showDisconnectConfirm by remember { mutableStateOf(false) }
     var showProxySettingsDialog by remember { mutableStateOf(false) }
+
+    fun getRfc3339Time(timeMs: Long): String {
+        val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
+        sdf.timeZone = TimeZone.getTimeZone("UTC")
+        return sdf.format(Date(timeMs))
+    }
 
     fun refreshTab(tabIndex: Int, force: Boolean = false) {
         val now = System.currentTimeMillis()
@@ -171,7 +186,17 @@ fun AdminApiDashboardScreen(
                         }
                     }
                     5 -> {
-                        // Logs tab (local poll inside content)
+                        if (force || now - lastAuditLogsFetch >= cacheDuration || auditLogs.isEmpty() || lastFetchedAuditLogsRange != auditLogsDaysRange) {
+                            val nowMs = System.currentTimeMillis()
+                            val end = getRfc3339Time(nowMs)
+                            val start = getRfc3339Time(nowMs - auditLogsDaysRange * 24 * 60 * 60 * 1000L)
+                            val logsList = client.getAuditLogs(start, end)
+                            withContext(Dispatchers.Main) {
+                                auditLogs = logsList
+                                lastAuditLogsFetch = now
+                                lastFetchedAuditLogsRange = auditLogsDaysRange
+                            }
+                        }
                     }
                     6 -> {
                         // Web Links tab (static links)
@@ -407,7 +432,15 @@ fun AdminApiDashboardScreen(
                                 }
                             }
                         )
-                        5 -> AdminApiLogsTabContent(client = client)
+                        5 -> AdminApiLogsTabContent(
+                            auditLogs = auditLogs,
+                            daysRange = auditLogsDaysRange,
+                            onDaysRangeChange = { newRange ->
+                                auditLogsDaysRange = newRange
+                                refreshTab(5, force = true)
+                            },
+                            isLoading = auditLogs.isEmpty() && isRefreshing
+                        )
                         6 -> AdminApiWebTabContent()
                         7 -> TailnetSettingsTabContent(
                             settings = tailnetSettings,
