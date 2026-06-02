@@ -396,4 +396,11 @@ class TailscaleApiClient(
     fun getDeviceUpdateStatus(deviceId: String): String {
         return request("GET", "/device/$deviceId/update-status")
     }
+
+    fun getAuditLogs(start: String, end: String): List<ApiAuditLogEntry> {
+        val path = "/tailnet/$tailnet/logging/configuration?start=$start&end=$end"
+        val json = request("GET", path)
+        val response = Gson().fromJson(json, AuditLogsResponse::class.java)
+        return response.logs ?: emptyList()
+    }
 }
