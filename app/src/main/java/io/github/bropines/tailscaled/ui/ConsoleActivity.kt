@@ -169,10 +169,8 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
     }
 
     Scaffold(
-        // ФИКС КЛАВИАТУРЫ: системные бары и клавиатура (imePadding)
-        modifier = Modifier
-            .systemBarsPadding()
-            .imePadding(),
+        // ФИКС КЛАВИАТУРЫ: клавиатура (imePadding)
+        modifier = Modifier.imePadding(),
         topBar = {
             Column {
                 TopAppBar(
@@ -199,7 +197,7 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
         },
         bottomBar = {
             Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 8.dp) {
-                Column {
+                Column(modifier = Modifier.navigationBarsPadding()) {
                     LazyRow(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         item { TextButton(onClick = { showAddPresetDialog = true }) { Text(stringResource(R.string.console_add_preset)) } }
                         val basePresets = listOf("status", "/GET /localapi/v0/status", "/GET /localapi/v0/prefs", "netcheck", "ping 8.8.8.8")
