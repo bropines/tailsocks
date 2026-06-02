@@ -22,7 +22,8 @@ data class ApiDevice(
     @SerializedName("hostname") val hostname: String?,
     @SerializedName("os") val os: String?,
     @SerializedName("clientVersion") val clientVersion: String?,
-    @SerializedName("tags") val tags: List<String>?
+    @SerializedName("tags") val tags: List<String>?,
+    @SerializedName("updateAvailable") val updateAvailable: Boolean?
 ) {
     fun getPrimaryIp(): String = addresses?.firstOrNull() ?: "0.0.0.0"
     fun getDisplayName(): String = name.substringBefore(".ts.net").removeSuffix(".")
@@ -107,5 +108,44 @@ data class OauthTokenResponse(
 data class DeviceRoutes(
     @SerializedName("advertisedRoutes") val advertisedRoutes: List<String>?,
     @SerializedName("enabledRoutes") val enabledRoutes: List<String>?
+)
+
+@Keep
+data class WebhookEndpoint(
+    @SerializedName("endpointId") val endpointId: String,
+    @SerializedName("endpointUrl") val endpointUrl: String,
+    @SerializedName("subscribedEvents") val subscribedEvents: List<String>?,
+    @SerializedName("lastTriggered") val lastTriggered: String?
+)
+
+@Keep
+data class ListWebhooksResponse(
+    @SerializedName("webhooks") val webhooks: List<WebhookEndpoint>?
+)
+
+@Keep
+data class VIPServiceInfo(
+    @SerializedName("name") val name: String,
+    @SerializedName("addrs") val addrs: List<String>?,
+    @SerializedName("comment") val comment: String?,
+    @SerializedName("ports") val ports: List<String>?,
+    @SerializedName("tags") val tags: List<String>?
+)
+
+@Keep
+data class ListServicesResponse(
+    @SerializedName("vipServices") val vipServices: List<VIPServiceInfo>?
+)
+
+@Keep
+data class ServiceHostInfo(
+    @SerializedName("stableNodeID") val stableNodeID: String,
+    @SerializedName("approvalLevel") val approvalLevel: String?,
+    @SerializedName("configured") val configured: String?
+)
+
+@Keep
+data class ListServiceHostsResponse(
+    @SerializedName("hosts") val hosts: List<ServiceHostInfo>?
 )
 
