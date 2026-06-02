@@ -49,6 +49,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
+import io.github.bropines.tailscaled.ui.theme.findActivity
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -529,7 +530,7 @@ fun SettingsScreen(
                                                         LocaleListCompat.forLanguageTags(id)
                                                     }
                                                     AppCompatDelegate.setApplicationLocales(localeList)
-                                                    (context as? android.app.Activity)?.recreate()
+                                                    context.findActivity()?.recreate()
                                                 },
                                                 label = { Text(label) },
                                                 leadingIcon = { Icon(icon, null, modifier = Modifier.size(16.dp)) },

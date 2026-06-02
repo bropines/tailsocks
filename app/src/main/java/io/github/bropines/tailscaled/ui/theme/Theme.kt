@@ -4,6 +4,9 @@ import io.github.bropines.tailscaled.core.GlobalSettings
 import io.github.bropines.tailscaled.core.*
 
 import android.content.Context
+import android.content.ContextWrapper
+import android.content.Intent
+import android.os.Bundle
 import android.os.Build
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -313,7 +316,8 @@ fun TailSocksTheme(
             java.util.Locale.setDefault(locale)
             val config = android.content.res.Configuration(context.resources.configuration)
             config.setLocale(locale)
-            context.createConfigurationContext(config)
+            val configContext = context.createConfigurationContext(config)
+            LocaleContextWrapper(configContext, context)
         }
     }
 
@@ -323,4 +327,24 @@ fun TailSocksTheme(
             content = content
         )
     }
+}
+
+class LocaleContextWrapper(base: Context, private val activityContext: Context) : ContextWrapper(base) {
+    override fun startActivity(intent: Intent?) {
+        activityContext.startActivity(intent)
+    }
+    override fun startActivity(intent: Intent?, options: Bundle?) {
+        activityContext.startActivity(intent, options)
+    }
+}
+
+fun Context.findActivity(): android.app.Activity? {
+    var ctx = this
+    while (ctx is ContextWrapper) {
+        if (ctx is android.app.Activity) {
+            return ctx
+        }
+        ctx = ctx.baseContext
+    }
+    return null
 }
