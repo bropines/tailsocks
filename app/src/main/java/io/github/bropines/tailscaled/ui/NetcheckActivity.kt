@@ -584,25 +584,28 @@ fun NetcheckScreen(onBack: () -> Unit) {
                                 ) {
                                     Column(modifier = Modifier.padding(16.dp)) {
                                         Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(
-                                                text = stringResource(R.string.netcheck_sect_derp),
-                                                fontWeight = FontWeight.Bold,
-                                                style = MaterialTheme.typography.titleSmall,
-                                                color = MaterialTheme.colorScheme.primary
-                                            )
-                                            if (report.preferredDerpId != 0) {
-                                                Text(
-                                                    text = stringResource(R.string.netcheck_nearest_format, report.preferredDerpName),
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    fontWeight = FontWeight.Medium,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                            }
-                                        }
+                                             modifier = Modifier.fillMaxWidth(),
+                                             verticalAlignment = Alignment.CenterVertically
+                                         ) {
+                                             Text(
+                                                 text = stringResource(R.string.netcheck_sect_derp),
+                                                 fontWeight = FontWeight.Bold,
+                                                 style = MaterialTheme.typography.titleSmall,
+                                                 color = MaterialTheme.colorScheme.primary
+                                             )
+                                             if (report.preferredDerpId != 0) {
+                                                 Text(
+                                                     text = stringResource(R.string.netcheck_nearest_format, report.preferredDerpName),
+                                                     style = MaterialTheme.typography.bodySmall,
+                                                     fontWeight = FontWeight.Medium,
+                                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                     textAlign = TextAlign.End,
+                                                     modifier = Modifier
+                                                         .weight(1f)
+                                                         .padding(start = 8.dp)
+                                                 )
+                                             }
+                                         }
                                         Spacer(modifier = Modifier.height(12.dp))
                                         HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f))
                                         Spacer(modifier = Modifier.height(8.dp))
