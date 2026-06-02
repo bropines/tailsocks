@@ -43,6 +43,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -1242,7 +1243,8 @@ fun StatusCard(state: String, isProcessing: Boolean, onToggle: () -> Unit) {
                     state == "STARTING" -> stringResource(R.string.main_status_starting_desc)
                     else -> stringResource(R.string.tap_to_start)
                 },
-                modifier = Modifier.alpha(0.6f).padding(top = 4.dp),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.alpha(0.6f).padding(top = 4.dp, start = 16.dp, end = 16.dp),
                 color = contentColor
             )
         }
