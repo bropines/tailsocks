@@ -2,60 +2,45 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
-## [2.1.6-beta] - 2026-06-02
-### Added
-- Added horizontal scrolling synchronization (Carousel sync) for tab FilterChips following HorizontalPager page changes.
-- Added Configuration Audit Logs viewer tab inside the Admin Console, supporting real-time tailnet configuration logging queries (range of 1, 3, 7, 14, or 30 days), action filters (CREATE, UPDATE, DELETE), and keyword search.
-- Added Web Links tab consolidating all secure-only web administration actions (Billing, SSO/IdP, ACLs, Tailnet Lock, Apps, Domain Rename).
-- Added client update trigger support via POST /device/{id}/update-status (unofficial API endpoint) with seamless browser fallback to machine details page.
-- Added customizable sorting modes (by Name A-Z, Name Z-A, Last Seen, and Update Available) on the Devices tab.
-- Expanded Settings tab with new switches (Network Flow Logging, Regional Routing, Posture Identity Collection) and allowed external join user roles dropdown.
-- Added virtual services manual approval explanatory banner inside the Services tab.
-- Replaced the gear proxy icon in the TopAppBar with a router icon.
-- Reimplemented device detail sheet rows as individual copyable blocks wrapped inside SelectionContainers.
-
-### Changed
-- Lifted audit logs state (logs list, range, and cache timestamps) to `AdminApiDashboardScreen` to enable proper 60-second cache throttling and prevent data reset when switching tabs.
-
-## [2.1.5-beta] - 2026-06-02
-### Added
-- Added biometric authentication lock screen (fingerprint/face with device credential fallback) upon entering the Admin Console.
-- Added interactive Tailscale Webhooks management (list, create, delete, and test pinging endpoints).
-- Added Tailscale Virtual Services tracking and device-bound approvals/disapprovals.
-- Added pending client update badges to device list items and detail bottom sheets.
-- Added confirmation dialog before applying user role changes.
-- Integrated HorizontalPager with swipe gesture support to navigate across Admin Console dashboard sections.
-- Redesigned the top navigation tab bar as a modern horizontal scrollable FilterChip row.
-- Relocated Auth Keys management to a secure, on-demand sub-panel inside the Settings section.
-- Added direct web billing link access under Settings.
-
-### Changed
-- Compacted the User Role selection picker layout to a 2-column grid of styled cards.
-- Added horizontal padding and text-alignment centering to long node names and user login names in details bottom sheets to prevent screen edge touching.
-- Replaced the text-based device client "Update" badge in device lists with a small blue circle indicator dot next to the status marker.
-
-### Fixed
-- Fixed false positive expired key indicator badges and expiry labels when key expiry is disabled on devices.
-
-## [2.1.4-beta] - 2026-06-01
+## [2.1.4-beta] - 2026-06-02
 ### Added
 - Added comprehensive Tailscale public Admin API (api.tailscale.com/api/v2) integration to manage tailnet resources.
 - Integrated profile-specific Admin API credential storage mapped to tailnet domains for shared credentials across profiles.
-- Implemented a dedicated "Admin Console" dashboard with 5 tabs: Devices, Auth Keys, DNS, Users, and Settings.
+- Implemented a dedicated "Admin Console" dashboard with multiple tabs: Devices, DNS, Users, Services, Webhooks, Audit Logs, Web Links, and Settings.
+- Added biometric authentication lock screen (fingerprint/face with device credential fallback) upon entering the Admin Console.
 - Added interactive User Management (suspension, restoration, manual approval, deletion, and role configuration) inside the Users tab.
 - Added Device Key Expiry controls and advertised subnet routing / Exit Node activation toggles inside the Device Detail sheet.
 - Added visual ACL-parsed tag selector chips to the Edit Device Tags dialog.
 - Added 60-second in-memory caching and request throttling to avoid redundant API network queries during navigation.
 - Added Split DNS (Domain-specific Nameservers) and DNS Search Paths management under the DNS tab.
-- Added Tailnet settings management (Device Approval, User Approval, Auto-updates, and Default Key Expiry duration).
+- Added Tailnet settings management (Device Approval, User Approval, Auto-updates, Default Key Expiry duration, Network Flow Logging, Regional Routing, Posture Identity Collection).
 - Added Users list tab showing roles (Owner, Admin, Member), statuses, and device counts.
 - Added OAuth Client Credentials integration to automatically fetch and refresh short-lived API access tokens in the background.
 - Added Proxy settings (Direct, Local SOCKS5, Custom SOCKS5) to route API traffic (including routing via the active VPN / Exit Node).
 - Added a shortcut button in the main screen's top app bar for immediate access to the Admin Console.
+- Added interactive Tailscale Webhooks management (list, create, delete, and test pinging endpoints).
+- Added Tailscale Virtual Services tracking and device-bound approvals/disapprovals.
+- Added confirmation dialog before applying user role changes.
+- Added Configuration Audit Logs viewer tab with range selector (1–30 days), action filters (CREATE, UPDATE, DELETE), keyword search, and 60-second cache throttling.
+- Added Web Links tab consolidating secure-only web administration actions (Billing, SSO/IdP, ACLs, Tailnet Lock, Apps, Domain Rename).
+- Added customizable device sorting modes (by Name A-Z, Name Z-A, Last Seen, Update Available).
+- Added virtual services manual approval explanatory banner inside the Services tab.
+- Added Auth Keys management relocated to a secure, on-demand sub-panel inside the Settings section.
+- Added pending client update indicator badges (blue dot) to device list items and info card to device detail sheets.
+- Integrated HorizontalPager with swipe gesture support and synchronized FilterChip tab bar for Admin Console navigation.
+- Reimplemented device detail sheet rows as individual copyable blocks wrapped inside SelectionContainers.
 
 ### Changed
-- Restructured the entire Kotlin codebase by organizing all source files into modular `admin`, `core`, `models`, and `ui` packages to improve project maintainability.
-- Split the monolithic `AdminApiActivity.kt` into 8 separate, focused UI files under the `admin` package.
+- Restructured the entire Kotlin codebase into modular `admin`, `core`, `models`, and `ui` packages.
+- Split the monolithic `AdminApiActivity.kt` into 8 separate focused UI files under the `admin` package.
+- Compacted the User Role selection picker to a 2-column grid of styled cards.
+- Added horizontal padding to long node names and user login names in detail sheets to prevent screen edge clipping.
+- Replaced text-based "Update" badge in device list with a small blue dot indicator next to the status marker.
+- Replaced the gear proxy icon in the TopAppBar with a router icon.
+- Lifted audit logs state to `AdminApiDashboardScreen` to preserve data across tab switches.
+
+### Fixed
+- Fixed false positive expired key indicator badges when key expiry is disabled on devices.
 
 ## [2.1.3-beta] - 2026-05-31
 ### Added
