@@ -181,7 +181,7 @@ fun AdminApiLogsTabContent() {
                     checked = isAutoScroll,
                     onCheckedChange = { isAutoScroll = it },
                     thumbContent = null,
-                    modifier = Modifier.scale(0.8f)
+                    modifier = Modifier.scaleCompact(0.8f)
                 )
             }
         }
@@ -272,7 +272,6 @@ fun AdminApiLogsTabContent() {
     }
 }
 
-// Simple modifier helper to scale components easily
-fun Modifier.scale(scale: Float): Modifier = this.then(
-    androidx.compose.ui.draw.scale(scale)
+fun Modifier.scaleCompact(scaleVal: Float): Modifier = this.then(
+    androidx.compose.ui.draw.scale(scaleVal)
 )
