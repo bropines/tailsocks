@@ -27,18 +27,43 @@ fun ServicesTabContent(
     services: List<VIPServiceInfo>,
     onServiceClick: (VIPServiceInfo) -> Unit
 ) {
-    if (services.isEmpty()) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("No virtual services found", color = MaterialTheme.colorScheme.outline)
-        }
-    } else {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+    Column(modifier = Modifier.fillMaxSize()) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f),
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+            )
         ) {
-            items(services) { service ->
-                ServiceRow(service = service, onClick = { onServiceClick(service) })
+            Row(
+                modifier = Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.secondary)
+                Text(
+                    text = "Виртуальные службы рекламируются узлами вашей сети автоматически. Вы не можете создать службу вручную здесь. После того как узел объявит о службе, вы должны утвердить ее для конкретных устройств.",
+                    style = MaterialTheme.typography.bodySmall,
+                    lineHeight = 16.sp
+                )
+            }
+        }
+
+        if (services.isEmpty()) {
+            Box(Modifier.fillMaxSize().weight(1f), contentAlignment = Alignment.Center) {
+                Text("No virtual services found", color = MaterialTheme.colorScheme.outline)
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().weight(1f),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(services) { service ->
+                    ServiceRow(service = service, onClick = { onServiceClick(service) })
+                }
             }
         }
     }
