@@ -34,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -72,30 +73,26 @@ fun DevicesTabContent(
             var expandedSortMenu by remember { mutableStateOf(false) }
             Box {
                 IconButton(onClick = { expandedSortMenu = true }) {
-                    Icon(Icons.Default.Sort, contentDescription = "Sort Devices")
+                    Icon(Icons.Default.Sort, contentDescription = stringResource(R.string.admin_devices_cd_sort))
                 }
                 DropdownMenu(
                     expanded = expandedSortMenu,
                     onDismissRequest = { expandedSortMenu = false }
                 ) {
                     DropdownMenuItem(
-                        text = { Text("Sort by Name (A-Z)") },
-                        leadingIcon = { Icon(Icons.Default.SortByAlpha, null) },
+                        text = { Text(stringResource(R.string.admin_devices_sort_name_az)) },
                         onClick = { sortBy = "name"; expandedSortMenu = false }
                     )
                     DropdownMenuItem(
-                        text = { Text("Sort by Name (Z-A)") },
-                        leadingIcon = { Icon(Icons.Default.SortByAlpha, null) },
+                        text = { Text(stringResource(R.string.admin_devices_sort_name_za)) },
                         onClick = { sortBy = "name_desc"; expandedSortMenu = false }
                     )
                     DropdownMenuItem(
-                        text = { Text("Sort by Last Seen") },
-                        leadingIcon = { Icon(Icons.Default.AccessTime, null) },
+                        text = { Text(stringResource(R.string.admin_devices_sort_last_seen)) },
                         onClick = { sortBy = "last_seen"; expandedSortMenu = false }
                     )
                     DropdownMenuItem(
-                        text = { Text("Sort by Update Available") },
-                        leadingIcon = { Icon(Icons.Default.SystemUpdate, null) },
+                        text = { Text(stringResource(R.string.admin_devices_sort_update)) },
                         onClick = { sortBy = "update"; expandedSortMenu = false }
                     )
                 }
@@ -104,7 +101,7 @@ fun DevicesTabContent(
         
         if (sortedDevices.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No devices found", color = MaterialTheme.colorScheme.outline)
+                Text(stringResource(R.string.admin_devices_no_devices), color = MaterialTheme.colorScheme.outline)
             }
         } else {
             LazyColumn(
@@ -178,7 +175,7 @@ fun DeviceRow(
             // Status marker
             if (isExpired) {
                 Text(
-                    "Expired",
+                    stringResource(R.string.admin_devices_status_expired),
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.error,
                     fontWeight = FontWeight.Bold,
@@ -189,7 +186,7 @@ fun DeviceRow(
                 )
             } else if (device.authorized == false) {
                 Text(
-                    "Pending",
+                    stringResource(R.string.admin_devices_status_pending),
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.tertiary,
                     fontWeight = FontWeight.Bold,
@@ -298,7 +295,7 @@ fun DeviceDetailBottomSheet(
                 ) {
                     Icon(Icons.Default.Edit, null)
                     Spacer(Modifier.width(4.dp))
-                    Text("Rename")
+                    Text(stringResource(R.string.admin_device_btn_rename))
                 }
 
                 OutlinedButton(
@@ -307,7 +304,7 @@ fun DeviceDetailBottomSheet(
                 ) {
                     Icon(Icons.AutoMirrored.Filled.Label, null)
                     Spacer(Modifier.width(4.dp))
-                    Text("Tags")
+                    Text(stringResource(R.string.admin_device_btn_tags))
                 }
             }
 
@@ -319,14 +316,14 @@ fun DeviceDetailBottomSheet(
                     .padding(horizontal = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                CopyableDetailBlock("Full Name", device.name)
-                CopyableDetailBlock("IP Address", device.getPrimaryIp())
-                CopyableDetailBlock("OS", device.os ?: "Unknown")
-                CopyableDetailBlock("User Owner", device.user ?: "N/A")
-                CopyableDetailBlock("Key Expiry", if (device.keyExpiryDisabled == true) "Disabled" else formatExpires(device.expires))
-                CopyableDetailBlock("Authorization", if (device.authorized == true) "Approved" else "Required")
+                CopyableDetailBlock(stringResource(R.string.admin_device_detail_full_name), device.name)
+                CopyableDetailBlock(stringResource(R.string.admin_device_detail_ip), device.getPrimaryIp())
+                CopyableDetailBlock(stringResource(R.string.admin_device_detail_os), device.os ?: stringResource(R.string.admin_device_detail_os_unknown))
+                CopyableDetailBlock(stringResource(R.string.admin_device_detail_owner), device.user ?: stringResource(R.string.admin_device_detail_owner_na))
+                CopyableDetailBlock(stringResource(R.string.admin_device_detail_key_expiry), if (device.keyExpiryDisabled == true) stringResource(R.string.admin_device_detail_key_expiry_disabled) else formatExpires(device.expires))
+                CopyableDetailBlock(stringResource(R.string.admin_device_detail_authorization), if (device.authorized == true) stringResource(R.string.admin_device_detail_authorization_approved) else stringResource(R.string.admin_device_detail_authorization_required))
                 if (!device.tags.isNullOrEmpty()) {
-                    CopyableDetailBlock("Tags", device.tags.joinToString(", "))
+                    CopyableDetailBlock(stringResource(R.string.admin_device_detail_tags), device.tags.joinToString(", "))
                 }
             }
 
@@ -348,8 +345,12 @@ fun DeviceDetailBottomSheet(
                     ) {
                         Icon(Icons.Default.SystemUpdate, null)
                         Column {
-                            Text("Update Available", fontWeight = FontWeight.Bold)
-                            Text("Current: ${device.clientVersion ?: "N/A"}. Use the web console to trigger an upgrade.", fontSize = 11.sp)
+                            Text(stringResource(R.string.admin_device_update_available), fontWeight = FontWeight.Bold)
+                            if (device.clientVersion != null) {
+                                Text(stringResource(R.string.admin_device_update_desc, device.clientVersion!!), fontSize = 11.sp)
+                            } else {
+                                Text(stringResource(R.string.admin_device_update_desc_na), fontSize = 11.sp)
+                            }
                         }
                     }
                 }
@@ -366,8 +367,8 @@ fun DeviceDetailBottomSheet(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Disable Key Expiry", fontWeight = FontWeight.Bold)
-                        Text("Prevent key from expiring on this specific device.", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                        Text(stringResource(R.string.admin_device_disable_key_expiry), fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.admin_device_disable_key_expiry_desc), fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
                     }
                     Switch(
                         checked = device.keyExpiryDisabled == true,
@@ -382,7 +383,7 @@ fun DeviceDetailBottomSheet(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Routing & Subnets", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.admin_device_routing_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
 
                     if (isLoadingRoutes) {
                         Box(Modifier.fillMaxWidth().height(80.dp), contentAlignment = Alignment.Center) {
@@ -391,7 +392,7 @@ fun DeviceDetailBottomSheet(
                     } else {
                         val routes = deviceRoutes
                         if (routes == null || (routes.advertisedRoutes.isNullOrEmpty() && routes.enabledRoutes.isNullOrEmpty())) {
-                            Text("No subnet routes or exit nodes advertised by this device.", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
+                            Text(stringResource(R.string.admin_device_no_routes), fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
                         } else {
                             val advertised = routes.advertisedRoutes ?: emptyList()
                             val enabled = routes.enabledRoutes ?: emptyList()
@@ -406,8 +407,8 @@ fun DeviceDetailBottomSheet(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text("Use as Exit Node", fontWeight = FontWeight.Medium)
-                                        Text("Route internet traffic through this device.", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                                        Text(stringResource(R.string.admin_device_exit_node_label), fontWeight = FontWeight.Medium)
+                                        Text(stringResource(R.string.admin_device_exit_node_desc), fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
                                     }
                                     Switch(
                                         checked = isExitNodeEnabled,
@@ -437,10 +438,10 @@ fun DeviceDetailBottomSheet(
                             val otherAdvertised = advertised.filter { it != "0.0.0.0/0" && it != "::/0" }
                             if (otherAdvertised.isEmpty()) {
                                 if (!isExitNodeAdvertised) {
-                                    Text("No subnet routes advertised.", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
+                                    Text(stringResource(R.string.admin_device_no_subnet_routes), fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
                                 }
                             } else {
-                                Text("Advertised Subnets", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text(stringResource(R.string.admin_device_advertised_subnets), fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                 otherAdvertised.forEach { route ->
                                     val isRouteEnabled = enabled.contains(route)
                                     Row(
@@ -489,7 +490,7 @@ fun DeviceDetailBottomSheet(
                     ) {
                         Icon(Icons.Default.CheckCircle, null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Authorize Node")
+                        Text(stringResource(R.string.admin_device_authorize))
                     }
                 } else {
                     OutlinedButton(
@@ -498,7 +499,7 @@ fun DeviceDetailBottomSheet(
                     ) {
                         Icon(Icons.Default.Cancel, null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Deauthorize Node")
+                        Text(stringResource(R.string.admin_device_deauthorize))
                     }
                 }
 
@@ -511,7 +512,7 @@ fun DeviceDetailBottomSheet(
                     ) {
                         Icon(Icons.Default.TimerOff, null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Expire Key Now")
+                        Text(stringResource(R.string.admin_device_expire_key))
                     }
                 }
 
@@ -525,7 +526,7 @@ fun DeviceDetailBottomSheet(
                 ) {
                     Icon(Icons.Default.Delete, null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Delete Device")
+                    Text(stringResource(R.string.admin_device_delete))
                 }
             }
         }
@@ -535,22 +536,20 @@ fun DeviceDetailBottomSheet(
         var tempName by remember { mutableStateOf(device.getDisplayName()) }
         AlertDialog(
             onDismissRequest = { showRenameDialog = false },
-            title = { Text("Rename Device") },
+            title = { Text(stringResource(R.string.admin_device_rename_title)) },
             text = {
                 OutlinedTextField(
                     value = tempName,
                     onValueChange = { tempName = it },
                     singleLine = true,
-                    label = { Text("New Base Name") }
+                    label = { Text(stringResource(R.string.admin_device_rename_label)) }
                 )
             },
             confirmButton = {
                 TextButton(onClick = { onRename(tempName.trim()); showRenameDialog = false }) {
-                    Text("Rename")
+                    Text(stringResource(R.string.action_rename))
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { showRenameDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { showRenameDialog = false }) { Text(stringResource(R.string.action_cancel)) }
             }
         )
     }
@@ -561,14 +560,14 @@ fun DeviceDetailBottomSheet(
 
         AlertDialog(
             onDismissRequest = { showTagsDialog = false },
-            title = { Text("Edit Device Tags") },
+            title = { Text(stringResource(R.string.admin_device_tags_title)) },
             text = {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     if (allTailnetTags.isNotEmpty()) {
-                        Text("Available ACL Tags:", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text(stringResource(R.string.admin_device_tags_available), fontWeight = FontWeight.Bold, fontSize = 13.sp)
                         androidx.compose.foundation.lazy.LazyRow(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             contentPadding = PaddingValues(bottom = 8.dp)
@@ -593,9 +592,9 @@ fun DeviceDetailBottomSheet(
                     OutlinedTextField(
                         value = tempTags,
                         onValueChange = { tempTags = it },
-                        placeholder = { Text("tag:server, tag:prod") },
-                        label = { Text("Custom Tags (comma separated)") },
-                        supportingText = { Text("Tags must start with 'tag:' prefix") }
+                        placeholder = { Text(stringResource(R.string.admin_device_tags_custom_placeholder)) },
+                        label = { Text(stringResource(R.string.admin_device_tags_custom_label)) },
+                        supportingText = { Text(stringResource(R.string.admin_device_tags_prefix_hint)) }
                     )
                 }
             },
@@ -610,11 +609,9 @@ fun DeviceDetailBottomSheet(
                         showTagsDialog = false
                     }
                 ) {
-                    Text("Update Tags")
+                    Text(stringResource(R.string.admin_device_tags_update))
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { showTagsDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { showTagsDialog = false }) { Text(stringResource(R.string.action_cancel)) }
             }
         )
     }
@@ -622,8 +619,8 @@ fun DeviceDetailBottomSheet(
     if (showExpireConfirm) {
         AlertDialog(
             onDismissRequest = { showExpireConfirm = false },
-            title = { Text("Expire Device Key?") },
-            text = { Text("This will immediately log this node out from the tailnet. Continue?") },
+            title = { Text(stringResource(R.string.admin_device_expire_title)) },
+            text = { Text(stringResource(R.string.admin_device_expire_text)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -631,11 +628,9 @@ fun DeviceDetailBottomSheet(
                         onExpire()
                     }
                 ) {
-                    Text("Expire")
+                    Text(stringResource(R.string.admin_device_expire_confirm))
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { showExpireConfirm = false }) { Text("Cancel") }
+                TextButton(onClick = { showExpireConfirm = false }) { Text(stringResource(R.string.action_cancel)) }
             }
         )
     }
@@ -643,8 +638,8 @@ fun DeviceDetailBottomSheet(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Delete Device?") },
-            text = { Text("Are you sure you want to permanently delete this device? This cannot be undone.") },
+            title = { Text(stringResource(R.string.admin_device_delete_title)) },
+            text = { Text(stringResource(R.string.admin_device_delete_text)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -653,11 +648,9 @@ fun DeviceDetailBottomSheet(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Delete")
+                    Text(stringResource(R.string.action_delete))
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
+                TextButton(onClick = { showDeleteConfirm = false }) { Text(stringResource(R.string.action_cancel)) }
             }
         )
     }
