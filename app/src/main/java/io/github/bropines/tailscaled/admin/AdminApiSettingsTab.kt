@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Done
@@ -25,7 +27,9 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun TailnetSettingsTabContent(
     settings: TailnetSettings?,
-    onApplySettings: (TailnetSettings) -> Unit
+    onApplySettings: (TailnetSettings) -> Unit,
+    onManageKeysClick: () -> Unit,
+    onBillingClick: () -> Unit
 ) {
     if (settings == null) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -46,6 +50,37 @@ fun TailnetSettingsTabContent(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        Card(
+            modifier = Modifier.fillMaxWidth().clickable { onManageKeysClick() }
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Auth Keys", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Generate, list, and revoke authentication keys for this Tailnet.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null)
+            }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth().clickable { onBillingClick() }
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Billing & Plan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Manage your Tailscale billing plan, invoices, and payments on the web.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Icon(Icons.Default.OpenInBrowser, null)
+            }
+        }
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Default Key Expiry", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)

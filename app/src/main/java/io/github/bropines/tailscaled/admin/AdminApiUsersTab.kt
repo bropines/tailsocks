@@ -204,7 +204,9 @@ fun UserDetailBottomSheet(
             Text(
                 user.displayName?.takeIf { it.isNotBlank() } ?: user.loginName.substringBefore("@"),
                 style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 24.dp),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
 
             // Quick Actions: Change User Role
@@ -293,27 +295,39 @@ fun UserDetailBottomSheet(
             onDismissRequest = { showRoleDialog = false },
             title = { Text("Select User Role") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    roles.forEach { role ->
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val chunkedRoles = roles.chunked(2)
+                    chunkedRoles.forEach { pair ->
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    pendingRoleChange = role
-                                    showRoleDialog = false
-                                }
-                                .padding(vertical = 12.dp, horizontal = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            RadioButton(
-                                selected = (user.role ?: "member").lowercase() == role,
-                                onClick = {
-                                    pendingRoleChange = role
-                                    showRoleDialog = false
+                            pair.forEach { role ->
+                                val isSelected = (user.role ?: "member").lowercase() == role
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable {
+                                            pendingRoleChange = role
+                                            showRoleDialog = false
+                                        },
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                    border = if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
+                                ) {
+                                    Box(
+                                        modifier = Modifier.padding(vertical = 10.dp, horizontal = 8.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = role.uppercase(),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
                                 }
-                            )
-                            Spacer(Modifier.width(12.dp))
-                            Text(role.uppercase(), fontWeight = FontWeight.Medium)
+                            }
                         }
                     }
                 }

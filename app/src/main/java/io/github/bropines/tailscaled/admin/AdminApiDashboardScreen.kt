@@ -12,6 +12,10 @@ import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -47,8 +51,9 @@ fun AdminApiDashboardScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var selectedTab by remember { mutableStateOf(0) }
-    val tabs = listOf("Devices", "Auth Keys", "DNS", "Users", "Services", "Webhooks", "Settings")
+    val tabs = listOf("Devices", "DNS", "Users", "Services", "Webhooks", "Settings")
+    val pagerState = rememberPagerState(pageCount = { tabs.size })
+    var showKeysManagement by remember { mutableStateOf(false) }
 
     // Fetch SOCKS5 settings from global configurations
     val localSocksAddr = remember { GlobalSettings.getString(context, "socks5", "127.0.0.1:48115") }
@@ -124,15 +129,6 @@ fun AdminApiDashboardScreen(
                         }
                     }
                     1 -> {
-                        if (force || now - lastKeysFetch >= cacheDuration || keys.isEmpty()) {
-                            val list = client.listKeys()
-                            withContext(Dispatchers.Main) {
-                                keys = list.sortedBy { it.revoked == true }
-                                lastKeysFetch = now
-                            }
-                        }
-                    }
-                    2 -> {
                         if (force || now - lastDnsFetch >= cacheDuration || dnsNameservers.isEmpty()) {
                             val pref = client.getDnsPreferences()
                             val ns = client.getDnsNameservers()
@@ -147,7 +143,7 @@ fun AdminApiDashboardScreen(
                             }
                         }
                     }
-                    3 -> {
+                    2 -> {
                         if (force || now - lastUsersFetch >= cacheDuration || users.isEmpty()) {
                             val list = client.listUsers()
                             withContext(Dispatchers.Main) {
@@ -156,7 +152,7 @@ fun AdminApiDashboardScreen(
                             }
                         }
                     }
-                    4 -> {
+                    3 -> {
                         if (force || now - lastServicesFetch >= cacheDuration || vipServices.isEmpty()) {
                             val list = client.listTailnetServices()
                             withContext(Dispatchers.Main) {
@@ -165,7 +161,7 @@ fun AdminApiDashboardScreen(
                             }
                         }
                     }
-                    5 -> {
+                    4 -> {
                         if (force || now - lastWebhooksFetch >= cacheDuration || webhooks.isEmpty()) {
                             val list = client.listWebhooks()
                             withContext(Dispatchers.Main) {
@@ -174,7 +170,7 @@ fun AdminApiDashboardScreen(
                             }
                         }
                     }
-                    6 -> {
+                    5 -> {
                         if (force || now - lastSettingsFetch >= cacheDuration || tailnetSettings == null) {
                             val s = client.getTailnetSettings()
                             withContext(Dispatchers.Main) {
@@ -194,8 +190,25 @@ fun AdminApiDashboardScreen(
         }
     }
 
-    LaunchedEffect(selectedTab) {
-        refreshTab(selectedTab, force = false)
+    LaunchedEffect(pagerState.currentPage) {
+        refreshTab(pagerState.currentPage, force = false)
+    }
+
+    LaunchedEffect(showKeysManagement) {
+        if (showKeysManagement) {
+            scope.launch(Dispatchers.IO) {
+                try {
+                    val list = client.listKeys()
+                    withContext(Dispatchers.Main) {
+                        keys = list.sortedBy { it.revoked == true }
+                    }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "Error loading keys: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
     }
 
     Scaffold(
@@ -213,7 +226,7 @@ fun AdminApiDashboardScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { refreshTab(selectedTab, force = true) }) {
+                    IconButton(onClick = { refreshTab(pagerState.currentPage, force = true) }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh")
                     }
                     IconButton(onClick = { showProxySettingsDialog = true }) {
@@ -233,47 +246,46 @@ fun AdminApiDashboardScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            ScrollableTabRow(selectedTabIndex = selectedTab, edgePadding = 8.dp) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 tabs.forEachIndexed { index, title ->
-                    Tab(
-                        selected = selectedTab == index,
-                        onClick = { selectedTab = index },
-                        text = { Text(title) }
+                    FilterChip(
+                        selected = pagerState.currentPage == index,
+                        onClick = {
+                            scope.launch {
+                                pagerState.animateScrollToPage(index)
+                            }
+                        },
+                        label = { Text(title) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
                     )
                 }
             }
 
-            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.weight(1f).fillMaxWidth()
+            ) { page ->
                 PullToRefreshBox(
                     isRefreshing = isRefreshing,
-                    onRefresh = { refreshTab(selectedTab, force = true) },
+                    onRefresh = { refreshTab(page, force = true) },
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    when (selectedTab) {
+                    when (page) {
                         0 -> DevicesTabContent(
                             devices = devices,
                             onDeviceClick = { selectedDevice = it }
                         )
-                        1 -> KeysTabContent(
-                            keys = keys,
-                            onRevokeClick = { key ->
-                                scope.launch(Dispatchers.IO) {
-                                    try {
-                                        client.revokeKey(key.id)
-                                        withContext(Dispatchers.Main) {
-                                            Toast.makeText(context, "Key revoked", Toast.LENGTH_SHORT).show()
-                                            refreshTab(1, force = true)
-                                        }
-                                    } catch (e: Exception) {
-                                        withContext(Dispatchers.Main) {
-                                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
-                                        }
-                                    }
-                                }
-                            },
-                            onCreateKeyClick = { showCreateKeyDialog = true }
-                        )
-                        2 -> DnsTabContent(
+                        1 -> DnsTabContent(
                             magicDns = magicDnsEnabled,
                             nameservers = dnsNameservers,
                             splitDns = splitDns,
@@ -285,7 +297,7 @@ fun AdminApiDashboardScreen(
                                         withContext(Dispatchers.Main) {
                                             magicDnsEnabled = enabled
                                             Toast.makeText(context, "MagicDNS updated", Toast.LENGTH_SHORT).show()
-                                            refreshTab(2, force = true)
+                                            refreshTab(1, force = true)
                                         }
                                     } catch (e: Exception) {
                                         withContext(Dispatchers.Main) {
@@ -301,7 +313,7 @@ fun AdminApiDashboardScreen(
                                         withContext(Dispatchers.Main) {
                                             dnsNameservers = updatedList
                                             Toast.makeText(context, "Nameservers applied", Toast.LENGTH_SHORT).show()
-                                            refreshTab(2, force = true)
+                                            refreshTab(1, force = true)
                                         }
                                     } catch (e: Exception) {
                                         withContext(Dispatchers.Main) {
@@ -316,7 +328,7 @@ fun AdminApiDashboardScreen(
                                         client.updateSplitDns(domain, nsList)
                                         withContext(Dispatchers.Main) {
                                             Toast.makeText(context, if (nsList == null) "Split DNS route removed" else "Split DNS route applied", Toast.LENGTH_SHORT).show()
-                                            refreshTab(2, force = true)
+                                            refreshTab(1, force = true)
                                         }
                                     } catch (e: Exception) {
                                         withContext(Dispatchers.Main) {
@@ -332,7 +344,7 @@ fun AdminApiDashboardScreen(
                                         withContext(Dispatchers.Main) {
                                             dnsSearchPaths = updatedPaths
                                             Toast.makeText(context, "Search paths applied", Toast.LENGTH_SHORT).show()
-                                            refreshTab(2, force = true)
+                                            refreshTab(1, force = true)
                                         }
                                     } catch (e: Exception) {
                                         withContext(Dispatchers.Main) {
@@ -342,15 +354,15 @@ fun AdminApiDashboardScreen(
                                 }
                             }
                         )
-                        3 -> UsersTabContent(
+                        2 -> UsersTabContent(
                             users = users,
                             onUserClick = { selectedUser = it }
                         )
-                        4 -> ServicesTabContent(
+                        3 -> ServicesTabContent(
                             services = vipServices,
                             onServiceClick = { selectedServiceInfo = it }
                         )
-                        5 -> WebhooksTabContent(
+                        4 -> WebhooksTabContent(
                             webhooks = webhooks,
                             onCreateClick = { showCreateWebhookDialog = true },
                             onTestClick = { wh ->
@@ -373,7 +385,7 @@ fun AdminApiDashboardScreen(
                                         client.deleteWebhook(wh.endpointId)
                                         withContext(Dispatchers.Main) {
                                             Toast.makeText(context, "Webhook deleted", Toast.LENGTH_SHORT).show()
-                                            refreshTab(5, force = true)
+                                            refreshTab(4, force = true)
                                         }
                                     } catch (e: Exception) {
                                         withContext(Dispatchers.Main) {
@@ -383,7 +395,7 @@ fun AdminApiDashboardScreen(
                                 }
                             }
                         )
-                        6 -> TailnetSettingsTabContent(
+                        5 -> TailnetSettingsTabContent(
                             settings = tailnetSettings,
                             onApplySettings = { updatedSettings ->
                                 scope.launch(Dispatchers.IO) {
@@ -392,13 +404,24 @@ fun AdminApiDashboardScreen(
                                         withContext(Dispatchers.Main) {
                                             tailnetSettings = res
                                             Toast.makeText(context, "Settings updated", Toast.LENGTH_SHORT).show()
-                                            refreshTab(6, force = true)
+                                            refreshTab(5, force = true)
                                         }
                                     } catch (e: Exception) {
                                         withContext(Dispatchers.Main) {
                                             Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
                                         }
                                     }
+                                }
+                            },
+                            onManageKeysClick = {
+                                showKeysManagement = true
+                            },
+                            onBillingClick = {
+                                try {
+                                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://login.tailscale.com/admin/settings/billing"))
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Cannot open browser", Toast.LENGTH_SHORT).show()
                                 }
                             }
                         )
@@ -442,7 +465,7 @@ fun AdminApiDashboardScreen(
                 showProxySettingsDialog = false
                 onUpdateProxy(pmode, phost, pport, puser, ppass)
                 Toast.makeText(context, "Proxy settings saved", Toast.LENGTH_SHORT).show()
-                refreshTab(selectedTab, force = true)
+                refreshTab(pagerState.currentPage, force = true)
             }
         )
     }
@@ -474,7 +497,14 @@ fun AdminApiDashboardScreen(
                         clipboard.setPrimaryClip(ClipData.newPlainText("Tailscale Auth Key", generatedKeyToShow))
                         Toast.makeText(context, "Copied to clipboard!", Toast.LENGTH_SHORT).show()
                         generatedKeyToShow = null
-                        refreshTab(1, force = true)
+                        scope.launch(Dispatchers.IO) {
+                            try {
+                                val list = client.listKeys()
+                                withContext(Dispatchers.Main) {
+                                    keys = list.sortedBy { it.revoked == true }
+                                }
+                            } catch (e: Exception) {}
+                        }
                     }
                 ) {
                     Text("Copy & Close")
@@ -719,7 +749,7 @@ fun AdminApiDashboardScreen(
                         withContext(Dispatchers.Main) {
                             showCreateWebhookDialog = false
                             Toast.makeText(context, "Webhook added", Toast.LENGTH_SHORT).show()
-                            refreshTab(5, force = true)
+                            refreshTab(4, force = true)
                         }
                     } catch (e: Exception) {
                         withContext(Dispatchers.Main) {
@@ -729,5 +759,49 @@ fun AdminApiDashboardScreen(
                 }
             }
         )
+    }
+
+    if (showKeysManagement) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { showKeysManagement = false },
+            sheetState = sheetState
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Auth Keys", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    IconButton(onClick = { showKeysManagement = false }) {
+                        Icon(Icons.Default.Close, "Close")
+                    }
+                }
+                HorizontalDivider()
+                Box(modifier = Modifier.weight(1f)) {
+                    KeysTabContent(
+                        keys = keys,
+                        onRevokeClick = { key ->
+                            scope.launch(Dispatchers.IO) {
+                                try {
+                                    client.revokeKey(key.id)
+                                    withContext(Dispatchers.Main) {
+                                        Toast.makeText(context, "Key revoked", Toast.LENGTH_SHORT).show()
+                                        val list = client.listKeys()
+                                        keys = list.sortedBy { it.revoked == true }
+                                    }
+                                } catch (e: Exception) {
+                                    withContext(Dispatchers.Main) {
+                                        Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            }
+                        },
+                        onCreateKeyClick = { showCreateKeyDialog = true }
+                    )
+                }
+            }
+        }
     }
 }
