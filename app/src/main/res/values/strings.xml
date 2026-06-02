@@ -76,6 +76,8 @@
     <string name="action_delete">Delete</string>
     <string name="action_add">Add</string>
     <string name="action_close">Close</string>
+    <string name="action_download">Download</string>
+    <string name="action_github">GitHub</string>
     <string name="action_clear">Clear</string>
     <string name="action_rename">Rename</string>
     <string name="action_confirm">Confirm</string>
@@ -564,4 +566,35 @@
     <string name="logs_cd_flush_dns">Flush DNS</string>
     <string name="logs_cleared">Cleared</string>
     <string name="logs_search_placeholder">Search…</string>
+
+    <!-- ======================== Main Screen ======================== -->
+    <string name="main_add_account_title">Add Account</string>
+    <string name="main_rename_account_title">Rename Account</string>
+    <string name="main_update_available_format">🚀 New TailSocks update available: %1$s</string>
+    <string name="main_refreshing_config">Refreshing configuration…</string>
+    <string name="main_cannot_open_battery_settings">Cannot open battery settings</string>
+    <string name="main_error_socks5_empty">🚫 Error: SOCKS5 address cannot be empty!</string>
+    <string name="main_check_failed_format">Check failed: %1$s</string>
+    <string name="main_cd_refresh_config">Refresh Config</string>
+    <string name="main_cd_admin_api">Admin API</string>
+    <string name="main_cd_about_licenses">About &amp; Licenses</string>
+    <string name="main_switch_account_header">Switch Account</string>
+    <string name="main_route_traffic_directly">Route traffic directly</string>
+    <string name="main_status_active">Active</string>
+    <string name="main_status_starting">Starting…</string>
+    <string name="main_status_please_wait">Please wait…</string>
+    <string name="main_status_active_desc">Service is running • Tap to stop</string>
+    <string name="main_status_starting_desc">Waking up the daemon…</string>
+    <string name="main_exit_node_none_label">Exit Node: None</string>
+    <string name="main_traffic_routed">Traffic is routed</string>
+    <string name="main_exit_node_none_desc">Tap to select exit node</string>
+    <string name="main_exit_node_routed_desc">Via exit node: %1$s</string>
+    <string name="menu_console">Console</string>
+    <string name="menu_peers">Peers</string>
+    <string name="menu_logs">Logs</string>
+    <string name="menu_files">Files</string>
+    <string name="menu_dns">DNS</string>
+    <string name="menu_netcheck">Netcheck</string>
+    <string name="menu_settings">Settings</string>
+    <string name="menu_serve">Serve</string>
 </resources>

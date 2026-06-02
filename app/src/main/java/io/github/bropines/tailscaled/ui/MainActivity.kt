@@ -1,6 +1,7 @@
 package io.github.bropines.tailscaled.ui
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.BuildConfig
+import androidx.compose.ui.res.stringResource
 
 import io.github.bropines.tailscaled.admin.*
 import io.github.bropines.tailscaled.core.*
@@ -175,7 +176,7 @@ class MainActivity : ComponentActivity() {
                     val tag = json.get("tag_name").asString
                     if (isVersionNewer(currentVersion, tag)) {
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(this@MainActivity, "🚀 New TailSocks update available: $tag", Toast.LENGTH_LONG).show()
+                            Toast.makeText(this@MainActivity, getString(R.string.main_update_available_format, tag), Toast.LENGTH_LONG).show()
                         }
                     }
                 }
@@ -356,12 +357,12 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
     if (showAddAccountDialog) {
         AlertDialog(
             onDismissRequest = { showAddAccountDialog = false },
-            title = { Text("Add Account") },
+            title = { Text(stringResource(R.string.main_add_account_title)) },
             text = {
                 OutlinedTextField(
                     value = newAccountName,
                     onValueChange = { newAccountName = it },
-                    label = { Text("Account Name") },
+                    label = { Text(stringResource(R.string.main_account_name_label)) },
                     singleLine = true
                 )
             },
@@ -379,9 +380,9 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                             context.startService(Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" })
                         }
                     }
-                }) { Text("Add") }
+                }) { Text(stringResource(R.string.action_add)) }
             },
-            dismissButton = { TextButton(onClick = { showAddAccountDialog = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { showAddAccountDialog = false }) { Text(stringResource(R.string.action_cancel)) } }
         )
     }
 
@@ -389,12 +390,12 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
         var renameText by remember { mutableStateOf(activeAccount.name) }
         AlertDialog(
             onDismissRequest = { showRenameAccountDialog = false },
-            title = { Text("Rename Account") },
+            title = { Text(stringResource(R.string.main_rename_account_title)) },
             text = {
                 OutlinedTextField(
                     value = renameText,
                     onValueChange = { renameText = it },
-                    label = { Text("New Name") },
+                    label = { Text(stringResource(R.string.main_new_name_label)) },
                     singleLine = true
                 )
             },
@@ -406,17 +407,17 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                         activeAccount = AccountManager.getActiveAccount(context)
                         showRenameAccountDialog = false
                     }
-                }) { Text("Rename") }
+                }) { Text(stringResource(R.string.action_rename)) }
             },
-            dismissButton = { TextButton(onClick = { showRenameAccountDialog = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { showRenameAccountDialog = false }) { Text(stringResource(R.string.action_cancel)) } }
         )
     }
 
     if (showSwitchConfirmDialog != null) {
         AlertDialog(
             onDismissRequest = { showSwitchConfirmDialog = null },
-            title = { Text("Switch Account?") },
-            text = { Text("Switching to '${showSwitchConfirmDialog!!.name}' will restart the core. Are you sure?") },
+            title = { Text(stringResource(R.string.main_switch_account_title)) },
+            text = { Text(stringResource(R.string.main_switch_account_text, showSwitchConfirmDialog!!.name)) },
             confirmButton = {
                 Button(onClick = {
                     val target = showSwitchConfirmDialog!!
@@ -427,9 +428,9 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                     AccountManager.setActiveAccount(context, target.id)
                     activeAccount = target
                     context.startService(Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" })
-                }) { Text("Restart & Switch") }
+                }) { Text(stringResource(R.string.main_restart_switch)) }
             },
-            dismissButton = { TextButton(onClick = { showSwitchConfirmDialog = null }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { showSwitchConfirmDialog = null }) { Text(stringResource(R.string.action_cancel)) } }
         )
     }
 
@@ -476,7 +477,7 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                     }
                 }
                 Text(
-                    "Switch Account",
+                    stringResource(R.string.main_switch_account_header),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -595,7 +596,7 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                     ) {
                         Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Add", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.action_add), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     }
 
                     OutlinedButton(
@@ -606,7 +607,7 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                     ) {
                         Icon(Icons.Default.Edit, null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Rename", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.action_rename), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     }
 
                     if (activeAccount.id != "default") {
@@ -627,7 +628,7 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                         ) {
                             Icon(Icons.Default.Delete, null, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(6.dp))
-                            Text("Delete", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.action_delete), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
@@ -640,7 +641,7 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
             TopAppBar(
                 title = {
                     Column(modifier = Modifier.clickable { accountMenuExpanded = true }) {
-                        Text("TailSocks", style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleMedium)
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 activeAccount.name,
@@ -657,18 +658,18 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                         IconButton(onClick = { 
                             val intent = Intent(context, TailscaledService::class.java).apply { action = "REFRESH_ACTION" }
                             context.startService(intent)
-                            Toast.makeText(context, "Refreshing configuration...", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.main_refreshing_config), Toast.LENGTH_SHORT).show()
                         }) {
-                            Icon(Icons.Default.Refresh, contentDescription = "Refresh Config")
+                            Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.main_cd_refresh_config))
                         }
                     }
                     IconButton(onClick = {
                         context.startActivity(Intent(context, AdminApiActivity::class.java))
                     }) {
-                        Icon(Icons.Default.AdminPanelSettings, contentDescription = "Admin API")
+                        Icon(Icons.Default.AdminPanelSettings, contentDescription = stringResource(R.string.main_cd_admin_api))
                     }
                     IconButton(onClick = { showAboutDialog = true }) {
-                        Icon(Icons.Default.Info, contentDescription = "About & Licenses")
+                        Icon(Icons.Default.Info, contentDescription = stringResource(R.string.main_cd_about_licenses))
                     }
                 }
             )
@@ -693,7 +694,7 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                             val intent = Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
                             context.startActivity(intent)
                         } catch (e: Exception) {
-                            Toast.makeText(context, "Cannot open battery settings", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.main_cannot_open_battery_settings), Toast.LENGTH_SHORT).show()
                         }
                     }
                 ) {
@@ -704,8 +705,8 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                         Icon(Icons.Default.BatteryAlert, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
-                            Text("Battery Optimization Enabled", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
-                            Text("TailSocks may be killed in the background. Tap to disable.", 
+                            Text(stringResource(R.string.main_battery_warn_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
+                            Text(stringResource(R.string.main_battery_warn_desc), 
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
                         }
                     }
@@ -725,8 +726,8 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                         Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
-                            Text("Network Sync Warning", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
-                            Text("Initial machine map parsing may take 1-3 minutes due to network backoff. Please do not restart.", 
+                            Text(stringResource(R.string.main_network_sync_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
+                            Text(stringResource(R.string.main_network_sync_desc), 
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
                         }
                     }
@@ -765,12 +766,12 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
-                                if (exitNodeIp.isNotEmpty()) "Traffic is routed" else "Exit Node: None", 
+                                if (exitNodeIp.isNotEmpty()) stringResource(R.string.main_traffic_routed) else stringResource(R.string.main_exit_node_none_label), 
                                 fontWeight = FontWeight.Bold, 
                                 color = if (exitNodeIp.isNotEmpty()) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
-                                if (exitNodeIp.isNotEmpty()) "Via exit node: $exitNodeIp" else "Tap to select exit node", 
+                                if (exitNodeIp.isNotEmpty()) stringResource(R.string.main_exit_node_routed_desc, exitNodeIp) else stringResource(R.string.main_exit_node_none_desc), 
                                 style = MaterialTheme.typography.bodySmall, 
                                 color = if (exitNodeIp.isNotEmpty()) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -796,7 +797,7 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                     val currentSocks = prefs.getString("socks5", "127.0.0.1:1055") ?: "127.0.0.1:1055"
 
                     if (currentSocks.isBlank()) {
-                        Toast.makeText(context, "🚫 Error: SOCKS5 address cannot be empty!", Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, context.getString(R.string.main_error_socks5_empty), Toast.LENGTH_LONG).show()
                         return@StatusCard
                     }
 
@@ -822,8 +823,8 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                         Icon(Icons.Default.AccountCircle, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
-                            Text("Login Required", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                            Text("Tap to authenticate via browser", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Text(stringResource(R.string.main_login_required_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Text(stringResource(R.string.main_login_required_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
                         }
                         Spacer(modifier = Modifier.weight(1f))
                         Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
@@ -834,39 +835,39 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
             Spacer(modifier = Modifier.height(32.dp))
 
             Row(modifier = Modifier.fillMaxWidth()) {
-                MenuCard(title = "Console", icon = Icons.Default.PlayArrow, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                MenuCard(title = stringResource(R.string.menu_console), icon = Icons.Default.PlayArrow, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                     context.startActivity(Intent(context, ConsoleActivity::class.java))
                 }
-                MenuCard(title = "Peers", icon = Icons.Default.Share, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                MenuCard(title = stringResource(R.string.menu_peers), icon = Icons.Default.Share, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
                     context.startActivity(Intent(context, PeersActivity::class.java))
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
             Row(modifier = Modifier.fillMaxWidth()) {
-                MenuCard(title = "Logs", icon = Icons.AutoMirrored.Filled.List, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                MenuCard(title = stringResource(R.string.menu_logs), icon = Icons.AutoMirrored.Filled.List, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                     context.startActivity(Intent(context, LogsActivity::class.java))
                 }
-                MenuCard(title = "Files", icon = Icons.Default.Folder, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                MenuCard(title = stringResource(R.string.menu_files), icon = Icons.Default.Folder, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
                     context.startActivity(Intent(context, FilesActivity::class.java))
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
             Row(modifier = Modifier.fillMaxWidth()) {
-                MenuCard(title = "DNS", icon = Icons.Default.Language, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                MenuCard(title = stringResource(R.string.menu_dns), icon = Icons.Default.Language, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                     context.startActivity(Intent(context, DnsActivity::class.java))
                 }
-                MenuCard(title = "Netcheck", icon = Icons.Default.Refresh, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                MenuCard(title = stringResource(R.string.menu_netcheck), icon = Icons.Default.Refresh, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
                     context.startActivity(Intent(context, NetcheckActivity::class.java))
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
             Row(modifier = Modifier.fillMaxWidth()) {
-                MenuCard(title = "Settings", icon = Icons.Default.Settings, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                MenuCard(title = stringResource(R.string.menu_settings), icon = Icons.Default.Settings, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                     context.startActivity(Intent(context, SettingsActivity::class.java))
                 }
-                MenuCard(title = "Serve", icon = Icons.Default.Public, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                MenuCard(title = stringResource(R.string.menu_serve), icon = Icons.Default.Public, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
                     context.startActivity(Intent(context, ServeActivity::class.java))
                 }
             }
@@ -892,7 +893,7 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.width(12.dp))
-                    Text("About TailSocks")
+                    Text(stringResource(R.string.main_about_title))
                 }
             },
             text = { 
@@ -902,8 +903,8 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
-                            Text("App Version: $versionName", fontWeight = FontWeight.Bold)
-                            Text("Tailscale Core: $coreVer", style = MaterialTheme.typography.bodySmall)
+                            Text(stringResource(R.string.main_app_version, versionName), fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.main_core_version, coreVer), style = MaterialTheme.typography.bodySmall)
                         }
                     }
                     
@@ -919,32 +920,32 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                                 Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Default.Download, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(16.dp))
                                     Spacer(Modifier.width(8.dp))
-                                    Text("New version: $latestVersion", color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold)
+                                    Text(stringResource(R.string.main_new_version, latestVersion!!), color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
                     }
 
                     Spacer(Modifier.height(16.dp))
-                    Text("Proxy is running via official Tailscale core.\nLicense: BSD-3-Clause\n")
+                    Text(stringResource(R.string.main_license_text))
                     
                     TextButton(
                         onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/bropines"))) },
                         modifier = Modifier.height(32.dp),
                         contentPadding = PaddingValues(0.dp)
-                    ) { Text("App Developer: Bropines") }
+                    ) { Text(stringResource(R.string.main_dev_app)) }
                     
                     TextButton(
                         onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Asutorufa/tailscale"))) },
                         modifier = Modifier.height(32.dp),
                         contentPadding = PaddingValues(0.dp)
-                    ) { Text("Patch Developer: Asutorufa") }
+                    ) { Text(stringResource(R.string.main_dev_patch)) }
 
                     TextButton(
                         onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/tailscale/tailscale"))) },
                         modifier = Modifier.height(32.dp),
                         contentPadding = PaddingValues(0.dp)
-                    ) { Text("Core Developer: Tailscale") }
+                    ) { Text(stringResource(R.string.main_dev_core)) }
 
                     Spacer(Modifier.height(12.dp))
                     Button(
@@ -966,7 +967,7 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                                     } else { throw Exception("HTTP ${connection.responseCode}") }
                                 } catch (e: Exception) {
                                     withContext(Dispatchers.Main) {
-                                        Toast.makeText(context, "Check failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.main_check_failed_format, e.message), Toast.LENGTH_SHORT).show()
                                         isCheckingUpdate = false
                                     }
                                 }
@@ -979,7 +980,7 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                         if (isCheckingUpdate) {
                             CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSecondary)
                         } else {
-                            Text("Check for App Updates")
+                            Text(stringResource(R.string.main_check_updates))
                         }
                     }
                 } 
@@ -990,9 +991,9 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                              else "https://github.com/bropines/tailscaled-socks5-android"
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                     showAboutDialog = false
-                }) { Text(if (latestVersion != null) "Download" else "GitHub") }
+                }) { Text(if (latestVersion != null) stringResource(R.string.action_download) else stringResource(R.string.action_github)) }
             },
-            dismissButton = { TextButton(onClick = { showAboutDialog = false }) { Text("Close") } }
+            dismissButton = { TextButton(onClick = { showAboutDialog = false }) { Text(stringResource(R.string.action_close)) } }
         )
     }
 
@@ -1010,7 +1011,7 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                     .navigationBarsPadding()
             ) {
                 Text(
-                    "Select Exit Node",
+                    stringResource(R.string.main_select_exit_node),
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
@@ -1020,7 +1021,7 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                     Box(Modifier.fillMaxWidth().height(120.dp), Alignment.Center) { CircularProgressIndicator() }
                 } else if (exitNodes.isEmpty()) {
                     Box(Modifier.fillMaxWidth().height(120.dp), Alignment.Center) { 
-                        Text("No exit nodes available", color = MaterialTheme.colorScheme.outline)
+                        Text(stringResource(R.string.main_no_exit_nodes), color = MaterialTheme.colorScheme.outline)
                     }
                 } else {
                     val currentExitNodeId = remember(showExitNodeSheet) { prefs.getString("exit_node_id", "") ?: "" }
@@ -1087,13 +1088,13 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                                             Spacer(Modifier.width(16.dp))
                                             Column(Modifier.weight(1f)) {
                                                 Text(
-                                                    "None",
+                                                    stringResource(R.string.main_exit_node_none),
                                                     fontWeight = FontWeight.Bold,
                                                     fontSize = 15.sp,
                                                     color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                                 )
                                                 Text(
-                                                    "Route traffic directly",
+                                                    stringResource(R.string.main_route_traffic_directly),
                                                     style = MaterialTheme.typography.bodySmall,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
@@ -1226,9 +1227,9 @@ fun StatusCard(state: String, isProcessing: Boolean, onToggle: () -> Unit) {
             )
             Text(
                 text = when(state) {
-                    "ACTIVE" -> "Active"
-                    "STARTING" -> "Starting..."
-                    else -> "Stopped"
+                    "ACTIVE" -> stringResource(R.string.main_status_active)
+                    "STARTING" -> stringResource(R.string.main_status_starting)
+                    else -> stringResource(R.string.status_stopped)
                 },
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
@@ -1236,10 +1237,10 @@ fun StatusCard(state: String, isProcessing: Boolean, onToggle: () -> Unit) {
             )
             Text(
                 text = when {
-                    isProcessing -> "Please wait..."
-                    state == "ACTIVE" -> "Service is running • Tap to stop"
-                    state == "STARTING" -> "Waking up the daemon..."
-                    else -> "Tap to connect"
+                    isProcessing -> stringResource(R.string.main_status_please_wait)
+                    state == "ACTIVE" -> stringResource(R.string.main_status_active_desc)
+                    state == "STARTING" -> stringResource(R.string.main_status_starting_desc)
+                    else -> stringResource(R.string.tap_to_start)
                 },
                 modifier = Modifier.alpha(0.6f).padding(top = 4.dp),
                 color = contentColor

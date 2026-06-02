@@ -76,6 +76,8 @@
     <string name="action_delete">Удалить</string>
     <string name="action_add">Добавить</string>
     <string name="action_close">Закрыть</string>
+    <string name="action_download">Скачать</string>
+    <string name="action_github">GitHub</string>
     <string name="action_clear">Очистить</string>
     <string name="action_rename">Переименовать</string>
     <string name="action_confirm">Подтвердить</string>
@@ -564,4 +566,35 @@
     <string name="logs_cd_flush_dns">Очистить DNS-кэш</string>
     <string name="logs_cleared">Очищено</string>
     <string name="logs_search_placeholder">Поиск…</string>
+
+    <!-- ======================== Main Screen ======================== -->
+    <string name="main_add_account_title">Добавить аккаунт</string>
+    <string name="main_rename_account_title">Переименовать аккаунт</string>
+    <string name="main_update_available_format">🚀 Доступно обновление TailSocks: %1$s</string>
+    <string name="main_refreshing_config">Обновление конфигурации…</string>
+    <string name="main_cannot_open_battery_settings">Не удалось открыть настройки батареи</string>
+    <string name="main_error_socks5_empty">🚫 Ошибка: SOCKS5-адрес не может быть пустым!</string>
+    <string name="main_check_failed_format">Проверка не удалась: %1$s</string>
+    <string name="main_cd_refresh_config">Обновить конфигурацию</string>
+    <string name="main_cd_admin_api">Панель администратора</string>
+    <string name="main_cd_about_licenses">О программе и лицензиях</string>
+    <string name="main_switch_account_header">Сменить аккаунт</string>
+    <string name="main_route_traffic_directly">Маршрутизировать трафик напрямую</string>
+    <string name="main_status_active">Активно</string>
+    <string name="main_status_starting">Запуск…</string>
+    <string name="main_status_please_wait">Пожалуйста, подождите…</string>
+    <string name="main_status_active_desc">Служба запущена • Нажмите для остановки</string>
+    <string name="main_status_starting_desc">Пробуждение демона…</string>
+    <string name="main_exit_node_none_label">Выходной узел: нет</string>
+    <string name="main_traffic_routed">Трафик маршрутизируется</string>
+    <string name="main_exit_node_none_desc">Нажмите для выбора выходного узла</string>
+    <string name="main_exit_node_routed_desc">Через выходной узел: %1$s</string>
+    <string name="menu_console">Консоль</string>
+    <string name="menu_peers">Узлы</string>
+    <string name="menu_logs">Логи</string>
+    <string name="menu_files">Файлы</string>
+    <string name="menu_dns">DNS</string>
+    <string name="menu_netcheck">Проверка сети</string>
+    <string name="menu_settings">Настройки</string>
+    <string name="menu_serve">Сервер</string>
 </resources>
