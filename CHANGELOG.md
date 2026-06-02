@@ -10,6 +10,9 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Added pending client update badges to device list items and detail bottom sheets.
 - Added confirmation dialog before applying user role changes.
 
+### Fixed
+- Fixed false positive expired key indicator badges and expiry labels when key expiry is disabled on devices.
+
 ## [2.1.4-beta] - 2026-06-01
 ### Added
 - Added comprehensive Tailscale public Admin API (api.tailscale.com/api/v2) integration to manage tailnet resources.
