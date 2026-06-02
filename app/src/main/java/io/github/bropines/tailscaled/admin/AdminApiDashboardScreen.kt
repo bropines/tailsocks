@@ -48,7 +48,7 @@ fun AdminApiDashboardScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var selectedTab by remember { mutableStateOf(0) }
-    val tabs = listOf("Devices", "Auth Keys", "DNS", "Users", "Settings")
+    val tabs = listOf("Devices", "Auth Keys", "DNS", "Users", "Services", "Webhooks", "Settings")
 
     // Fetch SOCKS5 settings from global configurations
     val localSocksAddr = remember { GlobalSettings.getString(context, "socks5", "127.0.0.1:48115") }
@@ -84,12 +84,18 @@ fun AdminApiDashboardScreen(
     var tailnetSettings by remember { mutableStateOf<TailnetSettings?>(null) }
     var selectedUser by remember { mutableStateOf<ApiUser?>(null) }
     var allTailnetTags by remember { mutableStateOf<List<String>>(emptyList()) }
+    var vipServices by remember { mutableStateOf<List<VIPServiceInfo>>(emptyList()) }
+    var webhooks by remember { mutableStateOf<List<WebhookEndpoint>>(emptyList()) }
+    var selectedServiceInfo by remember { mutableStateOf<VIPServiceInfo?>(null) }
+    var showCreateWebhookDialog by remember { mutableStateOf(false) }
 
     // Cache Timestamps
     var lastDevicesFetch by remember { mutableLongStateOf(0L) }
     var lastKeysFetch by remember { mutableLongStateOf(0L) }
     var lastDnsFetch by remember { mutableLongStateOf(0L) }
     var lastUsersFetch by remember { mutableLongStateOf(0L) }
+    var lastServicesFetch by remember { mutableLongStateOf(0L) }
+    var lastWebhooksFetch by remember { mutableLongStateOf(0L) }
     var lastSettingsFetch by remember { mutableLongStateOf(0L) }
 
     var selectedDevice by remember { mutableStateOf<ApiDevice?>(null) }
@@ -151,6 +157,24 @@ fun AdminApiDashboardScreen(
                         }
                     }
                     4 -> {
+                        if (force || now - lastServicesFetch >= cacheDuration || vipServices.isEmpty()) {
+                            val list = client.listTailnetServices()
+                            withContext(Dispatchers.Main) {
+                                vipServices = list
+                                lastServicesFetch = now
+                            }
+                        }
+                    }
+                    5 -> {
+                        if (force || now - lastWebhooksFetch >= cacheDuration || webhooks.isEmpty()) {
+                            val list = client.listWebhooks()
+                            withContext(Dispatchers.Main) {
+                                webhooks = list
+                                lastWebhooksFetch = now
+                            }
+                        }
+                    }
+                    6 -> {
                         if (force || now - lastSettingsFetch >= cacheDuration || tailnetSettings == null) {
                             val s = client.getTailnetSettings()
                             withContext(Dispatchers.Main) {
@@ -322,7 +346,44 @@ fun AdminApiDashboardScreen(
                             users = users,
                             onUserClick = { selectedUser = it }
                         )
-                        4 -> TailnetSettingsTabContent(
+                        4 -> ServicesTabContent(
+                            services = vipServices,
+                            onServiceClick = { selectedServiceInfo = it }
+                        )
+                        5 -> WebhooksTabContent(
+                            webhooks = webhooks,
+                            onCreateClick = { showCreateWebhookDialog = true },
+                            onTestClick = { wh ->
+                                scope.launch(Dispatchers.IO) {
+                                    try {
+                                        client.testWebhook(wh.endpointId)
+                                        withContext(Dispatchers.Main) {
+                                            Toast.makeText(context, "Test ping sent", Toast.LENGTH_SHORT).show()
+                                        }
+                                    } catch (e: Exception) {
+                                        withContext(Dispatchers.Main) {
+                                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                                        }
+                                    }
+                                }
+                            },
+                            onDeleteClick = { wh ->
+                                scope.launch(Dispatchers.IO) {
+                                    try {
+                                        client.deleteWebhook(wh.endpointId)
+                                        withContext(Dispatchers.Main) {
+                                            Toast.makeText(context, "Webhook deleted", Toast.LENGTH_SHORT).show()
+                                            refreshTab(5, force = true)
+                                        }
+                                    } catch (e: Exception) {
+                                        withContext(Dispatchers.Main) {
+                                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                                        }
+                                    }
+                                }
+                            }
+                        )
+                        6 -> TailnetSettingsTabContent(
                             settings = tailnetSettings,
                             onApplySettings = { updatedSettings ->
                                 scope.launch(Dispatchers.IO) {
@@ -331,7 +392,7 @@ fun AdminApiDashboardScreen(
                                         withContext(Dispatchers.Main) {
                                             tailnetSettings = res
                                             Toast.makeText(context, "Settings updated", Toast.LENGTH_SHORT).show()
-                                            refreshTab(4, force = true)
+                                            refreshTab(6, force = true)
                                         }
                                     } catch (e: Exception) {
                                         withContext(Dispatchers.Main) {
@@ -628,6 +689,37 @@ fun AdminApiDashboardScreen(
                         withContext(Dispatchers.Main) {
                             showCreateKeyDialog = false
                             generatedKeyToShow = newKey.key
+                        }
+                    } catch (e: Exception) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            }
+        )
+    }
+
+    selectedServiceInfo?.let { service ->
+        ServiceDetailBottomSheet(
+            service = service,
+            client = client,
+            allDevices = devices,
+            onDismiss = { selectedServiceInfo = null }
+        )
+    }
+
+    if (showCreateWebhookDialog) {
+        CreateWebhookDialog(
+            onDismiss = { showCreateWebhookDialog = false },
+            onSave = { url, events ->
+                scope.launch(Dispatchers.IO) {
+                    try {
+                        client.createWebhook(url, events)
+                        withContext(Dispatchers.Main) {
+                            showCreateWebhookDialog = false
+                            Toast.makeText(context, "Webhook added", Toast.LENGTH_SHORT).show()
+                            refreshTab(5, force = true)
                         }
                     } catch (e: Exception) {
                         withContext(Dispatchers.Main) {
