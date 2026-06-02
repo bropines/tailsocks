@@ -38,6 +38,20 @@ import java.util.Date
 import java.util.TimeZone
 import java.util.Locale
 
+object AdminApiLogsCache {
+    var auditLogs: List<ApiAuditLogEntry> = emptyList()
+    var daysRange: Int = 7
+    var lastFetchTime: Long = 0L
+    var lastFetchedRange: Int = -1
+
+    fun clear() {
+        auditLogs = emptyList()
+        daysRange = 7
+        lastFetchTime = 0L
+        lastFetchedRange = -1
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminApiDashboardScreen(
@@ -107,8 +121,8 @@ fun AdminApiDashboardScreen(
     var selectedServiceInfo by remember { mutableStateOf<VIPServiceInfo?>(null) }
     var showCreateWebhookDialog by remember { mutableStateOf(false) }
 
-    var auditLogs by remember { mutableStateOf<List<ApiAuditLogEntry>>(emptyList()) }
-    var auditLogsDaysRange by remember { mutableIntStateOf(7) }
+    var auditLogs by remember { mutableStateOf<List<ApiAuditLogEntry>>(AdminApiLogsCache.auditLogs) }
+    var auditLogsDaysRange by remember { mutableIntStateOf(AdminApiLogsCache.daysRange) }
 
     // Cache Timestamps
     var lastDevicesFetch by remember { mutableLongStateOf(0L) }
@@ -118,8 +132,8 @@ fun AdminApiDashboardScreen(
     var lastServicesFetch by remember { mutableLongStateOf(0L) }
     var lastWebhooksFetch by remember { mutableLongStateOf(0L) }
     var lastSettingsFetch by remember { mutableLongStateOf(0L) }
-    var lastAuditLogsFetch by remember { mutableLongStateOf(0L) }
-    var lastFetchedAuditLogsRange by remember { mutableIntStateOf(-1) }
+    var lastAuditLogsFetch by remember { mutableLongStateOf(AdminApiLogsCache.lastFetchTime) }
+    var lastFetchedAuditLogsRange by remember { mutableIntStateOf(AdminApiLogsCache.lastFetchedRange) }
 
     var selectedDevice by remember { mutableStateOf<ApiDevice?>(null) }
     var showCreateKeyDialog by remember { mutableStateOf(false) }
@@ -204,6 +218,9 @@ fun AdminApiDashboardScreen(
                                 auditLogs = logsList
                                 lastAuditLogsFetch = now
                                 lastFetchedAuditLogsRange = auditLogsDaysRange
+                                AdminApiLogsCache.auditLogs = logsList
+                                AdminApiLogsCache.lastFetchTime = now
+                                AdminApiLogsCache.lastFetchedRange = auditLogsDaysRange
                             }
                         }
                     }
@@ -446,6 +463,7 @@ fun AdminApiDashboardScreen(
                             daysRange = auditLogsDaysRange,
                             onDaysRangeChange = { newRange ->
                                 auditLogsDaysRange = newRange
+                                AdminApiLogsCache.daysRange = newRange
                                 refreshTab(5, force = true)
                             },
                             isLoading = auditLogs.isEmpty() && isRefreshing
@@ -489,6 +507,7 @@ fun AdminApiDashboardScreen(
                 Button(
                     onClick = {
                         showDisconnectConfirm = false
+                        AdminApiLogsCache.clear()
                         onDisconnect()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)

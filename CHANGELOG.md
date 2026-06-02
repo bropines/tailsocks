@@ -7,6 +7,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Added premium Material 3 dashboard interface for Network Diagnostics (Netcheck), displaying structured cards for protocol capabilities, NAT type, and public IP/port details.
 - Added sorted DERP latency list with visual latency meter quality bars, nearest/preferred region markers, and region name resolution.
 - Enriched JNI netcheck payload in Go bridge with full DERP map regions metadata mapped from tailcfg.DERPMap.
+- Added in-memory caching for API audit logs in Admin Console to prevent redundant queries across activity sessions.
 
 ## [2.2.1] - 2026-06-02
 ### Fixed
