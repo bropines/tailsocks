@@ -796,4 +796,7 @@
     <string name="settings_none">None</string>
     <string name="settings_exit_node_select">Select Exit Node</string>
     <string name="settings_exit_node_empty">No exit nodes available</string>
+    <string name="share_title">Send to…</string>
+    <string name="share_files_count_format">%1$d files</string>
+    <string name="share_sending">Sending…</string>
 </resources>

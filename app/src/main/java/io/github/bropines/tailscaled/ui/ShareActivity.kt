@@ -34,6 +34,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import appctr.Appctr
+import androidx.compose.ui.res.stringResource
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
@@ -101,11 +102,11 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
         ) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Send to...", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("${fileUris.size} files", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.share_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.share_files_count_format, fileUris.size), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 IconButton(onClick = { loadPeers() }) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                    Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.action_refresh))
                 }
                 Spacer(Modifier.width(8.dp))
                 Box {
@@ -190,7 +191,7 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
 
             if (isLoadingPeers) Box(Modifier.fillMaxWidth().height(200.dp), Alignment.Center) { CircularProgressIndicator() }
             else if (errorMsg != null) Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(errorMsg!!, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center); Button(onClick = { loadPeers() }) { Text("Retry") }
+                Text(errorMsg!!, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center); Button(onClick = { loadPeers() }) { Text(stringResource(R.string.action_retry)) }
             } else Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -231,7 +232,7 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
         Card(shape = RoundedCornerShape(16.dp)) {
             Column(modifier = Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 CircularProgressIndicator(); Spacer(Modifier.height(20.dp))
-                Text("Sending...", fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.share_sending), fontWeight = FontWeight.Bold)
                 Text(sendProgressText, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
             }
         }

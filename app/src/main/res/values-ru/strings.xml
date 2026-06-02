@@ -796,4 +796,7 @@
     <string name="settings_none">Нет</string>
     <string name="settings_exit_node_select">Выберите выходной узел</string>
     <string name="settings_exit_node_empty">Нет доступных выходных узлов</string>
+    <string name="share_title">Отправить…</string>
+    <string name="share_files_count_format">Файлов: %1$d</string>
+    <string name="share_sending">Отправка…</string>
 </resources>
