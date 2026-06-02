@@ -23,7 +23,9 @@ data class ApiDevice(
     @SerializedName("os") val os: String?,
     @SerializedName("clientVersion") val clientVersion: String?,
     @SerializedName("tags") val tags: List<String>?,
-    @SerializedName("updateAvailable") val updateAvailable: Boolean?
+    @SerializedName("updateAvailable") val updateAvailable: Boolean?,
+    @SerializedName("machineKey") val machineKey: String? = null,
+    @SerializedName("nodeKey") val nodeKey: String? = null
 ) {
     fun getPrimaryIp(): String = addresses?.firstOrNull() ?: "0.0.0.0"
     fun getDisplayName(): String = name.substringBefore(".ts.net").removeSuffix(".")
@@ -94,7 +96,8 @@ data class TailnetSettings(
     @SerializedName("usersApprovalOn") val usersApprovalOn: Boolean?,
     @SerializedName("usersRoleAllowedToJoinExternalTailnets") val usersRoleAllowedToJoinExternalTailnets: String?,
     @SerializedName("networkFlowLoggingOn") val networkFlowLoggingOn: Boolean?,
-    @SerializedName("regionalRoutingOn") val regionalRoutingOn: Boolean?
+    @SerializedName("regionalRoutingOn") val regionalRoutingOn: Boolean?,
+    @SerializedName("postureIdentityCollectionOn") val postureIdentityCollectionOn: Boolean? = null
 )
 
 @Keep
