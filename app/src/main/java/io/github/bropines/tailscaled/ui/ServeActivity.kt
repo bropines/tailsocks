@@ -24,6 +24,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -94,11 +95,11 @@ fun ServeScreen(onBack: () -> Unit) {
                 try {
                     context.contentResolver.openOutputStream(uri)?.use { it.write(pendingCertData.toByteArray()) }
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "Certificate saved successfully", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.serve_cert_saved), Toast.LENGTH_SHORT).show()
                     }
                 } catch (e: Exception) {
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "Save failed: ${e.message}", Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, context.getString(R.string.serve_save_failed_format, e.message), Toast.LENGTH_LONG).show()
                     }
                 }
             }
@@ -195,7 +196,7 @@ fun ServeScreen(onBack: () -> Unit) {
             withContext(Dispatchers.Main) {
                 isLoading = false
                 if (res != "OK") {
-                    Toast.makeText(context, "Error: $res", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, context.getString(R.string.serve_error_format, res), Toast.LENGTH_LONG).show()
                 }
                 refresh()
             }
@@ -203,7 +204,7 @@ fun ServeScreen(onBack: () -> Unit) {
     }
 
     fun getLink(port: Int, protocol: String, isFunnel: Boolean, serviceName: String? = null): String {
-        if (selfDns.isEmpty()) return "Waiting for DNS..."
+        if (selfDns.isEmpty()) return context.getString(R.string.serve_waiting_dns)
         val realProto = if (isFunnel) "https" else protocol
         val baseDns = if (serviceName != null) {
             val parts = selfDns.split(".", limit = 2)
@@ -220,24 +221,24 @@ fun ServeScreen(onBack: () -> Unit) {
         topBar = {
             Column {
                 TopAppBar(
-                    title = { Text("Serve & Funnel") },
+                    title = { Text(stringResource(R.string.serve_title)) },
                     navigationIcon = {
-                        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+                        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back)) }
                     },
                     actions = {
                         if (selfDns.isNotEmpty()) {
                             IconButton(onClick = { showCertExportDialog = true }) { 
-                                Icon(Icons.Default.Security, "Export HTTPS Cert") 
+                                Icon(Icons.Default.Security, stringResource(R.string.serve_cd_export_cert)) 
                             }
                         }
-                        IconButton(onClick = { showClearDialog = true }) { Icon(Icons.Default.DeleteSweep, "Clear All") }
-                        IconButton(onClick = { refresh() }) { Icon(Icons.Default.Refresh, "Refresh") }
+                        IconButton(onClick = { showClearDialog = true }) { Icon(Icons.Default.DeleteSweep, stringResource(R.string.serve_cd_clear_all)) }
+                        IconButton(onClick = { refresh() }) { Icon(Icons.Default.Refresh, stringResource(R.string.action_refresh)) }
                     }
                 )
                 TabRow(selectedTabIndex = pagerState.currentPage) {
-                    Tab(selected = pagerState.currentPage == 0, onClick = { scope.launch { pagerState.animateScrollToPage(0) } }, text = { Text("Serve") })
-                    Tab(selected = pagerState.currentPage == 1, onClick = { scope.launch { pagerState.animateScrollToPage(1) } }, text = { Text("Funnel") })
-                    Tab(selected = pagerState.currentPage == 2, onClick = { scope.launch { pagerState.animateScrollToPage(2) } }, text = { Text("Logs") })
+                    Tab(selected = pagerState.currentPage == 0, onClick = { scope.launch { pagerState.animateScrollToPage(0) } }, text = { Text(stringResource(R.string.serve_tab_serve)) })
+                    Tab(selected = pagerState.currentPage == 1, onClick = { scope.launch { pagerState.animateScrollToPage(1) } }, text = { Text(stringResource(R.string.serve_tab_funnel)) })
+                    Tab(selected = pagerState.currentPage == 2, onClick = { scope.launch { pagerState.animateScrollToPage(2) } }, text = { Text(stringResource(R.string.serve_tab_logs)) })
                 }
             }
         },
@@ -248,7 +249,7 @@ fun ServeScreen(onBack: () -> Unit) {
                     port = if (pagerState.currentPage == 1) "443" else "10000"
                 ) 
             }) {
-                Icon(Icons.Default.Add, "Add Rule")
+                Icon(Icons.Default.Add, stringResource(R.string.serve_cd_add_rule))
             }
         }
     ) { padding ->
@@ -269,7 +270,7 @@ fun ServeScreen(onBack: () -> Unit) {
                         Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                             Icon(Icons.Default.List, null, modifier = Modifier.size(64.dp), tint = Color.Gray)
                             Spacer(Modifier.height(16.dp))
-                            Text("No request logs found", style = MaterialTheme.typography.bodyLarge, color = Color.Gray)
+                            Text(stringResource(R.string.serve_no_logs), style = MaterialTheme.typography.bodyLarge, color = Color.Gray)
                         }
                     } else {
                         LazyColumn(
@@ -320,7 +321,7 @@ fun ServeScreen(onBack: () -> Unit) {
 
                         val card = @Composable {
                             ServeRuleCard(
-                                title = "Node Port $port",
+                                title = context.getString(R.string.serve_node_port_format, port.toString()),
                                 subtitle = detailText,
                                 fullUrl = getLink(port, protocol, isFunnel),
                                 protocol = if (isWeb) protocol.uppercase() else "TCP",
@@ -351,7 +352,7 @@ fun ServeScreen(onBack: () -> Unit) {
                                 },
                                 onCopy = { 
                                     clipboard.setText(AnnotatedString(getLink(port, protocol, isFunnel)))
-                                    Toast.makeText(context, "Link copied!", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.getString(R.string.serve_link_copied), Toast.LENGTH_SHORT).show()
                                 },
                                 onDelete = { 
                                     val newTcp = config?.tcp?.toMutableMap() ?: mutableMapOf()
@@ -402,7 +403,7 @@ fun ServeScreen(onBack: () -> Unit) {
 
                             serveItems.add {
                                 ServeRuleCard(
-                                    title = "Service: $cleanSvcName (Port $port)",
+                                    title = context.getString(R.string.serve_service_port_format, cleanSvcName, port.toString()),
                                     subtitle = detailText,
                                     fullUrl = getLink(port, protocol, false, cleanSvcName),
                                     protocol = if (isWeb) protocol.uppercase() else "TCP",
@@ -435,7 +436,7 @@ fun ServeScreen(onBack: () -> Unit) {
                                     },
                                     onCopy = { 
                                         clipboard.setText(AnnotatedString(getLink(port, protocol, false, cleanSvcName)))
-                                        Toast.makeText(context, "Link copied!", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.serve_link_copied), Toast.LENGTH_SHORT).show()
                                     },
                                     onDelete = { 
                                         val newServices = config?.services?.toMutableMap() ?: mutableMapOf()
@@ -453,7 +454,7 @@ fun ServeScreen(onBack: () -> Unit) {
                         Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                             Icon(if (isFunnelTab) Icons.Default.Language else Icons.Default.PublicOff, null, modifier = Modifier.size(64.dp), tint = Color.Gray)
                             Spacer(Modifier.height(16.dp))
-                            Text(if (isFunnelTab) "No active Funnel rules" else "No active Serve rules", style = MaterialTheme.typography.bodyLarge, color = Color.Gray)
+                            Text(if (isFunnelTab) stringResource(R.string.serve_no_funnel_rules) else stringResource(R.string.serve_no_serve_rules), style = MaterialTheme.typography.bodyLarge, color = Color.Gray)
                         }
                     } else {
                         LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -587,8 +588,8 @@ fun ServeScreen(onBack: () -> Unit) {
     if (showClearDialog) {
         AlertDialog(
             onDismissRequest = { showClearDialog = false },
-            title = { Text("Clear Serve & Funnel?") },
-            text = { Text("This will aggressively purge all local and remote Serve/Funnel configurations for this node. Are you sure?") },
+            title = { Text(stringResource(R.string.serve_clear_title)) },
+            text = { Text(stringResource(R.string.serve_clear_text)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -596,21 +597,21 @@ fun ServeScreen(onBack: () -> Unit) {
                         saveConfig(ServeConfig(etag = config?.etag))
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) { Text("Purge") }
+                ) { Text(stringResource(R.string.serve_clear_confirm)) }
             },
-            dismissButton = { TextButton(onClick = { showClearDialog = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { showClearDialog = false }) { Text(stringResource(R.string.action_cancel)) } }
         )
     }
 
     if (showCertExportDialog) {
         AlertDialog(
             onDismissRequest = { showCertExportDialog = false },
-            title = { Text("Export HTTPS Certificate") },
-            text = { Text("You are exporting the Let's Encrypt TLS certificate and private key pair for $selfDns.\n\nChoose how you want to export it:") },
+            title = { Text(stringResource(R.string.serve_export_title)) },
+            text = { Text(stringResource(R.string.serve_export_text_format, selfDns)) },
             confirmButton = {
                 Button(onClick = {
                     scope.launch(Dispatchers.IO) {
-                        val pemData = try { Appctr.getCertificatePair(selfDns) } catch (e: Exception) { "Error: ${e.message}" }
+                        val pemData = try { Appctr.getCertificatePair(selfDns) } catch (e: Exception) { context.getString(R.string.serve_error_format, e.message) }
                         withContext(Dispatchers.Main) {
                             if (pemData.startsWith("Error")) {
                                 Toast.makeText(context, pemData, Toast.LENGTH_LONG).show()
@@ -624,19 +625,19 @@ fun ServeScreen(onBack: () -> Unit) {
                 }) { 
                     Icon(Icons.Default.Download, null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Save to File") 
+                    Text(stringResource(R.string.serve_export_save_file)) 
                 }
             },
             dismissButton = {
                 TextButton(onClick = {
                     scope.launch(Dispatchers.IO) {
-                        val pemData = try { Appctr.getCertificatePair(selfDns) } catch (e: Exception) { "Error: ${e.message}" }
+                        val pemData = try { Appctr.getCertificatePair(selfDns) } catch (e: Exception) { context.getString(R.string.serve_error_format, e.message) }
                         withContext(Dispatchers.Main) {
                             if (pemData.startsWith("Error")) {
                                 Toast.makeText(context, pemData, Toast.LENGTH_LONG).show()
                             } else {
                                 clipboard.setText(AnnotatedString(pemData))
-                                Toast.makeText(context, "Certificate copied to clipboard!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.serve_cert_copied), Toast.LENGTH_SHORT).show()
                             }
                         }
                     }
@@ -644,7 +645,7 @@ fun ServeScreen(onBack: () -> Unit) {
                 }) { 
                     Icon(Icons.Default.ContentCopy, null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Copy to Clipboard") 
+                    Text(stringResource(R.string.serve_export_copy_clipboard)) 
                 }
             }
         )
@@ -742,25 +743,32 @@ fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm
     var isDisabled by remember { mutableStateOf(data.isDisabled) }
     var proxyProtocol by remember { mutableIntStateOf(data.proxyProtocol) }
 
+    val dialogTitle = when {
+        data.isEditing && data.isFunnel -> stringResource(R.string.serve_dialog_edit_funnel_title)
+        data.isEditing && !data.isFunnel -> stringResource(R.string.serve_dialog_edit_serve_title)
+        !data.isEditing && data.isFunnel -> stringResource(R.string.serve_dialog_add_funnel_title)
+        else -> stringResource(R.string.serve_dialog_add_serve_title)
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (data.isEditing) "Edit ${if (data.isFunnel) "Funnel" else "Serve"} Rule" else "Add ${if (data.isFunnel) "Funnel" else "Serve"} Rule") },
+        title = { Text(dialogTitle) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (!data.isFunnel) {
                     OutlinedTextField(
                         value = serviceName,
                         onValueChange = { serviceName = it },
-                        label = { Text("Service Name (optional)") },
-                        placeholder = { Text("e.g. webapp") },
-                        supportingText = { Text("Leave empty for Device-scoped rule") },
+                        label = { Text(stringResource(R.string.serve_field_service_name)) },
+                        placeholder = { Text(stringResource(R.string.serve_field_service_placeholder)) },
+                        supportingText = { Text(stringResource(R.string.serve_field_service_hint)) },
                         enabled = !data.isEditing,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
                 
                 Column {
-                    Text("Mode", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                    Text(stringResource(R.string.serve_field_mode), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf("Web", "TCP").forEach { m ->
                             FilterChip(
@@ -778,7 +786,7 @@ fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm
 
                 if (mode == "Web") {
                     Column {
-                        Text("Transport", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                        Text(stringResource(R.string.serve_field_transport), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             // Funnel forces HTTPS
                             val transports = if (data.isFunnel) listOf("HTTPS") else listOf("HTTPS", "HTTP")
@@ -797,7 +805,7 @@ fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm
                     }
 
                     Column {
-                        Text("Handler Type", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                        Text(stringResource(R.string.serve_field_handler), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
                             listOf("Proxy", "Text", "Redirect").forEach { h ->
                                 FilterChip(
@@ -810,7 +818,7 @@ fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm
                     }
                 } else {
                     Column {
-                        Text("Proxy Protocol", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                        Text(stringResource(R.string.serve_field_proxy_proto), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             listOf(0 to "None", 1 to "v1", 2 to "v2").forEach { (v, label) ->
                                 FilterChip(
@@ -825,29 +833,31 @@ fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = isDisabled, onCheckedChange = { isDisabled = it })
-                    Text("Disable Rule (Offline)", modifier = Modifier.clickable { isDisabled = !isDisabled })
+                    Text(stringResource(R.string.serve_field_disable), modifier = Modifier.clickable { isDisabled = !isDisabled })
                 }
                 
+                val portLabel = stringResource(R.string.serve_field_port)
+                val portSupportingText = if (data.isFunnel) stringResource(R.string.serve_field_port_hint_funnel) else stringResource(R.string.serve_field_port_hint_serve)
                 OutlinedTextField(
                     value = port, 
                     onValueChange = { port = it }, 
-                    label = { Text("Tailscale Port") },
-                    supportingText = { Text(if (data.isFunnel) "Funnel supports: 443, 8443, 10000" else "Any port for internal Serve") },
+                    label = { Text(portLabel) },
+                    supportingText = { Text(portSupportingText) },
                     enabled = !data.isEditing,
                     modifier = Modifier.fillMaxWidth()
                 )
+                
+                val targetLabel = when {
+                    mode == "TCP" -> stringResource(R.string.serve_field_target_tcp)
+                    handlerType == "Proxy" -> stringResource(R.string.serve_field_target_proxy)
+                    handlerType == "Text" -> stringResource(R.string.serve_field_target_text)
+                    handlerType == "Redirect" -> stringResource(R.string.serve_field_target_redirect)
+                    else -> stringResource(R.string.serve_field_target)
+                }
                 OutlinedTextField(
                     value = target, 
                     onValueChange = { target = it }, 
-                    label = { 
-                        Text(when {
-                            mode == "TCP" -> "Target Address (e.g. 127.0.0.1:8080)"
-                            handlerType == "Proxy" -> "Target URL (e.g. 127.0.0.1:80)"
-                            handlerType == "Text" -> "Text content"
-                            handlerType == "Redirect" -> "Destination URL (e.g. https://google.com)"
-                            else -> "Target"
-                        })
-                    },
+                    label = { Text(targetLabel) },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -856,15 +866,15 @@ fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm
             Button(onClick = { 
                 val p = port.toIntOrNull() ?: 10000
                 if (data.isFunnel && p !in listOf(443, 8443, 10000)) {
-                    Toast.makeText(context, "Funnel only supports ports 443, 8443, 10000", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, context.getString(R.string.serve_funnel_port_error), Toast.LENGTH_LONG).show()
                 } else {
                     onConfirm(p, target, mode, transport, handlerType, serviceName, isDisabled, proxyProtocol)
                 }
-            }) { Text(if (data.isEditing) "Save" else "Add") }
+            }) { Text(if (data.isEditing) stringResource(R.string.action_save) else stringResource(R.string.action_add)) }
         },
 
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
         }
     )
 }
