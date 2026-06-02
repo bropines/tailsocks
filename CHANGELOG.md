@@ -3,6 +3,11 @@
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
 ## [2.2.1] - 2026-06-02
+### Added
+- Added premium Material 3 dashboard interface for Network Diagnostics (Netcheck), displaying structured cards for protocol capabilities, NAT type, and public IP/port details.
+- Added sorted DERP latency list with visual latency meter quality bars, nearest/preferred region markers, and region name resolution.
+- Enriched JNI netcheck payload in Go bridge with full DERP map regions metadata mapped from tailcfg.DERPMap.
+
 ### Fixed
 - Fixed localization desync in biometric prompts, system toasts, and non-Compose dialogs by overriding `attachBaseContext` in all Activities to apply the user-selected locale.
 
