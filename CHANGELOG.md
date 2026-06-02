@@ -5,7 +5,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 ## [2.1.6-beta] - 2026-06-02
 ### Added
 - Added horizontal scrolling synchronization (Carousel sync) for tab FilterChips following HorizontalPager page changes.
-- Added System Logs viewer tab inside the Admin Console, supporting real-time local logs polling, categorization, keyword search, copy to clipboard, and backup saving.
+- Added Configuration Audit Logs viewer tab inside the Admin Console, supporting real-time tailnet configuration logging queries (range of 1, 3, 7, 14, or 30 days), action filters (CREATE, UPDATE, DELETE), and keyword search.
 - Added Web Links tab consolidating all secure-only web administration actions (Billing, SSO/IdP, ACLs, Tailnet Lock, Apps, Domain Rename).
 - Added client update trigger support via POST /device/{id}/update-status (unofficial API endpoint) with seamless browser fallback to machine details page.
 - Added customizable sorting modes (by Name A-Z, Name Z-A, Last Seen, and Update Available) on the Devices tab.
