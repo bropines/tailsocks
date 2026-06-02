@@ -1,5 +1,6 @@
 package io.github.bropines.tailscaled.admin
 
+import io.github.bropines.tailscaled.R
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable

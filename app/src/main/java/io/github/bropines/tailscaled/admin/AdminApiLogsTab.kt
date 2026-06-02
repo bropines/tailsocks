@@ -1,5 +1,6 @@
 package io.github.bropines.tailscaled.admin
 
+import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.*
 import io.github.bropines.tailscaled.models.*
 import io.github.bropines.tailscaled.ui.*
