@@ -39,6 +39,10 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import appctr.Appctr
@@ -442,4 +446,130 @@ fun openTaildropFile(context: Context, file: TaildropFile) {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
         }, context.getString(R.string.files_open_file_chooser)))
     } catch (e: Exception) { Toast.makeText(context, context.getString(R.string.files_error_cant_open, e.message), Toast.LENGTH_SHORT).show() }
+}
+
+fun highlightLogMessage(
+    timestamp: String,
+    category: String,
+    message: String,
+    defaultColor: Color
+): AnnotatedString {
+    return buildAnnotatedString {
+        withStyle(style = SpanStyle(color = Color(0xFF757575))) {
+            append(timestamp)
+            append(" ")
+        }
+
+        val catColor = when (category) {
+            "ERROR" -> Color(0xFFEF5350)
+            "CORE" -> Color(0xFF42A5F5)
+            "TAILSCALE" -> Color(0xFF66BB6A)
+            else -> Color(0xFFFFA726)
+        }
+        withStyle(style = SpanStyle(color = catColor, fontWeight = FontWeight.Bold)) {
+            append("[")
+            append(category)
+            append("] ")
+        }
+
+        val ipRegex = """\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?\b""".toRegex()
+        val ipv6Regex = """\b([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b""".toRegex()
+        val keyValueRegex = """\b([a-zA-Z0-9_\-]+)=([^\s]+)\b""".toRegex()
+        
+        val successKeywords = setOf("success", "successful", "ok", "online", "active", "connected", "working", "available", "healthy")
+        val errorKeywords = setOf("error", "failed", "fail", "blocked", "offline", "unavailable", "unreachable", "exception", "panic", "warning", "warn")
+
+        val text = message
+        var lastIdx = 0
+        
+        val matches = (ipRegex.findAll(text) + ipv6Regex.findAll(text) + keyValueRegex.findAll(text))
+            .sortedBy { it.range.first }
+            .toList()
+
+        val nonOverlappingMatches = mutableListOf<MatchResult>()
+        for (match in matches) {
+            if (nonOverlappingMatches.isEmpty() || match.range.first >= nonOverlappingMatches.last().range.last + 1) {
+                nonOverlappingMatches.add(match)
+            }
+        }
+
+        for (match in nonOverlappingMatches) {
+            val start = match.range.first
+            val end = match.range.last + 1
+            
+            appendWithKeywords(text.substring(lastIdx, start), defaultColor, successKeywords, errorKeywords)
+            
+            val matchText = match.value
+            if (ipRegex.matches(matchText) || ipv6Regex.matches(matchText)) {
+                withStyle(style = SpanStyle(color = Color(0xFF80DEEA), fontWeight = FontWeight.Medium)) {
+                    append(matchText)
+                }
+            } else {
+                val parts = matchText.split("=", limit = 2)
+                if (parts.size == 2) {
+                    withStyle(style = SpanStyle(color = Color(0xFFFFCC80))) {
+                        append(parts[0])
+                        append("=")
+                    }
+                    val valText = parts[1]
+                    val valColor = when {
+                        valText.lowercase() in successKeywords -> Color(0xFFA5D6A7)
+                        valText.lowercase() in errorKeywords -> Color(0xFFEF9A9A)
+                        valText.all { it.isDigit() || it == '.' || it == ':' || it == 'm' || it == 's' } -> Color(0xFFB39DDB)
+                        else -> Color(0xFFEEEEEE)
+                    }
+                    withStyle(style = SpanStyle(color = valColor)) {
+                        append(valText)
+                    }
+                } else {
+                    append(matchText)
+                }
+            }
+            lastIdx = end
+        }
+        
+        if (lastIdx < text.length) {
+            appendWithKeywords(text.substring(lastIdx), defaultColor, successKeywords, errorKeywords)
+        }
+    }
+}
+
+private fun AnnotatedString.Builder.appendWithKeywords(
+    text: String,
+    defaultColor: Color,
+    successKeywords: Set<String>,
+    errorKeywords: Set<String>
+) {
+    val wordRegex = """\b[a-zA-Z_]+\b""".toRegex()
+    var lastIdx = 0
+    val matches = wordRegex.findAll(text).toList()
+    
+    for (match in matches) {
+        val start = match.range.first
+        val end = match.range.last + 1
+        
+        if (start > lastIdx) {
+            withStyle(style = SpanStyle(color = defaultColor)) {
+                append(text.substring(lastIdx, start))
+            }
+        }
+        
+        val word = match.value
+        val lowerWord = word.lowercase()
+        val wordColor = when {
+            lowerWord in successKeywords -> Color(0xFF81C784)
+            lowerWord in errorKeywords -> Color(0xFFE57373)
+            else -> defaultColor
+        }
+        withStyle(style = SpanStyle(color = wordColor, fontWeight = if (wordColor != defaultColor) FontWeight.Bold else FontWeight.Normal)) {
+            append(word)
+        }
+        lastIdx = end
+    }
+    
+    if (lastIdx < text.length) {
+        withStyle(style = SpanStyle(color = defaultColor)) {
+            append(text.substring(lastIdx))
+        }
+    }
 }

@@ -247,12 +247,14 @@ fun LogsScreen(onBack: () -> Unit) {
                     }
                 ) {
                     items(displayedLogs) { log ->
-                        val textColor = if (log.category == "ERROR") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                        val defaultColor = MaterialTheme.colorScheme.onSurface
+                        val highlightedText = remember(log, defaultColor) {
+                            highlightLogMessage(log.timestamp, log.category, log.message, defaultColor)
+                        }
                         Text(
-                            text = "${log.timestamp} [${log.category}] ${log.message}",
+                            text = highlightedText,
                             fontFamily = FontFamily.Monospace,
                             fontSize = (12 * scale).sp,
-                            color = textColor,
                             modifier = Modifier.padding(vertical = 2.dp)
                         )
                     }

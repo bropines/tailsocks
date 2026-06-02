@@ -17,6 +17,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -240,10 +241,38 @@ fun ServeScreen(onBack: () -> Unit) {
                         IconButton(onClick = { refresh() }) { Icon(Icons.Default.Refresh, stringResource(R.string.action_refresh)) }
                     }
                 )
-                TabRow(selectedTabIndex = pagerState.currentPage) {
-                    Tab(selected = pagerState.currentPage == 0, onClick = { scope.launch { pagerState.animateScrollToPage(0) } }, text = { Text(stringResource(R.string.serve_tab_serve)) })
-                    Tab(selected = pagerState.currentPage == 1, onClick = { scope.launch { pagerState.animateScrollToPage(1) } }, text = { Text(stringResource(R.string.serve_tab_funnel)) })
-                    Tab(selected = pagerState.currentPage == 2, onClick = { scope.launch { pagerState.animateScrollToPage(2) } }, text = { Text(stringResource(R.string.serve_tab_logs)) })
+                val serveTabs = listOf(
+                    stringResource(R.string.serve_tab_serve),
+                    stringResource(R.string.serve_tab_funnel),
+                    stringResource(R.string.serve_tab_logs)
+                )
+                val listState = rememberLazyListState()
+                LaunchedEffect(pagerState.currentPage) {
+                    listState.animateScrollToItem(pagerState.currentPage)
+                }
+                LazyRow(
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    items(serveTabs.size) { index ->
+                        FilterChip(
+                            selected = pagerState.currentPage == index,
+                            onClick = {
+                                scope.launch {
+                                    pagerState.animateScrollToPage(index)
+                                }
+                            },
+                            label = { Text(serveTabs[index]) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        )
+                    }
                 }
             }
         },
@@ -283,12 +312,14 @@ fun ServeScreen(onBack: () -> Unit) {
                             modifier = Modifier.fillMaxSize().padding(16.dp)
                         ) {
                             items(serveLogs) { log ->
-                                val textColor = if (log.category == "ERROR") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                                val defaultColor = MaterialTheme.colorScheme.onSurface
+                                val highlightedText = remember(log, defaultColor) {
+                                    highlightLogMessage(log.timestamp, log.category, log.message, defaultColor)
+                                }
                                 Text(
-                                    text = "${log.timestamp} ${log.message}",
+                                    text = highlightedText,
                                     fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                                     fontSize = 11.sp,
-                                    color = textColor,
                                     modifier = Modifier.padding(vertical = 2.dp)
                                 )
                             }

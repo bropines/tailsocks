@@ -9,6 +9,8 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -132,13 +134,13 @@ fun SettingsScreen(
     val profilePrefs = remember(activeAccount.id) { context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE) }
     
     // Tab Navigation State
-    var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf(
         Pair(stringResource(R.string.settings_tab_app), Icons.Default.Palette),
         Pair(stringResource(R.string.settings_tab_network), Icons.Default.Language),
         Pair(stringResource(R.string.settings_tab_core), Icons.Default.Tune),
         Pair(stringResource(R.string.settings_tab_profile), Icons.Default.AccountCircle)
     )
+    val pagerState = rememberPagerState(pageCount = { tabs.size })
 
     // Global Settings
     var taildropRootUri by remember { mutableStateOf(GlobalSettings.getTaildropRootUri(context)) }
@@ -432,8 +434,8 @@ fun SettingsScreen(
         ) {
             // Modern Tab Layout using Chips
             val listState = rememberLazyListState()
-            LaunchedEffect(selectedTab) {
-                listState.animateScrollToItem(selectedTab)
+            LaunchedEffect(pagerState.currentPage) {
+                listState.animateScrollToItem(pagerState.currentPage)
             }
             LazyRow(
                 state = listState,
@@ -446,8 +448,12 @@ fun SettingsScreen(
                 items(tabs.size) { index ->
                     val (title, icon) = tabs[index]
                     FilterChip(
-                        selected = selectedTab == index,
-                        onClick = { selectedTab = index },
+                        selected = pagerState.currentPage == index,
+                        onClick = {
+                            scope.launch {
+                                pagerState.animateScrollToPage(index)
+                            }
+                        },
                         label = { Text(title) },
                         leadingIcon = { Icon(icon, null, modifier = Modifier.size(16.dp)) },
                         colors = FilterChipDefaults.filterChipColors(
@@ -458,24 +464,19 @@ fun SettingsScreen(
                 }
             }
 
-            // Animated Tab Content transitions
-            AnimatedContent(
-                targetState = selectedTab,
-                transitionSpec = {
-                    fadeIn() togetherWith fadeOut()
-                },
+            HorizontalPager(
+                state = pagerState,
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxWidth(),
-                label = "TabTransition"
-            ) { targetTab ->
+                    .fillMaxWidth()
+            ) { page ->
                 Column(
-                    Modifier
+                    modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
                         .padding(16.dp)
                 ) {
-                    when (targetTab) {
+                    when (page) {
                         0 -> { // TAB 0: Personalization & System
                             SettingsCard(title = stringResource(R.string.settings_sect_personalization)) {
                                 // Theme selector (Chips row)
