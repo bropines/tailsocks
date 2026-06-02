@@ -26,6 +26,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -272,6 +273,4 @@ fun AdminApiLogsTabContent() {
     }
 }
 
-fun Modifier.scaleCompact(scaleVal: Float): Modifier = this.then(
-    androidx.compose.ui.draw.scale(scaleVal)
-)
+fun Modifier.scaleCompact(scaleVal: Float): Modifier = this.scale(scaleVal)
