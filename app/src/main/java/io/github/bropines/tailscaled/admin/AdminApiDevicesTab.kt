@@ -103,6 +103,19 @@ fun DeviceRow(
             }
             
             Spacer(Modifier.width(8.dp))
+            if (device.updateAvailable == true) {
+                Text(
+                    "Update",
+                    fontSize = 10.sp,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color(0xFF2196F3))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+            }
             // Status marker
             if (isExpired) {
                 Text(
@@ -250,6 +263,28 @@ fun DeviceDetailBottomSheet(
                     DetailRow("Authorization", if (device.authorized == true) "Approved" else "Required")
                     if (!device.tags.isNullOrEmpty()) {
                         DetailRow("Tags", device.tags.joinToString(", "))
+                    }
+                }
+            }
+
+            if (device.updateAvailable == true) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(Icons.Default.SystemUpdate, null)
+                        Column {
+                            Text("Update Available", fontWeight = FontWeight.Bold)
+                            Text("A client version upgrade is available for this device (Current: ${device.clientVersion ?: "N/A"}).", fontSize = 11.sp)
+                        }
                     }
                 }
             }
