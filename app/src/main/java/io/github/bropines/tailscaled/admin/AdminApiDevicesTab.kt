@@ -65,7 +65,7 @@ fun DevicesTabContent(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "${devices.size} devices",
+                text = stringResource(R.string.admin_devices_count, devices.size),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.outline
             )
