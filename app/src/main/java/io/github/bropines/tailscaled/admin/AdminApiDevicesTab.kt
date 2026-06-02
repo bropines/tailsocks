@@ -293,18 +293,28 @@ fun DeviceDetailBottomSheet(
                     onClick = { showRenameDialog = true },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Icon(Icons.Default.Edit, null)
+                    Icon(Icons.Default.Edit, null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text(stringResource(R.string.admin_device_btn_rename))
+                    Text(
+                        stringResource(R.string.admin_device_btn_rename),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.labelMedium
+                    )
                 }
 
                 OutlinedButton(
                     onClick = { showTagsDialog = true },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.Label, null)
+                    Icon(Icons.AutoMirrored.Filled.Label, null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text(stringResource(R.string.admin_device_btn_tags))
+                    Text(
+                        stringResource(R.string.admin_device_btn_tags),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.labelMedium
+                    )
                 }
             }
 

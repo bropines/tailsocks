@@ -5,6 +5,7 @@ import io.github.bropines.tailscaled.core.*
 
 import android.content.Context
 import android.os.Build
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -300,9 +301,26 @@ fun TailSocksTheme(
             }
         }
     }
- 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        content = content
-    )
+
+    val currentLocales = AppCompatDelegate.getApplicationLocales()
+    val currentLang = if (currentLocales.isEmpty) "sys" else currentLocales.get(0)?.language ?: "sys"
+    
+    val localeContext = remember(context, currentLang) {
+        if (currentLang == "sys") {
+            context
+        } else {
+            val locale = java.util.Locale(currentLang)
+            java.util.Locale.setDefault(locale)
+            val config = android.content.res.Configuration(context.resources.configuration)
+            config.setLocale(locale)
+            context.createConfigurationContext(config)
+        }
+    }
+
+    CompositionLocalProvider(LocalContext provides localeContext) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            content = content
+        )
+    }
 }

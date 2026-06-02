@@ -529,6 +529,7 @@ fun SettingsScreen(
                                                         LocaleListCompat.forLanguageTags(id)
                                                     }
                                                     AppCompatDelegate.setApplicationLocales(localeList)
+                                                    (context as? android.app.Activity)?.recreate()
                                                 },
                                                 label = { Text(label) },
                                                 leadingIcon = { Icon(icon, null, modifier = Modifier.size(16.dp)) },

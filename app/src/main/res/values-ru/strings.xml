@@ -187,7 +187,7 @@
     <string name="admin_devices_status_pending">Ожидание</string>
 
     <!-- Admin: Device detail bottom sheet -->
-    <string name="admin_device_btn_rename">Переименовать</string>
+    <string name="admin_device_btn_rename">Пере-вать</string>
     <string name="admin_device_btn_tags">Теги</string>
     <string name="admin_device_detail_full_name">Полное имя</string>
     <string name="admin_device_detail_ip">IP-адрес</string>
