@@ -504,7 +504,7 @@ fun SettingsScreen(
                                 }
  
                                 // Language selector (Chips row)
-                                val currentLang = remember { GlobalSettings.getString(context, "app_locale", "sys") }
+                                var currentLang by remember { mutableStateOf(GlobalSettings.getString(context, "app_locale", "sys")) }
                                 val languageOptions = listOf(
                                     Triple("sys", Icons.Default.Language, stringResource(R.string.settings_lang_sys)),
                                     Triple("en", Icons.Default.Language, stringResource(R.string.settings_lang_en)),
@@ -523,6 +523,7 @@ fun SettingsScreen(
                                             FilterChip(
                                                 selected = isSelected,
                                                 onClick = {
+                                                    currentLang = id
                                                     GlobalSettings.setString(context, "app_locale", id)
                                                     val localeList = if (id == "sys") {
                                                         LocaleListCompat.getEmptyLocaleList()
