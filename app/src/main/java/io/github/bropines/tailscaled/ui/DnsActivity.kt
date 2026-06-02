@@ -1,6 +1,7 @@
 package io.github.bropines.tailscaled.ui
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.BuildConfig
+import androidx.compose.ui.res.stringResource
 
 import io.github.bropines.tailscaled.admin.*
 import io.github.bropines.tailscaled.core.*
@@ -92,7 +93,7 @@ fun DnsScreen(onBack: () -> Unit) {
             if (!Appctr.isRunning()) {
                 withContext(Dispatchers.Main) {
                     status = null
-                    errorText = "Tailscale is not running.\nStart the service on the main screen."
+                    errorText = context.getString(R.string.dns_error_not_running)
                     loading = false
                 }
                 return@launch
@@ -107,7 +108,7 @@ fun DnsScreen(onBack: () -> Unit) {
             withContext(Dispatchers.Main) {
                 status = parsed
                 if (parsed == null) {
-                    errorText = "Failed to parse DNS status.\n\nRaw output:\n$json"
+                    errorText = context.getString(R.string.dns_error_parse_failed, json)
                 }
                 loading = false
             }
@@ -121,7 +122,7 @@ fun DnsScreen(onBack: () -> Unit) {
         scope.launch(Dispatchers.IO) {
             val out = try {
                 Appctr.nativeDnsQuery(domain.trim(), "A")
-            } catch (e: Exception) { "Error: ${e.message}" }
+            } catch (e: Exception) { context.getString(R.string.error_generic, e.message) }
             withContext(Dispatchers.Main) {
                 queryResult = out.trim()
                 isQuerying = false
@@ -134,7 +135,7 @@ fun DnsScreen(onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("DNS Management") },
+                title = { Text(stringResource(R.string.dns_title)) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) } },
                 actions = { IconButton(onClick = { refresh(doFlush = true) }) { Icon(Icons.Default.Refresh, null) } }
             )
@@ -153,7 +154,7 @@ fun DnsScreen(onBack: () -> Unit) {
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(
-                                "⚠ DNS Status Unavailable",
+                                stringResource(R.string.dns_status_unavailable),
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onErrorContainer
                             )
@@ -178,14 +179,14 @@ fun DnsScreen(onBack: () -> Unit) {
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text("DNS Lookup Tool", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                        Text(stringResource(R.string.dns_lookup_tool), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
                         Spacer(Modifier.height(8.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             OutlinedTextField(
                                 value = queryDomain,
                                 onValueChange = { queryDomain = it },
                                 modifier = Modifier.weight(1f),
-                                placeholder = { Text("e.g. peer.ts.net or google.com") },
+                                placeholder = { Text(stringResource(R.string.dns_lookup_placeholder)) },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                                 keyboardActions = KeyboardActions(onSearch = { performQuery(queryDomain) })
@@ -198,7 +199,7 @@ fun DnsScreen(onBack: () -> Unit) {
                                 if (isQuerying) {
                                     CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
                                 } else {
-                                    Icon(Icons.Default.Search, contentDescription = "Query")
+                                    Icon(Icons.Default.Search, contentDescription = stringResource(R.string.dns_cd_query))
                                 }
                             }
                         }
@@ -220,7 +221,7 @@ fun DnsScreen(onBack: () -> Unit) {
                     }
                 }
                 Spacer(Modifier.height(24.dp))
-                Text("Configuration Status", fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                Text(stringResource(R.string.dns_config_status), fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
             }
 
             // 2. СТАТУС
@@ -228,8 +229,8 @@ fun DnsScreen(onBack: () -> Unit) {
                 item {
                     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Text("Global State", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                            Text("Active: ${data.active}\nMagicDNS: ${data.tailnet?.enabled}", fontFamily = FontFamily.Monospace, fontSize = 14.sp)
+                            Text(stringResource(R.string.dns_global_state), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            Text(stringResource(R.string.dns_global_state_format, data.active ?: false, data.tailnet?.enabled ?: false), fontFamily = FontFamily.Monospace, fontSize = 14.sp)
                         }
                     }
                     Spacer(Modifier.height(16.dp))
@@ -238,16 +239,16 @@ fun DnsScreen(onBack: () -> Unit) {
                     item {
                         Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                             Column(modifier = Modifier.padding(16.dp)) {
-                                Text("Split Route", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                                Text(stringResource(R.string.dns_split_route), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     val cleanDomain = domain.trimEnd('.')
                                     Text(cleanDomain, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
                                     IconButton(onClick = {
                                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                                         clipboard.setPrimaryClip(ClipData.newPlainText("Domain", cleanDomain))
-                                        Toast.makeText(context, "Domain copied", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.dns_domain_copied), Toast.LENGTH_SHORT).show()
                                     }, modifier = Modifier.size(32.dp)) { 
-                                        Icon(Icons.Default.ContentCopy, "Copy domain", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary) 
+                                        Icon(Icons.Default.ContentCopy, stringResource(R.string.dns_cd_copy_domain), modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary) 
                                     }
                                 }
                                 Spacer(Modifier.height(8.dp))
@@ -258,12 +259,12 @@ fun DnsScreen(onBack: () -> Unit) {
                                     modifier = Modifier.fillMaxWidth().clickable {
                                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                                         clipboard.setPrimaryClip(ClipData.newPlainText("IPs", ipsText))
-                                        Toast.makeText(context, "IPs copied", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.dns_ips_copied), Toast.LENGTH_SHORT).show()
                                     }
                                 ) {
                                     Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                         Text(ips.joinToString("\n") { "• ${it.addr}" }, fontFamily = FontFamily.Monospace, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                                        Icon(Icons.Default.ContentCopy, "Copy IPs", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.outline)
+                                        Icon(Icons.Default.ContentCopy, stringResource(R.string.dns_cd_copy_ips), modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.outline)
                                     }
                                 }
                             }

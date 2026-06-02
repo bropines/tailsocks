@@ -504,4 +504,56 @@
     <string name="settings_add">Add</string>
     <string name="settings_tailsocks">TailSocks</string>
     <string name="settings_sagernet_copied">SagerNet link copied</string>
+
+    <!-- ======================== Console / Terminal ======================== -->
+    <string name="console_title">Tailscale Terminal</string>
+    <string name="console_cd_toggle_wrap">Toggle Wrap</string>
+    <string name="console_clear_desc">Clear</string>
+    <string name="console_add_preset">+ Add</string>
+    <string name="console_cd_history_up">History Up</string>
+    <string name="console_cd_history_down">History Down</string>
+    <string name="console_placeholder">Command…</string>
+    <string name="console_cd_run">Run</string>
+    <string name="console_new_preset_title">New Preset</string>
+    <string name="console_new_preset_label">e.g. up --ssh</string>
+
+    <!-- ======================== DNS Management ======================== -->
+    <string name="dns_title">DNS Management</string>
+    <string name="dns_error_not_running">Tailscale is not running.\nStart the service on the main screen.</string>
+    <string name="dns_error_parse_failed">Failed to parse DNS status.\n\nRaw output:\n%1$s</string>
+    <string name="dns_status_unavailable">⚠ DNS Status Unavailable</string>
+    <string name="dns_lookup_tool">DNS Lookup Tool</string>
+    <string name="dns_lookup_placeholder">e.g. peer.ts.net or google.com</string>
+    <string name="dns_cd_query">Query</string>
+    <string name="dns_config_status">Configuration Status</string>
+    <string name="dns_global_state">Global State</string>
+    <string name="dns_global_state_format">Active: %1$b\nMagicDNS: %2$b</string>
+    <string name="dns_split_route">Split Route</string>
+    <string name="dns_cd_copy_domain">Copy domain</string>
+    <string name="dns_domain_copied">Domain copied</string>
+    <string name="dns_cd_copy_ips">Copy IPs</string>
+    <string name="dns_ips_copied">IPs copied</string>
+
+    <!-- ======================== Taildrop / Files ======================== -->
+    <string name="files_hub_title">Taildrop Hub</string>
+    <string name="files_cd_taildrive">Taildrive</string>
+    <string name="files_tab_inbox">Inbox</string>
+    <string name="files_tab_devices">Devices</string>
+    <string name="files_tab_history">History</string>
+    <string name="files_empty_inbox">No incoming files</string>
+    <string name="files_empty_devices">No devices</string>
+    <string name="files_empty_history">No history yet</string>
+    <string name="files_use_fab_to_send">Use FAB to send</string>
+    <string name="files_sending">Sending…</string>
+    <string name="files_select_device">Select Device</string>
+    <string name="files_no_devices_found">No devices found</string>
+    <string name="files_saved">Saved</string>
+    <string name="files_auto_save_failed">Auto-save failed: %1$s</string>
+    <string name="files_save_error">Save error: %1$s</string>
+    <string name="files_preparing_format">Preparing %1$s…</string>
+    <string name="files_uploading">Uploading…</string>
+    <string name="files_sent">Sent!</string>
+    <string name="files_error_format">Error: %1$s</string>
+    <string name="files_failed_format">Failed: %1$s</string>
+    <string name="action_refresh">Refresh</string>
 </resources>

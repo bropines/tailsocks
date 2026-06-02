@@ -504,4 +504,56 @@
     <string name="settings_add">Добавить</string>
     <string name="settings_tailsocks">TailSocks</string>
     <string name="settings_sagernet_copied">Ссылка SagerNet скопирована</string>
+
+    <!-- ======================== Console / Terminal ======================== -->
+    <string name="console_title">Терминал Tailscale</string>
+    <string name="console_cd_toggle_wrap">Перенос строк</string>
+    <string name="console_clear_desc">Очистить</string>
+    <string name="console_add_preset">+ Добавить</string>
+    <string name="console_cd_history_up">История вверх</string>
+    <string name="console_cd_history_down">История вниз</string>
+    <string name="console_placeholder">Команда…</string>
+    <string name="console_cd_run">Запустить</string>
+    <string name="console_new_preset_title">Новый шаблон</string>
+    <string name="console_new_preset_label">например, up --ssh</string>
+
+    <!-- ======================== DNS Management ======================== -->
+    <string name="dns_title">Управление DNS</string>
+    <string name="dns_error_not_running">Tailscale не запущен.\nЗапустите службу на главном экране.</string>
+    <string name="dns_error_parse_failed">Не удалось разобрать статус DNS.\n\nИсходный вывод:\n%1$s</string>
+    <string name="dns_status_unavailable">⚠ Статус DNS недоступен</string>
+    <string name="dns_lookup_tool">Инструмент запросов DNS</string>
+    <string name="dns_lookup_placeholder">например, peer.ts.net или google.com</string>
+    <string name="dns_cd_query">Запрос</string>
+    <string name="dns_config_status">Статус конфигурации</string>
+    <string name="dns_global_state">Глобальное состояние</string>
+    <string name="dns_global_state_format">Активно: %1$b\nMagicDNS: %2$b</string>
+    <string name="dns_split_route">Раздельный маршрут</string>
+    <string name="dns_cd_copy_domain">Копировать домен</string>
+    <string name="dns_domain_copied">Домен скопирован</string>
+    <string name="dns_cd_copy_ips">Копировать IP</string>
+    <string name="dns_ips_copied">IP скопированы</string>
+
+    <!-- ======================== Taildrop / Files ======================== -->
+    <string name="files_hub_title">Хаб Taildrop</string>
+    <string name="files_cd_taildrive">Taildrive</string>
+    <string name="files_tab_inbox">Входящие</string>
+    <string name="files_tab_devices">Устройства</string>
+    <string name="files_tab_history">История</string>
+    <string name="files_empty_inbox">Нет входящих файлов</string>
+    <string name="files_empty_devices">Нет устройств</string>
+    <string name="files_empty_history">История пуста</string>
+    <string name="files_use_fab_to_send">Используйте кнопку отправки</string>
+    <string name="files_sending">Отправка…</string>
+    <string name="files_select_device">Выберите устройство</string>
+    <string name="files_no_devices_found">Устройства не найдены</string>
+    <string name="files_saved">Сохранено</string>
+    <string name="files_auto_save_failed">Автосохранение не удалось: %1$s</string>
+    <string name="files_save_error">Ошибка сохранения: %1$s</string>
+    <string name="files_preparing_format">Подготовка %1$s…</string>
+    <string name="files_uploading">Загрузка…</string>
+    <string name="files_sent">Отправлено!</string>
+    <string name="files_error_format">Ошибка: %1$s</string>
+    <string name="files_failed_format">Не удалось: %1$s</string>
+    <string name="action_refresh">Обновить</string>
 </resources>

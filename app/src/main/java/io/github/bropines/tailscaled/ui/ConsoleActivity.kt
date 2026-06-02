@@ -1,6 +1,7 @@
 package io.github.bropines.tailscaled.ui
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.BuildConfig
+import androidx.compose.ui.res.stringResource
 
 import io.github.bropines.tailscaled.admin.*
 import io.github.bropines.tailscaled.core.*
@@ -175,22 +176,22 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
         topBar = {
             Column {
                 TopAppBar(
-                    title = { Text("Tailscale Terminal") },
+                    title = { Text(stringResource(R.string.console_title)) },
                     navigationIcon = {
-                        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+                        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
                     },
                     actions = {
                         IconButton(onClick = { softWrap = !softWrap }) { 
                             Icon(
                                 if (softWrap) Icons.Default.WrapText else Icons.Default.FormatAlignLeft, 
-                                contentDescription = "Toggle Wrap", 
+                                contentDescription = stringResource(R.string.console_cd_toggle_wrap), 
                                 tint = if (softWrap) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                             ) 
                         }
                         IconButton(onClick = {
                             outputText = "$ "
                             if (historyFile.exists()) historyFile.delete()
-                        }) { Icon(Icons.Default.Delete, contentDescription = "Clear", tint = MaterialTheme.colorScheme.error) }
+                        }) { Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.console_clear_desc), tint = MaterialTheme.colorScheme.error) }
                     }
                 )
                 if (isExecuting) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
@@ -200,7 +201,7 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
             Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 8.dp) {
                 Column {
                     LazyRow(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        item { TextButton(onClick = { showAddPresetDialog = true }) { Text("+ Add") } }
+                        item { TextButton(onClick = { showAddPresetDialog = true }) { Text(stringResource(R.string.console_add_preset)) } }
                         val basePresets = listOf("status", "/GET /localapi/v0/status", "/GET /localapi/v0/prefs", "netcheck", "ping 8.8.8.8")
                         items(basePresets + customPresets) { preset ->
                             Surface(
@@ -238,7 +239,7 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
                                     else if (historyPointer > 0) historyPointer--
                                     currentCommand = commandHistory[historyPointer]
                                 }
-                            }) { Icon(Icons.Default.KeyboardArrowUp, contentDescription = "History Up") }
+                            }) { Icon(Icons.Default.KeyboardArrowUp, contentDescription = stringResource(R.string.console_cd_history_up)) }
                             IconButton(onClick = {
                                 if (commandHistory.isNotEmpty() && historyPointer != -1) {
                                     if (historyPointer < commandHistory.size - 1) {
@@ -249,19 +250,19 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
                                         currentCommand = ""
                                     }
                                 }
-                            }) { Icon(Icons.Default.KeyboardArrowDown, contentDescription = "History Down") }
+                            }) { Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(R.string.console_cd_history_down)) }
                         }
                         OutlinedTextField(
                             value = currentCommand,
                             onValueChange = { currentCommand = it },
                             modifier = Modifier.weight(1f).focusRequester(focusRequester),
-                            placeholder = { Text("Command...") },
+                            placeholder = { Text(stringResource(R.string.console_placeholder)) },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                             keyboardActions = KeyboardActions(onDone = { executeCmd(currentCommand) }),
                             shape = RoundedCornerShape(24.dp)
                         )
-                        IconButton(onClick = { executeCmd(currentCommand) }) { Icon(Icons.Default.PlayArrow, contentDescription = "Run", tint = MaterialTheme.colorScheme.primary) }
+                        IconButton(onClick = { executeCmd(currentCommand) }) { Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.console_cd_run), tint = MaterialTheme.colorScheme.primary) }
                     }
                 }
             }
@@ -296,8 +297,8 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
     if (showAddPresetDialog) {
         AlertDialog(
             onDismissRequest = { showAddPresetDialog = false },
-            title = { Text("New Preset") },
-            text = { OutlinedTextField(value = newPresetCmd, onValueChange = { newPresetCmd = it }, label = { Text("e.g. up --ssh") }, singleLine = true) },
+            title = { Text(stringResource(R.string.console_new_preset_title)) },
+            text = { OutlinedTextField(value = newPresetCmd, onValueChange = { newPresetCmd = it }, label = { Text(stringResource(R.string.console_new_preset_label)) }, singleLine = true) },
             confirmButton = {
                 TextButton(onClick = {
                     if (newPresetCmd.isNotBlank()) {
@@ -308,9 +309,9 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
                         newPresetCmd = ""
                     }
                     showAddPresetDialog = false
-                }) { Text("Save") }
+                }) { Text(stringResource(R.string.action_save)) }
             },
-            dismissButton = { TextButton(onClick = { showAddPresetDialog = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { showAddPresetDialog = false }) { Text(stringResource(R.string.action_cancel)) } }
         )
     }
 }
