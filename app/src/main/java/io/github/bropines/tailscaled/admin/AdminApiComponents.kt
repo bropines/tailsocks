@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -60,13 +61,18 @@ fun ProxySettingsDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("API Proxy Settings") },
+        title = { Text(stringResource(R.string.admin_proxy_settings_title)) },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                listOf("DIRECT" to "Direct (No Proxy)", "LOCAL_SOCKS5" to "Tailsocks SOCKS5 Proxy", "CUSTOM_SOCKS5" to "Custom SOCKS5 Proxy").forEach { (modeVal, labelText) ->
+                val proxyOptions = listOf(
+                    "DIRECT" to stringResource(R.string.admin_proxy_direct),
+                    "LOCAL_SOCKS5" to stringResource(R.string.admin_proxy_local_socks5),
+                    "CUSTOM_SOCKS5" to stringResource(R.string.admin_proxy_custom_socks5)
+                )
+                proxyOptions.forEach { (modeVal, labelText) ->
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { proxyMode = modeVal },
                         verticalAlignment = Alignment.CenterVertically
@@ -81,16 +87,16 @@ fun ProxySettingsDialog(
                     OutlinedTextField(
                         value = proxyHost,
                         onValueChange = { proxyHost = it },
-                        label = { Text("SOCKS5 Host") },
-                        placeholder = { Text("e.g. 192.168.1.100") },
+                        label = { Text(stringResource(R.string.admin_proxy_socks5_host)) },
+                        placeholder = { Text(stringResource(R.string.admin_proxy_socks5_host_placeholder)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
                         value = proxyPort,
                         onValueChange = { proxyPort = it },
-                        label = { Text("SOCKS5 Port") },
-                        placeholder = { Text("e.g. 1080") },
+                        label = { Text(stringResource(R.string.admin_proxy_socks5_port)) },
+                        placeholder = { Text(stringResource(R.string.admin_proxy_socks5_port_placeholder)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
@@ -98,20 +104,20 @@ fun ProxySettingsDialog(
                     OutlinedTextField(
                         value = proxyUser,
                         onValueChange = { proxyUser = it },
-                        label = { Text("Proxy Username") },
+                        label = { Text(stringResource(R.string.admin_proxy_username)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
                         value = proxyPass,
                         onValueChange = { proxyPass = it },
-                        label = { Text("Proxy Password") },
+                        label = { Text(stringResource(R.string.admin_proxy_password)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
                 } else if (proxyMode == "LOCAL_SOCKS5") {
                     Text(
-                        "Uses the internal SOCKS5 proxy server. This routes your API calls through the active VPN / Exit Node.",
+                        stringResource(R.string.admin_proxy_local_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.outline
                     )
@@ -123,17 +129,17 @@ fun ProxySettingsDialog(
                 onClick = {
                     val portVal = proxyPort.toIntOrNull() ?: 0
                     if (proxyMode == "CUSTOM_SOCKS5" && (proxyHost.isBlank() || portVal <= 0)) {
-                        Toast.makeText(context, "Valid SOCKS5 host and port are required", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.admin_proxy_socks5_required), Toast.LENGTH_SHORT).show()
                     } else {
                         onSave(proxyMode, proxyHost.trim(), portVal, proxyUser.trim(), proxyPass.trim())
                     }
                 }
             ) {
-                Text("Save")
+                Text(stringResource(R.string.action_save))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
         }
     )
 }
@@ -150,7 +156,7 @@ fun isTimeExpired(isoTime: String): Boolean {
 }
 
 fun formatExpires(isoTime: String?): String {
-    if (isoTime.isNullOrEmpty() || isoTime.startsWith("0001-01-01")) return "Never / Disabled"
+    if (isoTime.isNullOrEmpty() || isoTime.startsWith("0001-01-01")) return "\u221e"
     return try {
         val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
         format.timeZone = TimeZone.getTimeZone("UTC")

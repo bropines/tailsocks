@@ -1,0 +1,507 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TailSocks</string>
+    <string name="first_fragment_label">Главная</string>
+    <string name="back">Назад</string>
+
+    <!-- Main screen -->
+    <string name="status_stopped">Остановлено</string>
+    <string name="status_running">Работает</string>
+    <string name="action_start">Подключить</string>
+    <string name="action_stop">Отключить</string>
+    <string name="tap_to_start">Нажмите для запуска</string>
+    <string name="tap_to_stop">Нажмите для остановки</string>
+
+    <!-- Menu items -->
+    <string name="btn_logs">Системные логи</string>
+    <string name="desc_logs">Просмотр вывода демона</string>
+    <string name="btn_settings">Настройки</string>
+    <string name="desc_settings">Auth-ключ, выходные узлы, маршрутизация</string>
+    <string name="about">О программе</string>
+
+    <!-- Settings Headers -->
+    <string name="cat_general">Основное</string>
+    <string name="cat_network">Сеть и маршрутизация</string>
+    <string name="cat_exit_node">Настройки выходного узла</string>
+    <string name="cat_advanced">Дополнительно</string>
+
+    <!-- Settings Items -->
+    <string name="settings_title">Настройки</string>
+    <string name="auth_key">Auth-ключ</string>
+    <string name="socks5_addr">Адрес SOCKS5</string>
+    <string name="ssh_addr">Адрес SSH-сервера</string>
+    <string name="hostname">Имя устройства</string>
+    <string name="login_server">Сервер входа (Headscale)</string>
+
+    <string name="sw_advertise_exit_node">Рекламировать выходной узел</string>
+    <string name="sw_advertise_exit_node_desc">Разрешить другим устройствам использовать этот телефон как VPN-шлюз</string>
+
+    <string name="exit_node_ip">Использовать выходной узел (IP)</string>
+    <string name="sw_allow_lan">Разрешить доступ к LAN</string>
+    <string name="sw_allow_lan_desc">Доступ к локальным устройствам при использовании выходного узла</string>
+
+    <string name="sw_accept_routes">Принимать маршруты</string>
+    <string name="sw_accept_routes_desc">Принимать подсетевые маршруты, объявленные другими</string>
+
+    <string name="sw_accept_dns">Принимать DNS</string>
+    <string name="sw_accept_dns_desc">Использовать настройки Magic DNS Tailscale</string>
+
+    <string name="extra_args">Дополнительные аргументы (raw)</string>
+    <string name="extra_args_desc">Пользовательские флаги для tailscale up</string>
+
+    <string name="force_bg_title">Принудительный фоновый запуск</string>
+    <string name="force_bg_subtitle">Попытка перезапуска службы при завершении</string>
+
+    <!-- Logs -->
+    <string name="logs_title">Системные логи</string>
+    <string name="copy_logs">Копировать все логи</string>
+    <string name="share_logs">Поделиться логами</string>
+    <string name="clear_logs">Очистить логи</string>
+    <string name="logs_copied">Логи скопированы в буфер обмена</string>
+    <string name="no_logs">Логов пока нет</string>
+
+    <!-- Dialogs -->
+    <string name="version_format">Версия %1$s</string>
+    <string name="notification_title">Tailscaled активен</string>
+
+    <!-- Widget Descriptions -->
+    <string name="widget_desc_service">Запустить или остановить прокси-сервис TailSocks</string>
+    <string name="widget_desc_exit">Включить/выключить маршрутизацию через выходной узел</string>
+    <string name="widget_desc_stats">Панель с статистикой подключения, узлами и трафиком</string>
+    <string name="widget_desc_serve">Обзор активных правил Serve и Funnel</string>
+
+    <!-- Common actions -->
+    <string name="action_cancel">Отмена</string>
+    <string name="action_save">Сохранить</string>
+    <string name="action_delete">Удалить</string>
+    <string name="action_add">Добавить</string>
+    <string name="action_close">Закрыть</string>
+    <string name="action_rename">Переименовать</string>
+    <string name="action_confirm">Подтвердить</string>
+    <string name="action_apply">Применить</string>
+    <string name="action_generate">Сгенерировать</string>
+    <string name="action_revoke">Отозвать</string>
+    <string name="action_approve">Одобрить</string>
+    <string name="action_suspend">Заблокировать</string>
+    <string name="action_restore">Восстановить</string>
+    <string name="action_edit">Изменить</string>
+    <string name="action_copy">Копировать</string>
+    <string name="action_open">Открыть</string>
+    <string name="action_send">Отправить</string>
+    <string name="action_back">Назад</string>
+    <string name="action_disconnect">Отключить</string>
+    <string name="action_unlock">Разблокировать консоль</string>
+
+    <!-- Common placeholders / empty states -->
+    <string name="copied_to_clipboard">%1$s скопировано в буфер обмена!</string>
+    <string name="error_generic">Ошибка: %1$s</string>
+    <string name="cannot_open_browser">Невозможно открыть браузер</string>
+
+    <!-- ======================== ADMIN PANEL ======================== -->
+
+    <!-- Admin: Auth lock screen -->
+    <string name="admin_locked_title">Консоль администратора заблокирована</string>
+    <string name="admin_locked_desc">Для доступа к инструментам администратора требуется аутентификация.</string>
+    <string name="admin_biometric_title">Разблокировать консоль администратора</string>
+    <string name="admin_biometric_subtitle">Пройдите биометрическую аутентификацию</string>
+    <string name="admin_cd_locked">Заблокировано</string>
+
+    <!-- Admin: Dashboard -->
+    <string name="admin_console_title">Консоль администратора</string>
+    <string name="admin_tab_devices">Устройства</string>
+    <string name="admin_tab_dns">DNS</string>
+    <string name="admin_tab_users">Пользователи</string>
+    <string name="admin_tab_services">Службы</string>
+    <string name="admin_tab_webhooks">Webhooks</string>
+    <string name="admin_tab_logs">Логи</string>
+    <string name="admin_tab_web_links">Веб-ссылки</string>
+    <string name="admin_tab_settings">Настройки</string>
+    <string name="admin_cd_refresh">Обновить</string>
+    <string name="admin_cd_proxy_settings">Настройки прокси</string>
+    <string name="admin_cd_disconnect_api">Отключить API</string>
+
+    <!-- Admin: Disconnect dialog -->
+    <string name="admin_disconnect_title">Отключить API?</string>
+    <string name="admin_disconnect_text">Это удалит учётные данные API для данного tailnet (%1$s). Продолжить?</string>
+
+    <!-- Admin: Generated key dialog -->
+    <string name="admin_key_generated_title">Ключ успешно создан</string>
+    <string name="admin_key_generated_text">Скопируйте этот ключ сейчас. Его нельзя будет посмотреть повторно:</string>
+    <string name="admin_key_copy_close">Скопировать и закрыть</string>
+
+    <!-- Admin: Setup screens -->
+    <string name="admin_setup_title">Настройка Admin API</string>
+    <string name="admin_setup_no_tailnet_title">Tailnet не обнаружен</string>
+    <string name="admin_setup_no_tailnet_desc">TailSocks должен быть хотя бы раз подключён к VPN для автоматического определения домена Tailnet.\n\nВы также можете указать домен Tailnet вручную ниже:</string>
+    <string name="admin_setup_tailnet_label">Доменное имя Tailnet</string>
+    <string name="admin_setup_tailnet_placeholder">например: taila1b2.ts.net</string>
+    <string name="admin_setup_tailnet_required">Требуется доменное имя Tailnet</string>
+    <string name="admin_setup_set_tailnet_name">Задать имя Tailnet</string>
+
+    <string name="admin_setup_integration_title">Интеграция с Tailscale API</string>
+    <string name="admin_setup_active_tailnet">Активный домен Tailnet</string>
+    <string name="admin_setup_tab_token">Личный токен</string>
+    <string name="admin_setup_tab_oauth">OAuth клиент</string>
+    <string name="admin_setup_token_label">API Access Token (tskey-api-…)</string>
+    <string name="admin_setup_token_placeholder">tskey-api-XXXXX</string>
+    <string name="admin_setup_client_id_label">OAuth Client ID</string>
+    <string name="admin_setup_client_id_placeholder">например: cKXXXXX</string>
+    <string name="admin_setup_client_secret_label">OAuth Client Secret (tskey-client-…)</string>
+    <string name="admin_setup_client_secret_placeholder">tskey-client-XXXXX</string>
+    <string name="admin_setup_token_required">Требуется API Access Token</string>
+    <string name="admin_setup_oauth_required">Требуются Client ID и Client Secret</string>
+    <string name="admin_setup_save_connect">Сохранить и подключить</string>
+    <string name="admin_cd_back">Назад</string>
+
+    <!-- Admin: Proxy settings -->
+    <string name="admin_proxy_settings_title">Настройки прокси API</string>
+    <string name="admin_proxy_config_title">Конфигурация прокси API</string>
+    <string name="admin_proxy_mode_label">Режим прокси</string>
+    <string name="admin_proxy_direct">Прямое подключение (без прокси)</string>
+    <string name="admin_proxy_local_socks5">Прокси SOCKS5 Tailsocks</string>
+    <string name="admin_proxy_custom_socks5">Пользовательский SOCKS5</string>
+    <string name="admin_proxy_socks5_host">Хост SOCKS5</string>
+    <string name="admin_proxy_socks5_host_placeholder">например: 192.168.1.100</string>
+    <string name="admin_proxy_socks5_port">Порт SOCKS5</string>
+    <string name="admin_proxy_socks5_port_placeholder">например: 1080</string>
+    <string name="admin_proxy_username">Имя пользователя прокси</string>
+    <string name="admin_proxy_username_optional">Имя пользователя прокси (необязательно)</string>
+    <string name="admin_proxy_password">Пароль прокси</string>
+    <string name="admin_proxy_password_optional">Пароль прокси (необязательно)</string>
+    <string name="admin_proxy_local_desc">Использует внутренний SOCKS5-сервер. Запросы API проходят через активный VPN / выходной узел.</string>
+    <string name="admin_proxy_local_desc_setup">Маршрутизирует API-запросы через активный Socks5-сервер. Полезно для работы через выходной узел.</string>
+    <string name="admin_proxy_socks5_required">Требуются корректные хост и порт SOCKS5</string>
+
+    <!-- Admin: Devices tab -->
+    <string name="admin_devices_count">%1$d устройств</string>
+    <string name="admin_devices_no_devices">Устройства не найдены</string>
+    <string name="admin_devices_cd_sort">Сортировка устройств</string>
+    <string name="admin_devices_sort_name_az">Сортировать по имени (А-Я)</string>
+    <string name="admin_devices_sort_name_za">Сортировать по имени (Я-А)</string>
+    <string name="admin_devices_sort_last_seen">Сортировать по времени активности</string>
+    <string name="admin_devices_sort_update">Сортировать по доступности обновления</string>
+    <string name="admin_devices_status_expired">Истёк</string>
+    <string name="admin_devices_status_pending">Ожидание</string>
+
+    <!-- Admin: Device detail bottom sheet -->
+    <string name="admin_device_btn_rename">Переименовать</string>
+    <string name="admin_device_btn_tags">Теги</string>
+    <string name="admin_device_detail_full_name">Полное имя</string>
+    <string name="admin_device_detail_ip">IP-адрес</string>
+    <string name="admin_device_detail_os">ОС</string>
+    <string name="admin_device_detail_os_unknown">Неизвестно</string>
+    <string name="admin_device_detail_owner">Владелец</string>
+    <string name="admin_device_detail_owner_na">Н/Д</string>
+    <string name="admin_device_detail_key_expiry">Срок действия ключа</string>
+    <string name="admin_device_detail_key_expiry_disabled">Отключено</string>
+    <string name="admin_device_detail_authorization">Авторизация</string>
+    <string name="admin_device_detail_authorization_approved">Одобрено</string>
+    <string name="admin_device_detail_authorization_required">Требуется</string>
+    <string name="admin_device_detail_tags">Теги</string>
+
+    <!-- Admin: Device update banner -->
+    <string name="admin_device_update_available">Доступно обновление</string>
+    <string name="admin_device_update_desc">Текущая версия: %1$s. Для обновления используйте веб-консоль.</string>
+    <string name="admin_device_update_desc_na">Текущая версия: Н/Д. Для обновления используйте веб-консоль.</string>
+
+    <!-- Admin: Device key expiry card -->
+    <string name="admin_device_disable_key_expiry">Отключить истечение ключа</string>
+    <string name="admin_device_disable_key_expiry_desc">Предотвратить истечение ключа на этом конкретном устройстве.</string>
+
+    <!-- Admin: Device routing card -->
+    <string name="admin_device_routing_title">Маршрутизация и подсети</string>
+    <string name="admin_device_no_routes">На этом устройстве не объявлены подсетевые маршруты или выходные узлы.</string>
+    <string name="admin_device_exit_node_label">Использовать как выходной узел</string>
+    <string name="admin_device_exit_node_desc">Маршрутизировать интернет-трафик через это устройство.</string>
+    <string name="admin_device_no_subnet_routes">Подсетевые маршруты не объявлены.</string>
+    <string name="admin_device_advertised_subnets">Объявленные подсети</string>
+
+    <!-- Admin: Device admin actions -->
+    <string name="admin_device_authorize">Авторизовать узел</string>
+    <string name="admin_device_deauthorize">Отозвать авторизацию</string>
+    <string name="admin_device_expire_key">Аннулировать ключ сейчас</string>
+    <string name="admin_device_delete">Удалить устройство</string>
+
+    <!-- Admin: Device rename dialog -->
+    <string name="admin_device_rename_title">Переименовать устройство</string>
+    <string name="admin_device_rename_label">Новое базовое имя</string>
+
+    <!-- Admin: Device tags dialog -->
+    <string name="admin_device_tags_title">Редактировать теги устройства</string>
+    <string name="admin_device_tags_available">Доступные ACL-теги:</string>
+    <string name="admin_device_tags_custom_label">Пользовательские теги (через запятую)</string>
+    <string name="admin_device_tags_custom_placeholder">tag:server, tag:prod</string>
+    <string name="admin_device_tags_prefix_hint">Теги должны начинаться с префикса \'tag:\'</string>
+    <string name="admin_device_tags_update">Обновить теги</string>
+
+    <!-- Admin: Device expire key confirm -->
+    <string name="admin_device_expire_title">Аннулировать ключ устройства?</string>
+    <string name="admin_device_expire_text">Это немедленно выведет данный узел из tailnet. Продолжить?</string>
+    <string name="admin_device_expire_confirm">Аннулировать</string>
+
+    <!-- Admin: Device delete confirm -->
+    <string name="admin_device_delete_title">Удалить устройство?</string>
+    <string name="admin_device_delete_text">Вы уверены, что хотите безвозвратно удалить это устройство? Это действие невозможно отменить.</string>
+
+    <!-- Admin: Device toast messages -->
+    <string name="admin_device_renamed">Устройство переименовано</string>
+    <string name="admin_device_authorized">Устройство авторизовано</string>
+    <string name="admin_device_deauthorized">Авторизация устройства отозвана</string>
+    <string name="admin_device_key_expired">Ключ устройства аннулирован</string>
+    <string name="admin_device_deleted">Устройство удалено</string>
+    <string name="admin_device_tags_updated">Теги устройства обновлены</string>
+    <string name="admin_device_key_expiry_updated">Настройка истечения ключа обновлена</string>
+
+    <!-- Admin: DNS tab -->
+    <string name="admin_dns_magic_dns_title">MagicDNS</string>
+    <string name="admin_dns_magic_dns_desc">Регистрация DNS-имён для устройств</string>
+    <string name="admin_dns_global_ns_title">Глобальные DNS-серверы</string>
+    <string name="admin_dns_no_custom_ns">Пользовательские DNS-серверы не настроены</string>
+    <string name="admin_dns_ns_placeholder">например: 1.1.1.1</string>
+    <string name="admin_dns_apply_ns">Применить DNS-серверы</string>
+    <string name="admin_dns_split_title">Split DNS (маршруты по доменам)</string>
+    <string name="admin_dns_no_split">Маршруты Split DNS не настроены</string>
+    <string name="admin_dns_add_split_route">Добавить маршрут Split DNS</string>
+    <string name="admin_dns_domain_label">Доменное имя</string>
+    <string name="admin_dns_domain_placeholder">например: corp.internal</string>
+    <string name="admin_dns_ns_list_label">DNS-серверы (через запятую)</string>
+    <string name="admin_dns_ns_list_placeholder">например: 10.0.0.1, 10.0.0.2</string>
+    <string name="admin_dns_domain_and_ns_required">Необходимо указать домен и DNS-серверы</string>
+    <string name="admin_dns_search_domains_title">Поисковые домены DNS</string>
+    <string name="admin_dns_no_search_domains">Поисковые домены не настроены</string>
+    <string name="admin_dns_search_domain_placeholder">например: mycompany.com</string>
+    <string name="admin_dns_apply_search">Применить поисковые домены</string>
+    <string name="admin_dns_tailnet_name_title">Имя Tailnet</string>
+    <string name="admin_dns_tailnet_name_desc">Переименование домена tailnet на пользовательское имя (например, *.ts.net). Это необходимо выполнять через консоль администратора Tailscale по соображениям безопасности.</string>
+    <string name="admin_dns_rename_web">Переименовать Tailnet в веб-консоли</string>
+
+    <!-- Admin: Users tab -->
+    <string name="admin_users_no_users">Пользователи не найдены</string>
+    <string name="admin_users_devices_label">устройств</string>
+    <string name="admin_users_change_role">Изменить роль пользователя</string>
+    <string name="admin_users_login_name">Имя для входа</string>
+    <string name="admin_users_display_name">Отображаемое имя</string>
+    <string name="admin_users_created_at">Дата создания</string>
+    <string name="admin_users_role">Роль</string>
+    <string name="admin_users_status">Статус</string>
+    <string name="admin_users_type">Тип пользователя</string>
+    <string name="admin_users_devices_owned">Устройств во владении</string>
+    <string name="admin_users_approve">Одобрить пользователя</string>
+    <string name="admin_users_restore">Восстановить доступ</string>
+    <string name="admin_users_suspend">Заблокировать пользователя</string>
+    <string name="admin_users_delete">Удалить пользователя</string>
+    <string name="admin_users_select_role_title">Выбрать роль пользователя</string>
+    <string name="admin_users_confirm_role_title">Подтвердить смену роли</string>
+    <string name="admin_users_confirm_role_text">Вы уверены, что хотите сменить роль этого пользователя на %1$s?</string>
+    <string name="admin_users_approve_title">Одобрить пользователя?</string>
+    <string name="admin_users_approve_text">Это одобрит учётную запись и разрешит аутентификацию устройств в tailnet.</string>
+    <string name="admin_users_suspend_title">Заблокировать пользователя?</string>
+    <string name="admin_users_suspend_text">Вы уверены, что хотите заблокировать этого пользователя? Он потеряет доступ ко всем ресурсам tailnet, его активные ключи будут заблокированы.</string>
+    <string name="admin_users_restore_title">Восстановить пользователя?</string>
+    <string name="admin_users_restore_text">Это восстановит доступ пользователя и вернёт подключение к tailnet.</string>
+    <string name="admin_users_delete_title">Удалить пользователя?</string>
+    <string name="admin_users_delete_text">Безвозвратно удалить эту учётную запись? Это действие невозможно отменить.</string>
+    <string name="admin_users_role_updated">Роль обновлена: %1$s</string>
+    <string name="admin_users_approved">Пользователь одобрен</string>
+    <string name="admin_users_suspended">Пользователь заблокирован</string>
+    <string name="admin_users_restored">Доступ пользователя восстановлен</string>
+    <string name="admin_users_deleted">Пользователь удалён</string>
+
+    <!-- Admin: Services tab -->
+    <string name="admin_services_info">Виртуальные службы рекламируются узлами вашей сети автоматически. Создать службу вручную здесь нельзя. После того как узел объявит о службе, вы должны одобрить её для конкретных устройств.</string>
+    <string name="admin_services_no_services">Виртуальные службы не найдены</string>
+    <string name="admin_services_no_ip">Нет IP</string>
+    <string name="admin_services_ip_addresses">IP-адреса</string>
+    <string name="admin_services_exposed_ports">Открытые порты</string>
+    <string name="admin_services_comment">Комментарий</string>
+    <string name="admin_services_no_comment">Без комментария</string>
+    <string name="admin_services_tags">Теги службы</string>
+    <string name="admin_services_hosting_devices">Размещающие устройства и одобрения</string>
+    <string name="admin_services_no_hosts">Нет устройств, настроенных или запрашивающих размещение этой службы.</string>
+    <string name="admin_services_host_level">Уровень: %1$s • Конфиг: %2$s</string>
+
+    <!-- Admin: Keys tab -->
+    <string name="admin_keys_no_active">Нет активных ключей</string>
+    <string name="admin_keys_cd_generate">Создать ключ</string>
+    <string name="admin_keys_revoke_title">Отозвать ключ?</string>
+    <string name="admin_keys_revoke_text">Вы уверены, что хотите отозвать этот auth-ключ? Устройства, использующие его, больше не смогут аутентифицироваться.</string>
+    <string name="admin_keys_id_prefix">ID: %1$s</string>
+    <string name="admin_keys_expires_prefix">Истекает: %1$s</string>
+    <string name="admin_keys_status_revoked">Отозван</string>
+    <string name="admin_keys_status_expired">Истёк</string>
+    <string name="admin_keys_cd_revoke">Отозвать</string>
+    <string name="admin_keys_generate_title">Создать Auth-ключ</string>
+    <string name="admin_keys_desc_label">Описание</string>
+    <string name="admin_keys_desc_placeholder">например: Ключ серверного узла</string>
+    <string name="admin_keys_expiry_label">Срок действия (дней)</string>
+    <string name="admin_keys_ephemeral_title">Эфемерный ключ</string>
+    <string name="admin_keys_ephemeral_desc">Узлы удаляются автоматически при отключении</string>
+    <string name="admin_keys_preauth_title">Предварительно авторизованный ключ</string>
+    <string name="admin_keys_preauth_desc">Пропустить одобрение устройства администратором</string>
+    <string name="admin_keys_tags_label">Применить теги (через запятую)</string>
+    <string name="admin_keys_tags_placeholder">tag:server, tag:mobile</string>
+    <string name="admin_keys_tags_supporting">Необязательно. Требует определения владельца тега в ACL</string>
+
+    <!-- Admin: Logs tab -->
+    <string name="admin_logs_search_placeholder">Поиск по аудит-логам…</string>
+    <string name="admin_logs_days_label">%1$d дней</string>
+    <string name="admin_logs_events_found">%1$d событий аудита</string>
+    <string name="admin_logs_no_events">События аудита не найдены</string>
+    <string name="admin_logs_actor_prefix">Актор: %1$s (%2$s)</string>
+    <string name="admin_logs_target_prefix">Цель: %1$s</string>
+    <string name="admin_logs_origin_prefix">Источник: %1$s</string>
+    <string name="admin_logs_action_type_format">%1$s (%2$s)</string>
+
+    <!-- Admin: Webhooks tab -->
+    <string name="admin_webhooks_title">Webhook-эндпоинты</string>
+    <string name="admin_webhooks_add">Добавить эндпоинт</string>
+    <string name="admin_webhooks_no_webhooks">Webhooks не настроены</string>
+    <string name="admin_webhooks_subscribed_events">Подписанные события: %1$s</string>
+    <string name="admin_webhooks_test_ping">Тест ping</string>
+    <string name="admin_webhooks_delete_title">Удалить Webhook?</string>
+    <string name="admin_webhooks_delete_text">Вы уверены, что хотите удалить этот webhook-эндпоинт? Это действие невозможно отменить.</string>
+    <string name="admin_webhooks_add_title">Добавить Webhook-эндпоинт</string>
+    <string name="admin_webhooks_url_label">URL эндпоинта</string>
+    <string name="admin_webhooks_url_placeholder">https://example.com/webhook</string>
+    <string name="admin_webhooks_subscribe_label">Подписка на события:</string>
+    <string name="admin_webhooks_invalid_url">Введите корректный URL (http/https)</string>
+    <string name="admin_webhooks_no_events_selected">Выберите хотя бы одно событие</string>
+    <string name="admin_webhooks_test_sent">Тестовый ping отправлен</string>
+    <string name="admin_webhooks_deleted">Webhook удалён</string>
+    <string name="admin_webhooks_added">Webhook добавлен</string>
+
+    <!-- Admin: Web links tab -->
+    <string name="admin_web_title">Безопасные веб-настройки</string>
+    <string name="admin_web_desc">Следующие операции требуют повышенной безопасности и выполняются исключительно через официальную веб-панель управления Tailscale.</string>
+    <string name="admin_web_billing_title">Биллинг и тариф</string>
+    <string name="admin_web_billing_desc">Управление тарифным планом, просмотр счетов, баланса и платёжной информации вашей сети.</string>
+    <string name="admin_web_idp_title">Провайдер идентификации (SSO/IdP)</string>
+    <string name="admin_web_idp_desc">Настройка провайдера аутентификации (Google, Microsoft, GitHub, Okta и др.) для вашей сети.</string>
+    <string name="admin_web_acl_title">Списки контроля доступа (ACL)</string>
+    <string name="admin_web_acl_desc">Просмотр и редактирование политик доступа в формате HuJSON для разграничения прав устройств.</string>
+    <string name="admin_web_lock_title">Tailnet Lock</string>
+    <string name="admin_web_lock_desc">Включение сквозного шифрования конфигурации для предотвращения добавления несанкционированных узлов.</string>
+    <string name="admin_web_apps_title">Интеграции приложений</string>
+    <string name="admin_web_apps_desc">Управление сторонними интеграциями (Slack, GitHub, VS Code, Heroku) для получения событий вашей сети.</string>
+    <string name="admin_web_domain_title">Переименование домена</string>
+    <string name="admin_web_domain_desc">Переименование домена Tailnet (изменение префикса *.ts.net) на уникальное имя.</string>
+
+    <!-- Admin: Settings tab -->
+    <string name="admin_settings_auth_keys_title">Auth-ключи</string>
+    <string name="admin_settings_auth_keys_desc">Создание, просмотр и отзыв ключей аутентификации для данного Tailnet.</string>
+    <string name="admin_settings_key_expiry_title">Срок действия ключей по умолчанию</string>
+    <string name="admin_settings_key_expiry_desc">Задайте срок действия ключей устройств в данном tailnet. Значение должно быть от 1 до 180 дней.</string>
+    <string name="admin_settings_duration_days">Срок (дней)</string>
+    <string name="admin_settings_days_option">%1$d дней</string>
+    <string name="admin_settings_access_title">Управление доступом и одобрением</string>
+    <string name="admin_settings_device_approval_title">Обязательное одобрение устройств</string>
+    <string name="admin_settings_device_approval_desc">Новые устройства должны быть одобрены администратором перед подключением.</string>
+    <string name="admin_settings_user_approval_title">Обязательное одобрение пользователей</string>
+    <string name="admin_settings_user_approval_desc">Новые участники требуют ручного одобрения от владельцев или администраторов.</string>
+    <string name="admin_settings_software_title">Управление программным обеспечением</string>
+    <string name="admin_settings_auto_updates_title">Автоматические обновления</string>
+    <string name="admin_settings_auto_updates_desc">Разрешить Tailscale автоматически обновляться на устройствах данного tailnet.</string>
+    <string name="admin_settings_network_title">Сеть и логи</string>
+    <string name="admin_settings_flow_logging_title">Логирование сетевых потоков</string>
+    <string name="admin_settings_flow_logging_desc">Включить логирование сетевых потоков для tailnet.</string>
+    <string name="admin_settings_regional_routing_title">Региональная маршрутизация</string>
+    <string name="admin_settings_regional_routing_desc">Включить региональную маршрутизацию для высокой доступности.</string>
+    <string name="admin_settings_posture_title">Сбор данных о состоянии устройств</string>
+    <string name="admin_settings_posture_desc">Включить сбор данных идентификации для интеграций posture-проверок.</string>
+    <string name="admin_settings_external_tailnets_title">Доступ к внешним Tailnet</string>
+    <string name="admin_settings_external_tailnets_desc">Выберите роли пользователей, которым разрешено присоединяться к внешним tailnet по приглашению.</string>
+    <string name="admin_settings_allowed_role">Разрешённая роль</string>
+    <string name="admin_settings_apply">Применить настройки</string>
+    <string name="admin_settings_updated">Настройки обновлены</string>
+    <string name="admin_settings_magic_dns_updated">MagicDNS обновлён</string>
+    <string name="admin_settings_ns_applied">DNS-серверы применены</string>
+    <string name="admin_settings_search_applied">Поисковые домены применены</string>
+
+    <!-- Admin: Components -->
+    <string name="admin_components_never_disabled">Никогда / Отключено</string>
+
+    <!-- ======================== UI COMPONENTS ======================== -->
+
+    <!-- PeerDetailsModal -->
+    <string name="peer_cd_previous">Предыдущий</string>
+    <string name="peer_cd_next">Следующий</string>
+    <string name="peer_ping">Ping</string>
+    <string name="peer_pinging">Пингую…</string>
+    <string name="peer_ping_result">Ping: %1$s</string>
+    <string name="peer_ping_failed">Ping: Неудача</string>
+    <string name="peer_send_file">Отправить файл</string>
+    <string name="peer_cd_copy">Скопировать</string>
+
+    <!-- FileCard -->
+    <string name="file_action_delete">Удалить</string>
+    <string name="file_action_save">Сохранить</string>
+    <string name="file_action_open">Открыть</string>
+    <string name="file_open_chooser">Открыть файл</string>
+    <string name="file_open_error">Не удалось открыть: %1$s</string>
+
+    <!-- ======================== MainActivity ======================== -->
+
+    <string name="main_add_account">Добавить аккаунт</string>
+    <string name="main_account_name_label">Название аккаунта</string>
+    <string name="main_rename_account">Переименовать аккаунт</string>
+    <string name="main_new_name_label">Новое имя</string>
+    <string name="main_switch_account_title">Переключить аккаунт?</string>
+    <string name="main_switch_account_text">Переключение на \'%1$s\' перезапустит ядро. Вы уверены?</string>
+    <string name="main_restart_switch">Перезапустить и переключить</string>
+    <string name="main_about_title">О TailSocks</string>
+    <string name="main_app_version">Версия приложения: %1$s</string>
+    <string name="main_core_version">Tailscale Core: %1$s</string>
+    <string name="main_new_version">Новая версия: %1$s</string>
+    <string name="main_license_text">Прокси работает через официальное ядро Tailscale.\nЛицензия: BSD-3-Clause\n</string>
+    <string name="main_dev_app">Разработчик приложения: Bropines</string>
+    <string name="main_dev_patch">Разработчик патча: Asutorufa</string>
+    <string name="main_dev_core">Разработчик ядра: Tailscale</string>
+    <string name="main_check_updates">Проверить обновления</string>
+    <string name="main_no_exit_nodes">Выходные узлы недоступны</string>
+    <string name="main_select_exit_node">Выбрать выходной узел</string>
+    <string name="main_exit_node_none">Нет</string>
+    <string name="main_battery_warn_title">Оптимизация батареи включена</string>
+    <string name="main_battery_warn_desc">TailSocks может быть завершён в фоне. Нажмите для отключения.</string>
+    <string name="main_network_sync_title">Предупреждение синхронизации сети</string>
+    <string name="main_network_sync_desc">Первоначальный разбор карты сети может занять 1-3 минуты из-за сетевого отката. Пожалуйста, не перезапускайте.</string>
+    <string name="main_login_required_title">Требуется вход</string>
+    <string name="main_login_required_desc">Нажмите для аутентификации через браузер</string>
+
+    <!-- ======================== SettingsActivity ======================== -->
+
+    <string name="settings_logout_title">Выйти из Tailnet?</string>
+    <string name="settings_logout_text">Это очистит текущую сессию и состояние узла через LocalAPI. Потребуется повторная аутентификация. Продолжить?</string>
+    <string name="settings_log_out">Выйти</string>
+    <string name="settings_interface_theme">Тема интерфейса</string>
+    <string name="settings_color_palette">Цветовая палитра</string>
+    <string name="settings_dynamic_colors">Динамические цвета</string>
+    <string name="settings_dynamic_colors_desc">Использовать системные цвета Material You</string>
+    <string name="settings_amoled_black">AMOLED Black</string>
+    <string name="settings_amoled_black_desc">Чисто чёрный фон в тёмном режиме</string>
+    <string name="settings_backup_zip">Резервная копия (ZIP)</string>
+    <string name="settings_restore_zip">Восстановить ZIP</string>
+    <string name="settings_copy_sagernet_link">Скопировать ссылку SagerNet</string>
+    <string name="settings_backup_account">Резервная копия</string>
+    <string name="settings_import_account">Импорт</string>
+    <string name="settings_reset_node">Сбросить состояние узла</string>
+    <string name="settings_backup_password_title">Пароль шифрования резервной копии</string>
+    <string name="settings_backup_password_text">Введите пароль для шифрования резервной копии. Этот пароль потребуется для восстановления.</string>
+    <string name="settings_restore_password_title">Пароль для расшифровки резервной копии</string>
+    <string name="settings_restore_password_text">Введите пароль, который использовался для шифрования резервной копии.</string>
+    <string name="settings_password_label">Пароль</string>
+    <string name="settings_proxy_title">Прокси управляющего канала</string>
+    <string name="settings_proxy_enable">Включить прокси</string>
+    <string name="settings_proxy_type">Тип прокси</string>
+    <string name="settings_proxy_socks5">SOCKS5</string>
+    <string name="settings_proxy_http">HTTP</string>
+    <string name="settings_proxy_host">Хост</string>
+    <string name="settings_proxy_port">Порт</string>
+    <string name="settings_proxy_user">Имя пользователя (необязательно)</string>
+    <string name="settings_proxy_pass">Пароль (необязательно)</string>
+    <string name="settings_proxy_apply">Применить и сохранить</string>
+    <string name="settings_field_example">Пример: %1$s</string>
+    <string name="settings_suggested">Рекомендуется:</string>
+    <string name="settings_add">Добавить</string>
+    <string name="settings_tailsocks">TailSocks</string>
+    <string name="settings_sagernet_copied">Ссылка SagerNet скопирована</string>
+</resources>

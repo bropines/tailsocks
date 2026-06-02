@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -71,7 +72,7 @@ fun AdminApiLogsTabContent(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                placeholder = { Text("Search audit logs...") },
+                placeholder = { Text(stringResource(R.string.admin_logs_search_placeholder)) },
                 singleLine = true,
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(8.dp),
@@ -81,7 +82,7 @@ fun AdminApiLogsTabContent(
             var expandedRangeDropdown by remember { mutableStateOf(false) }
             Box {
                 OutlinedButton(onClick = { expandedRangeDropdown = true }) {
-                    Text("$daysRange Days")
+                    Text(stringResource(R.string.admin_logs_days_label, daysRange))
                     Spacer(Modifier.width(4.dp))
                     Icon(Icons.Default.ArrowDropDown, null)
                 }
@@ -91,7 +92,7 @@ fun AdminApiLogsTabContent(
                 ) {
                     listOf(1, 3, 7, 14, 30).forEach { days ->
                         DropdownMenuItem(
-                            text = { Text("$days Days") },
+                            text = { Text(stringResource(R.string.admin_logs_days_label, days)) },
                             onClick = {
                                 onDaysRangeChange(days)
                                 expandedRangeDropdown = false
@@ -127,7 +128,7 @@ fun AdminApiLogsTabContent(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "${filteredLogs.size} audit events found",
+                text = stringResource(R.string.admin_logs_events_found, filteredLogs.size),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.outline
             )
@@ -142,7 +143,7 @@ fun AdminApiLogsTabContent(
                 }
             } else if (filteredLogs.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No audit log events found", color = MaterialTheme.colorScheme.outline)
+                    Text(stringResource(R.string.admin_logs_no_events), color = MaterialTheme.colorScheme.outline)
                 }
             } else {
                 SelectionContainer {
@@ -197,7 +198,7 @@ fun AuditLogCard(log: ApiAuditLogEntry) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "$actionText (${log.target?.type ?: log.type ?: "CONFIG"})",
+                        text = stringResource(R.string.admin_logs_action_type_format, actionText, log.target?.type ?: log.type ?: "CONFIG"),
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
                         color = actionColor
@@ -212,7 +213,7 @@ fun AuditLogCard(log: ApiAuditLogEntry) {
                 Spacer(Modifier.height(6.dp))
 
                 Text(
-                    text = "Actor: ${log.actor?.displayName ?: "System"} (${log.actor?.loginName ?: "system"})",
+                    text = stringResource(R.string.admin_logs_actor_prefix, log.actor?.displayName ?: "System", log.actor?.loginName ?: "system"),
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Medium
                 )
@@ -220,7 +221,7 @@ fun AuditLogCard(log: ApiAuditLogEntry) {
                 log.target?.name?.let { targetName ->
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "Target: $targetName",
+                        text = stringResource(R.string.admin_logs_target_prefix, targetName),
                         style = MaterialTheme.typography.bodySmall,
                         fontFamily = FontFamily.Monospace,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -230,7 +231,7 @@ fun AuditLogCard(log: ApiAuditLogEntry) {
                 log.origin?.let { origin ->
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "Origin: $origin",
+                        text = stringResource(R.string.admin_logs_origin_prefix, origin),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.outline,
                         fontSize = 10.sp

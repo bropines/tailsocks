@@ -7,7 +7,6 @@ import io.github.bropines.tailscaled.models.*
 import io.github.bropines.tailscaled.ui.*
 
 import android.content.Context
-import android.content.SharedPreferences
 import android.os.Bundle
 import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.setContent
@@ -21,6 +20,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.biometric.BiometricPrompt
@@ -58,17 +58,17 @@ class AdminApiActivity : FragmentActivity() {
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Lock,
-                                contentDescription = "Locked",
+                                contentDescription = stringResource(R.string.admin_cd_locked),
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(64.dp)
                             )
                             Text(
-                                "Admin Console Locked",
+                                stringResource(R.string.admin_locked_title),
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                "Authentication is required to access admin tools.",
+                                stringResource(R.string.admin_locked_desc),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -76,7 +76,7 @@ class AdminApiActivity : FragmentActivity() {
                             Button(onClick = { authenticateBiometric() }) {
                                 Icon(Icons.Default.Fingerprint, null)
                                 Spacer(Modifier.width(8.dp))
-                                Text("Unlock Console")
+                                Text(stringResource(R.string.action_unlock))
                             }
                         }
                     }
@@ -104,8 +104,8 @@ class AdminApiActivity : FragmentActivity() {
             })
 
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
-            .setTitle("Unlock Admin Console")
-            .setSubtitle("Authenticate using your biometric credential")
+            .setTitle(getString(R.string.admin_biometric_title))
+            .setSubtitle(getString(R.string.admin_biometric_subtitle))
             .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL)
             .build()
 

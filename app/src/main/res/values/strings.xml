@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">TailSocks</string>
     <string name="first_fragment_label">Home</string>
@@ -31,20 +32,20 @@
     <string name="ssh_addr">SSH Server Address</string>
     <string name="hostname">Device Hostname</string>
     <string name="login_server">Login Server (Headscale)</string>
-    
+
     <string name="sw_advertise_exit_node">Advertise Exit Node</string>
     <string name="sw_advertise_exit_node_desc">Allow other devices to use this phone as VPN gateway</string>
-    
+
     <string name="exit_node_ip">Use Exit Node (IP)</string>
     <string name="sw_allow_lan">Allow LAN Access</string>
     <string name="sw_allow_lan_desc">Access local devices when using Exit Node</string>
-    
+
     <string name="sw_accept_routes">Accept Routes</string>
     <string name="sw_accept_routes_desc">Accept subnet routes advertised by others</string>
-    
+
     <string name="sw_accept_dns">Accept DNS</string>
     <string name="sw_accept_dns_desc">Use Tailscale magic DNS settings</string>
-    
+
     <string name="extra_args">Extra Arguments (Raw)</string>
     <string name="extra_args_desc">Custom flags for tailscale up</string>
 
@@ -68,4 +69,439 @@
     <string name="widget_desc_exit">Toggle Exit Node routing on/off</string>
     <string name="widget_desc_stats">Dashboard with connection stats, peers, and traffic</string>
     <string name="widget_desc_serve">Active Serve and Funnel rules overview</string>
+
+    <!-- Common actions -->
+    <string name="action_cancel">Cancel</string>
+    <string name="action_save">Save</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_add">Add</string>
+    <string name="action_close">Close</string>
+    <string name="action_rename">Rename</string>
+    <string name="action_confirm">Confirm</string>
+    <string name="action_apply">Apply</string>
+    <string name="action_generate">Generate</string>
+    <string name="action_revoke">Revoke</string>
+    <string name="action_approve">Approve</string>
+    <string name="action_suspend">Suspend</string>
+    <string name="action_restore">Restore</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_copy">Copy</string>
+    <string name="action_open">Open</string>
+    <string name="action_send">Send</string>
+    <string name="action_back">Back</string>
+    <string name="action_disconnect">Disconnect</string>
+    <string name="action_unlock">Unlock Console</string>
+
+    <!-- Common placeholders / empty states -->
+    <string name="copied_to_clipboard">%1$s copied to clipboard!</string>
+    <string name="error_generic">Error: %1$s</string>
+    <string name="cannot_open_browser">Cannot open browser</string>
+
+    <!-- ======================== ADMIN PANEL ======================== -->
+
+    <!-- Admin: Auth lock screen -->
+    <string name="admin_locked_title">Admin Console Locked</string>
+    <string name="admin_locked_desc">Authentication is required to access admin tools.</string>
+    <string name="admin_biometric_title">Unlock Admin Console</string>
+    <string name="admin_biometric_subtitle">Authenticate using your biometric credential</string>
+    <string name="admin_cd_locked">Locked</string>
+
+    <!-- Admin: Dashboard -->
+    <string name="admin_console_title">Admin Console</string>
+    <string name="admin_tab_devices">Devices</string>
+    <string name="admin_tab_dns">DNS</string>
+    <string name="admin_tab_users">Users</string>
+    <string name="admin_tab_services">Services</string>
+    <string name="admin_tab_webhooks">Webhooks</string>
+    <string name="admin_tab_logs">Logs</string>
+    <string name="admin_tab_web_links">Web Links</string>
+    <string name="admin_tab_settings">Settings</string>
+    <string name="admin_cd_refresh">Refresh</string>
+    <string name="admin_cd_proxy_settings">Proxy Settings</string>
+    <string name="admin_cd_disconnect_api">Disconnect API</string>
+
+    <!-- Admin: Disconnect dialog -->
+    <string name="admin_disconnect_title">Disconnect API?</string>
+    <string name="admin_disconnect_text">This will remove the API credentials for this tailnet (%1$s). Continue?</string>
+
+    <!-- Admin: Generated key dialog -->
+    <string name="admin_key_generated_title">Key Generated Successfully</string>
+    <string name="admin_key_generated_text">Please copy this key now. It cannot be shown again:</string>
+    <string name="admin_key_copy_close">Copy &amp; Close</string>
+
+    <!-- Admin: Setup screens -->
+    <string name="admin_setup_title">Admin API Setup</string>
+    <string name="admin_setup_no_tailnet_title">Tailnet Not Detected</string>
+    <string name="admin_setup_no_tailnet_desc">TailSocks must be connected to the VPN at least once to automatically detect your Tailnet domain.\n\nAlternatively, you can specify your Tailnet domain manually below:</string>
+    <string name="admin_setup_tailnet_label">Tailnet Domain Name</string>
+    <string name="admin_setup_tailnet_placeholder">e.g. taila1b2.ts.net</string>
+    <string name="admin_setup_tailnet_required">Tailnet domain is required</string>
+    <string name="admin_setup_set_tailnet_name">Set Tailnet Name</string>
+
+    <string name="admin_setup_integration_title">Tailscale API Integration</string>
+    <string name="admin_setup_active_tailnet">Active Tailnet Domain</string>
+    <string name="admin_setup_tab_token">Personal Token</string>
+    <string name="admin_setup_tab_oauth">OAuth Client</string>
+    <string name="admin_setup_token_label">API Access Token (tskey-api-…)</string>
+    <string name="admin_setup_token_placeholder">tskey-api-XXXXX</string>
+    <string name="admin_setup_client_id_label">OAuth Client ID</string>
+    <string name="admin_setup_client_id_placeholder">e.g. cKXXXXX</string>
+    <string name="admin_setup_client_secret_label">OAuth Client Secret (tskey-client-…)</string>
+    <string name="admin_setup_client_secret_placeholder">tskey-client-XXXXX</string>
+    <string name="admin_setup_token_required">API Access Token is required</string>
+    <string name="admin_setup_oauth_required">Client ID and Client Secret are required</string>
+    <string name="admin_setup_save_connect">Save &amp; Connect</string>
+    <string name="admin_cd_back">Back</string>
+
+    <!-- Admin: Proxy settings -->
+    <string name="admin_proxy_settings_title">API Proxy Settings</string>
+    <string name="admin_proxy_config_title">API Proxy Configuration</string>
+    <string name="admin_proxy_mode_label">Proxy Mode</string>
+    <string name="admin_proxy_direct">Direct (No Proxy)</string>
+    <string name="admin_proxy_local_socks5">Tailsocks SOCKS5 Proxy</string>
+    <string name="admin_proxy_custom_socks5">Custom SOCKS5 Proxy</string>
+    <string name="admin_proxy_socks5_host">SOCKS5 Host</string>
+    <string name="admin_proxy_socks5_host_placeholder">e.g. 192.168.1.100</string>
+    <string name="admin_proxy_socks5_port">SOCKS5 Port</string>
+    <string name="admin_proxy_socks5_port_placeholder">e.g. 1080</string>
+    <string name="admin_proxy_username">Proxy Username</string>
+    <string name="admin_proxy_username_optional">Proxy Username (Optional)</string>
+    <string name="admin_proxy_password">Proxy Password</string>
+    <string name="admin_proxy_password_optional">Proxy Password (Optional)</string>
+    <string name="admin_proxy_local_desc">Uses the internal SOCKS5 proxy server. This routes your API calls through the active VPN / Exit Node.</string>
+    <string name="admin_proxy_local_desc_setup">Routes API calls through the active Socks5 server. Useful if you want to route API calls through your Exit Node.</string>
+    <string name="admin_proxy_socks5_required">Valid SOCKS5 host and port are required</string>
+
+    <!-- Admin: Devices tab -->
+    <string name="admin_devices_count">%1$d devices</string>
+    <string name="admin_devices_no_devices">No devices found</string>
+    <string name="admin_devices_cd_sort">Sort Devices</string>
+    <string name="admin_devices_sort_name_az">Sort by Name (A-Z)</string>
+    <string name="admin_devices_sort_name_za">Sort by Name (Z-A)</string>
+    <string name="admin_devices_sort_last_seen">Sort by Last Seen</string>
+    <string name="admin_devices_sort_update">Sort by Update Available</string>
+    <string name="admin_devices_status_expired">Expired</string>
+    <string name="admin_devices_status_pending">Pending</string>
+
+    <!-- Admin: Device detail bottom sheet -->
+    <string name="admin_device_btn_rename">Rename</string>
+    <string name="admin_device_btn_tags">Tags</string>
+    <string name="admin_device_detail_full_name">Full Name</string>
+    <string name="admin_device_detail_ip">IP Address</string>
+    <string name="admin_device_detail_os">OS</string>
+    <string name="admin_device_detail_os_unknown">Unknown</string>
+    <string name="admin_device_detail_owner">User Owner</string>
+    <string name="admin_device_detail_owner_na">N/A</string>
+    <string name="admin_device_detail_key_expiry">Key Expiry</string>
+    <string name="admin_device_detail_key_expiry_disabled">Disabled</string>
+    <string name="admin_device_detail_authorization">Authorization</string>
+    <string name="admin_device_detail_authorization_approved">Approved</string>
+    <string name="admin_device_detail_authorization_required">Required</string>
+    <string name="admin_device_detail_tags">Tags</string>
+
+    <!-- Admin: Device update banner -->
+    <string name="admin_device_update_available">Update Available</string>
+    <string name="admin_device_update_desc">Current: %1$s. Use the web console to trigger an upgrade.</string>
+    <string name="admin_device_update_desc_na">Current: N/A. Use the web console to trigger an upgrade.</string>
+
+    <!-- Admin: Device key expiry card -->
+    <string name="admin_device_disable_key_expiry">Disable Key Expiry</string>
+    <string name="admin_device_disable_key_expiry_desc">Prevent key from expiring on this specific device.</string>
+
+    <!-- Admin: Device routing card -->
+    <string name="admin_device_routing_title">Routing &amp; Subnets</string>
+    <string name="admin_device_no_routes">No subnet routes or exit nodes advertised by this device.</string>
+    <string name="admin_device_exit_node_label">Use as Exit Node</string>
+    <string name="admin_device_exit_node_desc">Route internet traffic through this device.</string>
+    <string name="admin_device_no_subnet_routes">No subnet routes advertised.</string>
+    <string name="admin_device_advertised_subnets">Advertised Subnets</string>
+
+    <!-- Admin: Device admin actions -->
+    <string name="admin_device_authorize">Authorize Node</string>
+    <string name="admin_device_deauthorize">Deauthorize Node</string>
+    <string name="admin_device_expire_key">Expire Key Now</string>
+    <string name="admin_device_delete">Delete Device</string>
+
+    <!-- Admin: Device rename dialog -->
+    <string name="admin_device_rename_title">Rename Device</string>
+    <string name="admin_device_rename_label">New Base Name</string>
+
+    <!-- Admin: Device tags dialog -->
+    <string name="admin_device_tags_title">Edit Device Tags</string>
+    <string name="admin_device_tags_available">Available ACL Tags:</string>
+    <string name="admin_device_tags_custom_label">Custom Tags (comma separated)</string>
+    <string name="admin_device_tags_custom_placeholder">tag:server, tag:prod</string>
+    <string name="admin_device_tags_prefix_hint">Tags must start with \'tag:\' prefix</string>
+    <string name="admin_device_tags_update">Update Tags</string>
+
+    <!-- Admin: Device expire key confirm -->
+    <string name="admin_device_expire_title">Expire Device Key?</string>
+    <string name="admin_device_expire_text">This will immediately log this node out from the tailnet. Continue?</string>
+    <string name="admin_device_expire_confirm">Expire</string>
+
+    <!-- Admin: Device delete confirm -->
+    <string name="admin_device_delete_title">Delete Device?</string>
+    <string name="admin_device_delete_text">Are you sure you want to permanently delete this device? This cannot be undone.</string>
+
+    <!-- Admin: Device toast messages -->
+    <string name="admin_device_renamed">Device renamed</string>
+    <string name="admin_device_authorized">Device authorized</string>
+    <string name="admin_device_deauthorized">Device deauthorized</string>
+    <string name="admin_device_key_expired">Device key expired</string>
+    <string name="admin_device_deleted">Device deleted</string>
+    <string name="admin_device_tags_updated">Device tags updated</string>
+    <string name="admin_device_key_expiry_updated">Key expiry updated</string>
+
+    <!-- Admin: DNS tab -->
+    <string name="admin_dns_magic_dns_title">MagicDNS</string>
+    <string name="admin_dns_magic_dns_desc">Register DNS names for devices</string>
+    <string name="admin_dns_global_ns_title">Global Nameservers</string>
+    <string name="admin_dns_no_custom_ns">No custom nameservers configured</string>
+    <string name="admin_dns_ns_placeholder">e.g. 1.1.1.1</string>
+    <string name="admin_dns_apply_ns">Apply DNS Nameservers</string>
+    <string name="admin_dns_split_title">Split DNS (Domain Routes)</string>
+    <string name="admin_dns_no_split">No Split DNS routes configured</string>
+    <string name="admin_dns_add_split_route">Add Split DNS Route</string>
+    <string name="admin_dns_domain_label">Domain Name</string>
+    <string name="admin_dns_domain_placeholder">e.g. corp.internal</string>
+    <string name="admin_dns_ns_list_label">Nameservers (comma separated)</string>
+    <string name="admin_dns_ns_list_placeholder">e.g. 10.0.0.1, 10.0.0.2</string>
+    <string name="admin_dns_domain_and_ns_required">Domain and nameservers are required</string>
+    <string name="admin_dns_search_domains_title">DNS Search Domains</string>
+    <string name="admin_dns_no_search_domains">No search domains configured</string>
+    <string name="admin_dns_search_domain_placeholder">e.g. mycompany.com</string>
+    <string name="admin_dns_apply_search">Apply Search Domains</string>
+    <string name="admin_dns_tailnet_name_title">Tailnet Name</string>
+    <string name="admin_dns_tailnet_name_desc">Rename your tailnet domain to a custom name (e.g. *.ts.net). This must be done via the Tailscale Admin Console for security reasons.</string>
+    <string name="admin_dns_rename_web">Rename Tailnet on Web</string>
+
+    <!-- Admin: Users tab -->
+    <string name="admin_users_no_users">No users found</string>
+    <string name="admin_users_devices_label">devices</string>
+    <string name="admin_users_change_role">Change User Role</string>
+    <string name="admin_users_login_name">Login Name</string>
+    <string name="admin_users_display_name">Display Name</string>
+    <string name="admin_users_created_at">Created At</string>
+    <string name="admin_users_role">Role</string>
+    <string name="admin_users_status">Status</string>
+    <string name="admin_users_type">User Type</string>
+    <string name="admin_users_devices_owned">Devices Owned</string>
+    <string name="admin_users_approve">Approve User</string>
+    <string name="admin_users_restore">Restore User Access</string>
+    <string name="admin_users_suspend">Suspend User</string>
+    <string name="admin_users_delete">Delete User</string>
+    <string name="admin_users_select_role_title">Select User Role</string>
+    <string name="admin_users_confirm_role_title">Confirm Role Change</string>
+    <string name="admin_users_confirm_role_text">Are you sure you want to change this user\'s role to %1$s?</string>
+    <string name="admin_users_approve_title">Approve User?</string>
+    <string name="admin_users_approve_text">This will approve the user account and allow them to authenticate devices on the tailnet.</string>
+    <string name="admin_users_suspend_title">Suspend User?</string>
+    <string name="admin_users_suspend_text">Are you sure you want to suspend this user? They will lose access to all tailnet resources and their active keys will be blocked.</string>
+    <string name="admin_users_restore_title">Restore User?</string>
+    <string name="admin_users_restore_text">This will restore the user access and re-enable their tailnet connectivity.</string>
+    <string name="admin_users_delete_title">Delete User?</string>
+    <string name="admin_users_delete_text">Permanently delete this user account? This action is irreversible.</string>
+    <string name="admin_users_role_updated">Role updated to %1$s</string>
+    <string name="admin_users_approved">User approved</string>
+    <string name="admin_users_suspended">User suspended</string>
+    <string name="admin_users_restored">User restored</string>
+    <string name="admin_users_deleted">User deleted</string>
+
+    <!-- Admin: Services tab -->
+    <string name="admin_services_info">Virtual services are advertised automatically by nodes on your network. You cannot create a service manually here. Once a node advertises a service, you must approve it for specific devices.</string>
+    <string name="admin_services_no_services">No virtual services found</string>
+    <string name="admin_services_no_ip">No IP</string>
+    <string name="admin_services_ip_addresses">IP Addresses</string>
+    <string name="admin_services_exposed_ports">Exposed Ports</string>
+    <string name="admin_services_comment">Comment</string>
+    <string name="admin_services_no_comment">No comment</string>
+    <string name="admin_services_tags">Service Tags</string>
+    <string name="admin_services_hosting_devices">Hosting Devices &amp; Approvals</string>
+    <string name="admin_services_no_hosts">No devices are configured or requesting to host this service.</string>
+    <string name="admin_services_host_level">Level: %1$s • Config: %2$s</string>
+
+    <!-- Admin: Keys tab -->
+    <string name="admin_keys_no_active">No active keys</string>
+    <string name="admin_keys_cd_generate">Generate Key</string>
+    <string name="admin_keys_revoke_title">Revoke Key?</string>
+    <string name="admin_keys_revoke_text">Are you sure you want to revoke this auth key? Devices using it will no longer authenticate.</string>
+    <string name="admin_keys_id_prefix">ID: %1$s</string>
+    <string name="admin_keys_expires_prefix">Expires: %1$s</string>
+    <string name="admin_keys_status_revoked">Revoked</string>
+    <string name="admin_keys_status_expired">Expired</string>
+    <string name="admin_keys_cd_revoke">Revoke</string>
+    <string name="admin_keys_generate_title">Generate Auth Key</string>
+    <string name="admin_keys_desc_label">Description</string>
+    <string name="admin_keys_desc_placeholder">e.g. Server node key</string>
+    <string name="admin_keys_expiry_label">Expires in (Days)</string>
+    <string name="admin_keys_ephemeral_title">Ephemeral Node Key</string>
+    <string name="admin_keys_ephemeral_desc">Nodes auto-delete when offline</string>
+    <string name="admin_keys_preauth_title">Pre-authorized Key</string>
+    <string name="admin_keys_preauth_desc">Skip admin device approval</string>
+    <string name="admin_keys_tags_label">Apply Tags (comma separated)</string>
+    <string name="admin_keys_tags_placeholder">tag:server, tag:mobile</string>
+    <string name="admin_keys_tags_supporting">Optional. Requires tag owner definition in ACL</string>
+
+    <!-- Admin: Logs tab -->
+    <string name="admin_logs_search_placeholder">Search audit logs…</string>
+    <string name="admin_logs_days_label">%1$d Days</string>
+    <string name="admin_logs_events_found">%1$d audit events found</string>
+    <string name="admin_logs_no_events">No audit log events found</string>
+    <string name="admin_logs_actor_prefix">Actor: %1$s (%2$s)</string>
+    <string name="admin_logs_target_prefix">Target: %1$s</string>
+    <string name="admin_logs_origin_prefix">Origin: %1$s</string>
+    <string name="admin_logs_action_type_format">%1$s (%2$s)</string>
+
+    <!-- Admin: Webhooks tab -->
+    <string name="admin_webhooks_title">Webhook Endpoints</string>
+    <string name="admin_webhooks_add">Add Endpoint</string>
+    <string name="admin_webhooks_no_webhooks">No webhooks configured</string>
+    <string name="admin_webhooks_subscribed_events">Subscribed Events: %1$s</string>
+    <string name="admin_webhooks_test_ping">Test Ping</string>
+    <string name="admin_webhooks_delete_title">Delete Webhook?</string>
+    <string name="admin_webhooks_delete_text">Are you sure you want to delete this webhook endpoint? This cannot be undone.</string>
+    <string name="admin_webhooks_add_title">Add Webhook Endpoint</string>
+    <string name="admin_webhooks_url_label">Endpoint URL</string>
+    <string name="admin_webhooks_url_placeholder">https://example.com/webhook</string>
+    <string name="admin_webhooks_subscribe_label">Subscribe to Events:</string>
+    <string name="admin_webhooks_invalid_url">Please enter a valid URL (http/https)</string>
+    <string name="admin_webhooks_no_events_selected">Please select at least one event</string>
+    <string name="admin_webhooks_test_sent">Test ping sent</string>
+    <string name="admin_webhooks_deleted">Webhook deleted</string>
+    <string name="admin_webhooks_added">Webhook added</string>
+
+    <!-- Admin: Web links tab -->
+    <string name="admin_web_title">Secure Web Settings</string>
+    <string name="admin_web_desc">The following operations require elevated security and are performed exclusively through the official Tailscale web management panel.</string>
+    <string name="admin_web_billing_title">Billing &amp; Plan</string>
+    <string name="admin_web_billing_desc">Manage your billing plan, view invoices, balance, and payment information for your network.</string>
+    <string name="admin_web_idp_title">Identity Provider (SSO/IdP)</string>
+    <string name="admin_web_idp_desc">Configure the authentication provider (Google, Microsoft, GitHub, Okta, etc.) for your network.</string>
+    <string name="admin_web_acl_title">Access Control Lists (ACLs)</string>
+    <string name="admin_web_acl_desc">View and edit access policies in HuJSON format to control device permissions.</string>
+    <string name="admin_web_lock_title">Tailnet Lock</string>
+    <string name="admin_web_lock_desc">Enable end-to-end configuration encryption to prevent unauthorized nodes from joining.</string>
+    <string name="admin_web_apps_title">App Integrations (Apps)</string>
+    <string name="admin_web_apps_desc">Manage third-party integrations (Slack, GitHub, VS Code, Heroku) to receive network events.</string>
+    <string name="admin_web_domain_title">Domain Rename</string>
+    <string name="admin_web_domain_desc">Rename the Tailnet domain (change the *.ts.net prefix) to a unique name.</string>
+
+    <!-- Admin: Settings tab -->
+    <string name="admin_settings_auth_keys_title">Auth Keys</string>
+    <string name="admin_settings_auth_keys_desc">Generate, list, and revoke authentication keys for this Tailnet.</string>
+    <string name="admin_settings_key_expiry_title">Default Key Expiry</string>
+    <string name="admin_settings_key_expiry_desc">Set the default expiration time for device keys in this tailnet. Value must be between 1 and 180 days.</string>
+    <string name="admin_settings_duration_days">Duration (Days)</string>
+    <string name="admin_settings_days_option">%1$d Days</string>
+    <string name="admin_settings_access_title">Access &amp; Approval Controls</string>
+    <string name="admin_settings_device_approval_title">Device Approval Required</string>
+    <string name="admin_settings_device_approval_desc">New devices must be approved by an administrator before they can join.</string>
+    <string name="admin_settings_user_approval_title">User Approval Required</string>
+    <string name="admin_settings_user_approval_desc">New members require manual approval from owners or admins to join.</string>
+    <string name="admin_settings_software_title">Device Software Management</string>
+    <string name="admin_settings_auto_updates_title">Automatic Updates</string>
+    <string name="admin_settings_auto_updates_desc">Enable Tailscale to auto-update on devices belonging to this tailnet.</string>
+    <string name="admin_settings_network_title">Network &amp; Log Settings</string>
+    <string name="admin_settings_flow_logging_title">Network Flow Logging</string>
+    <string name="admin_settings_flow_logging_desc">Enable network flow logging for the tailnet.</string>
+    <string name="admin_settings_regional_routing_title">Regional Routing</string>
+    <string name="admin_settings_regional_routing_desc">Enable regional routing for high availability.</string>
+    <string name="admin_settings_posture_title">Posture Identity Collection</string>
+    <string name="admin_settings_posture_desc">Enable identity collection for device posture integrations.</string>
+    <string name="admin_settings_external_tailnets_title">External Tailnets Access</string>
+    <string name="admin_settings_external_tailnets_desc">Select which user roles are allowed to join external tailnets via invitation.</string>
+    <string name="admin_settings_allowed_role">Allowed Role</string>
+    <string name="admin_settings_apply">Apply Settings</string>
+    <string name="admin_settings_updated">Settings updated</string>
+    <string name="admin_settings_magic_dns_updated">MagicDNS updated</string>
+    <string name="admin_settings_ns_applied">Nameservers applied</string>
+    <string name="admin_settings_search_applied">Search paths applied</string>
+
+    <!-- Admin: Components (proxy dialog shared) -->
+    <string name="admin_components_never_disabled">Never / Disabled</string>
+
+    <!-- ======================== UI COMPONENTS ======================== -->
+
+    <!-- PeerDetailsModal -->
+    <string name="peer_cd_previous">Previous</string>
+    <string name="peer_cd_next">Next</string>
+    <string name="peer_ping">Ping</string>
+    <string name="peer_pinging">Pinging…</string>
+    <string name="peer_ping_result">Ping: %1$s</string>
+    <string name="peer_ping_failed">Ping: Failed</string>
+    <string name="peer_send_file">Send File</string>
+    <string name="peer_cd_copy">Copy</string>
+
+    <!-- FileCard -->
+    <string name="file_action_delete">Delete</string>
+    <string name="file_action_save">Save</string>
+    <string name="file_action_open">Open</string>
+    <string name="file_open_chooser">Open file</string>
+    <string name="file_open_error">Can\'t open: %1$s</string>
+
+    <!-- ======================== MainActivity ======================== -->
+
+    <string name="main_add_account">Add Account</string>
+    <string name="main_account_name_label">Account Name</string>
+    <string name="main_rename_account">Rename Account</string>
+    <string name="main_new_name_label">New Name</string>
+    <string name="main_switch_account_title">Switch Account?</string>
+    <string name="main_switch_account_text">Switching to \'%1$s\' will restart the core. Are you sure?</string>
+    <string name="main_restart_switch">Restart &amp; Switch</string>
+    <string name="main_about_title">About TailSocks</string>
+    <string name="main_app_version">App Version: %1$s</string>
+    <string name="main_core_version">Tailscale Core: %1$s</string>
+    <string name="main_new_version">New version: %1$s</string>
+    <string name="main_license_text">Proxy is running via official Tailscale core.\nLicense: BSD-3-Clause\n</string>
+    <string name="main_dev_app">App Developer: Bropines</string>
+    <string name="main_dev_patch">Patch Developer: Asutorufa</string>
+    <string name="main_dev_core">Core Developer: Tailscale</string>
+    <string name="main_check_updates">Check for App Updates</string>
+    <string name="main_no_exit_nodes">No exit nodes available</string>
+    <string name="main_select_exit_node">Select Exit Node</string>
+    <string name="main_exit_node_none">None</string>
+    <string name="main_battery_warn_title">Battery Optimization Enabled</string>
+    <string name="main_battery_warn_desc">TailSocks may be killed in the background. Tap to disable.</string>
+    <string name="main_network_sync_title">Network Sync Warning</string>
+    <string name="main_network_sync_desc">Initial machine map parsing may take 1-3 minutes due to network backoff. Please do not restart.</string>
+    <string name="main_login_required_title">Login Required</string>
+    <string name="main_login_required_desc">Tap to authenticate via browser</string>
+
+    <!-- ======================== SettingsActivity ======================== -->
+
+    <string name="settings_logout_title">Log out from Tailnet?</string>
+    <string name="settings_logout_text">This will clear your current session and node state using native LocalAPI. You will need to re-authenticate. Continue?</string>
+    <string name="settings_log_out">Log Out</string>
+    <string name="settings_interface_theme">Interface Theme</string>
+    <string name="settings_color_palette">Color Palette</string>
+    <string name="settings_dynamic_colors">Dynamic Colors</string>
+    <string name="settings_dynamic_colors_desc">Use Material You system colors</string>
+    <string name="settings_amoled_black">AMOLED Black</string>
+    <string name="settings_amoled_black_desc">Pure black background in dark mode</string>
+    <string name="settings_backup_zip">Backup (ZIP)</string>
+    <string name="settings_restore_zip">Restore ZIP</string>
+    <string name="settings_copy_sagernet_link">Copy SagerNet Link</string>
+    <string name="settings_backup_account">Backup</string>
+    <string name="settings_import_account">Import</string>
+    <string name="settings_reset_node">Reset Node State</string>
+    <string name="settings_backup_password_title">Backup Encryption Password</string>
+    <string name="settings_backup_password_text">Enter a password to encrypt your backup. You will need this password to restore your state.</string>
+    <string name="settings_restore_password_title">Backup Decryption Password</string>
+    <string name="settings_restore_password_text">Enter the password that was used to encrypt this backup.</string>
+    <string name="settings_password_label">Password</string>
+    <string name="settings_proxy_title">Control Plane Proxy</string>
+    <string name="settings_proxy_enable">Enable Proxy</string>
+    <string name="settings_proxy_type">Proxy Type</string>
+    <string name="settings_proxy_socks5">SOCKS5</string>
+    <string name="settings_proxy_http">HTTP</string>
+    <string name="settings_proxy_host">Host</string>
+    <string name="settings_proxy_port">Port</string>
+    <string name="settings_proxy_user">Username (Optional)</string>
+    <string name="settings_proxy_pass">Password (Optional)</string>
+    <string name="settings_proxy_apply">Apply &amp; Save</string>
+    <string name="settings_field_example">Example: %1$s</string>
+    <string name="settings_suggested">Suggested:</string>
+    <string name="settings_add">Add</string>
+    <string name="settings_tailsocks">TailSocks</string>
+    <string name="settings_sagernet_copied">SagerNet link copied</string>
 </resources>

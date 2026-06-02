@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 
 @Composable
 fun KeysTabContent(
@@ -42,7 +43,7 @@ fun KeysTabContent(
     Box(Modifier.fillMaxSize()) {
         if (keys.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No active keys", color = MaterialTheme.colorScheme.outline)
+                Text(stringResource(R.string.admin_keys_no_active), color = MaterialTheme.colorScheme.outline)
             }
         } else {
             LazyColumn(
@@ -64,15 +65,15 @@ fun KeysTabContent(
             containerColor = MaterialTheme.colorScheme.primaryContainer,
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
         ) {
-            Icon(Icons.Default.Add, contentDescription = "Generate Key")
+            Icon(Icons.Default.Add, contentDescription = stringResource(R.string.admin_keys_cd_generate))
         }
     }
 
     if (keyToRevoke != null) {
         AlertDialog(
             onDismissRequest = { keyToRevoke = null },
-            title = { Text("Revoke Key?") },
-            text = { Text("Are you sure you want to revoke this auth key? Devices using it will no longer authenticate.") },
+            title = { Text(stringResource(R.string.admin_keys_revoke_title)) },
+            text = { Text(stringResource(R.string.admin_keys_revoke_text)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -81,11 +82,11 @@ fun KeysTabContent(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Revoke")
+                    Text(stringResource(R.string.action_revoke))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { keyToRevoke = null }) { Text("Cancel") }
+                TextButton(onClick = { keyToRevoke = null }) { Text(stringResource(R.string.action_cancel)) }
             }
         )
     }
@@ -134,13 +135,13 @@ fun KeyRow(
                     color = if (isRevoked || isExpired) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    "ID: ${key.id}",
+                    stringResource(R.string.admin_keys_id_prefix, key.id),
                     fontFamily = FontFamily.Monospace,
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.outline
                 )
                 Text(
-                    "Expires: ${formatExpires(key.expires)}",
+                    stringResource(R.string.admin_keys_expires_prefix, formatExpires(key.expires)),
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -150,11 +151,11 @@ fun KeyRow(
                 IconButton(
                     onClick = onRevoke
                 ) {
-                    Icon(Icons.Default.Delete, contentDescription = "Revoke", tint = MaterialTheme.colorScheme.error)
+                    Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.admin_keys_cd_revoke), tint = MaterialTheme.colorScheme.error)
                 }
             } else {
                 Text(
-                    text = if (isRevoked) "Revoked" else "Expired",
+                    text = if (isRevoked) stringResource(R.string.admin_keys_status_revoked) else stringResource(R.string.admin_keys_status_expired),
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.outline,
@@ -181,7 +182,7 @@ fun CreateKeyDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Generate Auth Key") },
+        title = { Text(stringResource(R.string.admin_keys_generate_title)) },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
@@ -190,8 +191,8 @@ fun CreateKeyDialog(
                 OutlinedTextField(
                     value = desc,
                     onValueChange = { desc = it },
-                    label = { Text("Description") },
-                    placeholder = { Text("e.g. Server node key") },
+                    label = { Text(stringResource(R.string.admin_keys_desc_label)) },
+                    placeholder = { Text(stringResource(R.string.admin_keys_desc_placeholder)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -199,7 +200,7 @@ fun CreateKeyDialog(
                 OutlinedTextField(
                     value = expiryDays,
                     onValueChange = { expiryDays = it },
-                    label = { Text("Expires in (Days)") },
+                    label = { Text(stringResource(R.string.admin_keys_expiry_label)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
@@ -212,8 +213,8 @@ fun CreateKeyDialog(
                     Checkbox(checked = ephemeral, onCheckedChange = { ephemeral = it })
                     Spacer(Modifier.width(8.dp))
                     Column {
-                        Text("Ephemeral Node Key")
-                        Text("Nodes auto-delete when offline", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                        Text(stringResource(R.string.admin_keys_ephemeral_title))
+                        Text(stringResource(R.string.admin_keys_ephemeral_desc), fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
                     }
                 }
 
@@ -224,17 +225,17 @@ fun CreateKeyDialog(
                     Checkbox(checked = preauth, onCheckedChange = { preauth = it })
                     Spacer(Modifier.width(8.dp))
                     Column {
-                        Text("Pre-authorized Key")
-                        Text("Skip admin device approval", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                        Text(stringResource(R.string.admin_keys_preauth_title))
+                        Text(stringResource(R.string.admin_keys_preauth_desc), fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
                     }
                 }
 
                 OutlinedTextField(
                     value = tagsInput,
                     onValueChange = { tagsInput = it },
-                    label = { Text("Apply Tags (comma separated)") },
-                    placeholder = { Text("tag:server, tag:mobile") },
-                    supportingText = { Text("Optional. Requires tag owner definition in ACL") },
+                    label = { Text(stringResource(R.string.admin_keys_tags_label)) },
+                    placeholder = { Text(stringResource(R.string.admin_keys_tags_placeholder)) },
+                    supportingText = { Text(stringResource(R.string.admin_keys_tags_supporting)) },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -252,11 +253,11 @@ fun CreateKeyDialog(
                     onGenerate(desc.trim(), expirySeconds, ephemeral, preauth, tagsList)
                 }
             ) {
-                Text("Generate")
+                Text(stringResource(R.string.action_generate))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
         }
     )
 }

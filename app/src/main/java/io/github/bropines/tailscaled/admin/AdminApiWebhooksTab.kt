@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -41,21 +42,21 @@ fun WebhooksTabContent(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Webhook Endpoints", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.admin_webhooks_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Button(
                 onClick = onCreateClick,
                 shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
             ) {
-                Icon(Icons.Default.Add, null)
+                Icon(Icons.Default.Add, contentDescription = null)
                 Spacer(Modifier.width(4.dp))
-                Text("Add Endpoint", fontSize = 13.sp)
+                Text(stringResource(R.string.admin_webhooks_add), fontSize = 13.sp)
             }
         }
 
         if (webhooks.isEmpty()) {
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Text("No webhooks configured", color = MaterialTheme.colorScheme.outline)
+                Text(stringResource(R.string.admin_webhooks_no_webhooks), color = MaterialTheme.colorScheme.outline)
             }
         } else {
             LazyColumn(
@@ -117,7 +118,7 @@ fun WebhookRow(
             }
 
             Text(
-                "Subscribed Events: ${webhook.subscribedEvents?.joinToString(", ") ?: "None"}",
+                stringResource(R.string.admin_webhooks_subscribed_events, webhook.subscribedEvents?.size?.toString() ?: "0"),
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -134,7 +135,7 @@ fun WebhookRow(
                 ) {
                     Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Test Ping", fontSize = 12.sp)
+                    Text(stringResource(R.string.admin_webhooks_test_ping), fontSize = 12.sp)
                 }
 
                 Button(
@@ -149,7 +150,7 @@ fun WebhookRow(
                 ) {
                     Icon(Icons.Default.Delete, null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Delete", fontSize = 12.sp)
+                    Text(stringResource(R.string.action_delete), fontSize = 12.sp)
                 }
             }
         }
@@ -158,8 +159,8 @@ fun WebhookRow(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Delete Webhook?") },
-            text = { Text("Are you sure you want to delete this webhook endpoint? This cannot be undone.") },
+            title = { Text(stringResource(R.string.admin_webhooks_delete_title)) },
+            text = { Text(stringResource(R.string.admin_webhooks_delete_text)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -168,11 +169,11 @@ fun WebhookRow(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Delete")
+                    Text(stringResource(R.string.action_delete))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
+                TextButton(onClick = { showDeleteConfirm = false }) { Text(stringResource(R.string.action_cancel)) }
             }
         )
     }
@@ -199,7 +200,7 @@ fun CreateWebhookDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add Webhook Endpoint") },
+        title = { Text(stringResource(R.string.admin_webhooks_add_title)) },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
@@ -208,13 +209,13 @@ fun CreateWebhookDialog(
                 OutlinedTextField(
                     value = url,
                     onValueChange = { url = it },
-                    label = { Text("Endpoint URL") },
-                    placeholder = { Text("https://example.com/webhook") },
+                    label = { Text(stringResource(R.string.admin_webhooks_url_label)) },
+                    placeholder = { Text(stringResource(R.string.admin_webhooks_url_placeholder)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Text("Subscribe to Events:", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text(stringResource(R.string.admin_webhooks_subscribe_label), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
 
                 availableEvents.forEach { event ->
                     val isChecked = selectedEvents.contains(event)
@@ -242,20 +243,20 @@ fun CreateWebhookDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    if (url.isBlank() || !url.startsWith("http")) {
-                        Toast.makeText(context, "Please enter a valid URL (http/https)", Toast.LENGTH_SHORT).show()
+                    if (!android.util.Patterns.WEB_URL.matcher(url).matches()) {
+                        Toast.makeText(context, context.getString(R.string.admin_webhooks_invalid_url), Toast.LENGTH_SHORT).show()
                     } else if (selectedEvents.isEmpty()) {
-                        Toast.makeText(context, "Please select at least one event", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.admin_webhooks_no_events_selected), Toast.LENGTH_SHORT).show()
                     } else {
                         onSave(url.trim(), selectedEvents.toList())
                     }
                 }
             ) {
-                Text("Add")
+                Text(stringResource(R.string.action_save))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
         }
     )
 }

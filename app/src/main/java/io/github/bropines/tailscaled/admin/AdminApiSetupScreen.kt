@@ -28,6 +28,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,10 +42,10 @@ fun AdminApiNoTailnetScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Admin API Setup") },
+                title = { Text(stringResource(R.string.admin_setup_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.admin_cd_back))
                     }
                 }
             )
@@ -67,14 +68,14 @@ fun AdminApiNoTailnetScreen(
             )
 
             Text(
-                text = "Tailnet Not Detected",
+                text = stringResource(R.string.admin_setup_no_tailnet_title),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
             )
 
             Text(
-                text = "TailSocks must be connected to the VPN at least once to automatically detect your Tailnet domain.\n\nAlternatively, you can specify your Tailnet domain manually below:",
+                text = stringResource(R.string.admin_setup_no_tailnet_desc),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -85,8 +86,8 @@ fun AdminApiNoTailnetScreen(
             OutlinedTextField(
                 value = enteredTailnet,
                 onValueChange = { enteredTailnet = it },
-                label = { Text("Tailnet Domain Name") },
-                placeholder = { Text("e.g. taila1b2.ts.net") },
+                label = { Text(stringResource(R.string.admin_setup_tailnet_label)) },
+                placeholder = { Text(stringResource(R.string.admin_setup_tailnet_placeholder)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
@@ -97,7 +98,7 @@ fun AdminApiNoTailnetScreen(
             Button(
                 onClick = {
                     if (enteredTailnet.isBlank()) {
-                        Toast.makeText(context, "Tailnet domain is required", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.admin_setup_tailnet_required), Toast.LENGTH_SHORT).show()
                     } else {
                         onSaveTailnet(enteredTailnet.trim())
                     }
@@ -107,7 +108,7 @@ fun AdminApiNoTailnetScreen(
             ) {
                 Icon(Icons.Default.Check, null)
                 Spacer(Modifier.width(8.dp))
-                Text("Set Tailnet Name")
+                Text(stringResource(R.string.admin_setup_set_tailnet_name))
             }
         }
     }
@@ -147,10 +148,10 @@ fun AdminApiSetupScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Admin API Setup") },
+                title = { Text(stringResource(R.string.admin_setup_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.admin_cd_back))
                     }
                 }
             )
@@ -173,7 +174,7 @@ fun AdminApiSetupScreen(
             )
 
             Text(
-                text = "Tailscale API Integration",
+                text = stringResource(R.string.admin_setup_integration_title),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
@@ -189,11 +190,11 @@ fun AdminApiSetupScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Active Tailnet Domain", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                        Text(stringResource(R.string.admin_setup_active_tailnet), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                         Text(tailnet, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
                     }
                     TextButton(onClick = onResetTailnet) {
-                        Text("Edit")
+                        Text(stringResource(R.string.action_edit))
                     }
                 }
             }
@@ -206,12 +207,12 @@ fun AdminApiSetupScreen(
                 Tab(
                     selected = authType == "TOKEN",
                     onClick = { authType = "TOKEN" },
-                    text = { Text("Personal Token", fontSize = 13.sp) }
+                    text = { Text(stringResource(R.string.admin_setup_tab_token), fontSize = 13.sp) }
                 )
                 Tab(
                     selected = authType == "OAUTH",
                     onClick = { authType = "OAUTH" },
-                    text = { Text("OAuth Client", fontSize = 13.sp) }
+                    text = { Text(stringResource(R.string.admin_setup_tab_oauth), fontSize = 13.sp) }
                 )
             }
 
@@ -219,8 +220,8 @@ fun AdminApiSetupScreen(
                 OutlinedTextField(
                     value = enteredToken,
                     onValueChange = { enteredToken = it },
-                    label = { Text("API Access Token (tskey-api-...)") },
-                    placeholder = { Text("tskey-api-XXXXX") },
+                    label = { Text(stringResource(R.string.admin_setup_token_label)) },
+                    placeholder = { Text(stringResource(R.string.admin_setup_token_placeholder)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
@@ -229,8 +230,8 @@ fun AdminApiSetupScreen(
                 OutlinedTextField(
                     value = enteredClientId,
                     onValueChange = { enteredClientId = it },
-                    label = { Text("OAuth Client ID") },
-                    placeholder = { Text("e.g. cKXXXXX") },
+                    label = { Text(stringResource(R.string.admin_setup_client_id_label)) },
+                    placeholder = { Text(stringResource(R.string.admin_setup_client_id_placeholder)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
@@ -239,8 +240,8 @@ fun AdminApiSetupScreen(
                 OutlinedTextField(
                     value = enteredClientSecret,
                     onValueChange = { enteredClientSecret = it },
-                    label = { Text("OAuth Client Secret (tskey-client-...)") },
-                    placeholder = { Text("tskey-client-XXXXX") },
+                    label = { Text(stringResource(R.string.admin_setup_client_secret_label)) },
+                    placeholder = { Text(stringResource(R.string.admin_setup_client_secret_placeholder)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
@@ -262,7 +263,7 @@ fun AdminApiSetupScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Language, null, tint = MaterialTheme.colorScheme.primary)
                             Spacer(Modifier.width(8.dp))
-                            Text("API Proxy Configuration", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                            Text(stringResource(R.string.admin_proxy_config_title), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
                         }
                         Icon(
                             imageVector = if (isProxyExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
@@ -274,9 +275,14 @@ fun AdminApiSetupScreen(
                         Spacer(Modifier.height(12.dp))
 
                         // Proxy Mode selector
-                        Text("Proxy Mode", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                        Text(stringResource(R.string.admin_proxy_mode_label), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            listOf("DIRECT" to "Direct (No Proxy)", "LOCAL_SOCKS5" to "Tailsocks SOCKS5 Proxy", "CUSTOM_SOCKS5" to "Custom SOCKS5 Proxy").forEach { (modeVal, labelText) ->
+                            val proxyOptions = listOf(
+                                "DIRECT" to stringResource(R.string.admin_proxy_direct),
+                                "LOCAL_SOCKS5" to stringResource(R.string.admin_proxy_local_socks5),
+                                "CUSTOM_SOCKS5" to stringResource(R.string.admin_proxy_custom_socks5)
+                            )
+                            proxyOptions.forEach { (modeVal, labelText) ->
                                 Row(
                                     modifier = Modifier.fillMaxWidth().clickable { proxyMode = modeVal },
                                     verticalAlignment = Alignment.CenterVertically
@@ -292,8 +298,8 @@ fun AdminApiSetupScreen(
                             OutlinedTextField(
                                 value = proxyHost,
                                 onValueChange = { proxyHost = it },
-                                label = { Text("SOCKS5 Host") },
-                                placeholder = { Text("e.g. 192.168.1.100") },
+                                label = { Text(stringResource(R.string.admin_proxy_socks5_host)) },
+                                placeholder = { Text(stringResource(R.string.admin_proxy_socks5_host_placeholder)) },
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(8.dp)
@@ -302,8 +308,8 @@ fun AdminApiSetupScreen(
                             OutlinedTextField(
                                 value = proxyPort,
                                 onValueChange = { proxyPort = it },
-                                label = { Text("SOCKS5 Port") },
-                                placeholder = { Text("e.g. 1080") },
+                                label = { Text(stringResource(R.string.admin_proxy_socks5_port)) },
+                                placeholder = { Text(stringResource(R.string.admin_proxy_socks5_port_placeholder)) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
@@ -313,7 +319,7 @@ fun AdminApiSetupScreen(
                             OutlinedTextField(
                                 value = proxyUser,
                                 onValueChange = { proxyUser = it },
-                                label = { Text("Proxy Username (Optional)") },
+                                label = { Text(stringResource(R.string.admin_proxy_username_optional)) },
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(8.dp)
@@ -322,7 +328,7 @@ fun AdminApiSetupScreen(
                             OutlinedTextField(
                                 value = proxyPass,
                                 onValueChange = { proxyPass = it },
-                                label = { Text("Proxy Password (Optional)") },
+                                label = { Text(stringResource(R.string.admin_proxy_password_optional)) },
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(8.dp)
@@ -330,7 +336,7 @@ fun AdminApiSetupScreen(
                         } else if (proxyMode == "LOCAL_SOCKS5") {
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                "Routes API calls through the active Socks5 server. Useful if you want to route API calls through your Exit Node.",
+                                stringResource(R.string.admin_proxy_local_desc_setup),
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -345,11 +351,11 @@ fun AdminApiSetupScreen(
                 onClick = {
                     val portVal = proxyPort.toIntOrNull() ?: 0
                     if (authType == "TOKEN" && enteredToken.isBlank()) {
-                        Toast.makeText(context, "API Access Token is required", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.admin_setup_token_required), Toast.LENGTH_SHORT).show()
                     } else if (authType == "OAUTH" && (enteredClientId.isBlank() || enteredClientSecret.isBlank())) {
-                        Toast.makeText(context, "Client ID and Client Secret are required", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.admin_setup_oauth_required), Toast.LENGTH_SHORT).show()
                     } else if (proxyMode == "CUSTOM_SOCKS5" && (proxyHost.isBlank() || portVal <= 0)) {
-                        Toast.makeText(context, "Valid SOCKS5 host and port are required", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.admin_proxy_socks5_required), Toast.LENGTH_SHORT).show()
                     } else {
                         onSave(
                             authType,
@@ -369,7 +375,7 @@ fun AdminApiSetupScreen(
             ) {
                 Icon(Icons.Default.Save, null)
                 Spacer(Modifier.width(8.dp))
-                Text("Save & Connect")
+                Text(stringResource(R.string.admin_setup_save_connect))
             }
         }
     }

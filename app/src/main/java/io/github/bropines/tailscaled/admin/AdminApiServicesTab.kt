@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -21,6 +22,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import io.github.bropines.tailscaled.R
 
 @Composable
 fun ServicesTabContent(
@@ -44,7 +46,7 @@ fun ServicesTabContent(
             ) {
                 Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.secondary)
                 Text(
-                    text = "Виртуальные службы рекламируются узлами вашей сети автоматически. Вы не можете создать службу вручную здесь. После того как узел объявит о службе, вы должны утвердить ее для конкретных устройств.",
+                    text = stringResource(R.string.admin_services_info),
                     style = MaterialTheme.typography.bodySmall,
                     lineHeight = 16.sp
                 )
@@ -53,7 +55,7 @@ fun ServicesTabContent(
 
         if (services.isEmpty()) {
             Box(Modifier.fillMaxSize().weight(1f), contentAlignment = Alignment.Center) {
-                Text("No virtual services found", color = MaterialTheme.colorScheme.outline)
+                Text(stringResource(R.string.admin_services_no_services), color = MaterialTheme.colorScheme.outline)
             }
         } else {
             LazyColumn(
@@ -99,7 +101,7 @@ fun ServiceRow(service: VIPServiceInfo, onClick: () -> Unit) {
                     fontSize = 15.sp
                 )
                 Text(
-                    service.addrs?.firstOrNull() ?: "No IP",
+                    service.addrs?.firstOrNull() ?: stringResource(R.string.admin_services_no_ip),
                     fontFamily = FontFamily.Monospace,
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -180,17 +182,17 @@ fun ServiceDetailBottomSheet(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    DetailRow("IP Addresses", service.addrs?.joinToString("\n") ?: "N/A")
-                    DetailRow("Exposed Ports", service.ports?.joinToString(", ") ?: "N/A")
-                    DetailRow("Comment", service.comment ?: "No comment")
+                    DetailRow(stringResource(R.string.admin_services_ip_addresses), service.addrs?.joinToString("\n") ?: "N/A")
+                    DetailRow(stringResource(R.string.admin_services_exposed_ports), service.ports?.joinToString(", ") ?: "N/A")
+                    DetailRow(stringResource(R.string.admin_services_comment), service.comment ?: stringResource(R.string.admin_services_no_comment))
                     if (!service.tags.isNullOrEmpty()) {
-                        DetailRow("Service Tags", service.tags.joinToString(", "))
+                        DetailRow(stringResource(R.string.admin_services_tags), service.tags.joinToString(", "))
                     }
                 }
             }
 
             Text(
-                "Hosting Devices & Approvals",
+                stringResource(R.string.admin_services_hosting_devices),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.align(Alignment.Start)
@@ -202,7 +204,7 @@ fun ServiceDetailBottomSheet(
                 }
             } else if (hosts.isEmpty()) {
                 Text(
-                    "No devices are configured or requesting to host this service.",
+                    stringResource(R.string.admin_services_no_hosts),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.outline,
                     modifier = Modifier.padding(vertical = 12.dp)
@@ -230,7 +232,7 @@ fun ServiceDetailBottomSheet(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(deviceName, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                     Text(
-                                        "Level: ${host.approvalLevel ?: "unknown"} • Config: ${host.configured ?: "unknown"}",
+                                        stringResource(R.string.admin_services_host_level, host.approvalLevel ?: "unknown", host.configured ?: "unknown"),
                                         fontSize = 11.sp,
                                         color = MaterialTheme.colorScheme.outline
                                     )

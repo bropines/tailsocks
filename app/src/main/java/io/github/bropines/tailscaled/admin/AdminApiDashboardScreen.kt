@@ -25,6 +25,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -55,7 +56,15 @@ fun AdminApiDashboardScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val tabs = listOf("Devices", "DNS", "Users", "Services", "Webhooks", "Logs", "Web Links", "Settings")
+    val tabDevices = stringResource(R.string.admin_tab_devices)
+    val tabDns = stringResource(R.string.admin_tab_dns)
+    val tabUsers = stringResource(R.string.admin_tab_users)
+    val tabServices = stringResource(R.string.admin_tab_services)
+    val tabWebhooks = stringResource(R.string.admin_tab_webhooks)
+    val tabLogs = stringResource(R.string.admin_tab_logs)
+    val tabWebLinks = stringResource(R.string.admin_tab_web_links)
+    val tabSettings = stringResource(R.string.admin_tab_settings)
+    val tabs = listOf(tabDevices, tabDns, tabUsers, tabServices, tabWebhooks, tabLogs, tabWebLinks, tabSettings)
     val pagerState = rememberPagerState(pageCount = { tabs.size })
     var showKeysManagement by remember { mutableStateOf(false) }
 
@@ -247,26 +256,26 @@ fun AdminApiDashboardScreen(
             TopAppBar(
                 title = { 
                     Column {
-                        Text("Admin Console") 
+                        Text(stringResource(R.string.admin_console_title)) 
                         Text(tailnet, fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
                     }
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 },
                 actions = {
                     IconButton(onClick = { refreshTab(pagerState.currentPage, force = true) }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.admin_cd_refresh))
                     }
                     IconButton(onClick = { showProxySettingsDialog = true }) {
-                        Icon(Icons.Default.Router, contentDescription = "Proxy Settings")
+                        Icon(Icons.Default.Router, contentDescription = stringResource(R.string.admin_cd_proxy_settings))
                     }
                     IconButton(
                         onClick = { showDisconnectConfirm = true }
                     ) {
-                        Icon(Icons.Default.LinkOff, contentDescription = "Disconnect API", tint = MaterialTheme.colorScheme.error)
+                        Icon(Icons.Default.LinkOff, contentDescription = stringResource(R.string.admin_cd_disconnect_api), tint = MaterialTheme.colorScheme.error)
                     }
                 }
             )
@@ -333,7 +342,7 @@ fun AdminApiDashboardScreen(
                                         client.updateDnsPreferences(enabled)
                                         withContext(Dispatchers.Main) {
                                             magicDnsEnabled = enabled
-                                            Toast.makeText(context, "MagicDNS updated", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, context.getString(R.string.admin_settings_magic_dns_updated), Toast.LENGTH_SHORT).show()
                                             refreshTab(1, force = true)
                                         }
                                     } catch (e: Exception) {
@@ -349,7 +358,7 @@ fun AdminApiDashboardScreen(
                                         client.setDnsNameservers(updatedList)
                                         withContext(Dispatchers.Main) {
                                             dnsNameservers = updatedList
-                                            Toast.makeText(context, "Nameservers applied", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, context.getString(R.string.admin_settings_ns_applied), Toast.LENGTH_SHORT).show()
                                             refreshTab(1, force = true)
                                         }
                                     } catch (e: Exception) {
@@ -364,7 +373,7 @@ fun AdminApiDashboardScreen(
                                     try {
                                         client.updateSplitDns(domain, nsList)
                                         withContext(Dispatchers.Main) {
-                                            Toast.makeText(context, if (nsList == null) "Split DNS route removed" else "Split DNS route applied", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, context.getString(R.string.admin_settings_search_applied), Toast.LENGTH_SHORT).show()
                                             refreshTab(1, force = true)
                                         }
                                     } catch (e: Exception) {
@@ -380,7 +389,7 @@ fun AdminApiDashboardScreen(
                                         client.setDnsSearchPaths(updatedPaths)
                                         withContext(Dispatchers.Main) {
                                             dnsSearchPaths = updatedPaths
-                                            Toast.makeText(context, "Search paths applied", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, context.getString(R.string.admin_settings_search_applied), Toast.LENGTH_SHORT).show()
                                             refreshTab(1, force = true)
                                         }
                                     } catch (e: Exception) {
@@ -407,7 +416,7 @@ fun AdminApiDashboardScreen(
                                     try {
                                         client.testWebhook(wh.endpointId)
                                         withContext(Dispatchers.Main) {
-                                            Toast.makeText(context, "Test ping sent", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, context.getString(R.string.admin_webhooks_test_sent), Toast.LENGTH_SHORT).show()
                                         }
                                     } catch (e: Exception) {
                                         withContext(Dispatchers.Main) {
@@ -421,7 +430,7 @@ fun AdminApiDashboardScreen(
                                     try {
                                         client.deleteWebhook(wh.endpointId)
                                         withContext(Dispatchers.Main) {
-                                            Toast.makeText(context, "Webhook deleted", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, context.getString(R.string.admin_webhooks_deleted), Toast.LENGTH_SHORT).show()
                                             refreshTab(4, force = true)
                                         }
                                     } catch (e: Exception) {
@@ -450,7 +459,7 @@ fun AdminApiDashboardScreen(
                                         val res = client.updateTailnetSettings(updatedSettings)
                                         withContext(Dispatchers.Main) {
                                             tailnetSettings = res
-                                            Toast.makeText(context, "Settings updated", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, context.getString(R.string.admin_settings_updated), Toast.LENGTH_SHORT).show()
                                             refreshTab(7, force = true)
                                         }
                                     } catch (e: Exception) {
@@ -474,8 +483,8 @@ fun AdminApiDashboardScreen(
     if (showDisconnectConfirm) {
         AlertDialog(
             onDismissRequest = { showDisconnectConfirm = false },
-            title = { Text("Disconnect API?") },
-            text = { Text("This will remove the API credentials for this tailnet ($tailnet). Continue?") },
+            title = { Text(stringResource(R.string.admin_disconnect_title)) },
+            text = { Text(stringResource(R.string.admin_disconnect_text, tailnet)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -484,11 +493,11 @@ fun AdminApiDashboardScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Disconnect")
+                    Text(stringResource(R.string.action_disconnect))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDisconnectConfirm = false }) { Text("Cancel") }
+                TextButton(onClick = { showDisconnectConfirm = false }) { Text(stringResource(R.string.action_cancel)) }
             }
         )
     }
@@ -504,7 +513,7 @@ fun AdminApiDashboardScreen(
             onSave = { pmode, phost, pport, puser, ppass ->
                 showProxySettingsDialog = false
                 onUpdateProxy(pmode, phost, pport, puser, ppass)
-                Toast.makeText(context, "Proxy settings saved", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.admin_settings_updated), Toast.LENGTH_SHORT).show()
                 refreshTab(pagerState.currentPage, force = true)
             }
         )
@@ -513,10 +522,10 @@ fun AdminApiDashboardScreen(
     if (generatedKeyToShow != null) {
         AlertDialog(
             onDismissRequest = { generatedKeyToShow = null },
-            title = { Text("Key Generated Successfully") },
+            title = { Text(stringResource(R.string.admin_key_generated_title)) },
             text = {
                 Column {
-                    Text("Please copy this key now. It cannot be shown again:")
+                    Text(stringResource(R.string.admin_key_generated_text))
                     Spacer(Modifier.height(12.dp))
                     Text(
                         text = generatedKeyToShow!!,
@@ -535,7 +544,7 @@ fun AdminApiDashboardScreen(
                     onClick = {
                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                         clipboard.setPrimaryClip(ClipData.newPlainText("Tailscale Auth Key", generatedKeyToShow))
-                        Toast.makeText(context, "Copied to clipboard!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.copied_to_clipboard, "Key"), Toast.LENGTH_SHORT).show()
                         generatedKeyToShow = null
                         scope.launch(Dispatchers.IO) {
                             try {
@@ -547,11 +556,11 @@ fun AdminApiDashboardScreen(
                         }
                     }
                 ) {
-                    Text("Copy & Close")
+                    Text(stringResource(R.string.admin_key_copy_close))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { generatedKeyToShow = null }) { Text("Close") }
+                TextButton(onClick = { generatedKeyToShow = null }) { Text(stringResource(R.string.action_close)) }
             }
         )
     }
@@ -568,7 +577,7 @@ fun AdminApiDashboardScreen(
                     try {
                         client.renameDevice(device.id, newName)
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Device renamed", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.admin_device_renamed), Toast.LENGTH_SHORT).show()
                             selectedDevice = null
                             refreshTab(0, force = true)
                         }
@@ -584,7 +593,7 @@ fun AdminApiDashboardScreen(
                     try {
                         client.setDeviceAuthorized(device.id, authorized)
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, if (authorized) "Device authorized" else "Device deauthorized", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(if (authorized) R.string.admin_device_authorized else R.string.admin_device_deauthorized), Toast.LENGTH_SHORT).show()
                             selectedDevice = null
                             refreshTab(0, force = true)
                         }
@@ -600,7 +609,7 @@ fun AdminApiDashboardScreen(
                     try {
                         client.expireDevice(device.id)
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Device key expired", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.admin_device_key_expired), Toast.LENGTH_SHORT).show()
                             selectedDevice = null
                             refreshTab(0, force = true)
                         }
@@ -616,7 +625,7 @@ fun AdminApiDashboardScreen(
                     try {
                         client.deleteDevice(device.id)
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Device deleted", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.admin_device_deleted), Toast.LENGTH_SHORT).show()
                             selectedDevice = null
                             refreshTab(0, force = true)
                         }
@@ -632,7 +641,7 @@ fun AdminApiDashboardScreen(
                     try {
                         client.setDeviceTags(device.id, tagsList)
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Device tags updated", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.admin_device_tags_updated), Toast.LENGTH_SHORT).show()
                             selectedDevice = null
                             refreshTab(0, force = true)
                         }
@@ -648,7 +657,7 @@ fun AdminApiDashboardScreen(
                     try {
                         client.setDeviceKeyExpiryDisabled(device.id, disabled)
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Key expiry updated", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.admin_device_key_expiry_updated), Toast.LENGTH_SHORT).show()
                             selectedDevice = null
                             refreshTab(0, force = true)
                         }
@@ -671,7 +680,7 @@ fun AdminApiDashboardScreen(
                     try {
                         client.changeUserRole(user.id, newRole)
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Role updated to ${newRole.uppercase()}", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.admin_users_role_updated, newRole.uppercase()), Toast.LENGTH_SHORT).show()
                             selectedUser = null
                             refreshTab(3, force = true)
                         }
@@ -687,7 +696,7 @@ fun AdminApiDashboardScreen(
                     try {
                         client.approveUser(user.id)
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "User approved", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.admin_users_approved), Toast.LENGTH_SHORT).show()
                             selectedUser = null
                             refreshTab(3, force = true)
                         }
@@ -703,7 +712,7 @@ fun AdminApiDashboardScreen(
                     try {
                         client.suspendUser(user.id)
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "User suspended", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.admin_users_suspended), Toast.LENGTH_SHORT).show()
                             selectedUser = null
                             refreshTab(3, force = true)
                         }
@@ -719,7 +728,7 @@ fun AdminApiDashboardScreen(
                     try {
                         client.restoreUser(user.id)
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "User restored", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.admin_users_restored), Toast.LENGTH_SHORT).show()
                             selectedUser = null
                             refreshTab(3, force = true)
                         }
@@ -735,7 +744,7 @@ fun AdminApiDashboardScreen(
                     try {
                         client.deleteUser(user.id)
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "User deleted", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.admin_users_deleted), Toast.LENGTH_SHORT).show()
                             selectedUser = null
                             refreshTab(3, force = true)
                         }
@@ -788,7 +797,7 @@ fun AdminApiDashboardScreen(
                         client.createWebhook(url, events)
                         withContext(Dispatchers.Main) {
                             showCreateWebhookDialog = false
-                            Toast.makeText(context, "Webhook added", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.admin_webhooks_added), Toast.LENGTH_SHORT).show()
                             refreshTab(4, force = true)
                         }
                     } catch (e: Exception) {
@@ -813,9 +822,9 @@ fun AdminApiDashboardScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Auth Keys", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.admin_settings_auth_keys_title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     IconButton(onClick = { showKeysManagement = false }) {
-                        Icon(Icons.Default.Close, "Close")
+                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.action_close))
                     }
                 }
                 HorizontalDivider()
@@ -827,7 +836,7 @@ fun AdminApiDashboardScreen(
                                 try {
                                     client.revokeKey(key.id)
                                     withContext(Dispatchers.Main) {
-                                        Toast.makeText(context, "Key revoked", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.admin_keys_status_revoked), Toast.LENGTH_SHORT).show()
                                         val list = client.listKeys()
                                         keys = list.sortedBy { it.revoked == true }
                                     }

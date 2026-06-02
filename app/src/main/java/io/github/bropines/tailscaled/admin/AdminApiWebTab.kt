@@ -1,5 +1,6 @@
 package io.github.bropines.tailscaled.admin
 
+import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.*
 import io.github.bropines.tailscaled.models.*
 import io.github.bropines.tailscaled.ui.*
@@ -20,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -37,21 +39,21 @@ fun AdminApiWebTabContent() {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text(
-            text = "Безопасные веб-настройки",
+            text = stringResource(R.string.admin_web_title),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(bottom = 4.dp)
         )
         Text(
-            text = "Следующие операции требуют повышенной безопасности и выполняются исключительно через официальную веб-панель управления Tailscale.",
+            text = stringResource(R.string.admin_web_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.outline,
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
         WebLinkCard(
-            title = "Billing & Plan",
-            description = "Управление тарифным планом, просмотр счетов, баланса и платежной информации вашей сети.",
+            title = stringResource(R.string.admin_web_billing_title),
+            description = stringResource(R.string.admin_web_billing_desc),
             icon = Icons.Default.CreditCard,
             url = "https://login.tailscale.com/admin/settings/billing",
             uriHandler = uriHandler,
@@ -59,8 +61,8 @@ fun AdminApiWebTabContent() {
         )
 
         WebLinkCard(
-            title = "Identity Provider (SSO/IdP)",
-            description = "Настройка провайдера аутентификации (Google, Microsoft, GitHub, Okta и др.) для вашей сети.",
+            title = stringResource(R.string.admin_web_idp_title),
+            description = stringResource(R.string.admin_web_idp_desc),
             icon = Icons.Default.Security,
             url = "https://login.tailscale.com/admin/settings/identity-provider",
             uriHandler = uriHandler,
@@ -68,8 +70,8 @@ fun AdminApiWebTabContent() {
         )
 
         WebLinkCard(
-            title = "Access Control Lists (ACLs)",
-            description = "Просмотр и редактирование политик доступа в формате HuJSON для разграничения прав устройств.",
+            title = stringResource(R.string.admin_web_acl_title),
+            description = stringResource(R.string.admin_web_acl_desc),
             icon = Icons.Default.Code,
             url = "https://login.tailscale.com/admin/acls",
             uriHandler = uriHandler,
@@ -77,8 +79,8 @@ fun AdminApiWebTabContent() {
         )
 
         WebLinkCard(
-            title = "Tailnet Lock",
-            description = "Включение сквозного шифрования конфигурации для предотвращения добавления несанкционированных узлов.",
+            title = stringResource(R.string.admin_web_lock_title),
+            description = stringResource(R.string.admin_web_lock_desc),
             icon = Icons.Default.Lock,
             url = "https://login.tailscale.com/admin/settings/tailnet-lock",
             uriHandler = uriHandler,
@@ -86,8 +88,8 @@ fun AdminApiWebTabContent() {
         )
 
         WebLinkCard(
-            title = "App Integrations (Apps)",
-            description = "Управление сторонними интеграциями (Slack, GitHub, VS Code, Heroku) для получения событий вашей сети.",
+            title = stringResource(R.string.admin_web_apps_title),
+            description = stringResource(R.string.admin_web_apps_desc),
             icon = Icons.Default.Extension,
             url = "https://login.tailscale.com/admin/settings/apps",
             uriHandler = uriHandler,
@@ -95,8 +97,8 @@ fun AdminApiWebTabContent() {
         )
 
         WebLinkCard(
-            title = "Domain Rename",
-            description = "Переименование домена Tailnet (изменение префикса *.ts.net) на уникальное имя.",
+            title = stringResource(R.string.admin_web_domain_title),
+            description = stringResource(R.string.admin_web_domain_desc),
             icon = Icons.Default.SettingsEthernet,
             url = "https://login.tailscale.com/admin/settings/general",
             uriHandler = uriHandler,
@@ -114,6 +116,7 @@ fun WebLinkCard(
     uriHandler: androidx.compose.ui.platform.UriHandler,
     context: android.content.Context
 ) {
+    val cannotOpenBrowser = stringResource(R.string.cannot_open_browser)
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -121,7 +124,7 @@ fun WebLinkCard(
                 try {
                     uriHandler.openUri(url)
                 } catch (e: Exception) {
-                    Toast.makeText(context, "Cannot open browser", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, cannotOpenBrowser, Toast.LENGTH_SHORT).show()
                 }
             },
         shape = RoundedCornerShape(12.dp)

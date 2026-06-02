@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 
 @Composable
 fun TailnetSettingsTabContent(
@@ -64,8 +65,8 @@ fun TailnetSettingsTabContent(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Auth Keys", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("Generate, list, and revoke authentication keys for this Tailnet.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.admin_settings_auth_keys_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.admin_settings_auth_keys_desc), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null)
             }
@@ -74,9 +75,9 @@ fun TailnetSettingsTabContent(
         // Billing removed and moved to Web Links tab
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Default Key Expiry", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.admin_settings_key_expiry_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text(
-                    "Set the default expiration time for device keys in this tailnet. Value must be between 1 and 180 days.",
+                    stringResource(R.string.admin_settings_key_expiry_desc),
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -86,12 +87,12 @@ fun TailnetSettingsTabContent(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("Duration (Days)", fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.admin_settings_duration_days), fontWeight = FontWeight.Medium)
 
                     var expandedDropdown by remember { mutableStateOf(false) }
                     Box {
                         OutlinedButton(onClick = { expandedDropdown = true }) {
-                            Text("$keyDurationDays Days")
+                            Text(stringResource(R.string.admin_settings_days_option, keyDurationDays))
                             Spacer(Modifier.width(4.dp))
                             Icon(Icons.Default.ArrowDropDown, null)
                         }
@@ -101,7 +102,7 @@ fun TailnetSettingsTabContent(
                         ) {
                             listOf(1, 7, 30, 90, 180).forEach { days ->
                                 DropdownMenuItem(
-                                    text = { Text("$days Days") },
+                                    text = { Text(stringResource(R.string.admin_settings_days_option, days)) },
                                     onClick = {
                                         keyDurationDays = days
                                         expandedDropdown = false
@@ -116,7 +117,7 @@ fun TailnetSettingsTabContent(
 
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text("Access & Approval Controls", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.admin_settings_access_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
 
                 Row(
                     modifier = Modifier.fillMaxWidth().clickable { devicesApproval = !devicesApproval },
@@ -124,8 +125,8 @@ fun TailnetSettingsTabContent(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Device Approval Required", fontWeight = FontWeight.Medium)
-                        Text("New devices must be approved by an administrator before they can join.", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                        Text(stringResource(R.string.admin_settings_device_approval_title), fontWeight = FontWeight.Medium)
+                        Text(stringResource(R.string.admin_settings_device_approval_desc), fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
                     }
                     Switch(checked = devicesApproval, onCheckedChange = { devicesApproval = it })
                 }
@@ -138,8 +139,8 @@ fun TailnetSettingsTabContent(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("User Approval Required", fontWeight = FontWeight.Medium)
-                        Text("New members require manual approval from owners or admins to join.", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                        Text(stringResource(R.string.admin_settings_user_approval_title), fontWeight = FontWeight.Medium)
+                        Text(stringResource(R.string.admin_settings_user_approval_desc), fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
                     }
                     Switch(checked = usersApproval, onCheckedChange = { usersApproval = it })
                 }
@@ -148,7 +149,7 @@ fun TailnetSettingsTabContent(
 
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text("Device Software Management", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.admin_settings_software_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
 
                 Row(
                     modifier = Modifier.fillMaxWidth().clickable { autoUpdates = !autoUpdates },
@@ -156,8 +157,8 @@ fun TailnetSettingsTabContent(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Automatic Updates", fontWeight = FontWeight.Medium)
-                        Text("Enable Tailscale to auto-update on devices belonging to this tailnet.", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                        Text(stringResource(R.string.admin_settings_auto_updates_title), fontWeight = FontWeight.Medium)
+                        Text(stringResource(R.string.admin_settings_auto_updates_desc), fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
                     }
                     Switch(checked = autoUpdates, onCheckedChange = { autoUpdates = it })
                 }
@@ -166,7 +167,7 @@ fun TailnetSettingsTabContent(
 
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text("Network & Log Settings", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.admin_settings_network_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
 
                 Row(
                     modifier = Modifier.fillMaxWidth().clickable { networkFlowLogging = !networkFlowLogging },
@@ -174,8 +175,8 @@ fun TailnetSettingsTabContent(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Network Flow Logging", fontWeight = FontWeight.Medium)
-                        Text("Enable network flow logging for the tailnet.", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                        Text(stringResource(R.string.admin_settings_flow_logging_title), fontWeight = FontWeight.Medium)
+                        Text(stringResource(R.string.admin_settings_flow_logging_desc), fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
                     }
                     Switch(checked = networkFlowLogging, onCheckedChange = { networkFlowLogging = it })
                 }
@@ -188,8 +189,8 @@ fun TailnetSettingsTabContent(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Regional Routing", fontWeight = FontWeight.Medium)
-                        Text("Enable regional routing for high availability.", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                        Text(stringResource(R.string.admin_settings_regional_routing_title), fontWeight = FontWeight.Medium)
+                        Text(stringResource(R.string.admin_settings_regional_routing_desc), fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
                     }
                     Switch(checked = regionalRouting, onCheckedChange = { regionalRouting = it })
                 }
@@ -202,8 +203,8 @@ fun TailnetSettingsTabContent(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Posture Identity Collection", fontWeight = FontWeight.Medium)
-                        Text("Enable identity collection for device posture integrations.", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                        Text(stringResource(R.string.admin_settings_posture_title), fontWeight = FontWeight.Medium)
+                        Text(stringResource(R.string.admin_settings_posture_desc), fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
                     }
                     Switch(checked = postureIdentityCollection, onCheckedChange = { postureIdentityCollection = it })
                 }
@@ -212,9 +213,9 @@ fun TailnetSettingsTabContent(
 
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("External Tailnets Access", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.admin_settings_external_tailnets_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text(
-                    "Select which user roles are allowed to join external tailnets via invitation.",
+                    stringResource(R.string.admin_settings_external_tailnets_desc),
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -224,7 +225,7 @@ fun TailnetSettingsTabContent(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("Allowed Role", fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.admin_settings_allowed_role), fontWeight = FontWeight.Medium)
 
                     var expandedRoleDropdown by remember { mutableStateOf(false) }
                     Box {
@@ -283,7 +284,7 @@ fun TailnetSettingsTabContent(
         ) {
             Icon(Icons.Default.Done, null)
             Spacer(Modifier.width(8.dp))
-            Text("Apply Settings")
+            Text(stringResource(R.string.admin_settings_apply))
         }
     }
 }

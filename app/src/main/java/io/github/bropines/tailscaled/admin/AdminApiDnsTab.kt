@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 
 @Composable
 fun DnsTabContent(
@@ -68,8 +69,8 @@ fun DnsTabContent(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("MagicDNS", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("Register DNS names for devices", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                    Text(stringResource(R.string.admin_dns_magic_dns_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.admin_dns_magic_dns_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                 }
                 Switch(checked = magicDns, onCheckedChange = onMagicDnsChanged)
             }
@@ -78,10 +79,10 @@ fun DnsTabContent(
         // Global Nameservers Card
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Global Nameservers", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.admin_dns_global_ns_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 
                 if (nsListState.isEmpty()) {
-                    Text("No custom nameservers configured", color = MaterialTheme.colorScheme.outline, fontSize = 13.sp)
+                    Text(stringResource(R.string.admin_dns_no_custom_ns), color = MaterialTheme.colorScheme.outline, fontSize = 13.sp)
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         nsListState.forEach { ns ->
@@ -111,7 +112,7 @@ fun DnsTabContent(
                     OutlinedTextField(
                         value = newNs,
                         onValueChange = { newNs = it },
-                        placeholder = { Text("e.g. 1.1.1.1") },
+                        placeholder = { Text(stringResource(R.string.admin_dns_ns_placeholder)) },
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(8.dp)
@@ -125,7 +126,7 @@ fun DnsTabContent(
                         },
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text("Add")
+                        Text(stringResource(R.string.action_add))
                     }
                 }
 
@@ -138,7 +139,7 @@ fun DnsTabContent(
                 ) {
                     Icon(Icons.Default.Done, null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Apply DNS Nameservers")
+                    Text(stringResource(R.string.admin_dns_apply_ns))
                 }
             }
         }
@@ -146,10 +147,10 @@ fun DnsTabContent(
         // Split DNS Card
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Split DNS (Domain Routes)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.admin_dns_split_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
 
                 if (splitDns.isEmpty()) {
-                    Text("No Split DNS routes configured", color = MaterialTheme.colorScheme.outline, fontSize = 13.sp)
+                    Text(stringResource(R.string.admin_dns_no_split), color = MaterialTheme.colorScheme.outline, fontSize = 13.sp)
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         splitDns.forEach { (domain, ns) ->
@@ -176,12 +177,12 @@ fun DnsTabContent(
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 4.dp))
 
-                Text("Add Split DNS Route", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.admin_dns_add_split_route), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
                 OutlinedTextField(
                     value = splitDomain,
                     onValueChange = { splitDomain = it },
-                    label = { Text("Domain Name") },
-                    placeholder = { Text("e.g. corp.internal") },
+                    label = { Text(stringResource(R.string.admin_dns_domain_label)) },
+                    placeholder = { Text(stringResource(R.string.admin_dns_domain_placeholder)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(8.dp)
@@ -190,8 +191,8 @@ fun DnsTabContent(
                 OutlinedTextField(
                     value = splitNameservers,
                     onValueChange = { splitNameservers = it },
-                    label = { Text("Nameservers (comma separated)") },
-                    placeholder = { Text("e.g. 10.0.0.1, 10.0.0.2") },
+                    label = { Text(stringResource(R.string.admin_dns_ns_list_label)) },
+                    placeholder = { Text(stringResource(R.string.admin_dns_ns_list_placeholder)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(8.dp)
@@ -203,7 +204,7 @@ fun DnsTabContent(
                             .map { it.trim() }
                             .filter { it.isNotBlank() }
                         if (splitDomain.isBlank() || nsList.isEmpty()) {
-                            Toast.makeText(context, "Domain and nameservers are required", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.admin_dns_domain_and_ns_required), Toast.LENGTH_SHORT).show()
                         } else {
                             onUpdateSplitDns(splitDomain.trim(), nsList)
                             splitDomain = ""
@@ -215,7 +216,7 @@ fun DnsTabContent(
                 ) {
                     Icon(Icons.Default.Add, null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Add Split DNS Route")
+                    Text(stringResource(R.string.admin_dns_add_split_route))
                 }
             }
         }
@@ -223,10 +224,10 @@ fun DnsTabContent(
         // DNS Search Domains Card
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("DNS Search Domains", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.admin_dns_search_domains_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
 
                 if (searchPathsState.isEmpty()) {
-                    Text("No search domains configured", color = MaterialTheme.colorScheme.outline, fontSize = 13.sp)
+                    Text(stringResource(R.string.admin_dns_no_search_domains), color = MaterialTheme.colorScheme.outline, fontSize = 13.sp)
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         searchPathsState.forEach { path ->
@@ -256,7 +257,7 @@ fun DnsTabContent(
                     OutlinedTextField(
                         value = newSearchPath,
                         onValueChange = { newSearchPath = it },
-                        placeholder = { Text("e.g. mycompany.com") },
+                        placeholder = { Text(stringResource(R.string.admin_dns_search_domain_placeholder)) },
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(8.dp)
@@ -270,7 +271,7 @@ fun DnsTabContent(
                         },
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text("Add")
+                        Text(stringResource(R.string.action_add))
                     }
                 }
 
@@ -283,7 +284,7 @@ fun DnsTabContent(
                 ) {
                     Icon(Icons.Default.Done, null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Apply Search Domains")
+                    Text(stringResource(R.string.admin_dns_apply_search))
                 }
             }
         }
@@ -292,9 +293,9 @@ fun DnsTabContent(
         val uriHandler = LocalUriHandler.current
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Tailnet Name", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.admin_dns_tailnet_name_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text(
-                    "Rename your tailnet domain to a custom name (e.g. *.ts.net). This must be done via the Tailscale Admin Console for security reasons.",
+                    stringResource(R.string.admin_dns_tailnet_name_desc),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.outline
                 )
@@ -304,7 +305,7 @@ fun DnsTabContent(
                         try {
                             uriHandler.openUri("https://login.tailscale.com/admin/settings/general")
                         } catch (e: Exception) {
-                            Toast.makeText(context, "Cannot open browser", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.cannot_open_browser), Toast.LENGTH_SHORT).show()
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -312,7 +313,7 @@ fun DnsTabContent(
                 ) {
                     Icon(Icons.Default.OpenInBrowser, null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Rename Tailnet on Web")
+                    Text(stringResource(R.string.admin_dns_rename_web))
                 }
             }
         }

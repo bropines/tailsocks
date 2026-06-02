@@ -28,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 
 @Composable
 fun UsersTabContent(
@@ -36,7 +37,7 @@ fun UsersTabContent(
 ) {
     if (users.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("No users found", color = MaterialTheme.colorScheme.outline)
+            Text(stringResource(R.string.admin_users_no_users), color = MaterialTheme.colorScheme.outline)
         }
     } else {
         LazyColumn(
@@ -128,7 +129,7 @@ fun UserRow(user: ApiUser, onClick: () -> Unit) {
                         fontSize = 16.sp,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    Text("devices", fontSize = 10.sp, color = MaterialTheme.colorScheme.outline)
+                    Text(stringResource(R.string.admin_users_devices_label), fontSize = 10.sp, color = MaterialTheme.colorScheme.outline)
                 }
             }
         }
@@ -216,7 +217,7 @@ fun UserDetailBottomSheet(
             ) {
                 Icon(Icons.Default.ManageAccounts, null)
                 Spacer(Modifier.width(8.dp))
-                Text("Change User Role")
+                Text(stringResource(R.string.admin_users_change_role))
             }
 
             Card(
@@ -224,13 +225,13 @@ fun UserDetailBottomSheet(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    DetailRow("Login Name", user.loginName)
-                    DetailRow("Display Name", user.displayName ?: "N/A")
-                    DetailRow("Created At", formatExpires(user.created))
-                    DetailRow("Role", user.role ?: "member")
-                    DetailRow("Status", user.status ?: "active")
-                    DetailRow("User Type", user.type ?: "N/A")
-                    DetailRow("Devices Owned", user.deviceCount?.toString() ?: "0")
+                    DetailRow(stringResource(R.string.admin_users_login_name), user.loginName)
+                    DetailRow(stringResource(R.string.admin_users_display_name), user.displayName ?: "N/A")
+                    DetailRow(stringResource(R.string.admin_users_created_at), formatExpires(user.created))
+                    DetailRow(stringResource(R.string.admin_users_role), user.role ?: "member")
+                    DetailRow(stringResource(R.string.admin_users_status), user.status ?: "active")
+                    DetailRow(stringResource(R.string.admin_users_type), user.type ?: "N/A")
+                    DetailRow(stringResource(R.string.admin_users_devices_owned), user.deviceCount?.toString() ?: "0")
                 }
             }
 
@@ -247,7 +248,7 @@ fun UserDetailBottomSheet(
                     ) {
                         Icon(Icons.Default.CheckCircle, null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Approve User")
+                        Text(stringResource(R.string.admin_users_approve))
                     }
                 }
 
@@ -259,7 +260,7 @@ fun UserDetailBottomSheet(
                     ) {
                         Icon(Icons.Default.Undo, null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Restore User Access")
+                        Text(stringResource(R.string.admin_users_restore))
                     }
                 } else {
                     OutlinedButton(
@@ -269,7 +270,7 @@ fun UserDetailBottomSheet(
                     ) {
                         Icon(Icons.Default.Block, null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Suspend User")
+                        Text(stringResource(R.string.admin_users_suspend))
                     }
                 }
 
@@ -283,7 +284,7 @@ fun UserDetailBottomSheet(
                 ) {
                     Icon(Icons.Default.Delete, null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Delete User")
+                    Text(stringResource(R.string.admin_users_delete))
                 }
             }
         }
@@ -293,7 +294,7 @@ fun UserDetailBottomSheet(
         val roles = listOf("owner", "admin", "member", "itadmin", "billingadmin", "auditor")
         AlertDialog(
             onDismissRequest = { showRoleDialog = false },
-            title = { Text("Select User Role") },
+            title = { Text(stringResource(R.string.admin_users_select_role_title)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     val chunkedRoles = roles.chunked(2)
@@ -334,7 +335,7 @@ fun UserDetailBottomSheet(
             },
             confirmButton = {},
             dismissButton = {
-                TextButton(onClick = { showRoleDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { showRoleDialog = false }) { Text(stringResource(R.string.action_cancel)) }
             }
         )
     }
@@ -342,8 +343,8 @@ fun UserDetailBottomSheet(
     if (pendingRoleChange != null) {
         AlertDialog(
             onDismissRequest = { pendingRoleChange = null },
-            title = { Text("Confirm Role Change") },
-            text = { Text("Are you sure you want to change this user's role to ${pendingRoleChange!!.uppercase()}?") },
+            title = { Text(stringResource(R.string.admin_users_confirm_role_title)) },
+            text = { Text(stringResource(R.string.admin_users_confirm_role_text, pendingRoleChange!!.uppercase())) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -351,11 +352,11 @@ fun UserDetailBottomSheet(
                         pendingRoleChange = null
                     }
                 ) {
-                    Text("Confirm")
+                    Text(stringResource(R.string.action_confirm))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { pendingRoleChange = null }) { Text("Cancel") }
+                TextButton(onClick = { pendingRoleChange = null }) { Text(stringResource(R.string.action_cancel)) }
             }
         )
     }
@@ -363,13 +364,13 @@ fun UserDetailBottomSheet(
     if (showApproveConfirm) {
         AlertDialog(
             onDismissRequest = { showApproveConfirm = false },
-            title = { Text("Approve User?") },
-            text = { Text("This will approve the user account and allow them to authenticate devices on the tailnet.") },
+            title = { Text(stringResource(R.string.admin_users_approve_title)) },
+            text = { Text(stringResource(R.string.admin_users_approve_text)) },
             confirmButton = {
-                Button(onClick = { showApproveConfirm = false; onApprove() }) { Text("Approve") }
+                Button(onClick = { showApproveConfirm = false; onApprove() }) { Text(stringResource(R.string.action_approve)) }
             },
             dismissButton = {
-                TextButton(onClick = { showApproveConfirm = false }) { Text("Cancel") }
+                TextButton(onClick = { showApproveConfirm = false }) { Text(stringResource(R.string.action_cancel)) }
             }
         )
     }
@@ -377,13 +378,13 @@ fun UserDetailBottomSheet(
     if (showSuspendConfirm) {
         AlertDialog(
             onDismissRequest = { showSuspendConfirm = false },
-            title = { Text("Suspend User?") },
-            text = { Text("Are you sure you want to suspend this user? They will lose access to all tailnet resources and their active keys will be blocked.") },
+            title = { Text(stringResource(R.string.admin_users_suspend_title)) },
+            text = { Text(stringResource(R.string.admin_users_suspend_text)) },
             confirmButton = {
-                Button(onClick = { showSuspendConfirm = false; onSuspend() }) { Text("Suspend") }
+                Button(onClick = { showSuspendConfirm = false; onSuspend() }) { Text(stringResource(R.string.action_suspend)) }
             },
             dismissButton = {
-                TextButton(onClick = { showSuspendConfirm = false }) { Text("Cancel") }
+                TextButton(onClick = { showSuspendConfirm = false }) { Text(stringResource(R.string.action_cancel)) }
             }
         )
     }
@@ -391,13 +392,13 @@ fun UserDetailBottomSheet(
     if (showRestoreConfirm) {
         AlertDialog(
             onDismissRequest = { showRestoreConfirm = false },
-            title = { Text("Restore User?") },
-            text = { Text("This will restore the user access and re-enable their tailnet connectivity.") },
+            title = { Text(stringResource(R.string.admin_users_restore_title)) },
+            text = { Text(stringResource(R.string.admin_users_restore_text)) },
             confirmButton = {
-                Button(onClick = { showRestoreConfirm = false; onRestore() }) { Text("Restore") }
+                Button(onClick = { showRestoreConfirm = false; onRestore() }) { Text(stringResource(R.string.action_restore)) }
             },
             dismissButton = {
-                TextButton(onClick = { showRestoreConfirm = false }) { Text("Cancel") }
+                TextButton(onClick = { showRestoreConfirm = false }) { Text(stringResource(R.string.action_cancel)) }
             }
         )
     }
@@ -405,18 +406,18 @@ fun UserDetailBottomSheet(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Delete User?") },
-            text = { Text("Permanently delete this user account? This action is irreversible.") },
+            title = { Text(stringResource(R.string.admin_users_delete_title)) },
+            text = { Text(stringResource(R.string.admin_users_delete_text)) },
             confirmButton = {
                 Button(
                     onClick = { showDeleteConfirm = false; onDelete() },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Delete")
+                    Text(stringResource(R.string.action_delete))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
+                TextButton(onClick = { showDeleteConfirm = false }) { Text(stringResource(R.string.action_cancel)) }
             }
         )
     }
