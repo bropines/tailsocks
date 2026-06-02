@@ -184,6 +184,7 @@ fun UserDetailBottomSheet(
     var showRestoreConfirm by remember { mutableStateOf(false) }
     var showApproveConfirm by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var pendingRoleChange by remember { mutableStateOf<String?>(null) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -298,7 +299,7 @@ fun UserDetailBottomSheet(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    onRoleChange(role)
+                                    pendingRoleChange = role
                                     showRoleDialog = false
                                 }
                                 .padding(vertical = 12.dp, horizontal = 8.dp),
@@ -307,7 +308,7 @@ fun UserDetailBottomSheet(
                             RadioButton(
                                 selected = (user.role ?: "member").lowercase() == role,
                                 onClick = {
-                                    onRoleChange(role)
+                                    pendingRoleChange = role
                                     showRoleDialog = false
                                 }
                             )
@@ -320,6 +321,27 @@ fun UserDetailBottomSheet(
             confirmButton = {},
             dismissButton = {
                 TextButton(onClick = { showRoleDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (pendingRoleChange != null) {
+        AlertDialog(
+            onDismissRequest = { pendingRoleChange = null },
+            title = { Text("Confirm Role Change") },
+            text = { Text("Are you sure you want to change this user's role to ${pendingRoleChange!!.uppercase()}?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onRoleChange(pendingRoleChange!!)
+                        pendingRoleChange = null
+                    }
+                ) {
+                    Text("Confirm")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingRoleChange = null }) { Text("Cancel") }
             }
         )
     }
