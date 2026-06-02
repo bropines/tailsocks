@@ -115,6 +115,7 @@ dependencies {
     implementation(project(":appctr"))
     implementation(libs.gson)
     implementation("androidx.biometric:biometric:1.1.0")
+    implementation(libs.androidx.appcompat)
     
     // ВАЖНО: Библиотека для XML-тем (исправляет "resource style/Theme.Material3... not found")
     implementation(libs.material) 
