@@ -622,6 +622,30 @@
     <string name="netcheck_cd_copy_report">Копировать отчет</string>
     <string name="netcheck_cd_run_diagnostics">Запустить диагностику</string>
     <string name="netcheck_hint">Диагностика помогает понять прохождение NAT и использование ретрансляторов DERP.</string>
+    <string name="netcheck_connected">ПОДКЛЮЧЕНО</string>
+    <string name="netcheck_offline">ОТКЛЮЧЕНО</string>
+    <string name="netcheck_ip_label">IP: %1$s</string>
+    <string name="netcheck_traffic_relay_desc">Трафик: через реле (%1$s)</string>
+    <string name="netcheck_traffic_direct_desc">Трафик: Прямое P2P-соединение</string>
+    <string name="netcheck_testing_latency_desc">Тестирование задержки сети и прохождения UDP…</string>
+    <string name="netcheck_sect_protocol">Поддержка протоколов</string>
+    <string name="netcheck_udp_stun">Поддержка UDP STUN</string>
+    <string name="netcheck_ipv4_conn">Подключение по IPv4</string>
+    <string name="netcheck_ipv6_conn">Подключение по IPv6</string>
+    <string name="netcheck_nat_varies">Особенности NAT (симметричный)</string>
+    <string name="netcheck_peers_map">Карта активных узлов</string>
+    <string name="netcheck_sect_derp">Задержка до узлов DERP</string>
+    <string name="netcheck_nearest_label">Ближайший</string>
+    <string name="netcheck_nearest_format">Ближайший: %1$s</string>
+    <string name="netcheck_failed">Диагностика не удалась</string>
+    <string name="netcheck_working">Работает</string>
+    <string name="netcheck_blocked">Заблокировано</string>
+    <string name="netcheck_available">Доступно</string>
+    <string name="netcheck_unavailable">Недоступно</string>
+    <string name="netcheck_nat_varies_no">Нет (P2P-совместимый NAT)</string>
+    <string name="netcheck_nat_varies_yes">Да (Симметричный NAT)</string>
+    <string name="netcheck_peers_online_format">%1$d из %2$d в сети</string>
+    <string name="netcheck_peers_online_none">0 из %1$d в сети</string>
 
     <!-- ======================== Peers / Network Devices ======================== -->
     <string name="peers_title">Устройства в сети</string>

@@ -622,6 +622,30 @@
     <string name="netcheck_cd_copy_report">Copy Report</string>
     <string name="netcheck_cd_run_diagnostics">Run Diagnostics</string>
     <string name="netcheck_hint">Diagnostics help you understand NAT traversal and DERP relay usage.</string>
+    <string name="netcheck_connected">CONNECTED</string>
+    <string name="netcheck_offline">OFFLINE</string>
+    <string name="netcheck_ip_label">IP: %1$s</string>
+    <string name="netcheck_traffic_relay_desc">Traffic: Relay node (%1$s)</string>
+    <string name="netcheck_traffic_direct_desc">Traffic: Direct P2P connection</string>
+    <string name="netcheck_testing_latency_desc">Testing network latency &amp; UDP traversal…</string>
+    <string name="netcheck_sect_protocol">Protocol Capabilities</string>
+    <string name="netcheck_udp_stun">UDP STUN Support</string>
+    <string name="netcheck_ipv4_conn">IPv4 Connectivity</string>
+    <string name="netcheck_ipv6_conn">IPv6 Connectivity</string>
+    <string name="netcheck_nat_varies">NAT Mapping Varies</string>
+    <string name="netcheck_peers_map">Active Peers Map</string>
+    <string name="netcheck_sect_derp">DERP Latencies</string>
+    <string name="netcheck_nearest_label">Nearest</string>
+    <string name="netcheck_nearest_format">Nearest: %1$s</string>
+    <string name="netcheck_failed">Diagnostic Failed</string>
+    <string name="netcheck_working">Working</string>
+    <string name="netcheck_blocked">Blocked</string>
+    <string name="netcheck_available">Available</string>
+    <string name="netcheck_unavailable">Unavailable</string>
+    <string name="netcheck_nat_varies_no">No (Direct-friendly NAT)</string>
+    <string name="netcheck_nat_varies_yes">Yes (Symmetric NAT)</string>
+    <string name="netcheck_peers_online_format">%1$d / %2$d online</string>
+    <string name="netcheck_peers_online_none">0 / %1$d online</string>
 
     <!-- ======================== Peers / Network Devices ======================== -->
     <string name="peers_title">Network Devices</string>
