@@ -43,6 +43,11 @@ fun TailnetSettingsTabContent(
     var autoUpdates by remember(settings) { mutableStateOf(settings.devicesAutoUpdatesOn == true) }
     var keyDurationDays by remember(settings) { mutableIntStateOf(settings.devicesKeyDurationDays ?: 180) }
 
+    var networkFlowLogging by remember(settings) { mutableStateOf(settings.networkFlowLoggingOn == true) }
+    var regionalRouting by remember(settings) { mutableStateOf(settings.regionalRoutingOn == true) }
+    var postureIdentityCollection by remember(settings) { mutableStateOf(settings.postureIdentityCollectionOn == true) }
+    var allowedExternalJoinRole by remember(settings) { mutableStateOf(settings.usersRoleAllowedToJoinExternalTailnets ?: "admin") }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -66,21 +71,7 @@ fun TailnetSettingsTabContent(
             }
         }
 
-        Card(
-            modifier = Modifier.fillMaxWidth().clickable { onBillingClick() }
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Billing & Plan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("Manage your Tailscale billing plan, invoices, and payments on the web.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Icon(Icons.Default.OpenInBrowser, null)
-            }
-        }
+        // Billing removed and moved to Web Links tab
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Default Key Expiry", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -173,10 +164,102 @@ fun TailnetSettingsTabContent(
             }
         }
 
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Text("Network & Log Settings", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { networkFlowLogging = !networkFlowLogging },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Network Flow Logging", fontWeight = FontWeight.Medium)
+                        Text("Enable network flow logging for the tailnet.", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                    }
+                    Switch(checked = networkFlowLogging, onCheckedChange = { networkFlowLogging = it })
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { regionalRouting = !regionalRouting },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Regional Routing", fontWeight = FontWeight.Medium)
+                        Text("Enable regional routing for high availability.", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                    }
+                    Switch(checked = regionalRouting, onCheckedChange = { regionalRouting = it })
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { postureIdentityCollection = !postureIdentityCollection },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Posture Identity Collection", fontWeight = FontWeight.Medium)
+                        Text("Enable identity collection for device posture integrations.", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                    }
+                    Switch(checked = postureIdentityCollection, onCheckedChange = { postureIdentityCollection = it })
+                }
+            }
+        }
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("External Tailnets Access", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(
+                    "Select which user roles are allowed to join external tailnets via invitation.",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Allowed Role", fontWeight = FontWeight.Medium)
+
+                    var expandedRoleDropdown by remember { mutableStateOf(false) }
+                    Box {
+                        OutlinedButton(onClick = { expandedRoleDropdown = true }) {
+                            Text(allowedExternalJoinRole.uppercase())
+                            Spacer(Modifier.width(4.dp))
+                            Icon(Icons.Default.ArrowDropDown, null)
+                        }
+                        DropdownMenu(
+                            expanded = expandedRoleDropdown,
+                            onDismissRequest = { expandedRoleDropdown = false }
+                        ) {
+                            listOf("none", "admin", "member").forEach { role ->
+                                DropdownMenuItem(
+                                    text = { Text(role.uppercase()) },
+                                    onClick = {
+                                        allowedExternalJoinRole = role
+                                        expandedRoleDropdown = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         val hasChanges = devicesApproval != (settings.devicesApprovalOn == true) ||
                 usersApproval != (settings.usersApprovalOn == true) ||
                 autoUpdates != (settings.devicesAutoUpdatesOn == true) ||
-                keyDurationDays != (settings.devicesKeyDurationDays ?: 180)
+                keyDurationDays != (settings.devicesKeyDurationDays ?: 180) ||
+                networkFlowLogging != (settings.networkFlowLoggingOn == true) ||
+                regionalRouting != (settings.regionalRoutingOn == true) ||
+                postureIdentityCollection != (settings.postureIdentityCollectionOn == true) ||
+                allowedExternalJoinRole != (settings.usersRoleAllowedToJoinExternalTailnets ?: "admin")
 
         Button(
             onClick = {
@@ -187,9 +270,10 @@ fun TailnetSettingsTabContent(
                     devicesAutoUpdatesOn = autoUpdates,
                     devicesKeyDurationDays = keyDurationDays,
                     usersApprovalOn = usersApproval,
-                    usersRoleAllowedToJoinExternalTailnets = settings.usersRoleAllowedToJoinExternalTailnets,
-                    networkFlowLoggingOn = settings.networkFlowLoggingOn,
-                    regionalRoutingOn = settings.regionalRoutingOn
+                    usersRoleAllowedToJoinExternalTailnets = allowedExternalJoinRole,
+                    networkFlowLoggingOn = networkFlowLogging,
+                    regionalRoutingOn = regionalRouting,
+                    postureIdentityCollectionOn = postureIdentityCollection
                 )
                 onApplySettings(updated)
             },
