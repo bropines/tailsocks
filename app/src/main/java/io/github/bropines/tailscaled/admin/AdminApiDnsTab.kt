@@ -24,6 +24,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -282,6 +284,35 @@ fun DnsTabContent(
                     Icon(Icons.Default.Done, null)
                     Spacer(Modifier.width(8.dp))
                     Text("Apply Search Domains")
+                }
+            }
+        }
+
+        // Tailnet Name Rename Card
+        val uriHandler = LocalUriHandler.current
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Tailnet Name", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(
+                    "Rename your tailnet domain to a custom name (e.g. *.ts.net). This must be done via the Tailscale Admin Console for security reasons.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline
+                )
+                Spacer(Modifier.height(4.dp))
+                Button(
+                    onClick = {
+                        try {
+                            uriHandler.openUri("https://login.tailscale.com/admin/settings/general")
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Cannot open browser", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.OpenInBrowser, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Rename Tailnet on Web")
                 }
             }
         }
