@@ -10,12 +10,8 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -51,7 +47,7 @@ fun AdminApiDashboardScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val tabs = listOf("Devices", "DNS", "Users", "Services", "Webhooks", "Settings")
+    val tabs = listOf("Devices", "DNS", "Users", "Services", "Webhooks", "Logs", "Web Links", "Settings")
     val pagerState = rememberPagerState(pageCount = { tabs.size })
     var showKeysManagement by remember { mutableStateOf(false) }
 
@@ -171,6 +167,12 @@ fun AdminApiDashboardScreen(
                         }
                     }
                     5 -> {
+                        // Logs tab (local poll inside content)
+                    }
+                    6 -> {
+                        // Web Links tab (static links)
+                    }
+                    7 -> {
                         if (force || now - lastSettingsFetch >= cacheDuration || tailnetSettings == null) {
                             val s = client.getTailnetSettings()
                             withContext(Dispatchers.Main) {
@@ -230,7 +232,7 @@ fun AdminApiDashboardScreen(
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh")
                     }
                     IconButton(onClick = { showProxySettingsDialog = true }) {
-                        Icon(Icons.Default.Settings, contentDescription = "Proxy Settings")
+                        Icon(Icons.Default.Router, contentDescription = "Proxy Settings")
                     }
                     IconButton(
                         onClick = { showDisconnectConfirm = true }
@@ -246,15 +248,21 @@ fun AdminApiDashboardScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            Row(
+            val listState = rememberLazyListState()
+            LaunchedEffect(pagerState.currentPage) {
+                listState.animateScrollToItem(pagerState.currentPage)
+            }
+
+            LazyRow(
+                state = listState,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                tabs.forEachIndexed { index, title ->
+                items(tabs.size) { index ->
+                    val title = tabs[index]
                     FilterChip(
                         selected = pagerState.currentPage == index,
                         onClick = {
@@ -395,7 +403,9 @@ fun AdminApiDashboardScreen(
                                 }
                             }
                         )
-                        5 -> TailnetSettingsTabContent(
+                        5 -> AdminApiLogsTabContent()
+                        6 -> AdminApiWebTabContent()
+                        7 -> TailnetSettingsTabContent(
                             settings = tailnetSettings,
                             onApplySettings = { updatedSettings ->
                                 scope.launch(Dispatchers.IO) {
@@ -404,7 +414,7 @@ fun AdminApiDashboardScreen(
                                         withContext(Dispatchers.Main) {
                                             tailnetSettings = res
                                             Toast.makeText(context, "Settings updated", Toast.LENGTH_SHORT).show()
-                                            refreshTab(5, force = true)
+                                            refreshTab(7, force = true)
                                         }
                                     } catch (e: Exception) {
                                         withContext(Dispatchers.Main) {
@@ -416,14 +426,7 @@ fun AdminApiDashboardScreen(
                             onManageKeysClick = {
                                 showKeysManagement = true
                             },
-                            onBillingClick = {
-                                try {
-                                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://login.tailscale.com/admin/settings/billing"))
-                                    context.startActivity(intent)
-                                } catch (e: Exception) {
-                                    Toast.makeText(context, "Cannot open browser", Toast.LENGTH_SHORT).show()
-                                }
-                            }
+                            onBillingClick = {}
                         )
                     }
                 }
