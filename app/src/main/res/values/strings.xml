@@ -597,4 +597,29 @@
     <string name="menu_netcheck">Netcheck</string>
     <string name="menu_settings">Settings</string>
     <string name="menu_serve">Serve</string>
+
+    <!-- ======================== Network Diagnostics ======================== -->
+    <string name="netcheck_title">Network Diagnostics</string>
+    <string name="netcheck_press_refresh">Press Refresh to run health diagnostics…</string>
+    <string name="netcheck_report_copied">Report copied to clipboard</string>
+    <string name="netcheck_analyzing">Analyzing connection…</string>
+    <string name="netcheck_connection_health">--- CONNECTION HEALTH ---\n</string>
+    <string name="netcheck_status">Status: %1$s\n</string>
+    <string name="netcheck_tailscale_ip">Tailscale IP: %1$s\n</string>
+    <string name="netcheck_relay_node">Relay Node: %1$s\n</string>
+    <string name="netcheck_traffic_relay">Traffic Mode: 🔀 Via Relay (UDP might be restricted)\n</string>
+    <string name="netcheck_traffic_direct">Traffic Mode: 🚀 Direct P2P (UDP is working)\n</string>
+    <string name="netcheck_running_diagnostics">\n--- RUNNING DIAGNOSTICS ---\n</string>
+    <string name="netcheck_udp">UDP: %1$s\n</string>
+    <string name="netcheck_ipv4">IPv4: %1$s\n</string>
+    <string name="netcheck_ipv6">IPv6: %1$s\n</string>
+    <string name="netcheck_nat_mapping">NAT Mapping Varies: %1$s\n</string>
+    <string name="netcheck_nearest_derp">Nearest DERP ID: %1$d\n</string>
+    <string name="netcheck_derp_latency">\n--- DERP LATENCY ---\n</string>
+    <string name="netcheck_peer_summary">\n--- PEER SUMMARY ---\n</string>
+    <string name="netcheck_total_peers">Total Peers: %1$d\n</string>
+    <string name="netcheck_online_peers">Online Peers: %1$d\n</string>
+    <string name="netcheck_cd_copy_report">Copy Report</string>
+    <string name="netcheck_cd_run_diagnostics">Run Diagnostics</string>
+    <string name="netcheck_hint">Diagnostics help you understand NAT traversal and DERP relay usage.</string>
 </resources>

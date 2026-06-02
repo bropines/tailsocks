@@ -1,6 +1,7 @@
 package io.github.bropines.tailscaled.ui
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.BuildConfig
+import androidx.compose.ui.res.stringResource
 
 import io.github.bropines.tailscaled.admin.*
 import io.github.bropines.tailscaled.core.*
@@ -47,21 +48,21 @@ class NetcheckActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NetcheckScreen(onBack: () -> Unit) {
-    var output by remember { mutableStateOf("Press Refresh to run health diagnostics...") }
+    val context = LocalContext.current
+    var output by remember(context) { mutableStateOf(context.getString(R.string.netcheck_press_refresh)) }
     var isRunning by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
 
     fun copyToClipboard(text: String) {
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clip = android.content.ClipData.newPlainText("Netcheck Report", text)
         clipboard.setPrimaryClip(clip)
-        Toast.makeText(context, "Report copied to clipboard", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, context.getString(R.string.netcheck_report_copied), Toast.LENGTH_SHORT).show()
     }
 
     fun runDiagnostics() {
         isRunning = true
-        output = "Analyzing connection..."
+        output = context.getString(R.string.netcheck_analyzing)
         scope.launch(Dispatchers.IO) {
             var rawStatus = ""
             var rawNetcheck = ""
@@ -86,19 +87,19 @@ fun NetcheckScreen(onBack: () -> Unit) {
                 } ?: "Unknown"
 
                 val healthOutput = StringBuilder()
-                healthOutput.append("--- CONNECTION HEALTH ---\n")
-                healthOutput.append("Status: ${if (online) "🟢 ONLINE" else "🔴 OFFLINE"}\n")
-                healthOutput.append("Tailscale IP: $tailscaleIp\n")
-                healthOutput.append("Relay Node: $relay\n")
+                healthOutput.append(context.getString(R.string.netcheck_connection_health))
+                healthOutput.append(context.getString(R.string.netcheck_status, if (online) "🟢 ONLINE" else "🔴 OFFLINE"))
+                healthOutput.append(context.getString(R.string.netcheck_tailscale_ip, tailscaleIp))
+                healthOutput.append(context.getString(R.string.netcheck_relay_node, relay))
                 
                 if (relay != "Direct (P2P)") {
-                    healthOutput.append("Traffic Mode: 🔀 Via Relay (UDP might be restricted)\n")
+                    healthOutput.append(context.getString(R.string.netcheck_traffic_relay))
                 } else {
-                    healthOutput.append("Traffic Mode: 🚀 Direct P2P (UDP is working)\n")
+                    healthOutput.append(context.getString(R.string.netcheck_traffic_direct))
                 }
 
                 // Perform NATIVE netcheck via bridge
-                healthOutput.append("\n--- RUNNING DIAGNOSTICS ---\n")
+                healthOutput.append(context.getString(R.string.netcheck_running_diagnostics))
                 rawNetcheck = Appctr.getNetcheckFromAPI()
                 android.util.Log.d("Netcheck", "Raw Netcheck: $rawNetcheck")
 
@@ -111,19 +112,19 @@ fun NetcheckScreen(onBack: () -> Unit) {
                         val ipv6 = netcheck.get("IPv6")?.let { if (it.isJsonPrimitive) it.asBoolean else false } ?: false
                         val mappingVaries = netcheck.get("MappingVariesByDestIP")?.let { if (it.isJsonPrimitive) it.asBoolean else false } ?: false
                         
-                        healthOutput.append("UDP: ${if (udp) "✅ Working" else "❌ Blocked"}\n")
-                        healthOutput.append("IPv4: ${if (ipv4) "✅ Yes" else "❌ No"}\n")
-                        healthOutput.append("IPv6: ${if (ipv6) "✅ Yes" else "❌ No"}\n")
-                        healthOutput.append("NAT Mapping Varies: ${if (mappingVaries) "⚠️ Yes (Symmetric NAT)" else "✅ No"}\n")
+                        healthOutput.append(context.getString(R.string.netcheck_udp, if (udp) "✅ Working" else "❌ Blocked"))
+                        healthOutput.append(context.getString(R.string.netcheck_ipv4, if (ipv4) "✅ Yes" else "❌ No"))
+                        healthOutput.append(context.getString(R.string.netcheck_ipv6, if (ipv6) "✅ Yes" else "❌ No"))
+                        healthOutput.append(context.getString(R.string.netcheck_nat_mapping, if (mappingVaries) "⚠️ Yes (Symmetric NAT)" else "✅ No"))
                         
                         val preferredDerp = netcheck.get("PreferredDERP")?.let { if (it.isJsonPrimitive) it.asInt else 0 } ?: 0
                         if (preferredDerp != 0) {
-                            healthOutput.append("Nearest DERP ID: $preferredDerp\n")
+                            healthOutput.append(context.getString(R.string.netcheck_nearest_derp, preferredDerp))
                         }
                         
                         val derpLatency = if (netcheck.has("DERPLatency") && !netcheck.get("DERPLatency").isJsonNull) netcheck.getAsJsonObject("DERPLatency") else null
                         if (derpLatency != null && derpLatency.size() > 0) {
-                            healthOutput.append("\n--- DERP LATENCY ---\n")
+                            healthOutput.append(context.getString(R.string.netcheck_derp_latency))
                             derpLatency.entrySet().take(10).forEach { entry ->
                                 if (!entry.value.isJsonNull) {
                                     val latency = entry.value.asDouble * 1000
@@ -132,13 +133,13 @@ fun NetcheckScreen(onBack: () -> Unit) {
                             }
                         }
                     } else {
-                        healthOutput.append("❌ Diagnostic Error: ${netcheck.get("Error").asString}\n")
+                        healthOutput.append(context.getString(R.string.error_generic, "Diagnostic Error: " + netcheck.get("Error").asString) + "\n")
                     }
                 } else {
-                    healthOutput.append("❌ Diagnostic Error: Received invalid response from bridge\n")
+                    healthOutput.append(context.getString(R.string.error_generic, "Diagnostic Error: Received invalid response from bridge") + "\n")
                 }
 
-                healthOutput.append("\n--- PEER SUMMARY ---\n")
+                healthOutput.append(context.getString(R.string.netcheck_peer_summary))
                 val peers = if (status.has("Peer") && !status.get("Peer").isJsonNull) status.getAsJsonObject("Peer") else null
                 if (peers != null) {
                     val peerCount = peers.size()
@@ -146,8 +147,8 @@ fun NetcheckScreen(onBack: () -> Unit) {
                         val p = entry.value
                         p.isJsonObject && p.asJsonObject.get("Online")?.let { o -> if (o.isJsonPrimitive) o.asBoolean else false } ?: false 
                     }
-                    healthOutput.append("Total Peers: $peerCount\n")
-                    healthOutput.append("Online Peers: $onlinePeers\n")
+                    healthOutput.append(context.getString(R.string.netcheck_total_peers, peerCount))
+                    healthOutput.append(context.getString(R.string.netcheck_online_peers, onlinePeers))
                 }
 
                 withContext(Dispatchers.Main) {
@@ -170,21 +171,21 @@ fun NetcheckScreen(onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Network Diagnostics") },
+                title = { Text(stringResource(R.string.netcheck_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 },
                 actions = {
                     IconButton(onClick = { copyToClipboard(output) }) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = "Copy Report")
+                        Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.netcheck_cd_copy_report))
                     }
                     IconButton(onClick = { runDiagnostics() }, enabled = !isRunning) {
                         if (isRunning) {
                             CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                         } else {
-                            Icon(Icons.Default.Refresh, contentDescription = "Run Diagnostics")
+                            Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.netcheck_cd_run_diagnostics))
                         }
                     }
                 }
@@ -214,7 +215,7 @@ fun NetcheckScreen(onBack: () -> Unit) {
             Spacer(modifier = Modifier.height(16.dp))
             
             Text(
-                text = "Diagnostics help you understand NAT traversal and DERP relay usage.",
+                text = stringResource(R.string.netcheck_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

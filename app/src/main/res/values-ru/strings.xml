@@ -597,4 +597,29 @@
     <string name="menu_netcheck">Проверка сети</string>
     <string name="menu_settings">Настройки</string>
     <string name="menu_serve">Сервер</string>
+
+    <!-- ======================== Network Diagnostics ======================== -->
+    <string name="netcheck_title">Диагностика сети</string>
+    <string name="netcheck_press_refresh">Нажмите кнопку обновления для запуска диагностики…</string>
+    <string name="netcheck_report_copied">Отчет скопирован в буфер обмена</string>
+    <string name="netcheck_analyzing">Анализ соединения…</string>
+    <string name="netcheck_connection_health">--- СОСТОЯНИЕ СОЕДИНЕНИЯ ---\n</string>
+    <string name="netcheck_status">Статус: %1$s\n</string>
+    <string name="netcheck_tailscale_ip">IP-адрес Tailscale: %1$s\n</string>
+    <string name="netcheck_relay_node">Релейный узел: %1$s\n</string>
+    <string name="netcheck_traffic_relay">Режим трафика: 🔀 Через реле (UDP может быть ограничен)\n</string>
+    <string name="netcheck_traffic_direct">Режим трафика: 🚀 Прямой P2P (UDP работает)\n</string>
+    <string name="netcheck_running_diagnostics">\n--- ЗАПУСК ДИАГНОСТИКИ ---\n</string>
+    <string name="netcheck_udp">UDP: %1$s\n</string>
+    <string name="netcheck_ipv4">IPv4: %1$s\n</string>
+    <string name="netcheck_ipv6">IPv6: %1$s\n</string>
+    <string name="netcheck_nat_mapping">Особенности сопоставления NAT: %1$s\n</string>
+    <string name="netcheck_nearest_derp">Ближайший DERP ID: %1$d\n</string>
+    <string name="netcheck_derp_latency">\n--- ЗАДЕРЖКА DERP ---\n</string>
+    <string name="netcheck_peer_summary">\n--- СВОДКА ПО УЗЛАМ ---\n</string>
+    <string name="netcheck_total_peers">Всего узлов: %1$d\n</string>
+    <string name="netcheck_online_peers">Активных узлов: %1$d\n</string>
+    <string name="netcheck_cd_copy_report">Копировать отчет</string>
+    <string name="netcheck_cd_run_diagnostics">Запустить диагностику</string>
+    <string name="netcheck_hint">Диагностика помогает понять прохождение NAT и использование ретрансляторов DERP.</string>
 </resources>
