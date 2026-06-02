@@ -321,21 +321,77 @@ fun TailSocksTheme(
         }
     }
 
-    CompositionLocalProvider(LocalContext provides localeContext) {
-        MaterialTheme(
-            colorScheme = colorScheme,
-            content = content
-        )
+    val registryOwner = remember(context) {
+        var ctx = context
+        while (ctx is ContextWrapper) {
+            if (ctx is androidx.activity.result.ActivityResultRegistryOwner) {
+                return@remember ctx
+            }
+            ctx = ctx.baseContext
+        }
+        null
+    }
+
+    if (registryOwner != null) {
+        CompositionLocalProvider(
+            LocalContext provides localeContext,
+            androidx.activity.compose.LocalActivityResultRegistryOwner provides registryOwner
+        ) {
+            MaterialTheme(
+                colorScheme = colorScheme,
+                content = content
+            )
+        }
+    } else {
+        CompositionLocalProvider(LocalContext provides localeContext) {
+            MaterialTheme(
+                colorScheme = colorScheme,
+                content = content
+            )
+        }
     }
 }
 
-class LocaleContextWrapper(base: Context, private val activityContext: Context) : ContextWrapper(base) {
+class LocaleContextWrapper(base: Context, private val activityContext: Context) : ContextWrapper(base),
+    androidx.lifecycle.LifecycleOwner,
+    androidx.lifecycle.ViewModelStoreOwner,
+    androidx.savedstate.SavedStateRegistryOwner,
+    androidx.activity.result.ActivityResultRegistryOwner {
+
+    private val activity: android.app.Activity? by lazy {
+        var ctx = activityContext
+        while (ctx is ContextWrapper) {
+            if (ctx is android.app.Activity) {
+                return@lazy ctx
+            }
+            ctx = ctx.baseContext
+        }
+        null
+    }
+
     override fun startActivity(intent: Intent?) {
         activityContext.startActivity(intent)
     }
+
     override fun startActivity(intent: Intent?, options: Bundle?) {
         activityContext.startActivity(intent, options)
     }
+
+    override val lifecycle: androidx.lifecycle.Lifecycle
+        get() = (activity as? androidx.lifecycle.LifecycleOwner)?.lifecycle 
+            ?: (activityContext as androidx.lifecycle.LifecycleOwner).lifecycle
+
+    override val viewModelStore: androidx.lifecycle.ViewModelStore
+        get() = (activity as? androidx.lifecycle.ViewModelStoreOwner)?.viewModelStore 
+            ?: (activityContext as androidx.lifecycle.ViewModelStoreOwner).viewModelStore
+
+    override val savedStateRegistry: androidx.savedstate.SavedStateRegistry
+        get() = (activity as? androidx.savedstate.SavedStateRegistryOwner)?.savedStateRegistry 
+            ?: (activityContext as androidx.savedstate.SavedStateRegistryOwner).savedStateRegistry
+
+    override val activityResultRegistry: androidx.activity.result.ActivityResultRegistry
+        get() = (activity as? androidx.activity.result.ActivityResultRegistryOwner)?.activityResultRegistry 
+            ?: (activityContext as androidx.activity.result.ActivityResultRegistryOwner).activityResultRegistry
 }
 
 fun Context.findActivity(): android.app.Activity? {
