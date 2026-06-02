@@ -704,6 +704,10 @@
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_dark">Dark</string>
     <string name="settings_theme_title">Interface Theme</string>
+    <string name="settings_lang_title">App Language</string>
+    <string name="settings_lang_sys">System Default</string>
+    <string name="settings_lang_en">English</string>
+    <string name="settings_lang_ru">Russian</string>
     <string name="settings_preset_default">Default</string>
     <string name="settings_preset_lavender">Lavender</string>
     <string name="settings_preset_emerald">Emerald</string>

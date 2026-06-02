@@ -103,14 +103,14 @@
     <!-- ======================== ADMIN PANEL ======================== -->
 
     <!-- Admin: Auth lock screen -->
-    <string name="admin_locked_title">Консоль администратора заблокирована</string>
+    <string name="admin_locked_title">Админ-панель заблокирована</string>
     <string name="admin_locked_desc">Для доступа к инструментам администратора требуется аутентификация.</string>
-    <string name="admin_biometric_title">Разблокировать консоль администратора</string>
+    <string name="admin_biometric_title">Разблокировать админ-панель</string>
     <string name="admin_biometric_subtitle">Пройдите биометрическую аутентификацию</string>
     <string name="admin_cd_locked">Заблокировано</string>
 
     <!-- Admin: Dashboard -->
-    <string name="admin_console_title">Консоль администратора</string>
+    <string name="admin_console_title">Админ-панель</string>
     <string name="admin_tab_devices">Устройства</string>
     <string name="admin_tab_dns">DNS</string>
     <string name="admin_tab_users">Пользователи</string>
@@ -481,8 +481,8 @@
     <string name="settings_dynamic_colors_desc">Использовать системные цвета Material You</string>
     <string name="settings_amoled_black">AMOLED Black</string>
     <string name="settings_amoled_black_desc">Чисто чёрный фон в тёмном режиме</string>
-    <string name="settings_backup_zip">Резервная копия (ZIP)</string>
-    <string name="settings_restore_zip">Восстановить ZIP</string>
+    <string name="settings_backup_zip">Создать бэкап</string>
+    <string name="settings_restore_zip">Восстановить</string>
     <string name="settings_copy_sagernet_link">Скопировать ссылку SagerNet</string>
     <string name="settings_backup_account">Резервная копия</string>
     <string name="settings_import_account">Импорт</string>
@@ -596,7 +596,7 @@
     <string name="menu_dns">DNS</string>
     <string name="menu_netcheck">Проверка сети</string>
     <string name="menu_settings">Настройки</string>
-    <string name="menu_serve">Сервер</string>
+    <string name="menu_serve">Serve</string>
 
     <!-- ======================== Network Diagnostics ======================== -->
     <string name="netcheck_title">Диагностика сети</string>
@@ -634,15 +634,15 @@
     <string name="action_retry">Повторить</string>
 
     <!-- ======================== Serve & Funnel ======================== -->
-    <string name="serve_title">Сервер и Воронка (Serve &amp; Funnel)</string>
+    <string name="serve_title">Serve &amp; Funnel</string>
     <string name="serve_cert_saved">Сертификат успешно сохранен</string>
     <string name="serve_save_failed_format">Ошибка сохранения: %1$s</string>
     <string name="serve_error_format">Ошибка: %1$s</string>
     <string name="serve_waiting_dns">Ожидание DNS…</string>
     <string name="serve_cd_export_cert">Экспорт HTTPS-сертификата</string>
     <string name="serve_cd_clear_all">Очистить все</string>
-    <string name="serve_tab_serve">Локальный (Serve)</string>
-    <string name="serve_tab_funnel">Внешний (Funnel)</string>
+    <string name="serve_tab_serve">Serve</string>
+    <string name="serve_tab_funnel">Funnel</string>
     <string name="serve_tab_logs">Логи</string>
     <string name="serve_cd_add_rule">Добавить правило</string>
     <string name="serve_no_logs">Логи запросов не найдены</string>
@@ -704,6 +704,10 @@
     <string name="settings_theme_light">Светлая</string>
     <string name="settings_theme_dark">Темная</string>
     <string name="settings_theme_title">Тема оформления</string>
+    <string name="settings_lang_title">Язык приложения</string>
+    <string name="settings_lang_sys">Системный</string>
+    <string name="settings_lang_en">English</string>
+    <string name="settings_lang_ru">Русский</string>
     <string name="settings_preset_default">По умолчанию</string>
     <string name="settings_preset_lavender">Лаванда</string>
     <string name="settings_preset_emerald">Изумруд</string>
@@ -847,7 +851,7 @@
     <string name="widget_exit_node_title">Выходной узел</string>
     <string name="widget_exit_node_format">Выход: %1$s</string>
     <string name="widget_peers_format">Узлы: %1$d / %2$d</string>
-    <string name="widget_serve_title">Serve и Funnel</string>
+    <string name="widget_serve_title">Serve &amp; Funnel</string>
     <string name="widget_service_stopped">Служба остановлена</string>
     <string name="widget_serve_no_rules">Нет активных правил</string>
     <string name="widget_serve_rules_format">TCP: %1$d  Web: %2$d  Funnel: %3$d</string>
@@ -858,5 +862,5 @@
     <string name="widget_toast_exit_disabled">Выходной узел отключен</string>
     <string name="widget_toast_exit_routing_format">Маршрутизация через %1$s</string>
     <string name="widget_toast_exit_select_first">Сначала выберите выходной узел в приложении</string>
-    <string name="widget_toast_serve_cleared">Правила Serve и Funnel очищены</string>
+    <string name="widget_toast_serve_cleared">Правила Serve &amp; Funnel очищены</string>
 </resources>
