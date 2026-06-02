@@ -76,6 +76,7 @@
     <string name="action_delete">Удалить</string>
     <string name="action_add">Добавить</string>
     <string name="action_close">Закрыть</string>
+    <string name="action_clear">Очистить</string>
     <string name="action_rename">Переименовать</string>
     <string name="action_confirm">Подтвердить</string>
     <string name="action_apply">Применить</string>
@@ -556,4 +557,11 @@
     <string name="files_error_format">Ошибка: %1$s</string>
     <string name="files_failed_format">Не удалось: %1$s</string>
     <string name="action_refresh">Обновить</string>
+
+    <!-- ======================== Logs Screen ======================== -->
+    <string name="logs_saved">Логи сохранены</string>
+    <string name="logs_dns_flushed">DNS-кэш очищен</string>
+    <string name="logs_cd_flush_dns">Очистить DNS-кэш</string>
+    <string name="logs_cleared">Очищено</string>
+    <string name="logs_search_placeholder">Поиск…</string>
 </resources>

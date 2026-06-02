@@ -1,6 +1,7 @@
 package io.github.bropines.tailscaled.ui
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.BuildConfig
+import androidx.compose.ui.res.stringResource
 
 import io.github.bropines.tailscaled.admin.*
 import io.github.bropines.tailscaled.core.*
@@ -138,9 +139,9 @@ fun LogsScreen(onBack: () -> Unit) {
                     context.contentResolver.openOutputStream(it)?.use { os ->
                         OutputStreamWriter(os).use { writer -> writer.write(fullLog) }
                     }
-                    withContext(Dispatchers.Main) { Toast.makeText(context, "Logs saved", Toast.LENGTH_SHORT).show() }
+                    withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.logs_saved), Toast.LENGTH_SHORT).show() }
                 } catch (e: Exception) {
-                    withContext(Dispatchers.Main) { Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show() }
+                    withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show() }
                 }
             }
         }
@@ -178,24 +179,24 @@ fun LogsScreen(onBack: () -> Unit) {
         topBar = {
             Column {
                 TopAppBar(
-                    title = { Text("System logs") },
+                    title = { Text(stringResource(R.string.logs_title)) },
                     navigationIcon = {
-                        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+                        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
                     },
                     actions = {
                         IconButton(onClick = { 
                             Appctr.flushDNS()
-                            Toast.makeText(context, "DNS Cache Flushed", Toast.LENGTH_SHORT).show()
-                        }) { Icon(Icons.Default.CleaningServices, contentDescription = "Flush DNS") }
+                            Toast.makeText(context, context.getString(R.string.logs_dns_flushed), Toast.LENGTH_SHORT).show()
+                        }) { Icon(Icons.Default.CleaningServices, contentDescription = stringResource(R.string.logs_cd_flush_dns)) }
 
                         IconButton(onClick = { 
                             val fullLog = getDebugHeader(context) + Appctr.getLogs()
                             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                             clipboard.setPrimaryClip(ClipData.newPlainText("TailSocks Logs", fullLog))
-                            Toast.makeText(context, "Logs copied!", Toast.LENGTH_SHORT).show()
-                        }) { Icon(Icons.Default.ContentCopy, contentDescription = "Copy") }
+                            Toast.makeText(context, context.getString(R.string.logs_copied), Toast.LENGTH_SHORT).show()
+                        }) { Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.action_copy)) }
                         
-                        IconButton(onClick = { saveFileLauncher.launch("tailsocks_logs_${System.currentTimeMillis()}.txt") }) { Icon(Icons.Default.Save, contentDescription = "Save") }
+                        IconButton(onClick = { saveFileLauncher.launch("tailsocks_logs_${System.currentTimeMillis()}.txt") }) { Icon(Icons.Default.Save, contentDescription = stringResource(R.string.action_save)) }
                     }
                 )
                 
@@ -203,7 +204,7 @@ fun LogsScreen(onBack: () -> Unit) {
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                    placeholder = { Text("Search...") },
+                    placeholder = { Text(stringResource(R.string.logs_search_placeholder)) },
                     leadingIcon = { Icon(Icons.Default.Search, null) },
                     trailingIcon = { if (searchQuery.isNotEmpty()) IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Default.Close, null) } },
                     singleLine = true,
@@ -223,10 +224,10 @@ fun LogsScreen(onBack: () -> Unit) {
                     Appctr.clearLogs()
                     withContext(Dispatchers.Main) {
                         allLogs = emptyList()
-                        Toast.makeText(context, "Cleared", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.logs_cleared), Toast.LENGTH_SHORT).show()
                     }
                 }
-            }) { Icon(Icons.Default.Delete, contentDescription = "Clear") }
+            }) { Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.action_clear)) }
         }
     ) { padding ->
         PullToRefreshBox(

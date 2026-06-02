@@ -76,6 +76,7 @@
     <string name="action_delete">Delete</string>
     <string name="action_add">Add</string>
     <string name="action_close">Close</string>
+    <string name="action_clear">Clear</string>
     <string name="action_rename">Rename</string>
     <string name="action_confirm">Confirm</string>
     <string name="action_apply">Apply</string>
@@ -556,4 +557,11 @@
     <string name="files_error_format">Error: %1$s</string>
     <string name="files_failed_format">Failed: %1$s</string>
     <string name="action_refresh">Refresh</string>
+
+    <!-- ======================== Logs Screen ======================== -->
+    <string name="logs_saved">Logs saved</string>
+    <string name="logs_dns_flushed">DNS Cache Flushed</string>
+    <string name="logs_cd_flush_dns">Flush DNS</string>
+    <string name="logs_cleared">Cleared</string>
+    <string name="logs_search_placeholder">Search…</string>
 </resources>
