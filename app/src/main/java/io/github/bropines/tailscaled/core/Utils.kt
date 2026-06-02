@@ -115,3 +115,17 @@ object BackupCrypto {
     }
 }
 
+fun wrapContextWithLocale(context: Context): Context {
+    val lang = GlobalSettings.getString(context, "app_locale", "sys")
+    return if (lang == "sys") {
+        context
+    } else {
+        val locale = java.util.Locale(lang)
+        java.util.Locale.setDefault(locale)
+        val config = android.content.res.Configuration(context.resources.configuration)
+        config.setLocale(locale)
+        context.createConfigurationContext(config)
+    }
+}
+
+
