@@ -622,4 +622,14 @@
     <string name="netcheck_cd_copy_report">Копировать отчет</string>
     <string name="netcheck_cd_run_diagnostics">Запустить диагностику</string>
     <string name="netcheck_hint">Диагностика помогает понять прохождение NAT и использование ретрансляторов DERP.</string>
+
+    <!-- ======================== Peers / Network Devices ======================== -->
+    <string name="peers_title">Устройства в сети</string>
+    <string name="peers_search_placeholder">Поиск по имени, IP или ОС…</string>
+    <string name="peers_sending">Отправка…</string>
+    <string name="peers_sent">Отправлено!</string>
+    <string name="peers_failed_format">Ошибка: %1$s</string>
+    <string name="peers_daemon_not_running">Служба не запущена</string>
+    <string name="peers_network_error">Ошибка сети</string>
+    <string name="action_retry">Повторить</string>
 </resources>

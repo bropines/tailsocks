@@ -622,4 +622,14 @@
     <string name="netcheck_cd_copy_report">Copy Report</string>
     <string name="netcheck_cd_run_diagnostics">Run Diagnostics</string>
     <string name="netcheck_hint">Diagnostics help you understand NAT traversal and DERP relay usage.</string>
+
+    <!-- ======================== Peers / Network Devices ======================== -->
+    <string name="peers_title">Network Devices</string>
+    <string name="peers_search_placeholder">Search by name, IP or OS…</string>
+    <string name="peers_sending">Sending…</string>
+    <string name="peers_sent">Sent!</string>
+    <string name="peers_failed_format">Failed: %1$s</string>
+    <string name="peers_daemon_not_running">Daemon not running</string>
+    <string name="peers_network_error">Network error</string>
+    <string name="action_retry">Retry</string>
 </resources>

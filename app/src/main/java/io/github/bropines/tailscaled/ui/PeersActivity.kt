@@ -24,6 +24,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import appctr.Appctr
@@ -86,7 +87,7 @@ fun PeersScreen(onBack: () -> Unit) {
                 val json = Appctr.getStatusFromAPI()
                 
                 if (json.isNullOrBlank() || json.startsWith("Error")) {
-                    throw Exception(if (json.isNullOrBlank()) "Daemon not running" else json)
+                    throw Exception(if (json.isNullOrBlank()) context.getString(R.string.peers_daemon_not_running) else json)
                 }
                 val status = Gson().fromJson(json, StatusResponse::class.java)
                 
@@ -102,7 +103,7 @@ fun PeersScreen(onBack: () -> Unit) {
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) { 
                     isRefreshing = false
-                    errorMsg = e.message ?: "Network error" 
+                    errorMsg = e.message ?: context.getString(R.string.peers_network_error)
                 }
             }
         }
@@ -113,17 +114,17 @@ fun PeersScreen(onBack: () -> Unit) {
     Scaffold(
         topBar = {
             Column {
-                TopAppBar(title = { Text("Network Devices") },
-                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+                TopAppBar(title = { Text(stringResource(R.string.peers_title)) },
+                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back)) } },
                     actions = { IconButton(onClick = { 
                         loadPeers() 
-                    }) { Icon(Icons.Default.Refresh, "Refresh") } })
+                    }) { Icon(Icons.Default.Refresh, stringResource(R.string.action_refresh)) } })
                 
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                    placeholder = { Text("Search by name, IP or OS...") },
+                    placeholder = { Text(stringResource(R.string.peers_search_placeholder)) },
                     leadingIcon = { Icon(Icons.Default.Search, null) },
                     trailingIcon = { if (searchQuery.isNotEmpty()) IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Default.Close, null) } },
                     singleLine = true,
@@ -145,7 +146,7 @@ fun PeersScreen(onBack: () -> Unit) {
                 Column(Modifier.align(Alignment.Center).padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(errorMsg!!, color = MaterialTheme.colorScheme.error, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                     Spacer(Modifier.height(16.dp))
-                    Button(onClick = { loadPeers() }) { Text("Retry") }
+                    Button(onClick = { loadPeers() }) { Text(stringResource(R.string.action_retry)) }
                 }
             } else {
                 LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
@@ -177,7 +178,7 @@ fun PeersScreen(onBack: () -> Unit) {
 }
 
 private fun sendFileToPeer(context: Context, uri: Uri, peer: PeerData, scope: CoroutineScope) {
-    Toast.makeText(context, "Sending...", Toast.LENGTH_SHORT).show()
+    Toast.makeText(context, context.getString(R.string.peers_sending), Toast.LENGTH_SHORT).show()
     scope.launch(Dispatchers.IO) {
         try {
             val originalName = getFileName(context, uri) ?: "file_${System.currentTimeMillis()}"
@@ -188,7 +189,7 @@ private fun sendFileToPeer(context: Context, uri: Uri, peer: PeerData, scope: Co
             Appctr.sendFileFromAPI(target, tmp.absolutePath)
             logSentFile(context, originalName, peer.getDisplayName())
             tmp.delete()
-            withContext(Dispatchers.Main) { Toast.makeText(context, "Sent!", Toast.LENGTH_SHORT).show() }
-        } catch (e: Exception) { withContext(Dispatchers.Main) { Toast.makeText(context, "Failed: ${e.message}", Toast.LENGTH_LONG).show() } }
+            withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.peers_sent), Toast.LENGTH_SHORT).show() }
+        } catch (e: Exception) { withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.peers_failed_format, e.message), Toast.LENGTH_LONG).show() } }
     }
 }
