@@ -311,9 +311,7 @@ fun DeviceDetailBottomSheet(
                 }
             }
 
-            val uriHandler = LocalUriHandler.current
             val context = LocalContext.current
-            var isUpdatingNode by remember { mutableStateOf(false) }
 
             Column(
                 modifier = Modifier
@@ -332,35 +330,12 @@ fun DeviceDetailBottomSheet(
                 }
             }
 
+            // Update Available info (clickable trigger temporarily disabled)
             if (device.updateAvailable == true) {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp)
-                        .clickable(enabled = !isUpdatingNode) {
-                            scope.launch(Dispatchers.IO) {
-                                try {
-                                    withContext(Dispatchers.Main) { isUpdatingNode = true }
-                                    val mKey = device.machineKey ?: ""
-                                    val nKey = device.nodeKey ?: ""
-                                    val res = client.triggerDeviceUpdate(device.id, mKey, nKey)
-                                    withContext(Dispatchers.Main) {
-                                        Toast.makeText(context, "Update triggered successfully: $res", Toast.LENGTH_LONG).show()
-                                        isUpdatingNode = false
-                                    }
-                                } catch (e: Exception) {
-                                    withContext(Dispatchers.Main) {
-                                        Toast.makeText(context, "API Update failed. Opening Web Console...", Toast.LENGTH_SHORT).show()
-                                        isUpdatingNode = false
-                                        try {
-                                            uriHandler.openUri("https://login.tailscale.com/admin/machines/${device.getPrimaryIp()}")
-                                        } catch (ex: Exception) {
-                                            Toast.makeText(context, "Cannot open browser", Toast.LENGTH_SHORT).show()
-                                        }
-                                    }
-                                }
-                            }
-                        },
+                        .padding(horizontal = 24.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer,
                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -371,17 +346,10 @@ fun DeviceDetailBottomSheet(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        if (isUpdatingNode) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        } else {
-                            Icon(Icons.Default.SystemUpdate, null)
-                        }
+                        Icon(Icons.Default.SystemUpdate, null)
                         Column {
-                            Text("Update Available (Click to Upgrade)", fontWeight = FontWeight.Bold)
-                            Text("A client version upgrade is available for this device (Current: ${device.clientVersion ?: "N/A"}). Click to trigger update or open web panel.", fontSize = 11.sp)
+                            Text("Update Available", fontWeight = FontWeight.Bold)
+                            Text("Current: ${device.clientVersion ?: "N/A"}. Use the web console to trigger an upgrade.", fontSize = 11.sp)
                         }
                     }
                 }
