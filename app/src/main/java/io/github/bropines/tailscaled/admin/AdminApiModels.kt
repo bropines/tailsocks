@@ -152,3 +152,36 @@ data class ListServiceHostsResponse(
     @SerializedName("hosts") val hosts: List<ServiceHostInfo>?
 )
 
+@Keep
+data class ApiAuditLogActor(
+    @SerializedName("displayName") val displayName: String?,
+    @SerializedName("id") val id: String?,
+    @SerializedName("loginName") val loginName: String?,
+    @SerializedName("type") val type: String?
+)
+
+@Keep
+data class ApiAuditLogTarget(
+    @SerializedName("id") val id: String?,
+    @SerializedName("isEphemeral") val isEphemeral: Boolean?,
+    @SerializedName("name") val name: String?,
+    @SerializedName("type") val type: String?
+)
+
+@Keep
+data class ApiAuditLogEntry(
+    @SerializedName("action") val action: String?,
+    @SerializedName("actor") val actor: ApiAuditLogActor?,
+    @SerializedName("eventTime") val eventTime: String?,
+    @SerializedName("origin") val origin: String?,
+    @SerializedName("target") val target: ApiAuditLogTarget?,
+    @SerializedName("type") val type: String?
+)
+
+@Keep
+data class AuditLogsResponse(
+    @SerializedName("version") val version: String?,
+    @SerializedName("tailnet") val tailnet: String?,
+    @SerializedName("logs") val logs: List<ApiAuditLogEntry>?
+)
+
