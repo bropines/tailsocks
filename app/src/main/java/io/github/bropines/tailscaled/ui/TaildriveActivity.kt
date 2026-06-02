@@ -49,6 +49,10 @@ import com.google.gson.reflect.TypeToken
 import java.io.File
 
 class TaildriveActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(wrapContextWithLocale(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {

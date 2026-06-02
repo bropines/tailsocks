@@ -51,6 +51,10 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 class ConsoleActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(wrapContextWithLocale(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // ФИКС КЛАВИАТУРЫ: Говорим Android, что Compose сам разберется с отступами

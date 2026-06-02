@@ -35,6 +35,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class NetcheckActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(wrapContextWithLocale(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {

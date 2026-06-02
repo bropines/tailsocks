@@ -44,6 +44,10 @@ import java.io.File
 import java.io.FileOutputStream
 
 class ShareActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(wrapContextWithLocale(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val fileUris = when (intent.action) {

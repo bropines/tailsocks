@@ -98,6 +98,10 @@ class MainActivity : ComponentActivity() {
 
     private val showAccountSwitcher = mutableStateOf(false)
 
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(wrapContextWithLocale(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         checkNotificationPermission()

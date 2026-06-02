@@ -6,6 +6,7 @@ import io.github.bropines.tailscaled.admin.*
 import io.github.bropines.tailscaled.core.*
 import io.github.bropines.tailscaled.models.*
 
+import android.content.Context
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -46,6 +47,10 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 
 class ServeActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(wrapContextWithLocale(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {

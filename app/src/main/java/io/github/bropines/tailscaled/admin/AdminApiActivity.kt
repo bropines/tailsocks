@@ -34,6 +34,10 @@ import kotlinx.coroutines.withContext
 class AdminApiActivity : FragmentActivity() {
     private val isAuthenticated = mutableStateOf(false)
 
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(wrapContextWithLocale(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
