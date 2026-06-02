@@ -224,7 +224,8 @@ fun TailSocksTheme(
     var resolvedPreset by remember { mutableStateOf(GlobalSettings.getThemePreset(context)) }
     var resolvedDynamic by remember { mutableStateOf(GlobalSettings.isDynamicColorEnabled(context)) }
     var resolvedAmoled by remember { mutableStateOf(GlobalSettings.getBoolean(context, "amoled_mode", false)) }
-
+    var resolvedLang by remember { mutableStateOf(GlobalSettings.getString(context, "app_locale", "sys")) }
+ 
     // If explicit states are passed (e.g. inside Settings screen for real-time visual updates), use them
     LaunchedEffect(appTheme, themePreset, dynamicColorEnabled, amoledModeEnabled) {
         if (appTheme != null) resolvedTheme = appTheme
@@ -232,7 +233,7 @@ fun TailSocksTheme(
         if (dynamicColorEnabled != null) resolvedDynamic = dynamicColorEnabled
         if (amoledModeEnabled != null) resolvedAmoled = amoledModeEnabled
     }
-
+ 
     // Shared preferences listener to instantly trigger updates on back press / background screens
     DisposableEffect(context) {
         val sharedPrefs = context.getSharedPreferences("tailsocks_global", Context.MODE_PRIVATE)
@@ -242,6 +243,7 @@ fun TailSocksTheme(
                 "theme_preset" -> resolvedPreset = GlobalSettings.getThemePreset(context)
                 "dynamic_color" -> resolvedDynamic = GlobalSettings.isDynamicColorEnabled(context)
                 "amoled_mode" -> resolvedAmoled = GlobalSettings.getBoolean(context, "amoled_mode", false)
+                "app_locale" -> resolvedLang = GlobalSettings.getString(context, "app_locale", "sys")
             }
         }
         sharedPrefs.registerOnSharedPreferenceChangeListener(listener)
@@ -302,9 +304,7 @@ fun TailSocksTheme(
         }
     }
 
-    val currentLocales = AppCompatDelegate.getApplicationLocales()
-    val currentLang = if (currentLocales.isEmpty) "sys" else currentLocales.get(0)?.language ?: "sys"
-    
+    val currentLang = resolvedLang
     val localeContext = remember(context, currentLang) {
         if (currentLang == "sys") {
             context
