@@ -1225,12 +1225,15 @@ fun StatusCard(state: String, isProcessing: Boolean, onToggle: () -> Unit) {
         color = backgroundColor,
         modifier = Modifier
             .fillMaxWidth()
-            .height(130.dp)
+            .heightIn(min = 130.dp)
             .alpha(if (isProcessing) 0.6f else 1f)
             .clickable(enabled = !isProcessing) { onToggle() },
         tonalElevation = 4.dp
     ) {
         Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp, horizontal = 16.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -1242,8 +1245,9 @@ fun StatusCard(state: String, isProcessing: Boolean, onToggle: () -> Unit) {
                 },
                 contentDescription = null,
                 tint = contentColor,
-                modifier = Modifier.size(48.dp).padding(bottom = 16.dp)
+                modifier = Modifier.size(32.dp)
             )
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = when(state) {
                     "ACTIVE" -> stringResource(R.string.main_status_active)
@@ -1254,6 +1258,7 @@ fun StatusCard(state: String, isProcessing: Boolean, onToggle: () -> Unit) {
                 fontWeight = FontWeight.Bold,
                 color = contentColor
             )
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = when {
                     isProcessing -> stringResource(R.string.main_status_please_wait)
@@ -1262,7 +1267,7 @@ fun StatusCard(state: String, isProcessing: Boolean, onToggle: () -> Unit) {
                     else -> stringResource(R.string.tap_to_start)
                 },
                 textAlign = TextAlign.Center,
-                modifier = Modifier.alpha(0.6f).padding(top = 4.dp, start = 16.dp, end = 16.dp),
+                modifier = Modifier.alpha(0.6f),
                 color = contentColor
             )
         }
