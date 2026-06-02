@@ -4,112 +4,109 @@ import io.github.bropines.tailscaled.core.*
 import io.github.bropines.tailscaled.models.*
 import io.github.bropines.tailscaled.ui.*
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
 import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import appctr.Appctr
-import io.github.bropines.tailscaled.ui.LogEntry
-import io.github.bropines.tailscaled.ui.getDebugHeader
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.OutputStreamWriter
+import java.text.SimpleDateFormat
+import java.util.*
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AdminApiLogsTabContent() {
+fun AdminApiLogsTabContent(client: TailscaleApiClient) {
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
+    val scope = rememberCoroutineScope()
 
-    var allLogs by remember { mutableStateOf<List<LogEntry>>(emptyList()) }
-    var selectedCategory by remember { mutableStateOf("ALL") }
-    var searchQuery by remember { mutableStateOf("") }
-
-    var isAutoScroll by remember { mutableStateOf(true) }
+    var auditLogs by remember { mutableStateOf<List<ApiAuditLogEntry>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
     var isRefreshing by remember { mutableStateOf(false) }
-    var showClearDialog by remember { mutableStateOf(false) }
+    var daysRange by remember { mutableIntStateOf(7) } // Default 7 days
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedActionFilter by remember { mutableStateOf("ALL") }
 
-    val listState = rememberLazyListState()
-    val categories = listOf("ALL", "ERROR", "CORE", "TAILSCALE", "OTHER")
+    var lastFetchTime by remember { mutableLongStateOf(0L) }
+    var lastFetchedRange by remember { mutableIntStateOf(-1) }
 
-    val displayedLogs = remember(allLogs, selectedCategory, searchQuery) {
-        allLogs.filter { log ->
-            val matchCategory = selectedCategory == "ALL" || log.category.uppercase() == selectedCategory
-            val matchQuery = searchQuery.isEmpty() || log.message.contains(searchQuery, ignoreCase = true)
-            matchCategory && matchQuery
-        }
+    fun getRfc3339Time(timeMs: Long): String {
+        val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
+        sdf.timeZone = TimeZone.getTimeZone("UTC")
+        return sdf.format(Date(timeMs))
     }
 
-    val saveFileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
-        uri?.let {
-            coroutineScope.launch(Dispatchers.IO) {
-                try {
-                    val fullLog = getDebugHeader(context) + Appctr.getLogs()
-                    context.contentResolver.openOutputStream(it)?.use { os ->
-                        OutputStreamWriter(os).use { writer -> writer.write(fullLog) }
-                    }
-                    withContext(Dispatchers.Main) { Toast.makeText(context, "Logs saved", Toast.LENGTH_SHORT).show() }
-                } catch (e: Exception) {
-                    withContext(Dispatchers.Main) { Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show() }
+    fun loadAuditLogs(forceRefresh: Boolean = false) {
+        val now = System.currentTimeMillis()
+        val rangeChanged = daysRange != lastFetchedRange
+        if (!forceRefresh && !rangeChanged && now - lastFetchTime < 60 * 1000L && auditLogs.isNotEmpty()) {
+            return
+        }
+
+        if (forceRefresh) isRefreshing = true else isLoading = true
+        scope.launch(Dispatchers.IO) {
+            try {
+                val nowMs = System.currentTimeMillis()
+                val end = getRfc3339Time(nowMs)
+                val start = getRfc3339Time(nowMs - daysRange * 24 * 60 * 60 * 1000L)
+                val logsList = client.getAuditLogs(start, end)
+                withContext(Dispatchers.Main) {
+                    auditLogs = logsList
+                    lastFetchTime = now
+                    lastFetchedRange = daysRange
+                    isLoading = false
+                    isRefreshing = false
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Error loading audit logs: ${e.message}", Toast.LENGTH_LONG).show()
+                    isLoading = false
+                    isRefreshing = false
                 }
             }
         }
     }
 
-    fun loadLogsData() {
-        coroutineScope.launch(Dispatchers.IO) {
-            val jsonString = try { Appctr.getLogsJSON() } catch (e: Exception) { "[]" }
-            val logsList: List<LogEntry> = try {
-                Gson().fromJson(jsonString, object : TypeToken<List<LogEntry>>() {}.type)
-            } catch (e: Exception) { emptyList() }
-
-            withContext(Dispatchers.Main) {
-                allLogs = logsList
-            }
-        }
+    LaunchedEffect(daysRange) {
+        loadAuditLogs(forceRefresh = false)
     }
 
-    LaunchedEffect(Unit) {
-        while (true) {
-            loadLogsData()
-            delay(3000)
-        }
-    }
-
-    LaunchedEffect(displayedLogs.size) {
-        if (isAutoScroll && displayedLogs.isNotEmpty()) {
-            listState.animateScrollToItem(displayedLogs.size - 1)
+    val filteredLogs = remember(auditLogs, searchQuery, selectedActionFilter) {
+        auditLogs.filter { log ->
+            val matchesAction = selectedActionFilter == "ALL" || log.action?.uppercase() == selectedActionFilter
+            val query = searchQuery.trim()
+            val matchesQuery = query.isEmpty() ||
+                    (log.actor?.displayName?.contains(query, ignoreCase = true) == true) ||
+                    (log.actor?.loginName?.contains(query, ignoreCase = true) == true) ||
+                    (log.target?.name?.contains(query, ignoreCase = true) == true) ||
+                    (log.target?.id?.contains(query, ignoreCase = true) == true) ||
+                    (log.action?.contains(query, ignoreCase = true) == true) ||
+                    (log.type?.contains(query, ignoreCase = true) == true)
+            matchesAction && matchesQuery
         }
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Controls Row
+        // Controls and Filters Row
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -120,45 +117,50 @@ fun AdminApiLogsTabContent() {
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                placeholder = { Text("Search logs...") },
+                placeholder = { Text("Search audit logs...") },
                 singleLine = true,
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(8.dp),
                 leadingIcon = { Icon(Icons.Default.Search, null) }
             )
 
-            IconButton(onClick = {
-                val fullLog = getDebugHeader(context) + Appctr.getLogs()
-                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                clipboard.setPrimaryClip(ClipData.newPlainText("TailSocks Logs", fullLog))
-                Toast.makeText(context, "Logs copied!", Toast.LENGTH_SHORT).show()
-            }) {
-                Icon(Icons.Default.ContentCopy, contentDescription = "Copy Logs")
-            }
-
-            IconButton(onClick = {
-                saveFileLauncher.launch("tailsocks_admin_logs_${System.currentTimeMillis()}.txt")
-            }) {
-                Icon(Icons.Default.Save, contentDescription = "Save Logs")
-            }
-
-            IconButton(onClick = { showClearDialog = true }) {
-                Icon(Icons.Default.Delete, contentDescription = "Clear Logs", tint = MaterialTheme.colorScheme.error)
+            var expandedRangeDropdown by remember { mutableStateOf(false) }
+            Box {
+                OutlinedButton(onClick = { expandedRangeDropdown = true }) {
+                    Text("$daysRange Days")
+                    Spacer(Modifier.width(4.dp))
+                    Icon(Icons.Default.ArrowDropDown, null)
+                }
+                DropdownMenu(
+                    expanded = expandedRangeDropdown,
+                    onDismissRequest = { expandedRangeDropdown = false }
+                ) {
+                    listOf(1, 3, 7, 14, 30).forEach { days ->
+                        DropdownMenuItem(
+                            text = { Text("$days Days") },
+                            onClick = {
+                                daysRange = days
+                                expandedRangeDropdown = false
+                            }
+                        )
+                    }
+                }
             }
         }
 
-        // Categories Row
+        // Action Filter Chips
+        val actionsList = listOf("ALL", "CREATE", "UPDATE", "DELETE")
         LazyRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(categories) { category ->
+            items(actionsList) { action ->
                 FilterChip(
-                    selected = selectedCategory == category,
-                    onClick = { selectedCategory = category },
-                    label = { Text(category) }
+                    selected = selectedActionFilter == action,
+                    onClick = { selectedActionFilter = action },
+                    label = { Text(action) }
                 )
             }
         }
@@ -171,106 +173,134 @@ fun AdminApiLogsTabContent() {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "${displayedLogs.size} log entries displayed",
+                text = "${filteredLogs.size} audit events found",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.outline
             )
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Auto-Scroll", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(end = 4.dp))
-                Switch(
-                    checked = isAutoScroll,
-                    onCheckedChange = { isAutoScroll = it },
-                    thumbContent = null,
-                    modifier = Modifier.scaleCompact(0.8f)
-                )
-            }
         }
 
-        // Logs List
-        Surface(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            shape = RoundedCornerShape(12.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerLow
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = { loadAuditLogs(forceRefresh = true) },
+            modifier = Modifier.weight(1f).fillMaxWidth()
         ) {
-            if (displayedLogs.isEmpty()) {
+            if (isLoading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No matching logs", color = MaterialTheme.colorScheme.outline)
+                    CircularProgressIndicator()
+                }
+            } else if (filteredLogs.isEmpty()) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("No audit log events found", color = MaterialTheme.colorScheme.outline)
                 }
             } else {
                 SelectionContainer {
                     LazyColumn(
-                        state = listState,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        items(displayedLogs) { log ->
-                            val color = when (log.level.uppercase()) {
-                                "ERROR" -> MaterialTheme.colorScheme.error
-                                "WARNING" -> MaterialTheme.colorScheme.tertiary
-                                else -> MaterialTheme.colorScheme.onSurface
-                            }
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                Row(modifier = Modifier.fillMaxWidth()) {
-                                    Text(
-                                        text = "[${log.timestamp.substringAfter("T").substringBefore(".")}]",
-                                        fontFamily = FontFamily.Monospace,
-                                        fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.outline,
-                                        modifier = Modifier.padding(end = 4.dp)
-                                    )
-                                    Text(
-                                        text = "${log.category.uppercase()}:",
-                                        fontFamily = FontFamily.Monospace,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(end = 6.dp)
-                                    )
-                                }
-                                Text(
-                                    text = log.message,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontSize = 12.sp,
-                                    color = color,
-                                    lineHeight = 16.sp
-                                )
-                            }
+                        items(filteredLogs) { log ->
+                            AuditLogCard(log = log)
                         }
                     }
                 }
             }
         }
     }
+}
 
-    if (showClearDialog) {
-        AlertDialog(
-            onDismissRequest = { showClearDialog = false },
-            title = { Text("Clear system logs?") },
-            text = { Text("Are you sure you want to permanently clear the in-memory system logs? This cannot be undone.") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        Appctr.clearLogs()
-                        allLogs = emptyList()
-                        showClearDialog = false
-                        Toast.makeText(context, "Logs cleared", Toast.LENGTH_SHORT).show()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text("Clear")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showClearDialog = false }) { Text("Cancel") }
+@Composable
+fun AuditLogCard(log: ApiAuditLogEntry) {
+    val actionText = log.action?.uppercase() ?: "UNKNOWN"
+    val (actionIcon, actionColor) = when (actionText) {
+        "CREATE" -> Icons.Default.AddCircle to Color(0xFF4CAF50)
+        "UPDATE" -> Icons.Default.Edit to Color(0xFF2196F3)
+        "DELETE" -> Icons.Default.Delete to Color(0xFFF44336)
+        else -> Icons.Default.Info to MaterialTheme.colorScheme.primary
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(actionColor.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(actionIcon, null, tint = actionColor, modifier = Modifier.size(18.dp))
             }
-        )
+
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "$actionText (${log.target?.type ?: log.type ?: "CONFIG"})",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = actionColor
+                    )
+                    Text(
+                        text = formatLogTime(log.eventTime),
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                }
+                
+                Spacer(Modifier.height(6.dp))
+
+                Text(
+                    text = "Actor: ${log.actor?.displayName ?: "System"} (${log.actor?.loginName ?: "system"})",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium
+                )
+
+                log.target?.name?.let { targetName ->
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Target: $targetName",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                log.origin?.let { origin ->
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Origin: $origin",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline,
+                        fontSize = 10.sp
+                    )
+                }
+            }
+        }
     }
 }
 
-fun Modifier.scaleCompact(scaleVal: Float): Modifier = this.scale(scaleVal)
+fun formatLogTime(isoTime: String?): String {
+    if (isoTime.isNullOrEmpty()) return ""
+    return try {
+        val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+        format.timeZone = TimeZone.getTimeZone("UTC")
+        
+        val cleanTime = isoTime.substringBefore(".") // Ignore nanoseconds
+        val date = format.parse(cleanTime) ?: return isoTime
+        
+        val displayFormat = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault())
+        displayFormat.format(date)
+    } catch (e: Exception) {
+        isoTime
+    }
+}
