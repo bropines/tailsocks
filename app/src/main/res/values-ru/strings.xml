@@ -832,4 +832,10 @@
     <string name="taildrive_err_name_exists">Имя папки уже существует</string>
     <string name="taildrive_err_resolve_path">Не удалось разрешить физический путь к папке. Введите его вручную.</string>
     <string name="taildrive_err_grant_storage">Пожалуйста, предоставьте разрешение на доступ к хранилищу в настройках приложения</string>
+    <!-- Peer Details & UI Components -->
+    <string name="peer_details_prev">Предыдущий</string>
+    <string name="peer_details_next">Следующий</string>
+    <string name="files_sent_to_format">Кому: %1$s • %2$s</string>
+    <string name="files_open_file_chooser">Открыть файл</string>
+    <string name="files_error_cant_open">Не удалось открыть: %1$s</string>
 </resources>

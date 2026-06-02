@@ -29,6 +29,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -198,14 +199,14 @@ fun PeerDetailsModal(
     val maxHeight = (configuration.screenHeightDp * 0.85f).dp
 
     val pingText = when {
-        pingResult == null -> "Ping"
-        pingResult == "Pinging..." -> "Pinging..."
+        pingResult == null -> stringResource(R.string.peer_ping)
+        pingResult == "Pinging..." -> stringResource(R.string.peer_pinging)
         pingResult!!.contains("pong from") -> {
             val parts = pingResult!!.split(" ")
             val time = parts.find { it.contains("ms") } ?: parts.lastOrNull()?.trim() ?: ""
-            "Ping: $time"
+            stringResource(R.string.peer_ping_result, time)
         }
-        else -> "Ping: Failed"
+        else -> stringResource(R.string.peer_ping_failed)
     }
 
     ModalBottomSheet(
@@ -239,7 +240,7 @@ fun PeerDetailsModal(
             ) {
                 if (onPrevPeer != null) {
                     IconButton(onClick = onPrevPeer) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous")
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = stringResource(R.string.peer_details_prev))
                     }
                 } else {
                     Spacer(Modifier.size(48.dp))
@@ -267,7 +268,7 @@ fun PeerDetailsModal(
                 
                 if (onNextPeer != null) {
                     IconButton(onClick = onNextPeer) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next")
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = stringResource(R.string.peer_details_next))
                     }
                 } else {
                     Spacer(Modifier.size(48.dp))
@@ -303,7 +304,7 @@ fun PeerDetailsModal(
                 ) {
                     Icon(Icons.Default.Send, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Send File", fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.peer_send_file), fontWeight = FontWeight.SemiBold)
                 }
             }
             Box(
@@ -352,7 +353,7 @@ fun PeerDetailsModal(
                                 trailingContent = {
                                     Icon(
                                         imageVector = Icons.Default.ContentCopy,
-                                        contentDescription = "Copy",
+                                        contentDescription = stringResource(R.string.action_copy),
                                         modifier = Modifier.size(14.dp),
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                                     )
@@ -362,7 +363,7 @@ fun PeerDetailsModal(
                                     .fillMaxWidth()
                                     .clickable {
                                         (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText(l, v))
-                                        Toast.makeText(context, "$l copied to clipboard!", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.copied_to_clipboard, l), Toast.LENGTH_SHORT).show()
                                     }
                             )
                         }
@@ -392,9 +393,9 @@ fun FileCard(file: TaildropFile, onOpen: () -> Unit, onSave: () -> Unit, onDelet
         }
         HorizontalDivider(Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
         Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = onDelete, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("Delete") }
-            TextButton(onClick = onSave) { Text("Save") }
-            Button(onClick = onOpen, shape = RoundedCornerShape(12.dp)) { Text("Open") }
+            TextButton(onClick = onDelete, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text(stringResource(R.string.action_delete)) }
+            TextButton(onClick = onSave) { Text(stringResource(R.string.action_save)) }
+            Button(onClick = onOpen, shape = RoundedCornerShape(12.dp)) { Text(stringResource(R.string.action_open)) }
         }
     }
 }
@@ -403,7 +404,7 @@ fun FileCard(file: TaildropFile, onOpen: () -> Unit, onSave: () -> Unit, onDelet
 fun SentFileCard(entry: SentFileEntry) {
     val dateStr = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault()).format(Date(entry.timestamp))
     Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
-        ListItem(headlineContent = { Text(entry.name, fontWeight = FontWeight.Medium) }, supportingContent = { Text("To: ${entry.target} • $dateStr") },
+        ListItem(headlineContent = { Text(entry.name, fontWeight = FontWeight.Medium) }, supportingContent = { Text(stringResource(R.string.files_sent_to_format, entry.target, dateStr)) },
             leadingContent = { Icon(Icons.Default.Outbound, null, tint = MaterialTheme.colorScheme.primary) }, colors = ListItemDefaults.colors(containerColor = Color.Transparent))
     }
 }
@@ -439,6 +440,6 @@ fun openTaildropFile(context: Context, file: TaildropFile) {
         context.startActivity(Intent.createChooser(Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(uri, context.contentResolver.getType(uri) ?: "*/*")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-        }, "Open file"))
-    } catch (e: Exception) { Toast.makeText(context, "Can't open: ${e.message}", Toast.LENGTH_SHORT).show() }
+        }, context.getString(R.string.files_open_file_chooser)))
+    } catch (e: Exception) { Toast.makeText(context, context.getString(R.string.files_error_cant_open, e.message), Toast.LENGTH_SHORT).show() }
 }

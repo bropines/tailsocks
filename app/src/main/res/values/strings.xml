@@ -832,4 +832,10 @@
     <string name="taildrive_err_name_exists">Share name already exists</string>
     <string name="taildrive_err_resolve_path">Could not resolve physical folder path. Please enter manually.</string>
     <string name="taildrive_err_grant_storage">Please grant storage permission in App Settings</string>
+    <!-- Peer Details & UI Components -->
+    <string name="peer_details_prev">Previous</string>
+    <string name="peer_details_next">Next</string>
+    <string name="files_sent_to_format">To: %1$s • %2$s</string>
+    <string name="files_open_file_chooser">Open file</string>
+    <string name="files_error_cant_open">Can\'t open: %1$s</string>
 </resources>
