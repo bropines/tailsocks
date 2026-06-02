@@ -63,6 +63,7 @@ var taildropCancel context.CancelFunc
 var lastOptions *StartOptions
 var webServer *http.Server
 var coreVersion string = "unknown"
+var daemonStartTime time.Time
 
 type Closer interface {
 	Close() error
@@ -347,6 +348,7 @@ func Start(opt *StartOptions) {
 	stateMu.Lock()
 	PC = newPathControl(opt.ExecPath, opt.SocketPath, opt.StatePath)
 	lastOptions = opt
+	daemonStartTime = time.Now()
 	stateMu.Unlock()
 	GConfig.update(opt.Socks5Server, opt.Socks5User, opt.Socks5Pass, opt.DnsProxy)
 
@@ -444,6 +446,7 @@ func Stop() {
 	ResetDNSMetadata()
 	stateMu.Lock()
 	defer stateMu.Unlock()
+	daemonStartTime = time.Time{}
 
 	if dnsProxyCancel != nil {
 		dnsProxyCancel()
@@ -526,4 +529,10 @@ func StopWebUI() {
 		_ = ws.Shutdown(ctx)
 		slog.Info("Web UI stopped")
 	}
+}
+
+func GetDaemonStartTime() int64 {
+	stateMu.Lock()
+	defer stateMu.Unlock()
+	return daemonStartTime.Unix()
 }
