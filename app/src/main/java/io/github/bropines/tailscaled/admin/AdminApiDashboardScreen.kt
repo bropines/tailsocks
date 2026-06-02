@@ -10,8 +10,12 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -403,7 +407,7 @@ fun AdminApiDashboardScreen(
                                 }
                             }
                         )
-                        5 -> AdminApiLogsTabContent()
+                        5 -> AdminApiLogsTabContent(client = client)
                         6 -> AdminApiWebTabContent()
                         7 -> TailnetSettingsTabContent(
                             settings = tailnetSettings,
