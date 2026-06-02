@@ -6,6 +6,13 @@ All notable changes to the TailSocks project will be documented in this file. Th
 ### Added
 - Added Crowdin-compatible localization system, extracting hardcoded strings from both the core UI and the Admin Console into standard Android XML resources.
 - Added comprehensive Russian translations (values-ru/strings.xml) and set up the Crowdin integration configuration (`crowdin.yml`).
+- Added in-app language selection interface (chips) and configuration logic with dynamic recreation.
+- Added automatic status bar and navigation bar system color styling to match the current theme.
+
+### Fixed
+- Fixed startActivity crash when launching settings with a custom locale context wrapper.
+- Fixed layout alignment, center-aligned status description on main screen, and corrected various text wraps.
+- Corrected Serve & Funnel translation to original English terms.
 
 ## [2.1.4-beta] - 2026-06-02
 ### Added
