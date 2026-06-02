@@ -332,9 +332,12 @@ fun TailSocksTheme(
         null
     }
 
+    val config = remember(localeContext) { localeContext.resources.configuration }
+
     if (registryOwner != null) {
         CompositionLocalProvider(
             LocalContext provides localeContext,
+            androidx.compose.ui.platform.LocalConfiguration provides config,
             androidx.activity.compose.LocalActivityResultRegistryOwner provides registryOwner
         ) {
             MaterialTheme(
@@ -343,7 +346,10 @@ fun TailSocksTheme(
             )
         }
     } else {
-        CompositionLocalProvider(LocalContext provides localeContext) {
+        CompositionLocalProvider(
+            LocalContext provides localeContext,
+            androidx.compose.ui.platform.LocalConfiguration provides config
+        ) {
             MaterialTheme(
                 colorScheme = colorScheme,
                 content = content

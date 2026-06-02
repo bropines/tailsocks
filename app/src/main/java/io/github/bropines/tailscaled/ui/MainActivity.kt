@@ -121,6 +121,20 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent)
     }
 
+    override fun onResume() {
+        super.onResume()
+        val lang = GlobalSettings.getString(this, "app_locale", "sys")
+        val currentLocale = resources.configuration.locales.get(0)
+        val targetLocale = if (lang == "sys") {
+            android.content.res.Resources.getSystem().configuration.locales.get(0)
+        } else {
+            java.util.Locale(lang)
+        }
+        if (currentLocale.language != targetLocale.language) {
+            recreate()
+        }
+    }
+
     private fun handleIntent(intent: Intent?) {
         if (intent?.action == "android.service.quicksettings.action.QS_TILE_PREFERENCES") {
             showAccountSwitcher.value = true
