@@ -5,6 +5,10 @@ import io.github.bropines.tailscaled.BuildConfig
 import io.github.bropines.tailscaled.admin.*
 import io.github.bropines.tailscaled.core.*
 import io.github.bropines.tailscaled.models.*
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -421,18 +425,30 @@ fun SettingsScreen(
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            // Modern Tab Layout
-            ScrollableTabRow(
-                selectedTabIndex = selectedTab,
-                edgePadding = 12.dp,
-                divider = { HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant) }
+            // Modern Tab Layout using Chips
+            val listState = rememberLazyListState()
+            LaunchedEffect(selectedTab) {
+                listState.animateScrollToItem(selectedTab)
+            }
+            LazyRow(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                tabs.forEachIndexed { index, (title, icon) ->
-                    Tab(
+                items(tabs.size) { index ->
+                    val (title, icon) = tabs[index]
+                    FilterChip(
                         selected = selectedTab == index,
                         onClick = { selectedTab = index },
-                        text = { Text(title, fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal) },
-                        icon = { Icon(icon, null, modifier = Modifier.size(20.dp)) }
+                        label = { Text(title) },
+                        leadingIcon = { Icon(icon, null, modifier = Modifier.size(16.dp)) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
                     )
                 }
             }
@@ -475,6 +491,45 @@ fun SettingsScreen(
                                             FilterChip(
                                                 selected = isSelected,
                                                 onClick = { onThemeChange(id) },
+                                                label = { Text(label) },
+                                                leadingIcon = { Icon(icon, null, modifier = Modifier.size(16.dp)) },
+                                                colors = FilterChipDefaults.filterChipColors(
+                                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                                )
+                                            )
+                                        }
+                                    }
+                                }
+ 
+                                // Language selector (Chips row)
+                                val currentLocales = AppCompatDelegate.getApplicationLocales()
+                                val currentLang = if (currentLocales.isEmpty) "sys" else currentLocales.get(0)?.language ?: "sys"
+                                val languageOptions = listOf(
+                                    Triple("sys", Icons.Default.Language, stringResource(R.string.settings_lang_sys)),
+                                    Triple("en", Icons.Default.Language, stringResource(R.string.settings_lang_en)),
+                                    Triple("ru", Icons.Default.Language, stringResource(R.string.settings_lang_ru))
+                                )
+                                Spacer(Modifier.height(12.dp))
+                                Column(Modifier.padding(bottom = 8.dp)) {
+                                    Text(stringResource(R.string.settings_lang_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Spacer(Modifier.height(8.dp))
+                                    Row(
+                                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        languageOptions.forEach { (id, icon, label) ->
+                                            val isSelected = currentLang == id
+                                            FilterChip(
+                                                selected = isSelected,
+                                                onClick = {
+                                                    val localeList = if (id == "sys") {
+                                                        LocaleListCompat.getEmptyLocaleList()
+                                                    } else {
+                                                        LocaleListCompat.forLanguageTags(id)
+                                                    }
+                                                    AppCompatDelegate.setApplicationLocales(localeList)
+                                                },
                                                 label = { Text(label) },
                                                 leadingIcon = { Icon(icon, null, modifier = Modifier.size(16.dp)) },
                                                 colors = FilterChipDefaults.filterChipColors(
@@ -584,18 +639,30 @@ fun SettingsScreen(
                                         modifier = Modifier.weight(1f),
                                         shape = RoundedCornerShape(12.dp)
                                     ) {
-                                        Icon(Icons.Default.Archive, null)
-                                        Spacer(Modifier.width(8.dp))
-                                        Text(stringResource(R.string.settings_backup_zip), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                        Icon(Icons.Default.Archive, null, modifier = Modifier.size(18.dp))
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            stringResource(R.string.settings_backup_zip), 
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            style = MaterialTheme.typography.labelMedium
+                                        )
                                     }
                                     OutlinedButton(
                                         onClick = { fullRestoreLauncher.launch("*/*") },
                                         modifier = Modifier.weight(1f),
                                         shape = RoundedCornerShape(12.dp)
                                     ) {
-                                        Icon(Icons.Default.SettingsBackupRestore, null)
-                                        Spacer(Modifier.width(8.dp))
-                                        Text(stringResource(R.string.settings_restore_zip), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                        Icon(Icons.Default.SettingsBackupRestore, null, modifier = Modifier.size(18.dp))
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            stringResource(R.string.settings_restore_zip), 
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            style = MaterialTheme.typography.labelMedium
+                                        )
                                     }
                                 }
                                 Spacer(Modifier.height(12.dp))
