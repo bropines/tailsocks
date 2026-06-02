@@ -2,6 +2,10 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [2.2.1] - 2026-06-02
+### Fixed
+- Fixed localization desync in biometric prompts, system toasts, and non-Compose dialogs by overriding `attachBaseContext` in all Activities to apply the user-selected locale.
+
 ## [2.2.0-beta] - 2026-06-02
 ### Added
 - Added Crowdin-compatible localization system, extracting hardcoded strings from both the core UI and the Admin Console into standard Android XML resources.
