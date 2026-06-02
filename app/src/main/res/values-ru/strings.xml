@@ -799,4 +799,37 @@
     <string name="share_title">Отправить…</string>
     <string name="share_files_count_format">Файлов: %1$d</string>
     <string name="share_sending">Отправка…</string>
+    <!-- Taildrive Screen -->
+    <string name="taildrive_title">Общие папки Taildrive</string>
+    <string name="taildrive_cd_add">Добавить папку</string>
+    <string name="taildrive_perm_required">Требуется разрешение на доступ к хранилищу</string>
+    <string name="taildrive_perm_desc">Taildrive требует разрешение на доступ ко всем файлам, чтобы открывать папки для вашей сети Tailnet.</string>
+    <string name="taildrive_grant_perm">Предоставить разрешение</string>
+    <string name="taildrive_enable_title">Включить Taildrive</string>
+    <string name="taildrive_enable_desc">Делиться локальными папками с другими узлами в сети Tailnet.</string>
+    <string name="taildrive_enable_proxy_title">Включить прокси Taildrive</string>
+    <string name="taildrive_enable_proxy_desc">Доступ к удаленным общим папкам из локальных приложений.</string>
+    <string name="taildrive_proxy_ip">IP локального прокси</string>
+    <string name="taildrive_proxy_port">Порт локального прокси</string>
+    <string name="taildrive_require_auth">Требовать авторизацию</string>
+    <string name="taildrive_require_auth_desc">Защитить локальный прокси с помощью базовой аутентификации.</string>
+    <string name="taildrive_username">Имя пользователя</string>
+    <string name="taildrive_password">Пароль</string>
+    <string name="taildrive_webdav_url_title">WebDAV URL (нажмите, чтобы скопировать)</string>
+    <string name="taildrive_copied_url">URL скопирован в буфер обмена</string>
+    <string name="taildrive_shared_folders">Общие папки</string>
+    <string name="taildrive_disabled_msg">Taildrive отключен</string>
+    <string name="taildrive_empty_shares">Нет общих папок</string>
+    <string name="taildrive_share_a_folder">Поделиться папкой</string>
+    <string name="taildrive_edit_title">Редактировать общую папку</string>
+    <string name="taildrive_add_title">Добавить общую папку</string>
+    <string name="taildrive_share_name">Имя общей папки</string>
+    <string name="taildrive_share_name_placeholder">Пример: downloads</string>
+    <string name="taildrive_physical_path">Локальный путь</string>
+    <string name="taildrive_physical_path_placeholder">/storage/emulated/0/Download</string>
+    <string name="taildrive_err_fields_empty">Пожалуйста, заполните все поля</string>
+    <string name="taildrive_err_path_invalid">Путь не существует или не является папкой</string>
+    <string name="taildrive_err_name_exists">Имя папки уже существует</string>
+    <string name="taildrive_err_resolve_path">Не удалось разрешить физический путь к папке. Введите его вручную.</string>
+    <string name="taildrive_err_grant_storage">Пожалуйста, предоставьте разрешение на доступ к хранилищу в настройках приложения</string>
 </resources>

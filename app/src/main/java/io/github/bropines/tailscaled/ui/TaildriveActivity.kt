@@ -36,6 +36,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -133,7 +134,7 @@ fun TaildriveScreen(onBack: () -> Unit) {
             if (rawPath != null) {
                 showAddShareDialogWithPath(rawPath) { newShare ->
                     if (shares.any { it.name.lowercase() == newShare.name.lowercase() }) {
-                        Toast.makeText(context, "Share name already exists", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.taildrive_err_name_exists), Toast.LENGTH_SHORT).show()
                     } else {
                         shares.add(newShare)
                         saveShares(prefs, shares)
@@ -141,7 +142,7 @@ fun TaildriveScreen(onBack: () -> Unit) {
                     }
                 }
             } else {
-                Toast.makeText(context, "Could not resolve physical folder path. Please enter manually.", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, context.getString(R.string.taildrive_err_resolve_path), Toast.LENGTH_LONG).show()
                 showAddShareDialogWithPath("") { newShare ->
                     shares.add(newShare)
                     saveShares(prefs, shares)
@@ -170,13 +171,13 @@ fun TaildriveScreen(onBack: () -> Unit) {
             TopAppBar(
                 title = {
                     Column {
-                        Text("Taildrive Shares")
+                        Text(stringResource(R.string.taildrive_title))
                         Text(activeAccount.name, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                     }
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back))
                     }
                 }
             )
@@ -186,7 +187,7 @@ fun TaildriveScreen(onBack: () -> Unit) {
                 FloatingActionButton(onClick = {
                     dirPickerLauncher.launch(null)
                 }) {
-                    Icon(Icons.Default.Add, "Add Share")
+                    Icon(Icons.Default.Add, stringResource(R.string.taildrive_cd_add))
                 }
             }
         }
@@ -206,9 +207,9 @@ fun TaildriveScreen(onBack: () -> Unit) {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Storage Permission Required", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.taildrive_perm_required), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                         Spacer(Modifier.height(8.dp))
-                        Text("Taildrive needs permission to access all files in order to expose shared directories to your Tailnet.", style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(R.string.taildrive_perm_desc), style = MaterialTheme.typography.bodyMedium)
                         Spacer(Modifier.height(16.dp))
                         Button(
                             onClick = {
@@ -216,7 +217,7 @@ fun TaildriveScreen(onBack: () -> Unit) {
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                         ) {
-                            Text("Grant Permission")
+                            Text(stringResource(R.string.taildrive_grant_perm))
                         }
                     }
                 }
@@ -235,9 +236,9 @@ fun TaildriveScreen(onBack: () -> Unit) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Enable Taildrive", fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.taildrive_enable_title), fontWeight = FontWeight.Bold)
                         Text(
-                            "Share local directories with other nodes in your Tailnet.",
+                            stringResource(R.string.taildrive_enable_desc),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -269,9 +270,9 @@ fun TaildriveScreen(onBack: () -> Unit) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Enable TailDrive Proxy", fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.taildrive_enable_proxy_title), fontWeight = FontWeight.Bold)
                             Text(
-                                "Access remote shared directories from local apps.",
+                                stringResource(R.string.taildrive_enable_proxy_desc),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -299,7 +300,7 @@ fun TaildriveScreen(onBack: () -> Unit) {
                                 prefs.edit().putString("taildrive_proxy_ip", ip).commit()
                                 triggerServiceSettingsUpdate(context)
                             },
-                            label = { Text("Local Proxy IP") },
+                            label = { Text(stringResource(R.string.taildrive_proxy_ip)) },
                             placeholder = { Text("127.0.0.1") },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
@@ -316,7 +317,7 @@ fun TaildriveScreen(onBack: () -> Unit) {
                                 prefs.edit().putString("taildrive_proxy_port", cleanPort).commit()
                                 triggerServiceSettingsUpdate(context)
                             },
-                            label = { Text("Local Proxy Port") },
+                            label = { Text(stringResource(R.string.taildrive_proxy_port)) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -330,9 +331,9 @@ fun TaildriveScreen(onBack: () -> Unit) {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column {
-                                Text("Require Authentication", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
+                                Text(stringResource(R.string.taildrive_require_auth), fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
                                 Text(
-                                    "Secure local proxy using Basic Authentication.",
+                                    stringResource(R.string.taildrive_require_auth_desc),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -357,7 +358,7 @@ fun TaildriveScreen(onBack: () -> Unit) {
                                     prefs.edit().putString("taildrive_proxy_username", user).commit()
                                     triggerServiceSettingsUpdate(context)
                                 },
-                                label = { Text("Username") },
+                                label = { Text(stringResource(R.string.taildrive_username)) },
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth()
                             )
@@ -371,7 +372,7 @@ fun TaildriveScreen(onBack: () -> Unit) {
                                     prefs.edit().putString("taildrive_proxy_password", pass).commit()
                                     triggerServiceSettingsUpdate(context)
                                 },
-                                label = { Text("Password") },
+                                label = { Text(stringResource(R.string.taildrive_password)) },
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth()
                             )
@@ -399,7 +400,7 @@ fun TaildriveScreen(onBack: () -> Unit) {
                                 Alignment.CenterVertically
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text("WebDAV URL (Tap to Copy)", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                    Text(stringResource(R.string.taildrive_webdav_url_title), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
                                         text = formattedUrl,
@@ -412,12 +413,12 @@ fun TaildriveScreen(onBack: () -> Unit) {
                                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                                         val clip = android.content.ClipData.newPlainText("WebDAV URL", formattedUrl)
                                         clipboard.setPrimaryClip(clip)
-                                        Toast.makeText(context, "URL copied to clipboard", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.taildrive_copied_url), Toast.LENGTH_SHORT).show()
                                     }
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.ContentCopy,
-                                        contentDescription = "Copy URL",
+                                        contentDescription = stringResource(R.string.action_copy),
                                         tint = MaterialTheme.colorScheme.onSecondaryContainer
                                     )
                                 }
@@ -427,21 +428,21 @@ fun TaildriveScreen(onBack: () -> Unit) {
                 }
             }
 
-            Text("Shared Folders", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.taildrive_shared_folders), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
 
             if (!isEnabled) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Taildrive is disabled", color = MaterialTheme.colorScheme.outline)
+                    Text(stringResource(R.string.taildrive_disabled_msg), color = MaterialTheme.colorScheme.outline)
                 }
             } else if (shares.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                        Text("No folders shared yet", color = MaterialTheme.colorScheme.outline)
+                        Text(stringResource(R.string.taildrive_empty_shares), color = MaterialTheme.colorScheme.outline)
                         Spacer(Modifier.height(8.dp))
                         TextButton(onClick = {
                             dirPickerLauncher.launch(null)
                         }) {
-                            Text("Share a folder")
+                            Text(stringResource(R.string.taildrive_share_a_folder))
                         }
                     }
                 }
@@ -472,7 +473,7 @@ fun TaildriveScreen(onBack: () -> Unit) {
                                             val index = shares.indexOf(share)
                                             if (index != -1) {
                                                 if (shares.any { it != share && it.name.lowercase() == updatedShare.name.lowercase() }) {
-                                                    Toast.makeText(context, "Share name already exists", Toast.LENGTH_SHORT).show()
+                                                    Toast.makeText(context, context.getString(R.string.taildrive_err_name_exists), Toast.LENGTH_SHORT).show()
                                                 } else {
                                                     shares[index] = updatedShare
                                                     saveShares(prefs, shares)
@@ -481,14 +482,14 @@ fun TaildriveScreen(onBack: () -> Unit) {
                                             }
                                         }
                                     }) {
-                                        Icon(Icons.Default.Edit, "Edit", tint = MaterialTheme.colorScheme.primary)
+                                        Icon(Icons.Default.Edit, stringResource(R.string.action_edit), tint = MaterialTheme.colorScheme.primary)
                                     }
                                     IconButton(onClick = {
                                         shares.remove(share)
                                         saveShares(prefs, shares)
                                         triggerServiceSettingsUpdate(context)
                                     }) {
-                                        Icon(Icons.Default.Delete, "Delete", tint = MaterialTheme.colorScheme.error)
+                                        Icon(Icons.Default.Delete, stringResource(R.string.action_delete), tint = MaterialTheme.colorScheme.error)
                                     }
                                 }
                             }
@@ -505,22 +506,22 @@ fun TaildriveScreen(onBack: () -> Unit) {
                     showAddDialog = false
                     editingShare = null
                 },
-                title = { Text(if (editingShare != null) "Edit Folder Share" else "Add Folder Share") },
+                title = { Text(if (editingShare != null) stringResource(R.string.taildrive_edit_title) else stringResource(R.string.taildrive_add_title)) },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
                             value = dialogNameInput,
                             onValueChange = { dialogNameInput = it.replace(Regex("[^a-zA-Z0-9_]"), "") },
-                            label = { Text("Share Name") },
-                            placeholder = { Text("Example: downloads") },
+                            label = { Text(stringResource(R.string.taildrive_share_name)) },
+                            placeholder = { Text(stringResource(R.string.taildrive_share_name_placeholder)) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
                         OutlinedTextField(
                             value = dialogPathInput,
                             onValueChange = { dialogPathInput = it },
-                            label = { Text("Physical Local Path") },
-                            placeholder = { Text("/storage/emulated/0/Download") },
+                            label = { Text(stringResource(R.string.taildrive_physical_path)) },
+                            placeholder = { Text(stringResource(R.string.taildrive_physical_path_placeholder)) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -530,11 +531,11 @@ fun TaildriveScreen(onBack: () -> Unit) {
                     Button(
                         onClick = {
                             if (dialogNameInput.isBlank() || dialogPathInput.isBlank()) {
-                                Toast.makeText(context, "Please fill in all fields", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.taildrive_err_fields_empty), Toast.LENGTH_SHORT).show()
                             } else {
                                 val file = File(dialogPathInput)
                                 if (!file.exists() || !file.isDirectory) {
-                                    Toast.makeText(context, "Path does not exist or is not a folder", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.getString(R.string.taildrive_err_path_invalid), Toast.LENGTH_SHORT).show()
                                 } else {
                                     onDialogSubmit?.invoke(LocalShare(dialogNameInput, dialogPathInput))
                                     showAddDialog = false
@@ -543,7 +544,7 @@ fun TaildriveScreen(onBack: () -> Unit) {
                             }
                         }
                     ) {
-                        Text(if (editingShare != null) "Save" else "Add")
+                        Text(if (editingShare != null) stringResource(R.string.action_save) else stringResource(R.string.action_add))
                     }
                 },
                 dismissButton = {
@@ -551,7 +552,7 @@ fun TaildriveScreen(onBack: () -> Unit) {
                         showAddDialog = false
                         editingShare = null
                     }) {
-                        Text("Cancel")
+                        Text(stringResource(R.string.action_cancel))
                     }
                 }
             )
@@ -580,7 +581,7 @@ private fun requestStoragePermission(context: Context) {
             context.startActivity(intent)
         }
     } else {
-        Toast.makeText(context, "Please grant storage permission in App Settings", Toast.LENGTH_LONG).show()
+        Toast.makeText(context, context.getString(R.string.taildrive_err_grant_storage), Toast.LENGTH_LONG).show()
     }
 }
 

@@ -799,4 +799,37 @@
     <string name="share_title">Send to…</string>
     <string name="share_files_count_format">%1$d files</string>
     <string name="share_sending">Sending…</string>
+    <!-- Taildrive Screen -->
+    <string name="taildrive_title">Taildrive Shares</string>
+    <string name="taildrive_cd_add">Add Share</string>
+    <string name="taildrive_perm_required">Storage Permission Required</string>
+    <string name="taildrive_perm_desc">Taildrive needs permission to access all files in order to expose shared directories to your Tailnet.</string>
+    <string name="taildrive_grant_perm">Grant Permission</string>
+    <string name="taildrive_enable_title">Enable Taildrive</string>
+    <string name="taildrive_enable_desc">Share local directories with other nodes in your Tailnet.</string>
+    <string name="taildrive_enable_proxy_title">Enable TailDrive Proxy</string>
+    <string name="taildrive_enable_proxy_desc">Access remote shared directories from local apps.</string>
+    <string name="taildrive_proxy_ip">Local Proxy IP</string>
+    <string name="taildrive_proxy_port">Local Proxy Port</string>
+    <string name="taildrive_require_auth">Require Authentication</string>
+    <string name="taildrive_require_auth_desc">Secure local proxy using Basic Authentication.</string>
+    <string name="taildrive_username">Username</string>
+    <string name="taildrive_password">Password</string>
+    <string name="taildrive_webdav_url_title">WebDAV URL (Tap to Copy)</string>
+    <string name="taildrive_copied_url">URL copied to clipboard</string>
+    <string name="taildrive_shared_folders">Shared Folders</string>
+    <string name="taildrive_disabled_msg">Taildrive is disabled</string>
+    <string name="taildrive_empty_shares">No folders shared yet</string>
+    <string name="taildrive_share_a_folder">Share a folder</string>
+    <string name="taildrive_edit_title">Edit Folder Share</string>
+    <string name="taildrive_add_title">Add Folder Share</string>
+    <string name="taildrive_share_name">Share Name</string>
+    <string name="taildrive_share_name_placeholder">Example: downloads</string>
+    <string name="taildrive_physical_path">Physical Local Path</string>
+    <string name="taildrive_physical_path_placeholder">/storage/emulated/0/Download</string>
+    <string name="taildrive_err_fields_empty">Please fill in all fields</string>
+    <string name="taildrive_err_path_invalid">Path does not exist or is not a folder</string>
+    <string name="taildrive_err_name_exists">Share name already exists</string>
+    <string name="taildrive_err_resolve_path">Could not resolve physical folder path. Please enter manually.</string>
+    <string name="taildrive_err_grant_storage">Please grant storage permission in App Settings</string>
 </resources>
