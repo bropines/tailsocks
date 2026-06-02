@@ -10,6 +10,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Added automatic status bar and navigation bar system color styling to match the current theme.
 
 ### Fixed
+- Fixed system status bar color styling not applying when a custom locale is set by resolving the Activity using findActivity() in TailSocksTheme.
 - Fixed rememberLauncherForActivityResult crash by proxying activity owners in LocaleContextWrapper and explicitly providing LocalActivityResultRegistryOwner in TailSocksTheme.
 - Fixed startActivity crash when launching settings with a custom locale context wrapper.
 - Fixed layout alignment, center-aligned status description on main screen, and corrected various text wraps.
