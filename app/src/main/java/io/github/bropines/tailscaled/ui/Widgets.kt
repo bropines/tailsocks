@@ -97,7 +97,7 @@ class ServiceToggleWidget : GlanceAppWidget() {
                             fontWeight = FontWeight.Medium))
                     Spacer(GlanceModifier.height(2.dp))
                     Text(
-                        text = if (isRunning) "● Active" else "○ Stopped",
+                        text = if (isRunning) "● " + context.getString(R.string.status_running) else "○ " + context.getString(R.string.status_stopped),
                         style = TextStyle(
                             color = if (isRunning) GlanceTheme.colors.primary else GlanceTheme.colors.outline,
                             fontSize = 14.sp))
@@ -105,7 +105,7 @@ class ServiceToggleWidget : GlanceAppWidget() {
                     Spacer(GlanceModifier.defaultWeight())
 
                     Button(
-                        text = if (isRunning) "Stop Service" else "Start Service",
+                        text = if (isRunning) context.getString(R.string.widget_service_stop) else context.getString(R.string.widget_service_start),
                         onClick = actionRunCallback<ToggleServiceActionCallback>(),
                         colors = ButtonDefaults.buttonColors(
                             backgroundColor = if (isRunning) GlanceTheme.colors.error else GlanceTheme.colors.primary,
@@ -146,14 +146,14 @@ class ExitNodeToggleWidget : GlanceAppWidget() {
                         .clickable(actionRunCallback<RefreshAllActionCallback>()),
                     horizontalAlignment = Alignment.Horizontal.CenterHorizontally
                 ) {
-                    Text("Exit Node",
+                    Text(context.getString(R.string.widget_exit_node_title),
                         style = TextStyle(
                             color = GlanceTheme.colors.onSurface,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold))
                     Spacer(GlanceModifier.height(2.dp))
                     Text(
-                        text = if (isActive) exitNodeIp else "Not active",
+                        text = if (isActive) exitNodeIp else context.getString(R.string.widget_exit_node_inactive),
                         style = TextStyle(
                             color = if (isActive) GlanceTheme.colors.primary else GlanceTheme.colors.outline,
                             fontSize = 15.sp))
@@ -161,7 +161,7 @@ class ExitNodeToggleWidget : GlanceAppWidget() {
                     Spacer(GlanceModifier.defaultWeight())
 
                     Button(
-                        text = if (isActive) "Disable Exit Node" else "Enable Exit Node",
+                        text = if (isActive) context.getString(R.string.widget_exit_node_disable) else context.getString(R.string.widget_exit_node_enable),
                         onClick = actionRunCallback<ToggleExitNodeActionCallback>(),
                         colors = ButtonDefaults.buttonColors(
                             backgroundColor = if (isActive) GlanceTheme.colors.errorContainer else GlanceTheme.colors.primary,
@@ -210,7 +210,7 @@ class StatsWidget : GlanceAppWidget() {
         }
 
         val trafficText = "↑ ${formatFileSize(txBytes)}  ↓ ${formatFileSize(rxBytes)}"
-        val statusLabel = if (isRunning) "● Active" else "○ Stopped"
+        val statusLabel = if (isRunning) "● " + context.getString(R.string.status_running) else "○ " + context.getString(R.string.status_stopped)
 
         provideContent {
             GlanceTheme {
@@ -258,7 +258,7 @@ class StatsWidget : GlanceAppWidget() {
                                 fontWeight = FontWeight.Bold))
                         Spacer(GlanceModifier.defaultWeight())
                         Text(
-                            text = if (exitNodeIp.isNotEmpty()) "Exit: $exitNodeIp" else "Exit: None",
+                            text = if (exitNodeIp.isNotEmpty()) context.getString(R.string.widget_exit_node_format, exitNodeIp) else context.getString(R.string.widget_exit_node_format, context.getString(R.string.settings_none)),
                             style = TextStyle(
                                 color = GlanceTheme.colors.onSurfaceVariant,
                                 fontSize = 14.sp))
@@ -281,7 +281,7 @@ class StatsWidget : GlanceAppWidget() {
                             fontSize = 16.sp))
                     Spacer(GlanceModifier.height(4.dp))
                     Row(modifier = GlanceModifier.fillMaxWidth()) {
-                        Text("Peers: $peersOnline / $peersTotal",
+                        Text(context.getString(R.string.widget_peers_format, peersOnline, peersTotal),
                             style = TextStyle(
                                 color = GlanceTheme.colors.onSurfaceVariant,
                                 fontSize = 15.sp))
@@ -309,7 +309,7 @@ class StatsWidget : GlanceAppWidget() {
                         )
                         Spacer(GlanceModifier.defaultWeight())
                         Button(
-                            text = "Exit Node",
+                            text = context.getString(R.string.widget_exit_node_title),
                             onClick = actionRunCallback<ToggleExitNodeActionCallback>(),
                             colors = ButtonDefaults.buttonColors(
                                 backgroundColor = GlanceTheme.colors.secondaryContainer,
@@ -318,7 +318,7 @@ class StatsWidget : GlanceAppWidget() {
                         )
                         Spacer(GlanceModifier.width(8.dp))
                         Button(
-                            text = if (isRunning) "Stop" else "Start",
+                            text = if (isRunning) context.getString(R.string.action_stop) else context.getString(R.string.action_start),
                             onClick = actionRunCallback<ToggleServiceActionCallback>(),
                             colors = ButtonDefaults.buttonColors(
                                 backgroundColor = if (isRunning) GlanceTheme.colors.error else GlanceTheme.colors.primary,
@@ -343,8 +343,8 @@ class StatsWidgetReceiver : GlanceAppWidgetReceiver() {
 class ServeWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val isRunning = ProxyState.isActualRunning()
-        var statusText = if (isRunning) "Serve & Funnel" else "Service stopped"
-        var rulesText = "No active rules"
+        var statusText = if (isRunning) context.getString(R.string.widget_serve_title) else context.getString(R.string.widget_service_stopped)
+        var rulesText = context.getString(R.string.widget_serve_no_rules)
         var hasRules = false
 
         if (isRunning) {
@@ -356,12 +356,12 @@ class ServeWidget : GlanceAppWidget() {
                     val webCount = config.web?.size ?: 0
                     val funnelCnt = config.allowFunnel?.filter { it.value }?.size ?: 0
                     if (tcpCount > 0 || webCount > 0 || funnelCnt > 0) {
-                        rulesText = "TCP: $tcpCount  Web: $webCount  Funnel: $funnelCnt"
+                        rulesText = context.getString(R.string.widget_serve_rules_format, tcpCount, webCount, funnelCnt)
                         hasRules = true
                     }
                 }
             } catch (e: Exception) {
-                statusText = "Serve API Error"
+                statusText = context.getString(R.string.widget_serve_api_error)
             }
         }
 
@@ -394,7 +394,7 @@ class ServeWidget : GlanceAppWidget() {
 
                     if (isRunning && hasRules) {
                         Button(
-                            text = "Purge All Rules",
+                            text = context.getString(R.string.widget_serve_purge),
                             onClick = actionRunCallback<ClearServeActionCallback>(),
                             colors = ButtonDefaults.buttonColors(
                                 backgroundColor = GlanceTheme.colors.error,
@@ -403,7 +403,7 @@ class ServeWidget : GlanceAppWidget() {
                         )
                     } else {
                         Button(
-                            text = "Open Serve",
+                            text = context.getString(R.string.widget_serve_open),
                             onClick = actionStartActivity(serveIntent),
                             colors = ButtonDefaults.buttonColors(
                                 backgroundColor = GlanceTheme.colors.secondaryContainer,
@@ -455,7 +455,7 @@ class ToggleExitNodeActionCallback : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
         if (!ProxyState.isActualRunning()) {
             CoroutineScope(Dispatchers.Main).launch {
-                Toast.makeText(context, "TailSocks is not running", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.widget_toast_not_running), Toast.LENGTH_SHORT).show()
             }
             return
         }
@@ -474,7 +474,7 @@ class ToggleExitNodeActionCallback : ActionCallback {
             editor.apply()
             try { appctr.Appctr.setPrefs("{\"ExitNodeID\": \"\", \"ExitNodeIDSet\": true}") } catch (e: Exception) { e.printStackTrace() }
             CoroutineScope(Dispatchers.Main).launch {
-                Toast.makeText(context, "Exit Node disabled", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.widget_toast_exit_disabled), Toast.LENGTH_SHORT).show()
             }
         } else {
             val lastIp = prefs.getString("last_exit_node_ip", "") ?: ""
@@ -485,11 +485,11 @@ class ToggleExitNodeActionCallback : ActionCallback {
                 editor.apply()
                 try { appctr.Appctr.setPrefs("{\"ExitNodeID\": \"$lastId\", \"ExitNodeIDSet\": true}") } catch (e: Exception) { e.printStackTrace() }
                 CoroutineScope(Dispatchers.Main).launch {
-                    Toast.makeText(context, "Routing via $lastIp", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.widget_toast_exit_routing_format, lastIp), Toast.LENGTH_SHORT).show()
                 }
             } else {
                 CoroutineScope(Dispatchers.Main).launch {
-                    Toast.makeText(context, "Select Exit Node in App first", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, context.getString(R.string.widget_toast_exit_select_first), Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -501,14 +501,14 @@ class ClearServeActionCallback : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
         if (!ProxyState.isActualRunning()) {
             CoroutineScope(Dispatchers.Main).launch {
-                Toast.makeText(context, "TailSocks is not running", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.widget_toast_not_running), Toast.LENGTH_SHORT).show()
             }
             return
         }
         try {
             appctr.Appctr.setServeConfig("{}")
             CoroutineScope(Dispatchers.Main).launch {
-                Toast.makeText(context, "Serve & Funnel cleared", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.widget_toast_serve_cleared), Toast.LENGTH_SHORT).show()
             }
         } catch (e: Exception) { e.printStackTrace() }
         updateAllWidgets(context)

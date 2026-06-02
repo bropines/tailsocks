@@ -838,4 +838,25 @@
     <string name="files_sent_to_format">To: %1$s • %2$s</string>
     <string name="files_open_file_chooser">Open file</string>
     <string name="files_error_cant_open">Can\'t open: %1$s</string>
+    <!-- Widgets -->
+    <string name="widget_service_stop">Stop Service</string>
+    <string name="widget_service_start">Start Service</string>
+    <string name="widget_exit_node_disable">Disable Exit Node</string>
+    <string name="widget_exit_node_enable">Enable Exit Node</string>
+    <string name="widget_exit_node_inactive">Not active</string>
+    <string name="widget_exit_node_title">Exit Node</string>
+    <string name="widget_exit_node_format">Exit: %1$s</string>
+    <string name="widget_peers_format">Peers: %1$d / %2$d</string>
+    <string name="widget_serve_title">Serve &amp; Funnel</string>
+    <string name="widget_service_stopped">Service stopped</string>
+    <string name="widget_serve_no_rules">No active rules</string>
+    <string name="widget_serve_rules_format">TCP: %1$d  Web: %2$d  Funnel: %3$d</string>
+    <string name="widget_serve_api_error">Serve API Error</string>
+    <string name="widget_serve_purge">Purge All Rules</string>
+    <string name="widget_serve_open">Open Serve</string>
+    <string name="widget_toast_not_running">TailSocks is not running</string>
+    <string name="widget_toast_exit_disabled">Exit Node disabled</string>
+    <string name="widget_toast_exit_routing_format">Routing via %1$s</string>
+    <string name="widget_toast_exit_select_first">Select Exit Node in App first</string>
+    <string name="widget_toast_serve_cleared">Serve &amp; Funnel cleared</string>
 </resources>

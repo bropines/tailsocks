@@ -838,4 +838,25 @@
     <string name="files_sent_to_format">Кому: %1$s • %2$s</string>
     <string name="files_open_file_chooser">Открыть файл</string>
     <string name="files_error_cant_open">Не удалось открыть: %1$s</string>
+    <!-- Widgets -->
+    <string name="widget_service_stop">Остановить службу</string>
+    <string name="widget_service_start">Запустить службу</string>
+    <string name="widget_exit_node_disable">Отключить вых. узел</string>
+    <string name="widget_exit_node_enable">Включить вых. узел</string>
+    <string name="widget_exit_node_inactive">Не активен</string>
+    <string name="widget_exit_node_title">Выходной узел</string>
+    <string name="widget_exit_node_format">Выход: %1$s</string>
+    <string name="widget_peers_format">Узлы: %1$d / %2$d</string>
+    <string name="widget_serve_title">Serve и Funnel</string>
+    <string name="widget_service_stopped">Служба остановлена</string>
+    <string name="widget_serve_no_rules">Нет активных правил</string>
+    <string name="widget_serve_rules_format">TCP: %1$d  Web: %2$d  Funnel: %3$d</string>
+    <string name="widget_serve_api_error">Ошибка Serve API</string>
+    <string name="widget_serve_purge">Сбросить все правила</string>
+    <string name="widget_serve_open">Открыть Serve</string>
+    <string name="widget_toast_not_running">TailSocks не запущен</string>
+    <string name="widget_toast_exit_disabled">Выходной узел отключен</string>
+    <string name="widget_toast_exit_routing_format">Маршрутизация через %1$s</string>
+    <string name="widget_toast_exit_select_first">Сначала выберите выходной узел в приложении</string>
+    <string name="widget_toast_serve_cleared">Правила Serve и Funnel очищены</string>
 </resources>
