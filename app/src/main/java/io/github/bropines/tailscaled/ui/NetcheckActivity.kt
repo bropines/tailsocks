@@ -73,6 +73,26 @@ data class DerpLatencyItem(
     val isPreferred: Boolean
 )
 
+object NetcheckCache {
+    var lastReportTime: Long = 0
+    var daemonStartTime: Long = 0
+    var rawTextReport: String = ""
+    var connectionStatus: ConnectionStatus? = null
+    var diagnosticsReport: DiagnosticsReport? = null
+    var derpLatencies: List<DerpLatencyItem> = emptyList()
+    var errorMessage: String? = null
+
+    fun clear() {
+        lastReportTime = 0
+        daemonStartTime = 0
+        rawTextReport = ""
+        connectionStatus = null
+        diagnosticsReport = null
+        derpLatencies = emptyList()
+        errorMessage = null
+    }
+}
+
 class NetcheckActivity : ComponentActivity() {
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(wrapContextWithLocale(newBase))
@@ -93,12 +113,12 @@ class NetcheckActivity : ComponentActivity() {
 fun NetcheckScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     var isRunning by remember { mutableStateOf(false) }
-    var rawTextReport by remember { mutableStateOf("") }
+    var rawTextReport by remember { mutableStateOf(NetcheckCache.rawTextReport) }
     
-    var connectionStatus by remember { mutableStateOf<ConnectionStatus?>(null) }
-    var diagnosticsReport by remember { mutableStateOf<DiagnosticsReport?>(null) }
-    var derpLatencies by remember { mutableStateOf<List<DerpLatencyItem>>(emptyList()) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var connectionStatus by remember { mutableStateOf<ConnectionStatus?>(NetcheckCache.connectionStatus) }
+    var diagnosticsReport by remember { mutableStateOf<DiagnosticsReport?>(NetcheckCache.diagnosticsReport) }
+    var derpLatencies by remember { mutableStateOf<List<DerpLatencyItem>>(NetcheckCache.derpLatencies) }
+    var errorMessage by remember { mutableStateOf<String?>(NetcheckCache.errorMessage) }
 
     val scope = rememberCoroutineScope()
 
@@ -117,6 +137,7 @@ fun NetcheckScreen(onBack: () -> Unit) {
             var rawStatus = ""
             var rawNetcheck = ""
             try {
+                val currentDaemonStart = Appctr.getDaemonStartTime()
                 rawStatus = Appctr.getStatusFromAPI()
                 android.util.Log.d("Netcheck", "Raw Status: $rawStatus")
                 
@@ -252,7 +273,16 @@ fun NetcheckScreen(onBack: () -> Unit) {
                         )
 
                         withContext(Dispatchers.Main) {
-                            rawTextReport = healthOutput.toString()
+                            // Update cache
+                            NetcheckCache.lastReportTime = System.currentTimeMillis()
+                            NetcheckCache.daemonStartTime = currentDaemonStart
+                            NetcheckCache.rawTextReport = healthOutput.toString()
+                            NetcheckCache.connectionStatus = connectionStatusObj
+                            NetcheckCache.diagnosticsReport = diagnosticsReportObj
+                            NetcheckCache.derpLatencies = latencyList
+                            NetcheckCache.errorMessage = null
+
+                            rawTextReport = NetcheckCache.rawTextReport
                             connectionStatus = connectionStatusObj
                             diagnosticsReport = diagnosticsReportObj
                             derpLatencies = latencyList
@@ -268,7 +298,10 @@ fun NetcheckScreen(onBack: () -> Unit) {
             } catch (e: Exception) {
                 android.util.Log.e("Netcheck", "Error: ${e.message}", e)
                 withContext(Dispatchers.Main) {
-                    errorMessage = e.message ?: "Unknown error"
+                    NetcheckCache.clear()
+                    NetcheckCache.errorMessage = e.message ?: "Unknown error"
+                    
+                    errorMessage = NetcheckCache.errorMessage
                     connectionStatus = null
                     diagnosticsReport = null
                     derpLatencies = emptyList()
@@ -279,7 +312,21 @@ fun NetcheckScreen(onBack: () -> Unit) {
     }
 
     LaunchedEffect(Unit) {
-        runDiagnostics()
+        val currentDaemonStart = try { Appctr.getDaemonStartTime() } catch (e: Exception) { 0L }
+        val isCacheValid = NetcheckCache.lastReportTime > 0 &&
+                (System.currentTimeMillis() - NetcheckCache.lastReportTime < 30 * 60 * 1000) &&
+                (NetcheckCache.daemonStartTime == currentDaemonStart)
+
+        if (isCacheValid) {
+            // Use cached values
+            rawTextReport = NetcheckCache.rawTextReport
+            connectionStatus = NetcheckCache.connectionStatus
+            diagnosticsReport = NetcheckCache.diagnosticsReport
+            derpLatencies = NetcheckCache.derpLatencies
+            errorMessage = NetcheckCache.errorMessage
+        } else {
+            runDiagnostics()
+        }
     }
 
     Scaffold(
@@ -338,7 +385,7 @@ fun NetcheckScreen(onBack: () -> Unit) {
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Testing network latency & UDP traversal...",
+                            text = stringResource(R.string.netcheck_testing_latency_desc),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
@@ -364,7 +411,7 @@ fun NetcheckScreen(onBack: () -> Unit) {
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = "Diagnostic Failed",
+                            text = stringResource(R.string.netcheck_failed),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.error
@@ -389,7 +436,7 @@ fun NetcheckScreen(onBack: () -> Unit) {
                         ) {
                             Icon(Icons.Default.Refresh, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Retry")
+                            Text(stringResource(R.string.action_retry))
                         }
                     }
                 }
@@ -444,20 +491,20 @@ fun NetcheckScreen(onBack: () -> Unit) {
                                     Spacer(modifier = Modifier.width(16.dp))
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = if (status.online) "CONNECTED" else "OFFLINE",
+                                            text = if (status.online) stringResource(R.string.netcheck_connected) else stringResource(R.string.netcheck_offline),
                                             fontWeight = FontWeight.Bold,
                                             style = MaterialTheme.typography.titleMedium,
                                             color = if (status.online) MaterialTheme.colorScheme.onPrimaryContainer
                                                     else MaterialTheme.colorScheme.onErrorContainer
                                         )
                                         Text(
-                                            text = "IP: ${status.tailscaleIp}",
+                                            text = stringResource(R.string.netcheck_ip_label, status.tailscaleIp),
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                         Text(
-                                            text = if (status.trafficModeRelay) "Traffic: Relay node (${status.relayNode})"
-                                                   else "Traffic: Direct P2P connection",
+                                            text = if (status.trafficModeRelay) stringResource(R.string.netcheck_traffic_relay_desc, status.relayNode)
+                                                   else stringResource(R.string.netcheck_traffic_direct_desc),
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -478,7 +525,7 @@ fun NetcheckScreen(onBack: () -> Unit) {
                                     verticalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
                                     Text(
-                                        text = "Protocol Capabilities",
+                                        text = stringResource(R.string.netcheck_sect_protocol),
                                         fontWeight = FontWeight.Bold,
                                         style = MaterialTheme.typography.titleSmall,
                                         color = MaterialTheme.colorScheme.primary
@@ -487,41 +534,41 @@ fun NetcheckScreen(onBack: () -> Unit) {
                                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f))
                                     
                                     CapabilityRow(
-                                        label = "UDP STUN Support",
+                                        label = stringResource(R.string.netcheck_udp_stun),
                                         success = report.udpWorking,
-                                        successText = "Working",
-                                        failText = "Blocked"
+                                        successText = stringResource(R.string.netcheck_working),
+                                        failText = stringResource(R.string.netcheck_blocked)
                                     )
                                     
                                     CapabilityRow(
-                                        label = "IPv4 Connectivity",
+                                        label = stringResource(R.string.netcheck_ipv4_conn),
                                         success = report.ipv4Working,
-                                        successText = "Available",
-                                        failText = "Unavailable",
+                                        successText = stringResource(R.string.netcheck_available),
+                                        failText = stringResource(R.string.netcheck_unavailable),
                                         subText = report.ipv4Address
                                     )
 
                                     CapabilityRow(
-                                        label = "IPv6 Connectivity",
+                                        label = stringResource(R.string.netcheck_ipv6_conn),
                                         success = report.ipv6Working,
-                                        successText = "Available",
-                                        failText = "Unavailable",
+                                        successText = stringResource(R.string.netcheck_available),
+                                        failText = stringResource(R.string.netcheck_unavailable),
                                         subText = report.ipv6Address
                                     )
 
                                     CapabilityRow(
-                                        label = "NAT Mapping Varies",
+                                        label = stringResource(R.string.netcheck_nat_varies),
                                         success = !report.mappingVaries,
-                                        successText = "No (Direct-friendly NAT)",
-                                        failText = "Yes (Symmetric NAT)",
+                                        successText = stringResource(R.string.netcheck_nat_varies_no),
+                                        failText = stringResource(R.string.netcheck_nat_varies_yes),
                                         warnStyle = report.mappingVaries
                                     )
 
                                     CapabilityRow(
-                                        label = "Active Peers Map",
+                                        label = stringResource(R.string.netcheck_peers_map),
                                         success = report.onlinePeers > 0,
-                                        successText = "${report.onlinePeers} / ${report.totalPeers} online",
-                                        failText = "0 / ${report.totalPeers} online"
+                                        successText = stringResource(R.string.netcheck_peers_online_format, report.onlinePeers, report.totalPeers),
+                                        failText = stringResource(R.string.netcheck_peers_online_none, report.totalPeers)
                                     )
                                 }
                             }
@@ -542,14 +589,14 @@ fun NetcheckScreen(onBack: () -> Unit) {
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Text(
-                                                text = "DERP Latencies",
+                                                text = stringResource(R.string.netcheck_sect_derp),
                                                 fontWeight = FontWeight.Bold,
                                                 style = MaterialTheme.typography.titleSmall,
                                                 color = MaterialTheme.colorScheme.primary
                                             )
                                             if (report.preferredDerpId != 0) {
                                                 Text(
-                                                    text = "Nearest: ${report.preferredDerpName}",
+                                                    text = stringResource(R.string.netcheck_nearest_format, report.preferredDerpName),
                                                     style = MaterialTheme.typography.bodySmall,
                                                     fontWeight = FontWeight.Medium,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -663,7 +710,7 @@ fun DerpLatencyRow(item: DerpLatencyItem) {
                         shape = RoundedCornerShape(4.dp)
                     ) {
                         Text(
-                            text = "Nearest",
+                            text = stringResource(R.string.netcheck_nearest_label),
                             fontSize = 8.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimary,
