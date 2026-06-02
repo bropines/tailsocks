@@ -2,6 +2,14 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [2.1.5-beta] - 2026-06-02
+### Added
+- Added biometric authentication lock screen (fingerprint/face with device credential fallback) upon entering the Admin Console.
+- Added interactive Tailscale Webhooks management (list, create, delete, and test pinging endpoints).
+- Added Tailscale Virtual Services tracking and device-bound approvals/disapprovals.
+- Added pending client update badges to device list items and detail bottom sheets.
+- Added confirmation dialog before applying user role changes.
+
 ## [2.1.4-beta] - 2026-06-01
 ### Added
 - Added comprehensive Tailscale public Admin API (api.tailscale.com/api/v2) integration to manage tailnet resources.
