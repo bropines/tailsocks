@@ -35,6 +35,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -124,10 +125,10 @@ fun SettingsScreen(
     // Tab Navigation State
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf(
-        Pair("APP", Icons.Default.Palette),
-        Pair("Network", Icons.Default.Language),
-        Pair("Core", Icons.Default.Tune),
-        Pair("Profile", Icons.Default.AccountCircle)
+        Pair(stringResource(R.string.settings_tab_app), Icons.Default.Palette),
+        Pair(stringResource(R.string.settings_tab_network), Icons.Default.Language),
+        Pair(stringResource(R.string.settings_tab_core), Icons.Default.Tune),
+        Pair(stringResource(R.string.settings_tab_profile), Icons.Default.AccountCircle)
     )
 
     // Global Settings
@@ -213,9 +214,9 @@ fun SettingsScreen(
                     val allPrefs = profilePrefs.all
                     val backupData = mapOf("account" to activeAccount, "settings" to allPrefs)
                     context.contentResolver.openOutputStream(uri)?.use { it.write(Gson().toJson(backupData).toByteArray()) }
-                    withContext(Dispatchers.Main) { Toast.makeText(context, "Backup saved", Toast.LENGTH_SHORT).show() }
+                    withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.settings_backup_saved), Toast.LENGTH_SHORT).show() }
                 } catch (e: Exception) {
-                    withContext(Dispatchers.Main) { Toast.makeText(context, "Backup failed: ${e.message}", Toast.LENGTH_LONG).show() }
+                    withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.settings_backup_failed_format, e.message), Toast.LENGTH_LONG).show() }
                 }
             }
         }
@@ -244,12 +245,12 @@ fun SettingsScreen(
                             }
                             editor.apply()
                             withContext(Dispatchers.Main) { 
-                                Toast.makeText(context, "Settings restored successfully. Please restart the app.", Toast.LENGTH_LONG).show() 
+                                Toast.makeText(context, context.getString(R.string.settings_restored_success), Toast.LENGTH_LONG).show() 
                             }
                         }
                     }
                 } catch (e: Exception) {
-                    withContext(Dispatchers.Main) { Toast.makeText(context, "Restore failed: ${e.message}", Toast.LENGTH_LONG).show() }
+                    withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.settings_restore_failed_format, e.message), Toast.LENGTH_LONG).show() }
                 }
             }
         }
@@ -289,9 +290,9 @@ fun SettingsScreen(
                     val zipBytes = baos.toByteArray()
                     val encryptedBytes = BackupCrypto.encrypt(zipBytes, backupPassword.toCharArray())
                     context.contentResolver.openOutputStream(uri)?.use { it.write(encryptedBytes) }
-                    withContext(Dispatchers.Main) { Toast.makeText(context, "Encrypted backup saved", Toast.LENGTH_SHORT).show() }
+                    withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.settings_full_backup_saved), Toast.LENGTH_SHORT).show() }
                 } catch (e: Exception) {
-                    withContext(Dispatchers.Main) { Toast.makeText(context, "Full backup failed: ${e.message}", Toast.LENGTH_LONG).show() }
+                    withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.settings_full_backup_failed_format, e.message), Toast.LENGTH_LONG).show() }
                 } finally {
                     backupPassword = ""
                 }
@@ -311,7 +312,7 @@ fun SettingsScreen(
             try {
                 val encryptedBytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
                 if (encryptedBytes == null) {
-                    withContext(Dispatchers.Main) { Toast.makeText(context, "Failed to read backup file", Toast.LENGTH_LONG).show() }
+                    withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.settings_read_backup_failed), Toast.LENGTH_LONG).show() }
                     return@launch
                 }
                 val decryptedBytes = BackupCrypto.decrypt(encryptedBytes, passwordStr.toCharArray())
@@ -338,9 +339,9 @@ fun SettingsScreen(
                         entry = zis.nextEntry
                     }
                 }
-                withContext(Dispatchers.Main) { Toast.makeText(context, "Full restore complete. Please FORCE RESTART the app.", Toast.LENGTH_LONG).show() }
+                withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.settings_full_restore_success), Toast.LENGTH_LONG).show() }
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) { Toast.makeText(context, "Full restore failed: Invalid password or corrupted file", Toast.LENGTH_LONG).show() }
+                withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.settings_full_restore_failed), Toast.LENGTH_LONG).show() }
             } finally {
                 restorePassword = ""
                 pendingRestoreUri = null
@@ -380,9 +381,9 @@ fun SettingsScreen(
             }
             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText("SagerNet SOCKS5", link))
-            Toast.makeText(context, "SagerNet link copied!", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.settings_sagernet_copied), Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
-            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.settings_error_format, e.message), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -390,28 +391,28 @@ fun SettingsScreen(
     if (showResetDialog) {
         AlertDialog(
             onDismissRequest = { showResetDialog = false },
-            title = { Text("Log out from Tailnet?") },
-            text = { Text("This will clear your current session and node state using native LocalAPI. You will need to re-authenticate. Continue?") },
+            title = { Text(stringResource(R.string.settings_logout_title)) },
+            text = { Text(stringResource(R.string.settings_logout_text)) },
             confirmButton = {
                 Button(onClick = { 
                     scope.launch(Dispatchers.IO) {
                         Appctr.logout()
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Logged out successfully", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.settings_logged_out), Toast.LENGTH_SHORT).show()
                         }
                     }
                     showResetDialog = false 
-                }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Log Out") }
+                }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text(stringResource(R.string.settings_logout_confirm)) }
             },
-            dismissButton = { TextButton(onClick = { showResetDialog = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { showResetDialog = false }) { Text(stringResource(R.string.action_cancel)) } }
         )
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings", fontWeight = FontWeight.Bold) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } }
+                title = { Text(stringResource(R.string.settings_title), fontWeight = FontWeight.Bold) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back)) } }
             )
         }
     ) { padding ->
@@ -455,15 +456,15 @@ fun SettingsScreen(
                 ) {
                     when (targetTab) {
                         0 -> { // TAB 0: Personalization & System
-                            SettingsCard(title = "Personalization") {
+                            SettingsCard(title = stringResource(R.string.settings_sect_personalization)) {
                                 // Theme selector (Chips row)
                                 val themeOptions = listOf(
-                                    Triple("system", Icons.Default.Settings, "System"),
-                                    Triple("light", Icons.Default.LightMode, "Light"),
-                                    Triple("dark", Icons.Default.DarkMode, "Dark")
+                                    Triple("system", Icons.Default.Settings, stringResource(R.string.settings_theme_system)),
+                                    Triple("light", Icons.Default.LightMode, stringResource(R.string.settings_theme_light)),
+                                    Triple("dark", Icons.Default.DarkMode, stringResource(R.string.settings_theme_dark))
                                 )
                                 Column(Modifier.padding(bottom = 8.dp)) {
-                                    Text("Interface Theme", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(stringResource(R.string.settings_theme_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Spacer(Modifier.height(8.dp))
                                     Row(
                                         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -489,16 +490,16 @@ fun SettingsScreen(
                                 if (!currentDynamicColor || android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) {
                                     Spacer(Modifier.height(12.dp))
                                     val presets = listOf(
-                                        PresetItem("default", Color(0xFF6750A4), "Default"),
-                                        PresetItem("lavender", Color(0xFF704E9B), "Lavender"),
-                                        PresetItem("emerald", Color(0xFF006B54), "Emerald"),
-                                        PresetItem("sapphire", Color(0xFF005FAF), "Sapphire"),
-                                        PresetItem("amber", Color(0xFF825500), "Amber"),
-                                        PresetItem("monochrome", Color(0xFF1D2023), "Monochrome"),
-                                        PresetItem("tokionight", Color(0xFF7AA2F7), "TokioNight")
+                                        PresetItem("default", Color(0xFF6750A4), stringResource(R.string.settings_preset_default)),
+                                        PresetItem("lavender", Color(0xFF704E9B), stringResource(R.string.settings_preset_lavender)),
+                                        PresetItem("emerald", Color(0xFF006B54), stringResource(R.string.settings_preset_emerald)),
+                                        PresetItem("sapphire", Color(0xFF005FAF), stringResource(R.string.settings_preset_sapphire)),
+                                        PresetItem("amber", Color(0xFF825500), stringResource(R.string.settings_preset_amber)),
+                                        PresetItem("monochrome", Color(0xFF1D2023), stringResource(R.string.settings_preset_monochrome)),
+                                        PresetItem("tokionight", Color(0xFF7AA2F7), stringResource(R.string.settings_preset_tokionight))
                                     )
                                     Column {
-                                        Text("Color Palette", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(stringResource(R.string.settings_palette_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         Spacer(Modifier.height(8.dp))
                                         Row(
                                             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -540,8 +541,8 @@ fun SettingsScreen(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Column(Modifier.weight(1f)) {
-                                            Text("Dynamic Colors", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                                            Text("Use Material You system colors", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                                            Text(stringResource(R.string.settings_dynamic_color_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                            Text(stringResource(R.string.settings_dynamic_color_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                                         }
                                         Switch(checked = currentDynamicColor, onCheckedChange = onDynamicColorChange)
                                     }
@@ -554,8 +555,8 @@ fun SettingsScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Column(Modifier.weight(1f)) {
-                                        Text("AMOLED Black", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                                        Text("Pure black background in dark mode", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                                        Text(stringResource(R.string.settings_amoled_black_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                        Text(stringResource(R.string.settings_amoled_black_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                                     }
                                     Switch(checked = currentAmoledMode, onCheckedChange = onAmoledModeChange)
                                 }
@@ -563,17 +564,17 @@ fun SettingsScreen(
 
                             Spacer(Modifier.height(12.dp))
 
-                            SettingsCard(title = "Storage") {
+                            SettingsCard(title = stringResource(R.string.settings_sect_storage)) {
                                 SettingsClickableItem(
-                                    "Taildrop Storage Folder",
-                                    taildropRootUri?.path ?: "Uses app internal folder",
+                                    stringResource(R.string.settings_taildrop_folder_title),
+                                    taildropRootUri?.path ?: stringResource(R.string.settings_taildrop_folder_default),
                                     Icons.Default.Folder
                                 ) { folderPicker.launch(null) }
                             }
 
                             Spacer(Modifier.height(12.dp))
 
-                            SettingsCard(title = "System & Backup") {
+                            SettingsCard(title = stringResource(R.string.settings_sect_system_backup)) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -585,7 +586,7 @@ fun SettingsScreen(
                                     ) {
                                         Icon(Icons.Default.Archive, null)
                                         Spacer(Modifier.width(8.dp))
-                                        Text("Backup (ZIP)", textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                        Text(stringResource(R.string.settings_backup_zip), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                                     }
                                     OutlinedButton(
                                         onClick = { fullRestoreLauncher.launch("*/*") },
@@ -594,20 +595,20 @@ fun SettingsScreen(
                                     ) {
                                         Icon(Icons.Default.SettingsBackupRestore, null)
                                         Spacer(Modifier.width(8.dp))
-                                        Text("Restore ZIP", textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                        Text(stringResource(R.string.settings_restore_zip), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                                     }
                                 }
                                 Spacer(Modifier.height(12.dp))
-                                SettingsClickableItem("Battery Optimization", "Disable to prevent background sleep", Icons.Default.BatteryAlert) {
+                                SettingsClickableItem(stringResource(R.string.settings_battery_opt_title), stringResource(R.string.settings_battery_opt_desc), Icons.Default.BatteryAlert) {
                                     try {
                                         val intent = Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
                                         context.startActivity(intent)
                                     } catch (e: Exception) {
-                                        Toast.makeText(context, "Cannot open battery settings", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.settings_battery_opt_error), Toast.LENGTH_SHORT).show()
                                     }
                                 }
                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                SettingsSwitchItem("Auto-start on Boot", "Start TailSocks when device turns on", Icons.Default.PowerSettingsNew, autoStart) {
+                                SettingsSwitchItem(stringResource(R.string.settings_autostart_title), stringResource(R.string.settings_autostart_desc), Icons.Default.PowerSettingsNew, autoStart) {
                                     GlobalSettings.setAutoStartEnabled(context, it)
                                     autoStart = it
                                 }
@@ -615,43 +616,44 @@ fun SettingsScreen(
                         }
 
                         1 -> { // TAB 1: Network & Proxy
-                            SettingsCard(title = "SOCKS5 Proxy (Internal)") {
-                                SettingsEditItem("SOCKS5 Address", socks5, Icons.Default.Language) { socks5 = it; saveGlobalPref("socks5", it) }
-                                SettingsEditItem("SOCKS5 Username", socks5User, Icons.Default.Person, onAction = { generateRandomString(8) }, actionIcon = Icons.Default.Casino) { socks5User = it; saveGlobalPref("socks5_user", it) }
-                                SettingsEditItem("SOCKS5 Password", socks5Pass, Icons.Default.Password, onAction = { generateRandomString(12) }, actionIcon = Icons.Default.Casino) { socks5Pass = it; saveGlobalPref("socks5_pass", it) }
+                            SettingsCard(title = stringResource(R.string.settings_sect_socks5)) {
+                                SettingsEditItem(stringResource(R.string.settings_socks5_address_title), socks5, Icons.Default.Language) { socks5 = it; saveGlobalPref("socks5", it) }
+                                SettingsEditItem(stringResource(R.string.settings_socks5_username_title), socks5User, Icons.Default.Person, onAction = { generateRandomString(8) }, actionIcon = Icons.Default.Casino) { socks5User = it; saveGlobalPref("socks5_user", it) }
+                                SettingsEditItem(stringResource(R.string.settings_socks5_password_title), socks5Pass, Icons.Default.Password, onAction = { generateRandomString(12) }, actionIcon = Icons.Default.Casino) { socks5Pass = it; saveGlobalPref("socks5_pass", it) }
                                 Spacer(Modifier.height(12.dp))
                                 OutlinedButton(onClick = { copySagerNetLink() }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
                                     Icon(Icons.Default.Share, null)
                                     Spacer(Modifier.width(8.dp))
-                                    Text("Copy SagerNet Link")
+                                    Text(stringResource(R.string.settings_sagernet_copy))
                                 }
                             }
 
                             Spacer(Modifier.height(12.dp))
 
-                            SettingsCard(title = "HTTP Proxy") {
-                                SettingsEditItem("HTTP Proxy Address", httpProxy, Icons.Default.Http) { httpProxy = it; saveGlobalPref("httpproxy", it) }
+                            SettingsCard(title = stringResource(R.string.settings_sect_http)) {
+                                SettingsEditItem(stringResource(R.string.settings_http_address_title), httpProxy, Icons.Default.Http) { httpProxy = it; saveGlobalPref("httpproxy", it) }
                             }
 
                             Spacer(Modifier.height(12.dp))
 
-                            SettingsCard(title = "Control Plane Proxy") {
+                            SettingsCard(title = stringResource(R.string.settings_sect_control_proxy)) {
+                                val statusText = if (isProxyEnabled) stringResource(R.string.settings_control_proxy_enabled_format, GlobalSettings.getCPField(context, "type")) else stringResource(R.string.settings_control_proxy_disabled)
                                 SettingsClickableItem(
-                                    "Control Plane Proxy", 
-                                    if (isProxyEnabled) "Enabled (${GlobalSettings.getCPField(context, "type")})" else "Disabled",
+                                    stringResource(R.string.settings_control_proxy_title), 
+                                    statusText,
                                     Icons.Default.Shield
                                 ) { showProxyDialog = true }
                             }
 
                             Spacer(Modifier.height(12.dp))
 
-                            SettingsCard(title = "Service Advertisements") {
+                            SettingsCard(title = stringResource(R.string.settings_sect_service_ad)) {
                                 SettingsEditItem(
-                                    title = "Advertise Tags",
+                                    title = stringResource(R.string.settings_ad_tags_title),
                                     value = advertiseTags,
                                     icon = Icons.Default.Label,
-                                    placeholder = "tag:server, tag:mobile",
-                                    description = "Request access control tags for this node",
+                                    placeholder = stringResource(R.string.settings_ad_tags_placeholder),
+                                    description = stringResource(R.string.settings_ad_tags_desc),
                                     suggestions = availableNetworkTags
                                 ) { 
                                     advertiseTags = it
@@ -659,7 +661,7 @@ fun SettingsScreen(
                                 }
                                 if (appliedTags.isNotEmpty()) {
                                     Text(
-                                        text = "Applied Tags: " + appliedTags.joinToString(", "),
+                                        text = stringResource(R.string.settings_applied_tags_label, appliedTags.joinToString(", ")),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 4.dp)
@@ -667,11 +669,11 @@ fun SettingsScreen(
                                 }
                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
                                 SettingsEditItem(
-                                    title = "Advertise Routes",
+                                    title = stringResource(R.string.settings_ad_routes_title),
                                     value = advertiseRoutes,
                                     icon = Icons.Default.Map,
-                                    placeholder = "10.0.0.0/24, 192.168.1.0/24",
-                                    description = "Advertise local subnets into Tailnet"
+                                    placeholder = stringResource(R.string.settings_ad_routes_placeholder),
+                                    description = stringResource(R.string.settings_ad_routes_desc)
                                 ) { 
                                     advertiseRoutes = it
                                     saveProfilePref("advertise_routes", it) 
@@ -680,39 +682,39 @@ fun SettingsScreen(
                         }
 
                         2 -> { // TAB 2: Core Settings
-                            SettingsCard(title = "DNS Proxy") {
-                                SettingsEditItem("DNS Proxy Address", dnsProxy, Icons.Default.Toll) { dnsProxy = it; saveGlobalPref("dns_proxy", it) }
+                            SettingsCard(title = stringResource(R.string.settings_sect_dns_proxy)) {
+                                SettingsEditItem(stringResource(R.string.settings_dns_proxy_address_title), dnsProxy, Icons.Default.Toll) { dnsProxy = it; saveGlobalPref("dns_proxy", it) }
                             }
 
                             Spacer(Modifier.height(12.dp))
 
-                            SettingsCard(title = "Fallback DNS Servers") {
-                                SettingsEditItem("DNS Fallbacks", dnsFallbacks, Icons.Default.List, placeholder = "8.8.8.8:53,1.1.1.1:53") { dnsFallbacks = it; saveGlobalPref("dns_fallbacks", it) }
+                            SettingsCard(title = stringResource(R.string.settings_sect_fallback_dns)) {
+                                SettingsEditItem(stringResource(R.string.settings_dns_fallbacks_title), dnsFallbacks, Icons.Default.List, placeholder = stringResource(R.string.settings_dns_fallbacks_placeholder)) { dnsFallbacks = it; saveGlobalPref("dns_fallbacks", it) }
                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                SettingsEditItem("DoH Fallback URL", dohUrl, Icons.Default.Link, placeholder = "https://1.1.1.1/dns-query") { dohUrl = it; saveGlobalPref("doh_url", it) }
+                                SettingsEditItem(stringResource(R.string.settings_doh_fallback_title), dohUrl, Icons.Default.Link, placeholder = stringResource(R.string.settings_doh_fallback_placeholder)) { dohUrl = it; saveGlobalPref("doh_url", it) }
                             }
 
                             Spacer(Modifier.height(12.dp))
 
-                            SettingsCard(title = "Flags & Logs") {
-                                SettingsSwitchItem("Accept Routes", "Allow network to configure routes", Icons.Default.Map, acceptRoutes) { acceptRoutes = it; saveGlobalPref("accept_routes", it) }
+                            SettingsCard(title = stringResource(R.string.settings_sect_flags_logs)) {
+                                SettingsSwitchItem(stringResource(R.string.settings_accept_routes_title), stringResource(R.string.settings_accept_routes_desc), Icons.Default.Map, acceptRoutes) { acceptRoutes = it; saveGlobalPref("accept_routes", it) }
                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                SettingsSwitchItem("Accept DNS", "Allow network to configure DNS", Icons.Default.Dns, acceptDns) { acceptDns = it; saveGlobalPref("accept_dns", it) }
+                                SettingsSwitchItem(stringResource(R.string.settings_accept_dns_title), stringResource(R.string.settings_accept_dns_desc), Icons.Default.Dns, acceptDns) { acceptDns = it; saveGlobalPref("accept_dns", it) }
                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                SettingsSwitchItem("Force Background", "Keep WakeLock active in background", Icons.Default.BatteryFull, forceBg) { forceBg = it; saveGlobalPref("force_bg", it) }
+                                SettingsSwitchItem(stringResource(R.string.settings_force_bg_title), stringResource(R.string.settings_force_bg_desc), Icons.Default.BatteryFull, forceBg) { forceBg = it; saveGlobalPref("force_bg", it) }
                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                SettingsSwitchItem("Detailed Logs", "Disable log filtering (noisy!)", Icons.Default.BugReport, detailedLogs) { detailedLogs = it; saveGlobalPref("detailed_logs", it) }
+                                SettingsSwitchItem(stringResource(R.string.settings_detailed_logs_title), stringResource(R.string.settings_detailed_logs_desc), Icons.Default.BugReport, detailedLogs) { detailedLogs = it; saveGlobalPref("detailed_logs", it) }
                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                SettingsEditItem("Extra Arguments", extraArgs, Icons.Default.Code, "--flag=val ...") { extraArgs = it; saveGlobalPref("extra_args_raw", it) }
+                                SettingsEditItem(stringResource(R.string.settings_extra_args_title), extraArgs, Icons.Default.Code, stringResource(R.string.settings_extra_args_placeholder)) { extraArgs = it; saveGlobalPref("extra_args_raw", it) }
                             }
                         }
 
                         3 -> { // TAB 3: Account Profile & Advanced
-                            SettingsCard(title = "Account Settings: ${activeAccount.name}") {
-                                SettingsEditItem("Login Server (Headscale)", loginServer, Icons.Default.Cloud, placeholder = "https://controlplane.tailscale.com") { loginServer = it; saveProfilePref("login_server", it) }
-                                SettingsEditItem("Auth Key", authKey, Icons.Default.VpnKey) { authKey = it; saveProfilePref("authkey", it) }
-                                SettingsEditItem("Hostname", hostname, Icons.Default.Badge, onAction = { android.os.Build.MODEL.replace(" ", "-").lowercase() }, actionIcon = Icons.Default.AutoFixHigh) { hostname = it; saveProfilePref("hostname", it) }
-                                SettingsExitNodeItem("Exit Node", exitNodeIp, Icons.Default.Input) { id, ip ->
+                            SettingsCard(title = stringResource(R.string.settings_sect_account_format, activeAccount.name)) {
+                                SettingsEditItem(stringResource(R.string.settings_login_server_title), loginServer, Icons.Default.Cloud, placeholder = stringResource(R.string.settings_login_server_placeholder)) { loginServer = it; saveProfilePref("login_server", it) }
+                                SettingsEditItem(stringResource(R.string.settings_auth_key_title), authKey, Icons.Default.VpnKey) { authKey = it; saveProfilePref("authkey", it) }
+                                SettingsEditItem(stringResource(R.string.settings_hostname_title), hostname, Icons.Default.Badge, onAction = { android.os.Build.MODEL.replace(" ", "-").lowercase() }, actionIcon = Icons.Default.AutoFixHigh) { hostname = it; saveProfilePref("hostname", it) }
+                                SettingsExitNodeItem(stringResource(R.string.settings_exit_node_title), exitNodeIp, Icons.Default.Input) { id, ip ->
                                     exitNodeIp = ip
                                     saveProfilePref("exit_node_ip", ip, triggerService = false)
                                     saveProfilePref("exit_node_id", id, triggerService = false)
@@ -721,18 +723,18 @@ fun SettingsScreen(
 
                             Spacer(Modifier.height(12.dp))
 
-                            SettingsCard(title = "Web Interface") {
-                                SettingsSwitchItem("Enable Web UI", "Run built-in Tailscale web server", Icons.Default.Web, enableWebUI) { enableWebUI = it; saveProfilePref("enable_webui", it) }
+                            SettingsCard(title = stringResource(R.string.settings_sect_web)) {
+                                SettingsSwitchItem(stringResource(R.string.settings_web_enable_title), stringResource(R.string.settings_web_enable_desc), Icons.Default.Web, enableWebUI) { enableWebUI = it; saveProfilePref("enable_webui", it) }
                                 if (enableWebUI) {
                                     HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                    SettingsEditItem("Web UI Address", webUIAddr, Icons.Default.Link) { webUIAddr = it; saveProfilePref("webui_addr", it) }
+                                    SettingsEditItem(stringResource(R.string.settings_web_address_title), webUIAddr, Icons.Default.Link) { webUIAddr = it; saveProfilePref("webui_addr", it) }
                                 }
                             }
 
                             Spacer(Modifier.height(12.dp))
 
-                            SettingsCard(title = "Admin Console API") {
-                                SettingsEditItem("Tailnet Name", adminApiTailnet, Icons.Default.CloudQueue, placeholder = "e.g. taila1b2.ts.net") { 
+                            SettingsCard(title = stringResource(R.string.settings_sect_admin_api)) {
+                                SettingsEditItem(stringResource(R.string.settings_admin_tailnet_title), adminApiTailnet, Icons.Default.CloudQueue, placeholder = stringResource(R.string.settings_admin_tailnet_placeholder)) { 
                                     val oldTailnet = adminApiTailnet
                                     adminApiTailnet = it
                                     saveProfilePref("last_known_tailnet", it, triggerService = false)
@@ -744,19 +746,19 @@ fun SettingsScreen(
                                     }
                                 }
                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                SettingsEditItem("API Access Token", adminApiToken, Icons.Default.VpnKey, placeholder = "tskey-api-...") { 
+                                SettingsEditItem(stringResource(R.string.settings_admin_token_title), adminApiToken, Icons.Default.VpnKey, placeholder = stringResource(R.string.settings_admin_token_placeholder)) { 
                                     adminApiToken = it
                                     if (adminApiTailnet.isNotEmpty()) {
                                         globalApiPrefs.edit().putString(adminApiTailnet, it).apply()
                                     } else {
-                                        Toast.makeText(context, "Please set Tailnet Name first", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.settings_admin_tailnet_missing), Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             }
 
                             Spacer(Modifier.height(12.dp))
 
-                            SettingsCard(title = "Advanced Profile") {
+                            SettingsCard(title = stringResource(R.string.settings_sect_adv_profile)) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -768,7 +770,7 @@ fun SettingsScreen(
                                     ) {
                                         Icon(Icons.Default.Backup, null)
                                         Spacer(Modifier.width(8.dp))
-                                        Text("Backup", textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                        Text(stringResource(R.string.settings_backup_account), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                                     }
                                     OutlinedButton(
                                         onClick = { restoreLauncher.launch("application/json") },
@@ -777,7 +779,7 @@ fun SettingsScreen(
                                     ) {
                                         Icon(Icons.Default.SettingsBackupRestore, null)
                                         Spacer(Modifier.width(8.dp))
-                                        Text("Import", textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                        Text(stringResource(R.string.settings_restore_account), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                                     }
                                 }
                                 Spacer(Modifier.height(12.dp))
@@ -789,7 +791,7 @@ fun SettingsScreen(
                                 ) {
                                     Icon(Icons.Default.RestartAlt, null)
                                     Spacer(Modifier.width(8.dp))
-                                    Text("Reset Node State")
+                                    Text(stringResource(R.string.settings_logout_reset_title))
                                 }
                             }
                         }
@@ -815,15 +817,15 @@ fun SettingsScreen(
         var isPasswordVisible by remember { mutableStateOf(false) }
         AlertDialog(
             onDismissRequest = { showBackupPasswordDialog = false },
-            title = { Text("Backup Encryption Password") },
+            title = { Text(stringResource(R.string.settings_backup_password_title)) },
             text = {
                 Column {
-                    Text("Enter a password to encrypt your backup. You will need this password to restore your state.", style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.settings_backup_password_text), style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
                         value = tempPassword,
                         onValueChange = { tempPassword = it },
-                        label = { Text("Password") },
+                        label = { Text(stringResource(R.string.settings_password_label)) },
                         singleLine = true,
                         visualTransformation = if (isPasswordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
                         trailingIcon = {
@@ -843,13 +845,13 @@ fun SettingsScreen(
                             showBackupPasswordDialog = false
                             fullBackupLauncher.launch("tailsocks_full_backup.enc")
                         } else {
-                            Toast.makeText(context, "Password cannot be empty", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.settings_password_empty), Toast.LENGTH_SHORT).show()
                         }
                     }
-                ) { Text("Backup") }
+                ) { Text(stringResource(R.string.settings_backup_action)) }
             },
             dismissButton = {
-                TextButton(onClick = { showBackupPasswordDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { showBackupPasswordDialog = false }) { Text(stringResource(R.string.action_cancel)) }
             }
         )
     }
@@ -862,15 +864,15 @@ fun SettingsScreen(
                 showRestorePasswordDialog = false
                 pendingRestoreUri = null
             },
-            title = { Text("Backup Decryption Password") },
+            title = { Text(stringResource(R.string.settings_restore_password_title)) },
             text = {
                 Column {
-                    Text("Enter the password that was used to encrypt this backup.", style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.settings_restore_password_text), style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
                         value = tempPassword,
                         onValueChange = { tempPassword = it },
-                        label = { Text("Password") },
+                        label = { Text(stringResource(R.string.settings_password_label)) },
                         singleLine = true,
                         visualTransformation = if (isPasswordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
                         trailingIcon = {
@@ -890,16 +892,16 @@ fun SettingsScreen(
                             showRestorePasswordDialog = false
                             performRestore(uri, tempPassword)
                         } else {
-                            Toast.makeText(context, "Password cannot be empty", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.settings_password_empty), Toast.LENGTH_SHORT).show()
                         }
                     }
-                ) { Text("Restore") }
+                ) { Text(stringResource(R.string.settings_restore_action)) }
             },
             dismissButton = {
                 TextButton(onClick = { 
                     showRestorePasswordDialog = false
                     pendingRestoreUri = null
-                }) { Text("Cancel") }
+                }) { Text(stringResource(R.string.action_cancel)) }
             }
         )
     }
@@ -945,34 +947,34 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Control Plane Proxy") },
+        title = { Text(stringResource(R.string.settings_control_proxy_title)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Enable Proxy", Modifier.weight(1f))
+                    Text(stringResource(R.string.settings_control_proxy_enable), Modifier.weight(1f))
                     Switch(checked = enabled, onCheckedChange = { enabled = it })
                 }
                 Spacer(Modifier.height(16.dp))
 
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Proxy Type", Modifier.weight(1f))
+                    Text(stringResource(R.string.settings_control_proxy_type), Modifier.weight(1f))
                     FilterChip(
                         selected = type == "SOCKS5",
                         onClick = { type = "SOCKS5" },
-                        label = { Text("SOCKS5") }
+                        label = { Text(stringResource(R.string.settings_proxy_socks5)) }
                     )
                     FilterChip(
                         selected = type == "HTTP",
                         onClick = { type = "HTTP" },
-                        label = { Text("HTTP") }
+                        label = { Text(stringResource(R.string.settings_proxy_http)) }
                     )
                 }
                 Spacer(Modifier.height(16.dp))
                 
-                OutlinedTextField(value = host, onValueChange = { host = it }, label = { Text("Host") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                OutlinedTextField(value = port, onValueChange = { port = it }, label = { Text("Port") }, modifier = Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text(if (type == "HTTP") "8080" else "1080") })
-                OutlinedTextField(value = user, onValueChange = { user = it }, label = { Text("Username (Optional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                OutlinedTextField(value = pass, onValueChange = { pass = it }, label = { Text("Password (Optional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                OutlinedTextField(value = host, onValueChange = { host = it }, label = { Text(stringResource(R.string.settings_control_proxy_host)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                OutlinedTextField(value = port, onValueChange = { port = it }, label = { Text(stringResource(R.string.settings_control_proxy_port)) }, modifier = Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text(if (type == "HTTP") "8080" else "1080") })
+                OutlinedTextField(value = user, onValueChange = { user = it }, label = { Text(stringResource(R.string.settings_control_proxy_username)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                OutlinedTextField(value = pass, onValueChange = { pass = it }, label = { Text(stringResource(R.string.settings_control_proxy_password)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
             }
         },
         confirmButton = {
@@ -985,9 +987,9 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
                 GlobalSettings.setCPField(context, "pass", pass)
                 onApply()
                 onDismiss()
-            }) { Text("Apply & Save") }
+            }) { Text(stringResource(R.string.settings_proxy_apply)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } }
     )
 }
 
@@ -1074,7 +1076,7 @@ fun SettingsEditItem(
                         onValueChange = { text = it }, 
                         modifier = Modifier.fillMaxWidth(), 
                         singleLine = true,
-                        label = { if (placeholder.isNotEmpty()) Text("Example: $placeholder") },
+                        label = { if (placeholder.isNotEmpty()) Text(stringResource(R.string.settings_field_example, placeholder)) },
                         placeholder = { if (placeholder.isNotEmpty()) Text(placeholder) },
                         trailingIcon = if (onAction != null && actionIcon != null) {
                             { IconButton(onClick = { text = onAction() }) { Icon(actionIcon, null) } }
@@ -1082,7 +1084,7 @@ fun SettingsEditItem(
                     )
                     if (suggestions.isNotEmpty()) {
                         Spacer(Modifier.height(8.dp))
-                        Text("Suggested:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.settings_suggested), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.height(4.dp))
                         Row(
                             modifier = Modifier
@@ -1112,8 +1114,8 @@ fun SettingsEditItem(
                     }
                 }
             },
-            confirmButton = { Button(onClick = { onSave(text); showDialog = false }) { Text("Save") } },
-            dismissButton = { TextButton(onClick = { showDialog = false }) { Text("Cancel") } }
+            confirmButton = { Button(onClick = { onSave(text); showDialog = false }) { Text(stringResource(R.string.action_save)) } },
+            dismissButton = { TextButton(onClick = { showDialog = false }) { Text(stringResource(R.string.action_cancel)) } }
         )
     }
 }
@@ -1159,7 +1161,7 @@ fun SettingsChoiceItem(
                 }
             },
             confirmButton = {},
-            dismissButton = { TextButton(onClick = { showDialog = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { showDialog = false }) { Text(stringResource(R.string.action_cancel)) } }
         )
     }
 }
@@ -1185,7 +1187,7 @@ fun SettingsExitNodeItem(
             val res = Appctr.setPrefs(prefsJson)
             if (res != "OK") {
                 withContext(Dispatchers.Main) {
-                    android.widget.Toast.makeText(context, "LocalAPI Error: $res", android.widget.Toast.LENGTH_SHORT).show()
+                    android.widget.Toast.makeText(context, context.getString(R.string.settings_local_api_error_format, res), android.widget.Toast.LENGTH_SHORT).show()
                 }
             }
             updateAllWidgets(context)
@@ -1223,18 +1225,18 @@ fun SettingsExitNodeItem(
     if (showDialog) {
         ModalBottomSheet(onDismissRequest = { showDialog = false }) {
             Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
-                Text("Select Exit Node", modifier = Modifier.padding(20.dp), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.settings_exit_node_select), modifier = Modifier.padding(20.dp), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 if (isLoading) {
                     Box(Modifier.fillMaxWidth().height(100.dp), Alignment.Center) { CircularProgressIndicator() }
                 } else if (exitNodes.isEmpty()) {
                     Box(Modifier.fillMaxWidth().height(100.dp), Alignment.Center) { 
-                        Text("No exit nodes available", color = MaterialTheme.colorScheme.outline)
+                        Text(stringResource(R.string.settings_exit_node_empty), color = MaterialTheme.colorScheme.outline)
                     }
                 } else {
                     androidx.compose.foundation.lazy.LazyColumn {
                         item {
                             ListItem(
-                                headlineContent = { Text("None") },
+                                headlineContent = { Text(stringResource(R.string.settings_none)) },
                                 leadingContent = { Icon(Icons.Default.Clear, null) },
                                 modifier = Modifier.clickable { applyExitNode("", ""); showDialog = false }
                             )
