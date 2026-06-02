@@ -2,6 +2,18 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [2.1.6-beta] - 2026-06-02
+### Added
+- Added horizontal scrolling synchronization (Carousel sync) for tab FilterChips following HorizontalPager page changes.
+- Added System Logs viewer tab inside the Admin Console, supporting real-time local logs polling, categorization, keyword search, copy to clipboard, and backup saving.
+- Added Web Links tab consolidating all secure-only web administration actions (Billing, SSO/IdP, ACLs, Tailnet Lock, Apps, Domain Rename).
+- Added client update trigger support via POST /device/{id}/update-status (unofficial API endpoint) with seamless browser fallback to machine details page.
+- Added customizable sorting modes (by Name A-Z, Name Z-A, Last Seen, and Update Available) on the Devices tab.
+- Expanded Settings tab with new switches (Network Flow Logging, Regional Routing, Posture Identity Collection) and allowed external join user roles dropdown.
+- Added virtual services manual approval explanatory banner inside the Services tab.
+- Replaced the gear proxy icon in the TopAppBar with a router icon.
+- Reimplemented device detail sheet rows as individual copyable blocks wrapped inside SelectionContainers.
+
 ## [2.1.5-beta] - 2026-06-02
 ### Added
 - Added biometric authentication lock screen (fingerprint/face with device credential fallback) upon entering the Admin Console.
