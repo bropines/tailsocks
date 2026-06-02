@@ -9,6 +9,15 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Added Tailscale Virtual Services tracking and device-bound approvals/disapprovals.
 - Added pending client update badges to device list items and detail bottom sheets.
 - Added confirmation dialog before applying user role changes.
+- Integrated HorizontalPager with swipe gesture support to navigate across Admin Console dashboard sections.
+- Redesigned the top navigation tab bar as a modern horizontal scrollable FilterChip row.
+- Relocated Auth Keys management to a secure, on-demand sub-panel inside the Settings section.
+- Added direct web billing link access under Settings.
+
+### Changed
+- Compacted the User Role selection picker layout to a 2-column grid of styled cards.
+- Added horizontal padding and text-alignment centering to long node names and user login names in details bottom sheets to prevent screen edge touching.
+- Replaced the text-based device client "Update" badge in device lists with a small blue circle indicator dot next to the status marker.
 
 ### Fixed
 - Fixed false positive expired key indicator badges and expiry labels when key expiry is disabled on devices.
