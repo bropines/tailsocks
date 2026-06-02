@@ -139,7 +139,7 @@ class TailscaleApiClient(
 
     private fun request(method: String, path: String, body: Any? = null): String {
         val activeToken = getValidToken()
-        val url = URL("$baseUrl$path")
+        val url = if (path.startsWith("http")) URL(path) else URL("$baseUrl$path")
         val conn = openConnection(url)
         conn.requestMethod = method
         conn.connectTimeout = 15000
@@ -390,11 +390,11 @@ class TailscaleApiClient(
             "machinekey" to machineKey,
             "nodekey" to nodeKey
         )
-        return request("POST", "/device/$deviceId/update-status", body)
+        return request("POST", "https://login.tailscale.com/admin/api/machines", body)
     }
 
     fun getDeviceUpdateStatus(deviceId: String): String {
-        return request("GET", "/device/$deviceId/update-status")
+        return request("GET", "https://login.tailscale.com/admin/api/public/device/$deviceId/update-status")
     }
 
     fun getAuditLogs(start: String, end: String): List<ApiAuditLogEntry> {
