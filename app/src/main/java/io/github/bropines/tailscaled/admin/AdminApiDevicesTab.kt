@@ -64,7 +64,7 @@ fun DeviceRow(
 ) {
     val (osIcon, osColor) = getOsVisuals(device.os)
 
-    val isExpired = device.expires != null && isTimeExpired(device.expires)
+    val isExpired = device.expires != null && isTimeExpired(device.expires) && device.keyExpiryDisabled != true
 
     Surface(
         modifier = Modifier
@@ -259,7 +259,7 @@ fun DeviceDetailBottomSheet(
                     DetailRow("IP Address", device.getPrimaryIp())
                     DetailRow("OS", device.os ?: "Unknown")
                     DetailRow("User Owner", device.user ?: "N/A")
-                    DetailRow("Key Expiry", formatExpires(device.expires))
+                    DetailRow("Key Expiry", if (device.keyExpiryDisabled == true) "Disabled" else formatExpires(device.expires))
                     DetailRow("Authorization", if (device.authorized == true) "Approved" else "Required")
                     if (!device.tags.isNullOrEmpty()) {
                         DetailRow("Tags", device.tags.joinToString(", "))
@@ -436,7 +436,7 @@ fun DeviceDetailBottomSheet(
                     }
                 }
 
-                val isExpired = device.expires != null && isTimeExpired(device.expires)
+                val isExpired = device.expires != null && isTimeExpired(device.expires) && device.keyExpiryDisabled != true
                 if (!isExpired && device.keyExpiryDisabled != true) {
                     Button(
                         onClick = { showExpireConfirm = true },
