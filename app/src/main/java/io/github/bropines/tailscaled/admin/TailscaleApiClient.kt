@@ -342,4 +342,45 @@ class TailscaleApiClient(
             emptyList()
         }
     }
+
+    // Webhooks
+    fun listWebhooks(): List<WebhookEndpoint> {
+        val json = request("GET", "/tailnet/$tailnet/webhooks")
+        val response = Gson().fromJson(json, ListWebhooksResponse::class.java)
+        return response.webhooks ?: emptyList()
+    }
+
+    fun createWebhook(endpointUrl: String, subscribedEvents: List<String>): WebhookEndpoint {
+        val body = mapOf(
+            "endpointUrl" to endpointUrl,
+            "subscribedEvents" to subscribedEvents
+        )
+        val json = request("POST", "/tailnet/$tailnet/webhooks", body)
+        return Gson().fromJson(json, WebhookEndpoint::class.java)
+    }
+
+    fun deleteWebhook(endpointId: String) {
+        request("DELETE", "/webhooks/$endpointId")
+    }
+
+    fun testWebhook(endpointId: String) {
+        request("POST", "/webhooks/$endpointId/test")
+    }
+
+    // Virtual Services
+    fun listTailnetServices(): List<VIPServiceInfo> {
+        val json = request("GET", "/tailnet/$tailnet/services")
+        val response = Gson().fromJson(json, ListServicesResponse::class.java)
+        return response.vipServices ?: emptyList()
+    }
+
+    fun listServiceHosts(serviceName: String): List<ServiceHostInfo> {
+        val json = request("GET", "/tailnet/$tailnet/services/$serviceName/devices")
+        val response = Gson().fromJson(json, ListServiceHostsResponse::class.java)
+        return response.hosts ?: emptyList()
+    }
+
+    fun setServiceDeviceApproved(serviceName: String, deviceId: String, approved: Boolean) {
+        request("POST", "/tailnet/$tailnet/services/$serviceName/device/$deviceId/approved", mapOf("approved" to approved))
+    }
 }
