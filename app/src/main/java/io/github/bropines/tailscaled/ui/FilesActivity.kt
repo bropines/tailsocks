@@ -1,6 +1,7 @@
 package io.github.bropines.tailscaled.ui
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.BuildConfig
+import androidx.compose.ui.res.stringResource
 
 import io.github.bropines.tailscaled.admin.*
 import io.github.bropines.tailscaled.core.*
@@ -153,9 +154,9 @@ fun FilesScreen(onBack: () -> Unit) {
                     rootDoc.findFile(file.Name)?.delete()
                     val newFile = rootDoc.createFile("*/*", file.Name) ?: throw Exception("Create failed")
                     saveFileToUri(context, file, newFile.uri)
-                    withContext(Dispatchers.Main) { Toast.makeText(context, "Saved", Toast.LENGTH_SHORT).show() }
+                    withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.files_saved), Toast.LENGTH_SHORT).show() }
                 } catch (e: Exception) {
-                    withContext(Dispatchers.Main) { Toast.makeText(context, "Auto-save failed: ${e.message}", Toast.LENGTH_SHORT).show(); fileToSaveManual = file; saveLauncher.launch(file.Name) }
+                    withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.files_auto_save_failed, e.message), Toast.LENGTH_SHORT).show(); fileToSaveManual = file; saveLauncher.launch(file.Name) }
                 } finally { withContext(Dispatchers.Main) { isSavingFile = false } }
             }
         } else { fileToSaveManual = file; saveLauncher.launch(file.Name) }
@@ -164,24 +165,24 @@ fun FilesScreen(onBack: () -> Unit) {
     Scaffold(
         topBar = {
             Column {
-                TopAppBar(title = { Column { Text("Taildrop Hub"); Text(activeAccount.name, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary) } },
-                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+                TopAppBar(title = { Column { Text(stringResource(R.string.files_hub_title)); Text(activeAccount.name, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary) } },
+                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back)) } },
                     actions = {
                         IconButton(onClick = {
                             context.startActivity(Intent(context, TaildriveActivity::class.java))
-                        }) { Icon(Icons.Default.Storage, "Taildrive") }
+                        }) { Icon(Icons.Default.Storage, stringResource(R.string.files_cd_taildrive)) }
                         IconButton(onClick = { 
                             refreshData();
-                        }) { Icon(Icons.Default.Refresh, "Refresh") }
+                        }) { Icon(Icons.Default.Refresh, stringResource(R.string.action_refresh)) }
                     })
                 TabRow(selectedTabIndex = pagerState.currentPage) {
-                    Tab(selected = pagerState.currentPage == 0, onClick = { scope.launch { pagerState.animateScrollToPage(0) } }, text = { Text("Inbox") })
-                    Tab(selected = pagerState.currentPage == 1, onClick = { scope.launch { pagerState.animateScrollToPage(1) } }, text = { Text("Devices") })
-                    Tab(selected = pagerState.currentPage == 2, onClick = { scope.launch { pagerState.animateScrollToPage(2) } }, text = { Text("History") })
+                    Tab(selected = pagerState.currentPage == 0, onClick = { scope.launch { pagerState.animateScrollToPage(0) } }, text = { Text(stringResource(R.string.files_tab_inbox)) })
+                    Tab(selected = pagerState.currentPage == 1, onClick = { scope.launch { pagerState.animateScrollToPage(1) } }, text = { Text(stringResource(R.string.files_tab_devices)) })
+                    Tab(selected = pagerState.currentPage == 2, onClick = { scope.launch { pagerState.animateScrollToPage(2) } }, text = { Text(stringResource(R.string.files_tab_history)) })
                 }
             }
         },
-        floatingActionButton = { FloatingActionButton(onClick = { filePickerLauncher.launch("*/*") }) { Icon(Icons.Default.FileUpload, "Send") } }
+        floatingActionButton = { FloatingActionButton(onClick = { filePickerLauncher.launch("*/*") }) { Icon(Icons.Default.FileUpload, stringResource(R.string.action_send)) } }
     ) { padding ->
         PullToRefreshBox(
             isRefreshing = isLoading,
@@ -190,23 +191,23 @@ fun FilesScreen(onBack: () -> Unit) {
         ) {
             HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
                 when (page) {
-                    0 -> if (files.isEmpty() && !isLoading) EmptyState(Icons.Default.Inbox, "No incoming files") 
+                    0 -> if (files.isEmpty() && !isLoading) EmptyState(Icons.Default.Inbox, stringResource(R.string.files_empty_inbox)) 
                         else LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(files) { f -> FileCard(f, { openTaildropFile(context, f) }, { handleSaveRequest(f) }, { 
                                 val deleted = Appctr.deleteTaildropFileFromAPI(f.Name)
                                 if (deleted) refreshData() 
                             }) }
                         }
-                    1 -> if (peers.isEmpty() && selfPeer == null && !isLoading) EmptyState(Icons.Default.Devices, "No devices") 
+                    1 -> if (peers.isEmpty() && selfPeer == null && !isLoading) EmptyState(Icons.Default.Devices, stringResource(R.string.files_empty_devices)) 
                         else LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
                             if (selfPeer != null) {
                                 item { PeerItem(selfPeer!!, true) {} }
                             }
                             items(peers) { p -> 
-                                PeerItem(p, false) { Toast.makeText(context, "Use FAB to send", Toast.LENGTH_SHORT).show() }
+                                PeerItem(p, false) { Toast.makeText(context, context.getString(R.string.files_use_fab_to_send), Toast.LENGTH_SHORT).show() }
                             }
                         }
-                    2 -> if (sentFiles.isEmpty() && !isLoading) EmptyState(Icons.Default.History, "No history yet") 
+                    2 -> if (sentFiles.isEmpty() && !isLoading) EmptyState(Icons.Default.History, stringResource(R.string.files_empty_history)) 
                         else LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(sentFiles) { e -> SentFileCard(e) }
                         }
@@ -216,7 +217,7 @@ fun FilesScreen(onBack: () -> Unit) {
             if (isSendingFile) Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(0.3f)), contentAlignment = Alignment.Center) {
                 Card(shape = RoundedCornerShape(16.dp)) {
                     Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) { 
-                        CircularProgressIndicator(); Spacer(Modifier.height(16.dp)); Text("Sending..."); Text(sendProgressText, style = MaterialTheme.typography.bodySmall) 
+                        CircularProgressIndicator(); Spacer(Modifier.height(16.dp)); Text(stringResource(R.string.files_sending)); Text(sendProgressText, style = MaterialTheme.typography.bodySmall) 
                     }
                 }
             }
@@ -225,12 +226,12 @@ fun FilesScreen(onBack: () -> Unit) {
         if (showPeerPicker && selectedUriForSend != null) {
             ModalBottomSheet(onDismissRequest = { showPeerPicker = false }, containerColor = MaterialTheme.colorScheme.surface) {
                 Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
-                    Text("Select Device", modifier = Modifier.padding(20.dp), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.files_select_device), modifier = Modifier.padding(20.dp), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                     if (peers.isEmpty()) {
                         Box(Modifier.fillMaxWidth().height(100.dp), Alignment.Center) { 
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("No devices found", color = MaterialTheme.colorScheme.outline)
-                                TextButton(onClick = { refreshData() }) { Text("Refresh") }
+                                Text(stringResource(R.string.files_no_devices_found), color = MaterialTheme.colorScheme.outline)
+                                TextButton(onClick = { refreshData() }) { Text(stringResource(R.string.action_refresh)) }
                             }
                         }
                     } else {
@@ -254,24 +255,24 @@ fun FilesScreen(onBack: () -> Unit) {
 
 private suspend fun saveFileToUri(context: Context, file: TaildropFile, destUri: Uri) {
     try { File(file.Path).inputStream().use { input -> context.contentResolver.openOutputStream(destUri)?.use { output -> input.copyTo(output); output.flush() } } }
-    catch (e: Exception) { withContext(Dispatchers.Main) { Toast.makeText(context, "Save error: ${e.message}", Toast.LENGTH_SHORT).show() } }
+    catch (e: Exception) { withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.files_save_error, e.message), Toast.LENGTH_SHORT).show() } }
 }
 
 private suspend fun sendSingleFileInActivity(context: Context, uri: Uri, peer: PeerData, onProgress: (String) -> Unit) {
     try {
         val originalName = getFileName(context, uri) ?: "file_${System.currentTimeMillis()}"
-        onProgress("Preparing $originalName...")
+        onProgress(context.getString(R.string.files_preparing_format, originalName))
         val outDir = File(context.cacheDir, "taildrop_out").apply { mkdirs() }
         val tmp = File(outDir, originalName)
         context.contentResolver.openInputStream(uri)?.use { i -> tmp.outputStream().use { o -> i.copyTo(o); o.flush() } }
-        onProgress("Uploading...")
+        onProgress(context.getString(R.string.files_uploading))
         val target = if (!peer.id.isNullOrEmpty()) peer.id else (peer.hostName ?: peer.dnsName ?: peer.getDisplayName())
         val res = Appctr.sendFileFromAPI(target, tmp.absolutePath)
         
         if (res.isBlank() || !(res.contains("error", true) || res.contains("failed", true))) {
             logSentFile(context, originalName, peer.getDisplayName())
-            withContext(Dispatchers.Main) { Toast.makeText(context, "Sent!", Toast.LENGTH_SHORT).show() }
-        } else withContext(Dispatchers.Main) { Toast.makeText(context, "Error: $res", Toast.LENGTH_LONG).show() }
+            withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.files_sent), Toast.LENGTH_SHORT).show() }
+        } else withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.files_error_format, res), Toast.LENGTH_LONG).show() }
         tmp.delete()
-    } catch (e: Exception) { withContext(Dispatchers.Main) { Toast.makeText(context, "Failed: ${e.message}", Toast.LENGTH_SHORT).show() } }
+    } catch (e: Exception) { withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.files_failed_format, e.message), Toast.LENGTH_SHORT).show() } }
 }
