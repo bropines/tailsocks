@@ -26,7 +26,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -40,18 +42,78 @@ fun DevicesTabContent(
     devices: List<ApiDevice>,
     onDeviceClick: (ApiDevice) -> Unit
 ) {
-    if (devices.isEmpty()) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("No devices found", color = MaterialTheme.colorScheme.outline)
+    var sortBy by remember { mutableStateOf("name") } // name, name_desc, last_seen, update
+    
+    val sortedDevices = remember(devices, sortBy) {
+        when (sortBy) {
+            "name" -> devices.sortedBy { it.getDisplayName().lowercase() }
+            "name_desc" -> devices.sortedByDescending { it.getDisplayName().lowercase() }
+            "last_seen" -> devices.sortedByDescending { it.lastSeen ?: "" }
+            "update" -> devices.sortedByDescending { it.updateAvailable == true }
+            else -> devices
         }
-    } else {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+    }
+    
+    Column(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            items(devices) { device ->
-                DeviceRow(device = device, onClick = { onDeviceClick(device) })
+            Text(
+                text = "${devices.size} devices",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.outline
+            )
+            
+            var expandedSortMenu by remember { mutableStateOf(false) }
+            Box {
+                IconButton(onClick = { expandedSortMenu = true }) {
+                    Icon(Icons.Default.Sort, contentDescription = "Sort Devices")
+                }
+                DropdownMenu(
+                    expanded = expandedSortMenu,
+                    onDismissRequest = { expandedSortMenu = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Sort by Name (A-Z)") },
+                        leadingIcon = { Icon(Icons.Default.SortByAlpha, null) },
+                        onClick = { sortBy = "name"; expandedSortMenu = false }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Sort by Name (Z-A)") },
+                        leadingIcon = { Icon(Icons.Default.SortByAlpha, null) },
+                        onClick = { sortBy = "name_desc"; expandedSortMenu = false }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Sort by Last Seen") },
+                        leadingIcon = { Icon(Icons.Default.AccessTime, null) },
+                        onClick = { sortBy = "last_seen"; expandedSortMenu = false }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Sort by Update Available") },
+                        leadingIcon = { Icon(Icons.Default.SystemUpdate, null) },
+                        onClick = { sortBy = "update"; expandedSortMenu = false }
+                    )
+                }
+            }
+        }
+        
+        if (sortedDevices.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("No devices found", color = MaterialTheme.colorScheme.outline)
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(sortedDevices) { device ->
+                    DeviceRow(device = device, onClick = { onDeviceClick(device) })
+                }
             }
         }
     }
@@ -104,15 +166,11 @@ fun DeviceRow(
             
             Spacer(Modifier.width(8.dp))
             if (device.updateAvailable == true) {
-                Text(
-                    "Update",
-                    fontSize = 10.sp,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
+                Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(4.dp))
+                        .size(8.dp)
+                        .clip(CircleShape)
                         .background(Color(0xFF2196F3))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
                 )
                 Spacer(Modifier.width(8.dp))
             }
@@ -223,7 +281,9 @@ fun DeviceDetailBottomSheet(
             Text(
                 device.getDisplayName(),
                 style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 24.dp),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
 
             // Quick actions
@@ -250,26 +310,56 @@ fun DeviceDetailBottomSheet(
                 }
             }
 
-            Card(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+            val uriHandler = LocalUriHandler.current
+            val context = LocalContext.current
+            var isUpdatingNode by remember { mutableStateOf(false) }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    DetailRow("Full Name", device.name)
-                    DetailRow("IP Address", device.getPrimaryIp())
-                    DetailRow("OS", device.os ?: "Unknown")
-                    DetailRow("User Owner", device.user ?: "N/A")
-                    DetailRow("Key Expiry", if (device.keyExpiryDisabled == true) "Disabled" else formatExpires(device.expires))
-                    DetailRow("Authorization", if (device.authorized == true) "Approved" else "Required")
-                    if (!device.tags.isNullOrEmpty()) {
-                        DetailRow("Tags", device.tags.joinToString(", "))
-                    }
+                CopyableDetailBlock("Full Name", device.name)
+                CopyableDetailBlock("IP Address", device.getPrimaryIp())
+                CopyableDetailBlock("OS", device.os ?: "Unknown")
+                CopyableDetailBlock("User Owner", device.user ?: "N/A")
+                CopyableDetailBlock("Key Expiry", if (device.keyExpiryDisabled == true) "Disabled" else formatExpires(device.expires))
+                CopyableDetailBlock("Authorization", if (device.authorized == true) "Approved" else "Required")
+                if (!device.tags.isNullOrEmpty()) {
+                    CopyableDetailBlock("Tags", device.tags.joinToString(", "))
                 }
             }
 
             if (device.updateAvailable == true) {
                 Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .clickable(enabled = !isUpdatingNode) {
+                            scope.launch(Dispatchers.IO) {
+                                try {
+                                    withContext(Dispatchers.Main) { isUpdatingNode = true }
+                                    val mKey = device.machineKey ?: ""
+                                    val nKey = device.nodeKey ?: ""
+                                    val res = client.triggerDeviceUpdate(device.id, mKey, nKey)
+                                    withContext(Dispatchers.Main) {
+                                        Toast.makeText(context, "Update triggered successfully: $res", Toast.LENGTH_LONG).show()
+                                        isUpdatingNode = false
+                                    }
+                                } catch (e: Exception) {
+                                    withContext(Dispatchers.Main) {
+                                        Toast.makeText(context, "API Update failed. Opening Web Console...", Toast.LENGTH_SHORT).show()
+                                        isUpdatingNode = false
+                                        try {
+                                            uriHandler.openUri("https://login.tailscale.com/admin/machines/${device.getPrimaryIp()}")
+                                        } catch (ex: Exception) {
+                                            Toast.makeText(context, "Cannot open browser", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                }
+                            }
+                        },
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer,
                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -280,10 +370,17 @@ fun DeviceDetailBottomSheet(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Icon(Icons.Default.SystemUpdate, null)
+                        if (isUpdatingNode) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        } else {
+                            Icon(Icons.Default.SystemUpdate, null)
+                        }
                         Column {
-                            Text("Update Available", fontWeight = FontWeight.Bold)
-                            Text("A client version upgrade is available for this device (Current: ${device.clientVersion ?: "N/A"}).", fontSize = 11.sp)
+                            Text("Update Available (Click to Upgrade)", fontWeight = FontWeight.Bold)
+                            Text("A client version upgrade is available for this device (Current: ${device.clientVersion ?: "N/A"}). Click to trigger update or open web panel.", fontSize = 11.sp)
                         }
                     }
                 }
