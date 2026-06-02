@@ -4,6 +4,8 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ## [2.1.4-beta] - 2026-06-02
 ### Added
+- Added Crowdin-compatible localization system, extracting hardcoded strings from both the core UI and the Admin Console into standard Android XML resources.
+- Added comprehensive Russian translations (values-ru/strings.xml) and set up the Crowdin integration configuration (`crowdin.yml`).
 - Added comprehensive Tailscale public Admin API (api.tailscale.com/api/v2) integration to manage tailnet resources.
 - Integrated profile-specific Admin API credential storage mapped to tailnet domains for shared credentials across profiles.
 - Implemented a dedicated "Admin Console" dashboard with multiple tabs: Devices, DNS, Users, Services, Webhooks, Audit Logs, Web Links, and Settings.
