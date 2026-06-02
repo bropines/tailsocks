@@ -383,4 +383,17 @@ class TailscaleApiClient(
     fun setServiceDeviceApproved(serviceName: String, deviceId: String, approved: Boolean) {
         request("POST", "/tailnet/$tailnet/services/$serviceName/device/$deviceId/approved", mapOf("approved" to approved))
     }
+
+    fun triggerDeviceUpdate(deviceId: String, machineKey: String, nodeKey: String): String {
+        val body = mapOf(
+            "state" to "update-client",
+            "machinekey" to machineKey,
+            "nodekey" to nodeKey
+        )
+        return request("POST", "/device/$deviceId/update-status", body)
+    }
+
+    fun getDeviceUpdateStatus(deviceId: String): String {
+        return request("GET", "/device/$deviceId/update-status")
+    }
 }
