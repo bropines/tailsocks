@@ -2,6 +2,11 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [2.3.1-beta] - 2026-06-06
+### Changed
+- admin: Implement in-memory caching for API audit logs
+- ui: Replace TabRows with chip-based swipeable pagers and add syntax highlighting in logs
+
 ## [2.3.0-beta] - 2026-06-02
 ### Added
 - Added premium Material 3 dashboard interface for Network Diagnostics (Netcheck), displaying structured cards for protocol capabilities, NAT type, and public IP/port details.
