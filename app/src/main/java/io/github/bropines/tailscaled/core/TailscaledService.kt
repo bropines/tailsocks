@@ -112,6 +112,11 @@ class TailscaledService : Service() {
                 try { Thread.sleep(1500) } catch (e: Exception) {}
                 applyTagsAndRoutes(this@TailscaledService)
                 applyTaildrive(this@TailscaledService)
+                if (GlobalSettings.isTunModeEnabled(this@TailscaledService)) {
+                    startTunMode()
+                } else {
+                    stopTunMode()
+                }
             }.start()
             return START_STICKY
         }
@@ -153,6 +158,10 @@ class TailscaledService : Service() {
                 try { Thread.sleep(2500) } catch (e: Exception) {}
                 applyTagsAndRoutes(this@TailscaledService)
                 applyTaildrive(this@TailscaledService)
+                
+                if (GlobalSettings.isTunModeEnabled(this@TailscaledService)) {
+                    startTunMode()
+                }
             } catch (e: Exception) { 
                 Log.e(TAG, "Start failed", e)
                 stopMe() 
@@ -229,6 +238,7 @@ class TailscaledService : Service() {
     }
 
     private fun stopMe() {
+        stopTunMode()
         ProxyState.setUserState(this, false)
         refreshHandler.removeCallbacks(refreshRunnable)
         try { Appctr.stopDriveServer() } catch (e: Exception) {}
@@ -344,6 +354,27 @@ class TailscaledService : Service() {
             } catch (e: Exception) {
                 Log.e(TAG, "Taildrive Proxy: Failed to stop proxy", e)
             }
+        }
+    }
+
+    private fun startTunMode() {
+        try {
+            val intent = Intent(this, TunPermissionActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start TunPermissionActivity", e)
+        }
+    }
+
+    private fun stopTunMode() {
+        try {
+            startService(Intent(this, TunVpnService::class.java).apply {
+                action = TunVpnService.ACTION_STOP
+            })
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to stop TunVpnService", e)
         }
     }
 
