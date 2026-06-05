@@ -887,4 +887,17 @@
     <string name="widget_toast_exit_routing_format">Routing via %1$s</string>
     <string name="widget_toast_exit_select_first">Select Exit Node in App first</string>
     <string name="widget_toast_serve_cleared">Serve &amp; Funnel cleared</string>
+
+    <!-- TUN Mode -->
+    <string name="tun_notif_active">VPN Tunnel is active</string>
+    <string name="settings_sect_tun_mode">TUN Mode Settings</string>
+    <string name="settings_tun_enable_title">Enable TUN Mode</string>
+    <string name="settings_tun_enable_desc">Intercept device traffic via transparent VPN</string>
+    <string name="settings_tun_full_title">Full Tunnel (Exit Node)</string>
+    <string name="settings_tun_full_desc">Route all traffic through VPN (requires Exit Node)</string>
+    <string name="settings_tun_excluded_cidrs_title">Excluded IP Ranges</string>
+    <string name="settings_tun_excluded_cidrs_desc">Comma-separated subnets bypassed by VPN</string>
+    <string name="settings_tun_excluded_apps_title">Excluded Apps</string>
+    <string name="settings_tun_excluded_apps_desc">%1$d apps bypassed by VPN</string>
+    <string name="title_activity_tun_excluded_apps">Excluded Apps</string>
 </resources>

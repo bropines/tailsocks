@@ -887,4 +887,17 @@
     <string name="widget_toast_exit_routing_format">Маршрутизация через %1$s</string>
     <string name="widget_toast_exit_select_first">Сначала выберите выходной узел в приложении</string>
     <string name="widget_toast_serve_cleared">Правила Serve &amp; Funnel очищены</string>
+
+    <!-- TUN Mode -->
+    <string name="tun_notif_active">VPN-туннель активен</string>
+    <string name="settings_sect_tun_mode">Настройки режима TUN</string>
+    <string name="settings_tun_enable_title">Включить режим TUN</string>
+    <string name="settings_tun_enable_desc">Перехватывать трафик устройства через прозрачный VPN</string>
+    <string name="settings_tun_full_title">Полный туннель (Exit Node)</string>
+    <string name="settings_tun_full_desc">Направлять весь интернет-трафик в VPN (требуется Exit Node)</string>
+    <string name="settings_tun_excluded_cidrs_title">Исключенные подсети IP</string>
+    <string name="settings_tun_excluded_cidrs_desc">Подсети через запятую, идущие в обход VPN</string>
+    <string name="settings_tun_excluded_apps_title">Исключенные приложения</string>
+    <string name="settings_tun_excluded_apps_desc">Приложений в обход VPN: %1$d</string>
+    <string name="title_activity_tun_excluded_apps">Исключенные приложения</string>
 </resources>
