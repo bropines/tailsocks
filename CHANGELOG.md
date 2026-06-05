@@ -2,6 +2,16 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [2.4.0-beta] - 2026-06-06
+### Added
+- Added experimental TUN Mode VPN integration based on high-performance native C library `hev-socks5-tunnel`.
+- Implemented full tunnel and split tunnel routing modes for the VPN interface.
+- Added support for per-app VPN exclusions (disallowed applications list).
+- Added support for customizable IP/CIDR range bypass exclusions.
+- Added native JNI bindings configuration via ndk-build and externalNativeBuild.
+- Integrated transparent trampoline `TunPermissionActivity` to request system VPN permission.
+- Integrated TUN mode configuration UI under the Network settings tab.
+
 ## [2.3.1-beta] - 2026-06-06
 ### Changed
 - admin: Implement in-memory caching for API audit logs
