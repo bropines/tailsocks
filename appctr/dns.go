@@ -379,3 +379,55 @@ func forwardDNSviaDoH(query []byte, dohUrl string) ([]byte, error) {
 	if resp.StatusCode != http.StatusOK { return nil, fmt.Errorf("doh status: %d", resp.StatusCode) }
 	return io.ReadAll(resp.Body)
 }
+
+var tunDNSCancel context.CancelFunc
+var tunDNSMu sync.Mutex
+
+func StartTunDNS(listenAddr string) error {
+	tunDNSMu.Lock()
+	defer tunDNSMu.Unlock()
+	if tunDNSCancel != nil {
+		return nil
+	}
+
+	opt := lastOptions
+	fallbacks := []string{"8.8.8.8:53", "1.1.1.1:53"}
+	if opt != nil && opt.DnsFallbacks != "" {
+		fallbacks = strings.Split(opt.DnsFallbacks, ",")
+	}
+	doh := ""
+	if opt != nil {
+		doh = opt.DohFallback
+	}
+	if doh == "" {
+		doh = "https://1.1.1.1/dns-query"
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	tunDNSCancel = cancel
+
+	go func() {
+		slog.Info("Starting TUN DNS proxy", "addr", listenAddr)
+		if err := startDNSProxy(ctx, listenAddr, fallbacks, doh); err != nil {
+			slog.Error("TUN DNS proxy error", "err", err)
+			tunDNSMu.Lock()
+			if tunDNSCancel != nil {
+				tunDNSCancel()
+				tunDNSCancel = nil
+			}
+			tunDNSMu.Unlock()
+		}
+	}()
+
+	return nil
+}
+
+func StopTunDNS() {
+	tunDNSMu.Lock()
+	defer tunDNSMu.Unlock()
+	if tunDNSCancel != nil {
+		tunDNSCancel()
+		tunDNSCancel = nil
+		slog.Info("TUN DNS proxy stopped")
+	}
+}
