@@ -105,8 +105,35 @@ class TailscaledService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action
         
-        if (action == "STOP_ACTION") { stopMe(); return START_NOT_STICKY }
+        if (action == "STOP_ACTION") {
+            val notificationText = "Stopping..."
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(
+                    1,
+                    buildNotification(notificationText),
+                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                )
+            } else {
+                startForeground(1, buildNotification(notificationText))
+            }
+            stopMe()
+            return START_NOT_STICKY
+        }
+        
         if (action == "REFRESH_ACTION" || action == "APPLY_SETTINGS" || action == ACTION_APPLY_SETTINGS) {
+            if (!Appctr.isRunning()) {
+                stopMe()
+                return START_NOT_STICKY
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(
+                    1,
+                    buildNotification("Active"),
+                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                )
+            } else {
+                startForeground(1, buildNotification("Active"))
+            }
             Thread {
                 Appctr.applySettings(buildStartOptions())
                 try { Thread.sleep(1500) } catch (e: Exception) {}
@@ -120,7 +147,18 @@ class TailscaledService : Service() {
             }.start()
             return START_STICKY
         }
+        
         if (action == "RESTART_ACTION") {
+            val notificationText = "Restarting..."
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(
+                    1,
+                    buildNotification(notificationText),
+                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                )
+            } else {
+                startForeground(1, buildNotification(notificationText))
+            }
             Thread {
                 stopMe()
                 Thread.sleep(1500)
@@ -142,7 +180,18 @@ class TailscaledService : Service() {
                 startForeground(1, buildNotification("Starting..."))
             }
             startTailscale()
-        } else updateNotification("Active")
+        } else {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(
+                    1,
+                    buildNotification("Active"),
+                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                )
+            } else {
+                startForeground(1, buildNotification("Active"))
+            }
+            updateNotification("Active")
+        }
         
         refreshHandler.removeCallbacks(refreshRunnable)
         refreshHandler.postDelayed(refreshRunnable, 1000)
