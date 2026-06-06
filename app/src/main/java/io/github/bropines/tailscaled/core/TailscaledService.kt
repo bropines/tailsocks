@@ -427,6 +427,10 @@ class TailscaledService : Service() {
 
     private fun stopTunMode() {
         try {
+            if (!TunVpnService.nativeLoaded) {
+                Log.d(TAG, "TUN native library not loaded, skipping stop")
+                return
+            }
             startService(Intent(this, TunVpnService::class.java).apply {
                 action = TunVpnService.ACTION_STOP
             })

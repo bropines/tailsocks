@@ -59,8 +59,16 @@ class TunVpnService : VpnService() {
         @JvmStatic external fun TProxyStopService()
         @JvmStatic external fun TProxyGetStats(): LongArray
 
+        var nativeLoaded = false
+            private set
+
         init {
-            System.loadLibrary("hev-socks5-tunnel")
+            try {
+                System.loadLibrary("hev-socks5-tunnel")
+                nativeLoaded = true
+            } catch (e: UnsatisfiedLinkError) {
+                Log.e(TAG, "libhev-socks5-tunnel.so not found, TUN mode unavailable: ${e.message}")
+            }
         }
     }
 
@@ -85,6 +93,14 @@ class TunVpnService : VpnService() {
         }
 
         val action = intent?.action
+
+        if (!nativeLoaded) {
+            Log.w(TAG, "Native library not loaded, cannot process action=$action. Stopping.")
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
         executor.submit {
             try {
                 if (action == ACTION_STOP) {
@@ -260,12 +276,14 @@ class TunVpnService : VpnService() {
         }
         tunFd = null
 
-        try {
-            Log.d(TAG, "Calling TProxyStopService JNI...")
-            TProxyStopService()
-            Log.i(TAG, "TProxyStopService completed successfully")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error in TProxyStopService: ${e.message}")
+        if (nativeLoaded) {
+            try {
+                Log.d(TAG, "Calling TProxyStopService JNI...")
+                TProxyStopService()
+                Log.i(TAG, "TProxyStopService completed successfully")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in TProxyStopService: ${e.message}")
+            }
         }
 
         stopForeground(STOP_FOREGROUND_REMOVE)
