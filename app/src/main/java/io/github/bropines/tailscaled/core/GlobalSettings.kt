@@ -85,4 +85,28 @@ object GlobalSettings {
 
     fun isDynamicColorEnabled(context: Context): Boolean = getBoolean(context, KEY_DYNAMIC_COLOR, true)
     fun setDynamicColorEnabled(context: Context, enabled: Boolean) = setBoolean(context, KEY_DYNAMIC_COLOR, enabled)
+
+    // -------------------------------------------------------------------------
+    // TUN Mode (hev-socks5-tunnel VPN)
+    // -------------------------------------------------------------------------
+
+    fun isTunModeEnabled(context: Context): Boolean = getBoolean(context, "tun_mode_enabled", false)
+    fun setTunModeEnabled(context: Context, enabled: Boolean) = setBoolean(context, "tun_mode_enabled", enabled)
+
+    /** true = route 0.0.0.0/0 (requires exit node), false = route only 100.64.0.0/10 */
+    fun isTunFullTunnel(context: Context): Boolean = getBoolean(context, "tun_full_tunnel", false)
+    fun setTunFullTunnel(context: Context, full: Boolean) = setBoolean(context, "tun_full_tunnel", full)
+
+    /** Package names excluded from VPN tunnel (comma-separated). */
+    fun getTunExcludedApps(context: Context): Set<String> {
+        val raw = getString(context, "tun_excluded_apps", "")
+        return if (raw.isEmpty()) emptySet() else raw.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+    }
+    fun setTunExcludedApps(context: Context, apps: Set<String>) =
+        setString(context, "tun_excluded_apps", apps.joinToString(","))
+
+    /** CIDR ranges excluded from VPN routing (comma-separated, e.g. "192.168.0.0/16,10.0.0.0/8"). */
+    fun getTunExcludedCIDRs(context: Context): String = getString(context, "tun_excluded_cidrs", "192.168.0.0/16,10.0.0.0/8,172.16.0.0/12")
+    fun setTunExcludedCIDRs(context: Context, cidrs: String) = setString(context, "tun_excluded_cidrs", cidrs)
 }
+

@@ -55,9 +55,21 @@ android {
         ndk {
             abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64"))
         }
+        externalNativeBuild {
+            ndkBuild {
+                arguments("APP_CFLAGS+=-DPKGNAME=io/github/bropines/tailscaled/core -DCLSNAME=TunVpnService -ffile-prefix-map=${rootDir}=.")
+                arguments("APP_LDFLAGS+=-Wl,--build-id=none")
+            }
+        }
         
         vectorDrawables {
             useSupportLibrary = true
+        }
+    }
+
+    externalNativeBuild {
+        ndkBuild {
+            path = file("src/main/jni/Android.mk")
         }
     }
 
