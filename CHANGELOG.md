@@ -12,6 +12,10 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Integrated transparent trampoline `TunPermissionActivity` to request system VPN permission.
 - Integrated TUN mode configuration UI under the Network settings tab.
 
+### Fixed
+- Fixed app crash and restart (`MissingForegroundServiceTypeException`) on Android 14+ when enabling TUN mode by declaring specialUse FGS type in manifest and startForeground calls.
+- Fixed UI settings visibility allowing users to configure TUN routing preferences prior to enabling the VPN.
+
 ## [2.3.1-beta] - 2026-06-06
 ### Changed
 - admin: Implement in-memory caching for API audit logs
