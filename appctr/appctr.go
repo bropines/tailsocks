@@ -238,6 +238,32 @@ func syncSettings(opt *StartOptions) {
 		prefs["RouteAllSet"] = true
 		prefs["CorpDNS"] = opt.AcceptDNS
 		prefs["CorpDNSSet"] = true
+
+		// Push upstream resolvers to daemon so it can forward external DNS
+		// queries even when no ExitNode is active (avoids "no upstream resolvers" SERVFAIL).
+		if opt.DnsFallbacks != "" {
+			var resolvers []map[string]interface{}
+			for _, addr := range strings.Split(opt.DnsFallbacks, ",") {
+				addr = strings.TrimSpace(addr)
+				if addr != "" {
+					if !strings.Contains(addr, ":") {
+						addr = addr + ":53"
+					}
+					resolvers = append(resolvers, map[string]interface{}{"Addr": addr})
+				}
+			}
+			if len(resolvers) > 0 {
+				prefs["OverrideDNSResolvers"] = resolvers
+				prefs["OverrideDNSResolversSet"] = true
+			}
+		} else {
+			prefs["OverrideDNSResolvers"] = []map[string]interface{}{
+				{"Addr": "8.8.8.8:53"},
+				{"Addr": "1.1.1.1:53"},
+			}
+			prefs["OverrideDNSResolversSet"] = true
+		}
+
 		prefs["ExitNodeID"] = opt.ExitNodeID
 		prefs["ExitNodeIDSet"] = true
 		prefs["ExitNodeIP"] = ""
