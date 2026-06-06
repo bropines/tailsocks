@@ -2,6 +2,10 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [3.0.1] - 2026-06-06
+### Fixed
+- Fixed app crash (`ForegroundServiceDidNotStartInTimeException`) when starting or stopping the service by ensuring startForeground is called for all execution paths in TailscaledService.onStartCommand.
+
 ## [3.0.0-beta] - 2026-06-06
 ### Added
 - Added TUN Mode status indicator and traffic routing details banner on the main dashboard.
@@ -22,7 +26,6 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Updated Exit Node selector UI in settings profile tab to use Material 3 Cards with OS-specific icons, aligning it with the main dashboard layout.
 
 ### Fixed
-- Fixed app crash (`ForegroundServiceDidNotStartInTimeException`) when starting or stopping the service by ensuring startForeground is called for all execution paths in TailscaledService.onStartCommand.
 - Fixed app crash and restart (`MissingForegroundServiceTypeException`) on Android 14+ when enabling TUN mode by declaring specialUse FGS type in manifest and startForeground calls.
 - Fixed UI settings visibility allowing users to configure TUN bypass preferences (excluded IPs and apps) prior to enabling the VPN.
 - Fixed application hang/freeze (ANR) on TUN mode deactivation by closing the TUN file descriptor first to unblock native read/writes and running the JNI `TProxyStopService` asynchronously in a background thread.
