@@ -563,6 +563,48 @@ class TailsocksFileProvider : DocumentsProvider() {
         throw FileNotFoundException("Document ID not found: $docId")
     }
 
+    override fun isChildDocument(parentDocumentId: String?, documentId: String?): Boolean {
+        if (parentDocumentId == null || documentId == null) return false
+        
+        // Handle Taildrop
+        if (parentDocumentId == "root") {
+            return documentId.startsWith("account:") || documentId.startsWith("file:")
+        }
+        if (parentDocumentId.startsWith("account:")) {
+            val accId = parentDocumentId.substring("account:".length)
+            return documentId.startsWith("file:$accId/")
+        }
+        
+        // Handle Taildrive
+        if (parentDocumentId.startsWith("drive_root")) {
+            val parentParts = parentDocumentId.split(":", limit = 2)
+            val parentAccId = if (parentParts.size > 1) parentParts[1] else ""
+            
+            val childParts = documentId.split(":", limit = 3)
+            if (childParts[0] == "drive_path" && childParts.size >= 2) {
+                val childAccId = childParts[1]
+                if (parentAccId.isNotEmpty() && parentAccId != childAccId) return false
+                return true
+            }
+            return false
+        }
+        
+        if (parentDocumentId.startsWith("drive_path:")) {
+            val parentParts = parentDocumentId.substring("drive_path:".length).split(":", limit = 2)
+            if (parentParts.size == 2) {
+                val parentAccId = parentParts[0]
+                val parentPath = parentParts[1].trimEnd('/')
+                
+                if (documentId.startsWith("drive_path:$parentAccId:")) {
+                    val childPath = documentId.substring("drive_path:$parentAccId:".length).trimEnd('/')
+                    return childPath != parentPath && childPath.startsWith(parentPath)
+                }
+            }
+        }
+        
+        return false
+    }
+
     private fun getTypeForFile(file: File): String {
         if (file.isDirectory) return DocumentsContract.Document.MIME_TYPE_DIR
         val lastDot = file.name.lastIndexOf('.')
