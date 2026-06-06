@@ -175,12 +175,28 @@ class TunVpnService : VpnService() {
     }
 
     private fun stopTun() {
-        TProxyStopService()
-        try { tunFd?.close() } catch (_: IOException) {}
+        Log.i(TAG, "Stopping TUN...")
+        try {
+            tunFd?.close()
+            Log.d(TAG, "tunFd closed")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to close tunFd: ${e.message}")
+        }
         tunFd = null
+
+        Thread {
+            try {
+                Log.d(TAG, "Calling TProxyStopService native...")
+                TProxyStopService()
+                Log.i(TAG, "TProxyStopService completed successfully")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in TProxyStopService: ${e.message}")
+            }
+        }.start()
+
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
-        Log.i(TAG, "TUN stopped")
+        Log.i(TAG, "TUN service stop sequence initiated")
     }
 
     // -------------------------------------------------------------------------
