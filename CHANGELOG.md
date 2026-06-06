@@ -4,6 +4,8 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ## [2.4.0-beta] - 2026-06-06
 ### Added
+- Integrated remote Taildrive share mounting directly into Android Storage Access Framework (SAF) via DocumentsProvider, tunneling WebDAV traffic transparently through the active account's SOCKS5 proxy.
+- Added support for dynamic creation, deletion, renaming, moving, and read/write streaming of files within Taildrive directories without caching to disk.
 - Added experimental TUN Mode VPN integration based on high-performance native C library `hev-socks5-tunnel`.
 - Implemented full tunnel and split tunnel routing modes, automatically switched based on the active Exit Node selection (similar to the official Tailscale app).
 - Added support for per-app VPN exclusions (disallowed applications list).
