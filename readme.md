@@ -82,63 +82,63 @@ Optionally, TailSocks supports a **transparent TUN VPN mode** powered by the nat
 ## 📸 Screenshots
 
 <details>
-<summary><strong>Click to expand screenshots</strong></summary>
+<summary><strong>Interface Screenshots</strong></summary>
 
 <table width="100%">
   <tr>
     <td width="33%" align="center">
       <strong>Main Dashboard</strong><br/>
-      <img width="414" height="898" alt="Main Dashboard" src="https://github.com/user-attachments/assets/1d948d16-b6bf-4652-9bce-6e862bdfd90d" />
+      <img width="100%" src="https://github.com/user-attachments/assets/9366761f-f7de-4802-96ea-269d49bfffd3" />
     </td>
     <td width="33%" align="center">
-      <strong>Account Switch</strong><br/>
-      <img width="414" height="898" alt="Account Switch" src="https://github.com/user-attachments/assets/4aa9e88d-c02b-472a-96ad-267314233e70" />
+      <strong>Account Switcher</strong><br/>
+      <img width="100%" src="https://github.com/user-attachments/assets/b91dfc72-774c-4ad1-8eb0-77bd076ce1e9" />
     </td>
     <td width="33%" align="center">
-      <strong>Peers</strong><br/>
-      <img width="414" height="898" alt="Peers" src="https://github.com/user-attachments/assets/26b374e9-a25e-4395-9b84-27cf756e59f1" />
+      <strong>Peers List</strong><br/>
+      <img width="100%" src="https://github.com/user-attachments/assets/576774f6-8371-437b-b610-1555e1af12c0" />
     </td>
   </tr>
   <tr>
     <td width="33%" align="center">
-      <strong>Logs</strong><br/>
-      <img width="414" height="898" alt="Logs" src="https://github.com/user-attachments/assets/57813442-7158-49ea-95dc-f2b6377f0030" />
+      <strong>System Logs</strong><br/>
+      <img width="100%" src="https://github.com/user-attachments/assets/2056b039-201e-4f4a-b11f-5fdaaad38006" />
     </td>
     <td width="33%" align="center">
-      <strong>Taildrop™</strong><br/>
-      <img width="414" height="898" alt="Taildrop" src="https://github.com/user-attachments/assets/41d23cbc-4d67-4ec4-9477-2f5e95c1ec8d" />
+      <strong>Taildrop™ (Incoming)</strong><br/>
+      <img width="100%" src="https://github.com/user-attachments/assets/7f92c77b-da1d-44d7-b082-5bca6c7f86ef" />
     </td>
     <td width="33%" align="center">
       <strong>Taildrive™ Shares</strong><br/>
-      <img width="414" height="898" alt="Taildrive Shares" src="https://github.com/user-attachments/assets/d02c7e01-0454-42ce-8b0e-83faca773b66" />
+      <img width="100%" src="https://github.com/user-attachments/assets/0985d06b-288f-4f08-b9ce-1919cbf91d59" />
     </td>
   </tr>
   <tr>
     <td width="33%" align="center">
       <strong>DNS Management</strong><br/>
-      <img width="414" height="898" alt="DNS" src="https://github.com/user-attachments/assets/faea8000-94ae-4c55-b4be-8d577d5a5fa9" />
+      <img width="100%" src="https://github.com/user-attachments/assets/faea8000-94ae-4c55-b4be-8d577d5a5fa9" />
     </td>
     <td width="33%" align="center">
-      <strong>Settings (App)</strong><br/>
-      <img width="414" height="898" alt="Settings App" src="https://github.com/user-attachments/assets/3cc0d9c6-77a9-4444-a020-b8a606e54952" />
+      <strong>App Settings</strong><br/>
+      <img width="100%" src="https://github.com/user-attachments/assets/c4e59ea7-47e1-40c3-9d71-c35b0aa1d86a" />
     </td>
     <td width="33%" align="center">
-      <strong>Settings (Profile)</strong><br/>
-      <img width="414" height="898" alt="Settings Profile" src="https://github.com/user-attachments/assets/c3421fb3-cf46-4029-bb2a-f8f895114921" />
+      <strong>Profile Settings</strong><br/>
+      <img width="100%" src="https://github.com/user-attachments/assets/38180ff1-fb2e-4aa4-8490-424696982f87" />
     </td>
   </tr>
   <tr>
     <td width="33%" align="center">
       <strong>Network Diagnostics</strong><br/>
-      <img width="414" height="898" alt="Netcheck" src="https://github.com/user-attachments/assets/1f711954-7e2e-430a-9d57-5a7130105cae" />
+      <img width="100%" src="https://github.com/user-attachments/assets/7b7c64d9-2a6f-4693-8b60-756159b7e96f" />
     </td>
     <td width="33%" align="center">
       <strong>Serve & Funnel</strong><br/>
-      <img width="414" height="898" alt="Serve and Funnel" src="https://github.com/user-attachments/assets/a4538bf6-edc6-45d2-a648-5a377797c0a8" />
+      <img width="100%" src="https://github.com/user-attachments/assets/940bb4fe-da87-4d5c-a1df-4342b8d9ca03" />
     </td>
     <td width="33%" align="center">
-      <strong>Send to… (Taildrop™)</strong><br/>
-      <img width="414" height="898" alt="Send to Taildrop" src="https://github.com/user-attachments/assets/fe051494-745c-431e-ad77-05bdd05857cb" />
+      <strong>Send via Taildrop™</strong><br/>
+      <img width="100%" src="https://github.com/user-attachments/assets/209669fb-803f-4e63-b0f2-3a13ac8d8840" />
     </td>
   </tr>
 </table>
@@ -163,10 +163,10 @@ TailSocks is built as a hybrid multi-layer system:
 │              Tailscale Daemon (libtailscale.so)                 │
 │  tsnet · WireGuard · magicsock · DERP · Serve/Funnel · Drive    │
 ├───────────────────────┬─────────────────────────────────────────┤
-│   SOCKS5 Proxy Mode   │       TUN VPN Mode (optional)          │
-│  Per-app proxying via  │  System-wide routing via native        │
-│  local SOCKS5 server   │  hev-socks5-tunnel (C library)        │
-│  (no VpnService)       │  Full/Split tunnel + app exclusions   │
+│   SOCKS5 Proxy Mode   │       TUN VPN Mode (optional)           │
+│  Per-app proxying via │   System-wide routing via native        │
+│  local SOCKS5 server  │   hev-socks5-tunnel (C library)         │
+│  (no VpnService)      │   Full/Split tunnel + app exclusions    │
 └───────────────────────┴─────────────────────────────────────────┘
 ```
 
