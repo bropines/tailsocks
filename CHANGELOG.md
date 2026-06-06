@@ -4,6 +4,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ## [3.0.0-beta] - 2026-06-06
 ### Added
+- Added TUN Mode status indicator and traffic routing details banner on the main dashboard.
 - Added ability to customize the TUN interface IPv4 gateway address (with subnet prefix length support) under the Network settings tab.
 - Added full IPv6 routing support in TUN Mode (binding fd00::1 to the interface and routing fd7a:115c:a1e0::/48 Tailscale IP range) with a dedicated switch to completely disable IPv6 routing when necessary.
 - Implemented automatic exclusion of all TailSocks-related package variants from the TUN VPN tunnel to prevent routing loops, hiding them from the Excluded Apps settings screen to simplify configuration.
@@ -26,6 +27,10 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Fixed application hang/freeze (ANR) on TUN mode deactivation by closing the TUN file descriptor first to unblock native read/writes and running the JNI `TProxyStopService` asynchronously in a background thread.
 - Fixed empty/incomplete app list in the excluded apps picker on Android 11+ by requesting the `QUERY_ALL_PACKAGES` permission and updating the query filter to include system applications with launch intents (e.g., Chrome, YouTube).
 - Fixed DNS SERVFAIL errors when Exit Node is disabled by passing TS_DNS_FALLBACK env var with fallback DNS servers to the daemon.
+- Fixed WebDAV custom HTTP methods (PROPFIND, MKCOL, MOVE) throwing ProtocolException on Android by implementing a reflection-based method override.
+- Fixed WebDAV proxy authentication failure (SOCKS authentication failed) by registering a global Authenticator with the active SOCKS5 proxy credentials.
+- Fixed Taildrive directory traversal SecurityException (not a descendant of root) in Android SAF by overriding `isChildDocument` in `TailsocksFileProvider`.
+- Fixed Android network security policy blocking Taildrive HTTP traffic to `100.100.100.100` by enabling cleartext HTTP traffic in the manifest.
 
 ## [2.3.1-beta] - 2026-06-06
 ### Changed

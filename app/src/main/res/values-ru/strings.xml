@@ -891,7 +891,7 @@
     <!-- TUN Mode -->
     <string name="tun_notif_active">VPN-туннель активен</string>
     <string name="settings_sect_tun_mode">Настройки режима TUN</string>
-    <string name="settings_tun_enable_title">Включить режим TUN</string>
+    <string name="settings_tun_enable_title">Включить режим TUN (экспериментально)</string>
     <string name="settings_tun_enable_desc">Перехватывать трафик устройства через прозрачный VPN</string>
     <string name="settings_tun_full_title">Полный туннель (Exit Node)</string>
     <string name="settings_tun_full_desc">Направлять весь интернет-трафик в VPN (требуется Exit Node)</string>
@@ -906,4 +906,8 @@
     <string name="settings_tun_address_desc">IPv4-адрес с префиксом подсети (например, 10.0.0.1/8)</string>
     <string name="settings_tun_ipv6_title">Включить маршрутизацию IPv6</string>
     <string name="settings_tun_ipv6_desc">Направлять IPv6-трафик через VPN-туннель</string>
+
+    <string name="main_tun_active_title">Режим TUN активен</string>
+    <string name="main_tun_full_tunnel_desc">Весь трафик направляется через VPN</string>
+    <string name="main_tun_split_tunnel_desc">Трафик подсетей Tailscale направляется через VPN</string>
 </resources>
