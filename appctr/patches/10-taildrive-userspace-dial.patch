@@ -1,5 +1,5 @@
 --- orig/cmd/tailscaled/tailscaled_drive.go	2026-05-21 21:27:19.000000000 +0300
-+++ tailscale_src/cmd/tailscaled/tailscaled_drive.go	2026-05-28 22:14:03.779809026 +0300
++++ tailscale_src/cmd/tailscaled/tailscaled_drive.go	2026-06-06 04:04:43.012946537 +0300
 @@ -10,6 +10,7 @@
  	"fmt"
  
@@ -23,7 +23,7 @@
  	hookSetWgEnginConfigDrive.Set(func(conf *wgengine.Config, logf logger.Logf) {
  		conf.DriveForLocal = driveimpl.NewFileSystemForLocal(logf)
 --- orig/cmd/tailscaled/tailscaled_windows.go	2026-05-21 21:27:19.000000000 +0300
-+++ tailscale_src/cmd/tailscaled/tailscaled_windows.go	2026-05-28 22:14:15.251806476 +0300
++++ tailscale_src/cmd/tailscaled/tailscaled_windows.go	2026-06-06 04:04:43.012946537 +0300
 @@ -49,6 +49,7 @@
  	"tailscale.com/net/dns"
  	"tailscale.com/net/netmon"
@@ -47,7 +47,7 @@
  	publicLogID, _ := logid.ParsePublicID(logID)
  	err = startIPNServer(ctx, log.Printf, publicLogID, sys)
 --- orig/ipn/ipnlocal/local_test.go	2026-05-21 21:27:19.000000000 +0300
-+++ tailscale_src/ipn/ipnlocal/local_test.go	2026-05-28 22:14:26.531803370 +0300
++++ tailscale_src/ipn/ipnlocal/local_test.go	2026-06-06 04:04:43.012946537 +0300
 @@ -4593,7 +4593,7 @@
  				self.CapMap = tailcfg.NodeCapMap{tailcfg.NodeAttrsTaildriveShare: nil}
  				nm.SelfNode = self.View()

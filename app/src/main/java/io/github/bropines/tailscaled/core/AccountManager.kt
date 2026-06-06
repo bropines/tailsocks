@@ -40,6 +40,12 @@ object AccountManager {
             .edit()
             .putString(KEY_ACTIVE_ID, id)
             .apply()
+        try {
+            val rootsUri = android.provider.DocumentsContract.buildRootsUri(context.packageName + ".documents")
+            context.contentResolver.notifyChange(rootsUri, null)
+        } catch (e: Exception) {
+            android.util.Log.e("AccountManager", "Failed to notify SAF roots change: ${e.message}")
+        }
     }
 
     fun addAccount(context: Context, name: String): TailscaleAccount {

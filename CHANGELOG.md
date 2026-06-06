@@ -2,8 +2,14 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
-## [2.4.0-beta] - 2026-06-06
+## [3.0.0-beta] - 2026-06-06
 ### Added
+- Added TUN Mode status indicator and traffic routing details banner on the main dashboard.
+- Added ability to customize the TUN interface IPv4 gateway address (with subnet prefix length support) under the Network settings tab.
+- Added full IPv6 routing support in TUN Mode (binding fd00::1 to the interface and routing fd7a:115c:a1e0::/48 Tailscale IP range) with a dedicated switch to completely disable IPv6 routing when necessary.
+- Implemented automatic exclusion of all TailSocks-related package variants from the TUN VPN tunnel to prevent routing loops, hiding them from the Excluded Apps settings screen to simplify configuration.
+- Integrated remote Taildrive share mounting directly into Android Storage Access Framework (SAF) via DocumentsProvider (dynamically resolving the active account to immediately show remote shares in the root folder, bypassing unnecessary account folders), tunneling WebDAV traffic transparently through the SOCKS5 proxy.
+- Added support for dynamic creation, deletion, renaming, moving, and read/write streaming of files within Taildrive directories without caching to disk.
 - Added experimental TUN Mode VPN integration based on high-performance native C library `hev-socks5-tunnel`.
 - Implemented full tunnel and split tunnel routing modes, automatically switched based on the active Exit Node selection (similar to the official Tailscale app).
 - Added support for per-app VPN exclusions (disallowed applications list).
@@ -12,11 +18,19 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Integrated transparent trampoline `TunPermissionActivity` to request system VPN permission.
 - Integrated TUN mode configuration UI under the Network settings tab.
 
+### Changed
+- Updated Exit Node selector UI in settings profile tab to use Material 3 Cards with OS-specific icons, aligning it with the main dashboard layout.
+
 ### Fixed
 - Fixed app crash and restart (`MissingForegroundServiceTypeException`) on Android 14+ when enabling TUN mode by declaring specialUse FGS type in manifest and startForeground calls.
 - Fixed UI settings visibility allowing users to configure TUN bypass preferences (excluded IPs and apps) prior to enabling the VPN.
 - Fixed application hang/freeze (ANR) on TUN mode deactivation by closing the TUN file descriptor first to unblock native read/writes and running the JNI `TProxyStopService` asynchronously in a background thread.
 - Fixed empty/incomplete app list in the excluded apps picker on Android 11+ by requesting the `QUERY_ALL_PACKAGES` permission and updating the query filter to include system applications with launch intents (e.g., Chrome, YouTube).
+- Fixed DNS SERVFAIL errors when Exit Node is disabled by passing TS_DNS_FALLBACK env var with fallback DNS servers to the daemon.
+- Fixed WebDAV custom HTTP methods (PROPFIND, MKCOL, MOVE) throwing ProtocolException on Android by implementing a reflection-based method override.
+- Fixed WebDAV proxy authentication failure (SOCKS authentication failed) by registering a global Authenticator with the active SOCKS5 proxy credentials.
+- Fixed Taildrive directory traversal SecurityException (not a descendant of root) in Android SAF by overriding `isChildDocument` in `TailsocksFileProvider`.
+- Fixed Android network security policy blocking Taildrive HTTP traffic to `100.100.100.100` by enabling cleartext HTTP traffic in the manifest.
 
 ## [2.3.1-beta] - 2026-06-06
 ### Changed

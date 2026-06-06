@@ -891,7 +891,7 @@
     <!-- TUN Mode -->
     <string name="tun_notif_active">VPN Tunnel is active</string>
     <string name="settings_sect_tun_mode">TUN Mode Settings</string>
-    <string name="settings_tun_enable_title">Enable TUN Mode</string>
+    <string name="settings_tun_enable_title">Enable TUN Mode (Experimental)</string>
     <string name="settings_tun_enable_desc">Intercept device traffic via transparent VPN</string>
     <string name="settings_tun_full_title">Full Tunnel (Exit Node)</string>
     <string name="settings_tun_full_desc">Route all traffic through VPN (requires Exit Node)</string>
@@ -902,4 +902,12 @@
     <string name="title_activity_tun_excluded_apps">Excluded Apps</string>
     <string name="tun_apps_filter_all">All</string>
     <string name="tun_apps_filter_excluded">Bypassed</string>
+    <string name="settings_tun_address_title">TUN Address</string>
+    <string name="settings_tun_address_desc">IPv4 address with prefix length (e.g. 10.0.0.1/8)</string>
+    <string name="settings_tun_ipv6_title">Enable IPv6 Routing</string>
+    <string name="settings_tun_ipv6_desc">Route IPv6 traffic through the VPN tunnel</string>
+
+    <string name="main_tun_active_title">TUN Mode Active</string>
+    <string name="main_tun_full_tunnel_desc">All traffic is routed through the VPN</string>
+    <string name="main_tun_split_tunnel_desc">Tailscale subnet traffic is routed through the VPN</string>
 </resources>

@@ -230,9 +230,30 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
     }
 
     val prefs = remember(activeAccount.id) { context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE) }
-    
+    val globalPrefs = remember { context.getSharedPreferences("tailsocks_global", Context.MODE_PRIVATE) }
+    var isTunEnabled by remember { mutableStateOf(GlobalSettings.isTunModeEnabled(context)) }
+    var isFullTunnel by remember { mutableStateOf(GlobalSettings.isTunFullTunnel(context)) }
+
+    val globalPrefsListener = remember {
+        android.content.SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
+            if (key == "tun_mode_enabled") {
+                isTunEnabled = sharedPreferences.getBoolean("tun_mode_enabled", false)
+            } else if (key == "tun_full_tunnel") {
+                isFullTunnel = sharedPreferences.getBoolean("tun_full_tunnel", false)
+            }
+        }
+    }
+
     var proxyState by remember { mutableStateOf(if (ProxyState.isActualRunning()) "ACTIVE" else "STOPPED") }
     var exitNodeIp by remember { mutableStateOf(prefs.getString("exit_node_ip", "") ?: "") }
+
+    val profilePrefsListener = remember(activeAccount.id) {
+        android.content.SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
+            if (key == "exit_node_ip") {
+                exitNodeIp = sharedPreferences.getString("exit_node_ip", "") ?: ""
+            }
+        }
+    }
     var isProcessing by remember { mutableStateOf(false) }
     var loginUrl by remember { mutableStateOf<String?>(null) }
     var show410Warning by remember { mutableStateOf(false) }
@@ -336,15 +357,33 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
     }
 
     DisposableEffect(prefs) {
-        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
-            if (key == "exit_node_ip") {
-                exitNodeIp = sharedPreferences.getString("exit_node_ip", "") ?: ""
-            }
-        }
-        prefs.registerOnSharedPreferenceChangeListener(listener)
+        prefs.registerOnSharedPreferenceChangeListener(profilePrefsListener)
         exitNodeIp = prefs.getString("exit_node_ip", "") ?: ""
         onDispose {
-            prefs.unregisterOnSharedPreferenceChangeListener(listener)
+            prefs.unregisterOnSharedPreferenceChangeListener(profilePrefsListener)
+        }
+    }
+
+    DisposableEffect(globalPrefs) {
+        globalPrefs.registerOnSharedPreferenceChangeListener(globalPrefsListener)
+        isTunEnabled = globalPrefs.getBoolean("tun_mode_enabled", false)
+        isFullTunnel = globalPrefs.getBoolean("tun_full_tunnel", false)
+        onDispose {
+            globalPrefs.unregisterOnSharedPreferenceChangeListener(globalPrefsListener)
+        }
+    }
+
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                isTunEnabled = GlobalSettings.isTunModeEnabled(context)
+                isFullTunnel = GlobalSettings.isTunFullTunnel(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
@@ -810,7 +849,12 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                 }
             }
 
-            StatusCard(state = proxyState, isProcessing = isProcessing) {
+            StatusCard(
+                state = proxyState,
+                isProcessing = isProcessing,
+                isTunEnabled = isTunEnabled,
+                isFullTunnel = isFullTunnel
+            ) {
                 if (isProcessing) return@StatusCard
 
                 if (proxyState == "ACTIVE" || proxyState == "STARTING") {
@@ -1213,7 +1257,7 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
 }
 
 @Composable
-fun StatusCard(state: String, isProcessing: Boolean, onToggle: () -> Unit) {
+fun StatusCard(state: String, isProcessing: Boolean, isTunEnabled: Boolean, isFullTunnel: Boolean, onToggle: () -> Unit) {
     val backgroundColor = when (state) {
         "ACTIVE" -> MaterialTheme.colorScheme.primaryContainer
         "STARTING" -> MaterialTheme.colorScheme.tertiaryContainer
@@ -1242,20 +1286,41 @@ fun StatusCard(state: String, isProcessing: Boolean, onToggle: () -> Unit) {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Icon(
-                imageVector = when(state) {
-                    "ACTIVE" -> Icons.Default.CheckCircle
-                    "STARTING" -> Icons.Default.Refresh
-                    else -> Icons.Default.CheckCircle
-                },
-                contentDescription = null,
-                tint = contentColor,
-                modifier = Modifier.size(32.dp)
-            )
+            if (state == "ACTIVE" && isTunEnabled) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = contentColor,
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Icon(
+                        imageVector = Icons.Default.VpnKey,
+                        contentDescription = null,
+                        tint = contentColor,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            } else {
+                Icon(
+                    imageVector = when(state) {
+                        "ACTIVE" -> Icons.Default.CheckCircle
+                        "STARTING" -> Icons.Default.Refresh
+                        else -> Icons.Default.CheckCircle
+                    },
+                    contentDescription = null,
+                    tint = contentColor,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = when(state) {
-                    "ACTIVE" -> stringResource(R.string.main_status_active)
+                    "ACTIVE" -> if (isTunEnabled) "${stringResource(R.string.main_status_active)} + TUN" else stringResource(R.string.main_status_active)
                     "STARTING" -> stringResource(R.string.main_status_starting)
                     else -> stringResource(R.string.status_stopped)
                 },
@@ -1267,7 +1332,14 @@ fun StatusCard(state: String, isProcessing: Boolean, onToggle: () -> Unit) {
             Text(
                 text = when {
                     isProcessing -> stringResource(R.string.main_status_please_wait)
-                    state == "ACTIVE" -> stringResource(R.string.main_status_active_desc)
+                    state == "ACTIVE" -> {
+                        if (isTunEnabled) {
+                            if (isFullTunnel) stringResource(R.string.main_tun_full_tunnel_desc)
+                            else stringResource(R.string.main_tun_split_tunnel_desc)
+                        } else {
+                            stringResource(R.string.main_status_active_desc)
+                        }
+                    }
                     state == "STARTING" -> stringResource(R.string.main_status_starting_desc)
                     else -> stringResource(R.string.tap_to_start)
                 },

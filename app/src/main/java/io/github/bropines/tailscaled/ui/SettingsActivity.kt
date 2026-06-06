@@ -44,6 +44,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -169,7 +170,12 @@ fun SettingsScreen(
     var tunFullTunnel by remember { mutableStateOf(GlobalSettings.isTunFullTunnel(context)) }
     var tunExcludedCIDRs by remember { mutableStateOf(GlobalSettings.getTunExcludedCIDRs(context)) }
     var tunExcludedApps by remember { mutableStateOf(GlobalSettings.getTunExcludedApps(context)) }
+    var tunAddress by remember { mutableStateOf(GlobalSettings.getTunAddress(context)) }
+    var tunIpv6Enabled by remember { mutableStateOf(GlobalSettings.isTunIpv6Enabled(context)) }
 
+    LaunchedEffect(Unit) {
+        tunExcludedApps = GlobalSettings.getTunExcludedApps(context)
+    }
     val excludedAppsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         tunExcludedApps = GlobalSettings.getTunExcludedApps(context)
     }
@@ -178,6 +184,7 @@ fun SettingsScreen(
     var authKey by remember { mutableStateOf(profilePrefs.getString("authkey", "") ?: "") }
     var hostname by remember { mutableStateOf(profilePrefs.getString("hostname", "") ?: "") }
     var exitNodeIp by remember { mutableStateOf(profilePrefs.getString("exit_node_ip", "") ?: "") }
+    var exitNodeId by remember { mutableStateOf(profilePrefs.getString("exit_node_id", "") ?: "") }
     var enableWebUI by remember { mutableStateOf(profilePrefs.getBoolean("enable_webui", false)) }
     var webUIAddr by remember { mutableStateOf(profilePrefs.getString("webui_addr", "127.0.0.1:8080") ?: "127.0.0.1:8080") }
     val globalApiPrefs = remember { context.getSharedPreferences("admin_api_keys", Context.MODE_PRIVATE) }
@@ -777,7 +784,29 @@ fun SettingsScreen(
                                     tunModeEnabled = it
                                     saveGlobalPref("tun_mode_enabled", it)
                                 }
-                                
+
+                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                 SettingsSwitchItem(
+                                     title = stringResource(R.string.settings_tun_ipv6_title),
+                                     subtitle = stringResource(R.string.settings_tun_ipv6_desc),
+                                     icon = Icons.Default.Language,
+                                     checked = tunIpv6Enabled
+                                 ) {
+                                     tunIpv6Enabled = it
+                                     saveGlobalPref("tun_ipv6_enabled", it)
+                                 }
+
+                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                 SettingsEditItem(
+                                     title = stringResource(R.string.settings_tun_address_title),
+                                     value = tunAddress,
+                                     icon = Icons.Default.Settings,
+                                     placeholder = "10.0.0.1/8",
+                                     description = stringResource(R.string.settings_tun_address_desc)
+                                 ) {
+                                     tunAddress = it
+                                     saveGlobalPref("tun_address", it)
+                                 }
                                  HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
                                  SettingsEditItem(
                                      title = stringResource(R.string.settings_tun_excluded_cidrs_title),
@@ -834,7 +863,8 @@ fun SettingsScreen(
                                 SettingsEditItem(stringResource(R.string.settings_login_server_title), loginServer, Icons.Default.Cloud, placeholder = stringResource(R.string.settings_login_server_placeholder)) { loginServer = it; saveProfilePref("login_server", it) }
                                 SettingsEditItem(stringResource(R.string.settings_auth_key_title), authKey, Icons.Default.VpnKey) { authKey = it; saveProfilePref("authkey", it) }
                                 SettingsEditItem(stringResource(R.string.settings_hostname_title), hostname, Icons.Default.Badge, onAction = { android.os.Build.MODEL.replace(" ", "-").lowercase() }, actionIcon = Icons.Default.AutoFixHigh) { hostname = it; saveProfilePref("hostname", it) }
-                                SettingsExitNodeItem(stringResource(R.string.settings_exit_node_title), exitNodeIp, Icons.Default.Input) { id, ip ->
+                                SettingsExitNodeItem(stringResource(R.string.settings_exit_node_title), exitNodeId, exitNodeIp, Icons.Default.Input) { id, ip ->
+                                    exitNodeId = id
                                     exitNodeIp = ip
                                     saveProfilePref("exit_node_ip", ip, triggerService = false)
                                     saveProfilePref("exit_node_id", id, triggerService = false)
@@ -1290,7 +1320,8 @@ fun SettingsChoiceItem(
 @Composable
 fun SettingsExitNodeItem(
     title: String, 
-    currentValue: String, 
+    currentId: String,
+    currentIp: String, 
     icon: androidx.compose.ui.graphics.vector.ImageVector, 
     onSave: (String, String) -> Unit
 ) {
@@ -1341,39 +1372,193 @@ fun SettingsExitNodeItem(
     ) {
         ListItem(
             headlineContent = { Text(title) },
-            supportingContent = { Text(if (currentValue.isEmpty()) "None" else currentValue, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            supportingContent = { Text(if (currentIp.isEmpty()) "None" else currentIp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             leadingContent = { Icon(icon, null, tint = MaterialTheme.colorScheme.primary) },
             colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
         )
     }
 
     if (showDialog) {
+        val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+        val maxHeight = (configuration.screenHeightDp * 0.85f).dp
+
         ModalBottomSheet(onDismissRequest = { showDialog = false }) {
-            Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
-                Text(stringResource(R.string.settings_exit_node_select), modifier = Modifier.padding(20.dp), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = maxHeight)
+                    .navigationBarsPadding()
+            ) {
+                Text(
+                    stringResource(R.string.settings_exit_node_select),
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+
                 if (isLoading) {
-                    Box(Modifier.fillMaxWidth().height(100.dp), Alignment.Center) { CircularProgressIndicator() }
+                    Box(Modifier.fillMaxWidth().height(120.dp), Alignment.Center) { CircularProgressIndicator() }
                 } else if (exitNodes.isEmpty()) {
-                    Box(Modifier.fillMaxWidth().height(100.dp), Alignment.Center) { 
+                    Box(Modifier.fillMaxWidth().height(120.dp), Alignment.Center) { 
                         Text(stringResource(R.string.settings_exit_node_empty), color = MaterialTheme.colorScheme.outline)
                     }
                 } else {
-                    androidx.compose.foundation.lazy.LazyColumn {
-                        item {
-                            ListItem(
-                                headlineContent = { Text(stringResource(R.string.settings_none)) },
-                                leadingContent = { Icon(Icons.Default.Clear, null) },
-                                modifier = Modifier.clickable { applyExitNode("", ""); showDialog = false }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f, fill = false)
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                            ),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
                             )
-                        }
-                        items(exitNodes.size) { i ->
-                            val node = exitNodes[i]
-                            ListItem(
-                                headlineContent = { Text(node.getDisplayName()) },
-                                supportingContent = { Text(node.getPrimaryIp()) },
-                                leadingContent = { Icon(Icons.Default.VpnKey, null) },
-                                modifier = Modifier.clickable { applyExitNode(node.id ?: "", node.getPrimaryIp()); showDialog = false }
-                            )
+                        ) {
+                            androidx.compose.foundation.lazy.LazyColumn(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                contentPadding = PaddingValues(bottom = 16.dp)
+                            ) {
+                                item {
+                                    val isSelected = currentIp.isEmpty()
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 6.dp)
+                                            .clickable { applyExitNode("", ""); showDialog = false },
+                                        shape = RoundedCornerShape(14.dp),
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            1.dp,
+                                            if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                                        ),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
+                                        )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(38.dp)
+                                                    .clip(CircleShape)
+                                                    .background(
+                                                        if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
+                                                    ),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.Clear,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(18.dp),
+                                                    tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                            Spacer(Modifier.width(16.dp))
+                                            Column(Modifier.weight(1f)) {
+                                                Text(
+                                                    stringResource(R.string.settings_none),
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 15.sp,
+                                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                                )
+                                                Text(
+                                                    stringResource(R.string.main_route_traffic_directly),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                            if (isSelected) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(8.dp)
+                                                        .clip(CircleShape)
+                                                        .background(MaterialTheme.colorScheme.primary)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                items(exitNodes.size) { i ->
+                                    val node = exitNodes[i]
+                                    val isSelected = node.id == currentId || node.getPrimaryIp() == currentIp
+                                    val (osIcon, osColor) = getOsVisuals(node.os).let { (icon, color) ->
+                                        if (icon == Icons.Default.Devices) Icons.Default.VpnKey to MaterialTheme.colorScheme.primary
+                                        else icon to color
+                                    }
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 6.dp)
+                                            .clickable { applyExitNode(node.id ?: "", node.getPrimaryIp()); showDialog = false },
+                                        shape = RoundedCornerShape(14.dp),
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            1.dp,
+                                            if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                                        ),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
+                                        )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(38.dp)
+                                                    .clip(CircleShape)
+                                                    .background(
+                                                        if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                                        else osColor.copy(alpha = 0.12f)
+                                                    ),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    osIcon,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(18.dp),
+                                                    tint = if (isSelected) MaterialTheme.colorScheme.primary else osColor
+                                                )
+                                            }
+                                            Spacer(Modifier.width(16.dp))
+                                            Column(Modifier.weight(1f)) {
+                                                Text(
+                                                    node.getDisplayName(),
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 15.sp,
+                                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                                )
+                                                Text(
+                                                    node.getPrimaryIp(),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                            if (isSelected) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(8.dp)
+                                                        .clip(CircleShape)
+                                                        .background(MaterialTheme.colorScheme.primary)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }

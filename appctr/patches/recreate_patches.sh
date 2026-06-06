@@ -68,6 +68,9 @@ diff -u orig/cmd/tailscaled/netstack.go tailscale_src/cmd/tailscaled/netstack.go
     diff -u orig/ipn/ipnlocal/local_test.go tailscale_src/ipn/ipnlocal/local_test.go || true
 } > patches/10-taildrive-userspace-dial.patch
 
+# 11-noop-dns-fallback.patch (net/dns/noop.go)
+diff -u orig/net/dns/noop.go tailscale_src/net/dns/noop.go > patches/11-noop-dns-fallback.patch || true
+
 echo "✅ Atomic patches generated successfully in appctr/patches/."
 
 

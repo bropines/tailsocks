@@ -1,6 +1,6 @@
 diff -N -r -u orig/feature/taildrop/ext.go tailscale_src/feature/taildrop/ext.go
 --- orig/feature/taildrop/ext.go	2026-05-21 21:27:19.000000000 +0300
-+++ tailscale_src/feature/taildrop/ext.go	2026-05-28 22:09:36.591882671 +0300
++++ tailscale_src/feature/taildrop/ext.go	2026-06-06 04:04:42.988946550 +0300
 @@ -4,6 +4,12 @@
  package taildrop
  
