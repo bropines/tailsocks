@@ -2,6 +2,11 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [3.0.2] - 2026-06-06
+### Fixed
+- Fixed release builds on GitHub Actions where the `hev-socks5-tunnel` submodule was not checked out, causing `libhev-socks5-tunnel.so` to be missing from the packaged APK and rendering TUN mode unavailable.
+- Prevented application crash on account switch or startup when `libhev-socks5-tunnel.so` is missing by wrapping `System.loadLibrary` in a try-catch block and checking load status.
+
 ## [3.0.1] - 2026-06-06
 ### Fixed
 - Fixed app crash (`ForegroundServiceDidNotStartInTimeException`) when starting or stopping the service by ensuring startForeground is called for all execution paths in TailscaledService.onStartCommand.
