@@ -607,11 +607,36 @@ class TaildriveClient(private val context: Context, private val accountId: Strin
         return URL("http://100.100.100.100:8080$encodedPath")
     }
 
+    private fun setRequestMethod(conn: HttpURLConnection, method: String) {
+        try {
+            conn.requestMethod = method
+        } catch (e: Exception) {
+            try {
+                var targetClass: Class<*> = conn.javaClass
+                while (targetClass != Any::class.java) {
+                    try {
+                        val field = targetClass.getDeclaredField("method")
+                        field.isAccessible = true
+                        field.set(conn, method)
+                        return
+                    } catch (ex: NoSuchFieldException) {
+                        targetClass = targetClass.superclass ?: break
+                    }
+                }
+                val field = HttpURLConnection::class.java.getDeclaredField("method")
+                field.isAccessible = true
+                field.set(conn, method)
+            } catch (ex: Exception) {
+                throw e
+            }
+        }
+    }
+
     fun list(path: String): List<WebDavFile> {
         val proxy = getSocksProxy() ?: throw Exception("SOCKS5 proxy is not running")
         val conn = getUrl(path).openConnection(proxy) as HttpURLConnection
         try {
-            conn.requestMethod = "PROPFIND"
+            setRequestMethod(conn, "PROPFIND")
             conn.setRequestProperty("Depth", "1")
             conn.connectTimeout = 10000
             conn.readTimeout = 10000
@@ -629,7 +654,7 @@ class TaildriveClient(private val context: Context, private val accountId: Strin
         val proxy = getSocksProxy() ?: throw Exception("SOCKS5 proxy is not running")
         val conn = getUrl(path).openConnection(proxy) as HttpURLConnection
         try {
-            conn.requestMethod = "DELETE"
+            setRequestMethod(conn, "DELETE")
             conn.connectTimeout = 10000
             val code = conn.responseCode
             if (code != 200 && code != 204) {
@@ -644,7 +669,7 @@ class TaildriveClient(private val context: Context, private val accountId: Strin
         val proxy = getSocksProxy() ?: throw Exception("SOCKS5 proxy is not running")
         val conn = getUrl(path).openConnection(proxy) as HttpURLConnection
         try {
-            conn.requestMethod = "MKCOL"
+            setRequestMethod(conn, "MKCOL")
             conn.connectTimeout = 10000
             val code = conn.responseCode
             if (code != 201) {
@@ -659,7 +684,7 @@ class TaildriveClient(private val context: Context, private val accountId: Strin
         val proxy = getSocksProxy() ?: throw Exception("SOCKS5 proxy is not running")
         val conn = getUrl(path).openConnection(proxy) as HttpURLConnection
         try {
-            conn.requestMethod = "PUT"
+            setRequestMethod(conn, "PUT")
             conn.doOutput = true
             conn.connectTimeout = 10000
             conn.outputStream.close()
@@ -676,7 +701,7 @@ class TaildriveClient(private val context: Context, private val accountId: Strin
         val proxy = getSocksProxy() ?: throw Exception("SOCKS5 proxy is not running")
         val conn = getUrl(fromPath).openConnection(proxy) as HttpURLConnection
         try {
-            conn.requestMethod = "MOVE"
+            setRequestMethod(conn, "MOVE")
             val targetUrl = getUrl(toPath)
             conn.setRequestProperty("Destination", targetUrl.toString())
             conn.connectTimeout = 10000
@@ -692,7 +717,7 @@ class TaildriveClient(private val context: Context, private val accountId: Strin
     fun getDownloadStream(path: String): InputStream {
         val proxy = getSocksProxy() ?: throw Exception("SOCKS5 proxy is not running")
         val conn = getUrl(path).openConnection(proxy) as HttpURLConnection
-        conn.requestMethod = "GET"
+        setRequestMethod(conn, "GET")
         conn.connectTimeout = 15000
         conn.readTimeout = 15000
         val code = conn.responseCode
@@ -706,7 +731,7 @@ class TaildriveClient(private val context: Context, private val accountId: Strin
     fun getUploadStream(path: String): OutputStream {
         val proxy = getSocksProxy() ?: throw Exception("SOCKS5 proxy is not running")
         val conn = getUrl(path).openConnection(proxy) as HttpURLConnection
-        conn.requestMethod = "PUT"
+        setRequestMethod(conn, "PUT")
         conn.doOutput = true
         conn.setChunkedStreamingMode(4096)
         conn.connectTimeout = 15000
