@@ -133,15 +133,6 @@ fun TunExcludedAppsScreen(onBack: () -> Unit) {
                     }
                 }
             )
-        },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { saveAndExit() },
-                icon = { Icon(Icons.Default.Check, null) },
-                text = { Text(stringResource(R.string.action_save)) },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            )
         }
     ) { padding ->
         Column(
@@ -211,7 +202,7 @@ fun TunExcludedAppsScreen(onBack: () -> Unit) {
                         .fillMaxWidth()
                         .weight(1f),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
-                    contentPadding = PaddingValues(bottom = 88.dp) // Extra padding for FAB
+                    contentPadding = PaddingValues(bottom = 16.dp)
                 ) {
                     items(filteredApps, key = { it.packageName }) { app ->
                         val isExcluded = app.packageName in excluded.value
