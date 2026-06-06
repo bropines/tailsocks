@@ -62,6 +62,7 @@ class TunVpnService : VpnService() {
     }
 
     private var tunFd: ParcelFileDescriptor? = null
+    private var currentExitNodeId: String? = null
 
     // -------------------------------------------------------------------------
     // Service lifecycle
@@ -90,16 +91,27 @@ class TunVpnService : VpnService() {
     // -------------------------------------------------------------------------
 
     private fun startTun() {
+        val activeAccount = AccountManager.getActiveAccount(this)
+        val profilePrefs = getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
+        val exitNodeId = profilePrefs.getString("exit_node_id", "") ?: ""
+
         if (tunFd != null) {
-            Log.w(TAG, "Already running, ignoring start")
-            return
+            if (currentExitNodeId == exitNodeId) {
+                Log.w(TAG, "Already running with same exit node, ignoring start")
+                return
+            }
+            Log.i(TAG, "Exit Node changed from '$currentExitNodeId' to '$exitNodeId', restarting TUN interface...")
+            TProxyStopService()
+            try { tunFd?.close() } catch (_: Exception) {}
+            tunFd = null
         }
+        currentExitNodeId = exitNodeId
 
         val socksAddr = GlobalSettings.getString(this, "socks5", "127.0.0.1:48115")
         val socksHost = socksAddr.substringBeforeLast(":")
         val socksPort = socksAddr.substringAfterLast(":").toIntOrNull() ?: 48115
         val mtu       = TUN_MTU
-        val fullTunnel = GlobalSettings.isTunFullTunnel(this)
+        val fullTunnel = exitNodeId.isNotEmpty()
         val excludedApps = GlobalSettings.getTunExcludedApps(this)
         val excludedCIDRs = GlobalSettings.getTunExcludedCIDRs(this)
             .split(",").map { it.trim() }.filter { it.isNotEmpty() }

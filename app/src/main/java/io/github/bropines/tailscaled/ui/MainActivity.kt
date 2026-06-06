@@ -252,6 +252,11 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
             val prefsJson = "{\"ExitNodeID\": \"$id\", \"ExitNodeIDSet\": true}"
             appctr.Appctr.setPrefs(prefsJson)
             updateAllWidgets(context)
+            if (GlobalSettings.isTunModeEnabled(context)) {
+                context.startService(Intent(context, TunVpnService::class.java).apply {
+                    action = TunVpnService.ACTION_START
+                })
+            }
         }
     }
 

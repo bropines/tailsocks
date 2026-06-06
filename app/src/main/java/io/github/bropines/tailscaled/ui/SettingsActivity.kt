@@ -779,17 +779,6 @@ fun SettingsScreen(
                                 }
                                 
                                  HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                 SettingsSwitchItem(
-                                     title = stringResource(R.string.settings_tun_full_title),
-                                     subtitle = stringResource(R.string.settings_tun_full_desc),
-                                     icon = Icons.Default.SelectAll,
-                                     checked = tunFullTunnel
-                                 ) {
-                                     tunFullTunnel = it
-                                     saveGlobalPref("tun_full_tunnel", it)
-                                 }
-                                 
-                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
                                  SettingsEditItem(
                                      title = stringResource(R.string.settings_tun_excluded_cidrs_title),
                                      value = tunExcludedCIDRs,
@@ -1322,6 +1311,11 @@ fun SettingsExitNodeItem(
                 }
             }
             updateAllWidgets(context)
+            if (GlobalSettings.isTunModeEnabled(context)) {
+                context.startService(Intent(context, TunVpnService::class.java).apply {
+                    action = TunVpnService.ACTION_START
+                })
+            }
         }
     }
 
