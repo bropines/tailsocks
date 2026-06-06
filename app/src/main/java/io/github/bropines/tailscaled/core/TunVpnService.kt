@@ -17,6 +17,7 @@ import io.github.bropines.tailscaled.ui.MainActivity
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.util.concurrent.Executors
 
 /**
  * TUN-mode VPN service backed by hev-socks5-tunnel (native C library).
@@ -61,6 +62,7 @@ class TunVpnService : VpnService() {
         }
     }
 
+    private val executor = Executors.newSingleThreadExecutor()
     private var tunFd: ParcelFileDescriptor? = null
     private var currentExitNodeId: String? = null
 
@@ -69,28 +71,59 @@ class TunVpnService : VpnService() {
     // -------------------------------------------------------------------------
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        return when (intent?.action) {
-            ACTION_STOP -> { stopTun(); START_NOT_STICKY }
-            else        -> { startTun(); START_STICKY }
+        val notification = buildNotification()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(
+                NOTIF_ID,
+                notification,
+                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            )
+        } else {
+            startForeground(NOTIF_ID, notification)
         }
+
+        val action = intent?.action
+        executor.submit {
+            try {
+                if (action == ACTION_STOP) {
+                    stopTunInternal()
+                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                        stopSelf()
+                    }
+                } else {
+                    startTunInternal()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error processing action $action in background", e)
+            }
+        }
+        return START_STICKY
     }
 
     override fun onRevoke() {
         Log.i(TAG, "VPN permission revoked by system")
-        stopTun()
+        executor.submit {
+            stopTunInternal()
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                stopSelf()
+            }
+        }
         super.onRevoke()
     }
 
     override fun onDestroy() {
-        stopTun()
+        executor.submit {
+            stopTunInternal()
+        }
+        executor.shutdown()
         super.onDestroy()
     }
 
     // -------------------------------------------------------------------------
-    // Start / Stop
+    // Start / Stop Internal (Runs on executor thread)
     // -------------------------------------------------------------------------
 
-    private fun startTun() {
+    private fun startTunInternal() {
         val activeAccount = AccountManager.getActiveAccount(this)
         val profilePrefs = getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
         val exitNodeId = profilePrefs.getString("exit_node_id", "") ?: ""
@@ -101,9 +134,7 @@ class TunVpnService : VpnService() {
                 return
             }
             Log.i(TAG, "Exit Node changed from '$currentExitNodeId' to '$exitNodeId', restarting TUN interface...")
-            TProxyStopService()
-            try { tunFd?.close() } catch (_: Exception) {}
-            tunFd = null
+            stopTunInternal()
         }
         currentExitNodeId = exitNodeId
 
@@ -133,16 +164,6 @@ class TunVpnService : VpnService() {
             builder.addRoute("100.64.0.0", 10)
         }
 
-        // Excluded IP ranges: add them back as "allow" via more-specific routes.
-        // Android VpnService doesn't have addExcludedRoute() before API 33,
-        // so we split the routing table manually for split tunnel mode.
-        // For full tunnel mode, we skip exclusions at the VPN level;
-        // the hev-socks5-tunnel handles them as direct connections.
-        if (!fullTunnel) {
-            // In split tunnel, excluded CIDRs are simply not added to routes — no action needed.
-            Log.d(TAG, "Split tunnel: excluded CIDRs passed to hev: $excludedCIDRs")
-        }
-
         // Always exclude TailSocks itself to avoid routing loops.
         try { builder.addDisallowedApplication(packageName) } catch (_: PackageManager.NameNotFoundException) {}
 
@@ -155,7 +176,9 @@ class TunVpnService : VpnService() {
         val fd = builder.establish()
         if (fd == null) {
             Log.e(TAG, "Failed to establish VPN interface")
-            stopSelf()
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                stopSelf()
+            }
             return
         }
         tunFd = fd
@@ -165,28 +188,21 @@ class TunVpnService : VpnService() {
         val socksUser = GlobalSettings.getString(this, "socks5_user", "")
         val socksPass = GlobalSettings.getString(this, "socks5_pass", "")
         if (!writeHevConfig(configFile, socksHost, socksPort, mtu, socksUser, socksPass)) {
-            fd.close()
+            try { fd.close() } catch (_: Exception) {}
             tunFd = null
-            stopSelf()
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                stopSelf()
+            }
             return
         }
 
         // Start hev tunnel (JNI).
+        Log.i(TAG, "Calling TProxyStartService JNI...")
         TProxyStartService(configFile.absolutePath, fd.fd)
         Log.i(TAG, "TUN started: socks=$socksAddr mtu=$mtu full=$fullTunnel")
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(
-                NOTIF_ID,
-                buildNotification(),
-                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-            )
-        } else {
-            startForeground(NOTIF_ID, buildNotification())
-        }
     }
 
-    private fun stopTun() {
+    private fun stopTunInternal() {
         Log.i(TAG, "Stopping TUN...")
         try {
             tunFd?.close()
@@ -196,19 +212,16 @@ class TunVpnService : VpnService() {
         }
         tunFd = null
 
-        Thread {
-            try {
-                Log.d(TAG, "Calling TProxyStopService native...")
-                TProxyStopService()
-                Log.i(TAG, "TProxyStopService completed successfully")
-            } catch (e: Exception) {
-                Log.e(TAG, "Error in TProxyStopService: ${e.message}")
-            }
-        }.start()
+        try {
+            Log.d(TAG, "Calling TProxyStopService JNI...")
+            TProxyStopService()
+            Log.i(TAG, "TProxyStopService completed successfully")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in TProxyStopService: ${e.message}")
+        }
 
         stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
-        Log.i(TAG, "TUN service stop sequence initiated")
+        Log.i(TAG, "TUN service stop sequence completed")
     }
 
     // -------------------------------------------------------------------------
@@ -217,10 +230,9 @@ class TunVpnService : VpnService() {
 
     /**
      * Writes a minimal hev-socks5-tunnel YAML config.
-     *
-     * Key: mapdns section maps 100.100.100.100:53 queries to 127.0.0.1:1053
-     * (the Go DNS proxy in TailscaledService process, protected from VPN via
-     * the VpnService process being VPN-exempt itself).
+     * We exclude mapdns section so DNS queries on 100.100.100.100:53 are routed 
+     * natively through SOCKS5 UDP association to Tailscale daemon, returning 
+     * real IPs and supporting Split Tunnel seamlessly.
      */
     private fun writeHevConfig(
         file: File,
@@ -246,18 +258,6 @@ socks5:
                 if (user.isNotEmpty() && pass.isNotEmpty()) {
                     cfg += "\n  username: '$user'\n  password: '$pass'\n"
                 }
-
-                // mapdns: redirect DNS queries for fake IP → Go DNS proxy on localhost:1053.
-                // The Go proxy is VPN-exempt (runs inside TailscaledService which is excluded).
-                cfg += """
-
-mapdns:
-  address: $TUN_DNS_IP
-  port: 53
-  network: 100.100.100.0
-  netmask: 255.255.255.0
-  cache-size: 2000
-"""
                 fos.write(cfg.toByteArray())
             }
             Log.d(TAG, "hev config written: ${file.absolutePath}")
