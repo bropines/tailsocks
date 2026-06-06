@@ -900,4 +900,6 @@
     <string name="settings_tun_excluded_apps_title">Excluded Apps</string>
     <string name="settings_tun_excluded_apps_desc">%1$d apps bypassed by VPN</string>
     <string name="title_activity_tun_excluded_apps">Excluded Apps</string>
+    <string name="tun_apps_filter_all">All</string>
+    <string name="tun_apps_filter_excluded">Bypassed</string>
 </resources>

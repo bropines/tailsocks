@@ -184,12 +184,12 @@ fun TunExcludedAppsScreen(onBack: () -> Unit) {
                 FilterChip(
                     selected = !showOnlyExcluded,
                     onClick = { showOnlyExcluded = false },
-                    label = { Text(stringResource(R.string.settings_theme_system) + " (${apps.size})") } // Reuse system translation for 'All'
+                    label = { Text(stringResource(R.string.tun_apps_filter_all) + " (${apps.size})") }
                 )
                 FilterChip(
                     selected = showOnlyExcluded,
                     onClick = { showOnlyExcluded = true },
-                    label = { Text(stringResource(R.string.main_traffic_routed) + " (${excluded.value.size})") } // Reuse active filter
+                    label = { Text(stringResource(R.string.tun_apps_filter_excluded) + " (${excluded.value.size})") }
                 )
             }
 

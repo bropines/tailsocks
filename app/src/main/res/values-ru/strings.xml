@@ -900,4 +900,6 @@
     <string name="settings_tun_excluded_apps_title">Исключенные приложения</string>
     <string name="settings_tun_excluded_apps_desc">Приложений в обход VPN: %1$d</string>
     <string name="title_activity_tun_excluded_apps">Исключенные приложения</string>
+    <string name="tun_apps_filter_all">Все</string>
+    <string name="tun_apps_filter_excluded">В обход VPN</string>
 </resources>
