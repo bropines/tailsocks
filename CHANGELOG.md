@@ -5,7 +5,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 ## [2.4.0-beta] - 2026-06-06
 ### Added
 - Added experimental TUN Mode VPN integration based on high-performance native C library `hev-socks5-tunnel`.
-- Implemented full tunnel and split tunnel routing modes for the VPN interface.
+- Implemented full tunnel and split tunnel routing modes, automatically switched based on the active Exit Node selection (similar to the official Tailscale app).
 - Added support for per-app VPN exclusions (disallowed applications list).
 - Added support for customizable IP/CIDR range bypass exclusions.
 - Added native JNI bindings configuration via ndk-build and externalNativeBuild.
@@ -14,7 +14,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Fixed
 - Fixed app crash and restart (`MissingForegroundServiceTypeException`) on Android 14+ when enabling TUN mode by declaring specialUse FGS type in manifest and startForeground calls.
-- Fixed UI settings visibility allowing users to configure TUN routing preferences prior to enabling the VPN.
+- Fixed UI settings visibility allowing users to configure TUN bypass preferences (excluded IPs and apps) prior to enabling the VPN.
 - Fixed application hang/freeze (ANR) on TUN mode deactivation by closing the TUN file descriptor first to unblock native read/writes and running the JNI `TProxyStopService` asynchronously in a background thread.
 - Fixed empty/incomplete app list in the excluded apps picker on Android 11+ by requesting the `QUERY_ALL_PACKAGES` permission and updating the query filter to include system applications with launch intents (e.g., Chrome, YouTube).
 
