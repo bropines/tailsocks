@@ -902,4 +902,6 @@
     <string name="title_activity_tun_excluded_apps">Excluded Apps</string>
     <string name="tun_apps_filter_all">All</string>
     <string name="tun_apps_filter_excluded">Bypassed</string>
+    <string name="settings_tun_address_title">TUN Address</string>
+    <string name="settings_tun_address_desc">IPv4 address with prefix length (e.g. 10.0.0.1/8)</string>
 </resources>

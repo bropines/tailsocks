@@ -902,4 +902,6 @@
     <string name="title_activity_tun_excluded_apps">Исключенные приложения</string>
     <string name="tun_apps_filter_all">Все</string>
     <string name="tun_apps_filter_excluded">В обход VPN</string>
+    <string name="settings_tun_address_title">Адрес TUN-интерфейса</string>
+    <string name="settings_tun_address_desc">IPv4-адрес с префиксом подсети (например, 10.0.0.1/8)</string>
 </resources>

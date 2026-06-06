@@ -147,11 +147,28 @@ class TunVpnService : VpnService() {
         val excludedCIDRs = GlobalSettings.getTunExcludedCIDRs(this)
             .split(",").map { it.trim() }.filter { it.isNotEmpty() }
 
+        val tunAddrRaw = GlobalSettings.getTunAddress(this)
+        var tunIp = TUN_ADDR_V4
+        var tunPrefix = TUN_PREFIX
+        try {
+            if (tunAddrRaw.contains("/")) {
+                val parts = tunAddrRaw.split("/")
+                if (parts.size == 2) {
+                    tunIp = parts[0].trim()
+                    tunPrefix = parts[1].trim().toIntOrNull() ?: TUN_PREFIX
+                }
+            } else if (tunAddrRaw.isNotEmpty()) {
+                tunIp = tunAddrRaw.trim()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to parse custom TUN address: $tunAddrRaw, using default", e)
+        }
+
         // Build VPN interface.
         val builder = Builder()
             .setSession("TailSocks TUN")
             .setMtu(mtu)
-            .addAddress(TUN_ADDR_V4, TUN_PREFIX)
+            .addAddress(tunIp, tunPrefix)
             .addDnsServer(TUN_DNS_IP)
             .addRoute(TUN_DNS_IP, 32)  // route fake DNS IP through VPN
 

@@ -108,5 +108,9 @@ object GlobalSettings {
     /** CIDR ranges excluded from VPN routing (comma-separated, e.g. "192.168.0.0/16,10.0.0.0/8"). */
     fun getTunExcludedCIDRs(context: Context): String = getString(context, "tun_excluded_cidrs", "192.168.0.0/16,10.0.0.0/8,172.16.0.0/12")
     fun setTunExcludedCIDRs(context: Context, cidrs: String) = setString(context, "tun_excluded_cidrs", cidrs)
+
+    /** TUN interface IP address (default "10.0.0.1/8"). */
+    fun getTunAddress(context: Context): String = getString(context, "tun_address", "10.0.0.1/8")
+    fun setTunAddress(context: Context, address: String) = setString(context, "tun_address", address)
 }
 

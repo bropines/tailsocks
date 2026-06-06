@@ -51,6 +51,11 @@ TailSocks is a high-performance, lightweight Android client for [Tailscale](http
 * **Exit Nodes:** Route all your internet traffic through any authorized peer on your Tailnet with auto-healing and LAN access support.
 * **Full App State Backups:** Export and import settings, profiles, and SOCKS5 parameters in secure ZIP/JSON archives for seamless data portability.
 
+### 🛡️ 7. Transparent TUN Mode VPN
+* **Full & Split Tunnel Routing:** High-performance transparent VPN interface powered by the native C library [hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel).
+* **Smart App/IP Exclusions:** Exclude specific IP ranges or applications from the tunnel, with automated exclusion of all TailSocks package variants to prevent routing loops.
+* **Custom TUN IP:** Supports customizable IPv4 gateway addresses for the TUN interface, offering seamless integration with local network architectures.
+
 ---
 
 ## 📸 Screenshots
@@ -150,6 +155,7 @@ This project would not be possible without the excellent work of the following d
 
 * **App Developer:** [Bropines](https://github.com/bropines)
 * **Patch Developer:** [Asutorufa](https://github.com/Asutorufa) for the essential Android [tailscale patches](https://github.com/Asutorufa/tailscale).
+* **TUN Tunnel Engine:** [heiher/hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel) for the lightweight, high-performance native socks5-to-tun implementation.
 * **Core Network Engine:** [Tailscale Inc.](https://github.com/tailscale/tailscale) for their incredible userspace core engine (`tsnet`).
 * **Google and Gemini** [Gemini](https://gemini.google.com/) helped me a lot in developing the interface and reading the LocalAPI. And yes, this project was written with the help of AI
 

@@ -170,7 +170,11 @@ fun SettingsScreen(
     var tunFullTunnel by remember { mutableStateOf(GlobalSettings.isTunFullTunnel(context)) }
     var tunExcludedCIDRs by remember { mutableStateOf(GlobalSettings.getTunExcludedCIDRs(context)) }
     var tunExcludedApps by remember { mutableStateOf(GlobalSettings.getTunExcludedApps(context)) }
+    var tunAddress by remember { mutableStateOf(GlobalSettings.getTunAddress(context)) }
 
+    LaunchedEffect(Unit) {
+        tunExcludedApps = GlobalSettings.getTunExcludedApps(context)
+    }
     val excludedAppsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         tunExcludedApps = GlobalSettings.getTunExcludedApps(context)
     }
@@ -780,6 +784,17 @@ fun SettingsScreen(
                                     saveGlobalPref("tun_mode_enabled", it)
                                 }
                                 
+                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                 SettingsEditItem(
+                                     title = stringResource(R.string.settings_tun_address_title),
+                                     value = tunAddress,
+                                     icon = Icons.Default.Settings,
+                                     placeholder = "10.0.0.1/8",
+                                     description = stringResource(R.string.settings_tun_address_desc)
+                                 ) {
+                                     tunAddress = it
+                                     saveGlobalPref("tun_address", it)
+                                 }
                                  HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
                                  SettingsEditItem(
                                      title = stringResource(R.string.settings_tun_excluded_cidrs_title),
