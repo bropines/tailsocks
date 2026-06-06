@@ -590,9 +590,8 @@ data class WebDavFile(
 
 class TaildriveClient(private val context: Context, private val accountId: String) {
     private fun getSocksProxy(): Proxy? {
-        val prefs = context.getSharedPreferences("appctr_$accountId", Context.MODE_PRIVATE)
-        val socksAddr = prefs.getString("socks5", "")
-        if (socksAddr.isNullOrBlank()) return null
+        val socksAddr = GlobalSettings.getString(context, "socks5", "127.0.0.1:48115")
+        if (socksAddr.isBlank()) return null
         val parts = socksAddr.split(":")
         if (parts.size != 2) return null
         val host = parts[0]
