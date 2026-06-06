@@ -596,6 +596,17 @@ class TaildriveClient(private val context: Context, private val accountId: Strin
         if (parts.size != 2) return null
         val host = parts[0]
         val port = parts[1].toIntOrNull() ?: return null
+        
+        val user = GlobalSettings.getString(context, "socks5_user", "")
+        val pass = GlobalSettings.getString(context, "socks5_pass", "")
+        if (user.isNotEmpty() || pass.isNotEmpty()) {
+            java.net.Authenticator.setDefault(object : java.net.Authenticator() {
+                override fun getPasswordAuthentication(): java.net.PasswordAuthentication {
+                    return java.net.PasswordAuthentication(user, pass.toCharArray())
+                }
+            })
+        }
+        
         return Proxy(Proxy.Type.SOCKS, InetSocketAddress(host, port))
     }
 
