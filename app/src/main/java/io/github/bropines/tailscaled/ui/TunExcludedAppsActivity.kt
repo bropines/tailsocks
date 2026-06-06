@@ -152,7 +152,11 @@ private fun AppExclusionRow(app: AppItem, isExcluded: Boolean, onToggle: () -> U
 private fun loadInstalledApps(context: Context): List<AppItem> {
     val pm = context.packageManager
     return pm.getInstalledApplications(PackageManager.GET_META_DATA)
-        .filter { it.flags and ApplicationInfo.FLAG_SYSTEM == 0 }
+        .filter { info ->
+            val isSystem = (info.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+            val hasLaunchIntent = pm.getLaunchIntentForPackage(info.packageName) != null
+            !isSystem || hasLaunchIntent
+        }
         .map { info ->
             val label = try { pm.getApplicationLabel(info).toString() } catch (_: Exception) { info.packageName }
             val icon = try {
