@@ -17,6 +17,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Fixed UI settings visibility allowing users to configure TUN bypass preferences (excluded IPs and apps) prior to enabling the VPN.
 - Fixed application hang/freeze (ANR) on TUN mode deactivation by closing the TUN file descriptor first to unblock native read/writes and running the JNI `TProxyStopService` asynchronously in a background thread.
 - Fixed empty/incomplete app list in the excluded apps picker on Android 11+ by requesting the `QUERY_ALL_PACKAGES` permission and updating the query filter to include system applications with launch intents (e.g., Chrome, YouTube).
+- Fixed DNS SERVFAIL errors when Exit Node is disabled by passing TS_DNS_FALLBACK env var with fallback DNS servers to the daemon.
 
 ## [2.3.1-beta] - 2026-06-06
 ### Changed

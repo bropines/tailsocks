@@ -1,5 +1,5 @@
 --- orig/net/tstun/wrap.go	2026-05-21 21:27:19.000000000 +0300
-+++ tailscale_src/net/tstun/wrap.go	2026-05-28 22:09:36.611882664 +0300
++++ tailscale_src/net/tstun/wrap.go	2026-06-06 04:04:43.008946539 +0300
 @@ -448,6 +448,21 @@
  	return t.tdev.File()
  }
@@ -23,7 +23,7 @@
  	return t.tdev.MTU()
  }
 --- orig/wgengine/netstack/netstack.go	2026-05-21 21:27:19.000000000 +0300
-+++ tailscale_src/wgengine/netstack/netstack.go	2026-05-28 22:31:21.475528572 +0300
++++ tailscale_src/wgengine/netstack/netstack.go	2026-06-06 04:04:43.008946539 +0300
 @@ -942,6 +942,21 @@
  }
  

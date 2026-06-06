@@ -1,0 +1,39 @@
+--- orig/net/dns/noop.go	2026-05-21 21:27:19.000000000 +0300
++++ tailscale_src/net/dns/noop.go	2026-06-06 04:51:00.584223549 +0300
+@@ -3,12 +3,36 @@
+ 
+ package dns
+ 
++import (
++	"net/netip"
++	"os"
++	"strings"
++)
++
+ type noopManager struct{}
+ 
+ func (m noopManager) SetDNS(OSConfig) error  { return nil }
+ func (m noopManager) SupportsSplitDNS() bool { return false }
+ func (m noopManager) Close() error           { return nil }
+ func (m noopManager) GetBaseConfig() (OSConfig, error) {
++	// TS_DNS_FALLBACK: inject upstream resolvers when the control plane provides
++	// none (e.g. no exit node, no custom DNS in the admin console).
++	// Set by the TailSocks bridge from the user-configured DnsFallbacks option.
++	// Accepts comma-separated "1.2.3.4" or "1.2.3.4:53" entries.
++	if ns := os.Getenv("TS_DNS_FALLBACK"); ns != "" {
++		var nameservers []netip.Addr
++		for _, s := range strings.Split(ns, ",") {
++			s = strings.TrimSpace(s)
++			if ipp, err := netip.ParseAddrPort(s); err == nil {
++				nameservers = append(nameservers, ipp.Addr())
++			} else if ip, err := netip.ParseAddr(s); err == nil {
++				nameservers = append(nameservers, ip)
++			}
++		}
++		if len(nameservers) > 0 {
++			return OSConfig{Nameservers: nameservers}, nil
++		}
++	}
+ 	return OSConfig{}, ErrGetBaseConfigNotSupported
+ }
+ 

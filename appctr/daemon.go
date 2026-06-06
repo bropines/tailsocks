@@ -11,7 +11,7 @@ import (
 )
 // cmd and stateMu are declared in appctr.go; do not redeclare here.
 
-func tailscaledCmd(p pathControl, socksAddr, httpAddr, socksUser, socksPass, taildropDir, controlProxy string) error {
+func tailscaledCmd(p pathControl, dnsFallbacks string, socksAddr, httpAddr, socksUser, socksPass, taildropDir, controlProxy string) error {
 	rm(p.Tailscale(), p.Tailscaled())
 	ln(p.TailscaleCliSo(), p.Tailscale())
 	ln(p.TailscaledSo(), p.Tailscaled())
@@ -40,6 +40,9 @@ func tailscaledCmd(p pathControl, socksAddr, httpAddr, socksUser, socksPass, tai
 		"TS_AUTH_ONCE=true",
 		"TS_NET_STATE="+netState,
 	)
+	if dnsFallbacks != "" {
+		c.Env = append(c.Env, "TS_DNS_FALLBACK="+dnsFallbacks)
+	}
 
 	// Proxy configuration (Outbound)
 	// We clear TS_SOCKS5_SERVER here to ensure it's only set via flags if needed

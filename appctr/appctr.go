@@ -389,7 +389,7 @@ func Start(opt *StartOptions) {
 	}
 
 	go func() {
-		err := tailscaledCmd(PC, opt.Socks5Server, opt.HttpProxy, opt.Socks5User, opt.Socks5Pass, opt.TaildropDir, opt.ControlProxy)
+		err := tailscaledCmd(PC, opt.DnsFallbacks, opt.Socks5Server, opt.HttpProxy, opt.Socks5User, opt.Socks5Pass, opt.TaildropDir, opt.ControlProxy)
 		if err != nil {
 			slog.Error("tailscaled cmd crashed", "err", err)
 		}

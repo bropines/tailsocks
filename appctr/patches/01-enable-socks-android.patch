@@ -1,5 +1,5 @@
 --- orig/net/netns/socks.go	2026-05-21 21:27:19.000000000 +0300
-+++ tailscale_src/net/netns/socks.go	2026-05-28 22:09:36.587882670 +0300
++++ tailscale_src/net/netns/socks.go	2026-06-06 04:04:42.984946555 +0300
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause
@@ -10,7 +10,7 @@
  package netns
  
 --- orig/net/netns/netns.go	2026-05-21 21:27:19.000000000 +0300
-+++ tailscale_src/net/netns/netns.go	2026-05-28 22:09:36.587882670 +0300
++++ tailscale_src/net/netns/netns.go	2026-06-06 04:04:42.984946555 +0300
 @@ -119,6 +119,9 @@
  		panic("netns.FromDialer called with nil netMon")
  	}
