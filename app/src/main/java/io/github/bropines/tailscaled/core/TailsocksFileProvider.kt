@@ -72,12 +72,14 @@ class TailsocksFileProvider : DocumentsProvider() {
         }
         
         // Root 2: Taildrive
+        val activeAccount = AccountManager.getActiveAccount(context ?: return result)
+        val driveDocId = "drive_root:${activeAccount.id}"
         result.newRow().apply {
             add(DocumentsContract.Root.COLUMN_ROOT_ID, "taildrive_root")
             add(DocumentsContract.Root.COLUMN_SUMMARY, "Taildrive shares")
             add(DocumentsContract.Root.COLUMN_FLAGS, DocumentsContract.Root.FLAG_SUPPORTS_CREATE or DocumentsContract.Root.FLAG_SUPPORTS_IS_CHILD)
             add(DocumentsContract.Root.COLUMN_TITLE, "Taildrive")
-            add(DocumentsContract.Root.COLUMN_DOCUMENT_ID, "drive_root")
+            add(DocumentsContract.Root.COLUMN_DOCUMENT_ID, driveDocId)
             add(DocumentsContract.Root.COLUMN_ICON, R.mipmap.ic_launcher)
             add(DocumentsContract.Root.COLUMN_MIME_TYPES, "*/*")
         }
@@ -87,7 +89,7 @@ class TailsocksFileProvider : DocumentsProvider() {
 
     override fun queryDocument(documentId: String?, projection: Array<out String>?): Cursor {
         val docId = documentId ?: "root"
-        if (docId == "drive_root" || docId.startsWith("drive_account:") || docId.startsWith("drive_path:")) {
+        if (docId.startsWith("drive_root") || docId.startsWith("drive_account:") || docId.startsWith("drive_path:")) {
             return queryWebDavDocument(docId, projection)
         }
 
@@ -125,9 +127,9 @@ class TailsocksFileProvider : DocumentsProvider() {
         val result = MatrixCursor(projection ?: DEFAULT_DOCUMENT_PROJECTION)
         val context = context ?: return result
         
-        if (documentId == "drive_root") {
+        if (documentId.startsWith("drive_root")) {
             result.newRow().apply {
-                add(DocumentsContract.Document.COLUMN_DOCUMENT_ID, "drive_root")
+                add(DocumentsContract.Document.COLUMN_DOCUMENT_ID, documentId)
                 add(DocumentsContract.Document.COLUMN_DISPLAY_NAME, "Taildrive")
                 add(DocumentsContract.Document.COLUMN_SIZE, 0)
                 add(DocumentsContract.Document.COLUMN_MIME_TYPE, DocumentsContract.Document.MIME_TYPE_DIR)
@@ -180,7 +182,7 @@ class TailsocksFileProvider : DocumentsProvider() {
 
     override fun queryChildDocuments(parentDocumentId: String?, projection: Array<out String>?, sortOrder: String?): Cursor {
         val parentId = parentDocumentId ?: "root"
-        if (parentId == "drive_root" || parentId.startsWith("drive_account:") || parentId.startsWith("drive_path:")) {
+        if (parentId.startsWith("drive_root") || parentId.startsWith("drive_account:") || parentId.startsWith("drive_path:")) {
             return queryWebDavChildDocuments(parentId, projection)
         }
 
@@ -225,9 +227,13 @@ class TailsocksFileProvider : DocumentsProvider() {
         val result = MatrixCursor(projection ?: DEFAULT_DOCUMENT_PROJECTION)
         val context = context ?: return result
         
-        if (parentDocumentId == "drive_root" || parentDocumentId.startsWith("drive_account:")) {
-            val accId = if (parentDocumentId == "drive_root") {
-                AccountManager.getActiveAccount(context)?.id ?: return result
+        if (parentDocumentId.startsWith("drive_root") || parentDocumentId.startsWith("drive_account:")) {
+            val accId = if (parentDocumentId.startsWith("drive_root")) {
+                if (parentDocumentId.contains(":")) {
+                    parentDocumentId.substringAfter(":")
+                } else {
+                    AccountManager.getActiveAccount(context)?.id ?: return result
+                }
             } else {
                 parentDocumentId.substring("drive_account:".length)
             }
@@ -402,7 +408,7 @@ class TailsocksFileProvider : DocumentsProvider() {
 
     override fun deleteDocument(documentId: String?) {
         val docId = documentId ?: throw FileNotFoundException("Document ID is null")
-        if (docId == "root" || docId == "drive_root" || docId.startsWith("account:") || docId.startsWith("drive_account:")) {
+        if (docId == "root" || docId.startsWith("drive_root") || docId.startsWith("account:") || docId.startsWith("drive_account:")) {
             throw FileNotFoundException("Cannot delete root or account folder")
         }
         
@@ -435,15 +441,19 @@ class TailsocksFileProvider : DocumentsProvider() {
         val parentId = parentDocumentId ?: throw FileNotFoundException("Parent ID is null")
         val name = displayName ?: throw FileNotFoundException("Display name is null")
         
-        if (parentId == "drive_root" || parentId.startsWith("drive_path:") || parentId.startsWith("drive_account:")) {
-            val accId = if (parentId == "drive_root") {
-                AccountManager.getActiveAccount(context!!)?.id ?: throw FileNotFoundException("No active account")
+        if (parentId.startsWith("drive_root") || parentId.startsWith("drive_path:") || parentId.startsWith("drive_account:")) {
+            val accId = if (parentId.startsWith("drive_root")) {
+                if (parentId.contains(":")) {
+                    parentId.substringAfter(":")
+                } else {
+                    AccountManager.getActiveAccount(context!!)?.id ?: throw FileNotFoundException("No active account")
+                }
             } else if (parentId.startsWith("drive_account:")) {
                 parentId.substring("drive_account:".length)
             } else {
                 parentId.substring("drive_path:".length).split(":", limit = 2)[0]
             }
-            val parentPath = if (parentId == "drive_root" || parentId.startsWith("drive_account:")) {
+            val parentPath = if (parentId.startsWith("drive_root") || parentId.startsWith("drive_account:")) {
                 ""
             } else {
                 parentId.substring("drive_path:".length).split(":", limit = 2)[1]
