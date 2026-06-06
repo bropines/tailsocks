@@ -335,20 +335,31 @@ func packDNSResponse(msg dnsmessage.Message, q dnsmessage.Question, ips []string
 
 func tryFallbackDNS(query []byte, fallbacks []string, dohUrl string) []byte {
 	socks, user, pass, _ := GConfig.get()
-	for _, server := range fallbacks {
-		host, _, err := net.SplitHostPort(server)
-		if err == nil && socks != "" && (strings.HasPrefix(host, "100.") || strings.HasSuffix(host, ".ts.net")) {
-			// Tunnel Tailscale-internal DNS queries over TCP SOCKS5 to work in userspace mode
+
+	// First try to route fallbacks via SOCKS5 TCP
+	if socks != "" {
+		for _, server := range fallbacks {
 			resp, err := forwardDNSviaSOCKS5(query, socks, user, pass, server)
-			if err == nil { return resp }
-		} else {
-			resp, err := forwardDNSviaUDP(query, server)
-			if err == nil { return resp }
+			if err == nil {
+				return resp
+			}
 		}
 	}
+
+	// Fallback to direct UDP if SOCKS5 fails or is not configured
+	for _, server := range fallbacks {
+		resp, err := forwardDNSviaUDP(query, server)
+		if err == nil {
+			return resp
+		}
+	}
+
+	// Fallback to DoH (which will go via SOCKS5 if socks is set)
 	if dohUrl != "none" && dohUrl != "" {
 		resp, err := forwardDNSviaDoH(query, dohUrl)
-		if err == nil { return resp }
+		if err == nil {
+			return resp
+		}
 	}
 	return nil
 }
@@ -367,7 +378,29 @@ func forwardDNSviaUDP(query []byte, server string) ([]byte, error) {
 
 func forwardDNSviaDoH(query []byte, dohUrl string) ([]byte, error) {
 	encoded := base64.RawURLEncoding.EncodeToString(query)
+	socks, user, pass, _ := GConfig.get()
+
+	var transport *http.Transport
+	if socks != "" {
+		var auth *proxy.Auth
+		if user != "" || pass != "" {
+			auth = &proxy.Auth{User: user, Password: pass}
+		}
+		dialer, err := proxy.SOCKS5("tcp", socks, auth, proxy.Direct)
+		if err == nil {
+			transport = &http.Transport{
+				DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+					return dialer.Dial(network, addr)
+				},
+			}
+		}
+	}
+
 	client := &http.Client{Timeout: 5 * time.Second}
+	if transport != nil {
+		client.Transport = transport
+	}
+
 	url := dohUrl
 	if strings.Contains(url, "?") { url += "&dns=" + encoded } else { url += "?dns=" + encoded }
 	req, err := http.NewRequest("GET", url, nil)
@@ -398,9 +431,6 @@ func StartTunDNS(listenAddr string) error {
 	doh := ""
 	if opt != nil {
 		doh = opt.DohFallback
-	}
-	if doh == "" {
-		doh = "https://1.1.1.1/dns-query"
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
