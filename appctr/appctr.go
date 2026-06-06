@@ -239,8 +239,14 @@ func syncSettings(opt *StartOptions) {
 		prefs["CorpDNS"] = opt.AcceptDNS
 		prefs["CorpDNSSet"] = true
 
+		var resolvers []map[string]interface{}
+		if opt.DohFallback != "" && opt.DohFallback != "none" {
+			resolvers = append(resolvers, map[string]interface{}{"Addr": opt.DohFallback})
+		} else {
+			resolvers = append(resolvers, map[string]interface{}{"Addr": "https://1.1.1.1/dns-query"})
+		}
+
 		if opt.DnsFallbacks != "" {
-			var resolvers []map[string]interface{}
 			for _, addr := range strings.Split(opt.DnsFallbacks, ",") {
 				addr = strings.TrimSpace(addr)
 				if addr != "" {
@@ -250,15 +256,13 @@ func syncSettings(opt *StartOptions) {
 					resolvers = append(resolvers, map[string]interface{}{"Addr": addr})
 				}
 			}
-			if len(resolvers) > 0 {
-				prefs["OverrideDNSResolvers"] = resolvers
-				prefs["OverrideDNSResolversSet"] = true
-			}
 		} else {
-			prefs["OverrideDNSResolvers"] = []map[string]interface{}{
-				{"Addr": "8.8.8.8:53"},
-				{"Addr": "1.1.1.1:53"},
-			}
+			resolvers = append(resolvers, map[string]interface{}{"Addr": "8.8.8.8:53"})
+			resolvers = append(resolvers, map[string]interface{}{"Addr": "1.1.1.1:53"})
+		}
+
+		if len(resolvers) > 0 {
+			prefs["OverrideDNSResolvers"] = resolvers
 			prefs["OverrideDNSResolversSet"] = true
 		}
 
