@@ -269,11 +269,11 @@ cd ..
 
 | | |
 |-|-|
-| **App Developer** | [Bropines](https://github.com/bropines) |
-| **Upstream Patches** | [Asutorufa](https://github.com/Asutorufa) — Android [tailscale patches](https://github.com/Asutorufa/tailscale) |
+| **App & Patches** | [Bropines](https://github.com/bropines) — app development, architecture, and the majority of upstream patches |
+| **Initial Android Patches** | [Asutorufa](https://github.com/Asutorufa) — original Android networking (`anet`) and network monitor (`netmon`) [patches](https://github.com/Asutorufa/tailscale) that served as a starting point |
 | **TUN Engine** | [heiher/hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel) — native SOCKS5-to-TUN implementation |
 | **Core Engine** | [Tailscale Inc.](https://github.com/tailscale/tailscale) — userspace networking engine (`tsnet`) |
-| **AI Assistant** | [Google Gemini](https://gemini.google.com/) — interface development and LocalAPI research |
+| **AI Assistant** | [Google Gemini](https://gemini.google.com/) — interface development, LocalAPI research, and patch engineering |
 
 ---
 
