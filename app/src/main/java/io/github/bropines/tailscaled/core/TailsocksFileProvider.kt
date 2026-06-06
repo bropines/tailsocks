@@ -137,20 +137,6 @@ class TailsocksFileProvider : DocumentsProvider() {
             return result
         }
         
-        if (documentId.startsWith("drive_account:")) {
-            val accId = documentId.substring("drive_account:".length)
-            val accName = AccountManager.getAccounts(context).find { it.id == accId }?.name ?: "Account"
-            result.newRow().apply {
-                add(DocumentsContract.Document.COLUMN_DOCUMENT_ID, documentId)
-                add(DocumentsContract.Document.COLUMN_DISPLAY_NAME, accName)
-                add(DocumentsContract.Document.COLUMN_SIZE, 0)
-                add(DocumentsContract.Document.COLUMN_MIME_TYPE, DocumentsContract.Document.MIME_TYPE_DIR)
-                add(DocumentsContract.Document.COLUMN_LAST_MODIFIED, 0)
-                add(DocumentsContract.Document.COLUMN_FLAGS, 0)
-            }
-            return result
-        }
-        
         if (documentId.startsWith("drive_path:")) {
             val parts = documentId.substring("drive_path:".length).split(":", limit = 2)
             if (parts.size == 2) {
@@ -239,23 +225,12 @@ class TailsocksFileProvider : DocumentsProvider() {
         val result = MatrixCursor(projection ?: DEFAULT_DOCUMENT_PROJECTION)
         val context = context ?: return result
         
-        if (parentDocumentId == "drive_root") {
-            val accounts = AccountManager.getAccounts(context)
-            for (account in accounts) {
-                result.newRow().apply {
-                    add(DocumentsContract.Document.COLUMN_DOCUMENT_ID, "drive_account:${account.id}")
-                    add(DocumentsContract.Document.COLUMN_DISPLAY_NAME, account.name)
-                    add(DocumentsContract.Document.COLUMN_SIZE, 0)
-                    add(DocumentsContract.Document.COLUMN_MIME_TYPE, DocumentsContract.Document.MIME_TYPE_DIR)
-                    add(DocumentsContract.Document.COLUMN_LAST_MODIFIED, 0)
-                    add(DocumentsContract.Document.COLUMN_FLAGS, 0)
-                }
+        if (parentDocumentId == "drive_root" || parentDocumentId.startsWith("drive_account:")) {
+            val accId = if (parentDocumentId == "drive_root") {
+                AccountManager.getActiveAccount(context)?.id ?: return result
+            } else {
+                parentDocumentId.substring("drive_account:".length)
             }
-            return result
-        }
-        
-        if (parentDocumentId.startsWith("drive_account:")) {
-            val accId = parentDocumentId.substring("drive_account:".length)
             val client = TaildriveClient(context, accId)
             try {
                 val list = client.list("/")
@@ -282,7 +257,7 @@ class TailsocksFileProvider : DocumentsProvider() {
                     }
                 }
             } catch (e: Exception) {
-                android.util.Log.e("Taildrive", "Error querying drive_account children: ${e.message}")
+                android.util.Log.e("Taildrive", "Error querying drive root children: ${e.message}")
             }
             return result
         }
@@ -460,13 +435,15 @@ class TailsocksFileProvider : DocumentsProvider() {
         val parentId = parentDocumentId ?: throw FileNotFoundException("Parent ID is null")
         val name = displayName ?: throw FileNotFoundException("Display name is null")
         
-        if (parentId.startsWith("drive_path:") || parentId.startsWith("drive_account:")) {
-            val accId = if (parentId.startsWith("drive_account:")) {
+        if (parentId == "drive_root" || parentId.startsWith("drive_path:") || parentId.startsWith("drive_account:")) {
+            val accId = if (parentId == "drive_root") {
+                AccountManager.getActiveAccount(context!!)?.id ?: throw FileNotFoundException("No active account")
+            } else if (parentId.startsWith("drive_account:")) {
                 parentId.substring("drive_account:".length)
             } else {
                 parentId.substring("drive_path:".length).split(":", limit = 2)[0]
             }
-            val parentPath = if (parentId.startsWith("drive_account:")) {
+            val parentPath = if (parentId == "drive_root" || parentId.startsWith("drive_account:")) {
                 ""
             } else {
                 parentId.substring("drive_path:".length).split(":", limit = 2)[1]

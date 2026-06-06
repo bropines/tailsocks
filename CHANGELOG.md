@@ -7,7 +7,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Added ability to customize the TUN interface IPv4 gateway address (with subnet prefix length support) under the Network settings tab.
 - Added full IPv6 routing support in TUN Mode (binding fd00::1 to the interface and routing fd7a:115c:a1e0::/48 Tailscale IP range) with a dedicated switch to completely disable IPv6 routing when necessary.
 - Implemented automatic exclusion of all TailSocks-related package variants from the TUN VPN tunnel to prevent routing loops, hiding them from the Excluded Apps settings screen to simplify configuration.
-- Integrated remote Taildrive share mounting directly into Android Storage Access Framework (SAF) via DocumentsProvider, tunneling WebDAV traffic transparently through the active account's SOCKS5 proxy.
+- Integrated remote Taildrive share mounting directly into Android Storage Access Framework (SAF) via DocumentsProvider (dynamically resolving the active account to immediately show remote shares in the root folder, bypassing unnecessary account folders), tunneling WebDAV traffic transparently through the SOCKS5 proxy.
 - Added support for dynamic creation, deletion, renaming, moving, and read/write streaming of files within Taildrive directories without caching to disk.
 - Added experimental TUN Mode VPN integration based on high-performance native C library `hev-socks5-tunnel`.
 - Implemented full tunnel and split tunnel routing modes, automatically switched based on the active Exit Node selection (similar to the official Tailscale app).
