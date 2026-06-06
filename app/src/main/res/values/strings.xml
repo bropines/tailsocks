@@ -904,4 +904,6 @@
     <string name="tun_apps_filter_excluded">Bypassed</string>
     <string name="settings_tun_address_title">TUN Address</string>
     <string name="settings_tun_address_desc">IPv4 address with prefix length (e.g. 10.0.0.1/8)</string>
+    <string name="settings_tun_ipv6_title">Enable IPv6 Routing</string>
+    <string name="settings_tun_ipv6_desc">Route IPv6 traffic through the VPN tunnel</string>
 </resources>

@@ -166,23 +166,34 @@ class TunVpnService : VpnService() {
             Log.e(TAG, "Failed to parse custom TUN address: $tunAddrRaw, using default", e)
         }
 
+        val ipv6Enabled = GlobalSettings.isTunIpv6Enabled(this)
+
         // Build VPN interface.
         val builder = Builder()
             .setSession("TailSocks TUN")
             .setMtu(mtu)
             .addAddress(tunIp, tunPrefix)
-            .addAddress(TUN_ADDR_V6, TUN_PREFIX_V6)
-            .addDnsServer(TUN_DNS_IP)
+        
+        if (ipv6Enabled) {
+            builder.addAddress(TUN_ADDR_V6, TUN_PREFIX_V6)
+        }
+
+        builder.addDnsServer(TUN_DNS_IP)
             .addRoute(TUN_DNS_IP, 32)  // route fake DNS IP through VPN
 
         // Routing mode.
         if (fullTunnel) {
             builder.addRoute("0.0.0.0", 0)
-            builder.addRoute("::", 0)
+            if (ipv6Enabled) {
+                builder.addRoute("::", 0)
+            }
         } else {
-            // Tailscale IPv4 and IPv6 space
+            // Tailscale IPv4 space
             builder.addRoute("100.64.0.0", 10)
-            builder.addRoute("fd7a:115c:a1e0::", 48)
+            if (ipv6Enabled) {
+                // Tailscale IPv6 space
+                builder.addRoute("fd7a:115c:a1e0::", 48)
+            }
         }
 
         // Always exclude all TailSocks packages to avoid routing loops.

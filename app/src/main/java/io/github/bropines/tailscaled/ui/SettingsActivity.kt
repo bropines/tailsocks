@@ -171,6 +171,7 @@ fun SettingsScreen(
     var tunExcludedCIDRs by remember { mutableStateOf(GlobalSettings.getTunExcludedCIDRs(context)) }
     var tunExcludedApps by remember { mutableStateOf(GlobalSettings.getTunExcludedApps(context)) }
     var tunAddress by remember { mutableStateOf(GlobalSettings.getTunAddress(context)) }
+    var tunIpv6Enabled by remember { mutableStateOf(GlobalSettings.isTunIpv6Enabled(context)) }
 
     LaunchedEffect(Unit) {
         tunExcludedApps = GlobalSettings.getTunExcludedApps(context)
@@ -783,7 +784,18 @@ fun SettingsScreen(
                                     tunModeEnabled = it
                                     saveGlobalPref("tun_mode_enabled", it)
                                 }
-                                
+
+                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                 SettingsSwitchItem(
+                                     title = stringResource(R.string.settings_tun_ipv6_title),
+                                     subtitle = stringResource(R.string.settings_tun_ipv6_desc),
+                                     icon = Icons.Default.Language,
+                                     checked = tunIpv6Enabled
+                                 ) {
+                                     tunIpv6Enabled = it
+                                     saveGlobalPref("tun_ipv6_enabled", it)
+                                 }
+
                                  HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
                                  SettingsEditItem(
                                      title = stringResource(R.string.settings_tun_address_title),

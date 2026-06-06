@@ -904,4 +904,6 @@
     <string name="tun_apps_filter_excluded">В обход VPN</string>
     <string name="settings_tun_address_title">Адрес TUN-интерфейса</string>
     <string name="settings_tun_address_desc">IPv4-адрес с префиксом подсети (например, 10.0.0.1/8)</string>
+    <string name="settings_tun_ipv6_title">Включить маршрутизацию IPv6</string>
+    <string name="settings_tun_ipv6_desc">Направлять IPv6-трафик через VPN-туннель</string>
 </resources>
