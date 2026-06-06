@@ -12,6 +12,9 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Integrated transparent trampoline `TunPermissionActivity` to request system VPN permission.
 - Integrated TUN mode configuration UI under the Network settings tab.
 
+### Changed
+- Updated Exit Node selector UI in settings profile tab to use Material 3 Cards with OS-specific icons, aligning it with the main dashboard layout.
+
 ### Fixed
 - Fixed app crash and restart (`MissingForegroundServiceTypeException`) on Android 14+ when enabling TUN mode by declaring specialUse FGS type in manifest and startForeground calls.
 - Fixed UI settings visibility allowing users to configure TUN bypass preferences (excluded IPs and apps) prior to enabling the VPN.
