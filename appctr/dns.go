@@ -336,19 +336,25 @@ func packDNSResponse(msg dnsmessage.Message, q dnsmessage.Question, ips []string
 func tryFallbackDNS(query []byte, fallbacks []string, dohUrl string) []byte {
 	socks, user, pass, _ := GConfig.get()
 	for _, server := range fallbacks {
-		host, _, err := net.SplitHostPort(server)
-		if err == nil && socks != "" && (strings.HasPrefix(host, "100.") || strings.HasSuffix(host, ".ts.net")) {
-			// Tunnel Tailscale-internal DNS queries over TCP SOCKS5 to work in userspace mode
+		if socks != "" {
+			// In userspace mode direct UDP to external resolvers is unreachable;
+			// tunnel everything through SOCKS5 TCP.
 			resp, err := forwardDNSviaSOCKS5(query, socks, user, pass, server)
-			if err == nil { return resp }
-		} else {
-			resp, err := forwardDNSviaUDP(query, server)
-			if err == nil { return resp }
+			if err == nil {
+				return resp
+			}
+			slog.Debug("tryFallbackDNS: SOCKS5 failed, trying UDP", "server", server, "err", err)
+		}
+		resp, err := forwardDNSviaUDP(query, server)
+		if err == nil {
+			return resp
 		}
 	}
 	if dohUrl != "none" && dohUrl != "" {
 		resp, err := forwardDNSviaDoH(query, dohUrl)
-		if err == nil { return resp }
+		if err == nil {
+			return resp
+		}
 	}
 	return nil
 }
