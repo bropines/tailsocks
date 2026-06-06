@@ -46,6 +46,8 @@ class TunVpnService : VpnService() {
         /** TUN gateway / device address. */
         const val TUN_ADDR_V4  = "10.0.0.1"
         const val TUN_PREFIX   = 8
+        const val TUN_ADDR_V6  = "fd00::1"
+        const val TUN_PREFIX_V6 = 64
         const val TUN_MTU      = 1500
 
         private const val NOTIF_CHANNEL = "tailsocks_tun"
@@ -169,6 +171,7 @@ class TunVpnService : VpnService() {
             .setSession("TailSocks TUN")
             .setMtu(mtu)
             .addAddress(tunIp, tunPrefix)
+            .addAddress(TUN_ADDR_V6, TUN_PREFIX_V6)
             .addDnsServer(TUN_DNS_IP)
             .addRoute(TUN_DNS_IP, 32)  // route fake DNS IP through VPN
 
@@ -177,8 +180,9 @@ class TunVpnService : VpnService() {
             builder.addRoute("0.0.0.0", 0)
             builder.addRoute("::", 0)
         } else {
-            // Only Tailscale IP space (100.64.0.0/10).
+            // Tailscale IPv4 and IPv6 space
             builder.addRoute("100.64.0.0", 10)
+            builder.addRoute("fd7a:115c:a1e0::", 48)
         }
 
         // Always exclude all TailSocks packages to avoid routing loops.
