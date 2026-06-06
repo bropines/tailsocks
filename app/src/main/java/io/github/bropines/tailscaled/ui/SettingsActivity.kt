@@ -770,7 +770,7 @@ fun SettingsScreen(
                             SettingsCard(title = stringResource(R.string.settings_sect_tun_mode)) {
                                 SettingsSwitchItem(
                                     title = stringResource(R.string.settings_tun_enable_title),
-                                    description = stringResource(R.string.settings_tun_enable_desc),
+                                    subtitle = stringResource(R.string.settings_tun_enable_desc),
                                     icon = Icons.Default.VpnLock,
                                     checked = tunModeEnabled
                                 ) {
@@ -778,39 +778,37 @@ fun SettingsScreen(
                                     saveGlobalPref("tun_mode_enabled", it)
                                 }
                                 
-                                if (tunModeEnabled) {
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                    SettingsSwitchItem(
-                                        title = stringResource(R.string.settings_tun_full_title),
-                                        description = stringResource(R.string.settings_tun_full_desc),
-                                        icon = Icons.Default.SelectAll,
-                                        checked = tunFullTunnel
-                                    ) {
-                                        tunFullTunnel = it
-                                        saveGlobalPref("tun_full_tunnel", it)
-                                    }
-                                    
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                    SettingsEditItem(
-                                        title = stringResource(R.string.settings_tun_excluded_cidrs_title),
-                                        value = tunExcludedCIDRs,
-                                        icon = Icons.Default.Block,
-                                        placeholder = "192.168.0.0/16, 10.0.0.0/8",
-                                        description = stringResource(R.string.settings_tun_excluded_cidrs_desc)
-                                    ) {
-                                        tunExcludedCIDRs = it
-                                        saveGlobalPref("tun_excluded_cidrs", it)
-                                    }
+                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                 SettingsSwitchItem(
+                                     title = stringResource(R.string.settings_tun_full_title),
+                                     subtitle = stringResource(R.string.settings_tun_full_desc),
+                                     icon = Icons.Default.SelectAll,
+                                     checked = tunFullTunnel
+                                 ) {
+                                     tunFullTunnel = it
+                                     saveGlobalPref("tun_full_tunnel", it)
+                                 }
+                                 
+                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                 SettingsEditItem(
+                                     title = stringResource(R.string.settings_tun_excluded_cidrs_title),
+                                     value = tunExcludedCIDRs,
+                                     icon = Icons.Default.Block,
+                                     placeholder = "192.168.0.0/16, 10.0.0.0/8",
+                                     description = stringResource(R.string.settings_tun_excluded_cidrs_desc)
+                                 ) {
+                                     tunExcludedCIDRs = it
+                                     saveGlobalPref("tun_excluded_cidrs", it)
+                                 }
 
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                    SettingsClickableItem(
-                                        title = stringResource(R.string.settings_tun_excluded_apps_title),
-                                        description = stringResource(R.string.settings_tun_excluded_apps_desc, tunExcludedApps.size),
-                                        icon = Icons.Default.Apps
-                                    ) {
-                                        excludedAppsLauncher.launch(Intent(context, TunExcludedAppsActivity::class.java))
-                                    }
-                                }
+                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                 SettingsClickableItem(
+                                     title = stringResource(R.string.settings_tun_excluded_apps_title),
+                                     subtitle = stringResource(R.string.settings_tun_excluded_apps_desc, tunExcludedApps.size),
+                                     icon = Icons.Default.Apps
+                                 ) {
+                                     excludedAppsLauncher.launch(Intent(context, TunExcludedAppsActivity::class.java))
+                                 }
                             }
                         }
 
