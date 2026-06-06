@@ -62,7 +62,11 @@ class TunExcludedAppsActivity : ComponentActivity() {
 @Composable
 fun TunExcludedAppsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
-    val initialExcluded = remember { GlobalSettings.getTunExcludedApps(context) }
+    val initialExcluded = remember { 
+        GlobalSettings.getTunExcludedApps(context)
+            .filter { !it.startsWith("io.github.bropines.tailscaled") }
+            .toSet() 
+    }
     val excluded = remember { mutableStateOf(initialExcluded) }
     var apps by remember { mutableStateOf<List<AppItem>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
@@ -303,7 +307,8 @@ private fun loadInstalledApps(context: Context): List<AppItem> {
         .filter { info ->
             val isSystem = (info.flags and ApplicationInfo.FLAG_SYSTEM) != 0
             val hasLaunchIntent = pm.getLaunchIntentForPackage(info.packageName) != null
-            !isSystem || hasLaunchIntent
+            val isTailSocks = info.packageName.startsWith("io.github.bropines.tailscaled")
+            (!isSystem || hasLaunchIntent) && !isTailSocks
         }
         .map { info ->
             val label = try { pm.getApplicationLabel(info).toString() } catch (_: Exception) { info.packageName }

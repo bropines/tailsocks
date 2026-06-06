@@ -164,8 +164,24 @@ class TunVpnService : VpnService() {
             builder.addRoute("100.64.0.0", 10)
         }
 
-        // Always exclude TailSocks itself to avoid routing loops.
-        try { builder.addDisallowedApplication(packageName) } catch (_: PackageManager.NameNotFoundException) {}
+        // Always exclude all TailSocks packages to avoid routing loops.
+        val pm = packageManager
+        try {
+            pm.getInstalledApplications(PackageManager.GET_META_DATA).forEach { info ->
+                if (info.packageName.startsWith("io.github.bropines.tailscaled")) {
+                    try {
+                        builder.addDisallowedApplication(info.packageName)
+                        Log.i(TAG, "Automatically excluded TailSocks package: ${info.packageName}")
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to exclude package ${info.packageName}: ${e.message}")
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to query installed apps for auto-exclusion: ${e.message}")
+            // Fallback to current packageName
+            try { builder.addDisallowedApplication(packageName) } catch (_: Exception) {}
+        }
 
         // User-defined app exclusions.
         for (pkg in excludedApps) {
