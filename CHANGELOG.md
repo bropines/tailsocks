@@ -2,7 +2,7 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
-## [2.4.0-beta] - 2026-06-06
+## [3.0.0-beta] - 2026-06-06
 ### Added
 - Implemented automatic exclusion of all TailSocks-related package variants from the TUN VPN tunnel to prevent routing loops, hiding them from the Excluded Apps settings screen to simplify configuration.
 - Integrated remote Taildrive share mounting directly into Android Storage Access Framework (SAF) via DocumentsProvider, tunneling WebDAV traffic transparently through the active account's SOCKS5 proxy.
