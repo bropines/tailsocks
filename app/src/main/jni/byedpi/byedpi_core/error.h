@@ -61,8 +61,14 @@ static int unie(int e)
     #define LOG_E ANDROID_LOG_ERROR
     #define LOG_S ANDROID_LOG_DEBUG
     #define LOG_L ANDROID_LOG_VERBOSE
+    
+    void android_log_to_file(int level, const char *fmt, ...);
+
     #define LOG(s, str, ...) \
-        __android_log_print(s, "proxy", str, ##__VA_ARGS__)
+        do { \
+            __android_log_print(s, "proxy", str, ##__VA_ARGS__); \
+            android_log_to_file(s, str, ##__VA_ARGS__); \
+        } while(0)
     #define LOG_ENABLED 1
 #else
     #define LOG_E -1

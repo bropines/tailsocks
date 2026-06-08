@@ -3,10 +3,42 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <stdarg.h>
+#include <stdio.h>
 #include "main.h"
 
 extern int server_fd;
 static int g_proxy_running = 0;
+char *g_log_file_path = NULL;
+
+JNIEXPORT void JNICALL
+Java_io_github_bropines_tailscaled_core_ByeDpiProxy_jniSetLogPath(JNIEnv *env, jobject thiz, jstring path) {
+    if (g_log_file_path) {
+        free(g_log_file_path);
+        g_log_file_path = NULL;
+    }
+    if (path) {
+        const char *path_str = (*env)->GetStringUTFChars(env, path, 0);
+        g_log_file_path = strdup(path_str);
+        (*env)->ReleaseStringUTFChars(env, path, path_str);
+        
+        // Очистим файл при установке пути (перед новым запуском)
+        FILE *f = fopen(g_log_file_path, "w");
+        if (f) fclose(f);
+    }
+}
+
+void android_log_to_file(int level, const char *fmt, ...) {
+    if (!g_log_file_path) return;
+    FILE *f = fopen(g_log_file_path, "a");
+    if (!f) return;
+
+    va_list args;
+    va_start(args, fmt);
+    vfprintf(f, fmt, args);
+    va_end(args);
+    fclose(f);
+}
 
 JNIEXPORT jint JNICALL
 Java_io_github_bropines_tailscaled_core_ByeDpiProxy_jniStartProxy(JNIEnv *env, jobject thiz, jobjectArray args) {

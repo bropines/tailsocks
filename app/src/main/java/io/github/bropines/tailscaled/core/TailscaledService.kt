@@ -241,7 +241,7 @@ class TailscaledService : Service() {
         if (byedpiEnabled) {
             if (byedpiProxyAddress == null) {
                 val flags = GlobalSettings.getCPByeDpiFlags(this@TailscaledService)
-                byedpiProxyAddress = ByeDpiProxy.start(flags)
+                byedpiProxyAddress = ByeDpiProxy.start(flags, this@TailscaledService)
             }
         } else {
             ByeDpiProxy.stop()

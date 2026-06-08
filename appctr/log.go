@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 )
 
 // LogEntry is the structured log record sent to Kotlin.
@@ -72,6 +73,14 @@ func (lm *LogManager) ClearLogs() {
 func GetLogsJSON() string { return logManager.GetLogsJSON() }
 func GetLogs() string     { return logManager.GetLogs() }
 func ClearLogs()          { logManager.ClearLogs() }
+func LogAndroid(level, category, message string) {
+	logManager.AddLog(LogEntry{
+		Timestamp: time.Now().Format("15:04:05"),
+		Level:     level,
+		Category:  category,
+		Message:   message,
+	})
+}
 
 // --- slog handler ---
 
