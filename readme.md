@@ -273,26 +273,27 @@ TailSocks bundles a native JNI implementation of **ByeDPI** directly inside the 
 * **Usage:** Enable **DPI Bypass (ByeDPI)** in Settings -> Network Tab -> Control Proxy settings and configure custom ByeDPI flags (default: `-s 1 -d split -r`).
 
 ### 2. Cloudflare Worker Reverse Proxy
-You can deploy a custom Cloudflare Worker to act as a reverse proxy for the Tailscale control plane. This version includes **cloaking** (redirecting normal HTTP traffic to Wikipedia) and **token authentication** to prevent scanners or unauthorized users from detecting your proxy.
+You can deploy a custom Cloudflare Worker to act as a reverse proxy for the Tailscale control plane. To prevent security scanners or unauthorized visitors from detecting the proxy, this version includes **smart path-based routing & cloaking**: Tailscale traffic (e.g. `/ts2021`, `/machine`, `/key`) is proxied to the coordination server with a proper Host header, while other requests (like accessing the root URL in a browser) are cloaked as Wikipedia.
 
 #### Cloudflare Worker Script:
 ```javascript
-const SECRET_TOKEN = "your_secret_token_here"; // Choose a secret word (alphanumeric)
 const CLOAK_SITE = "wikipedia.org";            // Site to display for unauthorized visitors
 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
-    const pathParts = url.pathname.split('/').filter(Boolean);
+    const path = url.pathname;
     
-    // 1. If path starts with the secret token, proxy to the Tailscale control plane
-    if (pathParts[0] === SECRET_TOKEN) {
-      url.pathname = '/' + pathParts.slice(1).join('/');
+    // 1. If it looks like a Tailscale request, proxy it to the control plane
+    if (path.startsWith('/ts2021') || path.startsWith('/machine') || path.startsWith('/key')) {
       url.hostname = 'controlplane.tailscale.com';
+      
+      const headers = new Headers(request.headers);
+      headers.set('Host', 'controlplane.tailscale.com');
       
       const proxyRequest = new Request(url, {
         method: request.method,
-        headers: request.headers,
+        headers: headers,
         body: request.body,
         redirect: 'manual'
       });
@@ -317,8 +318,8 @@ export default {
 };
 ```
 * **Setup:**
-  1. Create a free Cloudflare Worker and paste the script above, replacing `your_secret_token_here` with a random token.
-  2. In TailSocks settings, under **Account Tab**, configure the **Login Server** setting with your worker URL appended with the secret token (e.g., `https://your-worker.workers.dev/your_secret_token_here`).
+  1. Create a free Cloudflare Worker and paste the script above.
+  2. In TailSocks settings, under **Account Tab**, configure the **Login Server** setting with your worker URL (e.g., `https://your-worker.workers.dev`).
   3. Restart the service (Stop -> Start) to apply the new Login Server.
 
 ---
