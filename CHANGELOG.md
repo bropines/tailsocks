@@ -2,6 +2,13 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [3.0.3-beta] - 2026-06-08
+### Added
+- Integrated native JNI implementation of ByeDPI C-library to bypass deep packet inspection (DPI) on the Tailscale control plane without spawning separate processes.
+- Implemented randomized IPv4 loopback binding (random IP address in `127.2.2.2/8` and random port) for ByeDPI startup, protecting the local proxy from simple port scanning on the device.
+- Added UI configurations for Control Plane DPI Bypass (ByeDPI) and custom CLI flags under the Control Proxy settings.
+- Documented Cloudflare Workers reverse proxy setup instructions and JS proxy template in README to allow direct SNI bypass via CDN Cloudflare.
+
 ## [3.0.2] - 2026-06-06
 ### Fixed
 - Fixed release builds on GitHub Actions where the `hev-socks5-tunnel` submodule was not checked out, causing `libhev-socks5-tunnel.so` to be missing from the packaged APK and rendering TUN mode unavailable.
