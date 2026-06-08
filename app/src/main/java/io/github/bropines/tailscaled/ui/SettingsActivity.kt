@@ -729,7 +729,12 @@ fun SettingsScreen(
                             Spacer(Modifier.height(12.dp))
 
                             SettingsCard(title = stringResource(R.string.settings_sect_control_proxy)) {
-                                val statusText = if (isProxyEnabled) stringResource(R.string.settings_control_proxy_enabled_format, GlobalSettings.getCPField(context, "type")) else stringResource(R.string.settings_control_proxy_disabled)
+                                val isByeDpi = GlobalSettings.isCPByeDpiEnabled(context)
+                                val statusText = if (isProxyEnabled) {
+                                    if (isByeDpi) "ByeDPI (DPI Bypass)" else stringResource(R.string.settings_control_proxy_enabled_format, GlobalSettings.getCPField(context, "type"))
+                                } else {
+                                    stringResource(R.string.settings_control_proxy_disabled)
+                                }
                                 SettingsClickableItem(
                                     stringResource(R.string.settings_control_proxy_title), 
                                     statusText,
@@ -861,6 +866,12 @@ fun SettingsScreen(
                         3 -> { // TAB 3: Account Profile & Advanced
                             SettingsCard(title = stringResource(R.string.settings_sect_account_format, activeAccount.name)) {
                                 SettingsEditItem(stringResource(R.string.settings_login_server_title), loginServer, Icons.Default.Cloud, placeholder = stringResource(R.string.settings_login_server_placeholder)) { loginServer = it; saveProfilePref("login_server", it) }
+                                Text(
+                                    text = "Для обхода блокировок можно использовать Cloudflare Worker (см. README).",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                    modifier = Modifier.padding(start = 16.dp, top = 2.dp, bottom = 8.dp)
+                                )
                                 SettingsEditItem(stringResource(R.string.settings_auth_key_title), authKey, Icons.Default.VpnKey) { authKey = it; saveProfilePref("authkey", it) }
                                 SettingsEditItem(stringResource(R.string.settings_hostname_title), hostname, Icons.Default.Badge, onAction = { android.os.Build.MODEL.replace(" ", "-").lowercase() }, actionIcon = Icons.Default.AutoFixHigh) { hostname = it; saveProfilePref("hostname", it) }
                                 SettingsExitNodeItem(stringResource(R.string.settings_exit_node_title), exitNodeId, exitNodeIp, Icons.Default.Input) { id, ip ->
@@ -1089,6 +1100,8 @@ fun SettingsCard(title: String, content: @Composable ColumnScope.() -> Unit) {
 fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
     val context = LocalContext.current
     var enabled by remember { mutableStateOf(GlobalSettings.isCPProxyEnabled(context)) }
+    var byedpiEnabled by remember { mutableStateOf(GlobalSettings.isCPByeDpiEnabled(context)) }
+    var byedpiFlags by remember { mutableStateOf(GlobalSettings.getCPByeDpiFlags(context)) }
     var type by remember { mutableStateOf(GlobalSettings.getCPField(context, "type", "SOCKS5")) }
     var host by remember { mutableStateOf(GlobalSettings.getCPField(context, "host")) }
     var port by remember { mutableStateOf(GlobalSettings.getCPField(context, "port")) }
@@ -1102,39 +1115,73 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.settings_control_proxy_enable), Modifier.weight(1f))
-                    Switch(checked = enabled, onCheckedChange = { enabled = it })
+                    Switch(checked = enabled, onCheckedChange = { 
+                        enabled = it
+                        if (!it) {
+                            byedpiEnabled = false
+                        }
+                    })
                 }
                 Spacer(Modifier.height(16.dp))
 
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(stringResource(R.string.settings_control_proxy_type), Modifier.weight(1f))
-                    FilterChip(
-                        selected = type == "SOCKS5",
-                        onClick = { type = "SOCKS5" },
-                        label = { Text(stringResource(R.string.settings_proxy_socks5)) }
-                    )
-                    FilterChip(
-                        selected = type == "HTTP",
-                        onClick = { type = "HTTP" },
-                        label = { Text(stringResource(R.string.settings_proxy_http)) }
-                    )
+                if (enabled) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("DPI Bypass (ByeDPI)", Modifier.weight(1f))
+                        Switch(checked = byedpiEnabled, onCheckedChange = { byedpiEnabled = it })
+                    }
+                    Spacer(Modifier.height(16.dp))
+
+                    if (byedpiEnabled) {
+                        OutlinedTextField(
+                            value = byedpiFlags, 
+                            onValueChange = { byedpiFlags = it }, 
+                            label = { Text("ByeDPI Flags") }, 
+                            modifier = Modifier.fillMaxWidth(), 
+                            singleLine = true,
+                            placeholder = { Text("-s 1 -d split -r") }
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = "Использует случайный адрес 127.x.y.z:port в подсети loopback для предотвращения сканирования портов.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        )
+                    } else {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(stringResource(R.string.settings_control_proxy_type), Modifier.weight(1f))
+                            FilterChip(
+                                selected = type == "SOCKS5",
+                                onClick = { type = "SOCKS5" },
+                                label = { Text(stringResource(R.string.settings_proxy_socks5)) }
+                            )
+                            FilterChip(
+                                selected = type == "HTTP",
+                                onClick = { type = "HTTP" },
+                                label = { Text(stringResource(R.string.settings_proxy_http)) }
+                            )
+                        }
+                        Spacer(Modifier.height(16.dp))
+                        
+                        OutlinedTextField(value = host, onValueChange = { host = it }, label = { Text(stringResource(R.string.settings_control_proxy_host)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                        OutlinedTextField(value = port, onValueChange = { port = it }, label = { Text(stringResource(R.string.settings_control_proxy_port)) }, modifier = Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text(if (type == "HTTP") "8080" else "1080") })
+                        OutlinedTextField(value = user, onValueChange = { user = it }, label = { Text(stringResource(R.string.settings_control_proxy_username)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                        OutlinedTextField(value = pass, onValueChange = { pass = it }, label = { Text(stringResource(R.string.settings_control_proxy_password)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                    }
                 }
-                Spacer(Modifier.height(16.dp))
-                
-                OutlinedTextField(value = host, onValueChange = { host = it }, label = { Text(stringResource(R.string.settings_control_proxy_host)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                OutlinedTextField(value = port, onValueChange = { port = it }, label = { Text(stringResource(R.string.settings_control_proxy_port)) }, modifier = Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text(if (type == "HTTP") "8080" else "1080") })
-                OutlinedTextField(value = user, onValueChange = { user = it }, label = { Text(stringResource(R.string.settings_control_proxy_username)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                OutlinedTextField(value = pass, onValueChange = { pass = it }, label = { Text(stringResource(R.string.settings_control_proxy_password)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
             }
         },
         confirmButton = {
             Button(onClick = {
                 GlobalSettings.setCPProxyEnabled(context, enabled)
-                GlobalSettings.setCPField(context, "type", type)
-                GlobalSettings.setCPField(context, "host", host)
-                GlobalSettings.setCPField(context, "port", port)
-                GlobalSettings.setCPField(context, "user", user)
-                GlobalSettings.setCPField(context, "pass", pass)
+                GlobalSettings.setCPByeDpiEnabled(context, byedpiEnabled)
+                GlobalSettings.setCPByeDpiFlags(context, byedpiFlags)
+                if (!byedpiEnabled) {
+                    GlobalSettings.setCPField(context, "type", type)
+                    GlobalSettings.setCPField(context, "host", host)
+                    GlobalSettings.setCPField(context, "port", port)
+                    GlobalSettings.setCPField(context, "user", user)
+                    GlobalSettings.setCPField(context, "pass", pass)
+                }
                 onApply()
                 onDismiss()
             }) { Text(stringResource(R.string.settings_proxy_apply)) }
