@@ -283,6 +283,7 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
+    const hasBody = !['GET', 'HEAD'].includes(request.method);
     
     // 1. If it looks like a Tailscale request, proxy it to the control plane
     if (path.startsWith('/ts2021') || path.startsWith('/machine') || path.startsWith('/key')) {
@@ -294,7 +295,7 @@ export default {
       const proxyRequest = new Request(url, {
         method: request.method,
         headers: headers,
-        body: request.body,
+        body: hasBody ? request.body : null,
         redirect: 'manual'
       });
       
@@ -309,7 +310,7 @@ export default {
     const cloakRequest = new Request(url, {
       method: request.method,
       headers: headers,
-      body: request.body,
+      body: hasBody ? request.body : null,
       redirect: 'follow'
     });
     
