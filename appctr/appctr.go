@@ -78,6 +78,7 @@ type StartOptions struct {
 	Socks5Pass    string
 	HttpProxy     string
 	ControlProxy  string
+	LoginServer   string
 	CloseCallBack Closer
 	AuthKey       string
 	ExtraUpArgs   string
@@ -393,7 +394,7 @@ func Start(opt *StartOptions) {
 	}
 
 	go func() {
-		err := tailscaledCmd(PC, opt.DnsFallbacks, opt.Socks5Server, opt.HttpProxy, opt.Socks5User, opt.Socks5Pass, opt.TaildropDir, opt.ControlProxy)
+		err := tailscaledCmd(PC, opt.DnsFallbacks, opt.Socks5Server, opt.HttpProxy, opt.Socks5User, opt.Socks5Pass, opt.TaildropDir, opt.ControlProxy, opt.LoginServer)
 		if err != nil {
 			slog.Error("tailscaled cmd crashed", "err", err)
 		}

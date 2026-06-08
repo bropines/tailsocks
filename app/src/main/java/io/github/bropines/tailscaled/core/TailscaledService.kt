@@ -261,6 +261,7 @@ class TailscaledService : Service() {
             dnsProxy     = GlobalSettings.getString(this@TailscaledService, "dns_proxy", "127.0.0.1:1053")
             dnsFallbacks = GlobalSettings.getString(this@TailscaledService, "dns_fallbacks", "8.8.8.8:53,1.1.1.1:53")
             dohFallback  = GlobalSettings.getString(this@TailscaledService, "doh_url", "https://1.1.1.1/dns-query")
+            loginServer  = profilePrefs.getString("login_server", "") ?: ""
             
             authKey      = profilePrefs.getString("authkey", "")
             enableWebUI = profilePrefs.getBoolean("enable_webui", false)

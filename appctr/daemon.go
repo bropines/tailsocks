@@ -11,7 +11,7 @@ import (
 )
 // cmd and stateMu are declared in appctr.go; do not redeclare here.
 
-func tailscaledCmd(p pathControl, dnsFallbacks string, socksAddr, httpAddr, socksUser, socksPass, taildropDir, controlProxy string) error {
+func tailscaledCmd(p pathControl, dnsFallbacks string, socksAddr, httpAddr, socksUser, socksPass, taildropDir, controlProxy, loginServer string) error {
 	rm(p.Tailscale(), p.Tailscaled())
 	ln(p.TailscaleCliSo(), p.Tailscale())
 	ln(p.TailscaledSo(), p.Tailscaled())
@@ -21,6 +21,10 @@ func tailscaledCmd(p pathControl, dnsFallbacks string, socksAddr, httpAddr, sock
 		"--socks5-server=" + socksAddr,
 		fmt.Sprintf("--statedir=%s", p.State()),
 		fmt.Sprintf("--socket=%s", p.Socket()),
+	}
+
+	if loginServer != "" {
+		args = append(args, "--login-server="+loginServer)
 	}
 
 	if httpAddr != "" {
