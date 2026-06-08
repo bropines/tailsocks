@@ -9,6 +9,10 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Added UI configurations for Control Plane DPI Bypass (ByeDPI) and custom CLI flags under the Control Proxy settings.
 - Documented Cloudflare Workers reverse proxy setup instructions and JS proxy template in README to allow direct SNI bypass via CDN Cloudflare.
 
+### Fixed
+- Fixed `tailscaled` daemon crashes (exit status 2) by removing the unsupported `--login-server` command-line argument and passing the custom Control plane URL via LocalAPI preferences (`ControlURL`).
+- Updated Cloudflare Workers proxy template in README to use a simplified path-based routing scheme (routing `/ts2021`, `/machine`, and `/key` with Host header override) without URL-prefix tokens, matching pristine Tailscale client capabilities.
+
 ## [3.0.2] - 2026-06-06
 ### Fixed
 - Fixed release builds on GitHub Actions where the `hev-socks5-tunnel` submodule was not checked out, causing `libhev-socks5-tunnel.so` to be missing from the packaged APK and rendering TUN mode unavailable.
