@@ -156,7 +156,7 @@ fun SettingsScreen(
     var dnsProxy by remember { mutableStateOf(GlobalSettings.getString(context, "dns_proxy", "127.0.0.1:1053")) }
     var dnsFallbacks by remember { mutableStateOf(GlobalSettings.getString(context, "dns_fallbacks", "8.8.8.8:53,1.1.1.1:53")) }
     var dohUrl by remember { mutableStateOf(GlobalSettings.getString(context, "doh_url", "https://1.1.1.1/dns-query")) }
-    var loginServer by remember { mutableStateOf(GlobalSettings.getString(context, "login_server", "")) }
+    var loginServer by remember { mutableStateOf(profilePrefs.getString("login_server", "") ?: "") }
     
     var autoRefresh by remember { mutableStateOf(GlobalSettings.getBoolean(context, "auto_refresh", false)) }
     var acceptRoutes by remember { mutableStateOf(GlobalSettings.getBoolean(context, "accept_routes", false)) }
