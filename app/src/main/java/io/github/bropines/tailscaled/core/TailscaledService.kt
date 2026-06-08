@@ -31,6 +31,7 @@ class TailscaledService : Service() {
     private val TAG = "TailscaledService"
     private val notificationManager by lazy { getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager }
     private var wakeLock: PowerManager.WakeLock? = null
+    private var byedpiProxyAddress: Pair<String, Int>? = null
     
     private val refreshHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private val refreshRunnable = object : Runnable {
@@ -236,12 +237,27 @@ class TailscaledService : Service() {
         val accDNS = GlobalSettings.getBoolean(this@TailscaledService, "accept_dns", true)
         val host = profilePrefs.getString("hostname", "") ?: ""
 
+        val byedpiEnabled = GlobalSettings.isCPByeDpiEnabled(this@TailscaledService)
+        if (byedpiEnabled) {
+            if (byedpiProxyAddress == null) {
+                val flags = GlobalSettings.getCPByeDpiFlags(this@TailscaledService)
+                byedpiProxyAddress = ByeDpiProxy.start(flags)
+            }
+        } else {
+            ByeDpiProxy.stop()
+            byedpiProxyAddress = null
+        }
+
         return StartOptions().apply {
             socks5Server = GlobalSettings.getString(this@TailscaledService, "socks5", "127.0.0.1:48115")
             socks5User   = GlobalSettings.getString(this@TailscaledService, "socks5_user", "")
             socks5Pass   = GlobalSettings.getString(this@TailscaledService, "socks5_pass", "")
             httpProxy    = GlobalSettings.getString(this@TailscaledService, "httpproxy", "")
-            controlProxy = GlobalSettings.getControlProxyUrl(this@TailscaledService)
+            controlProxy = if (byedpiEnabled && byedpiProxyAddress != null) {
+                "socks5://${byedpiProxyAddress!!.first}:${byedpiProxyAddress!!.second}"
+            } else {
+                GlobalSettings.getControlProxyUrl(this@TailscaledService)
+            }
             dnsProxy     = GlobalSettings.getString(this@TailscaledService, "dns_proxy", "127.0.0.1:1053")
             dnsFallbacks = GlobalSettings.getString(this@TailscaledService, "dns_fallbacks", "8.8.8.8:53,1.1.1.1:53")
             dohFallback  = GlobalSettings.getString(this@TailscaledService, "doh_url", "https://1.1.1.1/dns-query")
@@ -301,6 +317,8 @@ class TailscaledService : Service() {
         try { Appctr.stopDriveServer() } catch (e: Exception) {}
         try { Appctr.stopDriveProxy() } catch (e: Exception) {}
         Appctr.stop()
+        try { ByeDpiProxy.stop() } catch (e: Exception) {}
+        byedpiProxyAddress = null
         try { Runtime.getRuntime().exec("killall tailscaled") } catch (e: Exception) {}
         if (wakeLock?.isHeld == true) wakeLock?.release()
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -441,6 +459,8 @@ class TailscaledService : Service() {
 
     override fun onDestroy() {
         Appctr.stop()
+        try { ByeDpiProxy.stop() } catch (e: Exception) {}
+        byedpiProxyAddress = null
         try { connectivityManager.unregisterNetworkCallback(networkCallback) } catch (e: Exception) {}
         if (wakeLock?.isHeld == true) wakeLock?.release()
         super.onDestroy()
