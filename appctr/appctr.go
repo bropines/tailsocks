@@ -239,6 +239,10 @@ func syncSettings(opt *StartOptions) {
 		prefs["RouteAllSet"] = true
 		prefs["CorpDNS"] = opt.AcceptDNS
 		prefs["CorpDNSSet"] = true
+		if opt.LoginServer != "" {
+			prefs["ControlURL"] = opt.LoginServer
+			prefs["ControlURLSet"] = true
+		}
 
 		// Push upstream resolvers to daemon so it can forward external DNS
 		// queries even when no ExitNode is active (avoids "no upstream resolvers" SERVFAIL).
@@ -394,7 +398,7 @@ func Start(opt *StartOptions) {
 	}
 
 	go func() {
-		err := tailscaledCmd(PC, opt.DnsFallbacks, opt.Socks5Server, opt.HttpProxy, opt.Socks5User, opt.Socks5Pass, opt.TaildropDir, opt.ControlProxy, opt.LoginServer)
+		err := tailscaledCmd(PC, opt.DnsFallbacks, opt.Socks5Server, opt.HttpProxy, opt.Socks5User, opt.Socks5Pass, opt.TaildropDir, opt.ControlProxy)
 		if err != nil {
 			slog.Error("tailscaled cmd crashed", "err", err)
 		}
