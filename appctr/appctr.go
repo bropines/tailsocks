@@ -239,10 +239,12 @@ func syncSettings(opt *StartOptions) {
 		prefs["RouteAllSet"] = true
 		prefs["CorpDNS"] = opt.AcceptDNS
 		prefs["CorpDNSSet"] = true
-		if opt.LoginServer != "" {
-			prefs["ControlURL"] = opt.LoginServer
-			prefs["ControlURLSet"] = true
+		controlURL := opt.LoginServer
+		if controlURL == "" {
+			controlURL = "https://controlplane.tailscale.com"
 		}
+		prefs["ControlURL"] = controlURL
+		prefs["ControlURLSet"] = true
 
 		// Push upstream resolvers to daemon so it can forward external DNS
 		// queries even when no ExitNode is active (avoids "no upstream resolvers" SERVFAIL).
@@ -324,7 +326,8 @@ func ApplySettings(opt *StartOptions) {
 		old.ControlProxy != opt.ControlProxy ||
 		old.Socks5User != opt.Socks5User ||
 		old.Socks5Pass != opt.Socks5Pass ||
-		old.StatePath != opt.StatePath {
+		old.StatePath != opt.StatePath ||
+		old.LoginServer != opt.LoginServer {
 		slog.Info("Critical settings or account changed, performing full restart")
 		Start(opt)
 		return
