@@ -930,6 +930,9 @@
     <string name="main_logged_out_btn_proxy">Настроить обход / прокси</string>
     <string name="main_logged_out_btn_stop">Остановить службу</string>
     <string name="main_logged_out_fallback_tip">Альтернатива: Вы также можете использовать Auth Key или OAuth Client, указав их во вкладке Профиль в Настройках.</string>
+    <string name="main_logged_out_authkey_label">Ключ авторизации (tskey-auth-...)</string>
+    <string name="main_logged_out_btn_authkey">Войти по ключу</string>
+
 
     <string name="first_start_welcome_title">Добро пожаловать в TailSocks</string>
     <string name="first_start_welcome_desc">Легкий и эффективный клиент для сети Tailscale. Готов к простому подключению ваших устройств.</string>

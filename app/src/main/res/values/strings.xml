@@ -930,6 +930,9 @@
     <string name="main_logged_out_btn_proxy">Configure Bypass / Proxy</string>
     <string name="main_logged_out_btn_stop">Stop Daemon</string>
     <string name="main_logged_out_fallback_tip">Alternative: You can also enter an Auth Key or OAuth Client credentials in the Profile tab of Settings.</string>
+    <string name="main_logged_out_authkey_label">Auth Key (tskey-auth-...)</string>
+    <string name="main_logged_out_btn_authkey">Log In with Key</string>
+
 
     <string name="first_start_welcome_title">Welcome to TailSocks</string>
     <string name="first_start_welcome_desc">A lightweight and efficient client for Tailscale network. Ready to connect your devices easily.</string>
