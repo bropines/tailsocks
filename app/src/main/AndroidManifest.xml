@@ -36,6 +36,7 @@
         </activity>
 
         <activity android:name=".ui.SettingsActivity" android:exported="false" />
+        <activity android:name=".ui.FirstStartActivity" android:exported="false" />
         <activity android:name=".ui.NetcheckActivity" android:exported="false" />
         <activity android:name=".ui.FilesActivity" android:exported="false" />
         <activity android:name=".ui.LogsActivity" android:exported="false" />

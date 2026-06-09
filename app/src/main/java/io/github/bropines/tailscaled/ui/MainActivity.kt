@@ -104,6 +104,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        val appPrefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
+        if (!appPrefs.getBoolean("first_start_done", false)) {
+            startActivity(Intent(this, FirstStartActivity::class.java))
+            finish()
+            return
+        }
+
         checkNotificationPermission()
         handleAppStartup()
         checkForUpdatesSilent()
