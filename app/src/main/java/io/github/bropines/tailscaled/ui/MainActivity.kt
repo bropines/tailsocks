@@ -320,7 +320,7 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                                 "LOGGED_OUT"
                             }
                         } else {
-                            proxyState
+                            if (proxyState == "STOPPED") "ACTIVE" else proxyState
                         }
                     } else {
                         loggedOutSeconds = 0
@@ -1477,9 +1477,15 @@ fun LoggedOutCard(
                         shape = RoundedCornerShape(10.dp),
                         contentPadding = PaddingValues(horizontal = 4.dp)
                     ) {
-                        Icon(Icons.Default.Login, null, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Login, null, modifier = Modifier.size(14.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text(stringResource(R.string.main_logged_out_btn_login), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = stringResource(R.string.main_logged_out_btn_login),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            softWrap = false
+                        )
                     }
                 } else {
                     Box(
@@ -1496,9 +1502,15 @@ fun LoggedOutCard(
                     shape = RoundedCornerShape(10.dp),
                     contentPadding = PaddingValues(horizontal = 4.dp)
                 ) {
-                    Icon(Icons.Default.Key, null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Key, null, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text(if (showKeyInput) "Hide Key" else "Use Key", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        text = if (showKeyInput) "Hide Key" else "Use Key",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        softWrap = false
+                    )
                 }
             }
 
@@ -1622,22 +1634,36 @@ fun ConnectionIssueCard(
                 Button(
                     onClick = onConfigureProxy,
                     modifier = Modifier.weight(1f).height(40.dp),
-                    shape = RoundedCornerShape(10.dp)
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
                 ) {
-                    Icon(Icons.Default.Settings, null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.main_conn_issue_btn_proxy), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Icon(Icons.Default.Settings, null, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = stringResource(R.string.main_conn_issue_btn_proxy),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false
+                    )
                 }
 
                 OutlinedButton(
                     onClick = onStop,
                     modifier = Modifier.weight(1f).height(40.dp),
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
                 ) {
-                    Icon(Icons.Default.Stop, null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.main_logged_out_btn_stop_short), fontSize = 12.sp)
+                    Icon(Icons.Default.Stop, null, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = stringResource(R.string.main_logged_out_btn_stop_short),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        softWrap = false
+                    )
                 }
             }
         }
