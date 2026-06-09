@@ -19,6 +19,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.pager.HorizontalPager
@@ -354,6 +355,7 @@ fun SlideControlPlane(profilePrefs: android.content.SharedPreferences) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SlideBypassSetup() {
     val context = LocalContext.current
@@ -371,6 +373,10 @@ fun SlideBypassSetup() {
     var proxyPort by remember { mutableStateOf(GlobalSettings.getCPField(context, "port")) }
     var proxyUser by remember { mutableStateOf(GlobalSettings.getCPField(context, "user")) }
     var proxyPass by remember { mutableStateOf(GlobalSettings.getCPField(context, "pass")) }
+
+    var presets by remember { mutableStateOf(GlobalSettings.getCPPresets(context)) }
+    var showSavePresetDialog by remember { mutableStateOf(false) }
+    var presetName by remember { mutableStateOf("") }
 
     fun applyBypassSettings(mode: String) {
         bypassMode = mode
@@ -452,7 +458,7 @@ fun SlideBypassSetup() {
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                             trailingIcon = {
-                                TextButton(
+                                IconButton(
                                     onClick = {
                                         val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                                         val clipData = clipboardManager.primaryClip
@@ -490,10 +496,66 @@ fun SlideBypassSetup() {
                                         }
                                     }
                                 ) {
-                                    Text(stringResource(R.string.first_start_proxy_parse_btn))
+                                    Icon(Icons.Default.ContentPaste, contentDescription = "Paste and parse")
                                 }
                             }
                         )
+                        Spacer(Modifier.height(4.dp))
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            InputChip(
+                                selected = false,
+                                onClick = {
+                                    if (proxyHost.isNotEmpty() && proxyPort.isNotEmpty()) {
+                                        presetName = "$proxyHost:$proxyPort"
+                                        showSavePresetDialog = true
+                                    } else {
+                                        Toast.makeText(context, context.getString(R.string.settings_proxy_preset_fill_fields_error), Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                label = { Text("+ Save") },
+                                leadingIcon = { Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp)) }
+                            )
+
+                            presets.forEach { preset ->
+                                InputChip(
+                                    selected = false,
+                                    onClick = {
+                                        proxyType = preset.type
+                                        proxyHost = preset.host
+                                        proxyPort = preset.port
+                                        proxyUser = preset.user
+                                        proxyPass = preset.pass
+                                        GlobalSettings.setCPField(context, "type", proxyType)
+                                        GlobalSettings.setCPField(context, "host", proxyHost)
+                                        GlobalSettings.setCPField(context, "port", proxyPort)
+                                        GlobalSettings.setCPField(context, "user", proxyUser)
+                                        GlobalSettings.setCPField(context, "pass", proxyPass)
+                                    },
+                                    label = { Text(preset.name) },
+                                    trailingIcon = {
+                                        IconButton(
+                                            onClick = {
+                                                val updated = presets.filter { it != preset }
+                                                presets = updated
+                                                GlobalSettings.saveCPPresets(context, updated)
+                                            },
+                                            modifier = Modifier.size(16.dp)
+                                        ) {
+                                            Icon(Icons.Default.Close, null, modifier = Modifier.size(12.dp))
+                                        }
+                                    }
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(8.dp))
 
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedTextField(
@@ -521,6 +583,48 @@ fun SlideBypassSetup() {
                 }
             }
         }
+    }
+
+    if (showSavePresetDialog) {
+        AlertDialog(
+            onDismissRequest = { showSavePresetDialog = false },
+            title = { Text(stringResource(R.string.settings_proxy_preset_save_title)) },
+            text = {
+                OutlinedTextField(
+                    value = presetName,
+                    onValueChange = { presetName = it },
+                    label = { Text(stringResource(R.string.settings_proxy_preset_name_label)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val nameToSave = presetName.trim().ifEmpty { "$proxyHost:$proxyPort" }
+                        val newPreset = GlobalSettings.ProxyPreset(
+                            name = nameToSave,
+                            type = proxyType,
+                            host = proxyHost,
+                            port = proxyPort,
+                            user = proxyUser,
+                            pass = proxyPass
+                        )
+                        val updated = presets + newPreset
+                        presets = updated
+                        GlobalSettings.saveCPPresets(context, updated)
+                        showSavePresetDialog = false
+                    }
+                ) {
+                    Text(stringResource(R.string.settings_proxy_preset_save_btn))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSavePresetDialog = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            }
+        )
     }
 }
 

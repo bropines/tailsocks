@@ -970,4 +970,10 @@
     <string name="settings_show_onboarding_desc">Rerun the setup wizard and welcome screens</string>
     <string name="first_start_permissions_title">Permissions &amp; Services</string>
     <string name="first_start_permissions_desc">Grant the necessary system permissions for stable background operation.</string>
+
+    <string name="settings_proxy_preset_save_title">Save Proxy Preset</string>
+    <string name="settings_proxy_preset_name_label">Preset Name</string>
+    <string name="settings_proxy_preset_save_btn">Save</string>
+    <string name="settings_proxy_preset_fill_fields_error">Please fill Host and Port fields first!</string>
+    <string name="settings_byedpi_warning_override">Note: Enabling ByeByeDPI will override the Control Proxy settings with its own local proxy service.</string>
 </resources>

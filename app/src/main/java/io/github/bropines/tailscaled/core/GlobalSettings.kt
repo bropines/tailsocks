@@ -184,5 +184,29 @@ object GlobalSettings {
     /** Whether to enable IPv6 routing in TUN mode. */
     fun isTunIpv6Enabled(context: Context): Boolean = getBoolean(context, "tun_ipv6_enabled", true)
     fun setTunIpv6Enabled(context: Context, enabled: Boolean) = setBoolean(context, "tun_ipv6_enabled", enabled)
+
+    data class ProxyPreset(
+        val name: String,
+        val type: String,
+        val host: String,
+        val port: String,
+        val user: String = "",
+        val pass: String = ""
+    )
+
+    fun getCPPresets(context: Context): List<ProxyPreset> {
+        val json = getPrefs(context).getString("cp_presets", null) ?: return emptyList()
+        return try {
+            val typeToken = object : com.google.gson.reflect.TypeToken<List<ProxyPreset>>() {}.type
+            com.google.gson.Gson().fromJson(json, typeToken) ?: emptyList()
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    fun saveCPPresets(context: Context, presets: List<ProxyPreset>) {
+        val json = com.google.gson.Gson().toJson(presets)
+        getPrefs(context).edit().putString("cp_presets", json).apply()
+    }
 }
 

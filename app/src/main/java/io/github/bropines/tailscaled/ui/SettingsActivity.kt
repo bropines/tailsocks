@@ -860,13 +860,38 @@ fun SettingsScreen(
                             var byedpiFlags by remember { mutableStateOf(GlobalSettings.getCPByeDpiFlags(context)) }
                             val activeBbdAddr = ByeDpiProxy.activeAddress
                             
-                            SettingsCard(title = stringResource(R.string.settings_tab_byedpi)) {
+                                SettingsCard(title = stringResource(R.string.settings_tab_byedpi)) {
                                 Text(
                                     text = stringResource(R.string.settings_byedpi_desc),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                                     modifier = Modifier.padding(bottom = 12.dp)
                                 )
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 12.dp)
+                                        .background(
+                                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f),
+                                            shape = RoundedCornerShape(8.dp)
+                                        )
+                                        .padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Warning,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        text = stringResource(R.string.settings_byedpi_warning_override),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                }
                                 
                                 SettingsSwitchItem(
                                     title = stringResource(R.string.settings_byedpi_enable),
@@ -1157,6 +1182,7 @@ fun SettingsCard(title: String, content: @Composable ColumnScope.() -> Unit) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
     val context = LocalContext.current
@@ -1168,6 +1194,9 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
     var pass by remember { mutableStateOf(GlobalSettings.getCPField(context, "pass")) }
 
     var importUri by remember { mutableStateOf("") }
+    var presets by remember { mutableStateOf(GlobalSettings.getCPPresets(context)) }
+    var showSavePresetDialog by remember { mutableStateOf(false) }
+    var presetName by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1190,24 +1219,91 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         trailingIcon = {
-                            TextButton(onClick = {
-                                val parsed = GlobalSettings.parseProxyUri(importUri)
-                                if (parsed != null) {
-                                    type = parsed["type"] ?: "SOCKS5"
-                                    host = parsed["host"] ?: ""
-                                    port = parsed["port"] ?: ""
-                                    user = parsed["user"] ?: ""
-                                    pass = parsed["pass"] ?: ""
-                                    importUri = ""
-                                    Toast.makeText(context, "Parsed successfully!", Toast.LENGTH_SHORT).show()
+                            IconButton(onClick = {
+                                val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                val clipData = clipboardManager.primaryClip
+                                val clipboardText = if (clipData != null && clipData.itemCount > 0) {
+                                    clipData.getItemAt(0).text?.toString()?.trim()
+                                } else null
+
+                                val linkToParse = if (!clipboardText.isNullOrEmpty()) {
+                                    importUri = clipboardText
+                                    clipboardText
                                 } else {
-                                    Toast.makeText(context, context.getString(R.string.settings_proxy_import_error), Toast.LENGTH_SHORT).show()
+                                    importUri.trim()
+                                }
+
+                                if (linkToParse.isNotEmpty()) {
+                                    val parsed = GlobalSettings.parseProxyUri(linkToParse)
+                                    if (parsed != null) {
+                                        type = parsed["type"] ?: "SOCKS5"
+                                        host = parsed["host"] ?: ""
+                                        port = parsed["port"] ?: ""
+                                        user = parsed["user"] ?: ""
+                                        pass = parsed["pass"] ?: ""
+                                        importUri = ""
+                                        Toast.makeText(context, "Parsed successfully!", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        Toast.makeText(context, context.getString(R.string.settings_proxy_import_error), Toast.LENGTH_SHORT).show()
+                                    }
+                                } else {
+                                    Toast.makeText(context, "Clipboard and field are empty", Toast.LENGTH_SHORT).show()
                                 }
                             }) {
-                                Text(stringResource(R.string.settings_proxy_import_btn))
+                                Icon(Icons.Default.ContentPaste, contentDescription = "Paste and parse")
                             }
                         }
                     )
+                    Spacer(Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        InputChip(
+                            selected = false,
+                            onClick = {
+                                if (host.isNotEmpty() && port.isNotEmpty()) {
+                                    presetName = "$host:$port"
+                                    showSavePresetDialog = true
+                                } else {
+                                    Toast.makeText(context, context.getString(R.string.settings_proxy_preset_fill_fields_error), Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            label = { Text("+ Save") },
+                            leadingIcon = { Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp)) }
+                        )
+
+                        presets.forEach { preset ->
+                            InputChip(
+                                selected = false,
+                                onClick = {
+                                    type = preset.type
+                                    host = preset.host
+                                    port = preset.port
+                                    user = preset.user
+                                    pass = preset.pass
+                                },
+                                label = { Text(preset.name) },
+                                trailingIcon = {
+                                    IconButton(
+                                        onClick = {
+                                            val updated = presets.filter { it != preset }
+                                            presets = updated
+                                            GlobalSettings.saveCPPresets(context, updated)
+                                        },
+                                        modifier = Modifier.size(16.dp)
+                                    ) {
+                                        Icon(Icons.Default.Close, null, modifier = Modifier.size(12.dp))
+                                    }
+                                }
+                            )
+                        }
+                    }
+
                     Spacer(Modifier.height(16.dp))
 
                     Row(
@@ -1272,6 +1368,48 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } }
     )
+
+    if (showSavePresetDialog) {
+        AlertDialog(
+            onDismissRequest = { showSavePresetDialog = false },
+            title = { Text(stringResource(R.string.settings_proxy_preset_save_title)) },
+            text = {
+                OutlinedTextField(
+                    value = presetName,
+                    onValueChange = { presetName = it },
+                    label = { Text(stringResource(R.string.settings_proxy_preset_name_label)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val nameToSave = presetName.trim().ifEmpty { "$host:$port" }
+                        val newPreset = GlobalSettings.ProxyPreset(
+                            name = nameToSave,
+                            type = type,
+                            host = host,
+                            port = port,
+                            user = user,
+                            pass = pass
+                        )
+                        val updated = presets + newPreset
+                        presets = updated
+                        GlobalSettings.saveCPPresets(context, updated)
+                        showSavePresetDialog = false
+                    }
+                ) {
+                    Text(stringResource(R.string.settings_proxy_preset_save_btn))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSavePresetDialog = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            }
+        )
+    }
 }
 
 @Composable

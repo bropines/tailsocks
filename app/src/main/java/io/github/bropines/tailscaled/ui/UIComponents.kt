@@ -206,9 +206,9 @@ fun PeerDetailsModal(
         pingResult == null -> stringResource(R.string.peer_ping)
         pingResult == "Pinging..." -> stringResource(R.string.peer_pinging)
         pingResult!!.contains("pong from") -> {
-            val parts = pingResult!!.split(" ")
-            val time = parts.find { it.contains("ms") } ?: parts.lastOrNull()?.trim() ?: ""
-            stringResource(R.string.peer_ping_result, time)
+            val time = """\b\d+(?:\.\d+)?\s*ms\b""".toRegex().find(pingResult!!)?.value ?: ""
+            val displayValue = time.ifEmpty { pingResult!!.replace("pong from", "").trim() }
+            stringResource(R.string.peer_ping_result, displayValue)
         }
         else -> stringResource(R.string.peer_ping_failed)
     }

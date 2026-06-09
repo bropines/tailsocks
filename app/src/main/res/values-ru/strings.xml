@@ -970,4 +970,10 @@
     <string name="settings_show_onboarding_desc">Перезапустить процесс настройки и Onboarding при первом запуске</string>
     <string name="first_start_permissions_title">Разрешения и права</string>
     <string name="first_start_permissions_desc">Предоставьте необходимые системные разрешения для стабильной фоновой работы.</string>
+
+    <string name="settings_proxy_preset_save_title">Сохранить пресет прокси</string>
+    <string name="settings_proxy_preset_name_label">Название пресета</string>
+    <string name="settings_proxy_preset_save_btn">Сохранить</string>
+    <string name="settings_proxy_preset_fill_fields_error">Пожалуйста, сначала заполните поля хоста и порта!</string>
+    <string name="settings_byedpi_warning_override">Памятка: Включение ByeByeDPI заменит настройки Control Proxy (прокси панели управления) на свой собственный локальный прокси.</string>
 </resources>
