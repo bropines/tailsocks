@@ -910,4 +910,17 @@
     <string name="main_tun_active_title">TUN Mode Active</string>
     <string name="main_tun_full_tunnel_desc">All traffic is routed through the VPN</string>
     <string name="main_tun_split_tunnel_desc">Tailscale subnet traffic is routed through the VPN</string>
+
+    <string name="settings_tab_byedpi">DPI Bypass</string>
+    <string name="settings_byedpi_enable">Enable ByeByeDPI Bypass</string>
+    <string name="settings_byedpi_flags">ByeByeDPI Flags</string>
+    <string name="settings_byedpi_status_active">Active on socks5://%1$s</string>
+    <string name="settings_byedpi_status_stopped">Stopped</string>
+    <string name="settings_byedpi_desc">Bypasses censorship/DPI for Tailscale coordination server traffic using local packet fragmentation. Runs entirely in userspace.</string>
+    <string name="settings_proxy_import">Import Proxy Link / URI</string>
+    <string name="settings_proxy_import_btn">Parse</string>
+    <string name="settings_proxy_import_error">Invalid proxy link format</string>
+    <string name="settings_proxy_copy_btn">Copy Link</string>
+    <string name="settings_proxy_copied">Proxy configuration copied to clipboard!</string>
+    <string name="settings_proxy_type_https">HTTPS</string>
 </resources>

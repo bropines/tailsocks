@@ -910,4 +910,17 @@
     <string name="main_tun_active_title">Режим TUN активен</string>
     <string name="main_tun_full_tunnel_desc">Весь трафик направляется через VPN</string>
     <string name="main_tun_split_tunnel_desc">Трафик подсетей Tailscale направляется через VPN</string>
+
+    <string name="settings_tab_byedpi">Обход DPI</string>
+    <string name="settings_byedpi_enable">Включить обход ByeByeDPI</string>
+    <string name="settings_byedpi_flags">Флаги ByeByeDPI</string>
+    <string name="settings_byedpi_status_active">Активен на socks5://%1$s</string>
+    <string name="settings_byedpi_status_stopped">Остановлен</string>
+    <string name="settings_byedpi_desc">Обходит блокировки и DPI для трафика сервера координации Tailscale с помощью локальной фрагментации пакетов. Работает полностью в userspace.</string>
+    <string name="settings_proxy_import">Вставить ссылку прокси / URI</string>
+    <string name="settings_proxy_import_btn">Импорт</string>
+    <string name="settings_proxy_import_error">Неверный формат ссылки прокси</string>
+    <string name="settings_proxy_copy_btn">Копировать</string>
+    <string name="settings_proxy_copied">Конфигурация прокси скопирована в буфер обмена!</string>
+    <string name="settings_proxy_type_https">HTTPS</string>
 </resources>
