@@ -2,12 +2,16 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
-## [3.1.0] - 2026-06-08
+## [3.1.0] - 2026-06-09
 ### Added
 - Integrated native JNI implementation of ByeDPI C-library to bypass deep packet inspection (DPI) on the Tailscale control plane without spawning separate processes.
 - Implemented randomized IPv4 loopback binding (random IP address in `127.2.2.2/8` and random port) for ByeDPI startup, protecting the local proxy from simple port scanning on the device.
-- Added UI configurations for Control Plane DPI Bypass (ByeDPI) and custom CLI flags under the Control Proxy settings.
-- Documented Cloudflare Workers reverse proxy setup instructions and JS proxy template in README to allow direct SNI bypass via CDN Cloudflare.
+- Added a dedicated "DPI Bypass" settings tab, displaying real-time status and active loopback IP/Port of ByeByeDPI proxy.
+- Added HTTPS proxy support, parsing of proxy URI links, and one-click export/copy of current proxy configuration under Settings.
+- Added `LoggedOut` state to the dashboard showing a custom card when the daemon needs authorization, offering direct shortcuts to DPI bypass/proxy settings and hints for Auth Key / OAuth login.
+- Added a Compose-based `FirstStartActivity` onboarding experience to guide users through initial setup, permissions, ByeByeDPI activation, and Auth Key/OAuth login options (with explicit warning that standard browser login might block/button might not load immediately).
+- Auto-exclude 6 popular Russian service packages from the TUN interface by default to prevent issues with state/banking/media services when VPN is active.
+
 
 ### Fixed
 - Fixed `tailscaled` daemon crashes (exit status 2) by removing the unsupported `--login-server` command-line argument and passing the custom Control plane URL via LocalAPI preferences (`ControlURL`).
