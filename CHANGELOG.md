@@ -15,12 +15,14 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Added localized warning banner under ByeByeDPI settings to explain that it overrides Control Proxy configurations.
 - Added compact authentication status cards on the dashboard with collapsible input fields for Auth Keys.
 - Added ConnectionIssueCard to guide previously logged-in users to configure proxy/bypass parameters when coordination server is unreachable.
+- Made dashboard shortcut menu cards (Console, Peers, Logs, Settings) always visible for improved accessibility and debugging.
 
 ### Fixed
 - Fixed `tailscaled` daemon crashes (exit status 2) by removing the unsupported `--login-server` command-line argument and passing the custom Control plane URL via LocalAPI preferences (`ControlURL`).
 - Fixed peer ping duration parsing to isolate only the numeric ms value, resolving incorrect values on hostnames containing "ms" (e.g., "ams-node").
 - Replaced the text "Parse" button with a Paste icon button that reads the clipboard (or uses field content) for instant import.
 - Deferred dashboard NeedsLogin/NoState status transitions by 10 seconds to prevent temporary network state flicker.
+- Fixed StatusCard state mapping during connection issues to display the service as ACTIVE instead of STOPPED while the daemon is running.
 
 ## [3.0.2] - 2026-06-06
 ### Fixed
