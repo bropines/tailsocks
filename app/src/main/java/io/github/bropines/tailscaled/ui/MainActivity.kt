@@ -881,14 +881,14 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
             }
 
             StatusCard(
-                state = proxyState,
+                state = if (proxyState == "CONNECTION_ISSUE") "ACTIVE" else proxyState,
                 isProcessing = isProcessing,
                 isTunEnabled = isTunEnabled,
                 isFullTunnel = isFullTunnel
             ) {
                 if (isProcessing) return@StatusCard
 
-                if (proxyState == "ACTIVE" || proxyState == "STARTING") {
+                if (proxyState == "ACTIVE" || proxyState == "STARTING" || proxyState == "CONNECTION_ISSUE") {
                     isProcessing = true
                     val intent = Intent(context, TailscaledService::class.java).apply { action = "STOP_ACTION" }
                     context.startService(intent)
@@ -935,45 +935,43 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                 )
             }
 
-            if (proxyState != "LOGGED_OUT" && proxyState != "CONNECTION_ISSUE") {
-                Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    MenuCard(title = stringResource(R.string.menu_console), icon = Icons.Default.PlayArrow, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                        context.startActivity(Intent(context, ConsoleActivity::class.java))
-                    }
-                    MenuCard(title = stringResource(R.string.menu_peers), icon = Icons.Default.Share, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
-                        context.startActivity(Intent(context, PeersActivity::class.java))
-                    }
+            Row(modifier = Modifier.fillMaxWidth()) {
+                MenuCard(title = stringResource(R.string.menu_console), icon = Icons.Default.PlayArrow, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                    context.startActivity(Intent(context, ConsoleActivity::class.java))
                 }
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    MenuCard(title = stringResource(R.string.menu_logs), icon = Icons.AutoMirrored.Filled.List, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                        context.startActivity(Intent(context, LogsActivity::class.java))
-                    }
-                    MenuCard(title = stringResource(R.string.menu_files), icon = Icons.Default.Folder, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
-                        context.startActivity(Intent(context, FilesActivity::class.java))
-                    }
+                MenuCard(title = stringResource(R.string.menu_peers), icon = Icons.Default.Share, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                    context.startActivity(Intent(context, PeersActivity::class.java))
                 }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                MenuCard(title = stringResource(R.string.menu_logs), icon = Icons.AutoMirrored.Filled.List, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                    context.startActivity(Intent(context, LogsActivity::class.java))
+                }
+                MenuCard(title = stringResource(R.string.menu_files), icon = Icons.Default.Folder, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                    context.startActivity(Intent(context, FilesActivity::class.java))
+                }
+            }
 
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    MenuCard(title = stringResource(R.string.menu_dns), icon = Icons.Default.Language, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                        context.startActivity(Intent(context, DnsActivity::class.java))
-                    }
-                    MenuCard(title = stringResource(R.string.menu_netcheck), icon = Icons.Default.Refresh, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
-                        context.startActivity(Intent(context, NetcheckActivity::class.java))
-                    }
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                MenuCard(title = stringResource(R.string.menu_dns), icon = Icons.Default.Language, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                    context.startActivity(Intent(context, DnsActivity::class.java))
                 }
+                MenuCard(title = stringResource(R.string.menu_netcheck), icon = Icons.Default.Refresh, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                    context.startActivity(Intent(context, NetcheckActivity::class.java))
+                }
+            }
 
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    MenuCard(title = stringResource(R.string.menu_settings), icon = Icons.Default.Settings, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                        context.startActivity(Intent(context, SettingsActivity::class.java))
-                    }
-                    MenuCard(title = stringResource(R.string.menu_serve), icon = Icons.Default.Public, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
-                        context.startActivity(Intent(context, ServeActivity::class.java))
-                    }
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                MenuCard(title = stringResource(R.string.menu_settings), icon = Icons.Default.Settings, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                    context.startActivity(Intent(context, SettingsActivity::class.java))
+                }
+                MenuCard(title = stringResource(R.string.menu_serve), icon = Icons.Default.Public, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                    context.startActivity(Intent(context, ServeActivity::class.java))
                 }
             }
 
