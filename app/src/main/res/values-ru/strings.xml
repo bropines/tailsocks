@@ -930,4 +930,16 @@
     <string name="main_logged_out_btn_proxy">Настроить обход / прокси</string>
     <string name="main_logged_out_btn_stop">Остановить службу</string>
     <string name="main_logged_out_fallback_tip">Альтернатива: Вы также можете использовать Auth Key или OAuth Client, указав их во вкладке Профиль в Настройках.</string>
+
+    <string name="first_start_welcome_title">Добро пожаловать в TailSocks</string>
+    <string name="first_start_welcome_desc">Легкий и эффективный клиент для сети Tailscale. Готов к простому подключению ваших устройств.</string>
+    <string name="first_start_how_title">Как это работает</string>
+    <string name="first_start_how_desc">По умолчанию TailSocks работает в режиме userspace-сети, что не требует root или специальных разрешений VPN. Для прозрачной маршрутизации всего трафика устройства вы можете включить режим TUN в настройках.</string>
+    <string name="first_start_bypass_title">Обход блокировок</string>
+    <string name="first_start_bypass_desc">Испытываете проблемы с подключением к серверу координации Tailscale? Включите ByeByeDPI для автоматического обхода цензуры и инспекции пакетов (DPI).</string>
+    <string name="first_start_login_title">Вход и разрешения</string>
+    <string name="first_start_login_desc">Для начала работы авторизуйте устройство. Если стандартный вход через браузер не загружается, вы сможете настроить Auth Key или OAuth в Профиле позже. Пожалуйста, предоставьте разрешение на уведомления для работы в фоне.</string>
+    <string name="first_start_btn_next">Далее</string>
+    <string name="first_start_btn_back">Назад</string>
+    <string name="first_start_btn_finish">Начать работу</string>
 </resources>

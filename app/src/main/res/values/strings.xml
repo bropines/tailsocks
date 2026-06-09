@@ -930,4 +930,16 @@
     <string name="main_logged_out_btn_proxy">Configure Bypass / Proxy</string>
     <string name="main_logged_out_btn_stop">Stop Daemon</string>
     <string name="main_logged_out_fallback_tip">Alternative: You can also enter an Auth Key or OAuth Client credentials in the Profile tab of Settings.</string>
+
+    <string name="first_start_welcome_title">Welcome to TailSocks</string>
+    <string name="first_start_welcome_desc">A lightweight and efficient client for Tailscale network. Ready to connect your devices easily.</string>
+    <string name="first_start_how_title">How it works</string>
+    <string name="first_start_how_desc">By default, TailSocks operates in userspace-networking mode, which does not require root or special VPN permissions. For transparently routing all device traffic, you can enable TUN mode inside the app settings.</string>
+    <string name="first_start_bypass_title">Censorship Bypass</string>
+    <string name="first_start_bypass_desc">Are you experiencing issues connecting to the Tailscale coordination server? Enable ByeByeDPI to automatically bypass censorship and packet inspection.</string>
+    <string name="first_start_login_title">Login &amp; Permissions</string>
+    <string name="first_start_login_desc">To begin, authorize your device. If standard web login doesn\'t load, you can configure an Auth Key or OAuth client credentials in your Profile settings later. Please grant notifications permission to run in the background.</string>
+    <string name="first_start_btn_next">Next</string>
+    <string name="first_start_btn_back">Back</string>
+    <string name="first_start_btn_finish">Get Started</string>
 </resources>
