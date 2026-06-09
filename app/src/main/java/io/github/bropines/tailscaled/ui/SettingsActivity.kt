@@ -138,6 +138,7 @@ fun SettingsScreen(
     val tabs = listOf(
         Pair(stringResource(R.string.settings_tab_app), Icons.Default.Palette),
         Pair(stringResource(R.string.settings_tab_network), Icons.Default.Language),
+        Pair(stringResource(R.string.settings_tab_byedpi), Icons.Default.Shield),
         Pair(stringResource(R.string.settings_tab_core), Icons.Default.Tune),
         Pair(stringResource(R.string.settings_tab_profile), Icons.Default.AccountCircle)
     )
@@ -835,7 +836,54 @@ fun SettingsScreen(
                             }
                         }
 
-                        2 -> { // TAB 2: Core Settings
+                        2 -> { // TAB 2: DPI Bypass (ByeByeDPI)
+                            var byedpiEnabled by remember { mutableStateOf(GlobalSettings.isCPByeDpiEnabled(context)) }
+                            var byedpiFlags by remember { mutableStateOf(GlobalSettings.getCPByeDpiFlags(context)) }
+                            val activeBbdAddr = ByeDpiProxy.activeAddress
+                            
+                            SettingsCard(title = stringResource(R.string.settings_tab_byedpi)) {
+                                Text(
+                                    text = stringResource(R.string.settings_byedpi_desc),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                    modifier = Modifier.padding(bottom = 12.dp)
+                                )
+                                
+                                SettingsSwitchItem(
+                                    title = stringResource(R.string.settings_byedpi_enable),
+                                    subtitle = if (byedpiEnabled) {
+                                        if (activeBbdAddr != null) {
+                                            stringResource(R.string.settings_byedpi_status_active, "${activeBbdAddr.first}:${activeBbdAddr.second}")
+                                        } else {
+                                            stringResource(R.string.settings_byedpi_status_stopped)
+                                        }
+                                    } else {
+                                        stringResource(R.string.settings_byedpi_status_stopped)
+                                    },
+                                    icon = Icons.Default.Shield,
+                                    checked = byedpiEnabled
+                                ) {
+                                    byedpiEnabled = it
+                                    GlobalSettings.setCPByeDpiEnabled(context, it)
+                                    context.startService(Intent(context, TailscaledService::class.java).apply { action = "APPLY_SETTINGS" })
+                                }
+                                
+                                Spacer(Modifier.height(12.dp))
+                                
+                                SettingsEditItem(
+                                    title = stringResource(R.string.settings_byedpi_flags),
+                                    value = byedpiFlags,
+                                    icon = Icons.Default.Code,
+                                    placeholder = "-o1 -a1 -r-5+se"
+                                ) {
+                                    byedpiFlags = it
+                                    GlobalSettings.setCPByeDpiFlags(context, it)
+                                    context.startService(Intent(context, TailscaledService::class.java).apply { action = "APPLY_SETTINGS" })
+                                }
+                            }
+                        }
+
+                        3 -> { // TAB 3: Core Settings
                             SettingsCard(title = stringResource(R.string.settings_sect_dns_proxy)) {
                                 SettingsEditItem(stringResource(R.string.settings_dns_proxy_address_title), dnsProxy, Icons.Default.Toll) { dnsProxy = it; saveGlobalPref("dns_proxy", it) }
                             }
@@ -863,7 +911,7 @@ fun SettingsScreen(
                             }
                         }
 
-                        3 -> { // TAB 3: Account Profile & Advanced
+                        4 -> { // TAB 4: Account Profile & Advanced
                             SettingsCard(title = stringResource(R.string.settings_sect_account_format, activeAccount.name)) {
                                 SettingsEditItem(stringResource(R.string.settings_login_server_title), loginServer, Icons.Default.Cloud, placeholder = stringResource(R.string.settings_login_server_placeholder)) { loginServer = it; saveProfilePref("login_server", it) }
                                 Text(
@@ -1100,13 +1148,13 @@ fun SettingsCard(title: String, content: @Composable ColumnScope.() -> Unit) {
 fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
     val context = LocalContext.current
     var enabled by remember { mutableStateOf(GlobalSettings.isCPProxyEnabled(context)) }
-    var byedpiEnabled by remember { mutableStateOf(GlobalSettings.isCPByeDpiEnabled(context)) }
-    var byedpiFlags by remember { mutableStateOf(GlobalSettings.getCPByeDpiFlags(context)) }
     var type by remember { mutableStateOf(GlobalSettings.getCPField(context, "type", "SOCKS5")) }
     var host by remember { mutableStateOf(GlobalSettings.getCPField(context, "host")) }
     var port by remember { mutableStateOf(GlobalSettings.getCPField(context, "port")) }
     var user by remember { mutableStateOf(GlobalSettings.getCPField(context, "user")) }
     var pass by remember { mutableStateOf(GlobalSettings.getCPField(context, "pass")) }
+
+    var importUri by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1115,57 +1163,84 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.settings_control_proxy_enable), Modifier.weight(1f))
-                    Switch(checked = enabled, onCheckedChange = { 
-                        enabled = it
-                        if (!it) {
-                            byedpiEnabled = false
-                        }
-                    })
+                    Switch(checked = enabled, onCheckedChange = { enabled = it })
                 }
                 Spacer(Modifier.height(16.dp))
 
                 if (enabled) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("DPI Bypass (ByeDPI)", Modifier.weight(1f))
-                        Switch(checked = byedpiEnabled, onCheckedChange = { byedpiEnabled = it })
-                    }
+                    // Import Section
+                    OutlinedTextField(
+                        value = importUri,
+                        onValueChange = { importUri = it },
+                        label = { Text(stringResource(R.string.settings_proxy_import)) },
+                        placeholder = { Text("socks5://user:pass@host:port") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        trailingIcon = {
+                            TextButton(onClick = {
+                                val parsed = GlobalSettings.parseProxyUri(importUri)
+                                if (parsed != null) {
+                                    type = parsed["type"] ?: "SOCKS5"
+                                    host = parsed["host"] ?: ""
+                                    port = parsed["port"] ?: ""
+                                    user = parsed["user"] ?: ""
+                                    pass = parsed["pass"] ?: ""
+                                    importUri = ""
+                                    Toast.makeText(context, "Parsed successfully!", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, context.getString(R.string.settings_proxy_import_error), Toast.LENGTH_SHORT).show()
+                                }
+                            }) {
+                                Text(stringResource(R.string.settings_proxy_import_btn))
+                            }
+                        }
+                    )
                     Spacer(Modifier.height(16.dp))
 
-                    if (byedpiEnabled) {
-                        OutlinedTextField(
-                            value = byedpiFlags, 
-                            onValueChange = { byedpiFlags = it }, 
-                            label = { Text("ByeDPI Flags") }, 
-                            modifier = Modifier.fillMaxWidth(), 
-                            singleLine = true,
-                            placeholder = { Text("-s 1 -d split -r") }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(stringResource(R.string.settings_control_proxy_type), Modifier.weight(1f))
+                        FilterChip(
+                            selected = type == "SOCKS5",
+                            onClick = { type = "SOCKS5" },
+                            label = { Text(stringResource(R.string.settings_proxy_socks5)) }
                         )
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            text = "Использует случайный адрес 127.x.y.z:port в подсети loopback для предотвращения сканирования портов.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        FilterChip(
+                            selected = type == "HTTP",
+                            onClick = { type = "HTTP" },
+                            label = { Text(stringResource(R.string.settings_proxy_http)) }
                         )
-                    } else {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(stringResource(R.string.settings_control_proxy_type), Modifier.weight(1f))
-                            FilterChip(
-                                selected = type == "SOCKS5",
-                                onClick = { type = "SOCKS5" },
-                                label = { Text(stringResource(R.string.settings_proxy_socks5)) }
-                            )
-                            FilterChip(
-                                selected = type == "HTTP",
-                                onClick = { type = "HTTP" },
-                                label = { Text(stringResource(R.string.settings_proxy_http)) }
-                            )
-                        }
-                        Spacer(Modifier.height(16.dp))
-                        
-                        OutlinedTextField(value = host, onValueChange = { host = it }, label = { Text(stringResource(R.string.settings_control_proxy_host)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                        OutlinedTextField(value = port, onValueChange = { port = it }, label = { Text(stringResource(R.string.settings_control_proxy_port)) }, modifier = Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text(if (type == "HTTP") "8080" else "1080") })
-                        OutlinedTextField(value = user, onValueChange = { user = it }, label = { Text(stringResource(R.string.settings_control_proxy_username)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                        OutlinedTextField(value = pass, onValueChange = { pass = it }, label = { Text(stringResource(R.string.settings_control_proxy_password)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                        FilterChip(
+                            selected = type == "HTTPS",
+                            onClick = { type = "HTTPS" },
+                            label = { Text(stringResource(R.string.settings_proxy_type_https)) }
+                        )
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    
+                    OutlinedTextField(value = host, onValueChange = { host = it }, label = { Text(stringResource(R.string.settings_control_proxy_host)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                    OutlinedTextField(value = port, onValueChange = { port = it }, label = { Text(stringResource(R.string.settings_control_proxy_port)) }, modifier = Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text(if (type == "SOCKS5") "1080" else "8080") })
+                    OutlinedTextField(value = user, onValueChange = { user = it }, label = { Text(stringResource(R.string.settings_control_proxy_username)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                    OutlinedTextField(value = pass, onValueChange = { pass = it }, label = { Text(stringResource(R.string.settings_control_proxy_password)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                    
+                    Spacer(Modifier.height(12.dp))
+                    
+                    OutlinedButton(
+                        onClick = {
+                            val uri = GlobalSettings.buildProxyUri(type, host, port, user, pass)
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            clipboard.setPrimaryClip(ClipData.newPlainText("Proxy URI", uri))
+                            Toast.makeText(context, context.getString(R.string.settings_proxy_copied), Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.Share, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.settings_proxy_copy_btn))
                     }
                 }
             }
@@ -1173,15 +1248,11 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
         confirmButton = {
             Button(onClick = {
                 GlobalSettings.setCPProxyEnabled(context, enabled)
-                GlobalSettings.setCPByeDpiEnabled(context, byedpiEnabled)
-                GlobalSettings.setCPByeDpiFlags(context, byedpiFlags)
-                if (!byedpiEnabled) {
-                    GlobalSettings.setCPField(context, "type", type)
-                    GlobalSettings.setCPField(context, "host", host)
-                    GlobalSettings.setCPField(context, "port", port)
-                    GlobalSettings.setCPField(context, "user", user)
-                    GlobalSettings.setCPField(context, "pass", pass)
-                }
+                GlobalSettings.setCPField(context, "type", type)
+                GlobalSettings.setCPField(context, "host", host)
+                GlobalSettings.setCPField(context, "port", port)
+                GlobalSettings.setCPField(context, "user", user)
+                GlobalSettings.setCPField(context, "pass", pass)
                 onApply()
                 onDismiss()
             }) { Text(stringResource(R.string.settings_proxy_apply)) }
