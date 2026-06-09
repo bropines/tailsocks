@@ -1377,6 +1377,10 @@ fun LoggedOutCard(
     onStop: () -> Unit
 ) {
     val context = LocalContext.current
+    val activeAccount = remember { io.github.bropines.tailscaled.core.AccountManager.getActiveAccount(context) }
+    val profilePrefs = remember(activeAccount) { context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE) }
+    var enteredKey by remember { mutableStateOf(profilePrefs.getString("authkey", "") ?: "") }
+
     Card(
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
@@ -1418,8 +1422,45 @@ fun LoggedOutCard(
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
             
+            // Auth Key field
+            OutlinedTextField(
+                value = enteredKey,
+                onValueChange = { enteredKey = it },
+                label = { Text(stringResource(R.string.main_logged_out_authkey_label)) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(
+                onClick = {
+                    profilePrefs.edit().putString("authkey", enteredKey).apply()
+                    // Restart service to apply the key
+                    val stopIntent = Intent(context, TailscaledService::class.java).apply { action = "STOP_ACTION" }
+                    context.startService(stopIntent)
+                    
+                    // Delay start slightly to let the socket release
+                    val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+                    mainHandler.postDelayed({
+                        val startIntent = Intent(context, TailscaledService::class.java).apply { action = "START_ACTION" }
+                        ContextCompat.startForegroundService(context, startIntent)
+                    }, 500)
+                    
+                    Toast.makeText(context, "Key saved. Restarting service...", Toast.LENGTH_SHORT).show()
+                },
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.Key, null)
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.main_logged_out_btn_authkey), fontWeight = FontWeight.Bold)
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+            Spacer(modifier = Modifier.height(12.dp))
+
             if (loginUrl != null) {
                 Button(
                     onClick = {
