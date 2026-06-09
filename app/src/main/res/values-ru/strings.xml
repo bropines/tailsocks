@@ -923,4 +923,11 @@
     <string name="settings_proxy_copy_btn">Копировать</string>
     <string name="settings_proxy_copied">Конфигурация прокси скопирована в буфер обмена!</string>
     <string name="settings_proxy_type_https">HTTPS</string>
+
+    <string name="main_logged_out_title">Требуется авторизация</string>
+    <string name="main_logged_out_desc">Устройство не подключено к Tailscale. Если вы находитесь в заблокированной сети, настройте Обход DPI или Прокси перед входом.</string>
+    <string name="main_logged_out_btn_login">Войти в аккаунт</string>
+    <string name="main_logged_out_btn_proxy">Настроить обход / прокси</string>
+    <string name="main_logged_out_btn_stop">Остановить службу</string>
+    <string name="main_logged_out_fallback_tip">Альтернатива: Вы также можете использовать Auth Key или OAuth Client, указав их во вкладке Профиль в Настройках.</string>
 </resources>

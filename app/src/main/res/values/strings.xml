@@ -923,4 +923,11 @@
     <string name="settings_proxy_copy_btn">Copy Link</string>
     <string name="settings_proxy_copied">Proxy configuration copied to clipboard!</string>
     <string name="settings_proxy_type_https">HTTPS</string>
+
+    <string name="main_logged_out_title">Authentication Required</string>
+    <string name="main_logged_out_desc">Your TailSocks node is not logged in. If you are in a restricted network, configure DPI Bypass or Proxy before logging in.</string>
+    <string name="main_logged_out_btn_login">Log In</string>
+    <string name="main_logged_out_btn_proxy">Configure Bypass / Proxy</string>
+    <string name="main_logged_out_btn_stop">Stop Daemon</string>
+    <string name="main_logged_out_fallback_tip">Alternative: You can also enter an Auth Key or OAuth Client credentials in the Profile tab of Settings.</string>
 </resources>
