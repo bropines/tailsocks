@@ -28,6 +28,9 @@ object ByeDpiProxy {
     @Volatile
     private var stopLogReader = false
 
+    var activeAddress: Pair<String, Int>? = null
+        private set
+
     fun start(customFlags: String, context: android.content.Context): Pair<String, Int>? {
         if (isRunning) return null
         
@@ -61,6 +64,9 @@ object ByeDpiProxy {
             Log.e(TAG, "Failed to set log path", e)
         }
 
+        val address = Pair(ip, port)
+        activeAddress = address
+
         Thread {
             isRunning = true
             Log.d(TAG, "Starting ByeDPI on $ip:$port with args: $baseArgs")
@@ -73,14 +79,16 @@ object ByeDpiProxy {
             appctr.Appctr.logAndroid("INFO", "CORE", "DPI Bypass (ByeDPI) stopped with code $code")
             
             stopLogReader()
+            activeAddress = null
             isRunning = false
         }.start()
 
-        return Pair(ip, port)
+        return address
     }
 
     fun stop() {
         if (!isRunning) return
+        activeAddress = null
         stopLogReader()
         Thread {
             jniStopProxy()
