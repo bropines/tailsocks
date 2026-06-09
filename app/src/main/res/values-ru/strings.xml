@@ -757,8 +757,9 @@
     <string name="settings_socks5_username_title">Имя пользователя SOCKS5</string>
     <string name="settings_socks5_password_title">Пароль SOCKS5</string>
     <string name="settings_sagernet_copy">Копировать ссылку SagerNet</string>
-    <string name="settings_sect_http">HTTP-прокси</string>
+    <string name="settings_sect_http">HTTP-прокси (внутренний)</string>
     <string name="settings_http_address_title">Адрес HTTP-прокси</string>
+    <string name="settings_http_desc">Запускает локальный HTTP-прокси на указанном порту. Позволяет другим приложениям без поддержки SOCKS5 направлять трафик в сеть Tailscale без аутентификации.</string>
     <string name="settings_sect_control_proxy">Прокси для Control Plane</string>
     <string name="settings_control_proxy_enabled_format">Включено (%1$s)</string>
     <string name="settings_control_proxy_disabled">Выключено</string>

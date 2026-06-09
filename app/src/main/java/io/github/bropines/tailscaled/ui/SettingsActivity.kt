@@ -737,7 +737,13 @@ fun SettingsScreen(
                             Spacer(Modifier.height(12.dp))
 
                             SettingsCard(title = stringResource(R.string.settings_sect_http)) {
-                                SettingsEditItem(stringResource(R.string.settings_http_address_title), httpProxy, Icons.Default.Http) { httpProxy = it; saveGlobalPref("httpproxy", it) }
+                                SettingsEditItem(stringResource(R.string.settings_http_address_title), httpProxy, Icons.Default.Http, placeholder = "127.0.0.1:8080") { httpProxy = it; saveGlobalPref("httpproxy", it) }
+                                Text(
+                                    text = stringResource(R.string.settings_http_desc),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                    modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 8.dp)
+                                )
                             }
 
                             Spacer(Modifier.height(12.dp))
