@@ -67,7 +67,7 @@ object GlobalSettings {
 
     fun parseProxyUri(uriStr: String): Map<String, String>? {
         try {
-            val trimmed = uriStr.trim()
+            val trimmed = uriStr.trim().split("#").first().trim()
             if (trimmed.isEmpty()) return null
             val regex = Regex("^(socks5|http|https)://(?:([^:@]+)(?::([^@]+))?@)?([^:]+):(\\d+)(?:/.*)?$", RegexOption.IGNORE_CASE)
             val matchResult = regex.matchEntire(trimmed)
