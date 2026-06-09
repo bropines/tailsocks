@@ -976,4 +976,9 @@
     <string name="settings_proxy_preset_save_btn">Save</string>
     <string name="settings_proxy_preset_fill_fields_error">Please fill Host and Port fields first!</string>
     <string name="settings_byedpi_warning_override">Note: Enabling ByeByeDPI will override the Control Proxy settings with its own local proxy service.</string>
+
+    <string name="main_conn_issue_title">Connection Problem</string>
+    <string name="main_conn_issue_desc">It seems there is a connection issue. If the coordination server is blocked, please configure a custom Proxy or enable ByeByeDPI.</string>
+    <string name="main_conn_issue_btn_proxy">Configure Proxy</string>
+    <string name="main_logged_out_btn_stop_short">Stop</string>
 </resources>

@@ -976,4 +976,9 @@
     <string name="settings_proxy_preset_save_btn">Сохранить</string>
     <string name="settings_proxy_preset_fill_fields_error">Пожалуйста, сначала заполните поля хоста и порта!</string>
     <string name="settings_byedpi_warning_override">Памятка: Включение ByeByeDPI заменит настройки Control Proxy (прокси панели управления) на свой собственный локальный прокси.</string>
+
+    <string name="main_conn_issue_title">Проблема с подключением</string>
+    <string name="main_conn_issue_desc">Похоже, возникли проблемы с подключением к серверу. Если сервер координации заблокирован, настройте обход через собственный прокси или включите ByeByeDPI.</string>
+    <string name="main_conn_issue_btn_proxy">Настроить прокси</string>
+    <string name="main_logged_out_btn_stop_short">Остановить</string>
 </resources>

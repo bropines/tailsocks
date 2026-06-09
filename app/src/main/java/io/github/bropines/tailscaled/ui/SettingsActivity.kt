@@ -426,6 +426,7 @@ fun SettingsScreen(
                 Button(onClick = { 
                     scope.launch(Dispatchers.IO) {
                         Appctr.logout()
+                        profilePrefs.edit().putBoolean("was_logged_in", false).apply()
                         withContext(Dispatchers.Main) {
                             Toast.makeText(context, context.getString(R.string.settings_logged_out), Toast.LENGTH_SHORT).show()
                         }

@@ -17,6 +17,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -293,21 +294,42 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
     LaunchedEffect(Unit) {
         var urlDetected = false
         var lastAvatarSync = 0L
+        var loggedOutSeconds = 0
         while (true) {
             val isProcessAlive = try { appctr.Appctr.isRunning() } catch (e: Exception) { false }
             val backendState = if (isProcessAlive) {
                 try { appctr.Appctr.getBackendState() } catch (e: Exception) { "Error" }
             } else "Stopped"
 
+            if (isProcessAlive && backendState == "Running") {
+                val wasLoggedIn = prefs.getBoolean("was_logged_in", false)
+                if (!wasLoggedIn) {
+                    prefs.edit().putBoolean("was_logged_in", true).apply()
+                }
+            }
+
             // Sync state if not explicitly in transition
             if (!isProcessing) {
                 proxyState = if (isProcessAlive) {
                     if (backendState == "NeedsLogin" || backendState == "NoState") {
-                        "LOGGED_OUT"
+                        loggedOutSeconds += 2
+                        if (loggedOutSeconds >= 10) {
+                            if (prefs.getBoolean("was_logged_in", false)) {
+                                "CONNECTION_ISSUE"
+                            } else {
+                                "LOGGED_OUT"
+                            }
+                        } else {
+                            proxyState
+                        }
                     } else {
+                        loggedOutSeconds = 0
                         "ACTIVE"
                     }
-                } else "STOPPED"
+                } else {
+                    loggedOutSeconds = 0
+                    "STOPPED"
+                }
             }
 
             if (isProcessAlive) {
@@ -899,7 +921,21 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                 )
             }
 
-            if (proxyState != "LOGGED_OUT") {
+            if (proxyState == "CONNECTION_ISSUE") {
+                Spacer(modifier = Modifier.height(16.dp))
+                ConnectionIssueCard(
+                    onConfigureProxy = {
+                        context.startActivity(Intent(context, SettingsActivity::class.java))
+                    },
+                    onStop = {
+                        isProcessing = true
+                        val intent = Intent(context, TailscaledService::class.java).apply { action = "STOP_ACTION" }
+                        context.startService(intent)
+                    }
+                )
+            }
+
+            if (proxyState != "LOGGED_OUT" && proxyState != "CONNECTION_ISSUE") {
                 Spacer(modifier = Modifier.height(32.dp))
 
                 Row(modifier = Modifier.fillMaxWidth()) {
@@ -1380,148 +1416,230 @@ fun LoggedOutCard(
     val activeAccount = remember { io.github.bropines.tailscaled.core.AccountManager.getActiveAccount(context) }
     val profilePrefs = remember(activeAccount) { context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE) }
     var enteredKey by remember { mutableStateOf(profilePrefs.getString("authkey", "") ?: "") }
+    var showKeyInput by remember { mutableStateOf(false) }
 
     Card(
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
+            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.15f)
         ),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 16.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f))
+            .padding(vertical = 8.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f))
     ) {
         Column(
-            modifier = Modifier.padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(64.dp)
-                    .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f), shape = CircleShape),
-                contentAlignment = Alignment.Center
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(
-                    imageVector = Icons.Default.AccountCircle,
+                    imageVector = Icons.Default.Warning,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(24.dp)
+                )
+                Text(
+                    text = stringResource(R.string.main_logged_out_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onErrorContainer
                 )
             }
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = stringResource(R.string.main_logged_out_title),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onErrorContainer
-            )
-            Spacer(modifier = Modifier.height(8.dp))
+            
             Text(
                 text = stringResource(R.string.main_logged_out_desc),
-                style = MaterialTheme.typography.bodyMedium,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(20.dp))
-            
-            // Auth Key field
-            OutlinedTextField(
-                value = enteredKey,
-                onValueChange = { enteredKey = it },
-                label = { Text(stringResource(R.string.main_logged_out_authkey_label)) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Button(
-                onClick = {
-                    profilePrefs.edit().putString("authkey", enteredKey).apply()
-                    // Restart service to apply the key
-                    val stopIntent = Intent(context, TailscaledService::class.java).apply { action = "STOP_ACTION" }
-                    context.startService(stopIntent)
-                    
-                    // Delay start slightly to let the socket release
-                    val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
-                    mainHandler.postDelayed({
-                        val startIntent = Intent(context, TailscaledService::class.java).apply { action = "START_ACTION" }
-                        ContextCompat.startForegroundService(context, startIntent)
-                    }, 500)
-                    
-                    Toast.makeText(context, "Key saved. Restarting service...", Toast.LENGTH_SHORT).show()
-                },
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Icon(Icons.Default.Key, null)
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.main_logged_out_btn_authkey), fontWeight = FontWeight.Bold)
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-            Spacer(modifier = Modifier.height(12.dp))
-
-            if (loginUrl != null) {
-                Button(
-                    onClick = {
-                        try {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(loginUrl)))
-                        } catch (e: Exception) {
-                            Toast.makeText(context, context.getString(R.string.cannot_open_browser), Toast.LENGTH_SHORT).show()
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Default.Login, null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.main_logged_out_btn_login), fontWeight = FontWeight.Bold)
-                }
-                Spacer(modifier = Modifier.height(12.dp))
-            } else {
-                Box(
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                }
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-
-            OutlinedButton(
-                onClick = onConfigureProxy,
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Icon(Icons.Default.Settings, null)
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.main_logged_out_btn_proxy), fontWeight = FontWeight.SemiBold)
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Button(
-                onClick = onStop,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error,
-                    contentColor = MaterialTheme.colorScheme.onError
-                ),
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Icon(Icons.Default.Stop, null)
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.main_logged_out_btn_stop), fontWeight = FontWeight.SemiBold)
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = stringResource(R.string.main_logged_out_fallback_tip),
                 style = MaterialTheme.typography.bodySmall,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                textAlign = TextAlign.Start,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth()
             )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (loginUrl != null) {
+                    Button(
+                        onClick = {
+                            try {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(loginUrl)))
+                            } catch (e: Exception) {
+                                Toast.makeText(context, context.getString(R.string.cannot_open_browser), Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        modifier = Modifier.weight(1f).height(40.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp)
+                    ) {
+                        Icon(Icons.Default.Login, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(stringResource(R.string.main_logged_out_btn_login), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier.weight(1f).height(40.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                    }
+                }
+
+                OutlinedButton(
+                    onClick = { showKeyInput = !showKeyInput },
+                    modifier = Modifier.weight(1f).height(40.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
+                ) {
+                    Icon(Icons.Default.Key, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(if (showKeyInput) "Hide Key" else "Use Key", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+
+            AnimatedVisibility(visible = showKeyInput) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    OutlinedTextField(
+                        value = enteredKey,
+                        onValueChange = { enteredKey = it },
+                        label = { Text(stringResource(R.string.main_logged_out_authkey_label), fontSize = 11.sp) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    Button(
+                        onClick = {
+                            profilePrefs.edit().putString("authkey", enteredKey).apply()
+                            val stopIntent = Intent(context, TailscaledService::class.java).apply { action = "STOP_ACTION" }
+                            context.startService(stopIntent)
+                            val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+                            mainHandler.postDelayed({
+                                val startIntent = Intent(context, TailscaledService::class.java).apply { action = "START_ACTION" }
+                                ContextCompat.startForegroundService(context, startIntent)
+                            }, 500)
+                            Toast.makeText(context, "Key saved. Restarting service...", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.fillMaxWidth().height(40.dp),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Submit Key", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onConfigureProxy,
+                    modifier = Modifier.weight(1f).height(36.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
+                ) {
+                    Icon(Icons.Default.Settings, null, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Proxy Setup", fontSize = 11.sp)
+                }
+
+                Button(
+                    onClick = onStop,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    ),
+                    modifier = Modifier.weight(1f).height(36.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
+                ) {
+                    Icon(Icons.Default.Stop, null, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(stringResource(R.string.main_logged_out_btn_stop_short), fontSize = 11.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ConnectionIssueCard(
+    onConfigureProxy: () -> Unit,
+    onStop: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.size(24.dp)
+                )
+                Text(
+                    text = stringResource(R.string.main_conn_issue_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+            
+            Text(
+                text = stringResource(R.string.main_conn_issue_desc),
+                style = MaterialTheme.typography.bodySmall,
+                textAlign = TextAlign.Start,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = onConfigureProxy,
+                    modifier = Modifier.weight(1f).height(40.dp),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Default.Settings, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.main_conn_issue_btn_proxy), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+
+                OutlinedButton(
+                    onClick = onStop,
+                    modifier = Modifier.weight(1f).height(40.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Icon(Icons.Default.Stop, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.main_logged_out_btn_stop_short), fontSize = 12.sp)
+                }
+            }
         }
     }
 }
