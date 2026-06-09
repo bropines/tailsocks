@@ -942,4 +942,6 @@
     <string name="first_start_btn_next">Next</string>
     <string name="first_start_btn_back">Back</string>
     <string name="first_start_btn_finish">Get Started</string>
+    <string name="first_start_key_oauth_hint_title">Login via Auth Key or OAuth</string>
+    <string name="first_start_key_oauth_hint_desc">If standard web login fails to load or the key login button doesn\'t appear immediately on the webpage, you can use an Auth Key or OAuth client credentials. These can be configured in Settings -> Profile tab.</string>
 </resources>
