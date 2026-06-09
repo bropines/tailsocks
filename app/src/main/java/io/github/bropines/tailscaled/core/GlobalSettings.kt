@@ -48,7 +48,7 @@ object GlobalSettings {
     fun isCPByeDpiEnabled(context: Context) = getPrefs(context).getBoolean("cp_byedpi_enabled", false)
     fun setCPByeDpiEnabled(context: Context, enabled: Boolean) = getPrefs(context).edit().putBoolean("cp_byedpi_enabled", enabled).apply()
 
-    fun getCPByeDpiFlags(context: Context): String = getPrefs(context).getString("cp_byedpi_flags", "-s 1 -d split -r") ?: "-s 1 -d split -r"
+    fun getCPByeDpiFlags(context: Context): String = getPrefs(context).getString("cp_byedpi_flags", "-o1 -a1 -r-5+se") ?: "-o1 -a1 -r-5+se"
     fun setCPByeDpiFlags(context: Context, flags: String) = getPrefs(context).edit().putString("cp_byedpi_flags", flags).apply()
 
     fun getControlProxyUrl(context: Context): String {
@@ -61,8 +61,55 @@ object GlobalSettings {
         if (host.isEmpty()) return ""
         val auth = if (user.isNotEmpty()) "$user:$pass@" else ""
         val scheme = type.lowercase()
-        val p = port.ifEmpty { if (scheme == "http") "8080" else "1080" }
+        val p = port.ifEmpty { if (scheme == "http" || scheme == "https") "8080" else "1080" }
         return "$scheme://$auth$host:$p"
+    }
+
+    fun parseProxyUri(uriStr: String): Map<String, String>? {
+        try {
+            val trimmed = uriStr.trim()
+            if (trimmed.isEmpty()) return null
+            val regex = Regex("^(socks5|http|https)://(?:([^:@]+)(?::([^@]+))?@)?([^:]+):(\\d+)(?:/.*)?$", RegexOption.IGNORE_CASE)
+            val matchResult = regex.matchEntire(trimmed)
+            if (matchResult != null) {
+                val scheme = matchResult.groups[1]?.value?.uppercase() ?: "SOCKS5"
+                val user = matchResult.groups[2]?.value ?: ""
+                val pass = matchResult.groups[3]?.value ?: ""
+                val host = matchResult.groups[4]?.value ?: ""
+                val port = matchResult.groups[5]?.value ?: ""
+                return mapOf(
+                    "type" to scheme,
+                    "user" to user,
+                    "pass" to pass,
+                    "host" to host,
+                    "port" to port
+                )
+            }
+            val regexNoScheme = Regex("^(?:([^:@]+)(?::([^@]+))?@)?([^:]+):(\\d+)$")
+            val matchNoScheme = regexNoScheme.matchEntire(trimmed)
+            if (matchNoScheme != null) {
+                val user = matchNoScheme.groups[1]?.value ?: ""
+                val pass = matchNoScheme.groups[2]?.value ?: ""
+                val host = matchNoScheme.groups[3]?.value ?: ""
+                val port = matchNoScheme.groups[4]?.value ?: ""
+                return mapOf(
+                    "type" to "SOCKS5",
+                    "user" to user,
+                    "pass" to pass,
+                    "host" to host,
+                    "port" to port
+                )
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return null
+    }
+
+    fun buildProxyUri(type: String, host: String, port: String, user: String, pass: String): String {
+        val scheme = type.lowercase()
+        val auth = if (user.isNotEmpty()) "$user:$pass@" else ""
+        return "$scheme://$auth$host:$port"
     }
 
     // Generic accessors for global settings
@@ -103,9 +150,24 @@ object GlobalSettings {
     fun isTunFullTunnel(context: Context): Boolean = getBoolean(context, "tun_full_tunnel", false)
     fun setTunFullTunnel(context: Context, full: Boolean) = setBoolean(context, "tun_full_tunnel", full)
 
+    private val DEFAULT_EXCLUDED_APPS = setOf(
+        "ru.oneme.app",
+        "com.vkontakte.android",
+        "ru.vk.store.tv",
+        "ru.nspk.mirpay",
+        "ru.rostel",
+        "com.avito.android"
+    )
+
     /** Package names excluded from VPN tunnel (comma-separated). */
     fun getTunExcludedApps(context: Context): Set<String> {
-        val raw = getString(context, "tun_excluded_apps", "")
+        val prefs = getPrefs(context)
+        if (!prefs.contains("tun_excluded_apps")) {
+            val defaultStr = DEFAULT_EXCLUDED_APPS.joinToString(",")
+            prefs.edit().putString("tun_excluded_apps", defaultStr).apply()
+            return DEFAULT_EXCLUDED_APPS
+        }
+        val raw = prefs.getString("tun_excluded_apps", "") ?: ""
         return if (raw.isEmpty()) emptySet() else raw.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
     }
     fun setTunExcludedApps(context: Context, apps: Set<String>) =
