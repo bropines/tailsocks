@@ -168,7 +168,7 @@ fun SlideContainer(
     icon: ImageVector,
     title: String,
     description: String,
-    content: @Composable ColumnScope.() -> Unit = {}
+    content: @Composable () -> Unit = {}
 ) {
     Box(
         modifier = Modifier
