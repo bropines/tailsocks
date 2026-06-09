@@ -959,7 +959,7 @@
     <string name="first_start_bypass_mode_bbd">ByeByeDPI (встроенный обход блокировок)</string>
     <string name="first_start_bypass_mode_proxy">Собственный Прокси (HTTP/SOCKS5)</string>
     <string name="first_start_proxy_link_label">Ссылка на прокси (socks5://user:pass@ip:port)</string>
-    <string name="first_start_proxy_parse_btn">Распарсить ссылку</string>
+    <string name="first_start_proxy_parse_btn">Вставить</string>
     <string name="first_start_proxy_host_label">Хост прокси</string>
     <string name="first_start_proxy_port_label">Порт</string>
     <string name="first_start_authkey_label">Ключ авторизации (Auth Key: tskey-auth-...)</string>

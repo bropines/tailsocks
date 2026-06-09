@@ -454,22 +454,39 @@ fun SlideBypassSetup() {
                             trailingIcon = {
                                 TextButton(
                                     onClick = {
-                                        val parsed = GlobalSettings.parseProxyUri(proxyLink)
-                                        if (parsed != null) {
-                                            proxyType = parsed["type"] ?: "SOCKS5"
-                                            proxyHost = parsed["host"] ?: ""
-                                            proxyPort = parsed["port"] ?: ""
-                                            proxyUser = parsed["user"] ?: ""
-                                            proxyPass = parsed["pass"] ?: ""
-                                            
-                                            GlobalSettings.setCPField(context, "type", proxyType)
-                                            GlobalSettings.setCPField(context, "host", proxyHost)
-                                            GlobalSettings.setCPField(context, "port", proxyPort)
-                                            GlobalSettings.setCPField(context, "user", proxyUser)
-                                            GlobalSettings.setCPField(context, "pass", proxyPass)
-                                            Toast.makeText(context, "Proxy parsed!", Toast.LENGTH_SHORT).show()
+                                        val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                        val clipData = clipboardManager.primaryClip
+                                        val clipboardText = if (clipData != null && clipData.itemCount > 0) {
+                                            clipData.getItemAt(0).text?.toString()?.trim()
+                                        } else null
+
+                                        val linkToParse = if (!clipboardText.isNullOrEmpty()) {
+                                            proxyLink = clipboardText
+                                            clipboardText
                                         } else {
-                                            Toast.makeText(context, "Failed to parse link", Toast.LENGTH_SHORT).show()
+                                            proxyLink.trim()
+                                        }
+
+                                        if (linkToParse.isNotEmpty()) {
+                                            val parsed = GlobalSettings.parseProxyUri(linkToParse)
+                                            if (parsed != null) {
+                                                proxyType = parsed["type"] ?: "SOCKS5"
+                                                proxyHost = parsed["host"] ?: ""
+                                                proxyPort = parsed["port"] ?: ""
+                                                proxyUser = parsed["user"] ?: ""
+                                                proxyPass = parsed["pass"] ?: ""
+                                                
+                                                GlobalSettings.setCPField(context, "type", proxyType)
+                                                GlobalSettings.setCPField(context, "host", proxyHost)
+                                                GlobalSettings.setCPField(context, "port", proxyPort)
+                                                GlobalSettings.setCPField(context, "user", proxyUser)
+                                                GlobalSettings.setCPField(context, "pass", proxyPass)
+                                                Toast.makeText(context, "Proxy parsed!", Toast.LENGTH_SHORT).show()
+                                            } else {
+                                                Toast.makeText(context, "Failed to parse link", Toast.LENGTH_SHORT).show()
+                                            }
+                                        } else {
+                                            Toast.makeText(context, "Clipboard and field are empty", Toast.LENGTH_SHORT).show()
                                         }
                                     }
                                 ) {

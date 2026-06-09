@@ -959,7 +959,7 @@
     <string name="first_start_bypass_mode_bbd">ByeByeDPI (built-in DPI bypass)</string>
     <string name="first_start_bypass_mode_proxy">Custom Proxy (HTTP/SOCKS5)</string>
     <string name="first_start_proxy_link_label">Proxy link (socks5://user:pass@ip:port)</string>
-    <string name="first_start_proxy_parse_btn">Parse Link</string>
+    <string name="first_start_proxy_parse_btn">Paste</string>
     <string name="first_start_proxy_host_label">Proxy Host</string>
     <string name="first_start_proxy_port_label">Port</string>
     <string name="first_start_authkey_label">Auth Key (tskey-auth-...)</string>
