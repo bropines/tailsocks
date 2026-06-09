@@ -964,4 +964,6 @@
     <string name="first_start_enable_bbd_desc">To bypass coordination server censorship</string>
     <string name="settings_show_onboarding">Show Onboarding Screen</string>
     <string name="settings_show_onboarding_desc">Rerun the setup wizard and welcome screens</string>
+    <string name="first_start_permissions_title">Permissions &amp; Services</string>
+    <string name="first_start_permissions_desc">Grant the necessary system permissions for stable background operation.</string>
 </resources>

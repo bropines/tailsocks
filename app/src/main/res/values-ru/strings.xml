@@ -964,4 +964,6 @@
     <string name="first_start_enable_bbd_desc">Для обхода блокировок сервера координации</string>
     <string name="settings_show_onboarding">Показать приветственный экран</string>
     <string name="settings_show_onboarding_desc">Перезапустить процесс настройки и Onboarding при первом запуске</string>
+    <string name="first_start_permissions_title">Разрешения и права</string>
+    <string name="first_start_permissions_desc">Предоставьте необходимые системные разрешения для стабильной фоновой работы.</string>
 </resources>
