@@ -287,18 +287,19 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
         var lastAvatarSync = 0L
         while (true) {
             val isProcessAlive = try { appctr.Appctr.isRunning() } catch (e: Exception) { false }
-            
-            if (isProcessAlive && BuildConfig.IS_DEV) {
-                val backendState = try { appctr.Appctr.getBackendState() } catch (e: Exception) { "Error" }
-                // If backend is in a terminal state but process is alive, we might need to reflect it
-                if (backendState == "Stopped" || backendState == "Error") {
-                    // Process is alive but API is not responding or backend is stopped
-                }
-            }
+            val backendState = if (isProcessAlive) {
+                try { appctr.Appctr.getBackendState() } catch (e: Exception) { "Error" }
+            } else "Stopped"
 
             // Sync state if not explicitly in transition
             if (!isProcessing) {
-                proxyState = if (isProcessAlive) "ACTIVE" else "STOPPED"
+                proxyState = if (isProcessAlive) {
+                    if (backendState == "NeedsLogin" || backendState == "NoState") {
+                        "LOGGED_OUT"
+                    } else {
+                        "ACTIVE"
+                    }
+                } else "STOPPED"
             }
 
             if (isProcessAlive) {
@@ -875,68 +876,60 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                 }
             }
 
-            if (loginUrl != null) {
+            if (proxyState == "LOGGED_OUT") {
                 Spacer(modifier = Modifier.height(16.dp))
-                Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth().clickable {
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(loginUrl)))
+                LoggedOutCard(
+                    loginUrl = loginUrl,
+                    onConfigureProxy = {
+                        context.startActivity(Intent(context, SettingsActivity::class.java))
+                    },
+                    onStop = {
+                        isProcessing = true
+                        val intent = Intent(context, TailscaledService::class.java).apply { action = "STOP_ACTION" }
+                        context.startService(intent)
                     }
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.AccountCircle, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(stringResource(R.string.main_login_required_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                            Text(stringResource(R.string.main_login_required_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                        }
-                        Spacer(modifier = Modifier.weight(1f))
-                        Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                )
+            }
+
+            if (proxyState != "LOGGED_OUT") {
+                Spacer(modifier = Modifier.height(32.dp))
+
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    MenuCard(title = stringResource(R.string.menu_console), icon = Icons.Default.PlayArrow, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                        context.startActivity(Intent(context, ConsoleActivity::class.java))
+                    }
+                    MenuCard(title = stringResource(R.string.menu_peers), icon = Icons.Default.Share, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                        context.startActivity(Intent(context, PeersActivity::class.java))
                     }
                 }
-            }
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    MenuCard(title = stringResource(R.string.menu_logs), icon = Icons.AutoMirrored.Filled.List, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                        context.startActivity(Intent(context, LogsActivity::class.java))
+                    }
+                    MenuCard(title = stringResource(R.string.menu_files), icon = Icons.Default.Folder, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                        context.startActivity(Intent(context, FilesActivity::class.java))
+                    }
+                }
 
-            Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    MenuCard(title = stringResource(R.string.menu_dns), icon = Icons.Default.Language, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                        context.startActivity(Intent(context, DnsActivity::class.java))
+                    }
+                    MenuCard(title = stringResource(R.string.menu_netcheck), icon = Icons.Default.Refresh, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                        context.startActivity(Intent(context, NetcheckActivity::class.java))
+                    }
+                }
 
-            Row(modifier = Modifier.fillMaxWidth()) {
-                MenuCard(title = stringResource(R.string.menu_console), icon = Icons.Default.PlayArrow, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                    context.startActivity(Intent(context, ConsoleActivity::class.java))
-                }
-                MenuCard(title = stringResource(R.string.menu_peers), icon = Icons.Default.Share, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
-                    context.startActivity(Intent(context, PeersActivity::class.java))
-                }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(modifier = Modifier.fillMaxWidth()) {
-                MenuCard(title = stringResource(R.string.menu_logs), icon = Icons.AutoMirrored.Filled.List, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                    context.startActivity(Intent(context, LogsActivity::class.java))
-                }
-                MenuCard(title = stringResource(R.string.menu_files), icon = Icons.Default.Folder, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
-                    context.startActivity(Intent(context, FilesActivity::class.java))
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(modifier = Modifier.fillMaxWidth()) {
-                MenuCard(title = stringResource(R.string.menu_dns), icon = Icons.Default.Language, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                    context.startActivity(Intent(context, DnsActivity::class.java))
-                }
-                MenuCard(title = stringResource(R.string.menu_netcheck), icon = Icons.Default.Refresh, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
-                    context.startActivity(Intent(context, NetcheckActivity::class.java))
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(modifier = Modifier.fillMaxWidth()) {
-                MenuCard(title = stringResource(R.string.menu_settings), icon = Icons.Default.Settings, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                    context.startActivity(Intent(context, SettingsActivity::class.java))
-                }
-                MenuCard(title = stringResource(R.string.menu_serve), icon = Icons.Default.Public, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
-                    context.startActivity(Intent(context, ServeActivity::class.java))
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    MenuCard(title = stringResource(R.string.menu_settings), icon = Icons.Default.Settings, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                        context.startActivity(Intent(context, SettingsActivity::class.java))
+                    }
+                    MenuCard(title = stringResource(R.string.menu_serve), icon = Icons.Default.Public, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                        context.startActivity(Intent(context, ServeActivity::class.java))
+                    }
                 }
             }
 
@@ -1365,6 +1358,121 @@ fun MenuCard(title: String, icon: ImageVector, modifier: Modifier = Modifier, on
             Icon(imageVector = icon, contentDescription = title, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
             Spacer(modifier = Modifier.height(8.dp))
             Text(text = title, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, maxLines = 1, softWrap = false)
+        }
+    }
+}
+
+@Composable
+fun LoggedOutCard(
+    loginUrl: String?,
+    onConfigureProxy: () -> Unit,
+    onStop: () -> Unit
+) {
+    val context = LocalContext.current
+    Card(
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f))
+    ) {
+        Column(
+            modifier = Modifier.padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f), shape = CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.AccountCircle,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(36.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = stringResource(R.string.main_logged_out_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onErrorContainer
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.main_logged_out_desc),
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            if (loginUrl != null) {
+                Button(
+                    onClick = {
+                        try {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(loginUrl)))
+                        } catch (e: Exception) {
+                            Toast.makeText(context, context.getString(R.string.cannot_open_browser), Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Login, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.main_logged_out_btn_login), fontWeight = FontWeight.Bold)
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            } else {
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            OutlinedButton(
+                onClick = onConfigureProxy,
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.Settings, null)
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.main_logged_out_btn_proxy), fontWeight = FontWeight.SemiBold)
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Button(
+                onClick = onStop,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError
+                ),
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.Stop, null)
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.main_logged_out_btn_stop), fontWeight = FontWeight.SemiBold)
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = stringResource(R.string.main_logged_out_fallback_tip),
+                style = MaterialTheme.typography.bodySmall,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+            )
         }
     }
 }
