@@ -49,6 +49,10 @@ object ByeDpiProxy {
             "-i", "socks5://$ip",
             "-p", port.toString()
         )
+
+        if (GlobalSettings.isCPByeDpiIpv6Disabled(context)) {
+            baseArgs.add("-X")
+        }
         
         if (customFlags.isNotEmpty()) {
             baseArgs.addAll(customFlags.split("\\s+".toRegex()).filter { it.isNotEmpty() })

@@ -32,6 +32,8 @@ class TailscaledService : Service() {
     private val notificationManager by lazy { getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager }
     private var wakeLock: PowerManager.WakeLock? = null
     private var byedpiProxyAddress: Pair<String, Int>? = null
+    private var lastStartedFlags: String? = null
+    private var lastStartedIpv6Disabled: Boolean? = null
     
     private val refreshHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private val refreshRunnable = object : Runnable {
@@ -238,14 +240,24 @@ class TailscaledService : Service() {
         val host = profilePrefs.getString("hostname", "") ?: ""
 
         val byedpiEnabled = GlobalSettings.isCPByeDpiEnabled(this@TailscaledService)
+        val flags = GlobalSettings.getCPByeDpiFlags(this@TailscaledService)
+        val ipv6Disabled = GlobalSettings.isCPByeDpiIpv6Disabled(this@TailscaledService)
+
         if (byedpiEnabled) {
-            if (byedpiProxyAddress == null) {
-                val flags = GlobalSettings.getCPByeDpiFlags(this@TailscaledService)
+            if (byedpiProxyAddress == null || flags != lastStartedFlags || ipv6Disabled != lastStartedIpv6Disabled) {
+                if (byedpiProxyAddress != null) {
+                    try { ByeDpiProxy.stop() } catch (e: Exception) {}
+                    try { Thread.sleep(200) } catch (e: Exception) {}
+                }
                 byedpiProxyAddress = ByeDpiProxy.start(flags, this@TailscaledService)
+                lastStartedFlags = flags
+                lastStartedIpv6Disabled = ipv6Disabled
             }
         } else {
             ByeDpiProxy.stop()
             byedpiProxyAddress = null
+            lastStartedFlags = null
+            lastStartedIpv6Disabled = null
         }
 
         return StartOptions().apply {
@@ -320,6 +332,8 @@ class TailscaledService : Service() {
         Appctr.stop()
         try { ByeDpiProxy.stop() } catch (e: Exception) {}
         byedpiProxyAddress = null
+        lastStartedFlags = null
+        lastStartedIpv6Disabled = null
         try { Runtime.getRuntime().exec("killall tailscaled") } catch (e: Exception) {}
         if (wakeLock?.isHeld == true) wakeLock?.release()
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -462,6 +476,8 @@ class TailscaledService : Service() {
         Appctr.stop()
         try { ByeDpiProxy.stop() } catch (e: Exception) {}
         byedpiProxyAddress = null
+        lastStartedFlags = null
+        lastStartedIpv6Disabled = null
         try { connectivityManager.unregisterNetworkCallback(networkCallback) } catch (e: Exception) {}
         if (wakeLock?.isHeld == true) wakeLock?.release()
         super.onDestroy()

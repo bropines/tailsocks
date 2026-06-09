@@ -51,6 +51,9 @@ object GlobalSettings {
     fun getCPByeDpiFlags(context: Context): String = getPrefs(context).getString("cp_byedpi_flags", "-o1 -a1 -r-5+se") ?: "-o1 -a1 -r-5+se"
     fun setCPByeDpiFlags(context: Context, flags: String) = getPrefs(context).edit().putString("cp_byedpi_flags", flags).apply()
 
+    fun isCPByeDpiIpv6Disabled(context: Context): Boolean = getPrefs(context).getBoolean("cp_byedpi_ipv6_disabled", false)
+    fun setCPByeDpiIpv6Disabled(context: Context, disabled: Boolean) = getPrefs(context).edit().putBoolean("cp_byedpi_ipv6_disabled", disabled).apply()
+
     fun getControlProxyUrl(context: Context): String {
         if (!isCPProxyEnabled(context)) return ""
         val type = getPrefs(context).getString("cp_type", "SOCKS5") ?: "SOCKS5"

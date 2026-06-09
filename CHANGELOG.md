@@ -14,10 +14,10 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Added support for custom proxy presets in settings and onboarding slides to easily save, apply, and delete proxy configurations.
 - Added localized warning banner under ByeByeDPI settings to explain that it overrides Control Proxy configurations.
 - Added compact authentication status cards on the dashboard with collapsible input fields for Auth Keys.
+- Added "Force IPv4 (Disable IPv6)" option to DPI Bypass settings tab, passing the `-X` flag to JNI ByeDPI to resolve and connect only via IPv4 and prevent handshake/checksum errors on IPv6 endpoints (e.g. controlplane.tailscale.com).
 - Added ConnectionIssueCard to guide previously logged-in users to configure proxy/bypass parameters when coordination server is unreachable.
 - Made dashboard shortcut menu cards (Console, Peers, Logs, Settings) always visible for improved accessibility and debugging.
 - Redesigned Outbound Proxy settings: renamed HTTP Proxy configuration to HTTP Proxy (Internal), added helper descriptions, and aligned options to support username/password authentication similar to SOCKS5.
-- Removed all obsolete references to Cloudflare Workers from the UI, configuration settings, and documentation.
 
 ### Fixed
 - Fixed `tailscaled` daemon crashes (exit status 2) by removing the unsupported `--login-server` command-line argument and passing the custom Control plane URL via LocalAPI preferences (`ControlURL`).

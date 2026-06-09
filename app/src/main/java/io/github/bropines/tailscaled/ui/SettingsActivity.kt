@@ -859,6 +859,7 @@ fun SettingsScreen(
                         2 -> { // TAB 2: DPI Bypass (ByeByeDPI)
                             var byedpiEnabled by remember { mutableStateOf(GlobalSettings.isCPByeDpiEnabled(context)) }
                             var byedpiFlags by remember { mutableStateOf(GlobalSettings.getCPByeDpiFlags(context)) }
+                            var byedpiIpv6Disabled by remember { mutableStateOf(GlobalSettings.isCPByeDpiIpv6Disabled(context)) }
                             val activeBbdAddr = ByeDpiProxy.activeAddress
                             
                                 SettingsCard(title = stringResource(R.string.settings_tab_byedpi)) {
@@ -923,6 +924,19 @@ fun SettingsScreen(
                                 ) {
                                     byedpiFlags = it
                                     GlobalSettings.setCPByeDpiFlags(context, it)
+                                    context.startService(Intent(context, TailscaledService::class.java).apply { action = "APPLY_SETTINGS" })
+                                }
+
+                                Spacer(Modifier.height(12.dp))
+
+                                SettingsSwitchItem(
+                                    title = stringResource(R.string.settings_byedpi_ipv6_disabled),
+                                    subtitle = stringResource(R.string.settings_byedpi_ipv6_disabled_desc),
+                                    icon = Icons.Default.Dns,
+                                    checked = byedpiIpv6Disabled
+                                ) {
+                                    byedpiIpv6Disabled = it
+                                    GlobalSettings.setCPByeDpiIpv6Disabled(context, it)
                                     context.startService(Intent(context, TailscaledService::class.java).apply { action = "APPLY_SETTINGS" })
                                 }
                             }
