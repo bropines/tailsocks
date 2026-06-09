@@ -705,6 +705,19 @@ fun SettingsScreen(
                                     GlobalSettings.setAutoStartEnabled(context, it)
                                     autoStart = it
                                 }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                SettingsClickableItem(
+                                    stringResource(R.string.settings_show_onboarding),
+                                    stringResource(R.string.settings_show_onboarding_desc),
+                                    Icons.Default.Info
+                                ) {
+                                    context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                                        .edit()
+                                        .putBoolean("first_start_done", false)
+                                        .apply()
+                                    context.startActivity(Intent(context, FirstStartActivity::class.java))
+                                    context.findActivity()?.finish()
+                                }
                             }
                         }
 
