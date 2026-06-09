@@ -944,4 +944,24 @@
     <string name="first_start_btn_finish">Начать работу</string>
     <string name="first_start_key_oauth_hint_title">Вход по ключу или OAuth</string>
     <string name="first_start_key_oauth_hint_desc">Если стандартный вход в браузере не открывается или кнопка входа по ключу не отображается на веб-странице (она может появляться не сразу), используйте Auth Key или OAuth. Их можно настроить в Настройках -> вкладка Профиль.</string>
+    <string name="first_start_select_lang">Выберите язык интерфейса</string>
+    <string name="first_start_mode_proxy_title">Режим Прокси (SOCKS5)</string>
+    <string name="first_start_mode_proxy_desc">Работает в фоне без прав VPN. Экономит батарею, но требует настройки прокси в других приложениях.</string>
+    <string name="first_start_mode_vpn_title">Режим VPN (TUN)</string>
+    <string name="first_start_mode_vpn_desc">Перехватывает и маршрутизирует весь трафик устройства в сеть Tailscale. Требует разрешения VPN.</string>
+    <string name="first_start_cp_warning_title">Сервер координации</string>
+    <string name="first_start_cp_warning_desc">Внимание: официальные серверы Tailscale заблокированы в РФ. Если у вас есть собственный сервер Headscale, укажите его адрес ниже. Оставьте пустым для официального сервера.</string>
+    <string name="first_start_cp_field_label">Адрес сервера (например, https://hs.example.com)</string>
+    <string name="first_start_bypass_mode_none">Без обхода (прямое подключение)</string>
+    <string name="first_start_bypass_mode_bbd">ByeByeDPI (встроенный обход блокировок)</string>
+    <string name="first_start_bypass_mode_proxy">Собственный Прокси (HTTP/SOCKS5)</string>
+    <string name="first_start_proxy_link_label">Ссылка на прокси (socks5://user:pass@ip:port)</string>
+    <string name="first_start_proxy_parse_btn">Распарсить ссылку</string>
+    <string name="first_start_proxy_host_label">Хост прокси</string>
+    <string name="first_start_proxy_port_label">Порт</string>
+    <string name="first_start_authkey_label">Ключ авторизации (Auth Key: tskey-auth-...)</string>
+    <string name="first_start_enable_bbd">Включить ByeByeDPI</string>
+    <string name="first_start_enable_bbd_desc">Для обхода блокировок сервера координации</string>
+    <string name="settings_show_onboarding">Показать приветственный экран</string>
+    <string name="settings_show_onboarding_desc">Перезапустить процесс настройки и Onboarding при первом запуске</string>
 </resources>

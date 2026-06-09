@@ -944,4 +944,24 @@
     <string name="first_start_btn_finish">Get Started</string>
     <string name="first_start_key_oauth_hint_title">Login via Auth Key or OAuth</string>
     <string name="first_start_key_oauth_hint_desc">If standard web login fails to load or the key login button doesn\'t appear immediately on the webpage, you can use an Auth Key or OAuth client credentials. These can be configured in Settings -> Profile tab.</string>
+    <string name="first_start_select_lang">Select Interface Language</string>
+    <string name="first_start_mode_proxy_title">Proxy Mode (SOCKS5)</string>
+    <string name="first_start_mode_proxy_desc">Runs in background without VPN permissions. Saves battery, but other apps must be configured to use the proxy.</string>
+    <string name="first_start_mode_vpn_title">VPN Mode (TUN)</string>
+    <string name="first_start_mode_vpn_desc">Intercepts and routes all device traffic through Tailscale. Requires system VPN permission.</string>
+    <string name="first_start_cp_warning_title">Coordination Server</string>
+    <string name="first_start_cp_warning_desc">Official Tailscale servers may be blocked in Russia. If you use a custom Headscale server, enter its address below. Leave empty for default.</string>
+    <string name="first_start_cp_field_label">Server URL (e.g. https://hs.example.com)</string>
+    <string name="first_start_bypass_mode_none">No bypass (direct connection)</string>
+    <string name="first_start_bypass_mode_bbd">ByeByeDPI (built-in DPI bypass)</string>
+    <string name="first_start_bypass_mode_proxy">Custom Proxy (HTTP/SOCKS5)</string>
+    <string name="first_start_proxy_link_label">Proxy link (socks5://user:pass@ip:port)</string>
+    <string name="first_start_proxy_parse_btn">Parse Link</string>
+    <string name="first_start_proxy_host_label">Proxy Host</string>
+    <string name="first_start_proxy_port_label">Port</string>
+    <string name="first_start_authkey_label">Auth Key (tskey-auth-...)</string>
+    <string name="first_start_enable_bbd">Enable ByeByeDPI</string>
+    <string name="first_start_enable_bbd_desc">To bypass coordination server censorship</string>
+    <string name="settings_show_onboarding">Show Onboarding Screen</string>
+    <string name="settings_show_onboarding_desc">Rerun the setup wizard and welcome screens</string>
 </resources>
