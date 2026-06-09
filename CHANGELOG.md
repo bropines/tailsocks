@@ -15,7 +15,6 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Fixed
 - Fixed `tailscaled` daemon crashes (exit status 2) by removing the unsupported `--login-server` command-line argument and passing the custom Control plane URL via LocalAPI preferences (`ControlURL`).
-- Updated Cloudflare Workers proxy template in README to use a simplified path-based routing scheme (routing `/ts2021`, `/machine`, and `/key` with Host header override) without URL-prefix tokens, matching pristine Tailscale client capabilities.
 
 ## [3.0.2] - 2026-06-06
 ### Fixed

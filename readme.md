@@ -265,63 +265,13 @@ cd ..
 
 ## 🌐 Restricted Regions & DPI Bypass
 
-For users in restricted regions (e.g., where `controlplane.tailscale.com` is blocked/dropped), TailSocks offers two bypass mechanisms for the control plane:
+For users in restricted regions (e.g., where `controlplane.tailscale.com` is blocked/dropped), TailSocks offers an in-app bypass mechanism for the control plane:
 
 ### 1. Control Plane DPI Bypass (ByeDPI JNI)
 TailSocks bundles a native JNI implementation of **ByeDPI** directly inside the app process. This allows bypassing SNI-based deep packet inspection (DPI) without spawning external binary processes.
 * **Security:** ByeDPI binds strictly to a randomized loopback IP (e.g., `127.182.201.43`) and a randomized port in the `127.0.0.0/8` subnet upon every startup. This prevents other applications on the device from discovering or connecting to the proxy via simple port scanning.
 * **Usage:** Enable **DPI Bypass (ByeDPI)** in Settings -> Network Tab -> Control Proxy settings and configure custom ByeDPI flags (default: `-s 1 -d split -r`).
 
-### 2. Cloudflare Worker Reverse Proxy
-You can deploy a custom Cloudflare Worker to act as a reverse proxy for the Tailscale control plane. To prevent security scanners or unauthorized visitors from detecting the proxy, this version includes **smart path-based routing & cloaking**: Tailscale traffic (e.g. `/ts2021`, `/machine`, `/key`) is proxied to the coordination server with a proper Host header, while other requests (like accessing the root URL in a browser) are cloaked as Wikipedia.
-
-#### Cloudflare Worker Script:
-```javascript
-const CLOAK_SITE = "wikipedia.org";            // Site to display for unauthorized visitors
-
-export default {
-  async fetch(request, env, ctx) {
-    const url = new URL(request.url);
-    const path = url.pathname;
-    const hasBody = !['GET', 'HEAD'].includes(request.method);
-    
-    // 1. If it looks like a Tailscale request, proxy it to the control plane
-    if (path.startsWith('/ts2021') || path.startsWith('/machine') || path.startsWith('/key')) {
-      url.hostname = 'controlplane.tailscale.com';
-      
-      const headers = new Headers(request.headers);
-      headers.set('Host', 'controlplane.tailscale.com');
-      
-      const proxyRequest = new Request(url, {
-        method: request.method,
-        headers: headers,
-        body: hasBody ? request.body : null,
-        redirect: 'manual'
-      });
-      
-      return await fetch(proxyRequest);
-    }
-    
-    // 2. Otherwise, cloak as Wikipedia
-    url.hostname = CLOAK_SITE;
-    const headers = new Headers(request.headers);
-    headers.set('Host', CLOAK_SITE);
-    
-    const cloakRequest = new Request(url, {
-      method: request.method,
-      headers: headers,
-      body: hasBody ? request.body : null,
-      redirect: 'follow'
-    });
-    
-    return await fetch(cloakRequest);
-  }
-};
-```
-* **Setup:**
-  1. Create a free Cloudflare Worker and paste the script above.
-  2. In TailSocks settings, under **Account Tab**, configure the **Login Server** setting with your worker URL (e.g., `https://your-worker.workers.dev`).
-  3. Restart the service (Stop -> Start) to apply the new Login Server.
 
 ---
 

@@ -927,12 +927,6 @@ fun SettingsScreen(
                         4 -> { // TAB 4: Account Profile & Advanced
                             SettingsCard(title = stringResource(R.string.settings_sect_account_format, activeAccount.name)) {
                                 SettingsEditItem(stringResource(R.string.settings_login_server_title), loginServer, Icons.Default.Cloud, placeholder = stringResource(R.string.settings_login_server_placeholder)) { loginServer = it; saveProfilePref("login_server", it) }
-                                Text(
-                                    text = "Для обхода блокировок можно использовать Cloudflare Worker (см. README).",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                    modifier = Modifier.padding(start = 16.dp, top = 2.dp, bottom = 8.dp)
-                                )
                                 SettingsEditItem(stringResource(R.string.settings_auth_key_title), authKey, Icons.Default.VpnKey) { authKey = it; saveProfilePref("authkey", it) }
                                 SettingsEditItem(stringResource(R.string.settings_hostname_title), hostname, Icons.Default.Badge, onAction = { android.os.Build.MODEL.replace(" ", "-").lowercase() }, actionIcon = Icons.Default.AutoFixHigh) { hostname = it; saveProfilePref("hostname", it) }
                                 SettingsExitNodeItem(stringResource(R.string.settings_exit_node_title), exitNodeId, exitNodeIp, Icons.Default.Input) { id, ip ->
