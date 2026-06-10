@@ -268,7 +268,7 @@ cd ..
 For users in restricted regions (e.g., where `controlplane.tailscale.com` is blocked/dropped), TailSocks offers an in-app bypass mechanism for the control plane:
 
 ### 1. Control Plane DPI Bypass (ByeDPI JNI)
-TailSocks bundles a native JNI implementation of **ByeDPI** directly inside the app process. This allows bypassing SNI-based deep packet inspection (DPI) without spawning external binary processes.
+TailSocks bundles a native JNI implementation of [ByeDPI](https://github.com/hufyhang/byedpi) directly inside the app process. This allows bypassing SNI-based deep packet inspection (DPI) without spawning external binary processes.
 * **Security:** ByeDPI binds strictly to a randomized loopback IP (e.g., `127.182.201.43`) and a randomized port in the `127.0.0.0/8` subnet upon every startup. This prevents other applications on the device from discovering or connecting to the proxy via simple port scanning.
 * **Usage:** Enable **DPI Bypass (ByeDPI)** in Settings -> Network Tab -> Control Proxy settings and configure custom ByeDPI flags (default: `-s 1 -d split -r`).
 
@@ -281,6 +281,7 @@ TailSocks bundles a native JNI implementation of **ByeDPI** directly inside the 
 |-|-|
 | **App & Patches** | [Bropines](https://github.com/bropines) — app development, architecture, and the majority of upstream patches |
 | **Initial Android Patches** | [Asutorufa](https://github.com/Asutorufa) — original Android networking (`anet`) and network monitor (`netmon`) [patches](https://github.com/Asutorufa/tailscale) that served as a starting point |
+| **DPI Bypass** | [hufyhang/byedpi](https://github.com/hufyhang/byedpi) — local HTTP/SOCKS5 DPI bypass utility |
 | **TUN Engine** | [heiher/hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel) — native SOCKS5-to-TUN implementation |
 | **Core Engine** | [Tailscale Inc.](https://github.com/tailscale/tailscale) — userspace networking engine (`tsnet`) |
 | **AI Assistant** | [Google Gemini](https://gemini.google.com/) — interface development, LocalAPI research, and patch engineering |
