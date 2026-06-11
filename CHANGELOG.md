@@ -2,6 +2,10 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [3.1.1] - 2026-06-11
+### Security
+- Fixed a partial path validation bypass vulnerability in `TailsocksFileProvider` by enforcing trailing slash validation on parent directories during child document validation.
+
 ## [3.1.0] - 2026-06-09
 ### Added
 - Integrated native JNI implementation of ByeDPI C-library to bypass deep packet inspection (DPI) on the Tailscale control plane without spawning separate processes.
