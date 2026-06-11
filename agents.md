@@ -1,93 +1,89 @@
-# TailSocks: Инструкция для ИИ-агентов (Developer Agent Guide)
+# TailSocks: Developer Agent Guidelines
 
-Данный документ содержит обязательные правила, архитектурные принципы и практические инструкции для любого искусственного интеллекта (агента), работающего с репозиторием **TailSocks**.
-
----
-
-## 🏗️ Архитектура и стек технологий
-
-Проект TailSocks представляет собой гибридное Android-приложение, состоящее из следующих уровней:
-1. **Core (Go daemon)**: Патченный исходный код `tailscaled` (версия v1.98.3), компилируемый в нативную библиотеку `libtailscale.so`.
-2. **Bridge (Go/Gomobile)**: Модуль `appctr`, предоставляющий JNI-биндинги (класс `appctr.Appctr` в Kotlin) для управления демоном через Unix-сокет (`tailscaled.sock`) без использования CLI.
-3. **UI (Kotlin/Compose)**: Современный интерфейс на Jetpack Compose, Material 3, с компактным дашбордом.
-4. **TUN Engine (C)**: Нативная библиотека `libhev-socks5-tunnel.so` для прозрачной переадресации трафика на уровне ядра через VPN-интерфейс в SOCKS5-прокси демона.
-5. **ByeDPI (JNI/C)**: Нативный обход DPI для координационного сервера Tailscale, привязывающийся к случайному loopback IP/порту.
-
-### Ключевые архитектурные правила:
-* **CLI-less управление**: Управление демоном происходит строго через `tailscaled.sock` посредством LocalAPI v0. Запрещено использовать вызовы внешних бинарников через CLI (`Runtime.exec` или `exec.Command` для утилит tailscale/tailscaled), за исключением перезапуска процессов в аварийном режиме.
-* **Принцип "Reset-then-Apply"**: При обновлении настроек Serve/Funnel или AdvertiseServices сначала отправляется пустой объект `{}` (Reset) для сброса состояния, затем применяется новая конфигурация.
-* **Изоляция учетных записей (Profiles)**: Данные каждого аккаунта изолируются в `/files/states/{id}/`, а настройки сохраняются в `appctr_{id}`.
+This document contains mandatory rules, architectural principles, and practical instructions for any AI coding assistant (agent) working with the **TailSocks** repository.
 
 ---
 
-## 🛠️ Сборка проекта (Build System)
+## 🏗️ Core Architecture & Tech Stack
 
-Модификация проекта состоит из двух этапов сборки:
+TailSocks is a hybrid multi-layer system:
+1. **Core (Go daemon)**: Patched `tailscaled` daemon (v1.98.3), compiled as the native library `libtailscale.so`.
+2. **Bridge (Go/Gomobile)**: The `appctr` module provides JNI bindings (class `appctr.Appctr` in Kotlin) for controlling the daemon via Unix Socket (`tailscaled.sock`) using LocalAPI v0.
+3. **UI (Kotlin/Compose)**: Compact Material 3 dashboard implemented in Jetpack Compose.
+4. **TUN Engine (C)**: System-wide transparent VPN routing powered by the native `hev-socks5-tunnel` library.
+5. **DPI Bypass (JNI/C)**: Integrated native JNI ByeDPI implementation binding to a randomized loopback IP/port on each startup.
 
-### 1. Сборка Go-ядра (`appctr`)
-При изменении Go-кода, сетевого моста или патчей Tailscale необходимо скомпилировать `.aar` библиотеку и нативные `.so` файлы:
+### Key Architectural Guidelines:
+* **CLI-less Daemon Management**: Daemon lifecycle is managed 100% via Unix socket LocalAPI v0. Do not implement aggressive configuration polling. Do not call shell commands (no CLI wrapper) unless recovering from process lock.
+* **Reset-then-Apply Pattern**: Every Serve/Funnel or AdvertiseServices configuration update must be explicit. First, post an empty object `{}` (Reset) to clear stale daemon state, then apply the new configuration.
+* **Account Isolation**: Independent accounts must store state in `/files/states/{id}/` and preferences in `appctr_{id}`.
+
+---
+
+## 🛠️ Build System & Compilation
+
+Modifications to the project require compiling native assets:
+
+### 1. Compile the Go Core (`appctr`)
+If Go code, bridge bindings, or Tailscale patches are modified:
 ```bash
 cd appctr
 ./build.sh
 ```
-*Скрипт автоматически скачает чистые исходники Tailscale (если их нет), наложит патчи из `appctr/patches/` в алфавитном порядке и соберет бинарники под архитектуры `arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`.*
+*This script downloads pristine Tailscale sources (if missing), applies atomic patches from `appctr/patches/` in alphabetical order, and compiles native `.so` binaries for 4 target architectures.*
 
-* **Управление патчами**: Если вы изменили исходники в `appctr/tailscale_src/`, сгенерируйте новые патчи с помощью скрипта:
+* **Patch Management**: If you modify code in `appctr/tailscale_src/`, recreate the atomic patch files before committing:
   ```bash
   ./appctr/patches/recreate_patches.sh
   ```
-  Патчи создаются путем сравнения `appctr/tailscale_src/` с оригинальным кодом в `appctr/orig/`.
+  This diffs your changes against clean sources in `appctr/orig/`.
 
-### 2. Сборка Android-приложения (APK)
+### 2. Compile the Android APK
 ```bash
 ./gradlew app:assembleRelease
 ```
 
 ---
 
-## 📂 Структура проекта (Project Layout)
+## 📂 Project Layout
 
-* [`app/src/main/java/io/github/bropines/tailscaled/`](file:///home/pinus/projects/tailsocks/app/src/main/java/io/github/bropines/tailscaled/) — Исходный код Android-приложения (Kotlin/Compose).
-  * [`admin/`](file:///home/pinus/projects/tailsocks/app/src/main/java/io/github/bropines/tailscaled/admin/) — Панель администратора Tailscale Admin API.
-  * [`core/`](file:///home/pinus/projects/tailsocks/app/src/main/java/io/github/bropines/tailscaled/core/) — Фоновые службы, VPN-сервис, менеджер аккаунтов, ByeDPI.
-  * [`ui/`](file:///home/pinus/projects/tailsocks/app/src/main/java/io/github/bropines/tailscaled/ui/) — Compose-экраны и компоненты интерфейса.
-* [`appctr/`](file:///home/pinus/projects/tailsocks/appctr/) — Go-мост (Gomobile).
-  * [`patches/`](file:///home/pinus/projects/tailsocks/appctr/patches/) — Атомарные патчи для исходного кода Tailscale.
-  * [`tailscale_src/`](file:///home/pinus/projects/tailsocks/appctr/tailscale_src/) — Измененные исходные коды Tailscale (не коммитить в git, скачиваются/патчатся при сборке).
-  * [`orig/`](file:///home/pinus/projects/tailsocks/appctr/orig/) — Оригинальные исходные коды Tailscale для генерации патчей (не коммитить в git).
+* [`app/src/main/java/io/github/bropines/tailscaled/`](file:///home/pinus/projects/tailsocks/app/src/main/java/io/github/bropines/tailscaled/) — Kotlin Android app code.
+  * [`admin/`](file:///home/pinus/projects/tailsocks/app/src/main/java/io/github/bropines/tailscaled/admin/) — Device management via Tailscale Admin API.
+  * [`core/`](file:///home/pinus/projects/tailsocks/app/src/main/java/io/github/bropines/tailscaled/core/) — Background services, VPN tunnel, ByeDPI, account storage.
+  * [`ui/`](file:///home/pinus/projects/tailsocks/app/src/main/java/io/github/bropines/tailscaled/ui/) — Compose dashboards and settings screens.
+* [`appctr/`](file:///home/pinus/projects/tailsocks/appctr/) — Go Gomobile bridge.
+  * [`patches/`](file:///home/pinus/projects/tailsocks/appctr/patches/) — Uppermost Tailscale patch files.
+  * [`tailscale_src/`](file:///home/pinus/projects/tailsocks/appctr/tailscale_src/) — Active Tailscale source copy (git-ignored).
+  * [`orig/`](file:///home/pinus/projects/tailsocks/appctr/orig/) — Original clean Tailscale sources (git-ignored).
 
 ---
 
-## 🧼 Принципы DRY и KISS
+## 🧼 Code Principles: DRY & KISS
 
 1. **KISS (Keep It Simple, Stupid)**:
-   - Не усложняйте логику сетевых проверок и не пишите тяжелых фоновых циклов мониторинга. Доверяйте жизненному циклу демона Tailscale.
-   - Избегайте создания избыточных абстракций в Kotlin/Compose. Используйте стандартные Material 3 компоненты.
+   - Trust the Tailscale daemon to handle policy sync and connectivity recovery. Do not write complex watchdog loops.
+   - Avoid nesting non-standard components in Compose UI.
 2. **DRY (Don't Repeat Yourself)**:
-   - Общие функции (парсинг адресов, получение активного аккаунта, работа с SharedPreferences) должны находиться в [`Utils.kt`](file:///home/pinus/projects/tailsocks/app/src/main/java/io/github/bropines/tailscaled/core/Utils.kt) или [`GlobalSettings.kt`](file:///home/pinus/projects/tailsocks/app/src/main/java/io/github/bropines/tailscaled/core/GlobalSettings.kt).
-   - При внесении изменений сначала проверьте наличие готовых методов и хелперов.
+   - Reuse common utilities in [`Utils.kt`](file:///home/pinus/projects/tailsocks/app/src/main/java/io/github/bropines/tailscaled/core/Utils.kt) and preferences in [`GlobalSettings.kt`](file:///home/pinus/projects/tailsocks/app/src/main/java/io/github/bropines/tailscaled/core/GlobalSettings.kt).
 
 ---
 
-## 📝 Правила ведения документации и CHANGELOG.md
+## 📝 Changelog & Versioning Rules
 
-Ведение файла [`CHANGELOG.md`](file:///home/pinus/projects/tailsocks/CHANGELOG.md) подчиняется строгим правилам:
-1. **Эгида новой версии**:
-   - Если последний существующий Git-тег (например, `v3.1.0`) уже выпущен/существует в репозитории, для любых новых изменений **необходимо объявить следующую разрабатываемую версию** в CHANGELOG.md (например, `## [3.1.1] - YYYY-MM-DD` или `## [3.2.0-beta]`), и описывать изменения под её заголовком.
-   - Нельзя дописывать изменения в уже существующую (выпущенную) версию, так как история изменений должна точно отражать содержимое конкретного релиза.
-2. **Только реальные факты**:
-   - Записывайте в CHANGELOG.md только те изменения, которые **были фактически интегрированы в кодовую базу** (то, что попало в коммиты).
-   - Запрещено писать в Changelog "придуманные по пути" идеи, планы на будущее или нереализованные концепты агента. Люди смотрят Changelog, чтобы понять текущую разницу в коде.
-3. **Минималистичный стиль**:
-   - Пишите на простом, лаконичном английском языке (факты, без рекламы и лишних прилагательных). Используйте стандарт Keep a Changelog (Added, Changed, Fixed, Removed).
+We track changes in [`CHANGELOG.md`](file:///home/pinus/projects/tailsocks/CHANGELOG.md):
+1. **New Release Bumping**:
+   - If the last release tag (e.g., `v3.1.0`) already exists in Git history, **always record new changes under a bumped version header** (e.g. `## [3.1.1] - YYYY-MM-DD`).
+   - Do not append changes to a version header that is already tagged or released.
+2. **Factual Updates Only**:
+   - Only document changes that have been successfully merged/committed into the codebase.
+   - Do not write about changes "conceived on the way" by the agent that were not actually implemented or were discarded. Keep it simple and focused on "What" and "Why".
 
 ---
 
-## 🐙 Правила работы с Git
+## 🐙 Git Workflow & Guidelines
 
-1. **Атомарные коммиты**:
-   - Делайте `git commit -m "..."` сразу после выполнения каждой логической задачи (например, пофиксили баг в разметке — коммит, добавили новый хелпер — коммит).
-   - Не накапливайте кучу разнородных изменений для одного огромного коммита в конце сессии.
-2. **Игнорирование директории `.agents`**:
-   - Директория `.agents/` (содержащая скилы и временные файлы агента) добавлена в `.gitignore`.
-   - **Категорически запрещено коммитить папку `.agents/` или её содержимое в Git.** Всегда проверяйте вывод `git status` перед коммитом.
+1. **Atomic Commits**:
+   - Make local commits (`git commit -m "..."`) after each individual logical change (e.g., UI layout fix, settings option addition). Do not wait until the end of the session to stage everything.
+2. **Skill Isolation**:
+   - Do not commit any files inside the `.agents/` or `.skills/` directories.
+   - Verify that these remain untracked using `git status`.
