@@ -294,6 +294,7 @@ fun TailSocksTheme(
 
     val view = LocalView.current
     if (!view.isInEditMode) {
+        @Suppress("DEPRECATION")
         SideEffect {
             val window = view.context.findActivity()?.window
             if (window != null) {
@@ -312,7 +313,7 @@ fun TailSocksTheme(
         if (currentLang == "sys") {
             context
         } else {
-            val locale = java.util.Locale(currentLang)
+            val locale = java.util.Locale.forLanguageTag(currentLang)
             java.util.Locale.setDefault(locale)
             val config = android.content.res.Configuration(context.resources.configuration)
             config.setLocale(locale)

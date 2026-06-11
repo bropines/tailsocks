@@ -137,7 +137,7 @@ class MainActivity : ComponentActivity() {
         val targetLocale = if (lang == "sys") {
             android.content.res.Resources.getSystem().configuration.locales.get(0)
         } else {
-            java.util.Locale(lang)
+            java.util.Locale.forLanguageTag(lang)
         }
         if (currentLocale.language != targetLocale.language) {
             recreate()
@@ -872,7 +872,7 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                         }
                         Spacer(modifier = Modifier.weight(1f))
                         Icon(
-                            Icons.Default.KeyboardArrowRight, 
+                            Icons.AutoMirrored.Filled.KeyboardArrowRight, 
                             null, 
                             tint = if (exitNodeIp.isNotEmpty()) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1475,7 +1475,7 @@ fun LoggedOutCard(
                         shape = RoundedCornerShape(10.dp),
                         contentPadding = PaddingValues(horizontal = 4.dp)
                     ) {
-                        Icon(Icons.Default.Login, null, modifier = Modifier.size(14.dp))
+                        Icon(Icons.AutoMirrored.Filled.Login, null, modifier = Modifier.size(14.dp))
                         Spacer(Modifier.width(4.dp))
                         Text(
                             text = stringResource(R.string.main_logged_out_btn_login),

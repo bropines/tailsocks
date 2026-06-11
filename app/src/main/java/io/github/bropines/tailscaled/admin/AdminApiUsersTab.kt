@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -258,7 +259,7 @@ fun UserDetailBottomSheet(
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50), contentColor = Color.White)
                     ) {
-                        Icon(Icons.Default.Undo, null)
+                        Icon(Icons.AutoMirrored.Filled.Undo, null)
                         Spacer(Modifier.width(8.dp))
                         Text(stringResource(R.string.admin_users_restore))
                     }

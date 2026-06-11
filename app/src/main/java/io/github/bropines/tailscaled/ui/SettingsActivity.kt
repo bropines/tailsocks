@@ -38,6 +38,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Label
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.Input
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -259,6 +262,7 @@ fun SettingsScreen(
                     if (jsonBytes != null) {
                         val jsonString = String(jsonBytes)
                         val backupData = Gson().fromJson(jsonString, Map::class.java)
+                        @Suppress("UNCHECKED_CAST")
                         val settings = backupData["settings"] as? Map<String, Any>
                         if (settings != null) {
                             val editor = profilePrefs.edit()
@@ -769,7 +773,7 @@ fun SettingsScreen(
                                 SettingsEditItem(
                                     title = stringResource(R.string.settings_ad_tags_title),
                                     value = advertiseTags,
-                                    icon = Icons.Default.Label,
+                                    icon = Icons.AutoMirrored.Filled.Label,
                                     placeholder = stringResource(R.string.settings_ad_tags_placeholder),
                                     description = stringResource(R.string.settings_ad_tags_desc),
                                     suggestions = availableNetworkTags
@@ -949,9 +953,9 @@ fun SettingsScreen(
 
                             Spacer(Modifier.height(12.dp))
 
-                            SettingsCard(title = stringResource(R.string.settings_sect_fallback_dns)) {
-                                SettingsEditItem(stringResource(R.string.settings_dns_fallbacks_title), dnsFallbacks, Icons.Default.List, placeholder = stringResource(R.string.settings_dns_fallbacks_placeholder)) { dnsFallbacks = it; saveGlobalPref("dns_fallbacks", it) }
-                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                             SettingsCard(title = stringResource(R.string.settings_sect_fallback_dns)) {
+                                 SettingsEditItem(stringResource(R.string.settings_dns_fallbacks_title), dnsFallbacks, Icons.AutoMirrored.Filled.List, placeholder = stringResource(R.string.settings_dns_fallbacks_placeholder)) { dnsFallbacks = it; saveGlobalPref("dns_fallbacks", it) }
+                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
                                 SettingsEditItem(stringResource(R.string.settings_doh_fallback_title), dohUrl, Icons.Default.Link, placeholder = stringResource(R.string.settings_doh_fallback_placeholder)) { dohUrl = it; saveGlobalPref("doh_url", it) }
                             }
 
@@ -975,8 +979,9 @@ fun SettingsScreen(
                                 SettingsEditItem(stringResource(R.string.settings_login_server_title), loginServer, Icons.Default.Cloud, placeholder = stringResource(R.string.settings_login_server_placeholder)) { loginServer = it; saveProfilePref("login_server", it) }
                                 SettingsEditItem(stringResource(R.string.settings_auth_key_title), authKey, Icons.Default.VpnKey) { authKey = it; saveProfilePref("authkey", it) }
                                 SettingsEditItem(stringResource(R.string.settings_hostname_title), hostname, Icons.Default.Badge, onAction = { android.os.Build.MODEL.replace(" ", "-").lowercase() }, actionIcon = Icons.Default.AutoFixHigh) { hostname = it; saveProfilePref("hostname", it) }
-                                SettingsExitNodeItem(stringResource(R.string.settings_exit_node_title), exitNodeId, exitNodeIp, Icons.Default.Input) { id, ip ->
-                                    exitNodeId = id
+                                 @Suppress("UNCHECKED_CAST")
+                                 SettingsExitNodeItem(stringResource(R.string.settings_exit_node_title), exitNodeId, exitNodeIp, Icons.AutoMirrored.Filled.Input) { id, ip ->
+                                     exitNodeId = id
                                     exitNodeIp = ip
                                     saveProfilePref("exit_node_ip", ip, triggerService = false)
                                     saveProfilePref("exit_node_id", id, triggerService = false)

@@ -28,6 +28,8 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.WrapText
+import androidx.compose.material.icons.automirrored.filled.FormatAlignLeft
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -185,7 +187,7 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
                     actions = {
                         IconButton(onClick = { softWrap = !softWrap }) { 
                             Icon(
-                                if (softWrap) Icons.Default.WrapText else Icons.Default.FormatAlignLeft, 
+                                if (softWrap) Icons.AutoMirrored.Filled.WrapText else Icons.AutoMirrored.Filled.FormatAlignLeft, 
                                 contentDescription = stringResource(R.string.console_cd_toggle_wrap), 
                                 tint = if (softWrap) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                             ) 

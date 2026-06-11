@@ -120,7 +120,7 @@ fun wrapContextWithLocale(context: Context): Context {
     return if (lang == "sys") {
         context
     } else {
-        val locale = java.util.Locale(lang)
+        val locale = java.util.Locale.forLanguageTag(lang)
         java.util.Locale.setDefault(locale)
         val config = android.content.res.Configuration(context.resources.configuration)
         config.setLocale(locale)

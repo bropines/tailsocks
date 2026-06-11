@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -302,7 +303,7 @@ fun ServeScreen(onBack: () -> Unit) {
                     }
                     if (serveLogs.isEmpty()) {
                         Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                            Icon(Icons.Default.List, null, modifier = Modifier.size(64.dp), tint = Color.Gray)
+                            Icon(Icons.AutoMirrored.Filled.List, null, modifier = Modifier.size(64.dp), tint = Color.Gray)
                             Spacer(Modifier.height(16.dp))
                             Text(stringResource(R.string.serve_no_logs), style = MaterialTheme.typography.bodyLarge, color = Color.Gray)
                         }

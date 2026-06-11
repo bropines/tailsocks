@@ -24,6 +24,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.automirrored.filled.Outbound
+import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -306,7 +309,7 @@ fun PeerDetailsModal(
                     shape = RoundedCornerShape(14.dp),
                     contentPadding = PaddingValues(horizontal = 8.dp)
                 ) {
-                    Icon(Icons.Default.Send, null, Modifier.size(18.dp))
+                    Icon(Icons.AutoMirrored.Filled.Send, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.peer_send_file), fontWeight = FontWeight.SemiBold)
                 }
@@ -409,7 +412,7 @@ fun SentFileCard(entry: SentFileEntry) {
     val dateStr = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault()).format(Date(entry.timestamp))
     Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
         ListItem(headlineContent = { Text(entry.name, fontWeight = FontWeight.Medium) }, supportingContent = { Text(stringResource(R.string.files_sent_to_format, entry.target, dateStr)) },
-            leadingContent = { Icon(Icons.Default.Outbound, null, tint = MaterialTheme.colorScheme.primary) }, colors = ListItemDefaults.colors(containerColor = Color.Transparent))
+            leadingContent = { Icon(Icons.AutoMirrored.Filled.Outbound, null, tint = MaterialTheme.colorScheme.primary) }, colors = ListItemDefaults.colors(containerColor = Color.Transparent))
     }
 }
 
@@ -421,7 +424,7 @@ fun FileIcon(extension: String) {
         "mp3", "wav" -> Icons.Default.AudioFile to Color(0xFFE91E63)
         "pdf" -> Icons.Default.PictureAsPdf to Color(0xFFF44336)
         "zip", "rar", "7z" -> Icons.Default.FolderZip to Color(0xFF9C27B0)
-        else -> Icons.Default.InsertDriveFile to Color(0xFF607D8B)
+        else -> Icons.AutoMirrored.Filled.InsertDriveFile to Color(0xFF607D8B)
     }
     Box(Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(color.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
         Icon(icon, null, tint = color, modifier = Modifier.size(28.dp))

@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Label
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -73,7 +74,7 @@ fun DevicesTabContent(
             var expandedSortMenu by remember { mutableStateOf(false) }
             Box {
                 IconButton(onClick = { expandedSortMenu = true }) {
-                    Icon(Icons.Default.Sort, contentDescription = stringResource(R.string.admin_devices_cd_sort))
+                    Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = stringResource(R.string.admin_devices_cd_sort))
                 }
                 DropdownMenu(
                     expanded = expandedSortMenu,

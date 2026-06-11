@@ -42,7 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
