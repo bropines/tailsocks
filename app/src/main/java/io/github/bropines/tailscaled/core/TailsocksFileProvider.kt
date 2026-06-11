@@ -597,7 +597,11 @@ class TailsocksFileProvider : DocumentsProvider() {
                 
                 if (documentId.startsWith("drive_path:$parentAccId:")) {
                     val childPath = documentId.substring("drive_path:$parentAccId:".length).trimEnd('/')
-                    return childPath != parentPath && childPath.startsWith(parentPath)
+                    if (parentPath.isEmpty()) {
+                        return childPath.isNotEmpty()
+                    }
+                    val parentWithSlash = if (parentPath.endsWith("/")) parentPath else "$parentPath/"
+                    return childPath.startsWith(parentWithSlash)
                 }
             }
         }
