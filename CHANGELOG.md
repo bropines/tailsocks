@@ -2,7 +2,7 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
-## [Unreleased]
+## [3.1.2] - 2026-07-02
 ### Changed
 - Replaced app launcher icon with a new optimized design (reduced SVG size by 33%).
 - Updated adaptive icon background and foreground layers.
