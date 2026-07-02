@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+### Changed
+- Replaced app launcher icon with a new optimized design (reduced SVG size by 33%).
+- Updated adaptive icon background and foreground layers.
+- Preserved the old logo assets in the repository files.
+
 ## [3.1.1] - 2026-06-11
 ### Security
 - Fixed a partial path validation bypass vulnerability in `TailsocksFileProvider` by enforcing trailing slash validation on parent directories during child document validation.
