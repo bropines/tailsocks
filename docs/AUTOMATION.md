@@ -1,85 +1,79 @@
 # ⚡ Tasker & Automation Integration Guide
 
-TailSocks supports external background connection control via **Android Broadcast Intents**. This allows complete automation of TailSocks connections (start, stop, toggle, restart) based on system events such as connecting to specific Wi-Fi networks, SIM card changes, app launches, or schedules.
-
-Integration works seamlessly with popular Android automation apps including **Tasker**, **MacroDroid**, **Automate (LlamaLab)**, and via **`adb`**.
+TailSocks supports comprehensive background automation via **Android Broadcast Intents**. This allows complete control over connections, profiles, exit nodes, DPI bypass, and TUN mode from automation apps like **Tasker**, **MacroDroid**, **Automate**, or **ADB**.
 
 ---
 
-## 🎯 Intent Specification
+## 🔒 Security & Token Protection
 
-### Target Receiver Settings
+Automation can be secured directly in TailSocks under **Settings → Tasker & Automation**:
+
+* **Allow External Automation:** Master switch to enable/disable broadcast processing.
+* **Security Secret Token (Optional):** Define a secret passkey (e.g. `my_secret_token_123`). When configured, `TaskerReceiver` will strictly reject any intent unless it carries a matching `secret`, `token`, or `key` extra string parameter.
+
+---
+
+## 🎯 Supported Intent Actions
+
+### Target Receiver Specification
 * **Package Name:** `io.github.bropines.tailscaled`
 * **Component Class:** `io.github.bropines.tailscaled.core.TaskerReceiver` *(optional)*
 * **Target Type:** Broadcast Receiver
 
-### Supported Actions
+### Control Actions
 
-| Action | Short Alias | Description |
-|--------|-------------|-------------|
-| `io.github.bropines.tailscaled.action.CONNECT` | `io.github.bropines.tailscaled.START` | Starts the background service and establishes the TailSocks connection. |
-| `io.github.bropines.tailscaled.action.DISCONNECT` | `io.github.bropines.tailscaled.STOP` | Safely stops the service and disconnects TailSocks. |
-| `io.github.bropines.tailscaled.action.TOGGLE` | `io.github.bropines.tailscaled.TOGGLE` | Toggles the connection state (connects if disconnected, disconnects if connected). |
-| `io.github.bropines.tailscaled.action.RESTART` | `io.github.bropines.tailscaled.RESTART` | Performs a full restart of the TailSocks daemon. |
-
----
-
-## 📱 Tasker Setup Guide
-
-1. Open **Tasker** and go to the **Tasks** tab.
-2. Create a new task (e.g., `TailSocks Connect`).
-3. Tap **`+`** to add an action → Select **System** → **Send Intent**.
-4. Fill in the fields:
-   * **Action**: `io.github.bropines.tailscaled.action.CONNECT`
-   * **Target**: Switch to `Broadcast Receiver`
-   * **Package**: `io.github.bropines.tailscaled`
-   * **Class**: `io.github.bropines.tailscaled.core.TaskerReceiver` *(optional)*
-5. Tap Back to save. You can now trigger this task from any Tasker Profile (Wi-Fi connected, location, time, etc.).
+| Action | Short Alias | Extras / Parameters | Description |
+|--------|-------------|---------------------|-------------|
+| `io.github.bropines.tailscaled.action.CONNECT` | `io.github.bropines.tailscaled.START` | `secret` *(optional)* | Starts background daemon and connects TailSocks. |
+| `io.github.bropines.tailscaled.action.DISCONNECT` | `io.github.bropines.tailscaled.STOP` | `secret` *(optional)* | Disconnects and stops background daemon. |
+| `io.github.bropines.tailscaled.action.TOGGLE` | `io.github.bropines.tailscaled.TOGGLE` | `secret` *(optional)* | Toggles connection state. |
+| `io.github.bropines.tailscaled.action.RESTART` | `io.github.bropines.tailscaled.RESTART` | `secret` *(optional)* | Restarts background daemon. |
+| `io.github.bropines.tailscaled.action.GET_STATUS` | `io.github.bropines.tailscaled.GET_STATUS` | `secret` *(optional)* | Triggers immediate broadcast response with current metrics. |
+| `io.github.bropines.tailscaled.action.SET_EXIT_NODE` | `io.github.bropines.tailscaled.SET_EXIT_NODE` | `exit_node` (String: IP or `"none"` to clear) | Sets active profile exit node IP. |
+| `io.github.bropines.tailscaled.action.SWITCH_ACCOUNT` | `io.github.bropines.tailscaled.SWITCH_ACCOUNT` | `account` (String: Account ID or Name) | Switches active TailSocks profile. |
+| `io.github.bropines.tailscaled.action.SET_BYEDPI` | `io.github.bropines.tailscaled.SET_BYEDPI` | `enabled` (Boolean), `flags` (String) | Configures ByeDPI control plane proxy. |
+| `io.github.bropines.tailscaled.action.SET_TUN` | `io.github.bropines.tailscaled.SET_TUN` | `enabled` (Boolean) | Configures system-wide TUN mode. |
 
 ---
 
-## 🤖 MacroDroid Setup Guide
+## 📡 Automatic Status Broadcasts (Events)
 
-MacroDroid is **fully supported**. Follow these steps:
+Whenever TailSocks status changes or `GET_STATUS` is requested, TailSocks broadcasts an event intent to **`io.github.bropines.tailscaled.STATUS_CHANGED`** (alias **`io.github.bropines.tailscaled.STATUS`**).
 
-1. Open **MacroDroid** and tap **Add Macro**.
-2. In the **Actions** section, tap **`+`**.
-3. Select **Device Actions** → **Send Intent**.
-4. Select **Broadcast**.
-5. Configure the parameters:
-   * **Action**: `io.github.bropines.tailscaled.action.CONNECT`
-   * **Package Name**: `io.github.bropines.tailscaled`
-   * **Class Name**: `io.github.bropines.tailscaled.core.TaskerReceiver` *(optional)*
-6. Tap **OK**. Add your desired triggers (e.g. *Wi-Fi SSID Connected* or *App Launched*) and save the macro.
+You can use **Intent Received** triggers in Tasker/MacroDroid to listen to `io.github.bropines.tailscaled.STATUS_CHANGED` and read the following Extras:
 
----
-
-## ⚙️ Automate (LlamaLab) Setup Guide
-
-1. Create a new Flow.
-2. Add a **Broadcast send** block.
-3. Configure the block properties:
-   * **Action**: `"io.github.bropines.tailscaled.action.CONNECT"` (in quotes).
-   * **Package**: `"io.github.bropines.tailscaled"`
-   * **Receiver class**: `"io.github.bropines.tailscaled.core.TaskerReceiver"`
-4. Connect the block to your trigger and start the flow.
+| Extra Key | Type | Description | Example |
+|-----------|------|-------------|---------|
+| `running` | Boolean | True if daemon is running | `true` |
+| `status` | String | Status text | `"ACTIVE"`, `"STOPPED"`, `"STARTING"` |
+| `account` | String | Active profile name | `"Personal"` |
+| `account_id` | String | Active profile ID | `"acc_123456"` |
+| `exit_node` | String | Active exit node IP | `"100.64.0.1"` |
+| `tun_enabled` | Boolean | TUN mode active state | `true` |
+| `byedpi_enabled`| Boolean | ByeDPI proxy state | `true` |
 
 ---
 
-## 💻 ADB (Command Line) Usage
+## 📱 Automation Examples
 
-You can send broadcast intents directly from PC or Termux via `adb shell`:
+### 1. MacroDroid / Tasker (With Secret Token)
+* **Target:** Broadcast
+* **Action:** `io.github.bropines.tailscaled.action.CONNECT`
+* **Package Name:** `io.github.bropines.tailscaled`
+* **Extra 1:** Key: `secret`, Value: `"my_secret_token_123"`
+
+### 2. ADB Command Examples
 
 ```bash
-# Connect TailSocks
-adb shell am broadcast -a io.github.bropines.tailscaled.action.CONNECT -n io.github.bropines.tailscaled/.core.TaskerReceiver
+# Connect with security token
+adb shell am broadcast -a io.github.bropines.tailscaled.action.CONNECT --es secret "my_secret_token_123" -n io.github.bropines.tailscaled/.core.TaskerReceiver
 
-# Disconnect TailSocks
-adb shell am broadcast -a io.github.bropines.tailscaled.action.DISCONNECT -n io.github.bropines.tailscaled/.core.TaskerReceiver
+# Query current status
+adb shell am broadcast -a io.github.bropines.tailscaled.action.GET_STATUS -n io.github.bropines.tailscaled/.core.TaskerReceiver
 
-# Toggle connection
-adb shell am broadcast -a io.github.bropines.tailscaled.action.TOGGLE -n io.github.bropines.tailscaled/.core.TaskerReceiver
+# Set Exit Node
+adb shell am broadcast -a io.github.bropines.tailscaled.action.SET_EXIT_NODE --es exit_node "100.64.0.1" -n io.github.bropines.tailscaled/.core.TaskerReceiver
 
-# Restart TailSocks daemon
-adb shell am broadcast -a io.github.bropines.tailscaled.action.RESTART -n io.github.bropines.tailscaled/.core.TaskerReceiver
+# Switch Profile
+adb shell am broadcast -a io.github.bropines.tailscaled.action.SWITCH_ACCOUNT --es account "Work" -n io.github.bropines.tailscaled/.core.TaskerReceiver
 ```

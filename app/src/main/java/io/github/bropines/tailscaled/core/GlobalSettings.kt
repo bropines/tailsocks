@@ -211,5 +211,12 @@ object GlobalSettings {
         val json = com.google.gson.Gson().toJson(presets)
         getPrefs(context).edit().putString("cp_presets", json).apply()
     }
+
+    // Tasker & Automation Settings
+    fun isAutomationEnabled(context: Context): Boolean = getPrefs(context).getBoolean("automation_enabled", true)
+    fun setAutomationEnabled(context: Context, enabled: Boolean) = getPrefs(context).edit().putBoolean("automation_enabled", enabled).apply()
+
+    fun getAutomationSecret(context: Context): String = getPrefs(context).getString("automation_secret", "") ?: ""
+    fun setAutomationSecret(context: Context, secret: String) = getPrefs(context).edit().putString("automation_secret", secret.trim()).apply()
 }
 

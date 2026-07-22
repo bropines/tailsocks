@@ -712,9 +712,9 @@ fun SettingsScreen(
                                 }
                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
                                 SettingsClickableItem(
-                                    stringResource(R.string.settings_show_onboarding),
-                                    stringResource(R.string.settings_show_onboarding_desc),
-                                    Icons.Default.Info
+                                     stringResource(R.string.settings_show_onboarding),
+                                     stringResource(R.string.settings_show_onboarding_desc),
+                                     Icons.Default.Info
                                 ) {
                                     context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
                                         .edit()
@@ -722,6 +722,55 @@ fun SettingsScreen(
                                         .apply()
                                     context.startActivity(Intent(context, FirstStartActivity::class.java))
                                     context.findActivity()?.finish()
+                                }
+                            }
+
+                            Spacer(Modifier.height(12.dp))
+
+                            var automationEnabled by remember { mutableStateOf(GlobalSettings.isAutomationEnabled(context)) }
+                            var automationSecret by remember { mutableStateOf(GlobalSettings.getAutomationSecret(context)) }
+
+                            SettingsCard(title = "Tasker & Automation") {
+                                SettingsSwitchItem(
+                                    title = "Allow External Automation",
+                                    subtitle = "Enable background control via Broadcast Intents (Tasker, MacroDroid, ADB)",
+                                    icon = Icons.Default.SmartButton,
+                                    checked = automationEnabled
+                                ) {
+                                    automationEnabled = it
+                                    GlobalSettings.setAutomationEnabled(context, it)
+                                }
+
+                                if (automationEnabled) {
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                    OutlinedTextField(
+                                        value = automationSecret,
+                                        onValueChange = {
+                                            automationSecret = it
+                                            GlobalSettings.setAutomationSecret(context, it)
+                                        },
+                                        label = { Text("Security Secret Token (Optional)") },
+                                        placeholder = { Text("Leave empty to disable token authentication") },
+                                        leadingIcon = { Icon(Icons.Default.Key, null) },
+                                        trailingIcon = {
+                                            if (automationSecret.isNotEmpty()) {
+                                                IconButton(onClick = {
+                                                    automationSecret = ""
+                                                    GlobalSettings.setAutomationSecret(context, "")
+                                                }) {
+                                                    Icon(Icons.Default.Clear, null)
+                                                }
+                                            }
+                                        },
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        text = if (automationSecret.isEmpty()) "No secret token set. Any automation app can send intents." else "Token active. Intents must include extra: secret=\"$automationSecret\"",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = if (automationSecret.isEmpty()) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary
+                                    )
                                 }
                             }
                         }

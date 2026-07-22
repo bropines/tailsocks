@@ -118,10 +118,20 @@
                 <action android:name="io.github.bropines.tailscaled.action.DISCONNECT" />
                 <action android:name="io.github.bropines.tailscaled.action.TOGGLE" />
                 <action android:name="io.github.bropines.tailscaled.action.RESTART" />
+                <action android:name="io.github.bropines.tailscaled.action.GET_STATUS" />
+                <action android:name="io.github.bropines.tailscaled.action.SET_EXIT_NODE" />
+                <action android:name="io.github.bropines.tailscaled.action.SWITCH_ACCOUNT" />
+                <action android:name="io.github.bropines.tailscaled.action.SET_BYEDPI" />
+                <action android:name="io.github.bropines.tailscaled.action.SET_TUN" />
                 <action android:name="io.github.bropines.tailscaled.START" />
                 <action android:name="io.github.bropines.tailscaled.STOP" />
                 <action android:name="io.github.bropines.tailscaled.TOGGLE" />
                 <action android:name="io.github.bropines.tailscaled.RESTART" />
+                <action android:name="io.github.bropines.tailscaled.GET_STATUS" />
+                <action android:name="io.github.bropines.tailscaled.SET_EXIT_NODE" />
+                <action android:name="io.github.bropines.tailscaled.SWITCH_ACCOUNT" />
+                <action android:name="io.github.bropines.tailscaled.SET_BYEDPI" />
+                <action android:name="io.github.bropines.tailscaled.SET_TUN" />
             </intent-filter>
         </receiver>
 

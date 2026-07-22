@@ -27,6 +27,42 @@ import com.google.gson.Gson
 class TailscaledService : Service() {
     companion object {
         const val ACTION_APPLY_SETTINGS = "APPLY_SETTINGS"
+        const val ACTION_STATUS_CHANGED = "io.github.bropines.tailscaled.STATUS_CHANGED"
+        const val ALIAS_STATUS_CHANGED = "io.github.bropines.tailscaled.STATUS"
+
+        fun sendStatusBroadcast(context: Context, statusOverride: String? = null) {
+            try {
+                val isRunning = Appctr.isRunning()
+                val activeAccount = AccountManager.getActiveAccount(context)
+                val profilePrefs = context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
+                val exitNodeIp = profilePrefs.getString("exit_node_ip", "") ?: ""
+                val statusText = statusOverride ?: if (isRunning) "ACTIVE" else "STOPPED"
+
+                val intent = Intent(ACTION_STATUS_CHANGED).apply {
+                    putExtra("running", isRunning)
+                    putExtra("status", statusText)
+                    putExtra("account", activeAccount.name)
+                    putExtra("account_id", activeAccount.id)
+                    putExtra("exit_node", exitNodeIp)
+                    putExtra("tun_enabled", GlobalSettings.isTunModeEnabled(context))
+                    putExtra("byedpi_enabled", GlobalSettings.isCPByeDpiEnabled(context))
+                }
+                context.sendBroadcast(intent)
+
+                val aliasIntent = Intent(ALIAS_STATUS_CHANGED).apply {
+                    putExtra("running", isRunning)
+                    putExtra("status", statusText)
+                    putExtra("account", activeAccount.name)
+                    putExtra("account_id", activeAccount.id)
+                    putExtra("exit_node", exitNodeIp)
+                    putExtra("tun_enabled", GlobalSettings.isTunModeEnabled(context))
+                    putExtra("byedpi_enabled", GlobalSettings.isCPByeDpiEnabled(context))
+                }
+                context.sendBroadcast(aliasIntent)
+            } catch (e: Exception) {
+                Log.e("TailscaledService", "Failed to send status broadcast: ${e.message}")
+            }
+        }
     }
     private val TAG = "TailscaledService"
     private val notificationManager by lazy { getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager }
@@ -214,6 +250,7 @@ class TailscaledService : Service() {
                 Appctr.start(options)
                 updateNotification("Active")
                 applicationContext.sendBroadcast(Intent("START"))
+                sendStatusBroadcast(this@TailscaledService, "ACTIVE")
                 
                 try { Thread.sleep(2500) } catch (e: Exception) {}
                 applyTagsAndRoutes(this@TailscaledService)
@@ -340,6 +377,7 @@ class TailscaledService : Service() {
         stopSelf()
         updateTile()
         applicationContext.sendBroadcast(Intent("STOP"))
+        sendStatusBroadcast(this, "STOPPED")
     }
     
     private fun updateTile() {

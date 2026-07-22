@@ -4,8 +4,10 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ## [3.1.3] - 2026-07-22
 ### Added
-- Added `TaskerReceiver` and Broadcast Intent filters (`CONNECT`, `DISCONNECT`, `TOGGLE`, `RESTART`) to enable Tasker, MacroDroid, and third-party background automation integration.
-- Documented Tasker automation setup and intent specifications in `readme.md`.
+- Added `TaskerReceiver` and Broadcast Intent filters (`CONNECT`, `DISCONNECT`, `TOGGLE`, `RESTART`, `GET_STATUS`, `SET_EXIT_NODE`, `SWITCH_ACCOUNT`, `SET_BYEDPI`, `SET_TUN`) to enable Tasker, MacroDroid, and third-party background automation integration.
+- Added Tasker & Automation Security settings card under Settings with master enable switch and optional security secret token authentication (`secret` parameter validation).
+- Implemented real-time status event broadcasting (`io.github.bropines.tailscaled.STATUS_CHANGED`) providing `running`, `status`, `account`, `exit_node`, `tun_enabled`, and `byedpi_enabled` metrics for automation listeners.
+- Created comprehensive Tasker and MacroDroid automation guide in `docs/AUTOMATION.md`.
 
 ## [3.1.2] - 2026-07-02
 ### Changed
