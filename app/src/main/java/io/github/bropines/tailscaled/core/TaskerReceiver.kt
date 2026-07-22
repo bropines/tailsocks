@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import androidx.core.content.ContextCompat
-import io.github.bropines.tailscaled.models.ProxyState
 
 class TaskerReceiver : BroadcastReceiver() {
     companion object {
