@@ -272,6 +272,26 @@ TailSocks bundles a native JNI implementation of [ByeDPI](https://github.com/huf
 * **Security:** ByeDPI binds strictly to a randomized loopback IP (e.g., `127.182.201.43`) and a randomized port in the `127.0.0.0/8` subnet upon every startup. This prevents other applications on the device from discovering or connecting to the proxy via simple port scanning.
 * **Usage:** Enable **DPI Bypass (ByeDPI)** in Settings -> Network Tab -> Control Proxy settings and configure custom ByeDPI flags (default: `-s 1 -d split -r`).
 
+---
+
+## ⚡ Tasker & Automation Integration
+
+TailSocks supports background control via **Android Broadcast Intents**. You can automate connections using Tasker, MacroDroid, Automate, or `adb`.
+
+* **Target Receiver:** `io.github.bropines.tailscaled/.core.TaskerReceiver` (or package `io.github.bropines.tailscaled`)
+* **Supported Actions:**
+  * `io.github.bropines.tailscaled.action.CONNECT` (or `io.github.bropines.tailscaled.START`) — Start connection
+  * `io.github.bropines.tailscaled.action.DISCONNECT` (or `io.github.bropines.tailscaled.STOP`) — Stop connection
+  * `io.github.bropines.tailscaled.action.TOGGLE` (or `io.github.bropines.tailscaled.TOGGLE`) — Toggle connection state
+  * `io.github.bropines.tailscaled.action.RESTART` (or `io.github.bropines.tailscaled.RESTART`) — Restart connection
+
+#### Tasker Configuration Example:
+1. Action: **System** → **Send Intent**
+2. Action: `io.github.bropines.tailscaled.action.CONNECT`
+3. Target: **Broadcast Receiver**
+4. Package: `io.github.bropines.tailscaled`
+
+
 
 ---
 

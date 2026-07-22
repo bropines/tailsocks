@@ -2,6 +2,11 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [3.1.3] - 2026-07-22
+### Added
+- Added `TaskerReceiver` and Broadcast Intent filters (`CONNECT`, `DISCONNECT`, `TOGGLE`, `RESTART`) to enable Tasker, MacroDroid, and third-party background automation integration.
+- Documented Tasker automation setup and intent specifications in `readme.md`.
+
 ## [3.1.2] - 2026-07-02
 ### Changed
 - Replaced app launcher icon with a new optimized design (reduced SVG size by 33%).

@@ -111,6 +111,20 @@
             </intent-filter>
         </receiver>
 
+        <!-- Tasker & Automation Integration Receiver -->
+        <receiver android:name=".core.TaskerReceiver" android:enabled="true" android:exported="true">
+            <intent-filter>
+                <action android:name="io.github.bropines.tailscaled.action.CONNECT" />
+                <action android:name="io.github.bropines.tailscaled.action.DISCONNECT" />
+                <action android:name="io.github.bropines.tailscaled.action.TOGGLE" />
+                <action android:name="io.github.bropines.tailscaled.action.RESTART" />
+                <action android:name="io.github.bropines.tailscaled.START" />
+                <action android:name="io.github.bropines.tailscaled.STOP" />
+                <action android:name="io.github.bropines.tailscaled.TOGGLE" />
+                <action android:name="io.github.bropines.tailscaled.RESTART" />
+            </intent-filter>
+        </receiver>
+
         <receiver android:name=".ui.TailDropReceiver" android:exported="false" />
 
         <provider
