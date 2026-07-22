@@ -218,5 +218,9 @@ object GlobalSettings {
 
     fun getAutomationSecret(context: Context): String = getPrefs(context).getString("automation_secret", "") ?: ""
     fun setAutomationSecret(context: Context, secret: String) = getPrefs(context).edit().putString("automation_secret", secret.trim()).apply()
+
+    // Root Mode Settings
+    fun isRootModeEnabled(context: Context): Boolean = getPrefs(context).getBoolean("root_mode_enabled", false)
+    fun setRootModeEnabled(context: Context, enabled: Boolean) = getPrefs(context).edit().putBoolean("root_mode_enabled", enabled).apply()
 }
 

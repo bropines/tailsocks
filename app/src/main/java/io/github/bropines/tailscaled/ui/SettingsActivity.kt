@@ -773,6 +773,53 @@ fun SettingsScreen(
                                     )
                                 }
                             }
+
+                            Spacer(Modifier.height(12.dp))
+
+                            var rootModeEnabled by remember { mutableStateOf(GlobalSettings.isRootModeEnabled(context)) }
+                            var serviceScriptInstalled by remember { mutableStateOf(RootUtils.isServiceScriptInstalled()) }
+
+                            SettingsCard(title = "Root Mode & System Service") {
+                                SettingsSwitchItem(
+                                    title = "Enable Native Root Mode",
+                                    subtitle = "Run daemon via 'su' with direct kernel TUN (tailscale0) and iptables access",
+                                    icon = Icons.Default.Security,
+                                    checked = rootModeEnabled
+                                ) {
+                                    if (it) {
+                                        if (RootUtils.isRootAvailable()) {
+                                            rootModeEnabled = true
+                                            GlobalSettings.setRootModeEnabled(context, true)
+                                            Toast.makeText(context, "Root Mode enabled", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            Toast.makeText(context, "Root access (su) not granted or unavailable", Toast.LENGTH_LONG).show()
+                                        }
+                                    } else {
+                                        rootModeEnabled = false
+                                        GlobalSettings.setRootModeEnabled(context, false)
+                                        Toast.makeText(context, "Root Mode disabled", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+
+                                if (rootModeEnabled) {
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+
+                                    SettingsSwitchItem(
+                                        title = "Autostart Magisk/KernelSU Service",
+                                        subtitle = "Install script to /data/adb/service.d/ for standalone system boot",
+                                        icon = Icons.Default.Build,
+                                        checked = serviceScriptInstalled
+                                    ) {
+                                        val success = RootUtils.setServiceScriptInstalled(context, it)
+                                        if (success) {
+                                            serviceScriptInstalled = it
+                                            Toast.makeText(context, if (it) "Service script installed to service.d" else "Service script removed", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            Toast.makeText(context, "Failed to manage service.d script", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                }
+                            }
                         }
 
                         1 -> { // TAB 1: Network & Proxy

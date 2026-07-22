@@ -247,7 +247,22 @@ class TailscaledService : Service() {
         Thread {
             try {
                 applicationContext.sendBroadcast(Intent("STARTING"))
-                Appctr.start(options)
+                if (GlobalSettings.isRootModeEnabled(this@TailscaledService)) {
+                    val logsDir = java.io.File(filesDir.parentFile ?: filesDir, "logs").absolutePath
+                    val logFile = "$logsDir/tailscaled.log"
+                    RootUtils.startRootDaemon(
+                        context = this@TailscaledService,
+                        stateDir = options.statePath,
+                        socketPath = options.socketPath,
+                        logFilePath = logFile,
+                        socksAddr = options.socks5Server,
+                        httpAddr = options.httpProxy,
+                        controlProxy = options.controlProxy,
+                        taildropDir = options.taildropDir
+                    )
+                } else {
+                    Appctr.start(options)
+                }
                 updateNotification("Active")
                 applicationContext.sendBroadcast(Intent("START"))
                 sendStatusBroadcast(this@TailscaledService, "ACTIVE")
@@ -256,7 +271,7 @@ class TailscaledService : Service() {
                 applyTagsAndRoutes(this@TailscaledService)
                 applyTaildrive(this@TailscaledService)
                 
-                if (GlobalSettings.isTunModeEnabled(this@TailscaledService)) {
+                if (GlobalSettings.isTunModeEnabled(this@TailscaledService) && !GlobalSettings.isRootModeEnabled(this@TailscaledService)) {
                     startTunMode()
                 }
             } catch (e: Exception) { 
@@ -366,7 +381,12 @@ class TailscaledService : Service() {
         refreshHandler.removeCallbacks(refreshRunnable)
         try { Appctr.stopDriveServer() } catch (e: Exception) {}
         try { Appctr.stopDriveProxy() } catch (e: Exception) {}
-        Appctr.stop()
+        if (GlobalSettings.isRootModeEnabled(this)) {
+            val socketPath = "${filesDir.absolutePath}/tailscaled.sock"
+            RootUtils.stopRootDaemon(socketPath)
+        } else {
+            Appctr.stop()
+        }
         try { ByeDpiProxy.stop() } catch (e: Exception) {}
         byedpiProxyAddress = null
         lastStartedFlags = null

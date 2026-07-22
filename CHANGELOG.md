@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [3.1.4] - 2026-07-22
+### Added
+- Added **Native Root Mode (`su`)**: Allows running the Tailscale daemon with root privileges for direct kernel TUN routing and firewall management (resolves #3).
+- Added **Magisk / KernelSU Autostart Service**: Supports installing an independent system boot script in `service.d`.
+- Added Root Mode & System Service card in Settings UI.
+
 ## [3.1.3] - 2026-07-22
 ### Added
 - Added `TaskerReceiver` and Broadcast Intent filters (`CONNECT`, `DISCONNECT`, `TOGGLE`, `RESTART`, `GET_STATUS`, `SET_EXIT_NODE`, `SWITCH_ACCOUNT`, `SET_BYEDPI`, `SET_TUN`) to enable Tasker, MacroDroid, and third-party background automation integration.
