@@ -7,8 +7,8 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Added **Native Root Mode (`su`)**: Allows running the Tailscale daemon with root privileges for direct kernel TUN routing and firewall management (resolves #3).
 - Added **Magisk / KernelSU Autostart Service**: Supports installing an independent system boot script in `service.d`.
 - Added Root Mode & System Service card in Settings UI.
-- Created **`appctr/api.go` LocalAPI Module**: Strongly-typed Go bindings covering 100% of Tailscale LocalAPI v0 endpoints (`/status`, `/profiles`, `/start`, `/prefs`, `/netcheck`, `/ping`, `/whois`, `/derp/map`, `/drive/shares`, `/file-targets`, `/serve-config`, `/set-dns`).
-- Added **Long-Press & Context Actions to Account Picker**: Integrated `combinedClickable` long-press (`onLongClick`) and `MoreVert` options button on account cards in `MainActivity.kt` providing quick Switch, Rename, and Delete actions.
+- Created **`appctr/api.go` Production-Grade LocalAPI Module**: Refactored into a professional Go SDK with `LocalClient` struct, godoc comments, custom sentinel errors (`ErrDaemonNotRunning`, `ErrBadRequest`), and 100% LocalAPI v0 coverage (`/status`, `/profiles`, `/start`, `/prefs`, `/netcheck`, `/ping`, `/whois`, `/derp/map`, `/drive/shares`, `/file-targets`, `/serve-config`, `/set-dns`).
+- Redesigned **Account Picker UI with Inline Editing**: Long-pressing an account card smoothly shrinks its container to the left with `animateFloatAsState`, revealing inline **Rename** and **Delete** buttons directly in the row. Simplified the bottom action bar into a single full-width **Add Account** button.
 
 ### Fixed
 - Fixed custom control plane server (Headscale / ControlURL) authorization routing by conditionally passing `UpdatePrefs.ControlURL` via `/localapi/v0/start` in `appctr` for unauthenticated sessions (`NeedsLogin`).

@@ -17,7 +17,9 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.*
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -230,6 +232,7 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
     var accountOptionsModal by remember { mutableStateOf<TailscaleAccount?>(null) }
     var accountToDeleteConfirm by remember { mutableStateOf<TailscaleAccount?>(null) }
     var accountToRename by remember { mutableStateOf<TailscaleAccount?>(null) }
+    var editingAccountId by remember { mutableStateOf<String?>(null) }
     
     var newAccountName by remember { mutableStateOf("") }
     var accountMenuExpanded by remember { mutableStateOf(false) }
@@ -732,160 +735,182 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                     items(accounts.value.size) { i ->
                         val account = accounts.value[i]
                         val isActive = account.id == activeAccount.id
+                        val isEditing = editingAccountId == account.id
+                        val widthFraction by animateFloatAsState(
+                            targetValue = if (isEditing) 0.65f else 1.0f,
+                            label = "accountWidthFraction"
+                        )
                         
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .combinedClickable(
-                                    onClick = {
-                                        accountMenuExpanded = false
-                                        if (account.id != activeAccount.id) {
-                                            if (ProxyState.isActualRunning()) showSwitchConfirmDialog = account
-                                            else { AccountManager.setActiveAccount(context, account.id); activeAccount = account }
-                                        }
-                                    },
-                                    onLongClick = {
-                                        accountOptionsModal = account
-                                    }
-                                ),
-                            shape = RoundedCornerShape(12.dp),
-                            color = if (isActive) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
-                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
-                            border = if (isActive) androidx.compose.foundation.BorderStroke(
-                                1.5.dp,
-                                MaterialTheme.colorScheme.primary
-                            ) else null
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth(widthFraction)
+                                    .combinedClickable(
+                                        onClick = {
+                                            if (editingAccountId != null) {
+                                                editingAccountId = null
+                                            } else {
+                                                accountMenuExpanded = false
+                                                if (account.id != activeAccount.id) {
+                                                    if (ProxyState.isActualRunning()) showSwitchConfirmDialog = account
+                                                    else { AccountManager.setActiveAccount(context, account.id); activeAccount = account }
+                                                }
+                                            }
+                                        },
+                                        onLongClick = {
+                                            editingAccountId = if (isEditing) null else account.id
+                                        }
+                                    ),
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (isActive) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                                border = if (isActive) androidx.compose.foundation.BorderStroke(
+                                    1.5.dp,
+                                    MaterialTheme.colorScheme.primary
+                                ) else null
                             ) {
-                                val avatarFile = remember(account.id) { java.io.File(context.filesDir, "avatars/${account.id}.png") }
-                                val bitmap = remember(avatarFile) {
-                                    if (avatarFile.exists()) {
-                                        try {
-                                            android.graphics.BitmapFactory.decodeFile(avatarFile.absolutePath)
-                                        } catch (e: Exception) { null }
-                                    } else null
-                                }
-
-                                if (bitmap != null) {
-                                    androidx.compose.foundation.Image(
-                                        bitmap = bitmap.asImageBitmap(),
-                                        contentDescription = null,
-                                        modifier = Modifier
-                                            .size(26.dp)
-                                            .clip(CircleShape),
-                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                                    )
-                                } else {
-                                    val nameLower = account.name.lowercase()
-                                    val (smartIcon, smartColor) = when {
-                                        nameLower.contains("github") -> Icons.Default.Hub to Color(0xFFFCC624)
-                                        nameLower.contains("headscale") -> Icons.Default.Cloud to Color(0xFF0078D4)
-                                        nameLower.contains("google") || nameLower.contains("gmail") -> Icons.Default.Email to Color(0xFFE91E63)
-                                        else -> Icons.Default.AccountCircle to (if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    val avatarFile = remember(account.id) { java.io.File(context.filesDir, "avatars/${account.id}.png") }
+                                    val bitmap = remember(avatarFile) {
+                                        if (avatarFile.exists()) {
+                                            try {
+                                                android.graphics.BitmapFactory.decodeFile(avatarFile.absolutePath)
+                                            } catch (e: Exception) { null }
+                                        } else null
                                     }
-                                    
-                                    Box(
-                                        modifier = Modifier
-                                            .size(26.dp)
-                                            .clip(CircleShape)
-                                            .background(smartColor.copy(alpha = 0.12f)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
+
+                                    if (bitmap != null) {
+                                        androidx.compose.foundation.Image(
+                                            bitmap = bitmap.asImageBitmap(),
+                                            contentDescription = null,
+                                            modifier = Modifier
+                                                .size(26.dp)
+                                                .clip(CircleShape),
+                                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                        )
+                                    } else {
+                                        val nameLower = account.name.lowercase()
+                                        val (smartIcon, smartColor) = when {
+                                            nameLower.contains("github") -> Icons.Default.Hub to Color(0xFFFCC624)
+                                            nameLower.contains("headscale") -> Icons.Default.Cloud to Color(0xFF0078D4)
+                                            nameLower.contains("google") || nameLower.contains("gmail") -> Icons.Default.Email to Color(0xFFE91E63)
+                                            else -> Icons.Default.AccountCircle to (if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                        
+                                        Box(
+                                            modifier = Modifier
+                                                .size(26.dp)
+                                                .clip(CircleShape)
+                                                .background(smartColor.copy(alpha = 0.12f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                smartIcon,
+                                                null,
+                                                tint = smartColor,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+                                    Spacer(Modifier.width(12.dp))
+                                    Text(
+                                        account.name,
+                                        fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.weight(1f),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    if (isActive) {
                                         Icon(
-                                            smartIcon,
+                                            Icons.Default.Check,
                                             null,
-                                            tint = smartColor,
-                                            modifier = Modifier.size(16.dp)
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
                                         )
                                     }
                                 }
-                                Spacer(Modifier.width(16.dp))
-                                Text(
-                                    account.name,
-                                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                if (isActive) {
-                                    Icon(
-                                        Icons.Default.Check,
-                                        null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Spacer(Modifier.width(6.dp))
-                                }
-                                IconButton(
-                                    onClick = { accountOptionsModal = account },
-                                    modifier = Modifier.size(28.dp)
+                            }
+
+                            AnimatedVisibility(
+                                visible = isEditing,
+                                enter = fadeIn() + expandHorizontally(),
+                                exit = fadeOut() + shrinkHorizontally()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(start = 8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(
-                                        Icons.Default.MoreVert,
-                                        contentDescription = "Options",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                        modifier = Modifier.size(18.dp)
-                                    )
+                                    FilledTonalIconButton(
+                                        onClick = {
+                                            editingAccountId = null
+                                            accountToRename = account
+                                            showRenameAccountDialog = true
+                                        },
+                                        modifier = Modifier.size(40.dp),
+                                        shape = RoundedCornerShape(10.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Edit,
+                                            contentDescription = stringResource(R.string.action_rename),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+
+                                    if (account.id != "default") {
+                                        FilledTonalIconButton(
+                                            onClick = {
+                                                editingAccountId = null
+                                                accountToDeleteConfirm = account
+                                            },
+                                            modifier = Modifier.size(40.dp),
+                                            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                                contentColor = MaterialTheme.colorScheme.onErrorContainer
+                                            ),
+                                            shape = RoundedCornerShape(10.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Delete,
+                                                contentDescription = stringResource(R.string.action_delete),
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
                 
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(16.dp))
 
-                Row(
+                FilledTonalButton(
+                    onClick = {
+                        editingAccountId = null
+                        accountMenuExpanded = false
+                        showAddAccountDialog = true
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(horizontal = 16.dp)
+                        .height(48.dp),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    FilledTonalButton(
-                        onClick = { accountMenuExpanded = false; showAddAccountDialog = true },
-                        modifier = Modifier.weight(1f).height(44.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp)
-                    ) {
-                        Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(stringResource(R.string.action_add), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                    }
-
-                    OutlinedButton(
-                        onClick = { accountMenuExpanded = false; showRenameAccountDialog = true },
-                        modifier = Modifier.weight(1f).height(44.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp)
-                    ) {
-                        Icon(Icons.Default.Edit, null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(stringResource(R.string.action_rename), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                    }
-
-                    if (activeAccount.id != "default") {
-                        Button(
-                            onClick = {
-                                accountMenuExpanded = false
-                                AccountManager.deleteAccount(context, activeAccount.id)
-                                activeAccount = AccountManager.getActiveAccount(context)
-                                accounts.value = AccountManager.getAccounts(context)
-                            },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer,
-                                contentColor = MaterialTheme.colorScheme.onErrorContainer
-                            ),
-                            modifier = Modifier.weight(1f).height(44.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            contentPadding = PaddingValues(horizontal = 8.dp)
-                        ) {
-                            Icon(Icons.Default.Delete, null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text(stringResource(R.string.action_delete), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
+                    Icon(Icons.Default.Add, null, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        stringResource(R.string.action_add),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
         }
