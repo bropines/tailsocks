@@ -4,8 +4,6 @@ plugins {
     alias(libs.plugins.compose.compiler)
 }
 
-import java.util.Properties
-
 // Получаем версию из git через современные провайдеры Gradle
 val gitVersionCode = providers.exec {
     commandLine("git", "rev-list", "--count", "HEAD")
@@ -22,11 +20,8 @@ val gitHash = providers.exec {
     workingDir = rootDir
 }.standardOutput.asText.map { it.trim() }.getOrElse("unknown")
 
-val isRelease = gradle.startParameter.taskNames.any { it.contains("release", ignoreCase = true) }
-val gitVersionName = if (isRelease) "v$baseVersion(release)" else "v$baseVersion-$gitHash-dev"
-
 println("-> Build VersionCode: $gitVersionCode")
-println("-> Build VersionName: $gitVersionName")
+println("-> Build VersionName: v$baseVersion-$gitHash")
 
 android {
     namespace = "io.github.bropines.tailscaled"
@@ -50,7 +45,7 @@ android {
         minSdk = 24
         targetSdk = 35
         versionCode = gitVersionCode
-        versionName = gitVersionName
+        versionName = "v$baseVersion-$gitHash"
 
         ndk {
             abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64"))
@@ -67,9 +62,20 @@ android {
         }
     }
 
-    externalNativeBuild {
-        ndkBuild {
-            path = file("src/main/jni/Android.mk")
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            isUniversalApk = true
+        }
+    }
+
+    if (!file("src/main/jniLibs/arm64-v8a/libhev-socks5-tunnel.so").exists()) {
+        externalNativeBuild {
+            ndkBuild {
+                path = file("src/main/jni/Android.mk")
+            }
         }
     }
 
@@ -77,12 +83,14 @@ android {
         debug {
             applicationIdSuffix = ".dev"
             buildConfigField("boolean", "IS_DEV", "true")
+            versionNameSuffix = "-dev"
         }
         release {
             isMinifyEnabled = false 
             isShrinkResources = false 
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             buildConfigField("boolean", "IS_DEV", "false")
+            versionNameSuffix = "(release)"
             
             if (System.getenv("KEYSTORE_FILE") != null) {
                 signingConfig = signingConfigs.getByName("release")
@@ -99,14 +107,6 @@ android {
         jvmToolchain(17)
     }
 
-    splits {
-        abi {
-            isEnable = true
-            reset()
-            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
-            isUniversalApk = true
-        }
-    }
 
     buildFeatures {
         compose = true

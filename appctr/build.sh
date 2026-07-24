@@ -47,14 +47,14 @@ TAGS="ts_omit_systray,ts_omit_kube,ts_omit_aws,ts_omit_bird,ts_omit_qrcodes,ts_o
 echo "-> Compiling Daemon (Core) [ARM64]..."
 export CC="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang"
 export CGO_ENABLED=1
-GOOS=android GOARCH=arm64 go build \
+GOOS=android GOARCH=arm64 go build -v \
     -buildmode=pie \
     -tags "$TAGS" \
     -ldflags="-s -w -checklinkname=0" \
     -o tmp/libtailscale_arm64.so ./cmd/tailscaled
 
 echo "-> Compiling CLI (Console) [ARM64]..."
-GOOS=android GOARCH=arm64 go build \
+GOOS=android GOARCH=arm64 go build -v \
     -buildmode=pie \
     -tags "$TAGS" \
     -ldflags="-s -w -checklinkname=0" \
@@ -63,14 +63,14 @@ GOOS=android GOARCH=arm64 go build \
 echo "-> Compiling Daemon (Core) [ARM 32-bit]..."
 export CC="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang"
 export CGO_ENABLED=1
-GOOS=android GOARCH=arm GOARM=7 go build \
+GOOS=android GOARCH=arm GOARM=7 go build -v \
     -buildmode=pie \
     -tags "$TAGS" \
     -ldflags="-s -w -checklinkname=0" \
     -o tmp/libtailscale_arm.so ./cmd/tailscaled
 
 echo "-> Compiling CLI (Console) [ARM 32-bit]..."
-GOOS=android GOARCH=arm GOARM=7 go build \
+GOOS=android GOARCH=arm GOARM=7 go build -v \
     -buildmode=pie \
     -tags "$TAGS" \
     -ldflags="-s -w -checklinkname=0" \
@@ -79,14 +79,14 @@ GOOS=android GOARCH=arm GOARM=7 go build \
 echo "-> Compiling Daemon (Core) [x86 32-bit]..."
 export CC="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/i686-linux-android21-clang"
 export CGO_ENABLED=1
-GOOS=android GOARCH=386 go build \
+GOOS=android GOARCH=386 go build -v \
     -buildmode=pie \
     -tags "$TAGS" \
     -ldflags="-s -w -checklinkname=0" \
     -o tmp/libtailscale_x86.so ./cmd/tailscaled
 
 echo "-> Compiling CLI (Console) [x86 32-bit]..."
-GOOS=android GOARCH=386 go build \
+GOOS=android GOARCH=386 go build -v \
     -buildmode=pie \
     -tags "$TAGS" \
     -ldflags="-s -w -checklinkname=0" \
@@ -95,14 +95,14 @@ GOOS=android GOARCH=386 go build \
 echo "-> Compiling Daemon (Core) [x86_64 64-bit]..."
 export CC="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android21-clang"
 export CGO_ENABLED=1
-GOOS=android GOARCH=amd64 go build \
+GOOS=android GOARCH=amd64 go build -v \
     -buildmode=pie \
     -tags "$TAGS" \
     -ldflags="-s -w -checklinkname=0" \
     -o tmp/libtailscale_x86_64.so ./cmd/tailscaled
 
 echo "-> Compiling CLI (Console) [x86_64 64-bit]..."
-GOOS=android GOARCH=amd64 go build \
+GOOS=android GOARCH=amd64 go build -v \
     -buildmode=pie \
     -tags "$TAGS" \
     -ldflags="-s -w -checklinkname=0" \
