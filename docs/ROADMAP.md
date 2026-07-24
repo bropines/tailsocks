@@ -19,6 +19,7 @@ This document outlines the planned features, architectural improvements, and ref
 - [x] **Quick Settings Tiles:** Quick Settings Tiles for profile switching and connection state management.
 
 ## Plans
+- [ ] **AI Model Context Protocol (MCP) Server:** Expose an embedded MCP server endpoint (JSON-RPC over SSE / LocalSocket) wrapping `appctr/api.go` LocalAPI, enabling AI assistants (Claude, Cursor, local LLMs) to query status, switch exit nodes, and manage profiles natively.
 - [ ] **Native Kotlin LocalAPI Bridge:** Refactor LocalAPI client requests from Go (`appctr`) to direct OkHttp/UnixDomainSocket calls in Kotlin, keeping `libtailscale.so` purely for daemon execution.
 - [ ] **Traffic Analyzer & Diagnostics:** Add an in-app real-time connection logger to inspect active Tailnet connections and MagicDNS requests.
 - [ ] **Advanced Networking:** Support for custom DERP maps and regional routing overrides.
