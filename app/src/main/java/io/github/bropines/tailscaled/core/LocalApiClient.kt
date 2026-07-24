@@ -10,6 +10,9 @@ import java.nio.charset.StandardCharsets
 /**
  * Pure Kotlin LocalAPI Client (Direct Unix Domain Socket)
  *
+ * TODO: Transition Android UI and services to use KotlinGoApiClient / LocalApiClient
+ * as the unified source of truth for LocalAPI communication.
+ *
  * Connects directly to tailscaled.sock via Android's native LocalSocket and streams
  * HTTP/1.1 requests without invoking the Go/JNI bridge layer.
  */

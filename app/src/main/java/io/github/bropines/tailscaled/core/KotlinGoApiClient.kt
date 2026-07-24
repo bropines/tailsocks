@@ -7,6 +7,9 @@ import kotlinx.coroutines.withContext
 /**
  * KotlinGoApiClient
  *
+ * TODO: Transition Android UI and services to use KotlinGoApiClient / LocalApiClient
+ * as the unified source of truth for LocalAPI communication.
+ *
  * Coroutine wrapper for TailSocks Go-based LocalAPI v0 bindings (`appctr/api.go`).
  * Acts as a single source of truth for daemon configuration via native Go JNI.
  */

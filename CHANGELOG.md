@@ -13,6 +13,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Redesigned **Account Picker UI with Inline Editing & Navigation Padding**: Long-pressing an account card smoothly compresses its container in 100% full-width layout (`weight(1f)`), revealing inline **Rename** and **Delete** buttons directly in the row. Added `navigationBarsPadding()` so the bottom `+ Add` button sits cleanly above system gesture controls.
 
 ### Fixed
+- Fixed **Account Picker Sheet Height**: Passed `rememberModalBottomSheetState(skipPartiallyExpanded = true)` to `ModalBottomSheet` in `MainActivity.kt` so the account picker opens fully expanded instead of snapping to a half-screen state.
 - Fixed custom control plane server (Headscale / ControlURL) authorization routing by conditionally passing `UpdatePrefs.ControlURL` via `/localapi/v0/start` in `appctr` for unauthenticated sessions (`NeedsLogin`).
 - Preserved existing authenticated sessions across account switches and application restarts by skipping redundant `/start` and `/login-interactive` calls when `BackendState` is `Running` or `Starting`.
 - Fixed StatusCard visual state during interactive login so the main top button remains highlighted green (`ACTIVE`) while the daemon process is running.

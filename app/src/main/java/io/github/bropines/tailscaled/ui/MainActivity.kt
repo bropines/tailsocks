@@ -676,7 +676,11 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
     }
 
     if (accountMenuExpanded) {
-        ModalBottomSheet(onDismissRequest = { accountMenuExpanded = false }) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { accountMenuExpanded = false },
+            sheetState = sheetState
+        ) {
             val activeAvatarFile = remember(activeAccount.id) { java.io.File(context.filesDir, "avatars/${activeAccount.id}.png") }
             val activeBitmap = remember(activeAvatarFile) {
                 if (activeAvatarFile.exists()) {
