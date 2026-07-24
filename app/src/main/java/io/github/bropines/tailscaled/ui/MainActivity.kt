@@ -687,7 +687,10 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
             }
 
             Column(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(bottom = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 if (activeBitmap != null) {
@@ -736,10 +739,6 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                         val account = accounts.value[i]
                         val isActive = account.id == activeAccount.id
                         val isEditing = editingAccountId == account.id
-                        val widthFraction by animateFloatAsState(
-                            targetValue = if (isEditing) 0.65f else 1.0f,
-                            label = "accountWidthFraction"
-                        )
                         
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -747,7 +746,7 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                         ) {
                             Surface(
                                 modifier = Modifier
-                                    .fillMaxWidth(widthFraction)
+                                    .weight(1f)
                                     .combinedClickable(
                                         onClick = {
                                             if (editingAccountId != null) {
@@ -828,6 +827,7 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                                         overflow = TextOverflow.Ellipsis
                                     )
                                     if (isActive) {
+                                        Spacer(Modifier.width(4.dp))
                                         Icon(
                                             Icons.Default.Check,
                                             null,
