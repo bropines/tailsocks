@@ -4,22 +4,16 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ## [3.1.4] - 2026-07-24
 ### Added
-- Added **Native Root Mode (`su`)**: Allows running the Tailscale daemon with root privileges for direct kernel TUN routing and firewall management (resolves #3).
-- Added **Magisk / KernelSU Autostart Service**: Supports installing an independent system boot script in `service.d`.
-- Added Root Mode & System Service card in Settings UI.
-- Created **`appctr/api.go` Production-Grade LocalAPI Module**: Refactored into a professional Go SDK with `LocalClient` struct, godoc comments, custom sentinel errors (`ErrDaemonNotRunning`, `ErrBadRequest`), and 100% LocalAPI v0 coverage (`/status`, `/profiles`, `/start`, `/prefs`, `/netcheck`, `/ping`, `/whois`, `/derp/map`, `/drive/shares`, `/file-targets`, `/serve-config`, `/set-dns`). Fully migrated all Go subsystem files (`auth.go`, `appctr.go`, `status.go`, `drive.go`, `taildrop.go`, `localapi.go`) to use `api.go` functions as a single unified source of truth.
-- Created **`LocalApiClient.kt` (Pure Kotlin)**: Standalone LocalAPI client connecting directly to `tailscaled.sock` Unix Domain Socket via Android's native `android.net.LocalSocket` and raw HTTP/1.1 streaming without JNI/Go dependencies.
-- Created **`KotlinGoApiClient.kt` (Go JNI Bridge)**: Dedicated Kotlin coroutine wrapper for `appctr/api.go` Go JNI bindings serving as a unified single source of truth for daemon configuration.
-- Redesigned **Account Picker UI with Inline Editing & Navigation Padding**: Long-pressing an account card smoothly compresses its container in 100% full-width layout (`weight(1f)`), revealing inline **Rename** and **Delete** buttons directly in the row. Added `navigationBarsPadding()` so the bottom `+ Add` button sits cleanly above system gesture controls.
+- Added **Native Root Mode (`su`)**: Supports running Tailscale daemon with root privileges for direct TUN routing and Magisk/KernelSU autostart service.
+- Created **Go LocalAPI SDK (`appctr/api.go`)**: Added a strongly-typed `LocalClient` struct covering 100% of LocalAPI v0 endpoints and migrated all Go subsystems (`auth`, `drive`, `taildrop`, `status`) to it.
+- Created **Kotlin LocalAPI Clients**: Implemented `LocalApiClient.kt` (direct Unix `LocalSocket`) and `KotlinGoApiClient.kt` (JNI bridge).
+- Redesigned **Account Picker UI**: Long-pressing account cards smoothly reveals inline **Rename** and **Delete** actions in 100% full-width layout. Fixed navigation bar padding and sheet height (`skipPartiallyExpanded = true`).
 
 ### Fixed
-- Fixed **Account Picker Sheet Height**: Passed `rememberModalBottomSheetState(skipPartiallyExpanded = true)` to `ModalBottomSheet` in `MainActivity.kt` so the account picker opens fully expanded instead of snapping to a half-screen state.
-- Fixed custom control plane server (Headscale / ControlURL) authorization routing by conditionally passing `UpdatePrefs.ControlURL` via `/localapi/v0/start` in `appctr` for unauthenticated sessions (`NeedsLogin`).
-- Preserved existing authenticated sessions across account switches and application restarts by skipping redundant `/start` and `/login-interactive` calls when `BackendState` is `Running` or `Starting`.
-- Fixed StatusCard visual state during interactive login so the main top button remains highlighted green (`ACTIVE`) while the daemon process is running.
-- Enforced strict per-account isolation (`appctr_${id}`) for Exit Node selection (`exit_node_id` & `exit_node_ip`) in `MainActivity.kt` to prevent leaking exit nodes across profiles.
-- Added optional custom control server (`LoginServer`) input field directly to the Add Account modal in `MainActivity.kt`.
-- Removed persistent `do_reset` setting on `login_server` preference updates in `SettingsActivity.kt` to prevent accidental wiping of logged-in sessions.
+- Fixed Headscale/ControlURL authorization routing during unauthenticated session initialization.
+- Preserved active login sessions across account switches by avoiding redundant daemon restarts.
+- Enforced per-account preference isolation (`appctr_${id}`) for Exit Node selections.
+- Added custom login server input field directly to the Add Account dialog.
 
 ## [3.1.3] - 2026-07-22
 ### Added
