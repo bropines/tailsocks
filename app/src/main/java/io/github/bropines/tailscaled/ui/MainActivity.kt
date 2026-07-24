@@ -254,7 +254,7 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
     }
 
     var proxyState by remember { mutableStateOf(if (ProxyState.isActualRunning()) "ACTIVE" else "STOPPED") }
-    var exitNodeIp by remember { mutableStateOf(prefs.getString("exit_node_ip", "") ?: "") }
+    var exitNodeIp by remember(activeAccount.id) { mutableStateOf(prefs.getString("exit_node_ip", "") ?: "") }
 
     val profilePrefsListener = remember(activeAccount.id) {
         android.content.SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
@@ -314,7 +314,7 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                     if (backendState == "NeedsLogin" || backendState == "NoState") {
                         loggedOutSeconds += 2
                         if (loggedOutSeconds >= 10) {
-                            if (prefs.getBoolean("was_logged_in", false)) {
+                            if (prefs.getBoolean("was_logged_in", false) && loginUrl.isNullOrBlank()) {
                                 "CONNECTION_ISSUE"
                             } else {
                                 "LOGGED_OUT"
@@ -449,21 +449,35 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
     }
 
     if (showAddAccountDialog) {
+        var newAccountServer by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { showAddAccountDialog = false },
             title = { Text(stringResource(R.string.main_add_account_title)) },
             text = {
-                OutlinedTextField(
-                    value = newAccountName,
-                    onValueChange = { newAccountName = it },
-                    label = { Text(stringResource(R.string.main_account_name_label)) },
-                    singleLine = true
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = newAccountName,
+                        onValueChange = { newAccountName = it },
+                        label = { Text(stringResource(R.string.main_account_name_label)) },
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = newAccountServer,
+                        onValueChange = { newAccountServer = it },
+                        label = { Text(stringResource(R.string.settings_login_server_title)) },
+                        placeholder = { Text("https://controlplane.tailscale.com") },
+                        singleLine = true
+                    )
+                }
             },
             confirmButton = {
                 Button(onClick = {
                     if (newAccountName.isNotBlank()) {
                         val acc = AccountManager.addAccount(context, newAccountName)
+                        if (newAccountServer.isNotBlank()) {
+                            val accPrefs = context.getSharedPreferences("appctr_${acc.id}", Context.MODE_PRIVATE)
+                            accPrefs.edit().putString("login_server", newAccountServer.trim()).apply()
+                        }
                         accounts.value = AccountManager.getAccounts(context)
                         AccountManager.setActiveAccount(context, acc.id)
                         activeAccount = acc
@@ -881,14 +895,14 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
             }
 
             StatusCard(
-                state = if (proxyState == "CONNECTION_ISSUE") "ACTIVE" else proxyState,
+                state = if (proxyState == "CONNECTION_ISSUE" || (proxyState == "LOGGED_OUT" && ProxyState.isActualRunning())) "ACTIVE" else proxyState,
                 isProcessing = isProcessing,
                 isTunEnabled = isTunEnabled,
                 isFullTunnel = isFullTunnel
             ) {
                 if (isProcessing) return@StatusCard
 
-                if (proxyState == "ACTIVE" || proxyState == "STARTING" || proxyState == "CONNECTION_ISSUE") {
+                if (proxyState == "ACTIVE" || proxyState == "STARTING" || proxyState == "CONNECTION_ISSUE" || proxyState == "LOGGED_OUT") {
                     isProcessing = true
                     val intent = Intent(context, TailscaledService::class.java).apply { action = "STOP_ACTION" }
                     context.startService(intent)
@@ -1127,7 +1141,7 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                         Text(stringResource(R.string.main_no_exit_nodes), color = MaterialTheme.colorScheme.outline)
                     }
                 } else {
-                    val currentExitNodeId = remember(showExitNodeSheet) { prefs.getString("exit_node_id", "") ?: "" }
+                    val currentExitNodeId = remember(showExitNodeSheet, activeAccount.id) { prefs.getString("exit_node_id", "") ?: "" }
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()

@@ -11,6 +11,10 @@ All notable changes to the TailSocks project will be documented in this file. Th
 ### Fixed
 - Fixed custom control plane server (Headscale / ControlURL) authorization routing by conditionally passing `UpdatePrefs.ControlURL` via `/localapi/v0/start` in `appctr` for unauthenticated sessions (`NeedsLogin`).
 - Preserved existing authenticated sessions across account switches and application restarts by skipping redundant `/start` and `/login-interactive` calls when `BackendState` is `Running` or `Starting`.
+- Fixed StatusCard visual state during interactive login so the main top button remains highlighted green (`ACTIVE`) while the daemon process is running.
+- Enforced strict per-account isolation (`appctr_${id}`) for Exit Node selection (`exit_node_id` & `exit_node_ip`) in `MainActivity.kt` to prevent leaking exit nodes across profiles.
+- Added optional custom control server (`LoginServer`) input field directly to the Add Account modal in `MainActivity.kt`.
+- Removed persistent `do_reset` setting on `login_server` preference updates in `SettingsActivity.kt` to prevent accidental wiping of logged-in sessions.
 
 ## [3.1.3] - 2026-07-22
 ### Added

@@ -109,22 +109,28 @@ func registerMachineWithAuthKey(pc pathControl, opt *StartOptions) {
 		return
 	}
 
-	startOpts := map[string]interface{}{
-		"AuthKey": opt.AuthKey,
+	updatePrefs := map[string]interface{}{
+		"WantRunning": true,
+		"RouteAll":    opt.AcceptRoutes,
+		"RouteAllSet": true,
+		"CorpDNS":     opt.AcceptDNS,
+		"CorpDNSSet":  true,
 	}
 
-	// Only pass UpdatePrefs with ControlURL if opt.LoginServer is specified,
-	// to avoid overwriting existing default prefs.
+	if opt.Hostname != "" {
+		updatePrefs["Hostname"] = opt.Hostname
+		updatePrefs["HostnameSet"] = true
+	}
+
 	if opt.LoginServer != "" {
 		slog.Info("LocalAPI: setting custom ControlURL in /start", "controlURL", opt.LoginServer)
-		startOpts["UpdatePrefs"] = map[string]interface{}{
-			"ControlURL":  opt.LoginServer,
-			"WantRunning": true,
-		}
-	} else {
-		startOpts["UpdatePrefs"] = map[string]interface{}{
-			"WantRunning": true,
-		}
+		updatePrefs["ControlURL"] = opt.LoginServer
+		updatePrefs["ControlURLSet"] = true
+	}
+
+	startOpts := map[string]interface{}{
+		"AuthKey":     opt.AuthKey,
+		"UpdatePrefs": updatePrefs,
 	}
 
 	payload, _ := json.Marshal(startOpts)

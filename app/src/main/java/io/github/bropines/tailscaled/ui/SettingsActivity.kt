@@ -1075,7 +1075,7 @@ fun SettingsScreen(
                                 SettingsEditItem(stringResource(R.string.settings_login_server_title), loginServer, Icons.Default.Cloud, placeholder = stringResource(R.string.settings_login_server_placeholder)) { 
                                     if (loginServer != it) {
                                         loginServer = it
-                                        saveProfilePref("do_reset", true, triggerService = false)
+                                        saveProfilePref("was_logged_in", false, triggerService = false)
                                         saveProfilePref("login_server", it)
                                     }
                                 }
