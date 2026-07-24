@@ -15,9 +15,10 @@ This document outlines the planned features, architectural improvements, and ref
 - [x] **Battery Optimization UI:** Add a prompt to help users whitelist the app from system battery restrictions.
 - [x] **Account Switching in Tiles:** Enhance Quick Settings to allow switching between profiles.
 - [x] **Socks5 proxy to Control Panel:** Added SOCKS5/HTTP proxy support for control plane traffic with atomic patches and netns bypass fix.
+- [x] **Encrypted Backups:** Manual app state backups encrypted with a user-defined password (AES-GCM) to protect node keys.
+- [x] **Quick Settings Tiles:** Quick Settings Tiles for profile switching and connection state management.
 
 ## Plans
-- [ ] **Encrypted Backups:** Manual app state backups encrypted with a user-defined password (AES-GCM) to protect node keys.
-- [ ] **Exit Node Switcher Widget & Tiles:** Add a home screen widget and enhance Quick Settings Tiles to display active profile, connection state, and quick exit node toggles.
+- [ ] **Native Kotlin LocalAPI Bridge:** Refactor LocalAPI client requests from Go (`appctr`) to direct OkHttp/UnixDomainSocket calls in Kotlin, keeping `libtailscale.so` purely for daemon execution.
 - [ ] **Traffic Analyzer & Diagnostics:** Add an in-app real-time connection logger to inspect active Tailnet connections and MagicDNS requests.
 - [ ] **Advanced Networking:** Support for custom DERP maps and regional routing overrides.
