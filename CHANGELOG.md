@@ -2,11 +2,15 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
-## [3.1.4] - 2026-07-22
+## [3.1.4] - 2026-07-24
 ### Added
 - Added **Native Root Mode (`su`)**: Allows running the Tailscale daemon with root privileges for direct kernel TUN routing and firewall management (resolves #3).
 - Added **Magisk / KernelSU Autostart Service**: Supports installing an independent system boot script in `service.d`.
 - Added Root Mode & System Service card in Settings UI.
+
+### Fixed
+- Fixed custom control plane server (Headscale / ControlURL) authorization routing by conditionally passing `UpdatePrefs.ControlURL` via `/localapi/v0/start` in `appctr` for unauthenticated sessions (`NeedsLogin`).
+- Preserved existing authenticated sessions across account switches and application restarts by skipping redundant `/start` and `/login-interactive` calls when `BackendState` is `Running` or `Starting`.
 
 ## [3.1.3] - 2026-07-22
 ### Added

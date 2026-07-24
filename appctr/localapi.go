@@ -87,15 +87,57 @@ func Login(authKey string) string {
 	}
 	slog.Info("LocalAPI: [POST] /localapi/v0/start", "has_key", authKey != "")
 
-	// ipn.Options structure
+	stateMu.Lock()
+	opt := lastOptions
+	stateMu.Unlock()
+
 	opts := map[string]interface{}{
 		"AuthKey": authKey,
 	}
+
+	if opt != nil && opt.LoginServer != "" {
+		opts["UpdatePrefs"] = map[string]interface{}{
+			"ControlURL":  opt.LoginServer,
+			"WantRunning": true,
+		}
+	} else {
+		opts["UpdatePrefs"] = map[string]interface{}{
+			"WantRunning": true,
+		}
+	}
+
 	data, _ := json.Marshal(opts)
 
 	_, err := doLocalRequest("POST", "/localapi/v0/start", strings.NewReader(string(data)))
 	if err != nil {
 		return "Error: " + err.Error()
+	}
+
+	if authKey == "" {
+		slog.Info("LocalAPI: triggering /localapi/v0/login-interactive")
+		time.Sleep(300 * time.Millisecond)
+		_, err := doLocalRequest("POST", "/localapi/v0/login-interactive", nil)
+		if err != nil {
+			return "Error: " + err.Error()
+		}
+
+		for i := 0; i < 15; i++ {
+			time.Sleep(300 * time.Millisecond)
+			sData, err := doLocalRequest("GET", "/localapi/v0/status", nil)
+			if err == nil {
+				var st struct {
+					AuthURL string `json:"AuthURL"`
+				}
+				if json.Unmarshal(sData, &st) == nil && st.AuthURL != "" {
+					slog.Info("LocalAPI: AuthURL ready", "url", st.AuthURL)
+					break
+				}
+			}
+			if i == 5 {
+				slog.Info("LocalAPI: re-triggering login-interactive")
+				_, _ = doLocalRequest("POST", "/localapi/v0/login-interactive", nil)
+			}
+		}
 	}
 	return "OK"
 }
@@ -107,6 +149,17 @@ func Logout() string {
 	}
 	slog.Info("LocalAPI: [POST] /localapi/v0/logout")
 	_, err := doLocalRequest("POST", "/localapi/v0/logout", nil)
+
+	stateMu.Lock()
+	pc := PC
+	stateMu.Unlock()
+
+	if pc.State() != "" {
+		slog.Info("Wiping state directory after logout", "dir", pc.State())
+		_ = os.Remove(pc.State() + "/tailscaled.state")
+		_ = os.RemoveAll(pc.State() + "/profiles")
+	}
+
 	if err != nil {
 		return "Error: " + err.Error()
 	}

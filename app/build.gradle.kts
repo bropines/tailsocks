@@ -90,7 +90,7 @@ android {
             isShrinkResources = false 
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             buildConfigField("boolean", "IS_DEV", "false")
-            versionNameSuffix = "(release)"
+            versionNameSuffix = ".release"
             
             if (System.getenv("KEYSTORE_FILE") != null) {
                 signingConfig = signingConfigs.getByName("release")

@@ -1072,7 +1072,13 @@ fun SettingsScreen(
 
                         4 -> { // TAB 4: Account Profile & Advanced
                             SettingsCard(title = stringResource(R.string.settings_sect_account_format, activeAccount.name)) {
-                                SettingsEditItem(stringResource(R.string.settings_login_server_title), loginServer, Icons.Default.Cloud, placeholder = stringResource(R.string.settings_login_server_placeholder)) { loginServer = it; saveProfilePref("login_server", it) }
+                                SettingsEditItem(stringResource(R.string.settings_login_server_title), loginServer, Icons.Default.Cloud, placeholder = stringResource(R.string.settings_login_server_placeholder)) { 
+                                    if (loginServer != it) {
+                                        loginServer = it
+                                        saveProfilePref("do_reset", true, triggerService = false)
+                                        saveProfilePref("login_server", it)
+                                    }
+                                }
                                 SettingsEditItem(stringResource(R.string.settings_auth_key_title), authKey, Icons.Default.VpnKey) { authKey = it; saveProfilePref("authkey", it) }
                                 SettingsEditItem(stringResource(R.string.settings_hostname_title), hostname, Icons.Default.Badge, onAction = { android.os.Build.MODEL.replace(" ", "-").lowercase() }, actionIcon = Icons.Default.AutoFixHigh) { hostname = it; saveProfilePref("hostname", it) }
                                  @Suppress("UNCHECKED_CAST")
