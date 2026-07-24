@@ -579,6 +579,10 @@
     <string name="main_cd_admin_api">Admin API</string>
     <string name="main_cd_about_licenses">About &amp; Licenses</string>
     <string name="main_switch_account_header">Switch Account</string>
+    <string name="main_account_options_subtitle">Manage account settings and actions for %1$s</string>
+    <string name="main_switch_to_account">Switch to this account</string>
+    <string name="main_delete_account_confirm_title">Delete profile \'%1$s\'?</string>
+    <string name="main_delete_account_confirm_text">Are you sure you want to delete this account? All associated state, preferences, and keys will be permanently removed.</string>
     <string name="main_route_traffic_directly">Route traffic directly</string>
     <string name="main_status_active">Active</string>
     <string name="main_status_starting">Starting…</string>

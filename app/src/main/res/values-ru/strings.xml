@@ -579,6 +579,10 @@
     <string name="main_cd_admin_api">Панель администратора</string>
     <string name="main_cd_about_licenses">О программе и лицензиях</string>
     <string name="main_switch_account_header">Сменить аккаунт</string>
+    <string name="main_account_options_subtitle">Управление аккаунтом %1$s</string>
+    <string name="main_switch_to_account">Переключиться на этот аккаунт</string>
+    <string name="main_delete_account_confirm_title">Удалить аккаунт \'%1$s\'?</string>
+    <string name="main_delete_account_confirm_text">Вы уверены, что хотите удалить эту учетную запись? Все настройки и данные профиля будут полностью удалены.</string>
     <string name="main_route_traffic_directly">Маршрутизировать трафик напрямую</string>
     <string name="main_status_active">Активно</string>
     <string name="main_status_starting">Запуск…</string>

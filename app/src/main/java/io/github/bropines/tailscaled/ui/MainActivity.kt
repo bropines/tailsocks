@@ -21,6 +21,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -213,7 +215,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
     val context = LocalContext.current
@@ -225,6 +227,9 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
     var showAddAccountDialog by remember { mutableStateOf(false) }
     var showRenameAccountDialog by remember { mutableStateOf(false) }
     var showSwitchConfirmDialog by remember { mutableStateOf<TailscaleAccount?>(null) }
+    var accountOptionsModal by remember { mutableStateOf<TailscaleAccount?>(null) }
+    var accountToDeleteConfirm by remember { mutableStateOf<TailscaleAccount?>(null) }
+    var accountToRename by remember { mutableStateOf<TailscaleAccount?>(null) }
     
     var newAccountName by remember { mutableStateOf("") }
     var accountMenuExpanded by remember { mutableStateOf(false) }
@@ -495,29 +500,154 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
     }
 
     if (showRenameAccountDialog) {
-        var renameText by remember { mutableStateOf(activeAccount.name) }
+        val targetAcc = accountToRename ?: activeAccount
+        var renameText by remember(targetAcc.id) { mutableStateOf(targetAcc.name) }
         AlertDialog(
-            onDismissRequest = { showRenameAccountDialog = false },
+            onDismissRequest = { 
+                showRenameAccountDialog = false
+                accountToRename = null
+            },
             title = { Text(stringResource(R.string.main_rename_account_title)) },
             text = {
                 OutlinedTextField(
                     value = renameText,
                     onValueChange = { renameText = it },
                     label = { Text(stringResource(R.string.main_new_name_label)) },
-                    singleLine = true
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
                 )
             },
             confirmButton = {
                 Button(onClick = {
                     if (renameText.isNotBlank()) {
-                        AccountManager.renameAccount(context, activeAccount.id, renameText)
+                        AccountManager.renameAccount(context, targetAcc.id, renameText)
                         accounts.value = AccountManager.getAccounts(context)
                         activeAccount = AccountManager.getActiveAccount(context)
                         showRenameAccountDialog = false
+                        accountToRename = null
                     }
                 }) { Text(stringResource(R.string.action_rename)) }
             },
-            dismissButton = { TextButton(onClick = { showRenameAccountDialog = false }) { Text(stringResource(R.string.action_cancel)) } }
+            dismissButton = { 
+                TextButton(onClick = { 
+                    showRenameAccountDialog = false
+                    accountToRename = null
+                }) { Text(stringResource(R.string.action_cancel)) } 
+            }
+        )
+    }
+
+    if (accountOptionsModal != null) {
+        val targetAcc = accountOptionsModal!!
+        AlertDialog(
+            onDismissRequest = { accountOptionsModal = null },
+            icon = { Icon(Icons.Default.ManageAccounts, null, tint = MaterialTheme.colorScheme.primary) },
+            title = { Text(targetAcc.name, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center) },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        stringResource(R.string.main_account_options_subtitle, targetAcc.name),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    
+                    if (targetAcc.id != activeAccount.id) {
+                        FilledTonalButton(
+                            onClick = {
+                                val accToSwitch = targetAcc
+                                accountOptionsModal = null
+                                accountMenuExpanded = false
+                                if (ProxyState.isActualRunning()) showSwitchConfirmDialog = accToSwitch
+                                else { 
+                                    AccountManager.setActiveAccount(context, accToSwitch.id)
+                                    activeAccount = accToSwitch 
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().height(44.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.SwapHoriz, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.main_switch_to_account), fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                    
+                    OutlinedButton(
+                        onClick = {
+                            accountToRename = targetAcc
+                            accountOptionsModal = null
+                            showRenameAccountDialog = true
+                        },
+                        modifier = Modifier.fillMaxWidth().height(44.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.Edit, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.action_rename), fontWeight = FontWeight.SemiBold)
+                    }
+                    
+                    if (targetAcc.id != "default") {
+                        Button(
+                            onClick = {
+                                accountToDeleteConfirm = targetAcc
+                                accountOptionsModal = null
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                contentColor = MaterialTheme.colorScheme.onErrorContainer
+                            ),
+                            modifier = Modifier.fillMaxWidth().height(44.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.Delete, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.action_delete), fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { accountOptionsModal = null }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            }
+        )
+    }
+
+    if (accountToDeleteConfirm != null) {
+        val targetAcc = accountToDeleteConfirm!!
+        AlertDialog(
+            onDismissRequest = { accountToDeleteConfirm = null },
+            icon = { Icon(Icons.Default.Warning, null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text(stringResource(R.string.main_delete_account_confirm_title, targetAcc.name)) },
+            text = { Text(stringResource(R.string.main_delete_account_confirm_text)) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        accountToDeleteConfirm = null
+                        accountMenuExpanded = false
+                        AccountManager.deleteAccount(context, targetAcc.id)
+                        activeAccount = AccountManager.getActiveAccount(context)
+                        accounts.value = AccountManager.getAccounts(context)
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) {
+                    Text(stringResource(R.string.action_delete))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { accountToDeleteConfirm = null }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            }
         )
     }
 
@@ -606,13 +736,18 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                         Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable {
-                                    accountMenuExpanded = false
-                                    if (account.id != activeAccount.id) {
-                                        if (ProxyState.isActualRunning()) showSwitchConfirmDialog = account
-                                        else { AccountManager.setActiveAccount(context, account.id); activeAccount = account }
+                                .combinedClickable(
+                                    onClick = {
+                                        accountMenuExpanded = false
+                                        if (account.id != activeAccount.id) {
+                                            if (ProxyState.isActualRunning()) showSwitchConfirmDialog = account
+                                            else { AccountManager.setActiveAccount(context, account.id); activeAccount = account }
+                                        }
+                                    },
+                                    onLongClick = {
+                                        accountOptionsModal = account
                                     }
-                                },
+                                ),
                             shape = RoundedCornerShape(12.dp),
                             color = if (isActive) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
                                     else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
@@ -680,6 +815,18 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                                         null,
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                }
+                                IconButton(
+                                    onClick = { accountOptionsModal = account },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.MoreVert,
+                                        contentDescription = "Options",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                        modifier = Modifier.size(18.dp)
                                     )
                                 }
                             }
