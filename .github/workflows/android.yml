@@ -259,6 +259,20 @@ jobs:
           name: tailsocks-universal-release
           path: apks-separated/universal-release/*.apk
 
+      - name: Upload x86 Dev APK
+        if: hashFiles('apks-separated/x86-dev/*.apk') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: tailsocks-x86-dev
+          path: apks-separated/x86-dev/*.apk
+
+      - name: Upload x86 Release APK
+        if: hashFiles('apks-separated/x86-release/*.apk') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: tailsocks-x86-release
+          path: apks-separated/x86-release/*.apk
+
       - name: Upload x86_64 Dev APK
         if: hashFiles('apks-separated/x86_64-dev/*.apk') != ''
         uses: actions/upload-artifact@v4
