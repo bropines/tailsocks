@@ -8,7 +8,8 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Added **Magisk / KernelSU Autostart Service**: Supports installing an independent system boot script in `service.d`.
 - Added Root Mode & System Service card in Settings UI.
 - Created **`appctr/api.go` Production-Grade LocalAPI Module**: Refactored into a professional Go SDK with `LocalClient` struct, godoc comments, custom sentinel errors (`ErrDaemonNotRunning`, `ErrBadRequest`), and 100% LocalAPI v0 coverage (`/status`, `/profiles`, `/start`, `/prefs`, `/netcheck`, `/ping`, `/whois`, `/derp/map`, `/drive/shares`, `/file-targets`, `/serve-config`, `/set-dns`).
-- Created **`LocalApiClient.kt` Kotlin LocalAPI Client**: Added asynchronous coroutine `suspend fun` wrapper in Kotlin (`LocalApiClient.kt`) covering 100% of LocalAPI endpoints via `Dispatchers.IO`.
+- Created **`LocalApiClient.kt` (Pure Kotlin)**: Standalone LocalAPI client connecting directly to `tailscaled.sock` Unix Domain Socket via Android's native `android.net.LocalSocket` and raw HTTP/1.1 streaming without JNI/Go dependencies.
+- Created **`KotlinGoApiClient.kt` (Go JNI Bridge)**: Dedicated Kotlin coroutine wrapper for `appctr/api.go` Go JNI bindings serving as a unified single source of truth for daemon configuration.
 - Redesigned **Account Picker UI with Inline Editing & Navigation Padding**: Long-pressing an account card smoothly compresses its container in 100% full-width layout (`weight(1f)`), revealing inline **Rename** and **Delete** buttons directly in the row. Added `navigationBarsPadding()` so the bottom `+ Add` button sits cleanly above system gesture controls.
 
 ### Fixed
