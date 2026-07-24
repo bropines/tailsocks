@@ -44,7 +44,7 @@ func (lm *LogManager) AddLog(entry LogEntry) {
 func (lm *LogManager) GetLogsJSON() string {
 	lm.mu.RLock()
 	defer lm.mu.RUnlock()
-	
+
 	bytes, err := json.Marshal(lm.logs)
 	if err != nil {
 		return "[]"

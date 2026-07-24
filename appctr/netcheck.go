@@ -17,8 +17,8 @@ type DERPInfo struct {
 }
 
 type NetcheckResponse struct {
-	Report   *netcheck.Report  `json:"Report"`
-	DERPMeta map[int]DERPInfo  `json:"DERPMeta"`
+	Report   *netcheck.Report `json:"Report"`
+	DERPMeta map[int]DERPInfo `json:"DERPMeta"`
 }
 
 // GetNetcheckFromAPI runs a native network test using the DERP map from the daemon.

@@ -127,9 +127,6 @@ func DeleteTaildropFileFromAPI(name string) bool {
 	return err == nil
 }
 
-
-
-
 func SaveTaildropFileToPath(name, destPath string) string {
 	if !IsRunning() {
 		return "Error: " + errNotRunning.Error()

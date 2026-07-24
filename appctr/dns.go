@@ -59,7 +59,9 @@ func listenToBus(ctx context.Context) error {
 
 	req, _ := http.NewRequestWithContext(ctx, "GET", "http://local-tailscaled.sock/localapi/v0/watch-ipn-bus?mask=4095", nil)
 	resp, err := client.Do(req)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	defer resp.Body.Close()
 
 	dec := json.NewDecoder(resp.Body)
@@ -78,7 +80,9 @@ func listenToBus(ctx context.Context) error {
 			}
 		}
 
-		if err := dec.Decode(&msg); err != nil { return err }
+		if err := dec.Decode(&msg); err != nil {
+			return err
+		}
 
 		if msg.NetMap != nil {
 			// 1. Update MagicDNS suffix.
@@ -91,10 +95,14 @@ func listenToBus(ctx context.Context) error {
 			// 2. Cache peer nodes.
 			nodesCount := 0
 			if msg.NetMap.SelfNode != nil {
-				if updateNodeInCache(msg.NetMap.SelfNode) { nodesCount++ }
+				if updateNodeInCache(msg.NetMap.SelfNode) {
+					nodesCount++
+				}
 			}
 			for _, p := range msg.NetMap.Peers {
-				if updateNodeInCache(p) { nodesCount++ }
+				if updateNodeInCache(p) {
+					nodesCount++
+				}
 			}
 
 			// 3. Split DNS routes.
@@ -112,7 +120,7 @@ func listenToBus(ctx context.Context) error {
 					}
 				}
 			}
-			
+
 			if nodesCount > 0 || routesCount > 0 {
 				slog.Info("Bus: Metadata synced", "nodes", nodesCount, "routes", routesCount, "suffix", magicDNSSuffix)
 			}
@@ -121,8 +129,10 @@ func listenToBus(ctx context.Context) error {
 }
 
 func updateNodeInCache(n *busNode) bool {
-	if n == nil || n.Name == "" { return false }
-	
+	if n == nil || n.Name == "" {
+		return false
+	}
+
 	fullName := strings.ToLower(strings.Trim(n.Name, "."))
 	var ips []string
 	for _, addr := range n.Addresses {
@@ -135,7 +145,7 @@ func updateNodeInCache(n *busNode) bool {
 			ips = append(ips, ip.String())
 		}
 	}
-	
+
 	if len(ips) > 0 {
 		nodesCache.Store(fullName, ips)
 		parts := strings.Split(fullName, ".")
@@ -156,7 +166,9 @@ func startDNSProxy(ctx context.Context, listenAddr string, fallbacks []string, d
 	slog.Info("DNS proxy listening", "addr", listenAddr)
 
 	busMu.Lock()
-	if busCancel != nil { busCancel() }
+	if busCancel != nil {
+		busCancel()
+	}
 	busCtx, cancel := context.WithCancel(context.Background())
 	busCancel = cancel
 	busMu.Unlock()
@@ -166,7 +178,10 @@ func startDNSProxy(ctx context.Context, listenAddr string, fallbacks []string, d
 		<-ctx.Done()
 		pc.Close()
 		busMu.Lock()
-		if busCancel != nil { busCancel(); busCancel = nil }
+		if busCancel != nil {
+			busCancel()
+			busCancel = nil
+		}
 		busMu.Unlock()
 	}()
 
@@ -174,7 +189,9 @@ func startDNSProxy(ctx context.Context, listenAddr string, fallbacks []string, d
 	for {
 		n, clientAddr, err := pc.ReadFrom(buf)
 		if err != nil {
-			if ctx.Err() != nil { return nil }
+			if ctx.Err() != nil {
+				return nil
+			}
 			return err
 		}
 		query := make([]byte, n)
@@ -207,23 +224,34 @@ func forwardDNSviaSOCKS5(query []byte, socksAddr, user, pass, dnsServer string) 
 		auth = &proxy.Auth{User: user, Password: pass}
 	}
 	dialer, err := proxy.SOCKS5("tcp", socksAddr, auth, proxy.Direct)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	conn, err := dialer.Dial("tcp", dnsServer)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	defer conn.Close()
 	conn.SetDeadline(time.Now().Add(5 * time.Second))
 
 	length := uint16(len(query))
 	buf := make([]byte, 2+len(query))
-	buf[0] = byte(length >> 8); buf[1] = byte(length)
+	buf[0] = byte(length >> 8)
+	buf[1] = byte(length)
 	copy(buf[2:], query)
-	if _, err := conn.Write(buf); err != nil { return nil, err }
+	if _, err := conn.Write(buf); err != nil {
+		return nil, err
+	}
 
 	lenBuf := make([]byte, 2)
-	if _, err := io.ReadFull(conn, lenBuf); err != nil { return nil, err }
+	if _, err := io.ReadFull(conn, lenBuf); err != nil {
+		return nil, err
+	}
 	respLen := int(lenBuf[0])<<8 | int(lenBuf[1])
 	respBuf := make([]byte, respLen)
-	if _, err := io.ReadFull(conn, respBuf); err != nil { return nil, err }
+	if _, err := io.ReadFull(conn, respBuf); err != nil {
+		return nil, err
+	}
 	return respBuf, nil
 }
 
@@ -250,13 +278,13 @@ func processDNSQuery(query []byte, fallbacks []string, dohUrl string) []byte {
 			}
 		}
 	}
-	
+
 	if strings.HasSuffix(domain, ".arpa") {
 		return tryFallbackDNS(query, fallbacks, dohUrl)
 	}
 
 	socks, user, pass, _ := GConfig.get()
-	
+
 	isMagicDNS := magicDNSSuffix != "" && strings.HasSuffix(domain, magicDNSSuffix)
 	isShortName := !strings.Contains(domain, ".")
 
@@ -275,7 +303,8 @@ func processDNSQuery(query []byte, fallbacks []string, dohUrl string) []byte {
 				target := net.JoinHostPort(server, "53")
 				resp, err := forwardDNSviaSOCKS5(query, socks, user, pass, target)
 				if err == nil && len(resp) >= 2 {
-					resp[0] = query[0]; resp[1] = query[1]
+					resp[0] = query[0]
+					resp[1] = query[1]
 					return resp
 				}
 			}
@@ -285,15 +314,18 @@ func processDNSQuery(query []byte, fallbacks []string, dohUrl string) []byte {
 	// 3. Local API DNS Query (only for MagicDNS domains or short names)
 	if isMagicDNS || isShortName {
 		typeStr := "A"
-		if q.Type == dnsmessage.TypeAAAA { typeStr = "AAAA" }
+		if q.Type == dnsmessage.TypeAAAA {
+			typeStr = "AAAA"
+		}
 		path := fmt.Sprintf("/localapi/v0/dns-query?name=%s&type=%s", domain, typeStr)
 		data, err := doLocalRequest("GET", path, nil)
 		if err == nil {
-			var dnsResp struct { Bytes []byte }
+			var dnsResp struct{ Bytes []byte }
 			if json.Unmarshal(data, &dnsResp) == nil && len(dnsResp.Bytes) >= 4 {
 				rcode := dnsResp.Bytes[3] & 0x0F
 				if rcode == 0 || isMagicDNS {
-					dnsResp.Bytes[0] = query[0]; dnsResp.Bytes[1] = query[1]
+					dnsResp.Bytes[0] = query[0]
+					dnsResp.Bytes[1] = query[1]
 					return dnsResp.Bytes
 				}
 			}
@@ -310,7 +342,9 @@ func packDNSResponse(msg dnsmessage.Message, q dnsmessage.Question, ips []string
 	msg.RecursionAvailable = true
 	for _, ipStr := range ips {
 		ip := net.ParseIP(ipStr)
-		if ip == nil { continue }
+		if ip == nil {
+			continue
+		}
 		if ip4 := ip.To4(); ip4 != nil && q.Type == dnsmessage.TypeA {
 			var a [4]byte
 			copy(a[:], ip4)
@@ -368,13 +402,19 @@ func tryFallbackDNS(query []byte, fallbacks []string, dohUrl string) []byte {
 
 func forwardDNSviaUDP(query []byte, server string) ([]byte, error) {
 	conn, err := net.DialTimeout("udp", server, 3*time.Second)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	defer conn.Close()
 	conn.SetDeadline(time.Now().Add(3 * time.Second))
-	if _, err := conn.Write(query); err != nil { return nil, err }
+	if _, err := conn.Write(query); err != nil {
+		return nil, err
+	}
 	buf := make([]byte, 65535)
 	n, err := conn.Read(buf)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	return buf[:n], nil
 }
 
@@ -404,14 +444,24 @@ func forwardDNSviaDoH(query []byte, dohUrl string) ([]byte, error) {
 	}
 
 	url := dohUrl
-	if strings.Contains(url, "?") { url += "&dns=" + encoded } else { url += "?dns=" + encoded }
+	if strings.Contains(url, "?") {
+		url += "&dns=" + encoded
+	} else {
+		url += "?dns=" + encoded
+	}
 	req, err := http.NewRequest("GET", url, nil)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	req.Header.Set("Accept", "application/dns-message")
 	resp, err := client.Do(req)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK { return nil, fmt.Errorf("doh status: %d", resp.StatusCode) }
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("doh status: %d", resp.StatusCode)
+	}
 	return io.ReadAll(resp.Body)
 }
 

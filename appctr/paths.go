@@ -25,11 +25,11 @@ func newPathControl(execPath, socketPath, statePath string) pathControl {
 }
 
 func (p pathControl) TailscaledSo() string   { return p.execPath }
-func (p pathControl) Tailscaled() string      { return filepath.Join(p.dataDir, "tailscaled") }
-func (p pathControl) TailscaleCliSo() string  { return filepath.Join(p.execDir, "libtailscale_cli.so") }
-func (p pathControl) Tailscale() string       { return filepath.Join(p.dataDir, "tailscale") }
-func (p pathControl) Socket() string          { return p.socketPath }
-func (p *pathControl) State() string          { return p.statePath }
+func (p pathControl) Tailscaled() string     { return filepath.Join(p.dataDir, "tailscaled") }
+func (p pathControl) TailscaleCliSo() string { return filepath.Join(p.execDir, "libtailscale_cli.so") }
+func (p pathControl) Tailscale() string      { return filepath.Join(p.dataDir, "tailscale") }
+func (p pathControl) Socket() string         { return p.socketPath }
+func (p *pathControl) State() string         { return p.statePath }
 
 func (p pathControl) DataDir(s ...string) string {
 	if len(s) == 0 {

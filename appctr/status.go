@@ -32,14 +32,14 @@ func GetDnsStatusJSON() string {
 		Addr string `json:"Addr"`
 	}
 	type tailnetInfo struct {
-		MagicDNSEnabled bool    `json:"MagicDNSEnabled"`
-		MagicDNSSuffix  string  `json:"MagicDNSSuffix"`
-		SelfDNSName     string  `json:"SelfDNSName"`
+		MagicDNSEnabled bool   `json:"MagicDNSEnabled"`
+		MagicDNSSuffix  string `json:"MagicDNSSuffix"`
+		SelfDNSName     string `json:"SelfDNSName"`
 	}
 	type status struct {
-		TailscaleDNS   bool                    `json:"TailscaleDNS"`
-		CurrentTailnet tailnetInfo             `json:"CurrentTailnet"`
-		SplitDNSRoutes map[string][]dnsAddr   `json:"SplitDNSRoutes"`
+		TailscaleDNS   bool                 `json:"TailscaleDNS"`
+		CurrentTailnet tailnetInfo          `json:"CurrentTailnet"`
+		SplitDNSRoutes map[string][]dnsAddr `json:"SplitDNSRoutes"`
 	}
 
 	res := status{
@@ -64,7 +64,7 @@ func GetDnsStatusJSON() string {
 	})
 
 	// Try to find own node name in the nodes cache.
-	if socks != "" { 
+	if socks != "" {
 		nodesCache.Range(func(key, value interface{}) bool {
 			name := key.(string)
 			if strings.HasSuffix(name, magicDNSSuffix) && !strings.Contains(strings.TrimSuffix(name, magicDNSSuffix), ".") {

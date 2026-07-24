@@ -191,8 +191,6 @@ func GetLoginURL() string {
 	return s.AuthURL
 }
 
-
-
 // GetServeConfig returns the current Serve/Funnel configuration.
 func GetServeConfig() string {
 	if !IsRunning() {
@@ -294,7 +292,7 @@ func SetServeConfig(configJson string) string {
 	if etag != "" {
 		resetReq.Header.Set("If-Match", etag)
 	}
-	
+
 	resetResp, err := client.Do(resetReq)
 	var nextEtag = etag
 	if err == nil {
@@ -313,7 +311,7 @@ func SetServeConfig(configJson string) string {
 	// If the config is literally "{}", we might want to stop here to ensure everything is purged.
 	if string(cleanJson) == "{}" {
 		slog.Info("LocalAPI: Full purge requested, stopping after reset")
-		// Force one more attempt if reset didn't seem to return OK? 
+		// Force one more attempt if reset didn't seem to return OK?
 		// Actually, we'll trust Step 2 for now, but let's ensure nextEtag is updated.
 		return "OK"
 	}
@@ -327,7 +325,7 @@ func SetServeConfig(configJson string) string {
 
 	// STEP 3: Apply the new config.
 	slog.Info("LocalAPI: ServeConfig [Step 2/2] Applying new config", "if_match", nextEtag, "payload", string(cleanJson))
-	
+
 	applyReq, _ := http.NewRequest("POST", "http://local-tailscaled.sock/localapi/v0/serve-config", strings.NewReader(string(cleanJson)))
 	if nextEtag != "" {
 		applyReq.Header.Set("If-Match", nextEtag)
