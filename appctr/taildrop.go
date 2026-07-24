@@ -64,7 +64,7 @@ func startTaildropCollector(ctx context.Context, taildropDir string) {
 }
 
 func processIncomingFiles(taildropDir string) {
-	data, err := doLocalRequest("GET", "/localapi/v0/files", nil)
+	filesStr, err := GetWaitingFilesJSON()
 	if err != nil {
 		return
 	}
@@ -74,7 +74,7 @@ func processIncomingFiles(taildropDir string) {
 		Size int64
 	}
 	var files []waitingFile
-	if err := json.Unmarshal(data, &files); err != nil {
+	if err := json.Unmarshal([]byte(filesStr), &files); err != nil {
 		return
 	}
 

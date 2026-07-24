@@ -232,13 +232,13 @@ func syncSettings(opt *StartOptions) {
 		time.Sleep(500 * time.Millisecond)
 
 		// Check backend status; skip PATCH /prefs if in NeedsLogin state to avoid resetting controlclient / interrupting interactive login
-		statusData, err := doLocalRequest("GET", "/localapi/v0/status", nil)
-		if err == nil && len(statusData) > 0 {
+		statusDataStr, err := GetStatusJSON(false)
+		if err == nil && len(statusDataStr) > 0 {
 			var st struct {
 				BackendState string `json:"BackendState"`
 				AuthURL      string `json:"AuthURL"`
 			}
-			if json.Unmarshal(statusData, &st) == nil {
+			if json.Unmarshal([]byte(statusDataStr), &st) == nil {
 				if st.BackendState == "NeedsLogin" || st.AuthURL != "" {
 					slog.Info("syncSettings: backend is in NeedsLogin state, skipping PATCH /prefs to preserve login flow")
 					return
@@ -495,7 +495,7 @@ func RestartDNS() {
 
 func Stop() {
 	StopWebUI()
-	_ = StopDriveServer()
+	StopDriveServer()
 	FlushDNS()
 	ResetDNSMetadata()
 	stateMu.Lock()

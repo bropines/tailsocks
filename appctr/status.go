@@ -9,18 +9,14 @@ import (
 
 // GetStatusFromAPI returns the daemon status as JSON.
 func GetStatusFromAPI() string {
-	if !IsRunning() {
-		return `{"Error": "Tailscaled is not running."}`
-	}
-	slog.Info("LocalAPI: [GET] /localapi/v0/status?peers=true")
-	data, err := doLocalRequest("GET", "/localapi/v0/status?peers=true", nil)
+	data, err := GetStatusJSON(true)
 	if err != nil {
 		return fmt.Sprintf(`{"Error": %q}`, err.Error())
 	}
-	if len(data) == 0 {
+	if data == "" {
 		return `{"Error": "Status API returned empty response"}`
 	}
-	return string(data)
+	return data
 }
 
 // GetDnsStatusJSON returns DNS information for DnsActivity.

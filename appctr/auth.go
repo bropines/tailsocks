@@ -67,9 +67,9 @@ func registerMachineWithAuthKey(pc pathControl, opt *StartOptions) {
 	apiReady := false
 	for i := 1; i <= 20; i++ {
 		if _, err := os.Stat(pc.Socket()); err == nil {
-			data, err := doLocalRequest("GET", "/localapi/v0/status", nil)
-			if err == nil && len(data) > 0 {
-				statusData = data
+			stStr, err := GetStatusJSON(false)
+			if err == nil && len(stStr) > 0 {
+				statusData = []byte(stStr)
 				apiReady = true
 				break
 			}
@@ -135,7 +135,7 @@ func registerMachineWithAuthKey(pc pathControl, opt *StartOptions) {
 
 	payload, _ := json.Marshal(startOpts)
 	slog.Info("LocalAPI: initializing login session with /start", "has_authkey", opt.AuthKey != "")
-	_, err := doLocalRequest("POST", "/localapi/v0/start", strings.NewReader(string(payload)))
+	err := StartDaemon(string(payload))
 	if err != nil {
 		if strings.Contains(err.Error(), "invalid") {
 			slog.Error("Critical: Invalid Auth Key / Start error", "err", err)
@@ -149,7 +149,7 @@ func registerMachineWithAuthKey(pc pathControl, opt *StartOptions) {
 	if opt.AuthKey == "" && statusResp.AuthURL == "" {
 		slog.Info("LocalAPI: triggering interactive login for AuthURL")
 		time.Sleep(300 * time.Millisecond)
-		_, err := doLocalRequest("POST", "/localapi/v0/login-interactive", nil)
+		err := LoginInteractive()
 		if err != nil {
 			slog.Error("LocalAPI: /login-interactive failed", "err", err)
 		} else {
@@ -159,19 +159,19 @@ func registerMachineWithAuthKey(pc pathControl, opt *StartOptions) {
 		// Poll status up to 15 times (4.5s) for AuthURL generation
 		for i := 0; i < 15; i++ {
 			time.Sleep(300 * time.Millisecond)
-			sData, err := doLocalRequest("GET", "/localapi/v0/status", nil)
+			stStr, err := GetStatusJSON(false)
 			if err == nil {
 				var st struct {
 					AuthURL string `json:"AuthURL"`
 				}
-				if json.Unmarshal(sData, &st) == nil && st.AuthURL != "" {
+				if json.Unmarshal([]byte(stStr), &st) == nil && st.AuthURL != "" {
 					slog.Info("LocalAPI: AuthURL generated successfully", "url", st.AuthURL)
 					break
 				}
 			}
 			if i == 5 {
 				slog.Info("LocalAPI: re-triggering login-interactive for Headscale/Tailscale")
-				_, _ = doLocalRequest("POST", "/localapi/v0/login-interactive", nil)
+				_ = LoginInteractive()
 			}
 		}
 	}

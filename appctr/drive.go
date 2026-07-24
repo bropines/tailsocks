@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"strings"
 	"sync"
 
 	"golang.org/x/net/proxy"
@@ -54,7 +53,7 @@ func StartDriveServer() (string, error) {
 	slog.Info("Taildrive: Server started, registering address", "addr", addr)
 
 	// Register the file server address with the local tailscaled daemon
-	_, err = doLocalRequest("PUT", "/localapi/v0/drive/fileserver-address", strings.NewReader(addr))
+	err = SetFileServerAddr(addr)
 	if err != nil {
 		// Clean up on failure
 		_ = server.Close()
@@ -68,24 +67,15 @@ func StartDriveServer() (string, error) {
 }
 
 // StopDriveServer stops the running WebDAV file server.
-func StopDriveServer() error {
+func StopDriveServer() {
 	driveServerMu.Lock()
 	defer driveServerMu.Unlock()
 
-	if driveServer == nil {
-		slog.Info("Taildrive: Stop requested but server is not running")
-		return nil
+	if driveServer != nil {
+		slog.Info("Taildrive: Stopping server")
+		_ = driveServer.Close()
+		driveServer = nil
 	}
-
-	slog.Info("Taildrive: Stopping server...")
-	err := driveServer.Close()
-	driveServer = nil
-	if err != nil {
-		slog.Error("Taildrive: Error stopping server", "error", err)
-	} else {
-		slog.Info("Taildrive: Server stopped OK")
-	}
-	return err
 }
 
 // ShareEntry represents a single folder shared via Taildrive.
@@ -94,29 +84,23 @@ type ShareEntry struct {
 	Path string `json:"path"`
 }
 
-// UpdateDriveShares updates the list of shares served by the WebDAV server.
-// sharesJson is a JSON array of ShareEntry objects.
+// UpdateDriveShares updates the active share configuration in the WebDAV server
+// and notifies the tailscaled daemon via LocalAPI PUT /localapi/v0/drive/shares.
+// Expects a JSON array of ShareEntry objects: [{"Name": "share1", "Path": "/sdcard/share1"}]
 func UpdateDriveShares(sharesJson string) error {
-	slog.Info("Taildrive: UpdateDriveShares called", "json", sharesJson)
+	var entries []ShareEntry
+	if err := json.Unmarshal([]byte(sharesJson), &entries); err != nil {
+		return fmt.Errorf("invalid shares JSON: %w", err)
+	}
 
 	driveServerMu.Lock()
 	server := driveServer
 	driveServerMu.Unlock()
 
 	if server == nil {
-		slog.Error("Taildrive: UpdateDriveShares failed — server is not running")
 		return fmt.Errorf("drive server is not running")
 	}
 
-	var entries []ShareEntry
-	if err := json.Unmarshal([]byte(sharesJson), &entries); err != nil {
-		slog.Error("Taildrive: Failed to parse shares JSON", "error", err)
-		return fmt.Errorf("failed to parse shares JSON: %w", err)
-	}
-
-	slog.Info("Taildrive: Parsed share entries", "count", len(entries))
-
-	// Update the file server shares (name -> local path)
 	shares := make(map[string]string)
 	for _, entry := range entries {
 		shares[entry.Name] = entry.Path
@@ -126,12 +110,12 @@ func UpdateDriveShares(sharesJson string) error {
 
 	// Apply/sync each share with the daemon via LocalAPI.
 	// 1. Remove all old shares first by fetching the current ones and deleting them.
-	currentJson, err := doLocalRequest("GET", "/localapi/v0/drive/shares", nil)
+	currentStr, err := GetDriveSharesJSON()
 	if err != nil {
 		slog.Warn("Taildrive: Could not fetch current shares from daemon", "error", err)
 	} else {
 		var currentShares []drive.Share
-		if err := json.Unmarshal(currentJson, &currentShares); err == nil {
+		if err := json.Unmarshal([]byte(currentStr), &currentShares); err == nil {
 			slog.Info("Taildrive: Current daemon shares", "count", len(currentShares))
 			for _, cs := range currentShares {
 				// If a current share is not in our new list, remove it
@@ -144,27 +128,18 @@ func UpdateDriveShares(sharesJson string) error {
 				}
 				if !found {
 					slog.Info("Taildrive: Removing stale share", "name", cs.Name)
-					_, _ = doLocalRequest("DELETE", "/localapi/v0/drive/shares", strings.NewReader(cs.Name))
+					_ = DeleteDriveShare(cs.Name)
 				}
 			}
 		} else {
-			slog.Warn("Taildrive: Failed to parse current shares response", "error", err, "body", string(currentJson))
+			slog.Warn("Taildrive: Failed to parse current shares response", "error", err, "body", currentStr)
 		}
 	}
 
 	// 2. Put all new/updated shares
 	for _, entry := range entries {
-		share := drive.Share{
-			Name: entry.Name,
-			Path: entry.Path,
-		}
-		shareBytes, err := json.Marshal(share)
-		if err != nil {
-			slog.Error("Taildrive: Failed to marshal share", "name", entry.Name, "error", err)
-			continue
-		}
-		slog.Info("Taildrive: PUT share to daemon", "name", entry.Name, "payload", string(shareBytes))
-		_, err = doLocalRequest("PUT", "/localapi/v0/drive/shares", strings.NewReader(string(shareBytes)))
+		slog.Info("Taildrive: PUT share to daemon", "name", entry.Name, "path", entry.Path)
+		err = PutDriveShare(entry.Name, entry.Path)
 		if err != nil {
 			slog.Error("Taildrive: Failed to register share", "name", entry.Name, "error", err)
 			return fmt.Errorf("failed to register share %q: %w", entry.Name, err)

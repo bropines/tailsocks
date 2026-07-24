@@ -145,11 +145,7 @@ func Login(authKey string) string {
 
 // Logout signs out via LocalAPI /logout.
 func Logout() string {
-	if !IsRunning() {
-		return "Error: " + errNotRunning.Error()
-	}
-	slog.Info("LocalAPI: [POST] /localapi/v0/logout")
-	_, err := doLocalRequest("POST", "/localapi/v0/logout", nil)
+	err := LogoutDaemon()
 
 	stateMu.Lock()
 	pc := PC
@@ -169,12 +165,7 @@ func Logout() string {
 
 // SetPrefs updates preferences via LocalAPI PATCH (EditPrefs).
 func SetPrefs(prefsJson string) string {
-	if !IsRunning() {
-		return "Error: " + errNotRunning.Error()
-	}
-	slog.Info("LocalAPI: [PATCH] /localapi/v0/prefs", "payload", prefsJson)
-	_, err := doLocalRequest("PATCH", "/localapi/v0/prefs", strings.NewReader(prefsJson))
-	if err != nil {
+	if err := PatchPrefsJSON(prefsJson); err != nil {
 		return "Error: " + err.Error()
 	}
 	return "OK"
