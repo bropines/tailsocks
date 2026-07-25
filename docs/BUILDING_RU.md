@@ -1,59 +1,68 @@
-# Инструкция по сборке TailSocks
+# 🛠 Сборка TailSocks
 
-Этот документ содержит руководство по компиляции нативных компонентов Go/C и сборке итогового Android APK.
+TailSocks использует высокоавтоматизированный и модульный конвейер сборки, исключающий технический долг, связанный с поддержкой громоздкого форка Tailscale.
 
 ---
 
-## 🛠️ Требования к окружению
+## ⚙️ Конвейер Динамических Патчей (Dynamic Injection Pipeline)
 
-- **ОС**: Linux (Ubuntu 22.04+ рекомендовано)
-- **Go**: 1.22+
+Вместо постоянного разрешения конфликтов слияния (merge conflicts) скрипт сборки применяет патч-конвейер:
+1. **Загрузка Чистого Ядра:** Скачивается облегченный архив стабильного исходного кода Tailscale (по умолчанию последняя поддерживаемая версия, например v1.98.3).
+2. **Атомарное Внедрение Патчей:** Применяется серия модульных атомарных `.patch` файлов (из папки `appctr/patches/`) в алфавитном порядке для адаптации исходников под мобильные функции (поддержка SOCKS5 прокси, нативная файловая система для Taildrop, генерация сертификатов LocalAPI и мониторинг сети Android).
+3. **Агрессивное Оптимизирование:** С помощью большого набора тегов сборки Go (`ts_omit_systray`, `ts_omit_kube`, `ts_omit_aws`, `ts_omit_bird`, `ts_omit_drive` и др.) из кода вырезаются неиспользуемые компоненты Linux, серверных систем и корпоративных модулей.
+4. **Результат:** Высокооптимизированные библиотеки `libtailscale.so`, быстро компилирующиеся и минимально расходующие ресурсы в песочнице Android.
+
+---
+
+## 🛠️ Требования к Окружению
+
+- **Операционная система**: Linux / macOS
+- **Go**: 1.23+
 - **Android SDK**: API 34 (Android 14)
-- **Android NDK**: 27.0.12077973
+- **Android NDK**: 27.x (переменная `ANDROID_NDK_HOME`)
+- **gomobile**: `go install golang.org/x/mobile/cmd/gomobile@latest && gomobile init`
 - **Gradle**: 8.x+ (используется обертка `./gradlew`)
 
 ---
 
-## 1. Сборка Нативного Go Ядра (`appctr`)
+## 📦 Инструкция по Сборке
 
-При изменении Go-кода, JNI-привязок или патчей Tailscale необходимо скомпилировать бинарные файлы `.so`:
-
+### 1. Клонирование репозитория:
 ```bash
-export ANDROID_HOME=/home/pinus/android-sdk
-export ANDROID_NDK_HOME=/home/pinus/android-sdk/ndk/27.0.12077973
-
-cd appctr
-./build.sh
+git clone --recurse-submodules https://github.com/bropines/tailsocks.git
+cd tailsocks
 ```
 
-`build.sh` автоматически:
-1. Скачивает исходники Tailscale (v1.98.3), если они отсутствуют.
-2. Применяет атомарные патчи из `appctr/patches/` в алфавитном порядке.
-3. Компилирует нативные библиотеки `.so` под 4 архитектуры (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`).
-4. Копирует скомпилированные `.so` в `app/src/main/jniLibs/`.
+### 2. Компиляция нативного ядра Go (`appctr`):
+```bash
+cd appctr
+bash build.sh
+cd ..
+```
+*Скрипт сборки автоматически скачает нужную версию Tailscale, применит патчи и скомпилирует бинарники PIE (`libtailscale.so`) под 4 архитектуры: `arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`.*
 
----
+### 3. Сборка Android APK:
 
-## 2. Сборка Android APK
+#### Release APK:
+```bash
+./gradlew app:assembleRelease
+```
 
-### Debug / Dev APK (Идентификатор: `io.github.bropines.tailscaled.dev`)
+#### Debug APK:
 ```bash
 ./gradlew app:assembleDebug
 ```
 
-### Release APK (Идентификатор: `io.github.bropines.tailscaled`)
-```bash
-./gradlew app:assembleRelease
-```
+> **Примечание:** Оптимизатор R8 полностью поддерживается. В Kotlin-классах данных используются аннотации `@Keep` для обеспечения корректного парсинга JSON через `Gson` в релизных сборках.
 
 ---
 
 ## 📱 Установка и Запуск через ADB
 
 ```bash
-# Установка DEV версий
-adb install -r -d app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
+# Установка Release версии
+adb install -r app/build/outputs/apk/release/app-release.apk
 
 # Запуск основного экрана
-adb shell am start -n io.github.bropines.tailscaled.dev/io.github.bropines.tailscaled.ui.MainActivity
+adb shell am start -n io.github.bropines.tailscaled/io.github.bropines.tailscaled.ui.MainActivity
 ```
