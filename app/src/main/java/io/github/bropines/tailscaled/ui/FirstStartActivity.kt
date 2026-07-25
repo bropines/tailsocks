@@ -746,7 +746,7 @@ fun SlidePermissions() {
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = "Allow Notifications",
+                            text = stringResource(R.string.onboarding_perm_notif_title),
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.weight(1f)
@@ -757,7 +757,7 @@ fun SlidePermissions() {
                             },
                             shape = RoundedCornerShape(8.dp)
                         ) {
-                            Text("Grant")
+                            Text(stringResource(R.string.onboarding_perm_grant))
                         }
                     }
                 }
@@ -780,12 +780,12 @@ fun SlidePermissions() {
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Ignore Battery Optimization",
+                                text = stringResource(R.string.onboarding_perm_battery_title),
                                 fontWeight = FontWeight.Bold,
                                 style = MaterialTheme.typography.bodyMedium
                             )
                             Text(
-                                text = "Prevents background service from being killed",
+                                text = stringResource(R.string.onboarding_perm_battery_desc),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.outline
                             )
@@ -795,14 +795,14 @@ fun SlidePermissions() {
                                 try {
                                     val intent = Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
                                     context.startActivity(intent)
-                                    Toast.makeText(context, "Find TailSocks and disable optimization", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(context, context.getString(R.string.onboarding_perm_battery_toast), Toast.LENGTH_LONG).show()
                                 } catch (e: Exception) {
-                                    Toast.makeText(context, "Could not open settings", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.getString(R.string.onboarding_perm_battery_error), Toast.LENGTH_SHORT).show()
                                 }
                             },
                             shape = RoundedCornerShape(8.dp)
                         ) {
-                            Text("Configure")
+                            Text(stringResource(R.string.onboarding_perm_battery_configure))
                         }
                     }
                 }

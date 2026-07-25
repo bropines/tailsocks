@@ -983,6 +983,14 @@
     <string name="settings_byedpi_ipv6_disabled">Force IPv4 (Disable IPv6)</string>
     <string name="settings_byedpi_ipv6_disabled_desc">Force ByeDPI proxy to resolve and connect only using IPv4 to avoid handshake failures on IPv6 addresses.</string>
 
+    <string name="onboarding_perm_notif_title">Allow Notifications</string>
+    <string name="onboarding_perm_grant">Grant</string>
+    <string name="onboarding_perm_battery_title">Ignore Battery Optimization</string>
+    <string name="onboarding_perm_battery_desc">Prevents background service from being killed</string>
+    <string name="onboarding_perm_battery_configure">Configure</string>
+    <string name="onboarding_perm_battery_toast">Find TailSocks and disable optimization</string>
+    <string name="onboarding_perm_battery_error">Could not open settings</string>
+
     <string name="main_conn_issue_title">Connection Problem</string>
     <string name="main_conn_issue_desc">It seems there is a connection issue. If the coordination server is blocked, please configure a custom Proxy or enable ByeByeDPI.</string>
     <string name="main_conn_issue_btn_proxy">Configure Proxy</string>

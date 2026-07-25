@@ -987,4 +987,12 @@
     <string name="main_conn_issue_desc">Похоже, возникли проблемы с подключением к серверу. Если сервер координации заблокирован, настройте обход через собственный прокси или включите ByeByeDPI.</string>
     <string name="main_conn_issue_btn_proxy">Настроить прокси</string>
     <string name="main_logged_out_btn_stop_short">Остановить</string>
+
+    <string name="onboarding_perm_notif_title">Разрешить Уведомления</string>
+    <string name="onboarding_perm_grant">Выдать</string>
+    <string name="onboarding_perm_battery_title">Игнорировать батарею</string>
+    <string name="onboarding_perm_battery_desc">Предотвращает закрытие службы в фоне</string>
+    <string name="onboarding_perm_battery_configure">Настроить</string>
+    <string name="onboarding_perm_battery_toast">Найдите TailSocks и отключите оптимизацию</string>
+    <string name="onboarding_perm_battery_error">Не удалось открыть настройки</string>
 </resources>
