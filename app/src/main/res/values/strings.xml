@@ -457,9 +457,16 @@
     <string name="main_new_version">New version: %1$s</string>
     <string name="main_license_text">Proxy is running via official Tailscale core.\nLicense: BSD-3-Clause\n</string>
     <string name="main_dev_app">App Developer: Bropines</string>
-    <string name="main_dev_patch">Patch Developer: Asutorufa</string>
+    <string name="main_dev_patch">Patch Developer: Bropines</string>
+    <string name="main_dev_anet_patch">Anet Patch: Asutorufa</string>
     <string name="main_dev_core">Core Developer: Tailscale</string>
     <string name="main_check_updates">Check for App Updates</string>
+    <string name="main_update_download">Download &amp; Install Update</string>
+    <string name="main_update_downloading">Downloading update… %d%%</string>
+    <string name="main_update_installing">Opening installer…</string>
+    <string name="main_update_grant_perm">Please grant permission to install app updates.</string>
+    <string name="main_update_no_apk">No APK release asset found in latest release.</string>
+    <string name="main_update_up_to_date">App is up to date!</string>
     <string name="main_no_exit_nodes">No exit nodes available</string>
     <string name="main_select_exit_node">Select Exit Node</string>
     <string name="main_exit_node_none">None</string>

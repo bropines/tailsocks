@@ -457,9 +457,16 @@
     <string name="main_new_version">Новая версия: %1$s</string>
     <string name="main_license_text">Прокси работает через официальное ядро Tailscale.\nЛицензия: BSD-3-Clause\n</string>
     <string name="main_dev_app">Разработчик приложения: Bropines</string>
-    <string name="main_dev_patch">Разработчик патча: Asutorufa</string>
+    <string name="main_dev_patch">Разработчик патчей: Bropines</string>
+    <string name="main_dev_anet_patch">Anet Патч: Asutorufa</string>
     <string name="main_dev_core">Разработчик ядра: Tailscale</string>
     <string name="main_check_updates">Проверить обновления</string>
+    <string name="main_update_download">Скачать и установить обновление</string>
+    <string name="main_update_downloading">Загрузка обновления… %d%%</string>
+    <string name="main_update_installing">Запуск установщика…</string>
+    <string name="main_update_grant_perm">Предоставьте разрешение на установку обновлений.</string>
+    <string name="main_update_no_apk">Файл APK не найден в последнем релизе.</string>
+    <string name="main_update_up_to_date">Установлена последняя версия!</string>
     <string name="main_no_exit_nodes">Выходные узлы недоступны</string>
     <string name="main_select_exit_node">Выбрать выходной узел</string>
     <string name="main_exit_node_none">Нет</string>

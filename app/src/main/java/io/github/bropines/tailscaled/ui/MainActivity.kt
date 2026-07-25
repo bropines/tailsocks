@@ -16,6 +16,8 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.animation.core.animateFloatAsState
@@ -1181,7 +1183,10 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
             try { appctr.Appctr.getCoreVersion() } catch (e: Exception) { "unknown" }
         }
         var latestVersion by remember { mutableStateOf<String?>(null) }
+        var downloadUrl by remember { mutableStateOf<String?>(null) }
         var isCheckingUpdate by remember { mutableStateOf(false) }
+        var isDownloading by remember { mutableStateOf(false) }
+        var downloadProgress by remember { mutableIntStateOf(0) }
 
         AlertDialog(
             onDismissRequest = { showAboutDialog = false },
@@ -1206,18 +1211,25 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                     
                     if (latestVersion != null) {
                         val isNewer = isVersionNewer(versionName, latestVersion!!)
-                        if (isNewer) {
-                            Spacer(Modifier.height(8.dp))
-                            Surface(
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Download, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(16.dp))
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(stringResource(R.string.main_new_version, latestVersion!!), color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold)
-                                }
+                        Spacer(Modifier.height(8.dp))
+                        Surface(
+                            color = if (isNewer) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    if (isNewer) Icons.Default.Download else Icons.Default.CheckCircle,
+                                    null,
+                                    tint = if (isNewer) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    if (isNewer) stringResource(R.string.main_new_version, latestVersion!!) else stringResource(R.string.main_update_up_to_date),
+                                    color = if (isNewer) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }
@@ -1232,10 +1244,16 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                     ) { Text(stringResource(R.string.main_dev_app)) }
                     
                     TextButton(
-                        onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Asutorufa/tailscale"))) },
+                        onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/bropines/tailsocks"))) },
                         modifier = Modifier.height(32.dp),
                         contentPadding = PaddingValues(0.dp)
                     ) { Text(stringResource(R.string.main_dev_patch)) }
+
+                    TextButton(
+                        onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Asutorufa/tailscale"))) },
+                        modifier = Modifier.height(32.dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) { Text(stringResource(R.string.main_dev_anet_patch)) }
 
                     TextButton(
                         onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/tailscale/tailscale"))) },
@@ -1244,39 +1262,134 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                     ) { Text(stringResource(R.string.main_dev_core)) }
 
                     Spacer(Modifier.height(12.dp))
-                    Button(
-                        onClick = {
-                            isCheckingUpdate = true
-                            scope.launch(Dispatchers.IO) {
-                                try {
-                                    val connection = java.net.URL("https://api.github.com/repos/bropines/tailsocks/releases/latest").openConnection() as java.net.HttpURLConnection
-                                    connection.requestMethod = "GET"
-                                    connection.setRequestProperty("Accept", "application/vnd.github.v3+json")
-                                    if (connection.responseCode == 200) {
-                                        val response = connection.inputStream.bufferedReader().use { it.readText() }
-                                        val json = com.google.gson.Gson().fromJson(response, com.google.gson.JsonObject::class.java)
-                                        val tag = json.get("tag_name").asString
-                                        withContext(Dispatchers.Main) {
-                                            latestVersion = tag
-                                            isCheckingUpdate = false
+
+                    if (isDownloading) {
+                        Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                            LinearProgressIndicator(
+                                progress = { if (downloadProgress > 0) downloadProgress / 100f else 0f },
+                                modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp))
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                stringResource(R.string.main_update_downloading, downloadProgress),
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    } else if (latestVersion != null && isVersionNewer(versionName, latestVersion!!)) {
+                        Button(
+                            onClick = {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) {
+                                    Toast.makeText(context, context.getString(R.string.main_update_grant_perm), Toast.LENGTH_LONG).show()
+                                    try {
+                                        context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}")))
+                                    } catch (e: Exception) {
+                                        context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES))
+                                    }
+                                    return@Button
+                                }
+                                val targetUrl = downloadUrl ?: "https://github.com/bropines/tailsocks/releases/latest/download/app-release.apk"
+                                isDownloading = true
+                                downloadProgress = 0
+                                scope.launch(Dispatchers.IO) {
+                                    try {
+                                        val url = java.net.URL(targetUrl)
+                                        val conn = url.openConnection() as java.net.HttpURLConnection
+                                        conn.instanceFollowRedirects = true
+                                        conn.connect()
+                                        val totalLength = conn.contentLength
+                                        val destDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: context.cacheDir
+                                        val destFile = java.io.File(destDir, "tailsocks-update.apk")
+                                        
+                                        conn.inputStream.use { input ->
+                                            destFile.outputStream().use { output ->
+                                                val buffer = ByteArray(8192)
+                                                var read: Int
+                                                var totalRead = 0L
+                                                while (input.read(buffer).also { read = it } != -1) {
+                                                    output.write(buffer, 0, read)
+                                                    totalRead += read
+                                                    if (totalLength > 0) {
+                                                        val pct = (totalRead * 100 / totalLength).toInt()
+                                                        withContext(Dispatchers.Main) { downloadProgress = pct }
+                                                    }
+                                                }
+                                            }
                                         }
-                                    } else { throw Exception("HTTP ${connection.responseCode}") }
-                                } catch (e: Exception) {
-                                    withContext(Dispatchers.Main) {
-                                        Toast.makeText(context, context.getString(R.string.main_check_failed_format, e.message), Toast.LENGTH_SHORT).show()
-                                        isCheckingUpdate = false
+                                        withContext(Dispatchers.Main) {
+                                            isDownloading = false
+                                            Toast.makeText(context, context.getString(R.string.main_update_installing), Toast.LENGTH_SHORT).show()
+                                            val apkUri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", destFile)
+                                            val installIntent = Intent(Intent.ACTION_VIEW).apply {
+                                                setDataAndType(apkUri, "application/vnd.android.package-archive")
+                                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            }
+                                            context.startActivity(installIntent)
+                                        }
+                                    } catch (e: Exception) {
+                                        withContext(Dispatchers.Main) {
+                                            isDownloading = false
+                                            Toast.makeText(context, context.getString(R.string.main_check_failed_format, e.message), Toast.LENGTH_SHORT).show()
+                                        }
                                     }
                                 }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Icon(Icons.Default.Download, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.main_update_download))
+                        }
+                    } else {
+                        Button(
+                            onClick = {
+                                isCheckingUpdate = true
+                                scope.launch(Dispatchers.IO) {
+                                    try {
+                                        val connection = java.net.URL("https://api.github.com/repos/bropines/tailsocks/releases/latest").openConnection() as java.net.HttpURLConnection
+                                        connection.requestMethod = "GET"
+                                        connection.setRequestProperty("Accept", "application/vnd.github.v3+json")
+                                        if (connection.responseCode == 200) {
+                                            val response = connection.inputStream.bufferedReader().use { it.readText() }
+                                            val json = com.google.gson.Gson().fromJson(response, com.google.gson.JsonObject::class.java)
+                                            val tag = json.get("tag_name").asString
+                                            var foundApkUrl: String? = null
+                                            if (json.has("assets")) {
+                                                val assets = json.getAsJsonArray("assets")
+                                                for (asset in assets) {
+                                                    val obj = asset.asJsonObject
+                                                    val name = obj.get("name").asString
+                                                    if (name.endsWith(".apk")) {
+                                                        foundApkUrl = obj.get("browser_download_url").asString
+                                                        break
+                                                    }
+                                                }
+                                            }
+                                            withContext(Dispatchers.Main) {
+                                                latestVersion = tag
+                                                downloadUrl = foundApkUrl
+                                                isCheckingUpdate = false
+                                            }
+                                        } else { throw Exception("HTTP ${connection.responseCode}") }
+                                    } catch (e: Exception) {
+                                        withContext(Dispatchers.Main) {
+                                            Toast.makeText(context, context.getString(R.string.main_check_failed_format, e.message), Toast.LENGTH_SHORT).show()
+                                            isCheckingUpdate = false
+                                        }
+                                    }
+                                }
+                            },
+                            enabled = !isCheckingUpdate,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                        ) {
+                            if (isCheckingUpdate) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSecondary)
+                            } else {
+                                Text(stringResource(R.string.main_check_updates))
                             }
-                        },
-                        enabled = !isCheckingUpdate,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
-                    ) {
-                        if (isCheckingUpdate) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSecondary)
-                        } else {
-                            Text(stringResource(R.string.main_check_updates))
                         }
                     }
                 } 
@@ -1284,10 +1397,10 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
             confirmButton = {
                 TextButton(onClick = {
                     val url = if (latestVersion != null) "https://github.com/bropines/tailsocks/releases/latest" 
-                             else "https://github.com/bropines/tailscaled-socks5-android"
+                             else "https://github.com/bropines/tailsocks"
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                     showAboutDialog = false
-                }) { Text(if (latestVersion != null) stringResource(R.string.action_download) else stringResource(R.string.action_github)) }
+                }) { Text(stringResource(R.string.action_github)) }
             },
             dismissButton = { TextButton(onClick = { showAboutDialog = false }) { Text(stringResource(R.string.action_close)) } }
         )
