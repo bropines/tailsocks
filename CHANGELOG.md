@@ -11,7 +11,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Fixed
 - Fixed Headscale/ControlURL authorization routing during unauthenticated session initialization.
-- Preserved active login sessions across account switches by avoiding redundant daemon restarts.
+- Preserved active login sessions across account switches and daemon restarts by avoiding redundant LocalAPI login mutations on already authenticated profiles.
 - Enforced per-account preference isolation (`appctr_${id}`) for Exit Node selections.
 - Added custom login server input field directly to the Add Account dialog.
 

@@ -110,6 +110,10 @@ func PatchPrefsJSON(jsonPayload string) error {
 	if !IsRunning() {
 		return ErrDaemonNotRunning
 	}
+	if GetLoginURL() != "" {
+		slog.Info("syncSettings: AuthURL is active, skipping PATCH /prefs to preserve login flow")
+		return nil
+	}
 	_, err := doLocalRequest("PATCH", "/localapi/v0/prefs", strings.NewReader(jsonPayload))
 	if err != nil {
 		return fmt.Errorf("PatchPrefsJSON failed: %w", err)

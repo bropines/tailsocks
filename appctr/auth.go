@@ -63,13 +63,13 @@ func RunTailscaleArgs(parts ...string) string {
 // applies initial authentication and preferences via LocalAPI (CLI-free).
 func registerMachineWithAuthKey(pc pathControl, opt *StartOptions) {
 	// Poll until socket exists and LocalAPI responds.
-	var statusData []byte
+	var stStr string
 	apiReady := false
 	for i := 1; i <= 20; i++ {
 		if _, err := os.Stat(pc.Socket()); err == nil {
-			stStr, err := GetStatusJSON(false)
+			var err error
+			stStr, err = GetStatusJSON(false)
 			if err == nil && len(stStr) > 0 {
-				statusData = []byte(stStr)
 				apiReady = true
 				break
 			}
@@ -82,97 +82,91 @@ func registerMachineWithAuthKey(pc pathControl, opt *StartOptions) {
 		return
 	}
 
-	slog.Info("Daemon is ready, checking backend state...")
+	if opt.DoReset {
+		slog.Info("LocalAPI: reset requested, logging out existing session")
+		Logout()
+		time.Sleep(500 * time.Millisecond)
+		slog.Info("LocalAPI: triggering interactive login for new session")
+		_ = LoginInteractive()
+		return
+	}
 
+	if opt.AuthKey != "" {
+		slog.Info("LocalAPI: authenticating with auth key")
+		updatePrefs := map[string]interface{}{
+			"WantRunning": true,
+			"RouteAll":    opt.AcceptRoutes,
+			"RouteAllSet": true,
+			"CorpDNS":     opt.AcceptDNS,
+			"CorpDNSSet":  true,
+		}
+		if opt.Hostname != "" {
+			updatePrefs["Hostname"] = opt.Hostname
+			updatePrefs["HostnameSet"] = true
+		}
+		if opt.LoginServer != "" {
+			updatePrefs["ControlURL"] = opt.LoginServer
+			updatePrefs["ControlURLSet"] = true
+		}
+		startOpts := map[string]interface{}{
+			"AuthKey":     opt.AuthKey,
+			"UpdatePrefs": updatePrefs,
+		}
+		payload, _ := json.Marshal(startOpts)
+		_ = StartDaemon(string(payload))
+		return
+	}
+
+	// For existing/new accounts (DoReset=false, AuthKey=""):
+	// Poll status for 1.5s (5 x 300ms) to allow tailscaled to evaluate saved state from disk naturally.
 	var statusResp struct {
 		BackendState string `json:"BackendState"`
 		AuthURL      string `json:"AuthURL"`
 	}
-	_ = json.Unmarshal(statusData, &statusResp)
 
-	slog.Info("Backend status on startup", "state", statusResp.BackendState, "has_auth_url", statusResp.AuthURL != "")
-
-	if opt.DoReset {
-		// Logout clears existing state; daemon will enter NeedsLogin.
-		slog.Info("LocalAPI: reset requested, logging out")
-		Logout()
-		time.Sleep(500 * time.Millisecond)
-		statusResp.BackendState = "NeedsLogin"
-		statusResp.AuthURL = ""
-	}
-
-	// IF backend is already Running or Starting (and has no AuthURL required),
-	// the account is ALREADY logged in from saved state storage.
-	// DO NOT force /start or /login-interactive, as that would invalidate the existing session.
-	if statusResp.BackendState == "Running" || (statusResp.BackendState == "Starting" && statusResp.AuthURL == "") {
-		slog.Info("Account is already logged in (state: " + statusResp.BackendState + "), preserving active session.")
-		return
-	}
-
-	updatePrefs := map[string]interface{}{
-		"WantRunning": true,
-		"RouteAll":    opt.AcceptRoutes,
-		"RouteAllSet": true,
-		"CorpDNS":     opt.AcceptDNS,
-		"CorpDNSSet":  true,
-	}
-
-	if opt.Hostname != "" {
-		updatePrefs["Hostname"] = opt.Hostname
-		updatePrefs["HostnameSet"] = true
-	}
-
-	if opt.LoginServer != "" {
-		slog.Info("LocalAPI: setting custom ControlURL in /start", "controlURL", opt.LoginServer)
-		updatePrefs["ControlURL"] = opt.LoginServer
-		updatePrefs["ControlURLSet"] = true
-	}
-
-	startOpts := map[string]interface{}{
-		"AuthKey":     opt.AuthKey,
-		"UpdatePrefs": updatePrefs,
-	}
-
-	payload, _ := json.Marshal(startOpts)
-	slog.Info("LocalAPI: initializing login session with /start", "has_authkey", opt.AuthKey != "")
-	err := StartDaemon(string(payload))
-	if err != nil {
-		if strings.Contains(err.Error(), "invalid") {
-			slog.Error("Critical: Invalid Auth Key / Start error", "err", err)
-		} else {
-			slog.Error("LocalAPI: /start failed", "err", err)
-		}
-	} else {
-		slog.Info("LocalAPI: /start request sent successfully")
-	}
-
-	if opt.AuthKey == "" && statusResp.AuthURL == "" {
-		slog.Info("LocalAPI: triggering interactive login for AuthURL")
-		time.Sleep(300 * time.Millisecond)
-		err := LoginInteractive()
-		if err != nil {
-			slog.Error("LocalAPI: /login-interactive failed", "err", err)
-		} else {
-			slog.Info("LocalAPI: /login-interactive requested successfully")
-		}
-
-		// Poll status up to 15 times (4.5s) for AuthURL generation
-		for i := 0; i < 15; i++ {
-			time.Sleep(300 * time.Millisecond)
-			stStr, err := GetStatusJSON(false)
-			if err == nil {
-				var st struct {
-					AuthURL string `json:"AuthURL"`
+	for i := 0; i < 5; i++ {
+		stStr, err := GetStatusJSON(false)
+		if err == nil && len(stStr) > 0 {
+			if json.Unmarshal([]byte(stStr), &statusResp) == nil {
+				slog.Info("Daemon startup state poll", "attempt", i+1, "backend_state", statusResp.BackendState, "has_auth_url", statusResp.AuthURL != "")
+				if statusResp.BackendState == "Running" {
+					slog.Info("Account is already logged in (BackendState: Running). Preserving active session.")
+					return
 				}
-				if json.Unmarshal([]byte(stStr), &st) == nil && st.AuthURL != "" {
-					slog.Info("LocalAPI: AuthURL generated successfully", "url", st.AuthURL)
+				if statusResp.BackendState == "NeedsLogin" || statusResp.AuthURL != "" {
 					break
 				}
 			}
-			if i == 5 {
-				slog.Info("LocalAPI: re-triggering login-interactive for Headscale/Tailscale")
-				_ = LoginInteractive()
-			}
 		}
+		time.Sleep(300 * time.Millisecond)
 	}
+
+	if statusResp.BackendState == "Running" {
+		slog.Info("Account is already logged in (BackendState: Running). Preserving active session.")
+		return
+	}
+
+	// Account is NOT logged in (BackendState == "NeedsLogin" or "NoState").
+	// Configure custom ControlURL (Headscale) if specified, then trigger LoginInteractive.
+	if opt.LoginServer != "" {
+		slog.Info("LocalAPI: configuring custom ControlURL before LoginInteractive", "url", opt.LoginServer)
+		updatePrefs := map[string]interface{}{
+			"ControlURL":    opt.LoginServer,
+			"ControlURLSet": true,
+			"WantRunning":   true,
+		}
+		if opt.Hostname != "" {
+			updatePrefs["Hostname"] = opt.Hostname
+			updatePrefs["HostnameSet"] = true
+		}
+		startOpts := map[string]interface{}{
+			"UpdatePrefs": updatePrefs,
+		}
+		payload, _ := json.Marshal(startOpts)
+		_ = StartDaemon(string(payload))
+		time.Sleep(300 * time.Millisecond)
+	}
+
+	slog.Info("Account requires authentication (BackendState: " + statusResp.BackendState + "). Triggering interactive login.")
+	_ = LoginInteractive()
 }

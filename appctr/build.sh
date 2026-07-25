@@ -110,11 +110,11 @@ GOOS=android GOARCH=amd64 go build -v \
 
 cd ..
 
-echo "[3/4] Building appctr.aar (Gomobile Bridge)..."
-go mod tidy
-mkdir -p tmp
-unset CC
-gomobile bind -ldflags="-s -w -buildid= -checklinkname=0 -X appctr.coreVersion=$TS_VERSION" -trimpath -target="android/arm,android/arm64,android/386,android/amd64" -androidapi 21 -tags "$TAGS" -o tmp/appctr.aar -v .
+GIT_HASH=$(git rev-parse --short=7 HEAD 2>/dev/null || echo "dev")
+BUILD_TIME=$(date -u +"%Y-%m-%d_%H%M%S")
+FULL_CORE_VER="${TS_VERSION}-${GIT_HASH}-${BUILD_TIME}"
+
+gomobile bind -ldflags="-s -w -buildid= -checklinkname=0 -X appctr.coreVersion=${FULL_CORE_VER}" -trimpath -target="android/arm,android/arm64,android/386,android/amd64" -androidapi 21 -tags "$TAGS" -o tmp/appctr.aar -v .
 
 echo "[4/4] Copying binaries to jniLibs..."
 mkdir -p ../app/src/main/jniLibs/arm64-v8a

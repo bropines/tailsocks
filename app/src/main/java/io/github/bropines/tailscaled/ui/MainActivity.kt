@@ -482,8 +482,9 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                 Button(onClick = {
                     if (newAccountName.isNotBlank()) {
                         val acc = AccountManager.addAccount(context, newAccountName)
+                        val accPrefs = context.getSharedPreferences("appctr_${acc.id}", Context.MODE_PRIVATE)
+                        accPrefs.edit().putBoolean("do_reset", true).apply()
                         if (newAccountServer.isNotBlank()) {
-                            val accPrefs = context.getSharedPreferences("appctr_${acc.id}", Context.MODE_PRIVATE)
                             accPrefs.edit().putString("login_server", newAccountServer.trim()).apply()
                         }
                         accounts.value = AccountManager.getAccounts(context)
