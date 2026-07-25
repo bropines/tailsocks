@@ -112,11 +112,30 @@ class TailscaleApiClient(
 
         if (authUser.isNotEmpty() && authPass.isNotEmpty()) {
             val credentials = Credentials.basic(authUser, authPass)
+            
+            // 1. Authenticator for HTTP 407 responses
             builder.proxyAuthenticator { _, response ->
-                response.request.newBuilder()
-                    .header("Proxy-Authorization", credentials)
-                    .build()
+                if (response.request.header("Proxy-Authorization") != null) {
+                    null // Prevent retry loop if credentials failed
+                } else {
+                    response.request.newBuilder()
+                        .header("Proxy-Authorization", credentials)
+                        .build()
+                }
             }
+
+            // 2. Pre-emptive network interceptor for HTTP proxy CONNECT requests
+            builder.addNetworkInterceptor { chain ->
+                var request = chain.request()
+                if (selectedProxy.type() == Proxy.Type.HTTP && request.header("Proxy-Authorization") == null) {
+                    request = request.newBuilder()
+                        .header("Proxy-Authorization", credentials)
+                        .build()
+                }
+                chain.proceed(request)
+            }
+
+            // 3. JVM-wide Authenticator for SOCKS5 proxy authentication
             java.net.Authenticator.setDefault(object : java.net.Authenticator() {
                 override fun getPasswordAuthentication(): java.net.PasswordAuthentication {
                     return java.net.PasswordAuthentication(authUser, authPass.toCharArray())
@@ -144,6 +163,43 @@ class TailscaleApiClient(
         return cachedAccessToken!!
     }
 
+    private fun <T> executeCall(req: Request, parse: (String) -> T): T {
+        try {
+            httpClient.newCall(req).execute().use { resp ->
+                val bodyStr = resp.body?.string() ?: ""
+                if (resp.isSuccessful) {
+                    return parse(bodyStr)
+                } else {
+                    throw Exception("HTTP ${resp.code}: $bodyStr")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("TailscaleApiClient", "Request to ${req.url} failed (proxyMode=$proxyMode): ${e.message}", e)
+
+            // If proxy fails with IOException (unexpected end of stream / connection reset), try fallback to DIRECT connection
+            if (proxyMode.uppercase() in listOf("CONTROL_PLANE", "AUTO") && e is java.io.IOException) {
+                Log.w("TailscaleApiClient", "Proxy connection failed, trying Direct fallback...")
+                try {
+                    val directClient = OkHttpClient.Builder()
+                        .connectTimeout(10, TimeUnit.SECONDS)
+                        .readTimeout(10, TimeUnit.SECONDS)
+                        .proxy(Proxy.NO_PROXY)
+                        .build()
+                    directClient.newCall(req).execute().use { resp ->
+                        val bodyStr = resp.body?.string() ?: ""
+                        if (resp.isSuccessful) {
+                            return parse(bodyStr)
+                        }
+                    }
+                } catch (fallbackErr: Exception) {
+                    Log.e("TailscaleApiClient", "Direct fallback also failed: ${fallbackErr.message}")
+                }
+            }
+
+            throw Exception("API Error: ${e.message ?: "Connection error"}")
+        }
+    }
+
     private fun fetchOauthToken(): OauthTokenResponse {
         val formBody = FormBody.Builder()
             .add("grant_type", "client_credentials")
@@ -157,19 +213,7 @@ class TailscaleApiClient(
             .header("Accept", "application/json")
             .build()
 
-        try {
-            httpClient.newCall(req).execute().use { resp ->
-                val bodyStr = resp.body?.string() ?: ""
-                if (resp.isSuccessful) {
-                    return Gson().fromJson(bodyStr, OauthTokenResponse::class.java)
-                } else {
-                    throw Exception("OAuth HTTP ${resp.code}: $bodyStr")
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("TailscaleApiClient", "fetchOauthToken failed (proxyMode=$proxyMode): ${e.message}", e)
-            throw Exception("OAuth failed: ${e.message ?: "Connection error"}")
-        }
+        return executeCall(req) { json -> Gson().fromJson(json, OauthTokenResponse::class.java) }
     }
 
     private fun request(method: String, path: String, body: Any? = null): String {
@@ -195,20 +239,7 @@ class TailscaleApiClient(
         }
 
         reqBuilder.method(method, requestBody)
-
-        try {
-            httpClient.newCall(reqBuilder.build()).execute().use { resp ->
-                val bodyStr = resp.body?.string() ?: ""
-                if (resp.isSuccessful) {
-                    return bodyStr
-                } else {
-                    throw Exception("HTTP ${resp.code}: $bodyStr")
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("TailscaleApiClient", "Request $method $path failed (proxyMode=$proxyMode): ${e.message}", e)
-            throw Exception("API Error: ${e.message ?: "Unexpected connection error"}")
-        }
+        return executeCall(reqBuilder.build()) { it }
     }
 
     // Devices

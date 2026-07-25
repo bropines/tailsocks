@@ -55,6 +55,20 @@ object GlobalSettings {
     fun setCPByeDpiIpv6Disabled(context: Context, disabled: Boolean) = getPrefs(context).edit().putBoolean("cp_byedpi_ipv6_disabled", disabled).apply()
 
     fun getControlProxyUrl(context: Context): String {
+        if (isCPByeDpiEnabled(context)) {
+            var addr = ByeDpiProxy.activeAddress
+            if (addr == null) {
+                try {
+                    val flags = getCPByeDpiFlags(context)
+                    addr = ByeDpiProxy.start(flags, context)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+            if (addr != null) {
+                return "socks5://${addr.first}:${addr.second}"
+            }
+        }
         if (!isCPProxyEnabled(context)) return ""
         val type = getPrefs(context).getString("cp_type", "SOCKS5") ?: "SOCKS5"
         val host = getPrefs(context).getString("cp_host", "") ?: ""
