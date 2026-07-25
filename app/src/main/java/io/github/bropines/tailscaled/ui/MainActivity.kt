@@ -63,6 +63,7 @@ import java.lang.Runtime
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 
 fun isVersionNewer(current: String, latest: String): Boolean {
+    val isDev = current.contains("-dev", ignoreCase = true) || current.contains("dev", ignoreCase = true) || BuildConfig.DEBUG
     val cleanCurrent = current.removePrefix("v").substringBefore("-").replace(Regex("[^0-9.]"), "")
     val cleanLatest = latest.removePrefix("v").substringBefore("-").replace(Regex("[^0-9.]"), "")
     val c = cleanCurrent.split(".").map { it.toIntOrNull() ?: 0 }
@@ -73,6 +74,9 @@ fun isVersionNewer(current: String, latest: String): Boolean {
         if (lVal > cVal) return true
         if (lVal < cVal) return false
     }
+    // If base numeric versions are equal (e.g. 3.1.4-dev vs 3.1.4 release),
+    // a DEV/Debug build is inherently newer than the published release.
+    if (isDev) return false
     return false
 }
 
@@ -1356,20 +1360,26 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                                             val json = com.google.gson.Gson().fromJson(response, com.google.gson.JsonObject::class.java)
                                             val tag = json.get("tag_name").asString
                                             var foundApkUrl: String? = null
+                                            var anyApkUrl: String? = null
+                                            val primaryAbi = if (Build.SUPPORTED_ABIS.isNotEmpty()) Build.SUPPORTED_ABIS[0] else ""
                                             if (json.has("assets")) {
                                                 val assets = json.getAsJsonArray("assets")
                                                 for (asset in assets) {
                                                     val obj = asset.asJsonObject
-                                                    val name = obj.get("name").asString
+                                                    val name = obj.get("name").asString.lowercase()
+                                                    val url = obj.get("browser_download_url").asString
                                                     if (name.endsWith(".apk")) {
-                                                        foundApkUrl = obj.get("browser_download_url").asString
-                                                        break
+                                                        if (anyApkUrl == null) anyApkUrl = url
+                                                        if (primaryAbi.isNotEmpty() && name.contains(primaryAbi.lowercase())) {
+                                                            foundApkUrl = url
+                                                            break
+                                                        }
                                                     }
                                                 }
                                             }
                                             withContext(Dispatchers.Main) {
                                                 latestVersion = tag
-                                                downloadUrl = foundApkUrl
+                                                downloadUrl = foundApkUrl ?: anyApkUrl
                                                 isCheckingUpdate = false
                                             }
                                         } else { throw Exception("HTTP ${connection.responseCode}") }
