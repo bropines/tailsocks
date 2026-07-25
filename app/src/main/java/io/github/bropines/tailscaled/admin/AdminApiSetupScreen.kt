@@ -278,6 +278,7 @@ fun AdminApiSetupScreen(
                         Text(stringResource(R.string.admin_proxy_mode_label), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             val proxyOptions = listOf(
+                                "CONTROL_PLANE" to stringResource(R.string.admin_proxy_control_plane),
                                 "DIRECT" to stringResource(R.string.admin_proxy_direct),
                                 "LOCAL_SOCKS5" to stringResource(R.string.admin_proxy_local_socks5),
                                 "CUSTOM_SOCKS5" to stringResource(R.string.admin_proxy_custom_socks5)
@@ -293,7 +294,14 @@ fun AdminApiSetupScreen(
                             }
                         }
 
-                        if (proxyMode == "CUSTOM_SOCKS5") {
+                        if (proxyMode == "CONTROL_PLANE") {
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                stringResource(R.string.admin_proxy_control_plane_desc),
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else if (proxyMode == "CUSTOM_SOCKS5") {
                             Spacer(Modifier.height(8.dp))
                             OutlinedTextField(
                                 value = proxyHost,

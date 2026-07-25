@@ -160,9 +160,11 @@
     <string name="admin_proxy_settings_title">API Proxy Settings</string>
     <string name="admin_proxy_config_title">API Proxy Configuration</string>
     <string name="admin_proxy_mode_label">Proxy Mode</string>
+    <string name="admin_proxy_control_plane">Control Server Proxy (Auto)</string>
     <string name="admin_proxy_direct">Direct (No Proxy)</string>
     <string name="admin_proxy_local_socks5">Tailsocks SOCKS5 Proxy</string>
     <string name="admin_proxy_custom_socks5">Custom SOCKS5 Proxy</string>
+    <string name="admin_proxy_control_plane_desc">Inherits the proxy configured for the Tailscale coordination server (ByeDpi / CP Proxy).</string>
     <string name="admin_proxy_socks5_host">SOCKS5 Host</string>
     <string name="admin_proxy_socks5_host_placeholder">e.g. 192.168.1.100</string>
     <string name="admin_proxy_socks5_port">SOCKS5 Port</string>

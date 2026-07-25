@@ -18,7 +18,7 @@ import java.net.PasswordAuthentication
 class TailscaleApiClient(
     private val token: String,
     tailnetName: String = "",
-    private val proxyMode: String = "DIRECT",
+    private val proxyMode: String = "CONTROL_PLANE",
     private val proxyHost: String = "",
     private val proxyPort: Int = 0,
     private val proxyUser: String = "",
@@ -27,7 +27,8 @@ class TailscaleApiClient(
     private val localSocksUser: String = "",
     private val localSocksPass: String = "",
     private val clientId: String = "",
-    private val clientSecret: String = ""
+    private val clientSecret: String = "",
+    private val controlProxyUrl: String = ""
 ) {
     private val baseUrl = "https://api.tailscale.com/api/v2"
     private val tailnet = if (tailnetName.isBlank()) "-" else tailnetName
@@ -35,14 +36,76 @@ class TailscaleApiClient(
     private var cachedAccessToken: String? = null
     private var tokenExpiryTime: Long = 0
 
+    private data class ParsedProxyInfo(
+        val host: String,
+        val port: Int,
+        val user: String,
+        val pass: String,
+        val proxy: Proxy
+    )
+
+    private fun parseProxyFromUrl(urlStr: String): ParsedProxyInfo? {
+        try {
+            val trimmed = urlStr.trim()
+            if (trimmed.isEmpty()) return null
+            val uri = java.net.URI(if (!trimmed.contains("://")) "socks5://$trimmed" else trimmed)
+            val scheme = uri.scheme?.lowercase() ?: "socks5"
+            val host = uri.host ?: return null
+            val port = if (uri.port > 0) uri.port else (if (scheme.startsWith("http")) 8080 else 1080)
+            
+            var user = ""
+            var pass = ""
+            if (uri.userInfo != null && uri.userInfo.contains(":")) {
+                val parts = uri.userInfo.split(":", limit = 2)
+                user = parts[0]
+                pass = parts[1]
+            }
+
+            val proxyType = if (scheme.startsWith("http")) Proxy.Type.HTTP else Proxy.Type.SOCKS
+            return ParsedProxyInfo(host, port, user, pass, Proxy(proxyType, InetSocketAddress(host, port)))
+        } catch (e: Exception) {
+            return null
+        }
+    }
+
     private fun openConnection(url: URL): HttpURLConnection {
+        var authHost = ""
+        var authPort = 0
+        var authUser = ""
+        var authPass = ""
+
         val connectionProxy = when (proxyMode.uppercase()) {
+            "CONTROL_PLANE", "AUTO" -> {
+                if (controlProxyUrl.isNotEmpty()) {
+                    val parsed = parseProxyFromUrl(controlProxyUrl)
+                    if (parsed != null) {
+                        authHost = parsed.host
+                        authPort = parsed.port
+                        authUser = parsed.user
+                        authPass = parsed.pass
+                        parsed.proxy
+                    } else {
+                        Proxy.NO_PROXY
+                    }
+                } else {
+                    Proxy.NO_PROXY
+                }
+            }
             "LOCAL_SOCKS5" -> {
                 val addr = localSocksAddr.takeIf { it.isNotEmpty() } ?: "127.0.0.1:48115"
+                val parts = addr.split(":")
+                authHost = parts.getOrNull(0) ?: "127.0.0.1"
+                authPort = parts.getOrNull(1)?.toIntOrNull() ?: 48115
+                authUser = localSocksUser
+                authPass = localSocksPass
                 parseSocksProxy(addr)
             }
-            "CUSTOM_SOCKS5" -> {
+            "CUSTOM_SOCKS5", "CUSTOM_PROXY" -> {
                 if (proxyHost.isNotEmpty() && proxyPort > 0) {
+                    authHost = proxyHost
+                    authPort = proxyPort
+                    authUser = proxyUser
+                    authPass = proxyPass
                     Proxy(Proxy.Type.SOCKS, InetSocketAddress(proxyHost, proxyPort))
                 } else {
                     Proxy.NO_PROXY
@@ -57,24 +120,16 @@ class TailscaleApiClient(
             url.openConnection() as HttpURLConnection
         }
 
-        // Set up Authenticator for proxy auth
-        if (proxyMode.uppercase() == "CUSTOM_SOCKS5" && proxyUser.isNotEmpty() && proxyPass.isNotEmpty()) {
+        // Set up Authenticator if credentials are provided for the target proxy host/port
+        if (authUser.isNotEmpty() && authPass.isNotEmpty() && authHost.isNotEmpty() && authPort > 0) {
+            val targetHost = authHost
+            val targetPort = authPort
+            val targetUser = authUser
+            val targetPass = authPass
             Authenticator.setDefault(object : Authenticator() {
                 override fun getPasswordAuthentication(): PasswordAuthentication? {
-                    if (requestingHost == proxyHost && requestingPort == proxyPort) {
-                        return PasswordAuthentication(proxyUser, proxyPass.toCharArray())
-                    }
-                    return null
-                }
-            })
-        } else if (proxyMode.uppercase() == "LOCAL_SOCKS5" && localSocksUser.isNotEmpty() && localSocksPass.isNotEmpty()) {
-            Authenticator.setDefault(object : Authenticator() {
-                override fun getPasswordAuthentication(): PasswordAuthentication? {
-                    val localParts = localSocksAddr.split(":")
-                    val localHost = localParts.getOrNull(0) ?: "127.0.0.1"
-                    val localPort = localParts.getOrNull(1)?.toIntOrNull() ?: 48115
-                    if (requestingHost == localHost && requestingPort == localPort) {
-                        return PasswordAuthentication(localSocksUser, localSocksPass.toCharArray())
+                    if (requestingHost == targetHost && requestingPort == targetPort) {
+                        return PasswordAuthentication(targetUser, targetPass.toCharArray())
                     }
                     return null
                 }

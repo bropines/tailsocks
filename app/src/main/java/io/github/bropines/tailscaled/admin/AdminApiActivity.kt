@@ -139,7 +139,7 @@ fun AdminApiMainScreen(onBack: () -> Unit) {
     var clientSecret by remember(resolvedTailnet) { mutableStateOf(globalPrefs.getString("${resolvedTailnet}_oauth_client_secret", "") ?: "") }
 
     // Proxy settings
-    var proxyMode by remember(resolvedTailnet) { mutableStateOf(globalPrefs.getString("${resolvedTailnet}_proxy_mode", "DIRECT") ?: "DIRECT") }
+    var proxyMode by remember(resolvedTailnet) { mutableStateOf(globalPrefs.getString("${resolvedTailnet}_proxy_mode", "CONTROL_PLANE") ?: "CONTROL_PLANE") }
     var proxyHost by remember(resolvedTailnet) { mutableStateOf(globalPrefs.getString("${resolvedTailnet}_proxy_host", "") ?: "") }
     var proxyPort by remember(resolvedTailnet) { mutableIntStateOf(globalPrefs.getInt("${resolvedTailnet}_proxy_port", 0)) }
     var proxyUser by remember(resolvedTailnet) { mutableStateOf(globalPrefs.getString("${resolvedTailnet}_proxy_user", "") ?: "") }

@@ -160,9 +160,11 @@
     <string name="admin_proxy_settings_title">Настройки прокси API</string>
     <string name="admin_proxy_config_title">Конфигурация прокси API</string>
     <string name="admin_proxy_mode_label">Режим прокси</string>
+    <string name="admin_proxy_control_plane">Прокси управляющего сервера (Авто)</string>
     <string name="admin_proxy_direct">Прямое подключение (без прокси)</string>
     <string name="admin_proxy_local_socks5">Прокси SOCKS5 Tailsocks</string>
     <string name="admin_proxy_custom_socks5">Пользовательский SOCKS5</string>
+    <string name="admin_proxy_control_plane_desc">Использовать прокси, настроенный для управляющего сервера (ByeDpi / CP Proxy).</string>
     <string name="admin_proxy_socks5_host">Хост SOCKS5</string>
     <string name="admin_proxy_socks5_host_placeholder">например: 192.168.1.100</string>
     <string name="admin_proxy_socks5_port">Порт SOCKS5</string>

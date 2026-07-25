@@ -68,6 +68,7 @@ fun ProxySettingsDialog(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 val proxyOptions = listOf(
+                    "CONTROL_PLANE" to stringResource(R.string.admin_proxy_control_plane),
                     "DIRECT" to stringResource(R.string.admin_proxy_direct),
                     "LOCAL_SOCKS5" to stringResource(R.string.admin_proxy_local_socks5),
                     "CUSTOM_SOCKS5" to stringResource(R.string.admin_proxy_custom_socks5)
@@ -82,7 +83,13 @@ fun ProxySettingsDialog(
                     }
                 }
 
-                if (proxyMode == "CUSTOM_SOCKS5") {
+                if (proxyMode == "CONTROL_PLANE") {
+                    Text(
+                        stringResource(R.string.admin_proxy_control_plane_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                } else if (proxyMode == "CUSTOM_SOCKS5") {
                     Spacer(Modifier.height(4.dp))
                     OutlinedTextField(
                         value = proxyHost,
