@@ -5,13 +5,18 @@ All notable changes to the TailSocks project will be documented in this file. Th
 ## [3.1.5] - 2026-07-25
 ### Added
 - Added **Admin API Control Server Proxy Auto-Resolution**: Admin API requests (`api.tailscale.com`) now automatically inherit the active Control Server Proxy (CP Proxy / ByeDpi / HTTP / SOCKS5) by default (`CONTROL_PLANE` mode) to prevent `403 Forbidden` and blocked DNS errors in restricted regions.
+- Migrated **Admin API HTTP Engine to OkHttp**: Refactored `TailscaleApiClient` to `OkHttpClient` with pre-emptive HTTP `Proxy-Authorization` headers, SOCKS5 authentication, and automatic connection fallback.
 - Added **Haptic Feedback**: Integrated tactile vibration responses (`HapticFeedbackType.LongPress`) across UI long-press interactions (account cards, console presets).
 - Implemented **Daemon Readiness Checkpoint**: Added explicit `waitForDaemonReady()` check before initializing auxiliary services (Taildrive, Tags, Routes, TUN mode) to prevent startup race conditions.
-- Updated **Tailscale Core**: Bumped Tailscale core to official release **`v1.98.9`** with host Go toolchain compatibility fixes.
+- Updated **Tailscale Core**: Bumped Tailscale core to official release **`v1.98.9`** across all 4 architectures with host Go toolchain compatibility fixes.
+- Added **In-App Updater**: Integrated direct APK updater and downloader with progress UI, ABI-aware release asset parsing, and `FileProvider` package installer.
+- Added **Russian Documentation Localization**: Created complete Russian documentation for `readme`, `ARCHITECTURE`, `AUTOMATION`, `BUILDING`, `SERVE_FUNNEL_GUIDE`, `ADGUARD`, and `ROADMAP`.
 
 ### Fixed
+- Fixed `unexpected end of stream` errors on HTTP/HTTPS proxies with authentication by sending pre-emptive `Proxy-Authorization` headers on CONNECT requests.
 - Preserved active login sessions across daemon restarts and account switches by avoiding redundant LocalAPI login mutations on authenticated profiles.
 - Fixed Headscale/ControlURL authorization routing during unauthenticated session initialization.
+- Updated developer credits in About dialog (App Developer & Patch Developer: Bropines, Anet Patch: Asutorufa).
 
 ## [3.1.4] - 2026-07-24
 ### Added
