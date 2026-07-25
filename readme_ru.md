@@ -13,19 +13,19 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/bropines/tailsocks/releases/latest"><img src="https://img.shields.io/github/v/release/bropines/tailsocks?style=for-the-badge&logo=github&logoColor=white&label=Последний%20Релиз&color=2ea44f" alt="Последний Релиз" /></a>
-  <a href="https://github.com/bropines/tailsocks/releases"><img src="https://img.shields.io/github/downloads/bropines/tailsocks/total?style=for-the-badge&logo=android&logoColor=white&label=Загрузки&color=3ddc84" alt="Загрузки" /></a>
+  <a href="https://github.com/bropines/tailsocks/releases/latest"><img src="https://img.shields.io/github/v/release/bropines/tailsocks?style=for-the-badge&logo=github&logoColor=white&label=Latest%20Release&color=2ea44f" alt="Последний Релиз" /></a>
+  <a href="https://github.com/bropines/tailsocks/releases"><img src="https://img.shields.io/github/downloads/bropines/tailsocks/total?style=for-the-badge&logo=android&logoColor=white&label=Downloads&color=3ddc84" alt="Загрузки" /></a>
   <a href="https://github.com/tailscale/tailscale/releases/tag/v1.98.3"><img src="https://img.shields.io/badge/Tailscale_Core-v1.98.3-blue?style=for-the-badge&logo=tailscale&logoColor=white" alt="Ядро Tailscale" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/Лицензия-BSD_3--Clause-orange?style=for-the-badge" alt="Лицензия" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-BSD_3--Clause-orange?style=for-the-badge" alt="Лицензия" /></a>
 </p>
 
 <p align="center">
   <a href="https://github.com/bropines/tailsocks/releases/latest/download/app-release.apk">
-    <img src="https://img.shields.io/badge/⬇_Скачать_APK-Release-2ea44f?style=for-the-badge&logo=android&logoColor=white" alt="Скачать Release APK" />
+    <img src="https://img.shields.io/badge/⬇_Download_APK-Release-2ea44f?style=for-the-badge&logo=android&logoColor=white" alt="Скачать Release APK" />
   </a>
   &nbsp;
   <a href="https://github.com/bropines/tailsocks/releases">
-    <img src="https://img.shields.io/badge/⬇_Все_Релизы-GitHub-24292e?style=for-the-badge&logo=github&logoColor=white" alt="Все Релизы" />
+    <img src="https://img.shields.io/badge/⬇_All_Releases-GitHub-24292e?style=for-the-badge&logo=github&logoColor=white" alt="Все Релизы" />
   </a>
 </p>
 
