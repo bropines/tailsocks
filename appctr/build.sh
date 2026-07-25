@@ -7,20 +7,49 @@ if [ -z "$ANDROID_NDK_HOME" ]; then
     exit 1
 fi
 
-# Determine Tailscale version
-if [ -n "$TS_VER_TAG" ]; then
-    echo "-> Using provided Tailscale version: $TS_VER_TAG"
+# Determine Tailscale version from TAILSCALE_VERSION file, env var, or CLI parameter
+if [ -n "$1" ] && [[ "$1" != --* ]]; then
+    TS_VERSION="$1"
+    if [[ "$TS_VERSION" != v* ]]; then
+        TS_VERSION="v${TS_VERSION}"
+    fi
+    echo "$TS_VERSION" > TAILSCALE_VERSION
+    echo "-> Updated TAILSCALE_VERSION to: $TS_VERSION"
+elif [ -n "$TS_VER_TAG" ]; then
     TS_VERSION="$TS_VER_TAG"
+    echo "-> Using provided TS_VER_TAG: $TS_VERSION"
+elif [ -f "TAILSCALE_VERSION" ]; then
+    TS_VERSION=$(cat TAILSCALE_VERSION | tr -d ' \n\r')
+    echo "-> Read Tailscale version from TAILSCALE_VERSION: $TS_VERSION"
 else
     TS_VERSION="v1.98.3"
-    echo "-> Using default stable Tailscale version: $TS_VERSION"
+    echo "$TS_VERSION" > TAILSCALE_VERSION
+    echo "-> Defaulting Tailscale version to: $TS_VERSION"
 fi
 
-echo "[1/4] Preparing and Patching Tailscale sources..."
+# Check if force clean rebuild is requested or if version changed
+FORCE_REBUILD=0
+if [ "$1" == "--clean" ] || [ "$2" == "--clean" ] || [ "$1" == "--force" ] || [ "$2" == "--force" ]; then
+    FORCE_REBUILD=1
+elif [ -d "tailscale_src" ]; then
+    EXISTING_VER=$(cat tailscale_src/.build_version 2>/dev/null || echo "")
+    if [ "$EXISTING_VER" != "$TS_VERSION" ]; then
+        echo "-> Tailscale version changed ($EXISTING_VER -> $TS_VERSION). Forcing clean download & patch."
+        FORCE_REBUILD=1
+    fi
+fi
+
+if [ "$FORCE_REBUILD" -eq 1 ]; then
+    echo "-> Cleaning old tailscale_src and orig..."
+    rm -rf tailscale_src orig
+fi
+
+echo "[1/4] Preparing and Patching Tailscale sources (${TS_VERSION})..."
 if [ ! -d "tailscale_src" ]; then
-    echo "-> Downloading sources..."
+    echo "-> Downloading sources for ${TS_VERSION}..."
     curl -sL "https://github.com/tailscale/tailscale/archive/refs/tags/${TS_VERSION}.tar.gz" | tar -xz
     mv tailscale-${TS_VERSION#v} tailscale_src
+    echo "$TS_VERSION" > tailscale_src/.build_version
 
     echo "-> Applying atomic patches..."
     for p in patches/*.patch; do
@@ -30,9 +59,9 @@ if [ ! -d "tailscale_src" ]; then
         fi
     done
 
-    echo "✅ Sources patched successfully."
+    echo "✅ Sources patched successfully for ${TS_VERSION}."
 else
-    echo "-> Sources already exist and patched. Skipping download."
+    echo "-> Sources already exist and patched for ${TS_VERSION}. Skipping download."
 fi
 
 echo "[2/4] Compiling binaries in PIE mode..."

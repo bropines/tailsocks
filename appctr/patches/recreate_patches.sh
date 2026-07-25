@@ -4,9 +4,10 @@ set -e
 # Change directory to the appctr directory
 cd "$(dirname "$0")/.."
 
-# Find Tailscale version from tailscale_src/VERSION.txt
-TS_VERSION=$(cat tailscale_src/VERSION.txt 2>/dev/null || echo "1.98.3")
-echo "-> Target Tailscale version: $TS_VERSION"
+# Find Tailscale version from TAILSCALE_VERSION file or tailscale_src
+TS_VERSION=$(cat TAILSCALE_VERSION 2>/dev/null || cat tailscale_src/VERSION.txt 2>/dev/null || echo "v1.98.3")
+TS_VERSION="${TS_VERSION#v}"
+echo "-> Target Tailscale version: v$TS_VERSION"
 
 # Ensure orig directory exists
 if [ ! -d "orig" ]; then
