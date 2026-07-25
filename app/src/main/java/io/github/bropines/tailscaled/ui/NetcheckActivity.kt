@@ -175,7 +175,7 @@ fun NetcheckScreen(onBack: () -> Unit) {
                         val globalV4 = netcheck.get("GlobalV4")?.let { if (it.isJsonPrimitive) it.asString else "" } ?: ""
                         val globalV6 = netcheck.get("GlobalV6")?.let { if (it.isJsonPrimitive) it.asString else "" } ?: ""
 
-                        // Сборка текстового отчета для копирования
+                        // Build text report for copying
                         val healthOutput = StringBuilder()
                         healthOutput.append(context.getString(R.string.netcheck_connection_health))
                         healthOutput.append(context.getString(R.string.netcheck_status, if (online) "🟢 ONLINE" else "🔴 OFFLINE"))

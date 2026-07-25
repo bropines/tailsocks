@@ -60,7 +60,7 @@ class ConsoleActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // ФИКС КЛАВИАТУРЫ: Говорим Android, что Compose сам разберется с отступами
+        // KEYBOARD FIX: Allow Compose to handle window insets
         WindowCompat.setDecorFitsSystemWindows(window, false)
         
         val initialCmd = intent?.getStringExtra("CMD") ?: ""
@@ -85,7 +85,7 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
     val coroutineScope = rememberCoroutineScope()
     
     val verticalScrollState = rememberScrollState()
-    val horizontalScrollState = rememberScrollState() // Для горизонтального скролла
+    val horizontalScrollState = rememberScrollState() // For horizontal scroll
     val focusRequester = remember { FocusRequester() }
 
     val prefs = remember { context.getSharedPreferences("console_presets", Context.MODE_PRIVATE) }
@@ -97,7 +97,7 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
     var currentCommand by remember { mutableStateOf("") }
     var isExecuting by remember { mutableStateOf(false) }
 
-    // ЗУМ
+    // ZOOM
     var scale by remember { mutableFloatStateOf(1f) }
     var softWrap by remember { mutableStateOf(false) }
 
@@ -155,7 +155,7 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
         coroutineScope.launch(Dispatchers.IO) {
             val result = try { 
                 if (isLocalAPI) {
-                    // Парсим команду вида "/GET /localapi/v0/status [body]"
+                    // Parse command format like "/GET /localapi/v0/status [body]"
                     val parts = cmd.trim().split(" ", limit = 3)
                     val method = parts[0].removePrefix("/").uppercase()
                     val path = if (parts.size > 1) parts[1] else "/"
@@ -177,7 +177,7 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
     }
 
     Scaffold(
-        // ФИКС КЛАВИАТУРЫ: клавиатура (imePadding)
+        // KEYBOARD FIX: Keyboard insets (imePadding)
         modifier = Modifier.imePadding(),
         topBar = {
             Column {

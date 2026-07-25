@@ -107,7 +107,7 @@ class TailsocksFileProvider : DocumentsProvider() {
         
         var flags = 0
         if (file.isDirectory) {
-            // Не разрешаем создавать файлы снаружи, только смотреть/удалять
+            // Do not allow creating files externally, only view/delete
         } else if (docId != "root" && !docId.startsWith("account:")) {
             flags = flags or DocumentsContract.Document.FLAG_SUPPORTS_DELETE
         }

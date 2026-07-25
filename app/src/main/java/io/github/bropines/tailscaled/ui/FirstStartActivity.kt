@@ -746,7 +746,7 @@ fun SlidePermissions() {
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = "Разрешить Уведомления",
+                            text = "Allow Notifications",
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.weight(1f)
@@ -757,7 +757,7 @@ fun SlidePermissions() {
                             },
                             shape = RoundedCornerShape(8.dp)
                         ) {
-                            Text("Выдать")
+                            Text("Grant")
                         }
                     }
                 }
@@ -780,12 +780,12 @@ fun SlidePermissions() {
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Игнорировать батарею",
+                                text = "Ignore Battery Optimization",
                                 fontWeight = FontWeight.Bold,
                                 style = MaterialTheme.typography.bodyMedium
                             )
                             Text(
-                                text = "Предотвращает закрытие службы в фоне",
+                                text = "Prevents background service from being killed",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.outline
                             )
@@ -795,14 +795,14 @@ fun SlidePermissions() {
                                 try {
                                     val intent = Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
                                     context.startActivity(intent)
-                                    Toast.makeText(context, "Найдите TailSocks и отключите оптимизацию", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(context, "Find TailSocks and disable optimization", Toast.LENGTH_LONG).show()
                                 } catch (e: Exception) {
-                                    Toast.makeText(context, "Не удалось открыть настройки", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Could not open settings", Toast.LENGTH_SHORT).show()
                                 }
                             },
                             shape = RoundedCornerShape(8.dp)
                         ) {
-                            Text("Настроить")
+                            Text("Configure")
                         }
                     }
                 }

@@ -103,7 +103,7 @@ fun DnsScreen(onBack: () -> Unit) {
                 return@launch
             }
             if (doFlush) {
-                Appctr.flushDNS() // Очищаем кэш в Go
+                Appctr.flushDNS() // Flush DNS cache in Go
             }
             val json = Appctr.getDnsStatusJSON()
             val parsed = try {
@@ -228,7 +228,7 @@ fun DnsScreen(onBack: () -> Unit) {
                 Text(stringResource(R.string.dns_config_status), fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
             }
 
-            // 2. СТАТУС
+            // 2. STATUS
             status?.let { data ->
                 item {
                     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {

@@ -34,10 +34,10 @@ object ByeDpiProxy {
     fun start(customFlags: String, context: android.content.Context): Pair<String, Int>? {
         if (isRunning) return null
         
-        // Генерация случайного localhost IP в подсети 127.0.0.0/8 (кроме 127.0.0.1 для безопасности)
+        // Generate random localhost IP in 127.0.0.0/8 subnet (excluding 127.0.0.1 for security)
         val ip = "127.${(2..254).random()}.${(2..254).random()}.${(2..254).random()}"
         
-        // Генерация случайного свободного порта
+        // Generate random available port
         val port = try {
             ServerSocket(0).use { it.localPort }
         } catch (e: Exception) {
@@ -57,7 +57,7 @@ object ByeDpiProxy {
         if (customFlags.isNotEmpty()) {
             baseArgs.addAll(customFlags.split("\\s+".toRegex()).filter { it.isNotEmpty() })
         } else {
-            // Сенсорные дефолты: сплиттинг на 1 байте + disorder
+            // Sensible defaults: 1-byte splitting + disorder
             baseArgs.addAll(listOf("-s", "1", "-d", "split", "-r"))
         }
 

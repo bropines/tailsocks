@@ -192,7 +192,7 @@ fun ServeScreen(onBack: () -> Unit) {
         isLoading = true
         config = newConfig
         scope.launch(Dispatchers.IO) {
-            // Если всё пусто - принудительно шлем пустой конфиг для очистки AllowFunnel и т.д.
+            // If completely empty, force sending empty config object to reset AllowFunnel etc.
             val jsonPayload = if (newConfig.tcp == null && newConfig.web == null && newConfig.services == null && newConfig.allowFunnel == null) {
                 if (newConfig.etag != null) "{\"etag\": \"${newConfig.etag}\", \"TCP\": {}, \"Web\": {}, \"AllowFunnel\": {}}" else "{\"TCP\": {}, \"Web\": {}, \"AllowFunnel\": {}}"
             } else {
@@ -217,7 +217,7 @@ fun ServeScreen(onBack: () -> Unit) {
             val parts = selfDns.split(".", limit = 2)
             if (parts.size < 2) "$serviceName.$selfDns" else "$serviceName.${parts[1]}"
         } else selfDns
-        // Для стандартных портов 80/443 не показываем порт в ссылке
+        // For standard 80/443 ports, omit port suffix in URL
         val portSuffix = if ((realProto == "http" && port == 80) || (realProto == "https" && port == 443)) "" else ":$port"
         return "$realProto://$baseDns$portSuffix"
     }

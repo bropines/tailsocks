@@ -74,8 +74,8 @@ class TailscaledService : Service() {
     private val refreshHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private val refreshRunnable = object : Runnable {
         override fun run() {
-            // Больше не нужно вручную проверять и сбрасывать Exit Nodes здесь,
-            // так как LocalAPI синхронизация в ApplySettings позаботится о профиле-зависимых настройках.
+            // No longer need to manually check and reset Exit Nodes here,
+            // as LocalAPI synchronization in ApplySettings handles profile-dependent settings.
             val activeAccount = AccountManager.getActiveAccount(this@TailscaledService)
             val profilePrefs = getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
             val interval = profilePrefs.getString("refresh_interval", "15000")?.toLongOrNull() ?: 15000L
@@ -358,7 +358,7 @@ class TailscaledService : Service() {
             doReset      = profilePrefs.getBoolean("do_reset", false)
             if (doReset) profilePrefs.edit().putBoolean("do_reset", false).apply()
 
-            // Передаем флаги напрямую для LocalAPI синхронизации в Go
+            // Pass flags directly for LocalAPI synchronization in Go
             hostname = host
             acceptRoutes = accRoutes
             acceptDNS = accDNS
@@ -373,9 +373,9 @@ class TailscaledService : Service() {
             argsBuilder.append("--accept-routes=$accRoutes ")
             argsBuilder.append("--accept-dns=$accDNS ")
             
-            // Exit Nodes теперь управляются динамически через LocalAPI (Appctr.setPrefs)
-            // в SettingsActivity. Мы больше не передаем их в 'up', чтобы не перезапускать 
-            // конфигурацию без необходимости.
+            // Exit Nodes are now managed dynamically via LocalAPI (Appctr.setPrefs)
+            // in SettingsActivity. We no longer pass them in 'up' to avoid restarting
+            // configuration unnecessarily.
 
             if (profilePrefs.getBoolean("advertise_exit_node", false)) {
                 argsBuilder.append("--advertise-exit-node=true ")

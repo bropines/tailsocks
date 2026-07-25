@@ -26,7 +26,7 @@ class TailDropReceiver : BroadcastReceiver() {
             "ACCEPT_FILE" -> {
                 if (file.exists()) {
                     try {
-                        // Сохраняем в публичную папку Загрузки
+                        // Save to public Downloads folder
                         val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
                         val destFile = File(downloadsDir, file.name.removeSuffix(".pending"))
                         file.copyTo(destFile, overwrite = true)

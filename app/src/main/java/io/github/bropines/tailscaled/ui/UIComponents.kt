@@ -56,7 +56,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
-// --- ПИРЫ ---
+// --- PEERS ---
 
 fun getOsVisuals(os: String?): Pair<ImageVector, Color> {
     val osLower = os?.lowercase().orEmpty()
@@ -381,7 +381,7 @@ fun PeerDetailsModal(
     }
 }
 
-// --- ФАЙЛЫ ---
+// --- FILES ---
 
 @Composable
 fun FileCard(file: TaildropFile, onOpen: () -> Unit, onSave: () -> Unit, onDelete: () -> Unit) {
