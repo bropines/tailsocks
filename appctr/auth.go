@@ -117,7 +117,6 @@ func registerMachineWithAuthKey(pc pathControl, opt *StartOptions) {
 		return
 	}
 
-	// For existing/new accounts (DoReset=false, AuthKey=""):
 	// Poll status for 1.5s (5 x 300ms) to allow tailscaled to evaluate saved state from disk naturally.
 	var statusResp struct {
 		BackendState string `json:"BackendState"`
