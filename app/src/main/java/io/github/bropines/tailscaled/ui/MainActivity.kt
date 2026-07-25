@@ -80,6 +80,48 @@ fun isVersionNewer(current: String, latest: String): Boolean {
     return false
 }
 
+fun launchApkInstaller(context: Context, apkFile: java.io.File) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) {
+        Toast.makeText(context, context.getString(R.string.main_update_grant_perm), Toast.LENGTH_LONG).show()
+        try {
+            context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}")))
+        } catch (e: Exception) {
+            context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES))
+        }
+        return
+    }
+
+    val apkUri = androidx.core.content.FileProvider.getUriForFile(
+        context,
+        "${context.packageName}.fileprovider",
+        apkFile
+    )
+    val installIntent = Intent(Intent.ACTION_VIEW).apply {
+        setDataAndType(apkUri, "application/vnd.android.package-archive")
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+
+    val resolveInfos = context.packageManager.queryIntentActivities(installIntent, 0)
+    val systemInstaller = resolveInfos.firstOrNull {
+        val pkg = it.activityInfo.packageName
+        pkg == "com.google.android.packageinstaller" ||
+        pkg == "com.android.packageinstaller" ||
+        pkg == "com.samsung.android.packageinstaller" ||
+        pkg.contains("packageinstaller")
+    }
+    if (systemInstaller != null) {
+        installIntent.setClassName(systemInstaller.activityInfo.packageName, systemInstaller.activityInfo.name)
+    }
+
+    try {
+        context.startActivity(installIntent)
+    } catch (e: Exception) {
+        android.util.Log.e("MainActivity", "Failed to launch package installer", e)
+        Toast.makeText(context, "Installer failed: ${e.message}", Toast.LENGTH_SHORT).show()
+    }
+}
+
 fun downloadAndCacheAvatar(context: Context, accountId: String, urlStr: String) {
     try {
         val url = java.net.URL(urlStr)
@@ -1281,8 +1323,30 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                             )
                         }
                     } else if (latestVersion != null && isVersionNewer(versionName, latestVersion!!)) {
+                        val destDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: context.cacheDir
+                        val cleanVer = latestVersion!!.removePrefix("v")
+                        val destFile = java.io.File(destDir, "tailsocks-update-$cleanVer.apk")
+
+                        var isApkCached by remember(destFile.absolutePath) {
+                            mutableStateOf(
+                                if (destFile.exists() && destFile.length() > 0) {
+                                    try {
+                                        val pInfo = context.packageManager.getPackageArchiveInfo(destFile.absolutePath, 0)
+                                        pInfo != null && pInfo.packageName == context.packageName
+                                    } catch (e: Exception) {
+                                        false
+                                    }
+                                } else false
+                            )
+                        }
+
                         Button(
                             onClick = {
+                                if (isApkCached) {
+                                    Toast.makeText(context, context.getString(R.string.main_update_installing), Toast.LENGTH_SHORT).show()
+                                    launchApkInstaller(context, destFile)
+                                    return@Button
+                                }
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) {
                                     Toast.makeText(context, context.getString(R.string.main_update_grant_perm), Toast.LENGTH_LONG).show()
                                     try {
@@ -1296,17 +1360,16 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                                 isDownloading = true
                                 downloadProgress = 0
                                 scope.launch(Dispatchers.IO) {
+                                    val tempFile = java.io.File(destDir, "tailsocks-update-$cleanVer.tmp")
                                     try {
                                         val url = java.net.URL(targetUrl)
                                         val conn = url.openConnection() as java.net.HttpURLConnection
                                         conn.instanceFollowRedirects = true
                                         conn.connect()
                                         val totalLength = conn.contentLength
-                                        val destDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: context.cacheDir
-                                        val destFile = java.io.File(destDir, "tailsocks-update.apk")
                                         
                                         conn.inputStream.use { input ->
-                                            destFile.outputStream().use { output ->
+                                            tempFile.outputStream().use { output ->
                                                 val buffer = ByteArray(8192)
                                                 var read: Int
                                                 var totalRead = 0L
@@ -1320,18 +1383,26 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                                                 }
                                             }
                                         }
-                                        withContext(Dispatchers.Main) {
-                                            isDownloading = false
-                                            Toast.makeText(context, context.getString(R.string.main_update_installing), Toast.LENGTH_SHORT).show()
-                                            val apkUri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", destFile)
-                                            val installIntent = Intent(Intent.ACTION_VIEW).apply {
-                                                setDataAndType(apkUri, "application/vnd.android.package-archive")
-                                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+                                        val pInfo = context.packageManager.getPackageArchiveInfo(tempFile.absolutePath, 0)
+                                        if (pInfo != null && pInfo.packageName == context.packageName) {
+                                            if (destFile.exists()) destFile.delete()
+                                            tempFile.renameTo(destFile)
+                                            withContext(Dispatchers.Main) {
+                                                isDownloading = false
+                                                isApkCached = true
+                                                Toast.makeText(context, context.getString(R.string.main_update_installing), Toast.LENGTH_SHORT).show()
+                                                launchApkInstaller(context, destFile)
                                             }
-                                            context.startActivity(installIntent)
+                                        } else {
+                                            if (tempFile.exists()) tempFile.delete()
+                                            withContext(Dispatchers.Main) {
+                                                isDownloading = false
+                                                Toast.makeText(context, context.getString(R.string.main_check_failed_format, "Corrupted APK downloaded"), Toast.LENGTH_SHORT).show()
+                                            }
                                         }
                                     } catch (e: Exception) {
+                                        if (tempFile.exists()) tempFile.delete()
                                         withContext(Dispatchers.Main) {
                                             isDownloading = false
                                             Toast.makeText(context, context.getString(R.string.main_check_failed_format, e.message), Toast.LENGTH_SHORT).show()
@@ -1342,9 +1413,9 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                         ) {
-                            Icon(Icons.Default.Download, null, modifier = Modifier.size(18.dp))
+                            Icon(if (isApkCached) Icons.Default.SystemUpdate else Icons.Default.Download, null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text(stringResource(R.string.main_update_download))
+                            Text(if (isApkCached) stringResource(R.string.main_update_install_cached) else stringResource(R.string.main_update_download))
                         }
                     } else {
                         Button(

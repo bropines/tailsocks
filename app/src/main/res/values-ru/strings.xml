@@ -464,6 +464,7 @@
     <string name="main_dev_core">Разработчик ядра: Tailscale</string>
     <string name="main_check_updates">Проверить обновления</string>
     <string name="main_update_download">Скачать и установить обновление</string>
+    <string name="main_update_install_cached">Установить обновление</string>
     <string name="main_update_downloading">Загрузка обновления… %d%%</string>
     <string name="main_update_installing">Запуск установщика…</string>
     <string name="main_update_grant_perm">Предоставьте разрешение на установку обновлений.</string>

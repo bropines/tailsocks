@@ -2,6 +2,11 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [3.1.6] - 2026-07-25
+### Fixed
+- Fixed in-app APK auto-updater requesting root permissions on rooted devices by explicitly targeting the system `PackageInstaller` (`com.google.android.packageinstaller` / `com.android.packageinstaller`), bypassing third-party root package manager intent interceptors.
+- Added APK update caching and download verification: prevents re-downloading already cached valid APKs for the target release version, cleans incomplete `.tmp` files on network error, and validates downloaded package integrity before launching installation.
+
 ## [3.1.5] - 2026-07-25
 ### Added
 - Added **Admin API Control Server Proxy Auto-Resolution**: Admin API requests (`api.tailscale.com`) now automatically inherit the active Control Server Proxy (CP Proxy / ByeDpi / HTTP / SOCKS5) by default (`CONTROL_PLANE` mode) to prevent `403 Forbidden` and blocked DNS errors in restricted regions.

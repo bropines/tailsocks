@@ -464,6 +464,7 @@
     <string name="main_dev_core">Core Developer: Tailscale</string>
     <string name="main_check_updates">Check for App Updates</string>
     <string name="main_update_download">Download &amp; Install Update</string>
+    <string name="main_update_install_cached">Install Update</string>
     <string name="main_update_downloading">Downloading update… %d%%</string>
     <string name="main_update_installing">Opening installer…</string>
     <string name="main_update_grant_perm">Please grant permission to install app updates.</string>
