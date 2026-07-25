@@ -126,6 +126,7 @@ android {
 dependencies {
     implementation(project(":appctr"))
     implementation(libs.gson)
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("androidx.biometric:biometric:1.1.0")
     implementation(libs.androidx.appcompat)
     

@@ -1,19 +1,14 @@
 package io.github.bropines.tailscaled.admin
-import io.github.bropines.tailscaled.R
-import io.github.bropines.tailscaled.BuildConfig
 
-import io.github.bropines.tailscaled.core.*
-import io.github.bropines.tailscaled.models.*
-import io.github.bropines.tailscaled.ui.*
-
+import android.util.Log
 import com.google.gson.Gson
-import java.io.OutputStreamWriter
-import java.net.HttpURLConnection
-import java.net.URL
-import java.net.Proxy
+import okhttp3.*
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.net.InetSocketAddress
-import java.net.Authenticator
-import java.net.PasswordAuthentication
+import java.net.Proxy
+import java.net.URI
+import java.util.concurrent.TimeUnit
 
 class TailscaleApiClient(
     private val token: String,
@@ -36,6 +31,10 @@ class TailscaleApiClient(
     private var cachedAccessToken: String? = null
     private var tokenExpiryTime: Long = 0
 
+    private val httpClient: OkHttpClient by lazy {
+        buildOkHttpClient()
+    }
+
     private data class ParsedProxyInfo(
         val host: String,
         val port: Int,
@@ -48,11 +47,11 @@ class TailscaleApiClient(
         try {
             val trimmed = urlStr.trim()
             if (trimmed.isEmpty()) return null
-            val uri = java.net.URI(if (!trimmed.contains("://")) "socks5://$trimmed" else trimmed)
+            val uri = URI(if (!trimmed.contains("://")) "socks5://$trimmed" else trimmed)
             val scheme = uri.scheme?.lowercase() ?: "socks5"
             val host = uri.host ?: return null
             val port = if (uri.port > 0) uri.port else (if (scheme.startsWith("http")) 8080 else 1080)
-            
+
             var user = ""
             var pass = ""
             if (uri.userInfo != null && uri.userInfo.contains(":")) {
@@ -68,86 +67,64 @@ class TailscaleApiClient(
         }
     }
 
-    private fun openConnection(url: URL): HttpURLConnection {
-        var authHost = ""
-        var authPort = 0
+    private fun buildOkHttpClient(): OkHttpClient {
+        val builder = OkHttpClient.Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
+            .writeTimeout(15, TimeUnit.SECONDS)
+
         var authUser = ""
         var authPass = ""
 
-        val connectionProxy = when (proxyMode.uppercase()) {
+        val selectedProxy = when (proxyMode.uppercase()) {
             "CONTROL_PLANE", "AUTO" -> {
                 if (controlProxyUrl.isNotEmpty()) {
                     val parsed = parseProxyFromUrl(controlProxyUrl)
                     if (parsed != null) {
-                        authHost = parsed.host
-                        authPort = parsed.port
                         authUser = parsed.user
                         authPass = parsed.pass
                         parsed.proxy
-                    } else {
-                        Proxy.NO_PROXY
-                    }
-                } else {
-                    Proxy.NO_PROXY
-                }
+                    } else Proxy.NO_PROXY
+                } else Proxy.NO_PROXY
             }
             "LOCAL_SOCKS5" -> {
                 val addr = localSocksAddr.takeIf { it.isNotEmpty() } ?: "127.0.0.1:48115"
                 val parts = addr.split(":")
-                authHost = parts.getOrNull(0) ?: "127.0.0.1"
-                authPort = parts.getOrNull(1)?.toIntOrNull() ?: 48115
+                val host = parts.getOrNull(0) ?: "127.0.0.1"
+                val port = parts.getOrNull(1)?.toIntOrNull() ?: 48115
                 authUser = localSocksUser
                 authPass = localSocksPass
-                parseSocksProxy(addr)
+                Proxy(Proxy.Type.SOCKS, InetSocketAddress(host, port))
             }
             "CUSTOM_SOCKS5", "CUSTOM_PROXY" -> {
                 if (proxyHost.isNotEmpty() && proxyPort > 0) {
-                    authHost = proxyHost
-                    authPort = proxyPort
                     authUser = proxyUser
                     authPass = proxyPass
                     Proxy(Proxy.Type.SOCKS, InetSocketAddress(proxyHost, proxyPort))
-                } else {
-                    Proxy.NO_PROXY
-                }
+                } else Proxy.NO_PROXY
             }
             else -> Proxy.NO_PROXY
         }
 
-        val conn = if (connectionProxy != Proxy.NO_PROXY) {
-            url.openConnection(connectionProxy) as HttpURLConnection
-        } else {
-            url.openConnection() as HttpURLConnection
+        if (selectedProxy != Proxy.NO_PROXY) {
+            builder.proxy(selectedProxy)
         }
 
-        // Set up Authenticator if credentials are provided for the target proxy host/port
-        if (authUser.isNotEmpty() && authPass.isNotEmpty() && authHost.isNotEmpty() && authPort > 0) {
-            val targetHost = authHost
-            val targetPort = authPort
-            val targetUser = authUser
-            val targetPass = authPass
-            Authenticator.setDefault(object : Authenticator() {
-                override fun getPasswordAuthentication(): PasswordAuthentication? {
-                    if (requestingHost == targetHost && requestingPort == targetPort) {
-                        return PasswordAuthentication(targetUser, targetPass.toCharArray())
-                    }
-                    return null
+        if (authUser.isNotEmpty() && authPass.isNotEmpty()) {
+            val credentials = Credentials.basic(authUser, authPass)
+            builder.proxyAuthenticator { _, response ->
+                response.request.newBuilder()
+                    .header("Proxy-Authorization", credentials)
+                    .build()
+            }
+            java.net.Authenticator.setDefault(object : java.net.Authenticator() {
+                override fun getPasswordAuthentication(): java.net.PasswordAuthentication {
+                    return java.net.PasswordAuthentication(authUser, authPass.toCharArray())
                 }
             })
         }
 
-        return conn
-    }
-
-    private fun parseSocksProxy(addr: String): Proxy {
-        return try {
-            val parts = addr.split(":")
-            val host = parts[0]
-            val port = parts[1].toInt()
-            Proxy(Proxy.Type.SOCKS, InetSocketAddress(host, port))
-        } catch (e: Exception) {
-            Proxy.NO_PROXY
-        }
+        return builder.build()
     }
 
     @Synchronized
@@ -168,55 +145,69 @@ class TailscaleApiClient(
     }
 
     private fun fetchOauthToken(): OauthTokenResponse {
-        val url = URL("https://api.tailscale.com/api/v2/oauth/token")
-        val conn = openConnection(url)
-        conn.requestMethod = "POST"
-        conn.connectTimeout = 15000
-        conn.readTimeout = 15000
-        conn.doOutput = true
-        conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
-        conn.setRequestProperty("Accept", "application/json")
+        val formBody = FormBody.Builder()
+            .add("grant_type", "client_credentials")
+            .add("client_id", clientId)
+            .add("client_secret", clientSecret)
+            .build()
 
-        val body = "grant_type=client_credentials&client_id=$clientId&client_secret=$clientSecret"
-        conn.outputStream.use { os ->
-            os.write(body.toByteArray(Charsets.UTF_8))
-        }
+        val req = Request.Builder()
+            .url("https://api.tailscale.com/api/v2/oauth/token")
+            .post(formBody)
+            .header("Accept", "application/json")
+            .build()
 
-        val code = conn.responseCode
-        if (code in 200..299) {
-            val json = conn.inputStream.bufferedReader().use { it.readText() }
-            return Gson().fromJson(json, OauthTokenResponse::class.java)
-        } else {
-            val errText = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
-            throw Exception("OAuth HTTP $code: $errText")
+        try {
+            httpClient.newCall(req).execute().use { resp ->
+                val bodyStr = resp.body?.string() ?: ""
+                if (resp.isSuccessful) {
+                    return Gson().fromJson(bodyStr, OauthTokenResponse::class.java)
+                } else {
+                    throw Exception("OAuth HTTP ${resp.code}: $bodyStr")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("TailscaleApiClient", "fetchOauthToken failed (proxyMode=$proxyMode): ${e.message}", e)
+            throw Exception("OAuth failed: ${e.message ?: "Connection error"}")
         }
     }
 
     private fun request(method: String, path: String, body: Any? = null): String {
         val activeToken = getValidToken()
-        val url = if (path.startsWith("http")) URL(path) else URL("$baseUrl$path")
-        val conn = openConnection(url)
-        conn.requestMethod = method
-        conn.connectTimeout = 15000
-        conn.readTimeout = 15000
-        conn.setRequestProperty("Authorization", "Bearer $activeToken")
-        conn.setRequestProperty("Accept", "application/json")
-        
-        if (body != null) {
-            conn.doOutput = true
-            conn.setRequestProperty("Content-Type", "application/json")
-            val writer = OutputStreamWriter(conn.outputStream)
-            val json = if (body is String) body else Gson().toJson(body)
-            writer.write(json)
-            writer.flush()
+        val url = if (path.startsWith("http")) path else "$baseUrl$path"
+
+        val reqBuilder = Request.Builder()
+            .url(url)
+            .header("Authorization", "Bearer $activeToken")
+            .header("Accept", "application/json")
+
+        val mediaTypeJson = "application/json; charset=utf-8".toMediaType()
+
+        val requestBody = when {
+            body == null && (method == "POST" || method == "PUT" || method == "PATCH") -> {
+                "".toRequestBody(mediaTypeJson)
+            }
+            body != null -> {
+                val json = if (body is String) body else Gson().toJson(body)
+                json.toRequestBody(mediaTypeJson)
+            }
+            else -> null
         }
 
-        val code = conn.responseCode
-        if (code in 200..299) {
-            return conn.inputStream.bufferedReader().use { it.readText() }
-        } else {
-            val errText = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
-            throw Exception("HTTP $code: $errText")
+        reqBuilder.method(method, requestBody)
+
+        try {
+            httpClient.newCall(reqBuilder.build()).execute().use { resp ->
+                val bodyStr = resp.body?.string() ?: ""
+                if (resp.isSuccessful) {
+                    return bodyStr
+                } else {
+                    throw Exception("HTTP ${resp.code}: $bodyStr")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("TailscaleApiClient", "Request $method $path failed (proxyMode=$proxyMode): ${e.message}", e)
+            throw Exception("API Error: ${e.message ?: "Unexpected connection error"}")
         }
     }
 
