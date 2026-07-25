@@ -4,8 +4,10 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ## [3.1.5] - 2026-07-25
 ### Added
+- Added **Admin API Control Server Proxy Auto-Resolution**: Admin API requests (`api.tailscale.com`) now automatically inherit the active Control Server Proxy (CP Proxy / ByeDpi / HTTP / SOCKS5) by default (`CONTROL_PLANE` mode) to prevent `403 Forbidden` and blocked DNS errors in restricted regions.
 - Added **Haptic Feedback**: Integrated tactile vibration responses (`HapticFeedbackType.LongPress`) across UI long-press interactions (account cards, console presets).
 - Implemented **Daemon Readiness Checkpoint**: Added explicit `waitForDaemonReady()` check before initializing auxiliary services (Taildrive, Tags, Routes, TUN mode) to prevent startup race conditions.
+- Updated **Tailscale Core**: Bumped Tailscale core to official release **`v1.98.9`** with host Go toolchain compatibility fixes.
 
 ### Fixed
 - Preserved active login sessions across daemon restarts and account switches by avoiding redundant LocalAPI login mutations on authenticated profiles.
