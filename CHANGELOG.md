@@ -2,6 +2,15 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [3.1.5] - 2026-07-25
+### Added
+- Added **Haptic Feedback**: Integrated tactile vibration responses (`HapticFeedbackType.LongPress`) across UI long-press interactions (account cards, console presets).
+- Implemented **Daemon Readiness Checkpoint**: Added explicit `waitForDaemonReady()` check before initializing auxiliary services (Taildrive, Tags, Routes, TUN mode) to prevent startup race conditions.
+
+### Fixed
+- Preserved active login sessions across daemon restarts and account switches by avoiding redundant LocalAPI login mutations on authenticated profiles.
+- Fixed Headscale/ControlURL authorization routing during unauthenticated session initialization.
+
 ## [3.1.4] - 2026-07-24
 ### Added
 - Added **Native Root Mode (`su`)**: Supports running Tailscale daemon with root privileges for direct TUN routing and Magisk/KernelSU autostart service.

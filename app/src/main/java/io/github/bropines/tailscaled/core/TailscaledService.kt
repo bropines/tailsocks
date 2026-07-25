@@ -265,20 +265,38 @@ class TailscaledService : Service() {
                 }
                 updateNotification("Active")
                 applicationContext.sendBroadcast(Intent("START"))
-                sendStatusBroadcast(this@TailscaledService, "ACTIVE")
-                
-                try { Thread.sleep(2500) } catch (e: Exception) {}
-                applyTagsAndRoutes(this@TailscaledService)
-                applyTaildrive(this@TailscaledService)
-                
-                if (GlobalSettings.isTunModeEnabled(this@TailscaledService) && !GlobalSettings.isRootModeEnabled(this@TailscaledService)) {
-                    startTunMode()
+                if (waitForDaemonReady()) {
+                    Log.d(TAG, "Daemon readiness checkpoint reached. Launching auxiliary modules...")
+                    applyTagsAndRoutes(this@TailscaledService)
+                    applyTaildrive(this@TailscaledService)
+                    
+                    if (GlobalSettings.isTunModeEnabled(this@TailscaledService) && !GlobalSettings.isRootModeEnabled(this@TailscaledService)) {
+                        startTunMode()
+                    }
+                } else {
+                    Log.w(TAG, "Daemon readiness checkpoint timed out.")
                 }
             } catch (e: Exception) { 
                 Log.e(TAG, "Start failed", e)
                 stopMe() 
             }
         }.start()
+    }
+
+    private fun waitForDaemonReady(timeoutMs: Long = 10000L): Boolean {
+        val startTime = System.currentTimeMillis()
+        while (System.currentTimeMillis() - startTime < timeoutMs) {
+            try {
+                val st = Appctr.getStatusJSON(false)
+                if (st.isNotBlank() && st.contains("BackendState")) {
+                    return true
+                }
+            } catch (e: Exception) {
+                // Socket / daemon not responsive yet
+            }
+            try { Thread.sleep(300) } catch (e: Exception) {}
+        }
+        return false
     }
 
     private fun buildStartOptions(): StartOptions {

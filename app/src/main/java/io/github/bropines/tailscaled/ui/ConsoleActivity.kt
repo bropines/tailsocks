@@ -7,6 +7,7 @@ import io.github.bropines.tailscaled.admin.*
 import io.github.bropines.tailscaled.core.*
 import io.github.bropines.tailscaled.models.*
 
+import androidx.compose.ui.platform.LocalHapticFeedback
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -92,6 +93,7 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
     val cmdHistoryFile = remember { File(context.filesDir, "console_cmd_history.dat") }
 
     var outputText by remember { mutableStateOf("$ ") }
+    val haptic = LocalHapticFeedback.current
     var currentCommand by remember { mutableStateOf("") }
     var isExecuting by remember { mutableStateOf(false) }
 
@@ -217,6 +219,7 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
                                     .combinedClickable(
                                         onClick = { executeCmd(preset) },
                                         onLongClick = {
+                                            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                                             currentCommand = preset
                                             focusRequester.requestFocus()
                                         }

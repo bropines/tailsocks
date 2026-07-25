@@ -682,6 +682,7 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
             onDismissRequest = { accountMenuExpanded = false },
             sheetState = sheetState
         ) {
+            val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
             val activeAvatarFile = remember(activeAccount.id) { java.io.File(context.filesDir, "avatars/${activeAccount.id}.png") }
             val activeBitmap = remember(activeAvatarFile) {
                 if (activeAvatarFile.exists()) {
@@ -765,6 +766,7 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                                             }
                                         },
                                         onLongClick = {
+                                            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                                             editingAccountId = if (isEditing) null else account.id
                                         }
                                     ),
