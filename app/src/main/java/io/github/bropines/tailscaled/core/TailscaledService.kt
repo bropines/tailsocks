@@ -19,6 +19,7 @@ import android.os.PowerManager
 import android.service.quicksettings.TileService
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import appctr.Appctr
 import appctr.Closer
 import appctr.StartOptions
