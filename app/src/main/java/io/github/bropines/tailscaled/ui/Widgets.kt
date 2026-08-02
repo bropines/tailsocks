@@ -51,16 +51,20 @@ import kotlinx.coroutines.launch
 // ----------------------------------------------------------------
 // Global Widgets Update Helper
 // ----------------------------------------------------------------
+suspend fun updateAllWidgetsSync(context: Context) {
+    try {
+        ServiceToggleWidget().updateAll(context)
+        ExitNodeToggleWidget().updateAll(context)
+        StatsWidget().updateAll(context)
+        ServeWidget().updateAll(context)
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+}
+
 fun updateAllWidgets(context: Context) {
     CoroutineScope(Dispatchers.Default).launch {
-        try {
-            ServiceToggleWidget().updateAll(context)
-            ExitNodeToggleWidget().updateAll(context)
-            StatsWidget().updateAll(context)
-            ServeWidget().updateAll(context)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        updateAllWidgetsSync(context)
     }
 }
 
@@ -71,7 +75,23 @@ fun updateAllWidgets(context: Context) {
 class ServiceToggleWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val isRunning = ProxyState.isActualRunning()
+        val pendingStatus = ProxyState.getPendingStatus(context)
         val activeAccount = AccountManager.getActiveAccount(context)
+
+        val statusText = when (pendingStatus) {
+            "STARTING" -> "● " + context.getString(R.string.status_starting)
+            "STOPPING" -> "○ " + context.getString(R.string.status_stopping)
+            else -> if (isRunning) "● " + context.getString(R.string.status_running) else "○ " + context.getString(R.string.status_stopped)
+        }
+
+        val buttonText = when (pendingStatus) {
+            "STARTING" -> context.getString(R.string.status_starting)
+            "STOPPING" -> context.getString(R.string.status_stopping)
+            else -> if (isRunning) context.getString(R.string.widget_service_stop) else context.getString(R.string.widget_service_start)
+        }
+
+        val isBusy = pendingStatus != null
+        val isActive = if (isBusy) pendingStatus == "STARTING" else isRunning
 
         provideContent {
             GlanceTheme {
@@ -97,19 +117,19 @@ class ServiceToggleWidget : GlanceAppWidget() {
                             fontWeight = FontWeight.Medium))
                     Spacer(GlanceModifier.height(2.dp))
                     Text(
-                        text = if (isRunning) "● " + context.getString(R.string.status_running) else "○ " + context.getString(R.string.status_stopped),
+                        text = statusText,
                         style = TextStyle(
-                            color = if (isRunning) GlanceTheme.colors.primary else GlanceTheme.colors.outline,
+                            color = if (isActive) GlanceTheme.colors.primary else GlanceTheme.colors.outline,
                             fontSize = 14.sp))
 
                     Spacer(GlanceModifier.defaultWeight())
 
                     Button(
-                        text = if (isRunning) context.getString(R.string.widget_service_stop) else context.getString(R.string.widget_service_start),
+                        text = buttonText,
                         onClick = actionRunCallback<ToggleServiceActionCallback>(),
                         colors = ButtonDefaults.buttonColors(
-                            backgroundColor = if (isRunning) GlanceTheme.colors.error else GlanceTheme.colors.primary,
-                            contentColor = if (isRunning) GlanceTheme.colors.onError else GlanceTheme.colors.onPrimary),
+                            backgroundColor = if (isActive) GlanceTheme.colors.error else GlanceTheme.colors.primary,
+                            contentColor = if (isActive) GlanceTheme.colors.onError else GlanceTheme.colors.onPrimary),
                         modifier = GlanceModifier.fillMaxWidth().height(44.dp)
                     )
                 }
@@ -118,14 +138,23 @@ class ServiceToggleWidget : GlanceAppWidget() {
     }
 }
 
-class ServiceToggleWidgetReceiver : GlanceAppWidgetReceiver() {
-    override val glanceAppWidget: GlanceAppWidget = ServiceToggleWidget()
-
+abstract class BaseWidgetReceiver(override val glanceAppWidget: GlanceAppWidget) : GlanceAppWidgetReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        val pendingResult = goAsync()
         super.onReceive(context, intent)
-        updateAllWidgets(context)
+        CoroutineScope(Dispatchers.Default).launch {
+            try {
+                updateAllWidgetsSync(context)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                pendingResult.finish()
+            }
+        }
     }
 }
+
+class ServiceToggleWidgetReceiver : BaseWidgetReceiver(ServiceToggleWidget())
 
 // ----------------------------------------------------------------
 // Widget II: Exit Node Toggle (2×1)
@@ -179,14 +208,7 @@ class ExitNodeToggleWidget : GlanceAppWidget() {
     }
 }
 
-class ExitNodeToggleWidgetReceiver : GlanceAppWidgetReceiver() {
-    override val glanceAppWidget: GlanceAppWidget = ExitNodeToggleWidget()
-
-    override fun onReceive(context: Context, intent: Intent) {
-        super.onReceive(context, intent)
-        updateAllWidgets(context)
-    }
-}
+class ExitNodeToggleWidgetReceiver : BaseWidgetReceiver(ExitNodeToggleWidget())
 
 // ----------------------------------------------------------------
 // Widget III: Stats Dashboard (3×3)
@@ -342,14 +364,7 @@ class StatsWidget : GlanceAppWidget() {
     }
 }
 
-class StatsWidgetReceiver : GlanceAppWidgetReceiver() {
-    override val glanceAppWidget: GlanceAppWidget = StatsWidget()
-
-    override fun onReceive(context: Context, intent: Intent) {
-        super.onReceive(context, intent)
-        updateAllWidgets(context)
-    }
-}
+class StatsWidgetReceiver : BaseWidgetReceiver(StatsWidget())
 
 // ----------------------------------------------------------------
 // Widget IV: Serve & Funnel Status (2×1)
@@ -432,14 +447,7 @@ class ServeWidget : GlanceAppWidget() {
     }
 }
 
-class ServeWidgetReceiver : GlanceAppWidgetReceiver() {
-    override val glanceAppWidget: GlanceAppWidget = ServeWidget()
-
-    override fun onReceive(context: Context, intent: Intent) {
-        super.onReceive(context, intent)
-        updateAllWidgets(context)
-    }
-}
+class ServeWidgetReceiver : BaseWidgetReceiver(ServeWidget())
 
 // ----------------------------------------------------------------
 // Action Callbacks
@@ -455,20 +463,19 @@ class RefreshAllActionCallback : ActionCallback {
 class ToggleServiceActionCallback : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
         val isRunning = ProxyState.isActualRunning()
+        val pendingStatus = ProxyState.getPendingStatus(context)
+        val willStart = if (pendingStatus != null) pendingStatus == "STOPPING" else !isRunning
+
+        ProxyState.setPendingStatus(context, if (willStart) "STARTING" else "STOPPING")
+        updateAllWidgetsSync(context)
+
         val intent = Intent(context, TailscaledService::class.java).apply {
-            action = if (isRunning) "STOP_ACTION" else "START_ACTION"
+            action = if (willStart) "START_ACTION" else "STOP_ACTION"
         }
         try {
-            if (isRunning) context.startService(intent)
+            if (!willStart) context.startService(intent)
             else androidx.core.content.ContextCompat.startForegroundService(context, intent)
         } catch (e: Exception) { e.printStackTrace() }
-
-        // Multi-phase update: immediate optimistic + quick real + delayed final status
-        updateAllWidgets(context)
-        delay(500)
-        updateAllWidgets(context)
-        delay(2000)
-        updateAllWidgets(context)
     }
 }
 

@@ -247,6 +247,9 @@ class TailscaledService : Service() {
         
         if (profilePrefs.getBoolean("force_bg", false)) wakeLock?.acquire(10 * 60 * 1000L)
         
+        ProxyState.setPendingStatus(this@TailscaledService, "STARTING")
+        sendStatusBroadcast(this@TailscaledService, "STARTING")
+
         Thread {
             try {
                 applicationContext.sendBroadcast(Intent("STARTING"))
@@ -279,8 +282,11 @@ class TailscaledService : Service() {
                 } else {
                     Log.w(TAG, "Daemon readiness checkpoint timed out.")
                 }
+                ProxyState.setPendingStatus(this@TailscaledService, null)
+                sendStatusBroadcast(this@TailscaledService, "ACTIVE")
             } catch (e: Exception) { 
                 Log.e(TAG, "Start failed", e)
+                ProxyState.setPendingStatus(this@TailscaledService, null)
                 stopMe() 
             }
         }.start()
@@ -397,6 +403,8 @@ class TailscaledService : Service() {
     }
 
     private fun stopMe() {
+        ProxyState.setPendingStatus(this, "STOPPING")
+        sendStatusBroadcast(this, "STOPPING")
         stopTunMode()
         ProxyState.setUserState(this, false)
         refreshHandler.removeCallbacks(refreshRunnable)
@@ -417,8 +425,14 @@ class TailscaledService : Service() {
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
         updateTile()
+        ProxyState.setPendingStatus(this, null)
         applicationContext.sendBroadcast(Intent("STOP"))
         sendStatusBroadcast(this, "STOPPED")
+
+        val appContext = applicationContext
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            sendStatusBroadcast(appContext, "STOPPED")
+        }, 3000)
     }
     
     private fun updateTile() {
