@@ -12,7 +12,7 @@ import appctr.Appctr
 
 object ProxyState {
     private const val PREF = "proxy_state"
-    private const val KEY_PENDING_STATUS = "pending_status"
+    private const val KEY_DESIRED = "desired_running"
 
     fun setUserState(context: Context, running: Boolean) {
         context.getSharedPreferences(PREF, Context.MODE_PRIVATE)
@@ -25,21 +25,6 @@ object ProxyState {
         return context.applicationContext
             .getSharedPreferences(PREF, Context.MODE_PRIVATE)
             .getBoolean(KEY_DESIRED, false)
-    }
-
-    fun setPendingStatus(context: Context, status: String?) {
-        context.applicationContext
-            .getSharedPreferences(PREF, Context.MODE_PRIVATE)
-            .edit {
-                if (status == null) remove(KEY_PENDING_STATUS)
-                else putString(KEY_PENDING_STATUS, status)
-            }
-    }
-
-    fun getPendingStatus(context: Context): String? {
-        return context.applicationContext
-            .getSharedPreferences(PREF, Context.MODE_PRIVATE)
-            .getString(KEY_PENDING_STATUS, null)
     }
 
     fun isActualRunning(): Boolean = Appctr.isRunning()
