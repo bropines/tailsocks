@@ -153,6 +153,11 @@
         <receiver android:name=".ui.ServiceToggleWidgetReceiver" android:exported="false" android:label="TailSocks Switcher">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="io.github.bropines.tailscaled.STATUS_CHANGED" />
+                <action android:name="io.github.bropines.tailscaled.STATUS" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.USER_PRESENT" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
@@ -163,6 +168,11 @@
         <receiver android:name=".ui.ExitNodeToggleWidgetReceiver" android:exported="false" android:label="TailSocks Exit Node">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="io.github.bropines.tailscaled.STATUS_CHANGED" />
+                <action android:name="io.github.bropines.tailscaled.STATUS" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.USER_PRESENT" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
@@ -173,6 +183,11 @@
         <receiver android:name=".ui.StatsWidgetReceiver" android:exported="false" android:label="TailSocks Dashboard">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="io.github.bropines.tailscaled.STATUS_CHANGED" />
+                <action android:name="io.github.bropines.tailscaled.STATUS" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.USER_PRESENT" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
@@ -183,6 +198,11 @@
         <receiver android:name=".ui.ServeWidgetReceiver" android:exported="false" android:label="TailSocks Serve">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="io.github.bropines.tailscaled.STATUS_CHANGED" />
+                <action android:name="io.github.bropines.tailscaled.STATUS" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.USER_PRESENT" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"

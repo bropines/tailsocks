@@ -120,6 +120,11 @@ class ServiceToggleWidget : GlanceAppWidget() {
 
 class ServiceToggleWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = ServiceToggleWidget()
+
+    override fun onReceive(context: Context, intent: Intent) {
+        super.onReceive(context, intent)
+        updateAllWidgets(context)
+    }
 }
 
 // ----------------------------------------------------------------
@@ -176,6 +181,11 @@ class ExitNodeToggleWidget : GlanceAppWidget() {
 
 class ExitNodeToggleWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = ExitNodeToggleWidget()
+
+    override fun onReceive(context: Context, intent: Intent) {
+        super.onReceive(context, intent)
+        updateAllWidgets(context)
+    }
 }
 
 // ----------------------------------------------------------------
@@ -334,6 +344,11 @@ class StatsWidget : GlanceAppWidget() {
 
 class StatsWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = StatsWidget()
+
+    override fun onReceive(context: Context, intent: Intent) {
+        super.onReceive(context, intent)
+        updateAllWidgets(context)
+    }
 }
 
 // ----------------------------------------------------------------
@@ -419,6 +434,11 @@ class ServeWidget : GlanceAppWidget() {
 
 class ServeWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = ServeWidget()
+
+    override fun onReceive(context: Context, intent: Intent) {
+        super.onReceive(context, intent)
+        updateAllWidgets(context)
+    }
 }
 
 // ----------------------------------------------------------------
@@ -443,7 +463,8 @@ class ToggleServiceActionCallback : ActionCallback {
             else androidx.core.content.ContextCompat.startForegroundService(context, intent)
         } catch (e: Exception) { e.printStackTrace() }
 
-        // Two-phase update: quick optimistic + delayed real status
+        // Multi-phase update: immediate optimistic + quick real + delayed final status
+        updateAllWidgets(context)
         delay(500)
         updateAllWidgets(context)
         delay(2000)

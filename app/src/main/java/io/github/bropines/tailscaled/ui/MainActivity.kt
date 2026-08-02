@@ -197,9 +197,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleIntent(intent: Intent?) {
-        if (intent?.action == "android.service.quicksettings.action.QS_TILE_PREFERENCES") {
-            showAccountSwitcher.value = true
-        }
+        // QS tile long press / preferences simply opens the app main screen without showing account switcher
     }
 
     private fun handleAppStartup() {

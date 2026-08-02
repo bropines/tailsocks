@@ -59,6 +59,8 @@ class TailscaledService : Service() {
                     putExtra("byedpi_enabled", GlobalSettings.isCPByeDpiEnabled(context))
                 }
                 context.sendBroadcast(aliasIntent)
+
+                updateAllWidgets(context)
             } catch (e: Exception) {
                 Log.e("TailscaledService", "Failed to send status broadcast: ${e.message}")
             }
@@ -525,12 +527,22 @@ class TailscaledService : Service() {
 
     private fun startTunMode() {
         try {
-            val intent = Intent(this, TunPermissionActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            val prepareIntent = android.net.VpnService.prepare(this)
+            if (prepareIntent == null) {
+                Log.d(TAG, "VPN permission already granted, starting TunVpnService directly")
+                val tunIntent = Intent(this, TunVpnService::class.java).apply {
+                    action = TunVpnService.ACTION_START
+                }
+                ContextCompat.startForegroundService(this, tunIntent)
+            } else {
+                Log.d(TAG, "VPN permission required, launching TunPermissionActivity")
+                val intent = Intent(this, TunPermissionActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                startActivity(intent)
             }
-            startActivity(intent)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to start TunPermissionActivity", e)
+            Log.e(TAG, "Failed to start TUN mode", e)
         }
     }
 
