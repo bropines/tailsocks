@@ -46,6 +46,7 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -76,7 +77,7 @@ private fun liveState(context: Context): Pair<Boolean, String> {
     return Pair(isRunning, exitNode)
 }
 
-/** Get list of available exit nodes from daemon or cache */
+/** Get list of available exit nodes from daemon or persistent cache */
 fun getAvailableExitNodes(context: Context): List<ExitNodeOption> {
     val activeAccount = AccountManager.getActiveAccount(context)
     val prefs = context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
@@ -100,7 +101,25 @@ fun getAvailableExitNodes(context: Context): List<ExitNodeOption> {
         }
     }
 
-    // If no nodes found via live API (or daemon stopped), fallback to saved last exit node
+    if (options.isNotEmpty()) {
+        // Cache found exit nodes for offline / loading fallback
+        try {
+            val jsonStr = Gson().toJson(options)
+            prefs.edit().putString("cached_exit_nodes_json", jsonStr).apply()
+        } catch (e: Exception) { e.printStackTrace() }
+    } else {
+        // Fallback to cached list from previous runs
+        val cachedJson = prefs.getString("cached_exit_nodes_json", "") ?: ""
+        if (cachedJson.isNotEmpty()) {
+            try {
+                val type = object : TypeToken<List<ExitNodeOption>>() {}.type
+                val cachedList: List<ExitNodeOption> = Gson().fromJson(cachedJson, type)
+                options.addAll(cachedList)
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+    }
+
+    // Fallback: add last_exit_node if still empty
     if (options.isEmpty()) {
         val lastIp = prefs.getString("last_exit_node_ip", "") ?: ""
         val lastId = prefs.getString("last_exit_node_id", "") ?: ""
@@ -213,24 +232,39 @@ class ServiceToggleWidget : GlanceAppWidget() {
                         .clickable(actionStartActivity(mainIntent)),
                     horizontalAlignment = Alignment.Horizontal.Start
                 ) {
-                    Text(
-                        text = "TailSocks",
-                        style = TextStyle(
-                            color = GlanceTheme.colors.onSurface,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
+                    // Header Row with title & refresh button
+                    Row(
+                        modifier = GlanceModifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Vertical.CenterVertically
+                    ) {
+                        Column(modifier = GlanceModifier.defaultWeight()) {
+                            Text(
+                                text = "TailSocks",
+                                style = TextStyle(
+                                    color = GlanceTheme.colors.onSurface,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                            Text(
+                                text = profileName,
+                                style = TextStyle(
+                                    color = GlanceTheme.colors.primary,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            )
+                        }
+                        Button(
+                            text = "↻",
+                            onClick = actionRunCallback<RefreshAllActionCallback>(),
+                            colors = ButtonDefaults.buttonColors(
+                                backgroundColor = GlanceTheme.colors.secondaryContainer,
+                                contentColor = GlanceTheme.colors.onSecondaryContainer
+                            ),
+                            modifier = GlanceModifier.height(34.dp)
                         )
-                    )
-                    Spacer(GlanceModifier.height(2.dp))
-
-                    Text(
-                        text = profileName,
-                        style = TextStyle(
-                            color = GlanceTheme.colors.primary,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    )
+                    }
 
                     if (exitNode.isNotEmpty()) {
                         Spacer(GlanceModifier.height(2.dp))
@@ -293,7 +327,6 @@ class ServiceToggleWidgetReceiver : GlanceAppWidgetReceiver() {
 
 // ----------------------------------------------------------------
 // Vertical Exit Node Selector Widget (2×3 / 2×4)
-// Allows selecting from available exit nodes or disabling routing
 // ----------------------------------------------------------------
 class ExitNodeToggleWidget : GlanceAppWidget() {
 
@@ -308,6 +341,7 @@ class ExitNodeToggleWidget : GlanceAppWidget() {
                 val exitNodeId   = profilePrefs.getString("exit_node_id", "") ?: ""
 
                 val availableNodes = getAvailableExitNodes(context)
+                val activeNodeName = availableNodes.find { it.ip == exitNodeIp || (it.id.isNotEmpty() && it.id == exitNodeId) }?.name ?: exitNodeIp
                 val mainIntent = Intent(LocalContext.current, MainActivity::class.java)
 
                 Column(
@@ -319,28 +353,43 @@ class ExitNodeToggleWidget : GlanceAppWidget() {
                         .clickable(actionStartActivity(mainIntent)),
                     horizontalAlignment = Alignment.Horizontal.Start
                 ) {
-                    // Header
-                    Text(
-                        text = context.getString(R.string.widget_exit_node_title),
-                        style = TextStyle(
-                            color = GlanceTheme.colors.onSurface,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    )
-                    Spacer(GlanceModifier.height(2.dp))
+                    // Header Row with Title, Active Subtitle & Refresh Button
+                    Row(
+                        modifier = GlanceModifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Vertical.CenterVertically
+                    ) {
+                        Column(modifier = GlanceModifier.defaultWeight()) {
+                            Text(
+                                text = context.getString(R.string.widget_exit_node_title),
+                                style = TextStyle(
+                                    color = GlanceTheme.colors.onSurface,
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                            Text(
+                                text = if (exitNodeIp.isNotEmpty())
+                                    context.getString(R.string.widget_exit_node_format, activeNodeName)
+                                else
+                                    context.getString(R.string.widget_exit_node_inactive),
+                                style = TextStyle(
+                                    color = if (exitNodeIp.isNotEmpty()) GlanceTheme.colors.primary else GlanceTheme.colors.outline,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            )
+                        }
 
-                    Text(
-                        text = if (exitNodeIp.isNotEmpty())
-                            context.getString(R.string.widget_exit_node_format, exitNodeIp)
-                        else
-                            context.getString(R.string.widget_exit_node_inactive),
-                        style = TextStyle(
-                            color = if (exitNodeIp.isNotEmpty()) GlanceTheme.colors.primary else GlanceTheme.colors.outline,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium
+                        Button(
+                            text = "↻",
+                            onClick = actionRunCallback<RefreshAllActionCallback>(),
+                            colors = ButtonDefaults.buttonColors(
+                                backgroundColor = GlanceTheme.colors.secondaryContainer,
+                                contentColor = GlanceTheme.colors.onSecondaryContainer
+                            ),
+                            modifier = GlanceModifier.height(34.dp)
                         )
-                    )
+                    }
 
                     Spacer(GlanceModifier.height(10.dp))
 
@@ -366,7 +415,7 @@ class ExitNodeToggleWidget : GlanceAppWidget() {
 
                     Spacer(GlanceModifier.height(6.dp))
 
-                    // Exit Node Items (up to 4 items in vertical height)
+                    // Exit Node Items (up to 6 items in vertical list)
                     if (availableNodes.isEmpty()) {
                         Text(
                             text = context.getString(R.string.main_no_exit_nodes),
@@ -377,7 +426,7 @@ class ExitNodeToggleWidget : GlanceAppWidget() {
                             modifier = GlanceModifier.padding(vertical = 8.dp)
                         )
                     } else {
-                        availableNodes.take(4).forEach { node ->
+                        availableNodes.take(6).forEach { node ->
                             val isSelected = (node.ip == exitNodeIp) || (node.id.isNotEmpty() && node.id == exitNodeId)
                             val labelText = if (isSelected) "● ${node.name}" else "○ ${node.name}"
 
@@ -423,6 +472,13 @@ class ExitNodeToggleWidgetReceiver : GlanceAppWidgetReceiver() {
 // ----------------------------------------------------------------
 // Action Callbacks
 // ----------------------------------------------------------------
+
+class RefreshAllActionCallback : ActionCallback {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        refreshAllInstances(context)
+        forceAppWidgetUpdate(context)
+    }
+}
 
 class ToggleServiceActionCallback : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
