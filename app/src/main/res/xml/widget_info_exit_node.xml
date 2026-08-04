@@ -5,7 +5,6 @@
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/widget_preview_exit_node"
     android:previewLayout="@layout/widget_preview_exit_node"
-    android:previewImage="@mipmap/ic_launcher"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
     android:description="@string/widget_desc_exit">
