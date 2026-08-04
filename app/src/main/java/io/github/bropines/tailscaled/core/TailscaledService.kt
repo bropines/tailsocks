@@ -64,6 +64,7 @@ class TailscaledService : Service() {
                 context.sendBroadcast(aliasIntent)
 
                 updateAllWidgets(context)
+                forceAppWidgetUpdate(context)
             } catch (e: Exception) {
                 Log.e("TailscaledService", "Failed to send status broadcast: ${e.message}")
             }
@@ -270,6 +271,8 @@ class TailscaledService : Service() {
                 }
                 updateNotification("Active")
                 applicationContext.sendBroadcast(Intent("START"))
+                ProxyState.clearPending()
+                forceAppWidgetUpdate(this@TailscaledService)
                 if (waitForDaemonReady()) {
                     Log.d(TAG, "Daemon readiness checkpoint reached. Launching auxiliary modules...")
                     applyTagsAndRoutes(this@TailscaledService)
@@ -418,6 +421,7 @@ class TailscaledService : Service() {
         if (wakeLock?.isHeld == true) wakeLock?.release()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
+        ProxyState.clearPending()
         updateTile()
         applicationContext.sendBroadcast(Intent("STOP"))
         sendStatusBroadcast(this, "STOPPED")
@@ -426,6 +430,7 @@ class TailscaledService : Service() {
     private fun updateTile() {
         TileService.requestListeningState(this, ComponentName(this, ProxyTileService::class.java))
         updateAllWidgets(this@TailscaledService)
+        forceAppWidgetUpdate(this@TailscaledService)
     }
     private fun updateNotification(status: String) = notificationManager.notify(1, buildNotification(status))
 
