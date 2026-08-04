@@ -9,6 +9,7 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.widget.Toast
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.Preferences
@@ -81,29 +82,40 @@ private suspend fun pushState(
     widget.update(context, glanceId)
 }
 
-/** Refresh ALL instances of ServiceToggleWidget with real live state */
+/** Refresh ALL instances of ServiceToggleWidget & ExitNodeToggleWidget with real live state */
 suspend fun refreshAllInstances(context: Context) {
-    val widget = ServiceToggleWidget()
     val (isRunning, exitNode) = liveState(context)
     val activeAccount = AccountManager.getActiveAccount(context)
     val manager = GlanceAppWidgetManager(context)
-    for (id in manager.getGlanceIds(widget::class.java)) {
-        pushState(context, id, widget, isRunning, false, activeAccount.name, exitNode)
+
+    val serviceWidget = ServiceToggleWidget()
+    for (id in manager.getGlanceIds(serviceWidget::class.java)) {
+        pushState(context, id, serviceWidget, isRunning, false, activeAccount.name, exitNode)
+    }
+
+    val exitNodeWidget = ExitNodeToggleWidget()
+    for (id in manager.getGlanceIds(exitNodeWidget::class.java)) {
+        pushState(context, id, exitNodeWidget, isRunning, false, activeAccount.name, exitNode)
     }
 }
 
-/** Fire ACTION_APPWIDGET_UPDATE broadcast directly to ServiceToggleWidgetReceiver so MIUI delivers it */
+/** Fire ACTION_APPWIDGET_UPDATE broadcast directly to registered receivers so MIUI delivers it */
 fun forceAppWidgetUpdate(context: Context) {
     val appContext = context.applicationContext
     val awm = AppWidgetManager.getInstance(appContext)
-    val cls = ServiceToggleWidgetReceiver::class.java
-    val ids = awm.getAppWidgetIds(ComponentName(appContext, cls))
-    if (ids.isNotEmpty()) {
-        val intent = Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE).apply {
-            component = ComponentName(appContext, cls)
-            putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+    val receivers = listOf(
+        ServiceToggleWidgetReceiver::class.java,
+        ExitNodeToggleWidgetReceiver::class.java
+    )
+    for (cls in receivers) {
+        val ids = awm.getAppWidgetIds(ComponentName(appContext, cls))
+        if (ids.isNotEmpty()) {
+            val intent = Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE).apply {
+                component = ComponentName(appContext, cls)
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+            }
+            appContext.sendBroadcast(intent)
         }
-        appContext.sendBroadcast(intent)
     }
 }
 
@@ -229,6 +241,100 @@ class ServiceToggleWidgetReceiver : GlanceAppWidgetReceiver() {
 }
 
 // ----------------------------------------------------------------
+// Exit Node Selector / Switcher Widget (2×2)
+// ----------------------------------------------------------------
+class ExitNodeToggleWidget : GlanceAppWidget() {
+
+    override val stateDefinition = WidgetStateDef
+
+    override suspend fun provideGlance(context: Context, id: GlanceId) {
+        provideContent {
+            GlanceTheme {
+                val prefs       = currentState<Preferences>()
+                val activeAccount = AccountManager.getActiveAccount(context)
+                val profilePrefs = context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
+                val exitNodeIp  = profilePrefs.getString("exit_node_ip", "") ?: ""
+                val isActive    = exitNodeIp.isNotEmpty()
+
+                val mainIntent = Intent(LocalContext.current, MainActivity::class.java)
+
+                Column(
+                    modifier = GlanceModifier
+                        .fillMaxSize()
+                        .background(GlanceTheme.colors.widgetBackground)
+                        .cornerRadius(20.dp)
+                        .padding(horizontal = 16.dp, vertical = 14.dp)
+                        .clickable(actionStartActivity(mainIntent)),
+                    horizontalAlignment = Alignment.Horizontal.Start
+                ) {
+                    Text(
+                        text = context.getString(R.string.widget_exit_node_title),
+                        style = TextStyle(
+                            color = GlanceTheme.colors.onSurface,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                    Spacer(GlanceModifier.height(2.dp))
+
+                    Text(
+                        text = activeAccount.name,
+                        style = TextStyle(
+                            color = GlanceTheme.colors.primary,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    )
+
+                    Spacer(GlanceModifier.height(4.dp))
+
+                    Text(
+                        text = if (isActive) exitNodeIp else context.getString(R.string.widget_exit_node_inactive),
+                        style = TextStyle(
+                            color = if (isActive) GlanceTheme.colors.primary else GlanceTheme.colors.outline,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    )
+
+                    Spacer(GlanceModifier.defaultWeight())
+
+                    Button(
+                        text = if (isActive)
+                            context.getString(R.string.widget_exit_node_disable)
+                        else
+                            context.getString(R.string.widget_exit_node_enable),
+                        onClick = actionRunCallback<ToggleExitNodeActionCallback>(),
+                        colors = ButtonDefaults.buttonColors(
+                            backgroundColor = if (isActive)
+                                GlanceTheme.colors.errorContainer
+                            else
+                                GlanceTheme.colors.primary,
+                            contentColor = if (isActive)
+                                GlanceTheme.colors.onErrorContainer
+                            else
+                                GlanceTheme.colors.onPrimary
+                        ),
+                        modifier = GlanceModifier.fillMaxWidth().height(44.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+class ExitNodeToggleWidgetReceiver : GlanceAppWidgetReceiver() {
+    override val glanceAppWidget: GlanceAppWidget = ExitNodeToggleWidget()
+
+    override fun onReceive(context: Context, intent: Intent) {
+        super.onReceive(context, intent)
+        CoroutineScope(Dispatchers.IO).launch {
+            refreshAllInstances(context)
+        }
+    }
+}
+
+// ----------------------------------------------------------------
 // Action Callbacks
 // ----------------------------------------------------------------
 
@@ -299,6 +405,52 @@ class ToggleServiceActionCallback : ActionCallback {
 
         // STEP 4: Secondary check after 2.5s for slow daemon startup/shutdown
         delay(2500)
+        refreshAllInstances(context)
+        forceAppWidgetUpdate(context)
+    }
+}
+
+class ToggleExitNodeActionCallback : ActionCallback {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        val activeAccount = AccountManager.getActiveAccount(context)
+        val prefs = context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
+        val exitNodeIp = prefs.getString("exit_node_ip", "") ?: ""
+        val exitNodeId = prefs.getString("exit_node_id", "") ?: ""
+        val editor = prefs.edit()
+
+        if (exitNodeIp.isNotEmpty()) {
+            // Disabling exit node routing
+            editor.putString("last_exit_node_ip", exitNodeIp)
+            editor.putString("last_exit_node_id", exitNodeId)
+            editor.putString("exit_node_ip", "")
+            editor.putString("exit_node_id", "")
+            editor.apply()
+            if (ProxyState.isActualRunning()) {
+                try { appctr.Appctr.setPrefs("{\"ExitNodeID\": \"\", \"ExitNodeIDSet\": true}") } catch (e: Exception) { e.printStackTrace() }
+            }
+            CoroutineScope(Dispatchers.Main).launch {
+                Toast.makeText(context, context.getString(R.string.widget_toast_exit_disabled), Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            // Enabling exit node routing (from last saved)
+            val lastIp = prefs.getString("last_exit_node_ip", "") ?: ""
+            val lastId = prefs.getString("last_exit_node_id", "") ?: ""
+            if (lastIp.isNotEmpty() && lastId.isNotEmpty()) {
+                editor.putString("exit_node_ip", lastIp)
+                editor.putString("exit_node_id", lastId)
+                editor.apply()
+                if (ProxyState.isActualRunning()) {
+                    try { appctr.Appctr.setPrefs("{\"ExitNodeID\": \"$lastId\", \"ExitNodeIDSet\": true}") } catch (e: Exception) { e.printStackTrace() }
+                }
+                CoroutineScope(Dispatchers.Main).launch {
+                    Toast.makeText(context, context.getString(R.string.widget_toast_exit_routing_format, lastIp), Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                CoroutineScope(Dispatchers.Main).launch {
+                    Toast.makeText(context, context.getString(R.string.widget_toast_exit_select_first), Toast.LENGTH_LONG).show()
+                }
+            }
+        }
         refreshAllInstances(context)
         forceAppWidgetUpdate(context)
     }

@@ -163,6 +163,21 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_info_service" />
         </receiver>
+
+        <!-- Exit Node Toggle Widget -->
+        <receiver android:name=".ui.ExitNodeToggleWidgetReceiver" android:exported="false" android:label="TailSocks Exit Node">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="io.github.bropines.tailscaled.STATUS_CHANGED" />
+                <action android:name="io.github.bropines.tailscaled.STATUS" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.USER_PRESENT" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_exit_node" />
+        </receiver>
         <!-- AppLocalesMetadataHolderService for backward-compatible app-specific language settings -->
         <service
             android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
