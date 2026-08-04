@@ -271,7 +271,6 @@ class TailscaledService : Service() {
                 }
                 updateNotification("Active")
                 applicationContext.sendBroadcast(Intent("START"))
-                ProxyState.clearPending()
                 forceAppWidgetUpdate(this@TailscaledService)
                 if (waitForDaemonReady()) {
                     Log.d(TAG, "Daemon readiness checkpoint reached. Launching auxiliary modules...")
@@ -421,7 +420,6 @@ class TailscaledService : Service() {
         if (wakeLock?.isHeld == true) wakeLock?.release()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
-        ProxyState.clearPending()
         updateTile()
         applicationContext.sendBroadcast(Intent("STOP"))
         sendStatusBroadcast(this, "STOPPED")
