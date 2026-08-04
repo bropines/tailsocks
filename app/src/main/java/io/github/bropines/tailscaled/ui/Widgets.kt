@@ -28,6 +28,7 @@ import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
+import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.background
 import androidx.glance.currentState
@@ -233,16 +234,31 @@ class ServiceToggleWidgetReceiver : GlanceAppWidgetReceiver() {
 
 class ToggleServiceActionCallback : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
-        // ALWAYS check REAL daemon state at click time rather than trusting stale UI state
-        val isActuallyRunning = ProxyState.isActualRunning()
+        val actualRunning = ProxyState.isActualRunning()
+        val prefs = getAppWidgetState(context, WidgetStateDef, glanceId)
+        val widgetShownRunning = prefs[WidgetStateKeys.IS_RUNNING] ?: actualRunning
 
         val activeAccount = AccountManager.getActiveAccount(context)
         val exitNode = context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
             .getString("exit_node_ip", "") ?: ""
 
-        // If actually running -> action is STOP (target state = stopped).
-        // If actually stopped -> action is START (target state = running).
-        val shouldStop = isActuallyRunning
+        // MISMATCH GUARD:
+        // If widget UI displayed "Stopped" (widgetShownRunning == false) but daemon is ACTUALLY RUNNING (actualRunning == true),
+        // or if widget UI displayed "Running" (widgetShownRunning == true) but daemon is ACTUALLY STOPPED (actualRunning == false),
+        // DO NOT toggle the daemon service! Simply update the widget UI to match actual reality!
+        if (widgetShownRunning != actualRunning) {
+            pushState(
+                context, glanceId, ServiceToggleWidget(),
+                isRunning = actualRunning,
+                isPending = false,
+                profileName = activeAccount.name,
+                exitNode = exitNode
+            )
+            return
+        }
+
+        // Widget UI state MATCHED actual daemon state -> Execute requested toggle action!
+        val shouldStop = actualRunning
 
         // STEP 1: Immediately push optimistic pending state to DataStore & re-render
         pushState(
