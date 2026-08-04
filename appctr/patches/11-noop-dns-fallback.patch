@@ -1,5 +1,5 @@
---- orig/net/dns/noop.go	2026-05-21 21:27:19.000000000 +0300
-+++ tailscale_src/net/dns/noop.go	2026-06-06 04:51:00.584223549 +0300
+--- orig/net/dns/noop.go	2026-07-31 19:22:18.000000000 +0300
++++ tailscale_src/net/dns/noop.go	2026-08-04 21:31:25.551681656 +0300
 @@ -3,12 +3,36 @@
  
  package dns
