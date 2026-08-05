@@ -156,10 +156,17 @@ object RootUtils {
                     export TS_NO_LOGS_NO_SUPPORT=true
                     export TS_AUTH_ONCE=true
                     
-                    nohup $tailscaledBin --statedir="$stateDir" --socket="$socketPath" --socks5-server=127.0.0.1:1053 >> "$logsDir/tailscaled.log" 2>&1 &
-                    sleep 2
-                    chmod 777 "$socketPath"
-                    chcon u:object_r:app_data_file:s0 "$socketPath" 2>/dev/null || true
+                    nohup $tailscaledBin --statedir="$stateDir" --socket="$socketPath" --socks5-server=127.0.0.1:1053 --tun=tailscale0 --netfilter-mode=on >> "$logsDir/tailscaled.log" 2>&1 &
+                    chmod 666 "$logsDir/tailscaled.log" 2>/dev/null || true
+                    for i in $(seq 1 30); do
+                        if [ -S "$socketPath" ] || [ -e "$socketPath" ]; then
+                            chmod 777 "$socketPath"
+                            chcon u:object_r:app_data_file:s0 "$socketPath" 2>/dev/null || true
+                            chmod 777 "$stateDir" 2>/dev/null || true
+                            break
+                        fi
+                        sleep 0.2
+                    done
                 """.trimIndent()
 
                 val tempFile = File(context.cacheDir, "tailscaled.sh").apply {

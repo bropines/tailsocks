@@ -254,21 +254,31 @@ class TailscaledService : Service() {
             try {
                 applicationContext.sendBroadcast(Intent("STARTING"))
                 if (GlobalSettings.isRootModeEnabled(this@TailscaledService)) {
-                    val logsDir = java.io.File(filesDir.parentFile ?: filesDir, "logs").absolutePath
-                    val logFile = "$logsDir/tailscaled.log"
-                    val ok = RootUtils.startRootDaemon(
-                        context = this@TailscaledService,
-                        stateDir = options.statePath,
-                        socketPath = options.socketPath,
-                        logFilePath = logFile,
-                        socksAddr = options.socks5Server,
-                        httpAddr = options.httpProxy,
-                        controlProxy = options.controlProxy,
-                        taildropDir = options.taildropDir,
-                        tunMode = GlobalSettings.isTunModeEnabled(this@TailscaledService)
-                    )
-                    if (ok) {
+                    val socketFile = java.io.File(options.socketPath)
+                    val isAlreadyRunning = socketFile.exists() && kotlinx.coroutines.runBlocking {
+                        LocalApiClient { options.socketPath }.getStatus().isSuccess
+                    }
+
+                    if (isAlreadyRunning) {
+                        Log.i(TAG, "Root daemon is already running (e.g. via Magisk service.d). Attaching to existing socket.")
                         Appctr.setExternalSocketPath(options.socketPath)
+                    } else {
+                        val logsDir = java.io.File(filesDir.parentFile ?: filesDir, "logs").absolutePath
+                        val logFile = "$logsDir/tailscaled.log"
+                        val ok = RootUtils.startRootDaemon(
+                            context = this@TailscaledService,
+                            stateDir = options.statePath,
+                            socketPath = options.socketPath,
+                            logFilePath = logFile,
+                            socksAddr = options.socks5Server,
+                            httpAddr = options.httpProxy,
+                            controlProxy = options.controlProxy,
+                            taildropDir = options.taildropDir,
+                            tunMode = GlobalSettings.isTunModeEnabled(this@TailscaledService)
+                        )
+                        if (ok) {
+                            Appctr.setExternalSocketPath(options.socketPath)
+                        }
                     }
                 } else {
                     Appctr.setExternalSocketPath("")
