@@ -152,15 +152,50 @@ object RootUtils {
                 val stateDir = File(context.filesDir, "states/root").apply { mkdirs() }.absolutePath
                 val socketPath = File(context.filesDir, "tailscaled.sock").absolutePath
                 val logsDir = File(context.filesDir.parentFile ?: context.filesDir, "logs").apply { mkdirs() }.absolutePath
+                val pkgName = context.packageName
 
                 val scriptContent = """
                     #!/system/bin/sh
                     # TailSocks Root Autostart Service
+                    PKG="$pkgName"
+                    [ ! -d "/data/data/${'$'}PKG" ] && PKG="io.github.bropines.tailscaled"
+                    [ ! -d "/data/data/${'$'}PKG" ] && PKG="io.github.bropines.tailscaled.dev"
+
+                    DAEMON_BIN="$tailscaledBin"
+                    if [ ! -x "${'$'}DAEMON_BIN" ]; then
+                        DAEMON_BIN="${'$'}(pm path ${'$'}PKG 2>/dev/null | head -n1 | cut -d: -f2 | sed 's|base.apk|lib/x86_64/libtailscale.so|')"
+                    fi
+                    if [ ! -x "${'$'}DAEMON_BIN" ]; then
+                        DAEMON_BIN="${'$'}(pm path ${'$'}PKG 2>/dev/null | head -n1 | cut -d: -f2 | sed 's|base.apk|lib/arm64/libtailscale.so|')"
+                    fi
+                    if [ ! -x "${'$'}DAEMON_BIN" ]; then
+                        DAEMON_BIN="${'$'}(pm path ${'$'}PKG 2>/dev/null | head -n1 | cut -d: -f2 | sed 's|base.apk|lib/arm/libtailscale.so|')"
+                    fi
+                    if [ ! -x "${'$'}DAEMON_BIN" ]; then
+                        DAEMON_BIN="${'$'}(pm path ${'$'}PKG 2>/dev/null | head -n1 | cut -d: -f2 | sed 's|base.apk|lib/x86/libtailscale.so|')"
+                    fi
+                    if [ ! -x "${'$'}DAEMON_BIN" ]; then
+                        DAEMON_BIN="${'$'}(find /data/app -name "libtailscale.so" 2>/dev/null | head -n1)"
+                    fi
+
+                    if [ ! -x "${'$'}DAEMON_BIN" ]; then
+                        echo "TailSocks daemon binary not found" >> "$logsDir/tailscaled.log"
+                        exit 1
+                    fi
+
                     export TS_LOGS_DIR="$logsDir"
                     export TS_NO_LOGS_NO_SUPPORT=true
                     export TS_AUTH_ONCE=true
-                    
-                    nohup $tailscaledBin --statedir="$stateDir" --socket="$socketPath" --tun=tailscale0 --netfilter-mode=on >> "$logsDir/tailscaled.log" 2>&1 &
+
+                    # Log rotation: if log > 2MB, keep last 500 lines
+                    if [ -f "$logsDir/tailscaled.log" ]; then
+                        LOG_SIZE="${'$'}(wc -c < "$logsDir/tailscaled.log" 2>/dev/null || echo 0)"
+                        if [ "${'$'}LOG_SIZE" -gt 2097152 ] 2>/dev/null; then
+                            tail -n 500 "$logsDir/tailscaled.log" > "$logsDir/tailscaled.log.tmp" && mv "$logsDir/tailscaled.log.tmp" "$logsDir/tailscaled.log"
+                        fi
+                    fi
+
+                    nohup "${'$'}DAEMON_BIN" --statedir="$stateDir" --socket="$socketPath" --tun=tailscale0 --netfilter-mode=on >> "$logsDir/tailscaled.log" 2>&1 &
                     chmod 666 "$logsDir/tailscaled.log" 2>/dev/null || true
                     for i in $(seq 1 30); do
                         if [ -S "$socketPath" ] || [ -e "$socketPath" ]; then
@@ -170,7 +205,7 @@ object RootUtils {
                             break
                         fi
                         sleep 0.2
-                        done
+                    done
                 """.trimIndent()
 
                 val tempFile = File(context.cacheDir, "tailscaled.sh").apply {

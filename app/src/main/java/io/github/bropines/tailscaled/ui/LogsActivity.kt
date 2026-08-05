@@ -224,6 +224,26 @@ fun LogsScreen(onBack: () -> Unit) {
                         }) { Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.action_copy)) }
                         
                         IconButton(onClick = { saveFileLauncher.launch("tailsocks_logs_${System.currentTimeMillis()}.txt") }) { Icon(Icons.Default.Save, contentDescription = stringResource(R.string.action_save)) }
+
+                        if (GlobalSettings.isRootModeEnabled(context)) {
+                            IconButton(onClick = {
+                                coroutineScope.launch(Dispatchers.IO) {
+                                    try {
+                                        val dataDir = context.filesDir.parentFile ?: context.filesDir
+                                        val logFile = java.io.File(dataDir, "logs/tailscaled.log")
+                                        if (logFile.exists()) logFile.writeText("")
+                                        withContext(Dispatchers.Main) {
+                                            allLogs = emptyList()
+                                            Toast.makeText(context, context.getString(R.string.logs_cleared), Toast.LENGTH_SHORT).show()
+                                        }
+                                    } catch (e: Exception) {
+                                        withContext(Dispatchers.Main) {
+                                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
+                                        }
+                                    }
+                                }
+                            }) { Icon(Icons.Default.DeleteForever, contentDescription = stringResource(R.string.action_clear)) }
+                        }
                     }
                 )
                 
