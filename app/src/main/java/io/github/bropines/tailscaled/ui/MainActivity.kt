@@ -1600,7 +1600,7 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                                 }
 
                                 items(exitNodes) { node ->
-                                    val isSelected = node.id == currentExitNodeId || node.getPrimaryIp() == exitNodeIp
+                                    val isSelected = if (exitNodeIp.isNotEmpty()) node.getPrimaryIp() == exitNodeIp else false
                                     val (osIcon, osColor) = getOsVisuals(node.os).let { (icon, color) ->
                                         if (icon == Icons.Default.Devices) Icons.Default.VpnKey to MaterialTheme.colorScheme.primary
                                         else icon to color

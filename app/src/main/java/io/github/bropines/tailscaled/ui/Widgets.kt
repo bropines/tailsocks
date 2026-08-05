@@ -570,8 +570,18 @@ class SelectExitNodeActionCallback : ActionCallback {
         val prefs = context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
         val currentIp = prefs.getString("exit_node_ip", "") ?: ""
         val currentId = prefs.getString("exit_node_id", "") ?: ""
-        val editor = prefs.edit()
 
+        // REACTIVE INSTANT UPDATE TO DATASTORE & WIDGET UI (<50ms)
+        // Update DataStore state FIRST before doing any disk I/O, Toast or JNI calls!
+        pushState(
+            context, glanceId, ExitNodeToggleWidget(),
+            isRunning = ProxyState.isActualRunning(),
+            isPending = false,
+            profileName = activeAccount.name,
+            exitNode = targetIp
+        )
+
+        val editor = prefs.edit()
         if (targetIp.isEmpty()) {
             // Disable Exit Node
             if (currentIp.isNotEmpty()) {
