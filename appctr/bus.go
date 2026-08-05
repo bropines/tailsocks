@@ -217,14 +217,18 @@ var magicDNSSuffix string
 var busCancel context.CancelFunc
 var busMu sync.Mutex
 
-// EnsureIPNBusListener starts the bus listener goroutine if not already running.
+// EnsureIPNBusListener starts the bus listener goroutine if not already running,
+// provided the daemon is in Running state.
 func EnsureIPNBusListener() {
 	busMu.Lock()
 	defer busMu.Unlock()
 	if busCancel != nil {
 		return
 	}
-	slog.Info("Starting IPN Bus Listener...")
+	if GetBackendState() != "Running" {
+		return
+	}
+	slog.Info("Starting IPN Bus Listener (daemon is Running)...")
 	busCtx, cancel := context.WithCancel(context.Background())
 	busCancel = cancel
 	go startIPNBusListener(busCtx)
@@ -244,6 +248,12 @@ func StopIPNBusListener() {
 // ─── Listener loop ───────────────────────────────────────────────────────────
 
 func startIPNBusListener(ctx context.Context) {
+	defer func() {
+		busMu.Lock()
+		busCancel = nil
+		busMu.Unlock()
+	}()
+
 	const maxRetries = 3
 	const retryDelay = 2 * time.Second
 
@@ -293,7 +303,7 @@ func listenToBus(ctx context.Context) error {
 	}
 
 	req, _ := http.NewRequestWithContext(ctx, "GET",
-		"http://local-tailscaled.sock/localapi/v0/watch-ipn-bus?mask=4095", nil)
+		"http://local-tailscaled.sock/localapi/v0/watch-ipn-bus?mask=4095&initial=true", nil)
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
@@ -523,7 +533,7 @@ func syncNetMapFromBus() {
 	defer cancel()
 
 	req, _ := http.NewRequestWithContext(ctx, "GET",
-		"http://local-tailscaled.sock/localapi/v0/watch-ipn-bus?mask=4095", nil)
+		"http://local-tailscaled.sock/localapi/v0/watch-ipn-bus?mask=4095&initial=true", nil)
 	resp, err := client.Do(req)
 	if err != nil {
 		return
