@@ -94,7 +94,7 @@ fun DnsScreen(onBack: () -> Unit) {
         loading = true
         errorText = null
         scope.launch(Dispatchers.IO) {
-            if (!Appctr.isRunning()) {
+            if (!ProxyState.isActualRunning(context)) {
                 withContext(Dispatchers.Main) {
                     status = null
                     errorText = context.getString(R.string.dns_error_not_running)

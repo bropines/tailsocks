@@ -27,7 +27,6 @@ func GetDnsStatusJSON() string {
 
 	socks, _, _, dns := GConfig.get()
 
-	// Build the structure expected by DnsActivity.kt.
 	type dnsAddr struct {
 		Addr string `json:"Addr"`
 	}
@@ -42,11 +41,49 @@ func GetDnsStatusJSON() string {
 		SplitDNSRoutes map[string][]dnsAddr `json:"SplitDNSRoutes"`
 	}
 
+	// Query LocalAPI status for dynamic DNS info
+	var statusAPI struct {
+		MagicDNSSuffix string `json:"MagicDNSSuffix"`
+		CurrentTailnet struct {
+			Name            string `json:"Name"`
+			MagicDNSSuffix  string `json:"MagicDNSSuffix"`
+			MagicDNSEnabled bool   `json:"MagicDNSEnabled"`
+		} `json:"CurrentTailnet"`
+		Self struct {
+			DNSName string `json:"DNSName"`
+		} `json:"Self"`
+	}
+
+	rawStatus, err := doLocalRequest("GET", "/localapi/v0/status", nil)
+	if err == nil {
+		_ = json.Unmarshal(rawStatus, &statusAPI)
+	}
+
+	effectiveSuffix := magicDNSSuffix
+	if effectiveSuffix == "" {
+		if statusAPI.MagicDNSSuffix != "" {
+			effectiveSuffix = statusAPI.MagicDNSSuffix
+		} else if statusAPI.CurrentTailnet.MagicDNSSuffix != "" {
+			effectiveSuffix = statusAPI.CurrentTailnet.MagicDNSSuffix
+		}
+	}
+
+	selfDNS := ""
+	if statusAPI.Self.DNSName != "" {
+		selfDNS = strings.TrimSuffix(statusAPI.Self.DNSName, ".")
+	}
+
+	isMagicEnabled := effectiveSuffix != ""
+	if statusAPI.CurrentTailnet.MagicDNSEnabled {
+		isMagicEnabled = true
+	}
+
 	res := status{
-		TailscaleDNS: dns != "",
+		TailscaleDNS: dns != "" || isMagicEnabled,
 		CurrentTailnet: tailnetInfo{
-			MagicDNSEnabled: magicDNSSuffix != "",
-			MagicDNSSuffix:  magicDNSSuffix,
+			MagicDNSEnabled: isMagicEnabled,
+			MagicDNSSuffix:  effectiveSuffix,
+			SelfDNSName:     selfDNS,
 		},
 		SplitDNSRoutes: make(map[string][]dnsAddr),
 	}
@@ -63,11 +100,11 @@ func GetDnsStatusJSON() string {
 		return true
 	})
 
-	// Try to find own node name in the nodes cache.
-	if socks != "" {
+	// Fallback to nodes cache if selfDNS not obtained from LocalAPI
+	if res.CurrentTailnet.SelfDNSName == "" && socks != "" && effectiveSuffix != "" {
 		nodesCache.Range(func(key, value interface{}) bool {
 			name := key.(string)
-			if strings.HasSuffix(name, magicDNSSuffix) && !strings.Contains(strings.TrimSuffix(name, magicDNSSuffix), ".") {
+			if strings.HasSuffix(name, effectiveSuffix) && !strings.Contains(strings.TrimSuffix(name, effectiveSuffix), ".") {
 				res.CurrentTailnet.SelfDNSName = name
 				return false
 			}
