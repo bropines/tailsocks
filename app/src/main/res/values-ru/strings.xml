@@ -736,6 +736,8 @@
     <string name="settings_root_info_title">Служебная информация о демоне (ЭКСПЕРИМЕНТАЛЬНО)</string>
     <string name="settings_root_disabled_tun_note">Недоступно в Root-режиме (активен нативный kernel TUN tailscale0. ЭКСПЕРИМЕНТАЛЬНО)</string>
     <string name="settings_root_disabled_general_note">Недоступно в Root-режиме (ЭКСПЕРИМЕНТАЛЬНО)</string>
+    <string name="settings_root_script_reinstall">Переустановить скрипт</string>
+    <string name="settings_root_script_reinstalled">Скрипт службы успешно переустановлен</string>
     <string name="settings_backup_saved">Резервная копия сохранена</string>
     <string name="settings_backup_failed_format">Ошибка резервного копирования: %1$s</string>
     <string name="settings_restored_success">Настройки успешно восстановлены. Пожалуйста, перезапустите приложение.</string>

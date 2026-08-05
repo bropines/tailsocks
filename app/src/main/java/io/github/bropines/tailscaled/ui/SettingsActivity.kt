@@ -891,6 +891,34 @@ fun SettingsScreen(
                                         }
                                     }
 
+                                    if (serviceScriptInstalled) {
+                                        val coroutineScope = rememberCoroutineScope()
+                                        val msgOk = stringResource(R.string.settings_root_script_reinstalled)
+                                        val msgFail = stringResource(R.string.error_generic, "reinstall failed")
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(start = 16.dp, end = 16.dp, bottom = 4.dp),
+                                            horizontalArrangement = Arrangement.End
+                                        ) {
+                                            OutlinedButton(
+                                                onClick = {
+                                                    coroutineScope.launch(Dispatchers.IO) {
+                                                        val success = RootUtils.setServiceScriptInstalled(context, true)
+                                                        withContext(Dispatchers.Main) {
+                                                            Toast.makeText(context, if (success) msgOk else msgFail, Toast.LENGTH_SHORT).show()
+                                                        }
+                                                    }
+                                                },
+                                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                            ) {
+                                                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                Spacer(Modifier.width(4.dp))
+                                                Text(stringResource(R.string.settings_root_script_reinstall), style = MaterialTheme.typography.labelMedium)
+                                            }
+                                        }
+                                    }
+
                                     HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
 
                                     SettingsSwitchItem(
