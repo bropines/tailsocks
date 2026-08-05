@@ -201,6 +201,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleAppStartup() {
+        ProxyState.init(this)
         val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
         val appctrPrefs = getSharedPreferences("appctr", Context.MODE_PRIVATE)
         
@@ -217,7 +218,7 @@ class MainActivity : ComponentActivity() {
 
         val forceBg = appctrPrefs.getBoolean("force_bg", false)
 
-        if (ProxyState.isUserLetRunning(this) && !ProxyState.isActualRunning()) {
+        if (ProxyState.isUserLetRunning(this) && !ProxyState.isActualRunning(this)) {
             if (forceBg) {
                 val authKey = appctrPrefs.getString("authkey", "") ?: ""
                 if (authKey.isNotBlank()) {
@@ -307,7 +308,7 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
         }
     }
 
-    var proxyState by remember { mutableStateOf(if (ProxyState.isActualRunning()) "ACTIVE" else "STOPPED") }
+    var proxyState by remember { mutableStateOf(if (ProxyState.isActualRunning(context)) "ACTIVE" else "STOPPED") }
     var exitNodeIp by remember(activeAccount.id) { mutableStateOf(prefs.getString("exit_node_ip", "") ?: "") }
 
     val profilePrefsListener = remember(activeAccount.id) {

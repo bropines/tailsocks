@@ -140,7 +140,7 @@ fun SettingsScreen(
     // Tab Navigation State
     val tabs = listOf(
         Pair(stringResource(R.string.settings_tab_app), Icons.Default.Palette),
-        Pair("Root-режим", Icons.Default.Security),
+        Pair(stringResource(R.string.settings_tab_root), Icons.Default.Security),
         Pair(stringResource(R.string.settings_tab_network), Icons.Default.Language),
         Pair(stringResource(R.string.settings_tab_core), Icons.Default.Tune),
         Pair(stringResource(R.string.settings_tab_byedpi), Icons.Default.Shield),
@@ -780,10 +780,10 @@ fun SettingsScreen(
                             var rootModeEnabled by remember { mutableStateOf(GlobalSettings.isRootModeEnabled(context)) }
                             var serviceScriptInstalled by remember { mutableStateOf(RootUtils.isServiceScriptInstalled()) }
 
-                            SettingsCard(title = "Root Mode & System Service") {
+                            SettingsCard(title = stringResource(R.string.settings_root_sect_title)) {
                                 SettingsSwitchItem(
-                                    title = "Enable Native Root Mode",
-                                    subtitle = "Run daemon via 'su' with direct kernel TUN (tailscale0) and iptables access",
+                                    title = stringResource(R.string.settings_root_enable_title),
+                                    subtitle = stringResource(R.string.settings_root_enable_desc),
                                     icon = Icons.Default.Security,
                                     checked = rootModeEnabled
                                 ) {
@@ -806,8 +806,8 @@ fun SettingsScreen(
                                     HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
 
                                     SettingsSwitchItem(
-                                        title = "Autostart Magisk/KernelSU Service",
-                                        subtitle = "Install script to /data/adb/service.d/ for standalone system boot",
+                                        title = stringResource(R.string.settings_root_service_title),
+                                        subtitle = stringResource(R.string.settings_root_service_desc),
                                         icon = Icons.Default.Build,
                                         checked = serviceScriptInstalled
                                     ) {
@@ -824,7 +824,7 @@ fun SettingsScreen(
 
                             if (rootModeEnabled) {
                                 Spacer(Modifier.height(12.dp))
-                                SettingsCard(title = "Daemon Runtime Information") {
+                                SettingsCard(title = stringResource(R.string.settings_root_info_title)) {
                                     val socketPath = "${context.filesDir.absolutePath}/tailscaled.sock"
                                     val logsDir = File(context.filesDir.parentFile ?: context.filesDir, "logs").absolutePath
                                     val logPath = "$logsDir/tailscaled.log"
@@ -931,7 +931,7 @@ fun SettingsScreen(
                             SettingsCard(title = stringResource(R.string.settings_sect_tun_mode)) {
                                 SettingsSwitchItem(
                                     title = stringResource(R.string.settings_tun_enable_title),
-                                    subtitle = if (isRootModeActive) "🔒 Недоступно в Root-режиме (активен нативный kernel TUN tailscale0)" else stringResource(R.string.settings_tun_enable_desc),
+                                    subtitle = if (isRootModeActive) stringResource(R.string.settings_root_disabled_tun_note) else stringResource(R.string.settings_tun_enable_desc),
                                     icon = Icons.Default.VpnLock,
                                     checked = if (isRootModeActive) false else tunModeEnabled,
                                     enabled = !isRootModeActive
@@ -943,7 +943,7 @@ fun SettingsScreen(
                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
                                 SettingsSwitchItem(
                                     title = stringResource(R.string.settings_tun_ipv6_title),
-                                    subtitle = if (isRootModeActive) "🔒 Недоступно в Root-режиме" else stringResource(R.string.settings_tun_ipv6_desc),
+                                    subtitle = if (isRootModeActive) stringResource(R.string.settings_root_disabled_general_note) else stringResource(R.string.settings_tun_ipv6_desc),
                                     icon = Icons.Default.Language,
                                     checked = tunIpv6Enabled,
                                     enabled = !isRootModeActive
@@ -978,7 +978,7 @@ fun SettingsScreen(
                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
                                 SettingsClickableItem(
                                     title = stringResource(R.string.settings_tun_excluded_apps_title),
-                                    subtitle = if (isRootModeActive) "🔒 Недоступно в Root-режиме" else stringResource(R.string.settings_tun_excluded_apps_desc, tunExcludedApps.size),
+                                    subtitle = if (isRootModeActive) stringResource(R.string.settings_root_disabled_general_note) else stringResource(R.string.settings_tun_excluded_apps_desc, tunExcludedApps.size),
                                     icon = Icons.Default.Apps,
                                     enabled = !isRootModeActive
                                 ) {

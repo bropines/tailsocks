@@ -722,9 +722,18 @@
     <!-- ======================== Settings ======================== -->
     <string name="settings_title">Настройки</string>
     <string name="settings_tab_app">Интерфейс</string>
+    <string name="settings_tab_root">Root-режим</string>
     <string name="settings_tab_network">Сеть</string>
     <string name="settings_tab_core">Ядро</string>
     <string name="settings_tab_profile">Профиль</string>
+    <string name="settings_root_sect_title">Root-режим и системная служба</string>
+    <string name="settings_root_enable_title">Включить Native Root-режим</string>
+    <string name="settings_root_enable_desc">Запуск демона через \'su\' с прямой маршрутизацией ядра (tailscale0) и iptables</string>
+    <string name="settings_root_service_title">Автозапуск Magisk/KernelSU службы</string>
+    <string name="settings_root_service_desc">Установка скрипта в /data/adb/service.d/ для автозапуска при загрузке системы</string>
+    <string name="settings_root_info_title">Служебная информация о демоне</string>
+    <string name="settings_root_disabled_tun_note">🔒 Недоступно в Root-режиме (активен нативный kernel TUN tailscale0)</string>
+    <string name="settings_root_disabled_general_note">🔒 Недоступно в Root-режиме</string>
     <string name="settings_backup_saved">Резервная копия сохранена</string>
     <string name="settings_backup_failed_format">Ошибка резервного копирования: %1$s</string>
     <string name="settings_restored_success">Настройки успешно восстановлены. Пожалуйста, перезапустите приложение.</string>
