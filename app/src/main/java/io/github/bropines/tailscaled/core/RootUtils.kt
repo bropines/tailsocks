@@ -167,69 +167,7 @@ object RootUtils {
     fun setServiceScriptInstalled(context: Context, install: Boolean): Boolean {
         return try {
             if (install) {
-                val tailscaledBin = File(context.applicationInfo.nativeLibraryDir, "libtailscale.so").absolutePath
-                val stateDir = File(context.filesDir, "states/root").apply { mkdirs() }.absolutePath
-                val socketPath = File(context.filesDir, "tailscaled.sock").absolutePath
-                val logsDir = File(context.filesDir.parentFile ?: context.filesDir, "logs").apply { mkdirs() }.absolutePath
-                val pkgName = context.packageName
-
-                val scriptContent = """
-                    #!/system/bin/sh
-                    # TailSocks Root Autostart Service
-                    PKG="$pkgName"
-                    [ ! -d "/data/data/${'$'}PKG" ] && PKG="io.github.bropines.tailscaled"
-                    [ ! -d "/data/data/${'$'}PKG" ] && PKG="io.github.bropines.tailscaled.dev"
-
-                    DAEMON_BIN="$tailscaledBin"
-                    if [ ! -x "${'$'}DAEMON_BIN" ]; then
-                        DAEMON_BIN="${'$'}(pm path ${'$'}PKG 2>/dev/null | head -n1 | cut -d: -f2 | sed 's|base.apk|lib/x86_64/libtailscale.so|')"
-                    fi
-                    if [ ! -x "${'$'}DAEMON_BIN" ]; then
-                        DAEMON_BIN="${'$'}(pm path ${'$'}PKG 2>/dev/null | head -n1 | cut -d: -f2 | sed 's|base.apk|lib/arm64/libtailscale.so|')"
-                    fi
-                    if [ ! -x "${'$'}DAEMON_BIN" ]; then
-                        DAEMON_BIN="${'$'}(pm path ${'$'}PKG 2>/dev/null | head -n1 | cut -d: -f2 | sed 's|base.apk|lib/arm/libtailscale.so|')"
-                    fi
-                    if [ ! -x "${'$'}DAEMON_BIN" ]; then
-                        DAEMON_BIN="${'$'}(pm path ${'$'}PKG 2>/dev/null | head -n1 | cut -d: -f2 | sed 's|base.apk|lib/x86/libtailscale.so|')"
-                    fi
-                    if [ ! -x "${'$'}DAEMON_BIN" ]; then
-                        DAEMON_BIN="${'$'}(find /data/app -name "libtailscale.so" 2>/dev/null | head -n1)"
-                    fi
-
-                    if [ ! -x "${'$'}DAEMON_BIN" ]; then
-                        echo "TailSocks daemon binary not found" >> "$logsDir/tailscaled.log"
-                        exit 1
-                    fi
-
-                    export TS_LOGS_DIR="$logsDir"
-                    export TS_NO_LOGS_NO_SUPPORT=true
-                    export TS_AUTH_ONCE=true
-
-                    # Log rotation: if log > 2MB, keep last 500 lines
-                    if [ -f "$logsDir/tailscaled.log" ]; then
-                        LOG_SIZE="${'$'}(wc -c < "$logsDir/tailscaled.log" 2>/dev/null || echo 0)"
-                        if [ "${'$'}LOG_SIZE" -gt 2097152 ] 2>/dev/null; then
-                            tail -n 500 "$logsDir/tailscaled.log" > "$logsDir/tailscaled.log.tmp" && mv "$logsDir/tailscaled.log.tmp" "$logsDir/tailscaled.log"
-                        fi
-                    fi
-
-                    nohup "${'$'}DAEMON_BIN" --statedir="$stateDir" --socket="$socketPath" --tun=tailscale0 >> "$logsDir/tailscaled.log" 2>&1 &
-                    chmod 666 "$logsDir/tailscaled.log" 2>/dev/null || true
-                    for i in $(seq 1 30); do
-                        if [ -S "$socketPath" ] || [ -e "$socketPath" ]; then
-                            # Get the app UID to set the correct SELinux MLS category
-                            APP_UID="${'$'}(stat -c '%u' "$socketPath" 2>/dev/null || echo 0)"
-                            chmod 777 "$socketPath"
-                            chmod 777 "$stateDir" 2>/dev/null || true
-                            # Restore SELinux context using app's data dir as reference
-                            chcon --reference="$stateDir" "$socketPath" 2>/dev/null || \
-                                chcon u:object_r:app_data_file:s0 "$socketPath" 2>/dev/null || true
-                            break
-                        fi
-                        sleep 0.2
-                    done
-                """.trimIndent()
+                val scriptContent = context.assets.open("scripts/tailscaled.sh").bufferedReader().use { it.readText() }
 
                 val tempFile = File(context.cacheDir, "tailscaled.sh").apply {
                     writeText(scriptContent)
