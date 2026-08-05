@@ -1,0 +1,14 @@
+#!/bin/bash
+# Pre-commit hook: Auto-format appctr Go code before commit
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+if [ -d "$REPO_ROOT/appctr" ]; then
+    echo "-> Running gofmt on appctr Go files..."
+    cd "$REPO_ROOT/appctr"
+    gofmt -w *.go
+    for f in *.go; do
+        if git diff --name-only "$f" | grep -q "$f"; then
+            git add "$f"
+        fi
+    done
+fi

@@ -27,6 +27,9 @@ else
     echo "-> Defaulting Tailscale version to: $TS_VERSION"
 fi
 
+echo "-> Auto-formatting appctr Go files..."
+gofmt -w *.go
+
 # Check if force clean rebuild is requested or if version changed
 FORCE_REBUILD=0
 if [ "$1" == "--clean" ] || [ "$2" == "--clean" ] || [ "$1" == "--force" ] || [ "$2" == "--force" ]; then

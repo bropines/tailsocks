@@ -52,7 +52,7 @@ type BusNotify struct {
 	Engine *BusEngineStatus `json:"Engine,omitempty"`
 
 	// Auth
-	BrowseToURL   *string  `json:"BrowseToURL,omitempty"`
+	BrowseToURL   *string   `json:"BrowseToURL,omitempty"`
 	LoginFinished *struct{} `json:"LoginFinished,omitempty"`
 }
 
@@ -456,4 +456,3 @@ func updateNodeCacheFromPeer(p *BusPeer) bool {
 	}
 	return false
 }
-

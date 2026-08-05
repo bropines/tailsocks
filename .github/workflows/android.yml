@@ -59,9 +59,10 @@ jobs:
       - name: Verify Go Code Formatting
         run: |
           cd appctr
-          if [ -n "$(gofmt -l .)" ]; then
+          UNFORMATTED=$(gofmt -l $(find . -name "*.go" -not -path "./tailscale_src/*" -not -path "./orig/*" -not -path "./tmp/*"))
+          if [ -n "$UNFORMATTED" ]; then
             echo "The following Go files need formatting:"
-            gofmt -l .
+            echo "$UNFORMATTED"
             exit 1
           fi
 

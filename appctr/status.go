@@ -208,4 +208,3 @@ func GetSelfDNSName() string {
 func GetCoreVersion() string {
 	return coreVersion
 }
-
