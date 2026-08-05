@@ -140,9 +140,10 @@ fun SettingsScreen(
     // Tab Navigation State
     val tabs = listOf(
         Pair(stringResource(R.string.settings_tab_app), Icons.Default.Palette),
+        Pair("Root-режим", Icons.Default.Security),
         Pair(stringResource(R.string.settings_tab_network), Icons.Default.Language),
-        Pair(stringResource(R.string.settings_tab_byedpi), Icons.Default.Shield),
         Pair(stringResource(R.string.settings_tab_core), Icons.Default.Tune),
+        Pair(stringResource(R.string.settings_tab_byedpi), Icons.Default.Shield),
         Pair(stringResource(R.string.settings_tab_profile), Icons.Default.AccountCircle)
     )
     val pagerState = rememberPagerState(pageCount = { tabs.size })
@@ -773,9 +774,9 @@ fun SettingsScreen(
                                     )
                                 }
                             }
+                        }
 
-                            Spacer(Modifier.height(12.dp))
-
+                        1 -> { // TAB 1: Root Mode & System Service (Dedicated Tab)
                             var rootModeEnabled by remember { mutableStateOf(GlobalSettings.isRootModeEnabled(context)) }
                             var serviceScriptInstalled by remember { mutableStateOf(RootUtils.isServiceScriptInstalled()) }
 
@@ -820,9 +821,34 @@ fun SettingsScreen(
                                     }
                                 }
                             }
+
+                            if (rootModeEnabled) {
+                                Spacer(Modifier.height(12.dp))
+                                SettingsCard(title = "Daemon Runtime Information") {
+                                    val socketPath = "${context.filesDir.absolutePath}/tailscaled.sock"
+                                    val logsDir = File(context.filesDir.parentFile ?: context.filesDir, "logs").absolutePath
+                                    val logPath = "$logsDir/tailscaled.log"
+                                    val socketExists = File(socketPath).exists()
+
+                                    Text("Socket Path:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                                    Text(socketPath, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    
+                                    Spacer(Modifier.height(8.dp))
+                                    Text("Log File:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                                    Text(logPath, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                                    Spacer(Modifier.height(8.dp))
+                                    Text("Socket Status:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                                    Text(
+                                        if (socketExists) "Connected & Active (srwxrwxrwx)" else "Disconnected / Socket file missing",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = if (socketExists) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
                         }
 
-                        1 -> { // TAB 1: Network & Proxy
+                        2 -> { // TAB 2: Network & Proxy
                             SettingsCard(title = stringResource(R.string.settings_sect_socks5)) {
                                 SettingsEditItem(stringResource(R.string.settings_socks5_address_title), socks5, Icons.Default.Language) { socks5 = it; saveGlobalPref("socks5", it) }
                                 SettingsEditItem(stringResource(R.string.settings_socks5_username_title), socks5User, Icons.Default.Person, onAction = { generateRandomString(8) }, actionIcon = Icons.Default.Casino) { socks5User = it; saveGlobalPref("socks5_user", it) }
@@ -897,72 +923,105 @@ fun SettingsScreen(
                                     saveProfilePref("advertise_routes", it) 
                                 }
                             }
+                        }
 
-                            Spacer(Modifier.height(12.dp))
+                        3 -> { // TAB 3: TUN Mode & Core Settings
+                            val isRootModeActive = GlobalSettings.isRootModeEnabled(context)
 
                             SettingsCard(title = stringResource(R.string.settings_sect_tun_mode)) {
                                 SettingsSwitchItem(
                                     title = stringResource(R.string.settings_tun_enable_title),
-                                    subtitle = stringResource(R.string.settings_tun_enable_desc),
+                                    subtitle = if (isRootModeActive) "🔒 Недоступно в Root-режиме (активен нативный kernel TUN tailscale0)" else stringResource(R.string.settings_tun_enable_desc),
                                     icon = Icons.Default.VpnLock,
-                                    checked = tunModeEnabled
+                                    checked = if (isRootModeActive) false else tunModeEnabled,
+                                    enabled = !isRootModeActive
                                 ) {
                                     tunModeEnabled = it
                                     saveGlobalPref("tun_mode_enabled", it)
                                 }
 
-                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                 SettingsSwitchItem(
-                                     title = stringResource(R.string.settings_tun_ipv6_title),
-                                     subtitle = stringResource(R.string.settings_tun_ipv6_desc),
-                                     icon = Icons.Default.Language,
-                                     checked = tunIpv6Enabled
-                                 ) {
-                                     tunIpv6Enabled = it
-                                     saveGlobalPref("tun_ipv6_enabled", it)
-                                 }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                SettingsSwitchItem(
+                                    title = stringResource(R.string.settings_tun_ipv6_title),
+                                    subtitle = if (isRootModeActive) "🔒 Недоступно в Root-режиме" else stringResource(R.string.settings_tun_ipv6_desc),
+                                    icon = Icons.Default.Language,
+                                    checked = tunIpv6Enabled,
+                                    enabled = !isRootModeActive
+                                ) {
+                                    tunIpv6Enabled = it
+                                    saveGlobalPref("tun_ipv6_enabled", it)
+                                }
 
-                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                 SettingsEditItem(
-                                     title = stringResource(R.string.settings_tun_address_title),
-                                     value = tunAddress,
-                                     icon = Icons.Default.Settings,
-                                     placeholder = "10.0.0.1/8",
-                                     description = stringResource(R.string.settings_tun_address_desc)
-                                 ) {
-                                     tunAddress = it
-                                     saveGlobalPref("tun_address", it)
-                                 }
-                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                 SettingsEditItem(
-                                     title = stringResource(R.string.settings_tun_excluded_cidrs_title),
-                                     value = tunExcludedCIDRs,
-                                     icon = Icons.Default.Block,
-                                     placeholder = "192.168.0.0/16, 10.0.0.0/8",
-                                     description = stringResource(R.string.settings_tun_excluded_cidrs_desc)
-                                 ) {
-                                     tunExcludedCIDRs = it
-                                     saveGlobalPref("tun_excluded_cidrs", it)
-                                 }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                SettingsEditItem(
+                                    title = stringResource(R.string.settings_tun_address_title),
+                                    value = tunAddress,
+                                    icon = Icons.Default.Settings,
+                                    placeholder = "10.0.0.1/8",
+                                    description = stringResource(R.string.settings_tun_address_desc)
+                                ) {
+                                    tunAddress = it
+                                    saveGlobalPref("tun_address", it)
+                                }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                SettingsEditItem(
+                                    title = stringResource(R.string.settings_tun_excluded_cidrs_title),
+                                    value = tunExcludedCIDRs,
+                                    icon = Icons.Default.Block,
+                                    placeholder = "192.168.0.0/16, 10.0.0.0/8",
+                                    description = stringResource(R.string.settings_tun_excluded_cidrs_desc)
+                                ) {
+                                    tunExcludedCIDRs = it
+                                    saveGlobalPref("tun_excluded_cidrs", it)
+                                }
 
-                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                 SettingsClickableItem(
-                                     title = stringResource(R.string.settings_tun_excluded_apps_title),
-                                     subtitle = stringResource(R.string.settings_tun_excluded_apps_desc, tunExcludedApps.size),
-                                     icon = Icons.Default.Apps
-                                 ) {
-                                     excludedAppsLauncher.launch(Intent(context, TunExcludedAppsActivity::class.java))
-                                 }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                SettingsClickableItem(
+                                    title = stringResource(R.string.settings_tun_excluded_apps_title),
+                                    subtitle = if (isRootModeActive) "🔒 Недоступно в Root-режиме" else stringResource(R.string.settings_tun_excluded_apps_desc, tunExcludedApps.size),
+                                    icon = Icons.Default.Apps,
+                                    enabled = !isRootModeActive
+                                ) {
+                                    excludedAppsLauncher.launch(Intent(context, TunExcludedAppsActivity::class.java))
+                                }
+                            }
+
+                            Spacer(Modifier.height(12.dp))
+
+                            SettingsCard(title = stringResource(R.string.settings_sect_dns_proxy)) {
+                                SettingsEditItem(stringResource(R.string.settings_dns_proxy_address_title), dnsProxy, Icons.Default.Toll) { dnsProxy = it; saveGlobalPref("dns_proxy", it) }
+                            }
+
+                            Spacer(Modifier.height(12.dp))
+
+                            SettingsCard(title = stringResource(R.string.settings_sect_fallback_dns)) {
+                                SettingsEditItem(stringResource(R.string.settings_dns_fallbacks_title), dnsFallbacks, Icons.AutoMirrored.Filled.List, placeholder = stringResource(R.string.settings_dns_fallbacks_placeholder)) { dnsFallbacks = it; saveGlobalPref("dns_fallbacks", it) }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                SettingsEditItem(stringResource(R.string.settings_doh_fallback_title), dohUrl, Icons.Default.Link, placeholder = stringResource(R.string.settings_doh_fallback_placeholder)) { dohUrl = it; saveGlobalPref("doh_url", it) }
+                            }
+
+                            Spacer(Modifier.height(12.dp))
+
+                            SettingsCard(title = stringResource(R.string.settings_sect_flags_logs)) {
+                                SettingsSwitchItem(stringResource(R.string.settings_accept_routes_title), stringResource(R.string.settings_accept_routes_desc), Icons.Default.Map, acceptRoutes) { acceptRoutes = it; saveGlobalPref("accept_routes", it) }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                SettingsSwitchItem(stringResource(R.string.settings_accept_dns_title), stringResource(R.string.settings_accept_dns_desc), Icons.Default.Dns, acceptDns) { acceptDns = it; saveGlobalPref("accept_dns", it) }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                SettingsSwitchItem(stringResource(R.string.settings_force_bg_title), stringResource(R.string.settings_force_bg_desc), Icons.Default.BatteryFull, forceBg) { forceBg = it; saveGlobalPref("force_bg", it) }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                SettingsSwitchItem(stringResource(R.string.settings_detailed_logs_title), stringResource(R.string.settings_detailed_logs_desc), Icons.Default.BugReport, detailedLogs) { detailedLogs = it; saveGlobalPref("detailed_logs", it) }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                SettingsEditItem(stringResource(R.string.settings_extra_args_title), extraArgs, Icons.Default.Code, stringResource(R.string.settings_extra_args_placeholder)) { extraArgs = it; saveGlobalPref("extra_args_raw", it) }
                             }
                         }
 
-                        2 -> { // TAB 2: DPI Bypass (ByeByeDPI)
+                        4 -> { // TAB 4: DPI Bypass (ByeByeDPI)
                             var byedpiEnabled by remember { mutableStateOf(GlobalSettings.isCPByeDpiEnabled(context)) }
                             var byedpiFlags by remember { mutableStateOf(GlobalSettings.getCPByeDpiFlags(context)) }
                             var byedpiIpv6Disabled by remember { mutableStateOf(GlobalSettings.isCPByeDpiIpv6Disabled(context)) }
                             val activeBbdAddr = ByeDpiProxy.activeAddress
                             
-                                SettingsCard(title = stringResource(R.string.settings_tab_byedpi)) {
+                            SettingsCard(title = stringResource(R.string.settings_tab_byedpi)) {
                                 Text(
                                     text = stringResource(R.string.settings_byedpi_desc),
                                     style = MaterialTheme.typography.bodySmall,
@@ -1042,35 +1101,7 @@ fun SettingsScreen(
                             }
                         }
 
-                        3 -> { // TAB 3: Core Settings
-                            SettingsCard(title = stringResource(R.string.settings_sect_dns_proxy)) {
-                                SettingsEditItem(stringResource(R.string.settings_dns_proxy_address_title), dnsProxy, Icons.Default.Toll) { dnsProxy = it; saveGlobalPref("dns_proxy", it) }
-                            }
-
-                            Spacer(Modifier.height(12.dp))
-
-                             SettingsCard(title = stringResource(R.string.settings_sect_fallback_dns)) {
-                                 SettingsEditItem(stringResource(R.string.settings_dns_fallbacks_title), dnsFallbacks, Icons.AutoMirrored.Filled.List, placeholder = stringResource(R.string.settings_dns_fallbacks_placeholder)) { dnsFallbacks = it; saveGlobalPref("dns_fallbacks", it) }
-                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                SettingsEditItem(stringResource(R.string.settings_doh_fallback_title), dohUrl, Icons.Default.Link, placeholder = stringResource(R.string.settings_doh_fallback_placeholder)) { dohUrl = it; saveGlobalPref("doh_url", it) }
-                            }
-
-                            Spacer(Modifier.height(12.dp))
-
-                            SettingsCard(title = stringResource(R.string.settings_sect_flags_logs)) {
-                                SettingsSwitchItem(stringResource(R.string.settings_accept_routes_title), stringResource(R.string.settings_accept_routes_desc), Icons.Default.Map, acceptRoutes) { acceptRoutes = it; saveGlobalPref("accept_routes", it) }
-                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                SettingsSwitchItem(stringResource(R.string.settings_accept_dns_title), stringResource(R.string.settings_accept_dns_desc), Icons.Default.Dns, acceptDns) { acceptDns = it; saveGlobalPref("accept_dns", it) }
-                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                SettingsSwitchItem(stringResource(R.string.settings_force_bg_title), stringResource(R.string.settings_force_bg_desc), Icons.Default.BatteryFull, forceBg) { forceBg = it; saveGlobalPref("force_bg", it) }
-                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                SettingsSwitchItem(stringResource(R.string.settings_detailed_logs_title), stringResource(R.string.settings_detailed_logs_desc), Icons.Default.BugReport, detailedLogs) { detailedLogs = it; saveGlobalPref("detailed_logs", it) }
-                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                SettingsEditItem(stringResource(R.string.settings_extra_args_title), extraArgs, Icons.Default.Code, stringResource(R.string.settings_extra_args_placeholder)) { extraArgs = it; saveGlobalPref("extra_args_raw", it) }
-                            }
-                        }
-
-                        4 -> { // TAB 4: Account Profile & Advanced
+                        5 -> { // TAB 5: Account Profile & Advanced
                             SettingsCard(title = stringResource(R.string.settings_sect_account_format, activeAccount.name)) {
                                 SettingsEditItem(stringResource(R.string.settings_login_server_title), loginServer, Icons.Default.Cloud, placeholder = stringResource(R.string.settings_login_server_placeholder)) { 
                                     if (loginServer != it) {
@@ -1535,36 +1566,49 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
 }
 
 @Composable
-fun SettingsClickableItem(title: String, subtitle: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+fun SettingsClickableItem(
+    title: String, 
+    subtitle: String, 
+    icon: androidx.compose.ui.graphics.vector.ImageVector, 
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
     Surface(
-        onClick = onClick, 
+        onClick = { if (enabled) onClick() }, 
         shape = RoundedCornerShape(12.dp), 
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (enabled) 0.3f else 0.1f),
         modifier = Modifier.padding(vertical = 4.dp)
     ) {
         ListItem(
-            headlineContent = { Text(title) },
-            supportingContent = { Text(subtitle, style = MaterialTheme.typography.bodySmall) },
-            leadingContent = { Icon(icon, null, tint = MaterialTheme.colorScheme.primary) },
-            trailingContent = { Icon(Icons.Default.ChevronRight, null) },
+            headlineContent = { Text(title, color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline) },
+            supportingContent = { Text(subtitle, style = MaterialTheme.typography.bodySmall, color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.outline) },
+            leadingContent = { Icon(icon, null, tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline) },
+            trailingContent = { Icon(Icons.Default.ChevronRight, null, tint = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.outline) },
             colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
         )
     }
 }
 
 @Composable
-fun SettingsSwitchItem(title: String, subtitle: String, icon: androidx.compose.ui.graphics.vector.ImageVector, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+fun SettingsSwitchItem(
+    title: String, 
+    subtitle: String, 
+    icon: androidx.compose.ui.graphics.vector.ImageVector, 
+    checked: Boolean, 
+    enabled: Boolean = true,
+    onCheckedChange: (Boolean) -> Unit
+) {
     Surface(
-        onClick = { onCheckedChange(!checked) }, 
+        onClick = { if (enabled) onCheckedChange(!checked) }, 
         shape = RoundedCornerShape(12.dp), 
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (enabled) 0.3f else 0.1f),
         modifier = Modifier.padding(vertical = 4.dp)
     ) {
         ListItem(
-            headlineContent = { Text(title) },
-            supportingContent = { Text(subtitle, style = MaterialTheme.typography.bodySmall) },
-            leadingContent = { Icon(icon, null, tint = MaterialTheme.colorScheme.primary) },
-            trailingContent = { Switch(checked = checked, onCheckedChange = onCheckedChange) },
+            headlineContent = { Text(title, color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline) },
+            supportingContent = { Text(subtitle, style = MaterialTheme.typography.bodySmall, color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.outline) },
+            leadingContent = { Icon(icon, null, tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline) },
+            trailingContent = { Switch(checked = checked, onCheckedChange = if (enabled) onCheckedChange else null, enabled = enabled) },
             colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
         )
     }
