@@ -115,9 +115,10 @@ type BusNetMapDNS struct {
 
 // BusHealth mirrors health.State.
 type BusHealth struct {
-	Warnings []struct {
-		Code string `json:"Code,omitempty"`
-		Text string `json:"Text,omitempty"`
+	Warnings map[string]struct {
+		WarnableCode string `json:"WarnableCode,omitempty"`
+		Title        string `json:"Title,omitempty"`
+		Text         string `json:"Text,omitempty"`
 	} `json:"Warnings,omitempty"`
 }
 
@@ -323,8 +324,16 @@ func applyNotify(msg *BusNotify) {
 	// Health
 	if msg.Health != nil && len(msg.Health.Warnings) > 0 {
 		busState.Health = make([]BusHealthWarning, 0, len(msg.Health.Warnings))
-		for _, w := range msg.Health.Warnings {
-			busState.Health = append(busState.Health, BusHealthWarning{Code: w.Code, Text: w.Text})
+		for code, w := range msg.Health.Warnings {
+			c := w.WarnableCode
+			if c == "" {
+				c = code
+			}
+			txt := w.Text
+			if txt == "" {
+				txt = w.Title
+			}
+			busState.Health = append(busState.Health, BusHealthWarning{Code: c, Text: txt})
 		}
 		slog.Warn("Bus: health warnings", "count", len(busState.Health))
 	}
