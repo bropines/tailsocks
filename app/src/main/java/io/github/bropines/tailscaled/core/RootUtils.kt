@@ -123,7 +123,8 @@ object RootUtils {
         return try {
             val script = """
                 pkill -15 -f libtailscale.so || killall -15 tailscaled 2>/dev/null || true
-                sleep 0.3
+                sleep 0.2
+                pkill -9 -f libtailscale.so || killall -9 tailscaled 2>/dev/null || true
                 if [ -n "$socketPath" ]; then
                     rm -f "$socketPath"
                 fi
