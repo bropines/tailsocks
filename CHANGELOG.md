@@ -2,6 +2,20 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [3.1.7] - 2026-08-05
+### Added
+- **Tailscale Core Upgrade (`v1.102.1`)**: Updated `tailscaled` daemon core to Tailscale `v1.102.1` across all 4 native architectures (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`) with atomic Go bridge patches.
+- **Glance DataStore Widgets**:
+  - **Service Toggle Widget (2×2)**: Compact Material 3 card displaying profile name, status (`● Running` / `○ Stopped`), active Exit Node IP, and instant ON/OFF toggle.
+  - **Vertical Exit Node Selector Widget (2×3 / 2×4)**: Dynamic list of available Exit Nodes with one-tap switching and `● Direct / Off` routing control.
+  - **Refresh Button (`↻`)**: Manual header control for instant background daemon status and netmap synchronization.
+- **MIUI & HyperOS Widget Picker Previews**: Added RemoteViews XML preview layouts (`widget_preview_service.xml`, `widget_preview_exit_node.xml`) using compliant `<FrameLayout>` weight spacers to ensure accurate widget picker previews on Xiaomi HyperOS and MIUI launchers.
+
+### Fixed
+- **Sub-30ms Reactive Widget State**: Configured widget action callbacks to update Glance DataStore (`currentState<Preferences>()`) first before disk I/O, delivering instant reactive button feedback.
+- **Exit Node Double-Selection Bug**: Fixed selection logic matching by enforcing strict primary IP verification (`node.ip == exitNodeIp`).
+- **Persistent Exit Node Caching**: Added persistent accumulation of discovered exit nodes to prevent temporary list loss during daemon startup or netmap sync.
+
 ## [3.1.6] - 2026-07-25
 ### Fixed
 - Fixed in-app APK auto-updater requesting root permissions on rooted devices by explicitly targeting the system `PackageInstaller` (`com.google.android.packageinstaller` / `com.android.packageinstaller`), bypassing third-party root package manager intent interceptors.
