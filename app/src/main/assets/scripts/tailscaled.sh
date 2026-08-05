@@ -52,21 +52,6 @@ if [ -f "$LOG_FILE" ]; then
     fi
 fi
 
-# Run daemon with resolved STATE_DIR
+# Run daemon with resolved STATE_DIR (native safesocket patch forces 0666 on tailscaled.sock)
 nohup "$DAEMON_BIN" --statedir="$STATE_DIR" --socket="$SOCKET_PATH" --tun=tailscale0 >> "$LOG_FILE" 2>&1 &
 chmod 666 "$LOG_FILE" 2>/dev/null || true
-
-# Fix socket permissions and SELinux context persistently in background loop
-(
-    for i in $(seq 1 300); do
-        if [ -S "$SOCKET_PATH" ] || [ -e "$SOCKET_PATH" ]; then
-            chmod 777 "$SOCKET_PATH" 2>/dev/null
-            chmod 777 "$STATE_DIR" 2>/dev/null || true
-            chmod 777 "$(dirname "$STATE_DIR")" 2>/dev/null || true
-            chcon --reference="$DATA_DIR/files" "$SOCKET_PATH" 2>/dev/null || \
-                chcon u:object_r:app_data_file:s0 "$SOCKET_PATH" 2>/dev/null || true
-        fi
-        sleep 1
-    done
-) &
-

@@ -72,6 +72,10 @@ diff -u orig/cmd/tailscaled/netstack.go tailscale_src/cmd/tailscaled/netstack.go
 # 11-noop-dns-fallback.patch (net/dns/noop.go)
 diff -u orig/net/dns/noop.go tailscale_src/net/dns/noop.go > patches/11-noop-dns-fallback.patch || true
 
+# 12-socket-permissions.patch (safesocket/unixsocket.go)
+diff -u orig/safesocket/unixsocket.go tailscale_src/safesocket/unixsocket.go > patches/12-socket-permissions.patch || true
+
 echo "✅ Atomic patches generated successfully in appctr/patches/."
+
 
 

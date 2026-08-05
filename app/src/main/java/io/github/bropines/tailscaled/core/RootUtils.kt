@@ -25,17 +25,6 @@ object RootUtils {
             }
         } catch (e: Exception) {
             Log.d(TAG, "isDaemonAlive: connect failed: ${e.message}")
-            if (e.message?.contains("Permission denied", ignoreCase = true) == true) {
-                try {
-                    Runtime.getRuntime().exec(arrayOf("su", "-c", "chmod 777 \"$socketPath\"")).waitFor()
-                    LocalSocket().use { socket ->
-                        socket.connect(LocalSocketAddress(socketPath, LocalSocketAddress.Namespace.FILESYSTEM))
-                        return socket.isConnected
-                    }
-                } catch (ex: Exception) {
-                    Log.w(TAG, "isDaemonAlive su chmod retry failed: ${ex.message}")
-                }
-            }
             false
         }
     }
