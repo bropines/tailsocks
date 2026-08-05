@@ -25,6 +25,9 @@ func GetDnsStatusJSON() string {
 		return "{}"
 	}
 
+	EnsureIPNBusListener()
+	syncNetMapFromBus()
+
 	socks, _, _, dns := GConfig.get()
 
 	type dnsAddr struct {

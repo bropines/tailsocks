@@ -157,6 +157,101 @@ func updateNodeInCache(n *busNode) bool {
 	return false
 }
 
+func syncNetMapFromBus() {
+	pc := PC
+	client := http.Client{
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+				var d net.Dialer
+				return d.DialContext(ctx, "unix", pc.Socket())
+			},
+		},
+		Timeout: 2 * time.Second,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	req, _ := http.NewRequestWithContext(ctx, "GET", "http://local-tailscaled.sock/localapi/v0/watch-ipn-bus?mask=4095", nil)
+	resp, err := client.Do(req)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	dec := json.NewDecoder(resp.Body)
+	for {
+		var msg struct {
+			NetMap *struct {
+				MagicDNSSuffix string
+				SelfNode       *busNode
+				Peers          []*busNode
+				DNS            struct {
+					Domains []string
+					Routes  map[string][]struct {
+						Addr string
+					}
+				}
+			}
+		}
+
+		if err := dec.Decode(&msg); err != nil {
+			break
+		}
+
+		if msg.NetMap != nil {
+			if msg.NetMap.MagicDNSSuffix != "" {
+				magicDNSSuffix = strings.ToLower(strings.Trim(msg.NetMap.MagicDNSSuffix, "."))
+			} else if len(msg.NetMap.DNS.Domains) > 0 {
+				magicDNSSuffix = strings.ToLower(strings.Trim(msg.NetMap.DNS.Domains[0], "."))
+			}
+
+			if msg.NetMap.SelfNode != nil {
+				updateNodeInCache(msg.NetMap.SelfNode)
+			}
+			for _, p := range msg.NetMap.Peers {
+				updateNodeInCache(p)
+			}
+
+			if msg.NetMap.DNS.Routes != nil {
+				for domain, resolvers := range msg.NetMap.DNS.Routes {
+					var ips []string
+					for _, r := range resolvers {
+						ips = append(ips, r.Addr)
+					}
+					if len(ips) > 0 {
+						d := strings.ToLower(strings.Trim(domain, "."))
+						splitDNSCache.Store(d, ips)
+					}
+				}
+			}
+			break
+		}
+	}
+}
+
+func EnsureIPNBusListener() {
+	busMu.Lock()
+	defer busMu.Unlock()
+	if busCancel != nil {
+		return
+	}
+	slog.Info("Starting IPN Bus Listener...")
+	busCtx, cancel := context.WithCancel(context.Background())
+	busCancel = cancel
+	go startIPNBusListener(busCtx)
+}
+
+func StopIPNBusListener() {
+	busMu.Lock()
+	defer busMu.Unlock()
+	if busCancel != nil {
+		slog.Info("Stopping IPN Bus Listener...")
+		busCancel()
+		busCancel = nil
+	}
+}
+
 func startDNSProxy(ctx context.Context, listenAddr string, fallbacks []string, dohUrl string) error {
 	pc, err := net.ListenPacket("udp", listenAddr)
 	if err != nil {
@@ -165,24 +260,11 @@ func startDNSProxy(ctx context.Context, listenAddr string, fallbacks []string, d
 	defer pc.Close()
 	slog.Info("DNS proxy listening", "addr", listenAddr)
 
-	busMu.Lock()
-	if busCancel != nil {
-		busCancel()
-	}
-	busCtx, cancel := context.WithCancel(context.Background())
-	busCancel = cancel
-	busMu.Unlock()
-	go startIPNBusListener(busCtx)
+	EnsureIPNBusListener()
 
 	go func() {
 		<-ctx.Done()
 		pc.Close()
-		busMu.Lock()
-		if busCancel != nil {
-			busCancel()
-			busCancel = nil
-		}
-		busMu.Unlock()
 	}()
 
 	buf := make([]byte, 65535)

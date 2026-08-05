@@ -125,10 +125,11 @@ var externalSocketPath string
 
 func SetExternalSocketPath(path string) {
 	stateMu.Lock()
-	defer stateMu.Unlock()
 	externalSocketPath = path
 	PC.SetSocket(path)
 	slog.Info("External daemon socket path set", "path", path)
+	stateMu.Unlock()
+	EnsureIPNBusListener()
 }
 
 func IsRunning() bool {
