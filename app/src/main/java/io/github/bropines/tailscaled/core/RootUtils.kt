@@ -1,6 +1,8 @@
 package io.github.bropines.tailscaled.core
 
 import android.content.Context
+import android.net.LocalSocket
+import android.net.LocalSocketAddress
 import android.util.Log
 import java.io.File
 
@@ -8,6 +10,24 @@ object RootUtils {
     private const val TAG = "RootUtils"
     const val SERVICE_D_DIR = "/data/adb/service.d"
     const val SERVICE_SCRIPT_PATH = "$SERVICE_D_DIR/tailscaled.sh"
+
+    /**
+     * Checks if the root daemon is actually alive by attempting a real
+     * LocalSocket connect() to the Unix domain socket.
+     * Returns false if the file doesn't exist or the connect() is refused.
+     */
+    fun isDaemonAlive(socketPath: String): Boolean {
+        if (!File(socketPath).exists()) return false
+        return try {
+            LocalSocket().use { socket ->
+                socket.connect(LocalSocketAddress(socketPath, LocalSocketAddress.Namespace.FILESYSTEM))
+                socket.isConnected
+            }
+        } catch (e: Exception) {
+            Log.d(TAG, "isDaemonAlive: connect failed: ${e.message}")
+            false
+        }
+    }
 
     fun isRootAvailable(): Boolean {
         return try {

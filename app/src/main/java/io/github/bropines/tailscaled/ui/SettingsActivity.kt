@@ -956,7 +956,17 @@ fun SettingsScreen(
                                     val socketPath = "${context.filesDir.absolutePath}/tailscaled.sock"
                                     val logsDir = File(context.filesDir.parentFile ?: context.filesDir, "logs").absolutePath
                                     val logPath = "$logsDir/tailscaled.log"
-                                    val socketExists = File(socketPath).exists()
+                                    var daemonAlive by remember { mutableStateOf(false) }
+
+                                    // Poll real socket liveness every 3s instead of just File.exists()
+                                    LaunchedEffect(Unit) {
+                                        while (true) {
+                                            daemonAlive = withContext(Dispatchers.IO) {
+                                                RootUtils.isDaemonAlive(socketPath)
+                                            }
+                                            kotlinx.coroutines.delay(3_000)
+                                        }
+                                    }
 
                                     Text("Socket Path:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                                     Text(socketPath, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -966,11 +976,11 @@ fun SettingsScreen(
                                     Text(logPath, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
                                     Spacer(Modifier.height(8.dp))
-                                    Text("Socket Status:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                                    Text("Daemon Status:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                                     Text(
-                                        if (socketExists) "Connected & Active (srwxrwxrwx)" else "Disconnected / Socket file missing",
+                                        if (daemonAlive) "Running (socket responding)" else "Not running / socket not responding",
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = if (socketExists) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                        color = if (daemonAlive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                                     )
                                 }
                             }
