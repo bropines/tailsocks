@@ -264,6 +264,7 @@ cd ..
 | [Project Retrospective](docs/RETROSPECTIVE.md) | Evolution from PoC to the current architecture |
 | [AdGuard Setup](docs/ADGUARD.md) | Coexistence with system-wide ad blockers |
 | [Serve & Funnel Guide](docs/SERVE_FUNNEL_GUIDE.md) | Exposing local ports and virtual services |
+| [Root Integration & Service Guide](docs/ROOT.md) | System-wide root autostart daemon, service.d, and CLI wrapper |
 | [Tasker & Automation Guide](docs/AUTOMATION.md) | Intent automation setup for Tasker, MacroDroid, Automate, and ADB |
 | [Roadmap](docs/ROADMAP.md) | Planned features and short-term goals |
 | [Changelog](CHANGELOG.md) | Full version history |

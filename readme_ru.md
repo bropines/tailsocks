@@ -264,6 +264,7 @@ cd ..
 | [Ретроспектива проекта](docs/RETROSPECTIVE_RU.md) | Эволюция архитектуры от PoC до текущей версии |
 | [Настройка AdGuard](docs/ADGUARD_RU.md) | Сосуществование с системными блокировщиками рекламы |
 | [Руководство по Serve & Funnel](docs/SERVE_FUNNEL_GUIDE_RU.md) | Проброс локальных портов и виртуальных сервисов |
+| [Root-Интеграция и Системная Служба](docs/ROOT_RU.md) | Настройка автозапуска в режиме root, service.d и CLI-обёртки |
 | [Руководство по автосценариям Tasker](docs/AUTOMATION_RU.md) | Интеграция Intents для Tasker, MacroDroid, Automate и ADB |
 | [Планы разработки (Roadmap)](docs/ROADMAP_RU.md) | Запланированные функции и ближайшие цели |
 | [История изменений](CHANGELOG.md) | Полный журнал версий |
