@@ -2,6 +2,37 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [3.1.8] - 2026-08-06
+
+### Added
+- **Refactored Native Root Mode (`su`)**:
+  - Dual-engine architecture supporting seamless switching between hybrid userspace mode and native system root daemon with direct TUN routing (`tailscale0`).
+  - Autostart boot script for Magisk / KernelSU / APatch (`service.d/tailscaled.sh`) extracted to app assets with dynamic account state directory resolution (`files/states/`).
+  - Atomic Go core patch `12-socket-permissions.patch`: `tailscaled` daemon creates `tailscaled.sock` with `0666` permissions natively on startup without external watcher scripts or `chmod` loops.
+  - Daemon liveness probe via real `LocalSocket` probe (`isDaemonAlive`).
+- **Auto-Update of Root & CLI Scripts on App Upgrade**: Added `MY_PACKAGE_REPLACED` broadcast handler in `BootReceiver` and `AndroidManifest.xml`. Upgrading the TailSocks APK automatically refreshes `service.d/tailscaled.sh` and CLI overlay `/product/bin/tailscale` from updated app assets without user intervention.
+- **Instant Mountable `/product/bin/tailscale` CLI Overlay**: `RootUtils.setTailscaleCliInstalled` mounts the CLI wrapper into `tmpfs` `/product/bin` with SELinux context `u:object_r:system_file:s0` and removes leftover Magisk `disable` flags. The `tailscale` CLI command under `su` works instantly in any shell without rebooting.
+- **Added Root Mode Settings**:
+  - Dedicated Root Mode settings tab (EXPERIMENTAL).
+  - Script path display, "Reinstall Autostart", and "Clear Logs" action buttons.
+  - Automatic root daemon log rotation on startup (>2 MB → retains last 500 lines).
+
+### Fixed
+- **Taildrive Layout & Scrolling**: Refactored `TaildriveActivity` layout to a single `LazyColumn`. Fixed a bug where expanding the Taildrive Proxy settings card covered the shared folders list and blocked vertical scrolling down.
+- **Unified IPN Bus, Core & DNS Architecture**:
+  - Extracted IPN Bus streaming listener into dedicated `appctr/bus.go` module.
+  - Aggregated network map (`NetMap`), daemon state (`State`), peer nodes, `MagicDNS` domain, and Split DNS routes into thread-safe in-memory `busState`.
+  - Eliminated HTTP polling spam to `/localapi/v0/status`: `GetBackendState()` and `GetSelfDNSName()` read state directly from `busState` without network requests.
+  - Implemented exponential backoff (`2s -> 4s -> 8s -> max 30s`) in `IPNBusListener` for transient daemon restarts.
+  - Removed dead `dnsCache` and redundant `syncNetMapFromBus()` extra HTTP stream.
+  - Fixed `State` field type (`*int`) and `BusHealth.Warnings` schema (`map[string]struct` per Tailscale core `health.State` spec).
+  - Added direct fallback querying of `/localapi/v0/dns-config` in `GetDnsStatusJSON()` to load splits before receiving the first `NetMap`.
+  - Fixed handling of Split DNS routes with empty resolver lists (mapped to `100.100.100.100` MagicDNS).
+  - Removed redundant DNS cache reset on Refresh button press in `DnsActivity.kt`.
+- **WSA & Outbound Proxy DNS Fixes**:
+  - Implemented `TS_STATIC_HOSTS` override and pre-resolution of Outbound Proxy domain to IP via direct UDP DNS (`1.1.1.1`): resolves Outbound Proxy DNS deadlock on Android/WSA while preserving original TLS SNI.
+  - Exported `TS_DNS_FALLBACK="1.1.1.1,8.8.8.8"` for reliable external daemon DNS queries.
+
 ## [3.1.7] - 2026-08-05
 ### Added
 - **Tailscale Core Upgrade (`v1.102.1`)**: Updated `tailscaled` daemon core to Tailscale `v1.102.1` across all 4 native architectures (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`) with atomic Go bridge patches.
