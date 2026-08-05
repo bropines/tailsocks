@@ -303,7 +303,7 @@ func listenToBus(ctx context.Context) error {
 	}
 
 	req, _ := http.NewRequestWithContext(ctx, "GET",
-		"http://local-tailscaled.sock/localapi/v0/watch-ipn-bus?mask=4095&initial=true", nil)
+		"http://local-tailscaled.sock/localapi/v0/watch-ipn-bus?mask=4095", nil)
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
@@ -533,7 +533,7 @@ func syncNetMapFromBus() {
 	defer cancel()
 
 	req, _ := http.NewRequestWithContext(ctx, "GET",
-		"http://local-tailscaled.sock/localapi/v0/watch-ipn-bus?mask=4095&initial=true", nil)
+		"http://local-tailscaled.sock/localapi/v0/watch-ipn-bus?mask=4095", nil)
 	resp, err := client.Do(req)
 	if err != nil {
 		return
