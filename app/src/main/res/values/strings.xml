@@ -731,6 +731,8 @@
     <string name="settings_root_enable_desc">Run daemon via \'su\' with direct kernel TUN (tailscale0) and iptables access</string>
     <string name="settings_root_service_title">Autostart Magisk/KernelSU Service</string>
     <string name="settings_root_service_desc">Install script to /data/adb/service.d/ for standalone system boot</string>
+    <string name="settings_root_cli_title">Install Tailscale CLI Utility</string>
+    <string name="settings_root_cli_desc">Install \'tailscale\' executable wrapper for Termux and root shell</string>
     <string name="settings_root_info_title">Daemon Runtime Information</string>
     <string name="settings_root_disabled_tun_note">🔒 Unavailable in Root mode (native kernel TUN tailscale0 is active)</string>
     <string name="settings_root_disabled_general_note">🔒 Unavailable in Root mode</string>

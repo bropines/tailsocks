@@ -517,8 +517,10 @@ func Stop() {
 	StopDriveServer()
 	FlushDNS()
 	ResetDNSMetadata()
+	StopIPNBusListener()
 	stateMu.Lock()
 	defer stateMu.Unlock()
+	externalSocketPath = ""
 	daemonStartTime = time.Time{}
 
 	if dnsProxyCancel != nil {

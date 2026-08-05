@@ -180,15 +180,10 @@ func PingTarget(targetIP string, pingType string) (string, error) {
 	if pingType == "" {
 		pingType = "disco"
 	}
-	payload := map[string]string{
-		"IP":   targetIP,
-		"Type": pingType,
-	}
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return "", fmt.Errorf("PingTarget payload marshal error: %w", err)
-	}
-	data, err := doLocalRequest("POST", "/localapi/v0/ping", bytes.NewReader(body))
+	v := url.Values{}
+	v.Set("ip", strings.TrimSpace(targetIP))
+	v.Set("type", pingType)
+	data, err := doLocalRequest("POST", "/localapi/v0/ping?"+v.Encode(), nil)
 	if err != nil {
 		return "", fmt.Errorf("PingTarget failed: %w", err)
 	}

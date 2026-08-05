@@ -208,10 +208,15 @@ fun PeerDetailsModal(
     val pingText = when {
         pingResult == null -> stringResource(R.string.peer_ping)
         pingResult == "Pinging..." -> stringResource(R.string.peer_pinging)
-        pingResult!!.contains("pong from") -> {
-            val time = """\b\d+(?:\.\d+)?\s*ms\b""".toRegex().find(pingResult!!)?.value ?: ""
-            val displayValue = time.ifEmpty { pingResult!!.replace("pong from", "").trim() }
-            stringResource(R.string.peer_ping_result, displayValue)
+        pingResult!!.isNotBlank() && !pingResult!!.contains("Failed") && !pingResult!!.startsWith("Error") -> {
+            val time = """\b\d+(?:\.\d+)?\s*ms\b""".toRegex().find(pingResult!!)?.value
+                ?: if (pingResult!!.contains("LatencyMs")) {
+                    val latencyVal = """"LatencyMs"\s*:\s*(\d+(?:\.\d+)?)""".toRegex().find(pingResult!!)?.groupValues?.get(1)
+                    if (latencyVal != null) "${latencyVal} ms" else ""
+                } else ""
+            val displayValue = time.ifEmpty { pingResult!!.replace("pong from", "").replace("{", "").replace("}", "").trim() }
+            if (displayValue.isNotBlank()) stringResource(R.string.peer_ping_result, displayValue)
+            else stringResource(R.string.peer_ping_failed)
         }
         else -> stringResource(R.string.peer_ping_failed)
     }
@@ -290,8 +295,13 @@ fun PeerDetailsModal(
                     onClick = {
                         pingResult = "Pinging..."
                         scope.launch(Dispatchers.IO) {
-                            val out = try { Appctr.runTailscaleCmd("ping ${peer.getPrimaryIp()}") } catch (e: Exception) { "Error" }
-                            val pong = out.split("\n").find { it.contains("pong from") } ?: "Failed"
+                            val targetIp = peer.getPrimaryIp()
+                            val out = try {
+                                val res = Appctr.pingTarget(targetIp, "disco")
+                                if (res.isNotBlank() && !res.startsWith("Error")) res
+                                else Appctr.runTailscaleCmd("ping $targetIp")
+                            } catch (e: Exception) { "Error" }
+                            val pong = out.split("\n").find { it.contains("pong from") || it.contains("LatencyMs") } ?: out.ifBlank { "Failed" }
                             withContext(Dispatchers.Main) { pingResult = pong.trim() }
                         }
                     },

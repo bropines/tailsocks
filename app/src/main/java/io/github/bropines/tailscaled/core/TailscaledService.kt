@@ -424,7 +424,9 @@ class TailscaledService : Service() {
         if (GlobalSettings.isRootModeEnabled(this)) {
             val socketPath = "${filesDir.absolutePath}/tailscaled.sock"
             Appctr.setExternalSocketPath("")
-            RootUtils.stopRootDaemon(socketPath)
+            if (!RootUtils.isServiceScriptInstalled()) {
+                RootUtils.stopRootDaemon(socketPath)
+            }
         } else {
             Appctr.stop()
         }
@@ -432,7 +434,6 @@ class TailscaledService : Service() {
         byedpiProxyAddress = null
         lastStartedFlags = null
         lastStartedIpv6Disabled = null
-        try { Runtime.getRuntime().exec("killall tailscaled") } catch (e: Exception) {}
         if (wakeLock?.isHeld == true) wakeLock?.release()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -583,7 +584,15 @@ class TailscaledService : Service() {
     }
 
     override fun onDestroy() {
-        Appctr.stop()
+        if (GlobalSettings.isRootModeEnabled(this)) {
+            val socketPath = "${filesDir.absolutePath}/tailscaled.sock"
+            Appctr.setExternalSocketPath("")
+            if (!RootUtils.isServiceScriptInstalled()) {
+                RootUtils.stopRootDaemon(socketPath)
+            }
+        } else {
+            Appctr.stop()
+        }
         try { ByeDpiProxy.stop() } catch (e: Exception) {}
         byedpiProxyAddress = null
         lastStartedFlags = null

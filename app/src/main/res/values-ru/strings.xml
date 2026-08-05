@@ -731,6 +731,8 @@
     <string name="settings_root_enable_desc">Запуск демона через \'su\' с прямой маршрутизацией ядра (tailscale0) и iptables</string>
     <string name="settings_root_service_title">Автозапуск Magisk/KernelSU службы</string>
     <string name="settings_root_service_desc">Установка скрипта в /data/adb/service.d/ для автозапуска при загрузке системы</string>
+    <string name="settings_root_cli_title">Установить консольную утилиту Tailscale CLI</string>
+    <string name="settings_root_cli_desc">Создать исполняемую утилиту \'tailscale\' для Termux и root-консоли</string>
     <string name="settings_root_info_title">Служебная информация о демоне</string>
     <string name="settings_root_disabled_tun_note">🔒 Недоступно в Root-режиме (активен нативный kernel TUN tailscale0)</string>
     <string name="settings_root_disabled_general_note">🔒 Недоступно в Root-режиме</string>

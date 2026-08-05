@@ -64,7 +64,9 @@ object RootUtils {
                 add(tailscaledBin)
                 add("--statedir=$stateDir")
                 add("--socket=$socketPath")
-                add("--socks5-server=$socksAddr")
+                if (socksAddr.isNotEmpty() && socksAddr != "none") {
+                    add("--socks5-server=$socksAddr")
+                }
                 if (tunMode) {
                     add("--tun=tailscale0")
                     add("--netfilter-mode=on")
@@ -120,7 +122,8 @@ object RootUtils {
     fun stopRootDaemon(socketPath: String = ""): Boolean {
         return try {
             val script = """
-                pkill -9 -f tailscaled || killall -9 tailscaled 2>/dev/null || true
+                pkill -15 -f libtailscale.so || killall -15 tailscaled 2>/dev/null || true
+                sleep 0.3
                 if [ -n "$socketPath" ]; then
                     rm -f "$socketPath"
                 fi
@@ -156,7 +159,7 @@ object RootUtils {
                     export TS_NO_LOGS_NO_SUPPORT=true
                     export TS_AUTH_ONCE=true
                     
-                    nohup $tailscaledBin --statedir="$stateDir" --socket="$socketPath" --socks5-server=127.0.0.1:1053 --tun=tailscale0 --netfilter-mode=on >> "$logsDir/tailscaled.log" 2>&1 &
+                    nohup $tailscaledBin --statedir="$stateDir" --socket="$socketPath" --tun=tailscale0 --netfilter-mode=on >> "$logsDir/tailscaled.log" 2>&1 &
                     chmod 666 "$logsDir/tailscaled.log" 2>/dev/null || true
                     for i in $(seq 1 30); do
                         if [ -S "$socketPath" ] || [ -e "$socketPath" ]; then
@@ -166,7 +169,7 @@ object RootUtils {
                             break
                         fi
                         sleep 0.2
-                    done
+                        done
                 """.trimIndent()
 
                 val tempFile = File(context.cacheDir, "tailscaled.sh").apply {
@@ -210,6 +213,112 @@ object RootUtils {
     fun isServiceScriptInstalled(): Boolean {
         return try {
             val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "[ -f \"$SERVICE_SCRIPT_PATH\" ] && echo 'exists'"))
+            val exitCode = process.waitFor()
+            val output = process.inputStream.bufferedReader().use { it.readText() }
+            exitCode == 0 && output.contains("exists")
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    const val CLI_SCRIPT_PATH = "/system/bin/tailscale"
+    const val ALT_CLI_SCRIPT_PATH = "/data/adb/service.d/tailscale"
+    const val MAGISK_MODULE_CLI_PATH = "/data/adb/modules/tailscaled/system/bin/tailscale"
+
+    fun setTailscaleCliInstalled(context: Context, install: Boolean): Boolean {
+        return try {
+            if (install) {
+                val cliBin = File(context.applicationInfo.nativeLibraryDir, "libtailscale_cli.so").absolutePath
+                val socketPath = File(context.filesDir, "tailscaled.sock").absolutePath
+                val pkgName = context.packageName
+
+                val scriptContent = """
+                    #!/system/bin/sh
+                    # TailSocks Tailscale CLI Wrapper
+                    PKG="$pkgName"
+                    [ ! -d "/data/data/${'$'}PKG" ] && PKG="io.github.bropines.tailscaled"
+                    [ ! -d "/data/data/${'$'}PKG" ] && PKG="io.github.bropines.tailscaled.dev"
+
+                    CLI_BIN="$cliBin"
+                    if [ ! -x "${'$'}CLI_BIN" ]; then
+                        CLI_BIN="${'$'}(pm path ${'$'}PKG 2>/dev/null | head -n1 | cut -d: -f2 | sed 's|base.apk|lib/x86_64/libtailscale_cli.so|')"
+                    fi
+                    if [ ! -x "${'$'}CLI_BIN" ]; then
+                        CLI_BIN="${'$'}(pm path ${'$'}PKG 2>/dev/null | head -n1 | cut -d: -f2 | sed 's|base.apk|lib/arm64/libtailscale_cli.so|')"
+                    fi
+                    if [ ! -x "${'$'}CLI_BIN" ]; then
+                        CLI_BIN="${'$'}(pm path ${'$'}PKG 2>/dev/null | head -n1 | cut -d: -f2 | sed 's|base.apk|lib/arm/libtailscale_cli.so|')"
+                    fi
+                    if [ ! -x "${'$'}CLI_BIN" ]; then
+                        CLI_BIN="${'$'}(pm path ${'$'}PKG 2>/dev/null | head -n1 | cut -d: -f2 | sed 's|base.apk|lib/x86/libtailscale_cli.so|')"
+                    fi
+                    if [ ! -x "${'$'}CLI_BIN" ]; then
+                        CLI_BIN="${'$'}(find /data/app -name "libtailscale_cli.so" 2>/dev/null | head -n1)"
+                    fi
+
+                    SOCKET_PATH="/data/data/${'$'}PKG/files/tailscaled.sock"
+                    
+                    if [ ! -x "${'$'}CLI_BIN" ]; then
+                        echo "TailSocks CLI binary not found"
+                        exit 1
+                    fi
+                    
+                    if echo "${'$'}@" | grep -q -- '--socket='; then
+                        exec "${'$'}CLI_BIN" "${'$'}@"
+                    else
+                        exec "${'$'}CLI_BIN" --socket="${'$'}SOCKET_PATH" "${'$'}@"
+                    fi
+                """.trimIndent()
+
+                val tempFile = File(context.cacheDir, "tailscale_cli_wrapper.sh").apply {
+                    writeText(scriptContent)
+                }
+
+                val cmd = """
+                    mkdir -p "$SERVICE_D_DIR"
+                    cp "${tempFile.absolutePath}" "$ALT_CLI_SCRIPT_PATH"
+                    chmod 755 "$ALT_CLI_SCRIPT_PATH"
+                    
+                    mkdir -p "/data/adb/modules/tailscaled/system/bin"
+                    printf 'id=tailscaled\nname=TailSocks CLI Integration\nversion=v1.0\nversionCode=100\nauthor=TailSocks\ndescription=Tailscale CLI binary overlay\n' > /data/adb/modules/tailscaled/module.prop
+                    cp "${tempFile.absolutePath}" "$MAGISK_MODULE_CLI_PATH"
+                    chmod 755 "$MAGISK_MODULE_CLI_PATH"
+                    
+                    mount -o remount,rw /system 2>/dev/null || true
+                    cp "${tempFile.absolutePath}" "$CLI_SCRIPT_PATH" 2>/dev/null && chmod 755 "$CLI_SCRIPT_PATH" || true
+                    rm -f "${tempFile.absolutePath}"
+                """.trimIndent()
+
+                val process = Runtime.getRuntime().exec("su")
+                process.outputStream.bufferedWriter().use { writer ->
+                    writer.write(cmd)
+                    writer.write("\nexit\n")
+                    writer.flush()
+                }
+                val exitCode = process.waitFor()
+                Log.d(TAG, "Installed CLI wrapper script exitCode=$exitCode")
+                exitCode == 0
+            } else {
+                val cmd = "rm -f \"$CLI_SCRIPT_PATH\" \"$ALT_CLI_SCRIPT_PATH\" \"$MAGISK_MODULE_CLI_PATH\""
+                val process = Runtime.getRuntime().exec("su")
+                process.outputStream.bufferedWriter().use { writer ->
+                    writer.write(cmd)
+                    writer.write("\nexit\n")
+                    writer.flush()
+                }
+                val exitCode = process.waitFor()
+                Log.d(TAG, "Removed CLI wrapper script exitCode=$exitCode")
+                exitCode == 0
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to manage CLI wrapper script: ${e.message}", e)
+            false
+        }
+    }
+
+    fun isTailscaleCliInstalled(): Boolean {
+        return try {
+            val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "([ -f \"$CLI_SCRIPT_PATH\" ] || [ -f \"$ALT_CLI_SCRIPT_PATH\" ] || [ -f \"$MAGISK_MODULE_CLI_PATH\" ]) && echo 'exists'"))
             val exitCode = process.waitFor()
             val output = process.inputStream.bufferedReader().use { it.readText() }
             exitCode == 0 && output.contains("exists")

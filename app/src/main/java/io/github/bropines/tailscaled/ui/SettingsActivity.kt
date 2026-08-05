@@ -779,6 +779,7 @@ fun SettingsScreen(
                         1 -> { // TAB 1: Root Mode & System Service (Dedicated Tab)
                             var rootModeEnabled by remember { mutableStateOf(GlobalSettings.isRootModeEnabled(context)) }
                             var serviceScriptInstalled by remember { mutableStateOf(RootUtils.isServiceScriptInstalled()) }
+                            var cliInstalled by remember { mutableStateOf(RootUtils.isTailscaleCliInstalled()) }
 
                             SettingsCard(title = stringResource(R.string.settings_root_sect_title)) {
                                 SettingsSwitchItem(
@@ -817,6 +818,23 @@ fun SettingsScreen(
                                             Toast.makeText(context, if (it) "Service script installed to service.d" else "Service script removed", Toast.LENGTH_SHORT).show()
                                         } else {
                                             Toast.makeText(context, "Failed to manage service.d script", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+
+                                    SettingsSwitchItem(
+                                        title = stringResource(R.string.settings_root_cli_title),
+                                        subtitle = stringResource(R.string.settings_root_cli_desc),
+                                        icon = Icons.Default.Terminal,
+                                        checked = cliInstalled
+                                    ) {
+                                        val success = RootUtils.setTailscaleCliInstalled(context, it)
+                                        if (success) {
+                                            cliInstalled = it
+                                            Toast.makeText(context, if (it) "CLI wrapper installed to /system/bin/tailscale" else "CLI wrapper removed", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            Toast.makeText(context, "Failed to manage CLI wrapper", Toast.LENGTH_SHORT).show()
                                         }
                                     }
                                 }
