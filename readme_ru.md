@@ -24,8 +24,12 @@
     <img src="https://img.shields.io/badge/⬇_Download_APK-Release-2ea44f?style=for-the-badge&logo=android&logoColor=white" alt="Скачать Release APK" />
   </a>
   &nbsp;
+  <a href="https://boosty.to/pinus">
+    <img src="https://img.shields.io/badge/❤️_Поддержать-Boosty-f15f2c?style=for-the-badge" alt="Поддержать на Boosty" />
+  </a>
+  &nbsp;
   <a href="https://github.com/bropines/tailsocks/releases">
-    <img src="https://img.shields.io/badge/⬇_All_Releases-GitHub-24292e?style=for-the-badge&logo=github&logoColor=white" alt="Все Релизы" />
+    <img src="https://img.shields.io/badge/⬇_Все_Релизы-GitHub-24292e?style=for-the-badge&logo=github&logoColor=white" alt="Все Релизы" />
   </a>
 </p>
 
