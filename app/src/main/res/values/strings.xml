@@ -1016,4 +1016,11 @@
     <string name="main_conn_issue_desc">It seems there is a connection issue. If the coordination server is blocked, please configure a custom Proxy or enable ByeByeDPI.</string>
     <string name="main_conn_issue_btn_proxy">Configure Proxy</string>
     <string name="main_logged_out_btn_stop_short">Stop</string>
+
+    <string name="settings_root_kill_daemon_title">Terminate Root Daemon on Stop</string>
+    <string name="settings_root_kill_daemon_desc">Send termination signal (SIGTERM/SIGKILL) to libtailscale.so process when clicking Stop.</string>
+    <string name="settings_root_warning_dialog_title">Warning: Experimental Root Mode</string>
+    <string name="settings_root_warning_dialog_body">Enabling Root Mode switches TailSocks to direct kernel TUN network interface control using superuser privileges.\n\n⚠️ Note: This feature is experimental. Project author (bropines) is actively developing and debugging this mode.</string>
+    <string name="settings_root_warning_dialog_confirm">Got it, Enable</string>
+    <string name="settings_root_warning_dialog_cancel">Cancel</string>
 </resources>

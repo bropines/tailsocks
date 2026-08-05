@@ -428,7 +428,9 @@ class TailscaledService : Service() {
         if (GlobalSettings.isRootModeEnabled(this)) {
             val socketPath = "${filesDir.absolutePath}/tailscaled.sock"
             Appctr.setExternalSocketPath("")
-            RootUtils.stopRootDaemon(socketPath)
+            if (GlobalSettings.shouldKillRootDaemonOnStop(this)) {
+                RootUtils.stopRootDaemon(socketPath)
+            }
         } else {
             Appctr.stop()
         }

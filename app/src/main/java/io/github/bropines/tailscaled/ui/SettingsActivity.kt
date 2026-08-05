@@ -780,6 +780,57 @@ fun SettingsScreen(
                             var rootModeEnabled by remember { mutableStateOf(GlobalSettings.isRootModeEnabled(context)) }
                             var serviceScriptInstalled by remember { mutableStateOf(RootUtils.isServiceScriptInstalled()) }
                             var cliInstalled by remember { mutableStateOf(RootUtils.isTailscaleCliInstalled()) }
+                            var killDaemonOnStop by remember { mutableStateOf(GlobalSettings.shouldKillRootDaemonOnStop(context)) }
+                            var showRootWarningDialog by remember { mutableStateOf(false) }
+
+                            if (showRootWarningDialog) {
+                                AlertDialog(
+                                    onDismissRequest = { showRootWarningDialog = false },
+                                    title = {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = Icons.Default.Warning,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.error,
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(
+                                                text = stringResource(R.string.settings_root_warning_dialog_title),
+                                                style = MaterialTheme.typography.titleMedium
+                                            )
+                                        }
+                                    },
+                                    text = {
+                                        Text(
+                                            text = stringResource(R.string.settings_root_warning_dialog_body),
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                    },
+                                    confirmButton = {
+                                        Button(
+                                            onClick = {
+                                                showRootWarningDialog = false
+                                                if (RootUtils.isRootAvailable()) {
+                                                    rootModeEnabled = true
+                                                    GlobalSettings.setRootModeEnabled(context, true)
+                                                    Toast.makeText(context, "Root Mode enabled", Toast.LENGTH_SHORT).show()
+                                                } else {
+                                                    Toast.makeText(context, "Root access (su) not granted or unavailable", Toast.LENGTH_LONG).show()
+                                                }
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                                        ) {
+                                            Text(stringResource(R.string.settings_root_warning_dialog_confirm))
+                                        }
+                                    },
+                                    dismissButton = {
+                                        TextButton(onClick = { showRootWarningDialog = false }) {
+                                            Text(stringResource(R.string.settings_root_warning_dialog_cancel))
+                                        }
+                                    }
+                                )
+                            }
 
                             SettingsCard(title = stringResource(R.string.settings_root_sect_title)) {
                                 SettingsSwitchItem(
@@ -789,13 +840,7 @@ fun SettingsScreen(
                                     checked = rootModeEnabled
                                 ) {
                                     if (it) {
-                                        if (RootUtils.isRootAvailable()) {
-                                            rootModeEnabled = true
-                                            GlobalSettings.setRootModeEnabled(context, true)
-                                            Toast.makeText(context, "Root Mode enabled", Toast.LENGTH_SHORT).show()
-                                        } else {
-                                            Toast.makeText(context, "Root access (su) not granted or unavailable", Toast.LENGTH_LONG).show()
-                                        }
+                                        showRootWarningDialog = true
                                     } else {
                                         rootModeEnabled = false
                                         GlobalSettings.setRootModeEnabled(context, false)
@@ -836,6 +881,18 @@ fun SettingsScreen(
                                         } else {
                                             Toast.makeText(context, "Failed to manage CLI wrapper", Toast.LENGTH_SHORT).show()
                                         }
+                                    }
+
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+
+                                    SettingsSwitchItem(
+                                        title = stringResource(R.string.settings_root_kill_daemon_title),
+                                        subtitle = stringResource(R.string.settings_root_kill_daemon_desc),
+                                        icon = Icons.Default.Dangerous,
+                                        checked = killDaemonOnStop
+                                    ) {
+                                        killDaemonOnStop = it
+                                        GlobalSettings.setKillRootDaemonOnStop(context, it)
                                     }
                                 }
                             }

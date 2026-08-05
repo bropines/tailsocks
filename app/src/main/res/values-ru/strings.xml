@@ -1016,4 +1016,11 @@
     <string name="onboarding_perm_battery_configure">Настроить</string>
     <string name="onboarding_perm_battery_toast">Найдите TailSocks и отключите оптимизацию</string>
     <string name="onboarding_perm_battery_error">Не удалось открыть настройки</string>
+
+    <string name="settings_root_kill_daemon_title">Завершать Root-демон при остановке</string>
+    <string name="settings_root_kill_daemon_desc">Отправлять сигнал завершения (SIGTERM/SIGKILL) процессу libtailscale.so при клике на кнопку «Отключить».</string>
+    <string name="settings_root_warning_dialog_title">Внимание: Экспериментальный режим</string>
+    <string name="settings_root_warning_dialog_body">Включение Root-режима переводит TailSocks в режим прямой работы с TUN-интерфейсом ядра Android через системные привилегии superuser.\n\n⚠️ Обратите внимание: Данная функция является экспериментальной. Автор проекта (bropines) еще не все проверил и отлаживает этот режим.</string>
+    <string name="settings_root_warning_dialog_confirm">Понятно, включить</string>
+    <string name="settings_root_warning_dialog_cancel">Отмена</string>
 </resources>
