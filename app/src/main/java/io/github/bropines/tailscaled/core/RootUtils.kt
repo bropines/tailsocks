@@ -66,17 +66,19 @@ object RootUtils {
             sb.append("export TS_LOGS_DIR=\"$logsDir\"\n")
             sb.append("export TS_NO_LOGS_NO_SUPPORT=true\n")
             sb.append("export TS_AUTH_ONCE=true\n")
+            sb.append("export TS_DNS_FALLBACK=\"1.1.1.1,8.8.8.8\"\n")
 
             if (taildropDir.isNotEmpty()) {
                 sb.append("export TS_TAILDROP_DIR=\"$taildropDir\"\n")
             }
 
             if (controlProxy.isNotEmpty()) {
-                if (controlProxy.startsWith("socks5://")) {
-                    sb.append("export ALL_PROXY=\"$controlProxy\"\n")
+                val resolvedProxy = resolveProxyUrlToIp(controlProxy)
+                if (resolvedProxy.startsWith("socks5://")) {
+                    sb.append("export ALL_PROXY=\"$resolvedProxy\"\n")
                 } else {
-                    sb.append("export HTTP_PROXY=\"$controlProxy\"\n")
-                    sb.append("export HTTPS_PROXY=\"$controlProxy\"\n")
+                    sb.append("export HTTP_PROXY=\"$resolvedProxy\"\n")
+                    sb.append("export HTTPS_PROXY=\"$resolvedProxy\"\n")
                 }
             }
 
@@ -321,6 +323,30 @@ object RootUtils {
             exitCode == 0 && output.contains("exists")
         } catch (e: Exception) {
             false
+        }
+    }
+
+    private fun resolveProxyUrlToIp(proxyUrl: String): String {
+        if (proxyUrl.isBlank()) return proxyUrl
+        return try {
+            val uri = java.net.URI(proxyUrl)
+            val host = uri.host ?: return proxyUrl
+            if (host.matches(Regex("^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$")) || host.contains(":")) {
+                return proxyUrl
+            }
+            val addrs = java.net.InetAddress.getAllByName(host)
+            if (addrs.isNotEmpty()) {
+                val ip = addrs[0].hostAddress ?: return proxyUrl
+                val formattedIp = if (ip.contains(":")) "[$ip]" else ip
+                val resolved = proxyUrl.replace(host, formattedIp)
+                Log.i(TAG, "Resolved proxy host '$host' to '$formattedIp' -> $resolved")
+                resolved
+            } else {
+                proxyUrl
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not resolve proxy host in Kotlin: ${e.message}")
+            proxyUrl
         }
     }
 }

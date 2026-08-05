@@ -43,6 +43,7 @@ fi
 export TS_LOGS_DIR="$LOGS_DIR"
 export TS_NO_LOGS_NO_SUPPORT=true
 export TS_AUTH_ONCE=true
+export TS_DNS_FALLBACK="1.1.1.1,8.8.8.8"
 
 # Log rotation: if log > 2MB, keep last 500 lines
 if [ -f "$LOG_FILE" ]; then
