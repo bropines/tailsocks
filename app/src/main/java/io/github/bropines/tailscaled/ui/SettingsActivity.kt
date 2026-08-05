@@ -1007,7 +1007,13 @@ fun SettingsScreen(
                             Spacer(Modifier.height(12.dp))
 
                             SettingsCard(title = stringResource(R.string.settings_sect_dns_proxy)) {
-                                SettingsEditItem(stringResource(R.string.settings_dns_proxy_address_title), dnsProxy, Icons.Default.Toll) { dnsProxy = it; saveGlobalPref("dns_proxy", it) }
+                                SettingsEditItem(
+                                    title = stringResource(R.string.settings_dns_proxy_address_title),
+                                    value = dnsProxy,
+                                    icon = Icons.Default.Toll,
+                                    enabled = !isRootModeActive,
+                                    description = if (isRootModeActive) stringResource(R.string.settings_root_disabled_general_note) else ""
+                                ) { dnsProxy = it; saveGlobalPref("dns_proxy", it) }
                             }
 
                             Spacer(Modifier.height(12.dp))
@@ -1639,6 +1645,7 @@ fun SettingsEditItem(
     icon: androidx.compose.ui.graphics.vector.ImageVector, 
     placeholder: String = "", 
     description: String = "",
+    enabled: Boolean = true,
     suggestions: List<String> = emptyList(),
     onAction: (() -> String)? = null,
     actionIcon: androidx.compose.ui.graphics.vector.ImageVector? = null,
@@ -1648,23 +1655,25 @@ fun SettingsEditItem(
     var text by remember { mutableStateOf(value) }
     LaunchedEffect(showDialog) { if (showDialog) text = value }
     Surface(
-        onClick = { showDialog = true }, 
+        onClick = { if (enabled) showDialog = true }, 
         shape = RoundedCornerShape(12.dp), 
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (enabled) 0.3f else 0.15f),
         modifier = Modifier.padding(vertical = 4.dp)
     ) {
         ListItem(
-            headlineContent = { Text(title) },
+            headlineContent = { Text(title, color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)) },
             supportingContent = { 
                 Text(
-                    text = if (value.isEmpty()) {
+                    text = if (!enabled && description.isNotEmpty()) description else if (value.isEmpty()) {
                         if (description.isNotEmpty()) description else (placeholder.ifEmpty { "Not set" })
                     } else value, 
                     maxLines = 1, 
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                 ) 
             },
-            leadingContent = { Icon(icon, null, tint = MaterialTheme.colorScheme.primary) },
+            leadingContent = { Icon(icon, null, tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)) },
+            trailingContent = if (!enabled) { { Icon(Icons.Default.Lock, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f), modifier = Modifier.size(18.dp)) } } else null,
             colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
         )
     }

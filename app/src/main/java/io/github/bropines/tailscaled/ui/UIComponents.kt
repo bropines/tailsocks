@@ -209,13 +209,24 @@ fun PeerDetailsModal(
         pingResult == null -> stringResource(R.string.peer_ping)
         pingResult == "Pinging..." -> stringResource(R.string.peer_pinging)
         pingResult!!.isNotBlank() && !pingResult!!.contains("Failed") && !pingResult!!.startsWith("Error") -> {
-            val time = """\b\d+(?:\.\d+)?\s*ms\b""".toRegex().find(pingResult!!)?.value
-                ?: if (pingResult!!.contains("LatencyMs")) {
-                    val latencyVal = """"LatencyMs"\s*:\s*(\d+(?:\.\d+)?)""".toRegex().find(pingResult!!)?.groupValues?.get(1)
-                    if (latencyVal != null) "${latencyVal} ms" else ""
-                } else ""
-            val displayValue = time.ifEmpty { pingResult!!.replace("pong from", "").replace("{", "").replace("}", "").trim() }
-            if (displayValue.isNotBlank()) stringResource(R.string.peer_ping_result, displayValue)
+            val parsedTime = try {
+                val jsonObj = com.google.gson.JsonParser.parseString(pingResult!!).asJsonObject
+                val err = jsonObj.get("Err")?.asString
+                if (!err.isNullOrEmpty()) {
+                    null
+                } else {
+                    val sec = jsonObj.get("LatencySeconds")?.asDouble
+                    if (sec != null && sec > 0) {
+                        "${(sec * 1000).toInt()} ms"
+                    } else {
+                        val ms = jsonObj.get("LatencyMs")?.asDouble
+                        if (ms != null && ms > 0) "${ms.toInt()} ms" else null
+                    }
+                }
+            } catch (e: Exception) {
+                """\b\d+(?:\.\d+)?\s*ms\b""".toRegex().find(pingResult!!)?.value
+            }
+            if (parsedTime != null) stringResource(R.string.peer_ping_result, parsedTime)
             else stringResource(R.string.peer_ping_failed)
         }
         else -> stringResource(R.string.peer_ping_failed)

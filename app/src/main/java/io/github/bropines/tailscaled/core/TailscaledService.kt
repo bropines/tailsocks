@@ -148,6 +148,10 @@ class TailscaledService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent == null && !ProxyState.isUserLetRunning(this)) {
+            stopMe()
+            return START_NOT_STICKY
+        }
         val action = intent?.action
         
         if (action == "STOP_ACTION") {
