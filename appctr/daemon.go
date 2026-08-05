@@ -56,18 +56,21 @@ func tailscaledCmd(p pathControl, dnsFallbacks string, socksAddr, httpAddr, sock
 	c.Env = append(c.Env, "TS_SOCKS5_SERVER=")
 
 	if controlProxy != "" {
-		resolvedProxy := resolveProxyURL(controlProxy)
-		if strings.HasPrefix(resolvedProxy, "socks5://") {
+		if staticOverride := resolveProxyHostStatic(controlProxy); staticOverride != "" {
+			c.Env = append(c.Env, "TS_STATIC_HOSTS="+staticOverride)
+			slog.Info("Proxy: Set static DNS override for proxy host", "override", staticOverride)
+		}
+		if strings.HasPrefix(controlProxy, "socks5://") {
 			// For SOCKS5: use ALL_PROXY only. Do NOT add HTTP_PROXY or HTTPS_PROXY.
-			c.Env = append(c.Env, "ALL_PROXY="+resolvedProxy)
-			slog.Info("Proxy: Using SOCKS5 via ALL_PROXY", "url", resolvedProxy)
+			c.Env = append(c.Env, "ALL_PROXY="+controlProxy)
+			slog.Info("Proxy: Using SOCKS5 via ALL_PROXY", "url", controlProxy)
 		} else {
 			// For HTTP(S) proxy use the standard environment variables.
 			c.Env = append(c.Env,
-				"HTTP_PROXY="+resolvedProxy,
-				"HTTPS_PROXY="+resolvedProxy,
+				"HTTP_PROXY="+controlProxy,
+				"HTTPS_PROXY="+controlProxy,
 			)
-			slog.Info("Proxy: Using HTTP via HTTP_PROXY", "url", resolvedProxy)
+			slog.Info("Proxy: Using HTTP via HTTP_PROXY", "url", controlProxy)
 		}
 	}
 	if taildropDir != "" {
@@ -115,20 +118,17 @@ func tailscaledCmd(p pathControl, dnsFallbacks string, socksAddr, httpAddr, sock
 	return c.Wait()
 }
 
-func resolveProxyURL(rawURL string) string {
+func resolveProxyHostStatic(rawURL string) string {
 	if rawURL == "" {
-		return rawURL
+		return ""
 	}
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		return rawURL
+		return ""
 	}
 	host := u.Hostname()
-	if host == "" {
-		return rawURL
-	}
-	if net.ParseIP(host) != nil {
-		return rawURL
+	if host == "" || net.ParseIP(host) != nil {
+		return ""
 	}
 
 	// 1. Try standard Go resolver
@@ -137,13 +137,7 @@ func resolveProxyURL(rawURL string) string {
 
 	addrs, err := net.DefaultResolver.LookupHost(ctx, host)
 	if err == nil && len(addrs) > 0 {
-		resolvedHost := addrs[0]
-		if strings.Contains(resolvedHost, ":") {
-			resolvedHost = "[" + resolvedHost + "]"
-		}
-		u.Host = strings.Replace(u.Host, host, resolvedHost, 1)
-		slog.Info("Proxy: resolved hostname to IP", "host", host, "ip", addrs[0], "resolvedUrl", u.String())
-		return u.String()
+		return host + "=" + addrs[0]
 	}
 
 	// 2. Direct DNS query fallback via 1.1.1.1:53 UDP
@@ -156,15 +150,8 @@ func resolveProxyURL(rawURL string) string {
 	}
 	addrs, err = r.LookupHost(ctx, host)
 	if err == nil && len(addrs) > 0 {
-		resolvedHost := addrs[0]
-		if strings.Contains(resolvedHost, ":") {
-			resolvedHost = "[" + resolvedHost + "]"
-		}
-		u.Host = strings.Replace(u.Host, host, resolvedHost, 1)
-		slog.Info("Proxy: resolved hostname to IP via 1.1.1.1 fallback", "host", host, "ip", addrs[0], "resolvedUrl", u.String())
-		return u.String()
+		return host + "=" + addrs[0]
 	}
 
-	slog.Warn("Proxy: failed to resolve hostname to IP, using original", "host", host)
-	return rawURL
+	return ""
 }

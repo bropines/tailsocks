@@ -73,13 +73,25 @@ object RootUtils {
             }
 
             if (controlProxy.isNotEmpty()) {
-                val resolvedProxy = resolveProxyUrlToIp(controlProxy)
-                if (resolvedProxy.startsWith("socks5://")) {
-                    sb.append("export ALL_PROXY=\"$resolvedProxy\"\n")
-                } else {
-                    sb.append("export HTTP_PROXY=\"$resolvedProxy\"\n")
-                    sb.append("export HTTPS_PROXY=\"$resolvedProxy\"\n")
+                val staticOverride = resolveProxyHostStatic(controlProxy)
+                if (staticOverride.isNotEmpty()) {
+                    sb.append("export TS_STATIC_HOSTS=\"$staticOverride\"\n")
                 }
+                if (controlProxy.startsWith("socks5://")) {
+                    sb.append("export ALL_PROXY=\"$controlProxy\"\n")
+                } else {
+                    sb.append("export HTTP_PROXY=\"$controlProxy\"\n")
+                    sb.append("export HTTPS_PROXY=\"$controlProxy\"\n")
+                }
+            }
+
+            try {
+                val envFile = File(dataDir, "files/control_proxy.env")
+                envFile.parentFile?.mkdirs()
+                envFile.writeText(sb.toString())
+                Log.d(TAG, "Wrote control_proxy.env for service.d autostart")
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to write control_proxy.env: ${e.message}")
             }
 
             val cmd = mutableListOf<String>().apply {
@@ -326,27 +338,93 @@ object RootUtils {
         }
     }
 
-    private fun resolveProxyUrlToIp(proxyUrl: String): String {
-        if (proxyUrl.isBlank()) return proxyUrl
+    private fun resolveProxyHostStatic(proxyUrl: String): String {
+        if (proxyUrl.isBlank()) return ""
         return try {
             val uri = java.net.URI(proxyUrl)
-            val host = uri.host ?: return proxyUrl
+            val host = uri.host ?: return ""
             if (host.matches(Regex("^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$")) || host.contains(":")) {
-                return proxyUrl
+                return ""
             }
-            val addrs = java.net.InetAddress.getAllByName(host)
-            if (addrs.isNotEmpty()) {
-                val ip = addrs[0].hostAddress ?: return proxyUrl
+            var ip: String? = null
+            try {
+                val addrs = java.net.InetAddress.getAllByName(host)
+                if (addrs.isNotEmpty()) {
+                    ip = addrs[0].hostAddress
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "System DNS failed to resolve '$host', trying direct UDP DNS to 1.1.1.1...")
+            }
+            if (ip.isNullOrBlank()) {
+                ip = resolveHostViaUdpDns(host)
+            }
+            if (!ip.isNullOrBlank()) {
                 val formattedIp = if (ip.contains(":")) "[$ip]" else ip
-                val resolved = proxyUrl.replace(host, formattedIp)
-                Log.i(TAG, "Resolved proxy host '$host' to '$formattedIp' -> $resolved")
-                resolved
+                val override = "$host=$formattedIp"
+                Log.i(TAG, "Static DNS override resolved: $override")
+                override
             } else {
-                proxyUrl
+                ""
             }
         } catch (e: Exception) {
             Log.w(TAG, "Could not resolve proxy host in Kotlin: ${e.message}")
-            proxyUrl
+            ""
+        }
+    }
+
+    private fun resolveHostViaUdpDns(host: String): String? {
+        return try {
+            val socket = java.net.DatagramSocket()
+            socket.soTimeout = 2000
+            val dnsServer = java.net.InetAddress.getByName("1.1.1.1")
+
+            val baos = java.io.ByteArrayOutputStream()
+            val dos = java.io.DataOutputStream(baos)
+            dos.writeShort(0x1234)
+            dos.writeShort(0x0100)
+            dos.writeShort(0x0001)
+            dos.writeShort(0x0000)
+            dos.writeShort(0x0000)
+            dos.writeShort(0x0000)
+
+            for (part in host.split(".")) {
+                val bytes = part.toByteArray(Charsets.US_ASCII)
+                dos.writeByte(bytes.size)
+                dos.write(bytes)
+            }
+            dos.writeByte(0)
+            dos.writeShort(0x0001)
+            dos.writeShort(0x0001)
+
+            val query = baos.toByteArray()
+            val packet = java.net.DatagramPacket(query, query.size, dnsServer, 53)
+            socket.send(packet)
+
+            val buf = ByteArray(512)
+            val recvPacket = java.net.DatagramPacket(buf, buf.size)
+            socket.receive(recvPacket)
+            socket.close()
+
+            val data = recvPacket.data
+            val length = recvPacket.length
+            if (length > 12) {
+                val ancnt = ((data[6].toInt() and 0xff) shl 8) or (data[7].toInt() and 0xff)
+                if (ancnt > 0) {
+                    for (i in (length - 4) downTo 12) {
+                        val b0 = data[i].toInt() and 0xff
+                        val b1 = data[i + 1].toInt() and 0xff
+                        val b2 = data[i + 2].toInt() and 0xff
+                        val b3 = data[i + 3].toInt() and 0xff
+                        if (b0 in 1..254 && b3 in 1..254 && b0 != 127) {
+                            return "$b0.$b1.$b2.$b3"
+                        }
+                    }
+                }
+            }
+            null
+        } catch (e: Exception) {
+            Log.w(TAG, "Direct UDP DNS resolution failed for '$host': ${e.message}")
+            null
         }
     }
 }

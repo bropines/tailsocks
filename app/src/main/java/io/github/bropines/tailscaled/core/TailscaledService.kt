@@ -259,14 +259,20 @@ class TailscaledService : Service() {
                 applicationContext.sendBroadcast(Intent("STARTING"))
                 if (GlobalSettings.isRootModeEnabled(this@TailscaledService)) {
                     val socketFile = java.io.File(options.socketPath)
-                    val isAlreadyRunning = socketFile.exists() && kotlinx.coroutines.runBlocking {
-                        LocalApiClient { options.socketPath }.getStatus().isSuccess
-                    }
+                    val statusJson = if (socketFile.exists()) {
+                        kotlinx.coroutines.runBlocking { LocalApiClient { options.socketPath }.getStatus().getOrNull() }
+                    } else null
 
-                    if (isAlreadyRunning) {
-                        Log.i(TAG, "Root daemon is already running (e.g. via Magisk service.d). Attaching to existing socket.")
+                    val isRunningValid = statusJson != null && !statusJson.contains("\"BackendState\":\"NoState\"")
+
+                    if (isRunningValid) {
+                        Log.i(TAG, "Root daemon is already running and configured. Attaching to existing socket.")
                         Appctr.setExternalSocketPath(options.socketPath)
                     } else {
+                        if (socketFile.exists()) {
+                            Log.w(TAG, "Root daemon is in NoState or unconfigured. Stopping stale daemon and restarting.")
+                            RootUtils.stopRootDaemon(options.socketPath)
+                        }
                         val logsDir = java.io.File(filesDir.parentFile ?: filesDir, "logs").absolutePath
                         val logFile = "$logsDir/tailscaled.log"
                         val ok = RootUtils.startRootDaemon(
