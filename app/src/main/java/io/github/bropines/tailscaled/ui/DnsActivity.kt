@@ -103,7 +103,7 @@ fun DnsScreen(onBack: () -> Unit) {
                 return@launch
             }
             if (doFlush) {
-                Appctr.flushDNS() // Flush DNS cache in Go
+                // Do not wipe cached routes on refresh; Bus listener updates them automatically.
             }
             val json = Appctr.getDnsStatusJSON()
             val parsed = try {
@@ -141,7 +141,7 @@ fun DnsScreen(onBack: () -> Unit) {
             TopAppBar(
                 title = { Text(stringResource(R.string.dns_title)) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) } },
-                actions = { IconButton(onClick = { refresh(doFlush = true) }) { Icon(Icons.Default.Refresh, null) } }
+                actions = { IconButton(onClick = { refresh(doFlush = false) }) { Icon(Icons.Default.Refresh, null) } }
             )
         }
     ) { padding ->

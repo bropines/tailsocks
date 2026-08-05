@@ -26,7 +26,6 @@ func GetDnsStatusJSON() string {
 	}
 
 	EnsureIPNBusListener()
-	syncNetMapFromBus()
 
 	socks, _, _, dns := GConfig.get()
 
@@ -44,42 +43,44 @@ func GetDnsStatusJSON() string {
 		SplitDNSRoutes map[string][]dnsAddr `json:"SplitDNSRoutes"`
 	}
 
-	// Query LocalAPI status for dynamic DNS info
-	var statusAPI struct {
-		MagicDNSSuffix string `json:"MagicDNSSuffix"`
-		CurrentTailnet struct {
-			Name            string `json:"Name"`
-			MagicDNSSuffix  string `json:"MagicDNSSuffix"`
-			MagicDNSEnabled bool   `json:"MagicDNSEnabled"`
-		} `json:"CurrentTailnet"`
-		Self struct {
-			DNSName string `json:"DNSName"`
-		} `json:"Self"`
-	}
-
-	rawStatus, err := doLocalRequest("GET", "/localapi/v0/status", nil)
-	if err == nil {
-		_ = json.Unmarshal(rawStatus, &statusAPI)
-	}
-
+	bs := GetBusState()
 	effectiveSuffix := magicDNSSuffix
-	if effectiveSuffix == "" {
-		if statusAPI.MagicDNSSuffix != "" {
-			effectiveSuffix = statusAPI.MagicDNSSuffix
-		} else if statusAPI.CurrentTailnet.MagicDNSSuffix != "" {
-			effectiveSuffix = statusAPI.CurrentTailnet.MagicDNSSuffix
+
+	selfDNS := ""
+	if bs.Self != nil && bs.Self.DNSName != "" {
+		selfDNS = strings.TrimSuffix(bs.Self.DNSName, ".")
+	}
+
+	// Fallback to LocalAPI /status if bus state has not received NetMap yet
+	if effectiveSuffix == "" || selfDNS == "" {
+		var statusAPI struct {
+			MagicDNSSuffix string `json:"MagicDNSSuffix"`
+			CurrentTailnet struct {
+				Name            string `json:"Name"`
+				MagicDNSSuffix  string `json:"MagicDNSSuffix"`
+				MagicDNSEnabled bool   `json:"MagicDNSEnabled"`
+			} `json:"CurrentTailnet"`
+			Self struct {
+				DNSName string `json:"DNSName"`
+			} `json:"Self"`
+		}
+
+		rawStatus, err := doLocalRequest("GET", "/localapi/v0/status", nil)
+		if err == nil && json.Unmarshal(rawStatus, &statusAPI) == nil {
+			if effectiveSuffix == "" {
+				if statusAPI.MagicDNSSuffix != "" {
+					effectiveSuffix = statusAPI.MagicDNSSuffix
+				} else if statusAPI.CurrentTailnet.MagicDNSSuffix != "" {
+					effectiveSuffix = statusAPI.CurrentTailnet.MagicDNSSuffix
+				}
+			}
+			if selfDNS == "" && statusAPI.Self.DNSName != "" {
+				selfDNS = strings.TrimSuffix(statusAPI.Self.DNSName, ".")
+			}
 		}
 	}
 
-	selfDNS := ""
-	if statusAPI.Self.DNSName != "" {
-		selfDNS = strings.TrimSuffix(statusAPI.Self.DNSName, ".")
-	}
-
 	isMagicEnabled := effectiveSuffix != ""
-	if statusAPI.CurrentTailnet.MagicDNSEnabled {
-		isMagicEnabled = true
-	}
 
 	res := status{
 		TailscaleDNS: dns != "" || isMagicEnabled,
@@ -103,7 +104,7 @@ func GetDnsStatusJSON() string {
 		return true
 	})
 
-	// Fallback to nodes cache if selfDNS not obtained from LocalAPI
+	// Fallback to nodes cache if selfDNS not obtained from LocalAPI or Bus
 	if res.CurrentTailnet.SelfDNSName == "" && socks != "" && effectiveSuffix != "" {
 		nodesCache.Range(func(key, value interface{}) bool {
 			name := key.(string)
@@ -124,6 +125,13 @@ func GetBackendState() string {
 	if !IsRunning() {
 		return "Stopped"
 	}
+	// Prefer bus State if set
+	bs := GetBusState()
+	if bs.BackendState != "" {
+		return bs.BackendState
+	}
+
+	// Fallback to LocalAPI one-shot status
 	data, err := doLocalRequest("GET", "/localapi/v0/status", nil)
 	if err != nil {
 		return "Error"
@@ -143,6 +151,11 @@ func GetSelfDNSName() string {
 	if !IsRunning() {
 		return ""
 	}
+	bs := GetBusState()
+	if bs.Self != nil && bs.Self.DNSName != "" {
+		return strings.TrimSuffix(bs.Self.DNSName, ".")
+	}
+
 	data, err := doLocalRequest("GET", "/localapi/v0/status", nil)
 	if err != nil {
 		return ""
@@ -162,3 +175,4 @@ func GetSelfDNSName() string {
 func GetCoreVersion() string {
 	return coreVersion
 }
+

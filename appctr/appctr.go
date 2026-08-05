@@ -211,14 +211,6 @@ func NativeDnsQuery(domain, qtype string) string {
 }
 
 func FlushDNS() {
-	dnsCache.Range(func(key, value interface{}) bool {
-		dnsCache.Delete(key)
-		return true
-	})
-	slog.Info("DNS cache flushed")
-}
-
-func ResetDNSMetadata() {
 	splitDNSCache.Range(func(key, value interface{}) bool {
 		splitDNSCache.Delete(key)
 		return true
@@ -228,7 +220,11 @@ func ResetDNSMetadata() {
 		return true
 	})
 	magicDNSSuffix = ""
-	slog.Info("DNS split routes and nodes metadata reset")
+	slog.Info("DNS caches and metadata reset")
+}
+
+func ResetDNSMetadata() {
+	FlushDNS()
 }
 
 func syncSettings(opt *StartOptions) {
@@ -454,6 +450,7 @@ func Start(opt *StartOptions) {
 			}
 			time.Sleep(500 * time.Millisecond)
 		}
+		EnsureIPNBusListener()
 		if opt.AuthKey != "" {
 			Login(opt.AuthKey)
 		} else {

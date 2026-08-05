@@ -1,13 +1,7 @@
 package appctr
 
-// bus.go — IPN Bus Listener: subscribes to the full tailscaled LocalAPI event
+// bus.go — IPN Bus Listener: subscribes to the tailscaled LocalAPI event
 // stream (Notify struct) and maintains an in-memory snapshot of daemon state.
-//
-// Architecture:
-//   - listenToBus() receives ALL fields the daemon can emit.
-//   - BusState is the single source of truth; callers read whatever they need.
-//   - dns.go reads dnsCache/nodesCache/splitDNSCache/magicDNSSuffix from here.
-//   - status.go / other callers read State, Prefs, InitialStatus, etc.
 
 import (
 	"context"
@@ -21,124 +15,93 @@ import (
 	"time"
 )
 
-// ─── Full IPN Notify snapshot ────────────────────────────────────────────────
+// ─── IPN Notify snapshot ───────────────────────────────────────────────────
 
-// BusNotify mirrors the full tailscaled Notify struct that comes over the
-// watch-ipn-bus stream. All fields are optional (pointer / slice / map).
-// See appctr/tailscale_src/ipn/backend.go for canonical field docs.
+// BusNotify mirrors the tailscaled Notify struct fields used by appctr.
 type BusNotify struct {
 	// Session / version
-	Version   string  `json:"Version,omitempty"`
-	SessionID string  `json:"SessionID,omitempty"`
+	Version    string  `json:"Version,omitempty"`
+	SessionID  string  `json:"SessionID,omitempty"`
 	ErrMessage *string `json:"ErrMessage,omitempty"`
 
 	// Connectivity state (0=NoState, 1=InUseOtherUser, 2=NeedsLogin, 3=NeedsMachineAuth, 4=Stopped, 5=Starting, 6=Running)
 	State *int `json:"State,omitempty"`
 
-	// Preferences (sparse — only fields we actually use)
+	// Preferences
 	Prefs *BusPrefs `json:"Prefs,omitempty"`
 
-	// Initial full status snapshot (sent once on connect when NotifyInitialStatus set)
-	InitialStatus *BusStatus `json:"InitialStatus,omitempty"`
-
-	// Full network map (legacy, non-Windows mostly nil after first message)
+	// Full network map (sent on connect when NotifyInitialNetMap is set in mask)
 	NetMap *BusNetMap `json:"NetMap,omitempty"`
 
 	// Incremental peer updates
-	PeersChanged      []*BusPeer     `json:"PeersChanged,omitempty"`
-	PeersRemoved      []json.RawMessage `json:"PeersRemoved,omitempty"` // []NodeID (opaque)
-	PeerChangedPatch  []*BusPeerPatch `json:"PeerChangedPatch,omitempty"`
+	PeersChanged     []*BusPeer        `json:"PeersChanged,omitempty"`
+	PeersRemoved     []json.RawMessage `json:"PeersRemoved,omitempty"` // []NodeID
+	PeerChangedPatch []*BusPeerPatch   `json:"PeerChangedPatch,omitempty"`
 
 	// Health & suggestions
 	Health            *BusHealth `json:"Health,omitempty"`
 	SuggestedExitNode *string    `json:"SuggestedExitNode,omitempty"`
 
-	// Self-node change (lighter than full NetMap)
+	// Self-node change
 	SelfChange *BusPeer `json:"SelfChange,omitempty"`
 
 	// Client update availability
 	ClientVersion *BusClientVersion `json:"ClientVersion,omitempty"`
 
-	// Taildrop
-	FilesWaiting  *struct{} `json:"FilesWaiting,omitempty"`
-	IncomingFiles []json.RawMessage `json:"IncomingFiles,omitempty"`
-	OutgoingFiles []json.RawMessage `json:"OutgoingFiles,omitempty"`
-
 	// Engine stats
 	Engine *BusEngineStatus `json:"Engine,omitempty"`
 
 	// Auth
-	BrowseToURL  *string `json:"BrowseToURL,omitempty"`
+	BrowseToURL   *string  `json:"BrowseToURL,omitempty"`
 	LoginFinished *struct{} `json:"LoginFinished,omitempty"`
 }
 
 // BusPrefs mirrors the subset of ipn.Prefs we care about.
 type BusPrefs struct {
-	ControlURL     string `json:"ControlURL,omitempty"`
-	RouteAll       bool   `json:"RouteAll,omitempty"`
-	ExitNodeID     string `json:"ExitNodeID,omitempty"`
-	ExitNodeIP     string `json:"ExitNodeIP,omitempty"`
-	CorpDNS        bool   `json:"CorpDNS,omitempty"`
-	WantRunning    bool   `json:"WantRunning,omitempty"`
-	ShieldsUp      bool   `json:"ShieldsUp,omitempty"`
+	ControlURL      string   `json:"ControlURL,omitempty"`
+	RouteAll        bool     `json:"RouteAll,omitempty"`
+	ExitNodeID      string   `json:"ExitNodeID,omitempty"`
+	ExitNodeIP      string   `json:"ExitNodeIP,omitempty"`
+	CorpDNS         bool     `json:"CorpDNS,omitempty"`
+	WantRunning     bool     `json:"WantRunning,omitempty"`
+	ShieldsUp       bool     `json:"ShieldsUp,omitempty"`
 	AdvertiseRoutes []string `json:"AdvertiseRoutes,omitempty"`
-	Hostname       string `json:"Hostname,omitempty"`
-}
-
-// BusStatus mirrors ipnstate.Status (the InitialStatus snapshot).
-type BusStatus struct {
-	Version        string       `json:"Version,omitempty"`
-	BackendState   string       `json:"BackendState,omitempty"`
-	TailscaleIPs   []string     `json:"TailscaleIPs,omitempty"`
-	MagicDNSSuffix string       `json:"MagicDNSSuffix,omitempty"`
-	AuthURL        string       `json:"AuthURL,omitempty"`
-	Self           *BusPeer     `json:"Self,omitempty"`
-	Peer           map[string]*BusPeer `json:"Peer,omitempty"` // keyed by NodePublic hex
-	Health         []string     `json:"Health,omitempty"`
-	CurrentTailnet *BusTailnet  `json:"CurrentTailnet,omitempty"`
-	ClientVersion  *BusClientVersion `json:"ClientVersion,omitempty"`
-}
-
-// BusTailnet mirrors ipnstate.TailnetStatus.
-type BusTailnet struct {
-	Name            string `json:"Name,omitempty"`
-	MagicDNSSuffix  string `json:"MagicDNSSuffix,omitempty"`
-	MagicDNSEnabled bool   `json:"MagicDNSEnabled,omitempty"`
+	Hostname        string   `json:"Hostname,omitempty"`
 }
 
 // BusPeer mirrors tailcfg.Node / ipnstate.PeerStatus fields we need.
 type BusPeer struct {
-	ID           json.RawMessage `json:"ID,omitempty"`        // tailcfg.NodeID
-	StableID     string          `json:"StableID,omitempty"`
-	Name         string          `json:"Name,omitempty"`      // FQDN
-	HostName     string          `json:"HostName,omitempty"`
-	DNSName      string          `json:"DNSName,omitempty"`
-	OS           string          `json:"OS,omitempty"`
-	Addresses    []string        `json:"Addresses,omitempty"` // CIDR strings
-	TailscaleIPs []string        `json:"TailscaleIPs,omitempty"`
-	Online       *bool           `json:"Online,omitempty"`
-	Active       bool            `json:"Active,omitempty"`
-	ExitNode     bool            `json:"ExitNode,omitempty"`
-	ExitNodeOption bool          `json:"ExitNodeOption,omitempty"`
-	Tags         []string        `json:"Tags,omitempty"`
-	Capabilities []string        `json:"Capabilities,omitempty"`
-	Relay        string          `json:"Relay,omitempty"`  // preferred DERP region
-	LastSeen     *string         `json:"LastSeen,omitempty"`
+	ID             json.RawMessage `json:"ID,omitempty"` // tailcfg.NodeID
+	StableID       string          `json:"StableID,omitempty"`
+	Name           string          `json:"Name,omitempty"` // FQDN
+	HostName       string          `json:"HostName,omitempty"`
+	DNSName        string          `json:"DNSName,omitempty"`
+	OS             string          `json:"OS,omitempty"`
+	Addresses      []string        `json:"Addresses,omitempty"` // CIDR strings
+	TailscaleIPs   []string        `json:"TailscaleIPs,omitempty"`
+	Online         *bool           `json:"Online,omitempty"`
+	Active         bool            `json:"Active,omitempty"`
+	ExitNode       bool            `json:"ExitNode,omitempty"`
+	ExitNodeOption bool            `json:"ExitNodeOption,omitempty"`
+	Tags           []string        `json:"Tags,omitempty"`
+	Capabilities   []string        `json:"Capabilities,omitempty"`
+	Relay          string          `json:"Relay,omitempty"` // preferred DERP region
+	LastSeen       *string         `json:"LastSeen,omitempty"`
 }
 
-// BusPeerPatch mirrors tailcfg.PeerChange (narrow field updates).
+// BusPeerPatch mirrors tailcfg.PeerChange.
 type BusPeerPatch struct {
-	NodeID  json.RawMessage `json:"NodeID,omitempty"`
-	Online  *bool           `json:"Online,omitempty"`
-	LastSeen *string        `json:"LastSeen,omitempty"`
-	DERPHome *int           `json:"DERPHome,omitempty"`
+	NodeID   json.RawMessage `json:"NodeID,omitempty"`
+	Online   *bool           `json:"Online,omitempty"`
+	LastSeen *string         `json:"LastSeen,omitempty"`
+	DERPHome *int            `json:"DERPHome,omitempty"`
 }
 
-// BusNetMap mirrors a subset of netmap.NetworkMap for DNS population.
+// BusNetMap mirrors netmap.NetworkMap for DNS population.
 type BusNetMap struct {
-	MagicDNSSuffix string    `json:"MagicDNSSuffix,omitempty"`
-	SelfNode       *BusPeer  `json:"SelfNode,omitempty"`
-	Peers          []*BusPeer `json:"Peers,omitempty"`
+	MagicDNSSuffix string       `json:"MagicDNSSuffix,omitempty"`
+	SelfNode       *BusPeer     `json:"SelfNode,omitempty"`
+	Peers          []*BusPeer   `json:"Peers,omitempty"`
 	DNS            BusNetMapDNS `json:"DNS"`
 }
 
@@ -160,10 +123,10 @@ type BusHealth struct {
 
 // BusEngineStatus mirrors ipn.EngineStatus.
 type BusEngineStatus struct {
-	RBytes   int64 `json:"RBytes,omitempty"`
-	WBytes   int64 `json:"WBytes,omitempty"`
-	NumLive  int   `json:"NumLive,omitempty"`
-	LiveDERPs int  `json:"LiveDERPs,omitempty"`
+	RBytes    int64 `json:"RBytes,omitempty"`
+	WBytes    int64 `json:"WBytes,omitempty"`
+	NumLive   int   `json:"NumLive,omitempty"`
+	LiveDERPs int   `json:"LiveDERPs,omitempty"`
 }
 
 // BusClientVersion mirrors tailcfg.ClientVersion.
@@ -174,8 +137,6 @@ type BusClientVersion struct {
 
 // ─── In-memory state snapshot ────────────────────────────────────────────────
 
-// CurrentBusState holds the latest merged snapshot from all received Notify
-// messages. Callers read it under busStateMu.
 type busStateSnapshot struct {
 	BackendState   string
 	AuthURL        string
@@ -207,7 +168,6 @@ func GetBusState() busStateSnapshot {
 
 // ─── Shared DNS state (written here, read in dns.go) ────────────────────────
 
-var dnsCache sync.Map
 var splitDNSCache sync.Map // domain → []string resolverIPs
 var nodesCache sync.Map    // hostname / FQDN → []string IPs
 var magicDNSSuffix string
@@ -218,17 +178,17 @@ var busCancel context.CancelFunc
 var busMu sync.Mutex
 
 // EnsureIPNBusListener starts the bus listener goroutine if not already running,
-// provided the daemon is in Running state.
+// provided the daemon socket is active.
 func EnsureIPNBusListener() {
 	busMu.Lock()
 	defer busMu.Unlock()
 	if busCancel != nil {
 		return
 	}
-	if GetBackendState() != "Running" {
+	if !IsRunning() {
 		return
 	}
-	slog.Info("Starting IPN Bus Listener (daemon is Running)...")
+	slog.Info("Starting IPN Bus Listener...")
 	busCtx, cancel := context.WithCancel(context.Background())
 	busCancel = cancel
 	go startIPNBusListener(busCtx)
@@ -254,36 +214,39 @@ func startIPNBusListener(ctx context.Context) {
 		busMu.Unlock()
 	}()
 
-	const maxRetries = 3
-	const retryDelay = 2 * time.Second
+	delay := 2 * time.Second
 
-	slog.Info("Starting IPN Bus Listener (mask=4095)...")
-	for attempt := 1; ; attempt++ {
+	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
 			err := listenToBus(ctx)
 			if err == nil {
-				// Clean disconnect — reset counter and reconnect.
-				attempt = 0
+				delay = 2 * time.Second
 				continue
 			}
 
+			if ctx.Err() != nil {
+				return
+			}
+
 			errStr := err.Error()
-			switch {
-			case strings.Contains(errStr, "permission denied"):
+			if strings.Contains(errStr, "permission denied") {
 				slog.Error("Bus listener: permission denied — SELinux/chmod issue. Not retrying.", "err", err)
 				return
-			case strings.Contains(errStr, "no such file") || strings.Contains(errStr, "no such socket"):
-				slog.Error("Bus listener: socket missing — daemon not started.", "err", err)
+			}
+
+			slog.Warn("Bus listener disconnected, retrying", "err", err, "backoff", delay)
+			select {
+			case <-ctx.Done():
 				return
-			case attempt >= maxRetries:
-				slog.Error("Bus listener: too many failures, giving up.", "attempts", attempt, "err", err)
-				return
-			default:
-				slog.Error("Bus listener error, retrying", "attempt", attempt, "of", maxRetries, "err", err)
-				time.Sleep(retryDelay)
+			case <-time.After(delay):
+			}
+
+			delay *= 2
+			if delay > 30*time.Second {
+				delay = 30 * time.Second
 			}
 		}
 	}
@@ -366,42 +329,13 @@ func applyNotify(msg *BusNotify) {
 		slog.Warn("Bus: health warnings", "count", len(busState.Health))
 	}
 
-	// InitialStatus snapshot — populate caches from full Status
-	if msg.InitialStatus != nil {
-		s := msg.InitialStatus
-		busState.BackendState = s.BackendState
-		busState.AuthURL = s.AuthURL
-		busState.TailscaleIPs = s.TailscaleIPs
-		busState.Self = s.Self
-		if busState.Peers == nil {
-			busState.Peers = make(map[string]*BusPeer)
-		}
-		for _, p := range s.Peer {
-			if p.StableID != "" {
-				busState.Peers[p.StableID] = p
-			}
-			updateNodeCacheFromPeer(p)
-		}
-		if s.Self != nil {
-			updateNodeCacheFromPeer(s.Self)
-		}
-		suffix := s.MagicDNSSuffix
-		if suffix == "" && s.CurrentTailnet != nil {
-			suffix = s.CurrentTailnet.MagicDNSSuffix
-		}
-		if suffix != "" {
-			magicDNSSuffix = strings.ToLower(strings.Trim(suffix, "."))
-		}
-		slog.Info("Bus: initial status applied", "state", s.BackendState, "peers", len(s.Peer))
-	}
-
-	// Self-node change (lightweight alternative to full NetMap)
+	// Self-node change
 	if msg.SelfChange != nil {
 		busState.Self = msg.SelfChange
 		updateNodeCacheFromPeer(msg.SelfChange)
 	}
 
-	// Full NetMap (legacy path, first message on non-Windows)
+	// Full NetMap
 	if msg.NetMap != nil {
 		applyNetMapToDNSCache(msg.NetMap)
 		if msg.NetMap.SelfNode != nil {
@@ -422,10 +356,6 @@ func applyNotify(msg *BusNotify) {
 		}
 		slog.Info("Bus: peers upserted", "count", len(msg.PeersChanged))
 	}
-
-	// Incremental peer removals (remove from caches by StableID)
-	// PeersRemoved contains NodeIDs (opaque integers), we skip cache eviction
-	// for now as the nodes cache TTL is not critical for DNS.
 }
 
 // ─── DNS cache helpers ───────────────────────────────────────────────────────
@@ -515,41 +445,3 @@ func updateNodeCacheFromPeer(p *BusPeer) bool {
 	return false
 }
 
-// syncNetMapFromBus does a one-shot poll to pre-populate DNS caches before
-// the persistent listener is ready (e.g. on DNS proxy startup).
-func syncNetMapFromBus() {
-	pc := PC
-	client := http.Client{
-		Transport: &http.Transport{
-			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-				var d net.Dialer
-				return d.DialContext(ctx, "unix", pc.Socket())
-			},
-		},
-		Timeout: 3 * time.Second,
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	req, _ := http.NewRequestWithContext(ctx, "GET",
-		"http://local-tailscaled.sock/localapi/v0/watch-ipn-bus?mask=4095", nil)
-	resp, err := client.Do(req)
-	if err != nil {
-		return
-	}
-	defer resp.Body.Close()
-
-	dec := json.NewDecoder(resp.Body)
-	for {
-		var msg BusNotify
-		if err := dec.Decode(&msg); err != nil {
-			break
-		}
-		applyNotify(&msg)
-		// Stop after first message that gives us NetMap or InitialStatus
-		if msg.NetMap != nil || msg.InitialStatus != nil {
-			break
-		}
-	}
-}
