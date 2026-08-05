@@ -895,17 +895,31 @@ fun SettingsScreen(
                                         val coroutineScope = rememberCoroutineScope()
                                         val msgOk = stringResource(R.string.settings_root_script_reinstalled)
                                         val msgFail = stringResource(R.string.error_generic, "reinstall failed")
+                                        var reinstallStatus by remember { mutableStateOf<String?>(null) }
+                                        var isReinstallOk by remember { mutableStateOf(true) }
+
                                         Row(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .padding(start = 16.dp, end = 16.dp, bottom = 4.dp),
-                                            horizontalArrangement = Arrangement.End
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
                                         ) {
+                                            reinstallStatus?.let { status ->
+                                                Text(
+                                                    text = status,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = if (isReinstallOk) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                                )
+                                            } ?: Spacer(Modifier.width(1.dp))
+
                                             OutlinedButton(
                                                 onClick = {
                                                     coroutineScope.launch(Dispatchers.IO) {
                                                         val success = RootUtils.setServiceScriptInstalled(context, true)
                                                         withContext(Dispatchers.Main) {
+                                                            isReinstallOk = success
+                                                            reinstallStatus = if (success) msgOk else msgFail
                                                             Toast.makeText(context, if (success) msgOk else msgFail, Toast.LENGTH_SHORT).show()
                                                         }
                                                     }
@@ -956,6 +970,7 @@ fun SettingsScreen(
                                     val socketPath = "${context.filesDir.absolutePath}/tailscaled.sock"
                                     val logsDir = File(context.filesDir.parentFile ?: context.filesDir, "logs").absolutePath
                                     val logPath = "$logsDir/tailscaled.log"
+                                    val serviceScriptPath = RootUtils.SERVICE_SCRIPT_PATH
                                     var daemonAlive by remember { mutableStateOf(false) }
 
                                     // Poll real socket liveness every 3s instead of just File.exists()
@@ -968,12 +983,25 @@ fun SettingsScreen(
                                         }
                                     }
 
-                                    Text("Socket Path:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                                    Text(socketPath, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    
+                                    CopyablePathItem(
+                                        label = "Socket Path",
+                                        path = socketPath,
+                                        context = context
+                                    )
+
                                     Spacer(Modifier.height(8.dp))
-                                    Text("Log File:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                                    Text(logPath, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    CopyablePathItem(
+                                        label = "Log File",
+                                        path = logPath,
+                                        context = context
+                                    )
+
+                                    Spacer(Modifier.height(8.dp))
+                                    CopyablePathItem(
+                                        label = "Service Script Path",
+                                        path = serviceScriptPath,
+                                        context = context
+                                    )
 
                                     Spacer(Modifier.height(8.dp))
                                     Text("Daemon Status:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
@@ -2148,3 +2176,37 @@ fun SettingsExitNodeItem(
         }
     }
 }
+
+@Composable
+private fun CopyablePathItem(
+    label: String,
+    path: String,
+    context: Context
+) {
+    val clipboard = remember(context) { context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable {
+                clipboard.setPrimaryClip(ClipData.newPlainText(label, path))
+                Toast.makeText(context, "$label copied to clipboard", Toast.LENGTH_SHORT).show()
+            }
+            .padding(vertical = 2.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            Icon(
+                Icons.Default.ContentCopy,
+                contentDescription = "Copy $label",
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                modifier = Modifier.size(14.dp)
+            )
+        }
+        Text(path, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
