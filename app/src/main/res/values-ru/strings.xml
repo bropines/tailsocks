@@ -722,20 +722,20 @@
     <!-- ======================== Settings ======================== -->
     <string name="settings_title">Настройки</string>
     <string name="settings_tab_app">Интерфейс</string>
-    <string name="settings_tab_root">Root-режим 🧪</string>
+    <string name="settings_tab_root">Root-режим [EXP]</string>
     <string name="settings_tab_network">Сеть</string>
     <string name="settings_tab_core">Ядро</string>
     <string name="settings_tab_profile">Профиль</string>
     <string name="settings_root_sect_title">Root-режим и системная служба (ЭКСПЕРИМЕНТАЛЬНО)</string>
     <string name="settings_root_enable_title">Включить Native Root-режим (ЭКСПЕРИМЕНТАЛЬНО)</string>
-    <string name="settings_root_enable_desc">⚠️ ЭКСПЕРИМЕНТАЛЬНАЯ ФУНКЦИЯ (в разработке). Запуск демона через \'su\' с прямой маршрутизацией ядра (tailscale0) и iptables. Автор bropines еще не все проверил и отлаживает этот режим.</string>
+    <string name="settings_root_enable_desc">ЭКСПЕРИМЕНТАЛЬНАЯ ФУНКЦИЯ (в разработке). Запуск демона через \'su\' с прямой маршрутизацией ядра (tailscale0) и iptables. Автор bropines еще не все проверил и отлаживает этот режим.</string>
     <string name="settings_root_service_title">Автозапуск Magisk/KernelSU службы (ЭКСПЕРИМЕНТАЛЬНО)</string>
     <string name="settings_root_service_desc">Установка скрипта в /data/adb/service.d/ для автозапуска при загрузке системы</string>
     <string name="settings_root_cli_title">Установить консольную утилиту Tailscale CLI (ЭКСПЕРИМЕНТАЛЬНО)</string>
     <string name="settings_root_cli_desc">Создать исполняемую утилиту \'tailscale\' для Termux и root-консоли</string>
     <string name="settings_root_info_title">Служебная информация о демоне (ЭКСПЕРИМЕНТАЛЬНО)</string>
-    <string name="settings_root_disabled_tun_note">🔒 Недоступно в Root-режиме (активен нативный kernel TUN tailscale0. ЭКСПЕРИМЕНТАЛЬНО)</string>
-    <string name="settings_root_disabled_general_note">🔒 Недоступно в Root-режиме (ЭКСПЕРИМЕНТАЛЬНО)</string>
+    <string name="settings_root_disabled_tun_note">Недоступно в Root-режиме (активен нативный kernel TUN tailscale0. ЭКСПЕРИМЕНТАЛЬНО)</string>
+    <string name="settings_root_disabled_general_note">Недоступно в Root-режиме (ЭКСПЕРИМЕНТАЛЬНО)</string>
     <string name="settings_backup_saved">Резервная копия сохранена</string>
     <string name="settings_backup_failed_format">Ошибка резервного копирования: %1$s</string>
     <string name="settings_restored_success">Настройки успешно восстановлены. Пожалуйста, перезапустите приложение.</string>
@@ -1020,8 +1020,8 @@
     <string name="settings_root_kill_daemon_title">Завершать Root-демон при остановке</string>
     <string name="settings_root_kill_daemon_desc">Отправлять сигнал завершения (SIGTERM/SIGKILL) процессу libtailscale.so при клике на кнопку «Отключить».</string>
     <string name="settings_root_warning_dialog_title">Внимание: Экспериментальный режим</string>
-    <string name="settings_root_warning_dialog_body">Включение Root-режима переводит TailSocks в режим прямой работы с TUN-интерфейсом ядра Android через системные привилегии superuser.\n\n⚠️ Обратите внимание: Данная функция является экспериментальной. Автор проекта (bropines) еще не все проверил и отлаживает этот режим.</string>
+    <string name="settings_root_warning_dialog_body">Включение Root-режима переводит TailSocks в режим прямой работы с TUN-интерфейсом ядра Android через системные привилегии superuser.\n\nОбратите внимание: Данная функция является экспериментальной. Автор проекта (bropines) еще не все проверил и отлаживает этот режим.</string>
     <string name="settings_root_warning_dialog_confirm">Понятно, включить</string>
     <string name="settings_root_warning_dialog_cancel">Отмена</string>
-    <string name="settings_root_banner_warning">⚠️ ЭКСПЕРИМЕНТАЛЬНЫЙ РЕЖИМ\nRoot-режим находится в стадии разработки. Автор bropines еще не все проверил и отлаживает этот режим.</string>
+    <string name="settings_root_banner_warning">ЭКСПЕРИМЕНТАЛЬНЫЙ РЕЖИМ\nRoot-режим находится в стадии разработки. Автор bropines еще не все проверил и отлаживает этот режим.</string>
 </resources>

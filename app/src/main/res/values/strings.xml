@@ -722,20 +722,20 @@
     <!-- ======================== Settings ======================== -->
     <string name="settings_title">Settings</string>
     <string name="settings_tab_app">APP</string>
-    <string name="settings_tab_root">Root Mode 🧪</string>
+    <string name="settings_tab_root">Root Mode [EXP]</string>
     <string name="settings_tab_network">Network</string>
     <string name="settings_tab_core">Core</string>
     <string name="settings_tab_profile">Profile</string>
     <string name="settings_root_sect_title">Root Mode &amp; System Service (EXPERIMENTAL)</string>
     <string name="settings_root_enable_title">Enable Native Root Mode (EXPERIMENTAL)</string>
-    <string name="settings_root_enable_desc">⚠️ EXPERIMENTAL FEATURE (work in progress). Runs daemon via \'su\' with direct kernel TUN (tailscale0) and iptables. Author bropines is still actively testing and debugging this mode.</string>
+    <string name="settings_root_enable_desc">EXPERIMENTAL FEATURE (work in progress). Runs daemon via \'su\' with direct kernel TUN (tailscale0) and iptables. Author bropines is still actively testing and debugging this mode.</string>
     <string name="settings_root_service_title">Autostart Magisk/KernelSU Service (EXPERIMENTAL)</string>
     <string name="settings_root_service_desc">Install script to /data/adb/service.d/ for standalone system boot</string>
     <string name="settings_root_cli_title">Install Tailscale CLI Utility (EXPERIMENTAL)</string>
     <string name="settings_root_cli_desc">Install \'tailscale\' executable wrapper for Termux and root shell</string>
     <string name="settings_root_info_title">Daemon Runtime Information (EXPERIMENTAL)</string>
-    <string name="settings_root_disabled_tun_note">🔒 Unavailable in Root mode (native kernel TUN tailscale0 is active. EXPERIMENTAL)</string>
-    <string name="settings_root_disabled_general_note">🔒 Unavailable in Root mode (EXPERIMENTAL)</string>
+    <string name="settings_root_disabled_tun_note">Unavailable in Root mode (native kernel TUN tailscale0 is active. EXPERIMENTAL)</string>
+    <string name="settings_root_disabled_general_note">Unavailable in Root mode (EXPERIMENTAL)</string>
     <string name="settings_backup_saved">Backup saved</string>
     <string name="settings_backup_failed_format">Backup failed: %1$s</string>
     <string name="settings_restored_success">Settings restored successfully. Please restart the app.</string>
@@ -1020,8 +1020,8 @@
     <string name="settings_root_kill_daemon_title">Terminate Root Daemon on Stop</string>
     <string name="settings_root_kill_daemon_desc">Send termination signal (SIGTERM/SIGKILL) to libtailscale.so process when clicking Stop.</string>
     <string name="settings_root_warning_dialog_title">Warning: Experimental Root Mode</string>
-    <string name="settings_root_warning_dialog_body">Enabling Root Mode switches TailSocks to direct kernel TUN network interface control using superuser privileges.\n\n⚠️ Note: This feature is experimental. Project author (bropines) is actively developing and debugging this mode.</string>
+    <string name="settings_root_warning_dialog_body">Enabling Root Mode switches TailSocks to direct kernel TUN network interface control using superuser privileges.\n\nNote: This feature is experimental. Project author (bropines) is actively developing and debugging this mode.</string>
     <string name="settings_root_warning_dialog_confirm">Got it, Enable</string>
     <string name="settings_root_warning_dialog_cancel">Cancel</string>
-    <string name="settings_root_banner_warning">⚠️ EXPERIMENTAL MODE\nRoot Mode is under active development. Project author (bropines) is still actively testing and debugging this mode.</string>
+    <string name="settings_root_banner_warning">EXPERIMENTAL MODE\nRoot Mode is under active development. Project author (bropines) is still actively testing and debugging this mode.</string>
 </resources>
