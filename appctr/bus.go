@@ -12,6 +12,7 @@ package appctr
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -31,8 +32,8 @@ type BusNotify struct {
 	SessionID string  `json:"SessionID,omitempty"`
 	ErrMessage *string `json:"ErrMessage,omitempty"`
 
-	// Connectivity state
-	State *string `json:"State,omitempty"` // "Running", "NeedsLogin", etc.
+	// Connectivity state (0=NoState, 1=InUseOtherUser, 2=NeedsLogin, 3=NeedsMachineAuth, 4=Stopped, 5=Starting, 6=Running)
+	State *int `json:"State,omitempty"`
 
 	// Preferences (sparse — only fields we actually use)
 	Prefs *BusPrefs `json:"Prefs,omitempty"`
@@ -320,8 +321,14 @@ func applyNotify(msg *BusNotify) {
 
 	// Backend state
 	if msg.State != nil {
-		busState.BackendState = *msg.State
-		slog.Info("Bus: state changed", "state", *msg.State)
+		val := *msg.State
+		stateNames := [...]string{"NoState", "InUseOtherUser", "NeedsLogin", "NeedsMachineAuth", "Stopped", "Starting", "Running"}
+		if val >= 0 && val < len(stateNames) {
+			busState.BackendState = stateNames[val]
+		} else {
+			busState.BackendState = fmt.Sprintf("State(%d)", val)
+		}
+		slog.Info("Bus: state changed", "state", busState.BackendState, "code", val)
 	}
 
 	// Auth URL (login flow)
