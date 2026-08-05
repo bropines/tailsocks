@@ -25,17 +25,36 @@ var busCancel context.CancelFunc
 var busMu sync.Mutex
 
 func startIPNBusListener(ctx context.Context) {
+	const maxRetries = 3
+	const retryDelay = 2 * time.Second
 
 	slog.Info("Starting IPN Bus Listener (mask=1032)...")
-	for {
+	for attempt := 1; ; attempt++ {
 		select {
 		case <-ctx.Done():
 			return
 		default:
 			err := listenToBus(ctx)
-			if err != nil {
-				slog.Error("Bus listener error, retrying in 2s", "err", err)
-				time.Sleep(2 * time.Second)
+			if err == nil {
+				// Disconnected cleanly (ctx cancelled or stream ended) — reset counter
+				attempt = 0
+				continue
+			}
+
+			errStr := err.Error()
+			switch {
+			case strings.Contains(errStr, "permission denied"):
+				slog.Error("Bus listener: socket permission denied — SELinux or chmod issue. Daemon may be running as wrong user. Not retrying.", "err", err)
+				return
+			case strings.Contains(errStr, "no such file") || strings.Contains(errStr, "no such socket"):
+				slog.Error("Bus listener: socket file missing — daemon not started.", "err", err)
+				return
+			case attempt >= maxRetries:
+				slog.Error("Bus listener: too many failures, giving up.", "attempts", attempt, "lastErr", err)
+				return
+			default:
+				slog.Error("Bus listener error, retrying", "attempt", attempt, "maxRetries", maxRetries, "err", err)
+				time.Sleep(retryDelay)
 			}
 		}
 	}

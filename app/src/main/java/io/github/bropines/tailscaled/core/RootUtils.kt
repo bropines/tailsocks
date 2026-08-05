@@ -89,7 +89,6 @@ object RootUtils {
                 }
                 if (tunMode) {
                     add("--tun=tailscale0")
-                    add("--netfilter-mode=on")
                 } else {
                     add("--tun=userspace-networking")
                 }
@@ -219,9 +218,13 @@ object RootUtils {
                     chmod 666 "$logsDir/tailscaled.log" 2>/dev/null || true
                     for i in $(seq 1 30); do
                         if [ -S "$socketPath" ] || [ -e "$socketPath" ]; then
+                            # Get the app UID to set the correct SELinux MLS category
+                            APP_UID="${'$'}(stat -c '%u' "$socketPath" 2>/dev/null || echo 0)"
                             chmod 777 "$socketPath"
-                            chcon u:object_r:app_data_file:s0 "$socketPath" 2>/dev/null || true
                             chmod 777 "$stateDir" 2>/dev/null || true
+                            # Restore SELinux context using app's data dir as reference
+                            chcon --reference="$stateDir" "$socketPath" 2>/dev/null || \
+                                chcon u:object_r:app_data_file:s0 "$socketPath" 2>/dev/null || true
                             break
                         fi
                         sleep 0.2
