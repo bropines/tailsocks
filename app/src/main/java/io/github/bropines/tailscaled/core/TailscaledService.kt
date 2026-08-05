@@ -256,7 +256,7 @@ class TailscaledService : Service() {
                 if (GlobalSettings.isRootModeEnabled(this@TailscaledService)) {
                     val logsDir = java.io.File(filesDir.parentFile ?: filesDir, "logs").absolutePath
                     val logFile = "$logsDir/tailscaled.log"
-                    RootUtils.startRootDaemon(
+                    val ok = RootUtils.startRootDaemon(
                         context = this@TailscaledService,
                         stateDir = options.statePath,
                         socketPath = options.socketPath,
@@ -264,9 +264,14 @@ class TailscaledService : Service() {
                         socksAddr = options.socks5Server,
                         httpAddr = options.httpProxy,
                         controlProxy = options.controlProxy,
-                        taildropDir = options.taildropDir
+                        taildropDir = options.taildropDir,
+                        tunMode = GlobalSettings.isTunModeEnabled(this@TailscaledService)
                     )
+                    if (ok) {
+                        Appctr.setExternalSocketPath(options.socketPath)
+                    }
                 } else {
+                    Appctr.setExternalSocketPath("")
                     Appctr.start(options)
                 }
                 updateNotification("Active")
@@ -408,6 +413,7 @@ class TailscaledService : Service() {
         try { Appctr.stopDriveProxy() } catch (e: Exception) {}
         if (GlobalSettings.isRootModeEnabled(this)) {
             val socketPath = "${filesDir.absolutePath}/tailscaled.sock"
+            Appctr.setExternalSocketPath("")
             RootUtils.stopRootDaemon(socketPath)
         } else {
             Appctr.stop()

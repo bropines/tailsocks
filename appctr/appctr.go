@@ -121,9 +121,23 @@ func logWithFilter(text string) {
 	slog.Info(text)
 }
 
+var externalSocketPath string
+
+func SetExternalSocketPath(path string) {
+	stateMu.Lock()
+	defer stateMu.Unlock()
+	externalSocketPath = path
+	PC.SetSocket(path)
+	slog.Info("External daemon socket path set", "path", path)
+}
+
 func IsRunning() bool {
 	stateMu.Lock()
 	defer stateMu.Unlock()
+	if externalSocketPath != "" {
+		_, err := os.Stat(externalSocketPath)
+		return err == nil
+	}
 	return cmd != nil && cmd.Process != nil
 }
 

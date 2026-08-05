@@ -154,10 +154,33 @@ fun LogsScreen(onBack: () -> Unit) {
     fun loadLogsData(manual: Boolean = false) {
         if (manual) isRefreshing = true
         coroutineScope.launch(Dispatchers.IO) {
-            val jsonString = try { Appctr.getLogsJSON() } catch (e: Exception) { "[]" }
-            val logsList: List<LogEntry> = try {
+            var jsonString = try { Appctr.getLogsJSON() } catch (e: Exception) { "[]" }
+            var logsList: List<LogEntry> = try {
                 Gson().fromJson(jsonString, object : TypeToken<List<LogEntry>>() {}.type)
             } catch (e: Exception) { emptyList() }
+
+            if (logsList.isEmpty() || GlobalSettings.isRootModeEnabled(context)) {
+                val dataDir = context.filesDir.parentFile ?: context.filesDir
+                val logFile = java.io.File(dataDir, "logs/tailscaled.log")
+                if (logFile.exists()) {
+                    try {
+                        val fileLines = logFile.readLines().takeLast(300)
+                        val parsed = fileLines.map { line ->
+                            LogEntry(
+                                timestamp = if (line.length >= 19) line.substring(0, 19) else "",
+                                level = if (line.contains("ERROR") || line.contains("error")) "ERROR" else "INFO",
+                                category = "ROOT",
+                                message = line
+                            )
+                        }
+                        if (parsed.isNotEmpty()) {
+                            logsList = parsed
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("LogsActivity", "Error reading root log file: ${e.message}")
+                    }
+                }
+            }
 
             withContext(Dispatchers.Main) {
                 allLogs = logsList

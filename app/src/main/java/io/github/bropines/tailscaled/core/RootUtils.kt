@@ -30,7 +30,8 @@ object RootUtils {
         socksAddr: String = "127.0.0.1:1053",
         httpAddr: String = "",
         controlProxy: String = "",
-        taildropDir: String = ""
+        taildropDir: String = "",
+        tunMode: Boolean = true
     ): Boolean {
         return try {
             val tailscaledBin = File(context.applicationInfo.nativeLibraryDir, "libtailscale.so").absolutePath
@@ -64,15 +65,28 @@ object RootUtils {
                 add("--statedir=$stateDir")
                 add("--socket=$socketPath")
                 add("--socks5-server=$socksAddr")
+                if (tunMode) {
+                    add("--tun=tailscale0")
+                    add("--netfilter-mode=on")
+                } else {
+                    add("--tun=userspace-networking")
+                }
                 if (httpAddr.isNotEmpty()) {
                     add("--outbound-http-proxy-listen=$httpAddr")
                 }
             }.joinToString(" ")
 
             sb.append("nohup $cmd >> \"$logFile\" 2>&1 &\n")
-            sb.append("sleep 1\n")
-            sb.append("chmod 777 \"$socketPath\"\n")
-            sb.append("chcon u:object_r:app_data_file:s0 \"$socketPath\" 2>/dev/null || true\n")
+            sb.append("chmod 666 \"$logFile\" 2>/dev/null || true\n")
+            sb.append("for i in \$(seq 1 30); do\n")
+            sb.append("    if [ -S \"$socketPath\" ] || [ -e \"$socketPath\" ]; then\n")
+            sb.append("        chmod 777 \"$socketPath\"\n")
+            sb.append("        chcon u:object_r:app_data_file:s0 \"$socketPath\" 2>/dev/null || true\n")
+            sb.append("        chmod 777 \"$stateDir\" 2>/dev/null || true\n")
+            sb.append("        break\n")
+            sb.append("    fi\n")
+            sb.append("    sleep 0.2\n")
+            sb.append("done\n")
 
             val script = sb.toString()
             Log.d(TAG, "Executing root launch script:\n$script")
@@ -88,12 +102,12 @@ object RootUtils {
 
             // Verify socket creation
             var attempts = 0
-            while (attempts < 10) {
+            while (attempts < 15) {
                 if (socketFile.exists()) {
                     Log.i(TAG, "Root daemon socket successfully created at $socketPath")
                     return true
                 }
-                Thread.sleep(300)
+                Thread.sleep(200)
                 attempts++
             }
             socketFile.exists()
