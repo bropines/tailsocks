@@ -195,7 +195,7 @@ object RootUtils {
                         fi
                     fi
 
-                    nohup "${'$'}DAEMON_BIN" --statedir="$stateDir" --socket="$socketPath" --tun=tailscale0 --netfilter-mode=on >> "$logsDir/tailscaled.log" 2>&1 &
+                    nohup "${'$'}DAEMON_BIN" --statedir="$stateDir" --socket="$socketPath" --tun=tailscale0 >> "$logsDir/tailscaled.log" 2>&1 &
                     chmod 666 "$logsDir/tailscaled.log" 2>/dev/null || true
                     for i in $(seq 1 30); do
                         if [ -S "$socketPath" ] || [ -e "$socketPath" ]; then
