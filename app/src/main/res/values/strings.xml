@@ -1023,4 +1023,5 @@
     <string name="settings_root_warning_dialog_body">Enabling Root Mode switches TailSocks to direct kernel TUN network interface control using superuser privileges.\n\n⚠️ Note: This feature is experimental. Project author (bropines) is actively developing and debugging this mode.</string>
     <string name="settings_root_warning_dialog_confirm">Got it, Enable</string>
     <string name="settings_root_warning_dialog_cancel">Cancel</string>
+    <string name="settings_root_banner_warning">⚠️ EXPERIMENTAL MODE\nRoot Mode is under active development. Project author (bropines) is still actively testing and debugging this mode.</string>
 </resources>

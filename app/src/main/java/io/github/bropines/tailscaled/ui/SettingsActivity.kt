@@ -850,7 +850,7 @@ fun SettingsScreen(
                                 )
                                 Spacer(Modifier.width(10.dp))
                                 Text(
-                                    text = "⚠️ ЭКСПЕРИМЕНТАЛЬНЫЙ РЕЖИМ\nRoot-режим находится в стадии разработки. Автор bropines еще не все проверил и отлаживает этот режим.",
+                                    text = stringResource(R.string.settings_root_banner_warning),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onErrorContainer,
                                     fontWeight = FontWeight.Bold
