@@ -291,10 +291,13 @@ object RootUtils {
                     chmod 755 "$ALT_CLI_SCRIPT_PATH"
                     
                     mkdir -p "/data/adb/modules/tailscaled/system/bin"
+                    rm -f "/data/adb/modules/tailscaled/disable" "/data/adb/modules/tailscaled/remove"
                     printf 'id=tailscaled\nname=TailSocks CLI Integration\nversion=v1.0\nversionCode=100\nauthor=TailSocks\ndescription=Tailscale CLI binary overlay\n' > /data/adb/modules/tailscaled/module.prop
                     cp "${tempFile.absolutePath}" "$MAGISK_MODULE_CLI_PATH"
                     chmod 755 "$MAGISK_MODULE_CLI_PATH"
+                    chcon u:object_r:system_file:s0 "$MAGISK_MODULE_CLI_PATH" 2>/dev/null || true
                     
+                    mount -o remount,rw /product/bin 2>/dev/null && cp "${tempFile.absolutePath}" /product/bin/tailscale && chmod 755 /product/bin/tailscale && chcon u:object_r:system_file:s0 /product/bin/tailscale && mount -o remount,ro /product/bin 2>/dev/null || true
                     mount -o remount,rw /system 2>/dev/null || true
                     cp "${tempFile.absolutePath}" "$CLI_SCRIPT_PATH" 2>/dev/null && chmod 755 "$CLI_SCRIPT_PATH" || true
                     rm -f "${tempFile.absolutePath}"
@@ -310,7 +313,10 @@ object RootUtils {
                 Log.d(TAG, "Installed CLI wrapper script exitCode=$exitCode")
                 exitCode == 0
             } else {
-                val cmd = "rm -f \"$CLI_SCRIPT_PATH\" \"$ALT_CLI_SCRIPT_PATH\" \"$MAGISK_MODULE_CLI_PATH\""
+                val cmd = """
+                    rm -f "$CLI_SCRIPT_PATH" "$ALT_CLI_SCRIPT_PATH" "$MAGISK_MODULE_CLI_PATH"
+                    mount -o remount,rw /product/bin 2>/dev/null && rm -f /product/bin/tailscale && mount -o remount,ro /product/bin 2>/dev/null || true
+                """.trimIndent()
                 val process = Runtime.getRuntime().exec("su")
                 process.outputStream.bufferedWriter().use { writer ->
                     writer.write(cmd)
@@ -329,7 +335,7 @@ object RootUtils {
 
     fun isTailscaleCliInstalled(): Boolean {
         return try {
-            val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "([ -f \"$CLI_SCRIPT_PATH\" ] || [ -f \"$ALT_CLI_SCRIPT_PATH\" ] || [ -f \"$MAGISK_MODULE_CLI_PATH\" ]) && echo 'exists'"))
+            val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "([ -f \"$CLI_SCRIPT_PATH\" ] || [ -f \"$ALT_CLI_SCRIPT_PATH\" ] || [ -f \"$MAGISK_MODULE_CLI_PATH\" ] || [ -f \"/product/bin/tailscale\" ]) && echo 'exists'"))
             val exitCode = process.waitFor()
             val output = process.inputStream.bufferedReader().use { it.readText() }
             exitCode == 0 && output.contains("exists")
