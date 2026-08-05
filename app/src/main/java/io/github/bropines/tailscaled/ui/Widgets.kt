@@ -343,9 +343,10 @@ class ExitNodeToggleWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         provideContent {
             GlanceTheme {
+                val prefs        = currentState<Preferences>()
                 val activeAccount = AccountManager.getActiveAccount(context)
                 val profilePrefs = context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
-                val exitNodeIp   = profilePrefs.getString("exit_node_ip", "") ?: ""
+                val exitNodeIp   = prefs[WidgetStateKeys.EXIT_NODE] ?: profilePrefs.getString("exit_node_ip", "") ?: ""
                 val exitNodeId   = profilePrefs.getString("exit_node_id", "") ?: ""
 
                 val availableNodes = getAvailableExitNodes(context)
