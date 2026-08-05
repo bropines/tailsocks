@@ -146,18 +146,32 @@ func processDNSQuery(query []byte, fallbacks []string, dohUrl string) []byte {
 		}
 	}
 
-	// 2. Split DNS (SOCKS5 TCP).
+	// 2. Split DNS (SOCKS5 TCP with direct A-record fallback for host IP mappings).
 	if !isMagicDNS {
 		splitServers := getSplitDNSServers(domain)
-		if len(splitServers) > 0 && socks != "" {
-			for _, server := range splitServers {
-				target := net.JoinHostPort(server, "53")
-				resp, err := forwardDNSviaSOCKS5(query, socks, user, pass, target)
-				if err == nil && len(resp) >= 2 {
-					resp[0] = query[0]
-					resp[1] = query[1]
-					return resp
+		if len(splitServers) > 0 {
+			if socks != "" {
+				for _, server := range splitServers {
+					target := net.JoinHostPort(server, "53")
+					resp, err := forwardDNSviaSOCKS5(query, socks, user, pass, target)
+					if err == nil && len(resp) >= 2 {
+						resp[0] = query[0]
+						resp[1] = query[1]
+						return resp
+					}
 				}
+			}
+			// Fallback: If split servers are IP addresses (e.g. Tailnet peer IP mapped to domain in Admin Console),
+			// and no DNS server responded on port 53, return the IPs directly as A/AAAA records for this domain.
+			var validIPs []string
+			for _, server := range splitServers {
+				if ip := net.ParseIP(server); ip != nil {
+					validIPs = append(validIPs, server)
+				}
+			}
+			if len(validIPs) > 0 {
+				slog.Info("DNS proxy: returning direct split IP A-record", "domain", domain, "ips", validIPs)
+				return packDNSResponse(msg, q, validIPs, query)
 			}
 		}
 	}

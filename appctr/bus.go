@@ -394,16 +394,19 @@ func applyNetMapToDNSCache(nm *BusNetMap) {
 	for domain, resolvers := range nm.DNS.Routes {
 		var ips []string
 		for _, r := range resolvers {
-			ips = append(ips, r.Addr)
+			if r.Addr != "" {
+				ips = append(ips, r.Addr)
+			}
 		}
-		if len(ips) > 0 {
-			d := strings.ToLower(strings.Trim(domain, "."))
-			splitDNSCache.Store(d, ips)
-			routesCount++
+		if len(ips) == 0 {
+			ips = []string{"100.100.100.100"}
 		}
+		d := strings.ToLower(strings.Trim(domain, "."))
+		splitDNSCache.Store(d, ips)
+		routesCount++
 	}
 
-	if nodesCount > 0 || routesCount > 0 {
+	if nodesCount > 0 || routesCount > 0 || magicDNSSuffix != "" {
 		slog.Info("Bus: DNS caches updated", "nodes", nodesCount, "routes", routesCount, "suffix", magicDNSSuffix)
 	}
 }

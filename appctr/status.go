@@ -51,6 +51,37 @@ func GetDnsStatusJSON() string {
 		selfDNS = strings.TrimSuffix(bs.Self.DNSName, ".")
 	}
 
+	// Always query /localapi/v0/dns-config to sync live netmap DNS routes and suffix
+	var dnsConfig struct {
+		Resolvers []struct {
+			Addr string `json:"Addr"`
+		} `json:"Resolvers"`
+		Routes map[string][]struct {
+			Addr string `json:"Addr"`
+		} `json:"Routes"`
+		Domains []string `json:"Domains"`
+	}
+
+	rawConfig, err := doLocalRequest("GET", "/localapi/v0/dns-config", nil)
+	if err == nil && json.Unmarshal(rawConfig, &dnsConfig) == nil {
+		if effectiveSuffix == "" && len(dnsConfig.Domains) > 0 {
+			effectiveSuffix = strings.ToLower(strings.Trim(dnsConfig.Domains[0], "."))
+		}
+		for domain, resolvers := range dnsConfig.Routes {
+			d := strings.ToLower(strings.Trim(domain, "."))
+			var ips []string
+			for _, r := range resolvers {
+				if r.Addr != "" {
+					ips = append(ips, r.Addr)
+				}
+			}
+			if len(ips) == 0 {
+				ips = []string{"100.100.100.100"}
+			}
+			splitDNSCache.Store(d, ips)
+		}
+	}
+
 	// Fallback to LocalAPI /status if bus state has not received NetMap yet
 	if effectiveSuffix == "" || selfDNS == "" {
 		var statusAPI struct {
@@ -115,6 +146,8 @@ func GetDnsStatusJSON() string {
 			return true
 		})
 	}
+
+	slog.Info("GetDnsStatusJSON", "magic", res.CurrentTailnet.MagicDNSSuffix, "self", res.CurrentTailnet.SelfDNSName, "routesCount", len(res.SplitDNSRoutes))
 
 	data, _ := json.Marshal(res)
 	return string(data)
