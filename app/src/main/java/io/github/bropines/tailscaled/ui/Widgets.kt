@@ -83,17 +83,43 @@ fun getAvailableExitNodes(context: Context): List<ExitNodeOption> {
     val prefs = context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
     val options = mutableListOf<ExitNodeOption>()
 
+    // 1. Load cached exit nodes first so we never lose previously discovered nodes
+    val cachedJson = prefs.getString("cached_exit_nodes_json", "") ?: ""
+    if (cachedJson.isNotEmpty()) {
+        try {
+            val type = object : TypeToken<List<ExitNodeOption>>() {}.type
+            val cachedList: List<ExitNodeOption> = Gson().fromJson(cachedJson, type)
+            options.addAll(cachedList)
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    // 2. Query live daemon status if running & merge newly discovered nodes
     if (ProxyState.isActualRunning()) {
         try {
             val json = appctr.Appctr.getStatusFromAPI()
             if (json.isNotEmpty() && !json.startsWith("Error")) {
                 val status = Gson().fromJson(json, StatusResponse::class.java)
+                val liveNodes = mutableListOf<ExitNodeOption>()
                 status.peers?.values?.filter { it.exitNodeOption == true }?.forEach { peer ->
                     val ip = peer.getPrimaryIp()
                     val name = peer.getDisplayName()
                     if (ip.isNotEmpty()) {
-                        options.add(ExitNodeOption(peer.id ?: "", ip, name))
+                        liveNodes.add(ExitNodeOption(peer.id ?: "", ip, name))
                     }
+                }
+                if (liveNodes.isNotEmpty()) {
+                    for (liveNode in liveNodes) {
+                        val idx = options.indexOfFirst { it.ip == liveNode.ip }
+                        if (idx >= 0) {
+                            options[idx] = liveNode
+                        } else {
+                            options.add(liveNode)
+                        }
+                    }
+                    try {
+                        val jsonStr = Gson().toJson(options)
+                        prefs.edit().putString("cached_exit_nodes_json", jsonStr).apply()
+                    } catch (e: Exception) { e.printStackTrace() }
                 }
             }
         } catch (e: Exception) {
@@ -101,25 +127,7 @@ fun getAvailableExitNodes(context: Context): List<ExitNodeOption> {
         }
     }
 
-    if (options.isNotEmpty()) {
-        // Cache found exit nodes for offline / loading fallback
-        try {
-            val jsonStr = Gson().toJson(options)
-            prefs.edit().putString("cached_exit_nodes_json", jsonStr).apply()
-        } catch (e: Exception) { e.printStackTrace() }
-    } else {
-        // Fallback to cached list from previous runs
-        val cachedJson = prefs.getString("cached_exit_nodes_json", "") ?: ""
-        if (cachedJson.isNotEmpty()) {
-            try {
-                val type = object : TypeToken<List<ExitNodeOption>>() {}.type
-                val cachedList: List<ExitNodeOption> = Gson().fromJson(cachedJson, type)
-                options.addAll(cachedList)
-            } catch (e: Exception) { e.printStackTrace() }
-        }
-    }
-
-    // Fallback: add last_exit_node if still empty
+    // 3. Fallback: add last_exit_node if still empty
     if (options.isEmpty()) {
         val lastIp = prefs.getString("last_exit_node_ip", "") ?: ""
         val lastId = prefs.getString("last_exit_node_id", "") ?: ""
@@ -477,6 +485,11 @@ class RefreshAllActionCallback : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
         refreshAllInstances(context)
         forceAppWidgetUpdate(context)
+        if (ProxyState.isActualRunning()) {
+            delay(400)
+            refreshAllInstances(context)
+            forceAppWidgetUpdate(context)
+        }
     }
 }
 
