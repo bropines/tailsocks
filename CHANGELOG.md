@@ -2,6 +2,14 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [3.1.9-beta] - 2026-08-11
+
+### Added
+- **New Pure SVG Vector Icons & Adaptive Launcher Icon**:
+  - Refactored app launcher icons to clean modern SVG vectors with adaptive icon support (`ic_launcher_background`, `ic_launcher_foreground`, and `ic_launcher_monochrome` for Android 13+ themed icons).
+  - Added dedicated Quick Settings Tile vector drawable (`ic_qs_tile.xml`) containing only the sock and tail without grid/background for clean rendering on Xiaomi / MIUI / HyperOS and stock Android control panels.
+  - Stored original clean SVG source file and layer SVGs in `assets/icons/`.
+
 ## [3.1.8-beta] - 2026-08-06
 
 ### Added
