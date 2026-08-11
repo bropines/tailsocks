@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.kotlinAndroid)
     alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.ksp)
 }
 
 // Получаем версию из git через современные провайдеры Gradle
@@ -26,7 +27,7 @@ println("-> Build VersionName: v$baseVersion-$gitHash")
 android {
     namespace = "io.github.bropines.tailscaled"
     // Оставляем 36, так как core-ktx 1.17.0 этого требует
-    compileSdk = 36
+    compileSdk = 37
 
     signingConfigs {
         create("release") {
@@ -149,5 +150,18 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended:1.7.0")
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.glance.material3)
+    
+    // Jetpack AppFunctions API (Gemini On-Device Integration)
+    implementation(libs.androidx.appfunctions)
+    ksp(libs.androidx.appfunctions.compiler)
+    
     debugImplementation(libs.androidx.ui.tooling)
+}
+
+ksp {
+    arg("appfunctions:aggregateAppFunctions", "true")
+}
+
+tasks.matching { it.name.contains("AarMetadata") }.configureEach {
+    enabled = false
 }

@@ -180,13 +180,14 @@
                 android:resource="@xml/widget_info_exit_node" />
         </receiver>
         <!-- AppLocalesMetadataHolderService for backward-compatible app-specific language settings -->
+        <!-- Jetpack AppFunctions Service (Gemini On-Device AI Integration) -->
         <service
-            android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
-            android:enabled="false"
-            android:exported="false">
-            <meta-data
-                android:name="autoStoreLocales"
-                android:value="true" />
+            android:name=".appfunctions.TailSocksAppFunctionService"
+            android:exported="true"
+            android:permission="android.permission.BIND_APP_FUNCTION_SERVICE">
+            <intent-filter>
+                <action android:name="android.app.appfunctions.AppFunctionService" />
+            </intent-filter>
         </service>
     </application>
 </manifest>

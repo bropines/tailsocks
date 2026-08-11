@@ -2,6 +2,19 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [3.3.0] - 2026-08-11
+
+### Added
+- **Android AppFunctions API Support (On-Device AI Agent Integration for Gemini)**:
+  - Integrated `androidx.appfunctions:1.0.0-alpha10` with KSP compiler (`com.google.devtools.ksp:2.2.21-2.0.4`) to expose TailSocks tools to Android 16+ on-device AI assistants.
+  - Implemented `TailSocksFunctions` providing `@AppFunction` entry points: `getStatus`, `getAvailableExitNodes`, `getTailnetPeers`, `getAccounts`, `connect`, `disconnect`, `toggle`, `selectExitNode`, `clearExitNode`, `switchAccount`, `setByeDpi`, `setTunMode`, `setAllowLanAccess`, and `setMagicDns`.
+  - Added `TailSocksAppFunctionService` registered in `AndroidManifest.xml` with `BIND_APP_FUNCTION_SERVICE` permission.
+
+### Fixed
+- **App Update Installer Foreground Dialog Fix**:
+  - Replaced legacy `Intent(ACTION_VIEW)` with Android `PackageInstaller.Session` API in `MainActivity.kt` and `Utils.kt`.
+  - Resolves issue where launching an APK update collapsed the app to background without showing the system installation dialog.
+
 ## [3.2.0] - 2026-08-11
 
 ### Added

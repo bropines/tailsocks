@@ -11,7 +11,8 @@ lifecycle-runtime-ktx = "2.7.0"
 navigation = "2.9.6"
 documentfile = "1.0.1"
 glance = "1.1.1"
-
+ksp = "2.2.21-2.0.4"
+appfunctions = "1.0.0-alpha10"
 
 [libraries]
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
@@ -30,9 +31,11 @@ navigation-compose = { group = "androidx.navigation", name = "navigation-compose
 gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
 androidx-glance-appwidget = { group = "androidx.glance", name = "glance-appwidget", version.ref = "glance" }
 androidx-glance-material3 = { group = "androidx.glance", name = "glance-material3", version.ref = "glance" }
-
+androidx-appfunctions = { group = "androidx.appfunctions", name = "appfunctions", version.ref = "appfunctions" }
+androidx-appfunctions-compiler = { group = "androidx.appfunctions", name = "appfunctions-compiler", version.ref = "appfunctions" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
 kotlinAndroid = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
