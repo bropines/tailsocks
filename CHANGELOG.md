@@ -2,7 +2,7 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
-## [3.1.9-beta] - 2026-08-11
+## [3.2.0] - 2026-08-11
 
 ### Added
 - **New Pure SVG Vector Icons & Adaptive Launcher Icon**:
