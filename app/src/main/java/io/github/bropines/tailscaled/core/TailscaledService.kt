@@ -657,11 +657,14 @@ class TailscaledService : Service() {
                 val self = root["Self"] as? Map<String, Any>
                 if (self != null) {
                     val dnsName = (self["DNSName"] as? String)?.removeSuffix(".")
+                    val hostName = (self["HostName"] as? String)?.trim()
                     val ips = self["TailscaleIPs"] as? List<*>
                     if (!dnsName.isNullOrEmpty() && ips != null) {
+                        val shortName = dnsName.substringBefore('.')
+                        val aliases = listOfNotNull(dnsName, shortName.takeIf { it != dnsName }, hostName.takeIf { it != dnsName && it != shortName }).joinToString(" ")
                         for (ip in ips) {
                             val ipStr = ip?.toString() ?: continue
-                            hostsMap[ipStr] = dnsName
+                            hostsMap[ipStr] = aliases
                         }
                     }
                 }
@@ -670,11 +673,14 @@ class TailscaledService : Service() {
                 for ((_, peerData) in peers) {
                     val p = peerData as? Map<String, Any> ?: continue
                     val dnsName = (p["DNSName"] as? String)?.removeSuffix(".")
+                    val hostName = (p["HostName"] as? String)?.trim()
                     val ips = p["TailscaleIPs"] as? List<*>
                     if (!dnsName.isNullOrEmpty() && ips != null) {
+                        val shortName = dnsName.substringBefore('.')
+                        val aliases = listOfNotNull(dnsName, shortName.takeIf { it != dnsName }, hostName.takeIf { it != dnsName && it != shortName }).joinToString(" ")
                         for (ip in ips) {
                             val ipStr = ip?.toString() ?: continue
-                            hostsMap[ipStr] = dnsName
+                            hostsMap[ipStr] = aliases
                         }
                     }
                 }
