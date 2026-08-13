@@ -101,7 +101,15 @@ fun ProxySettingsDialog(
                     )
                     OutlinedTextField(
                         value = proxyPort,
-                        onValueChange = { proxyPort = it },
+                        onValueChange = { newValue ->
+                            val digits = newValue.filter { it.isDigit() }
+                            if (digits.length <= 5) {
+                                val num = digits.toIntOrNull()
+                                if (num == null || num <= 65535) {
+                                    proxyPort = digits
+                                }
+                            }
+                        },
                         label = { Text(stringResource(R.string.admin_proxy_socks5_port)) },
                         placeholder = { Text(stringResource(R.string.admin_proxy_socks5_port_placeholder)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),

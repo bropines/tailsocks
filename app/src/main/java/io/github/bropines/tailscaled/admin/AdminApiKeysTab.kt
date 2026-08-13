@@ -199,7 +199,9 @@ fun CreateKeyDialog(
 
                 OutlinedTextField(
                     value = expiryDays,
-                    onValueChange = { expiryDays = it },
+                    onValueChange = { newValue ->
+                        expiryDays = newValue.filter { it.isDigit() }
+                    },
                     label = { Text(stringResource(R.string.admin_keys_expiry_label)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
@@ -236,6 +238,7 @@ fun CreateKeyDialog(
                     label = { Text(stringResource(R.string.admin_keys_tags_label)) },
                     placeholder = { Text(stringResource(R.string.admin_keys_tags_placeholder)) },
                     supportingText = { Text(stringResource(R.string.admin_keys_tags_supporting)) },
+                    singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
             }

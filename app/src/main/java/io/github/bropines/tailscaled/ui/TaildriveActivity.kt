@@ -28,6 +28,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -435,12 +437,18 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
                                 value = proxyPort,
                                 onValueChange = { port ->
                                     val cleanPort = port.filter { it.isDigit() }
-                                    proxyPort = cleanPort
-                                    prefs.edit().putString("taildrive_proxy_port", cleanPort).commit()
-                                    triggerServiceSettingsUpdate(context)
+                                    if (cleanPort.length <= 5) {
+                                        val num = cleanPort.toIntOrNull()
+                                        if (num == null || num <= 65535) {
+                                            proxyPort = cleanPort
+                                            prefs.edit().putString("taildrive_proxy_port", cleanPort).commit()
+                                            triggerServiceSettingsUpdate(context)
+                                        }
+                                    }
                                 },
                                 label = { Text(stringResource(R.string.taildrive_proxy_port)) },
                                 singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 modifier = Modifier.fillMaxWidth()
                             )
 

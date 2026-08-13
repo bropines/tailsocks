@@ -38,6 +38,7 @@ import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.GlobalSettings
 import io.github.bropines.tailscaled.core.PredictiveBackContainer
 import io.github.bropines.tailscaled.core.SlidingSegmentedChips
+import io.github.bropines.tailscaled.core.CompactSearchBar
 import io.github.bropines.tailscaled.core.TunVpnService
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 import kotlinx.coroutines.Dispatchers
@@ -154,32 +155,11 @@ fun TunExcludedAppsScreen(onBack: () -> Unit) {
                     .padding(horizontal = 16.dp)
             ) {
                 // Search Bar
-                OutlinedTextField(
+                CompactSearchBar(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = { Text(stringResource(R.string.logs_search_placeholder), fontSize = 14.sp) },
-                    leadingIcon = { Icon(Icons.Default.Search, null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp)) },
-                    trailingIcon = if (searchQuery.isNotEmpty()) {
-                        {
-                            IconButton(
-                                onClick = { searchQuery = "" },
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(Icons.Default.Clear, null, modifier = Modifier.size(16.dp))
-                            }
-                        }
-                    } else null,
-                    singleLine = true,
-                    textStyle = LocalTextStyle.current.copy(fontSize = 14.sp),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp)
-                        .height(46.dp)
+                    placeholderText = stringResource(R.string.logs_search_placeholder),
+                    modifier = Modifier.padding(vertical = 8.dp)
                 )
 
                 val filterOptions = listOf(

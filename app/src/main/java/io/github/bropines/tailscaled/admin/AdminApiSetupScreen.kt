@@ -312,16 +312,24 @@ fun AdminApiSetupScreen(
                                 shape = RoundedCornerShape(8.dp)
                             )
                             Spacer(Modifier.height(8.dp))
-                            OutlinedTextField(
-                                value = proxyPort,
-                                onValueChange = { proxyPort = it },
-                                label = { Text(stringResource(R.string.admin_proxy_socks5_port)) },
-                                placeholder = { Text(stringResource(R.string.admin_proxy_socks5_port_placeholder)) },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(8.dp)
-                            )
+                             OutlinedTextField(
+                                 value = proxyPort,
+                                 onValueChange = { newValue ->
+                                     val digits = newValue.filter { it.isDigit() }
+                                     if (digits.length <= 5) {
+                                         val num = digits.toIntOrNull()
+                                         if (num == null || num <= 65535) {
+                                             proxyPort = digits
+                                         }
+                                     }
+                                 },
+                                 label = { Text(stringResource(R.string.admin_proxy_socks5_port)) },
+                                 placeholder = { Text(stringResource(R.string.admin_proxy_socks5_port_placeholder)) },
+                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                 singleLine = true,
+                                 modifier = Modifier.fillMaxWidth(),
+                                 shape = RoundedCornerShape(8.dp)
+                             )
                             Spacer(Modifier.height(8.dp))
                             OutlinedTextField(
                                 value = proxyUser,

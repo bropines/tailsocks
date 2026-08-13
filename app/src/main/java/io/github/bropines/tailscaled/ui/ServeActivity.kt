@@ -28,6 +28,8 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.res.stringResource
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -733,6 +735,7 @@ fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm
                         placeholder = { Text(stringResource(R.string.serve_field_service_placeholder)) },
                         supportingText = { Text(stringResource(R.string.serve_field_service_hint)) },
                         enabled = !data.isEditing,
+                        singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -814,10 +817,20 @@ fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm
                 val portSupportingText = if (data.isFunnel) stringResource(R.string.serve_field_port_hint_funnel) else stringResource(R.string.serve_field_port_hint_serve)
                 OutlinedTextField(
                     value = port, 
-                    onValueChange = { port = it }, 
+                    onValueChange = { newValue ->
+                        val digits = newValue.filter { it.isDigit() }
+                        if (digits.length <= 5) {
+                            val num = digits.toIntOrNull()
+                            if (num == null || num <= 65535) {
+                                port = digits
+                            }
+                        }
+                    }, 
                     label = { Text(portLabel) },
                     supportingText = { Text(portSupportingText) },
                     enabled = !data.isEditing,
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
                 
@@ -828,10 +841,25 @@ fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm
                     handlerType == "Redirect" -> stringResource(R.string.serve_field_target_redirect)
                     else -> stringResource(R.string.serve_field_target)
                 }
+                val isTargetPortOnly = (mode == "TCP")
                 OutlinedTextField(
                     value = target, 
-                    onValueChange = { target = it }, 
+                    onValueChange = { newValue ->
+                        if (isTargetPortOnly) {
+                            val digits = newValue.filter { it.isDigit() }
+                            if (digits.length <= 5) {
+                                val num = digits.toIntOrNull()
+                                if (num == null || num <= 65535) {
+                                    target = digits
+                                }
+                            }
+                        } else {
+                            target = newValue
+                        }
+                    }, 
                     label = { Text(targetLabel) },
+                    singleLine = true,
+                    keyboardOptions = if (isTargetPortOnly) KeyboardOptions(keyboardType = KeyboardType.Number) else KeyboardOptions.Default,
                     modifier = Modifier.fillMaxWidth()
                 )
             }

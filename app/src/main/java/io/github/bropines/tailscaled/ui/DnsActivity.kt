@@ -145,19 +145,18 @@ class DnsActivity : ComponentActivity() {
 fun DnsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val focusManager = LocalFocusManager.current
     var status by remember { mutableStateOf<DnsStatus?>(null) }
-    var loading by remember { mutableStateOf(false) }
+    var loading by remember { mutableStateOf(true) }
     var errorText by remember { mutableStateOf<String?>(null) }
 
     var queryDomain by remember { mutableStateOf("") }
     var queryResult by remember { mutableStateOf<String?>(null) }
     var isQuerying by remember { mutableStateOf(false) }
-    val focusManager = LocalFocusManager.current
 
-    var testResult by remember { mutableStateOf<String?>(null) }
-    var isTesting by remember { mutableStateOf(false) }
-
-    val dnsProxyPref = remember(context) { GlobalSettings.getString(context, "dns_proxy", "127.0.0.1:1053") }
+    // Split Route DNS test states
+    var routeTestResults by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var routeTestingState by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
 
     fun refresh(doFlush: Boolean) {
         loading = true
@@ -200,16 +199,15 @@ fun DnsScreen(onBack: () -> Unit) {
         }
     }
 
-    fun runDnsTest() {
-        isTesting = true
+    fun runRouteTest(domain: String, ip: String) {
+        val key = "${domain}_${ip}"
+        routeTestingState = routeTestingState + (key to true)
         scope.launch(Dispatchers.IO) {
-            val hostPort = dnsProxyPref.split(":")
-            val dnsIp = hostPort.getOrNull(0) ?: "127.0.0.1"
-            val dnsPort = hostPort.getOrNull(1)?.toIntOrNull() ?: 1053
-            val out = testDnsServer(dnsIp, dnsPort)
+            val cleanDomain = domain.trimEnd('.')
+            val res = testDnsServer(ip, 53, cleanDomain)
             withContext(Dispatchers.Main) {
-                testResult = out
-                isTesting = false
+                routeTestResults = routeTestResults + (key to res)
+                routeTestingState = routeTestingState + (key to false)
             }
         }
     }
@@ -264,116 +262,7 @@ fun DnsScreen(onBack: () -> Unit) {
                     }
                 }
 
-                // 1. LOCAL DNS Health Check Card
-                item {
-                    Spacer(Modifier.height(8.dp))
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.Dns,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(22.dp)
-                                    )
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(
-                                        text = stringResource(R.string.dns_test_local_server_title),
-                                        fontWeight = FontWeight.Bold,
-                                        style = MaterialTheme.typography.titleMedium
-                                    )
-                                }
-                                
-                                // Status Indicator
-                                val (statusText, statusColor) = when {
-                                    testResult == null -> stringResource(R.string.dns_test_status_untested) to MaterialTheme.colorScheme.outline
-                                    testResult!!.startsWith("Success") -> stringResource(R.string.dns_test_status_active) to androidx.compose.ui.graphics.Color(0xFF4CAF50)
-                                    else -> stringResource(R.string.dns_test_status_error) to MaterialTheme.colorScheme.error
-                                }
-                                Surface(
-                                    color = statusColor.copy(alpha = 0.12f),
-                                    shape = RoundedCornerShape(8.dp),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, statusColor.copy(alpha = 0.4f))
-                                ) {
-                                    Text(
-                                        text = statusText,
-                                        color = statusColor,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 11.sp,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                    )
-                                }
-                            }
-                            Spacer(Modifier.height(12.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(stringResource(R.string.dns_test_address_label), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                                    Text(dnsProxyPref, fontFamily = FontFamily.Monospace, fontSize = 14.sp)
-                                }
-                                Button(
-                                    onClick = { runDnsTest() },
-                                    shape = RoundedCornerShape(10.dp),
-                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-                                    modifier = Modifier.height(38.dp)
-                                ) {
-                                    if (isTesting) {
-                                        CircularProgressIndicator(modifier = Modifier.size(16.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
-                                    } else {
-                                        Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(16.dp))
-                                        Spacer(Modifier.width(6.dp))
-                                        Text(stringResource(R.string.dns_test_btn), fontSize = 12.sp)
-                                    }
-                                }
-                            }
-                            testResult?.let { res ->
-                                Spacer(Modifier.height(12.dp))
-                                val isSuccess = res.startsWith("Success")
-                                val latency = if (isSuccess) {
-                                    res.substringAfter("latency: ").substringBefore(" ms").toIntOrNull() ?: 0
-                                } else 0
-                                val replyBytes = if (isSuccess) {
-                                    res.substringAfter("reply: ").substringBefore(",").substringAfter("reply: ").toIntOrNull() ?: res.substringAfter("reply: ").substringBefore(" bytes").toIntOrNull() ?: 0
-                                } else 0
-                                
-                                val displayText = if (isSuccess) {
-                                    stringResource(R.string.dns_test_success_format, replyBytes, latency)
-                                } else {
-                                    stringResource(R.string.dns_test_failed_format, res.removePrefix("Failed: "))
-                                }
-                                
-                                Surface(
-                                    color = (if (isSuccess) androidx.compose.ui.graphics.Color(0xFF4CAF50) else MaterialTheme.colorScheme.error).copy(alpha = 0.08f),
-                                    shape = RoundedCornerShape(6.dp),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(
-                                            imageVector = if (isSuccess) Icons.Default.CheckCircle else Icons.Default.Error,
-                                            contentDescription = null,
-                                            tint = if (isSuccess) androidx.compose.ui.graphics.Color(0xFF4CAF50) else MaterialTheme.colorScheme.error,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        Spacer(Modifier.width(8.dp))
-                                        Text(
-                                            text = displayText,
-                                            fontSize = 13.sp,
-                                            color = if (isSuccess) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+
 
                 // 2. DNS QUERY TOOL
                 item {
@@ -386,47 +275,18 @@ fun DnsScreen(onBack: () -> Unit) {
                             Text(stringResource(R.string.dns_lookup_tool), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer, style = MaterialTheme.typography.titleMedium)
                             Spacer(Modifier.height(10.dp))
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                OutlinedTextField(
+                                CompactSearchBar(
                                     value = queryDomain,
                                     onValueChange = { queryDomain = it },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(46.dp),
-                                    textStyle = LocalTextStyle.current.copy(fontSize = 14.sp),
-                                    placeholder = {
-                                        Text(
-                                            text = stringResource(R.string.dns_lookup_placeholder),
-                                            fontSize = 14.sp,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            softWrap = false
-                                        )
-                                    },
-                                    leadingIcon = { Icon(Icons.Default.Search, null, modifier = Modifier.size(18.dp)) },
-                                    trailingIcon = if (queryDomain.isNotEmpty()) {
-                                        {
-                                            IconButton(
-                                                onClick = { queryDomain = "" },
-                                                modifier = Modifier.size(24.dp)
-                                            ) {
-                                                Icon(Icons.Default.Clear, null, modifier = Modifier.size(16.dp))
-                                            }
-                                        }
-                                    } else null,
-                                    singleLine = true,
-                                    shape = RoundedCornerShape(10.dp),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
-                                    ),
-                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                                    keyboardActions = KeyboardActions(onSearch = { performQuery(queryDomain) })
+                                    placeholderText = stringResource(R.string.dns_lookup_placeholder),
+                                    modifier = Modifier.weight(1f),
+                                    onSearch = { performQuery(queryDomain) }
                                 )
                                 Spacer(Modifier.width(8.dp))
                                 FilledIconButton(
                                     onClick = { performQuery(queryDomain) },
                                     shape = RoundedCornerShape(10.dp),
-                                    modifier = Modifier.size(height = 46.dp, width = 50.dp)
+                                    modifier = Modifier.size(height = 40.dp, width = 50.dp)
                                 ) {
                                     if (isQuerying) {
                                         CircularProgressIndicator(modifier = Modifier.size(18.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
@@ -507,7 +367,7 @@ fun DnsScreen(onBack: () -> Unit) {
                                         Text("DNS-имя устройства", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
                                         Spacer(Modifier.height(2.dp))
                                         Surface(
-                                            shape = RoundedCornerShape(4.dp),
+                                            shape = RoundedCornerShape(8.dp),
                                             color = MaterialTheme.colorScheme.surface,
                                             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
                                             modifier = Modifier.fillMaxWidth().clickable {
@@ -533,7 +393,8 @@ fun DnsScreen(onBack: () -> Unit) {
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+                                shape = RoundedCornerShape(8.dp)
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
                                     Text(stringResource(R.string.dns_split_route), color = MaterialTheme.colorScheme.outline, fontSize = 11.sp, fontWeight = FontWeight.Bold)
@@ -549,20 +410,76 @@ fun DnsScreen(onBack: () -> Unit) {
                                         }
                                     }
                                     Spacer(Modifier.height(6.dp))
-                                    val ipsText = ips.joinToString("\n") { it.addr }
-                                    Surface(
-                                        shape = MaterialTheme.shapes.small,
-                                        color = MaterialTheme.colorScheme.surface,
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
-                                        modifier = Modifier.fillMaxWidth().clickable {
-                                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                            clipboard.setPrimaryClip(ClipData.newPlainText("IPs", ipsText))
-                                            Toast.makeText(context, context.getString(R.string.dns_ips_copied), Toast.LENGTH_SHORT).show()
-                                        }
-                                    ) {
-                                        Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                                            Text(ips.joinToString("\n") { "• ${it.addr}" }, fontFamily = FontFamily.Monospace, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                                            Icon(Icons.Default.ContentCopy, stringResource(R.string.dns_cd_copy_ips), modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.outline)
+                                    ips.forEach { dnsAddr ->
+                                        val ip = dnsAddr.addr
+                                        val key = "${domain}_${ip}"
+                                        val testRes = routeTestResults[key]
+                                        val isTesting = routeTestingState[key] ?: false
+                                        
+                                        Spacer(Modifier.height(6.dp))
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = MaterialTheme.colorScheme.surface,
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(ip, fontFamily = FontFamily.Monospace, fontSize = 13.sp)
+                                                    if (testRes != null) {
+                                                        val isSuccess = testRes.startsWith("Success")
+                                                        val latency = if (isSuccess) {
+                                                            testRes.substringAfter("latency: ").substringBefore(" ms").toIntOrNull() ?: 0
+                                                        } else 0
+                                                        Text(
+                                                            text = if (isSuccess) "Ping: $latency ms" else "Failed",
+                                                            fontSize = 11.sp,
+                                                            color = if (isSuccess) androidx.compose.ui.graphics.Color(0xFF4CAF50) else MaterialTheme.colorScheme.error,
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+                                                    }
+                                                }
+                                                
+                                                // Test button
+                                                IconButton(
+                                                    onClick = { runRouteTest(domain, ip) },
+                                                    modifier = Modifier.size(28.dp),
+                                                    enabled = !isTesting
+                                                ) {
+                                                    if (isTesting) {
+                                                        CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
+                                                    } else {
+                                                        Icon(
+                                                            imageVector = Icons.Default.PlayArrow,
+                                                            contentDescription = "Test DNS Server",
+                                                            modifier = Modifier.size(16.dp),
+                                                            tint = if (testRes != null && testRes.startsWith("Success")) androidx.compose.ui.graphics.Color(0xFF4CAF50) else MaterialTheme.colorScheme.outline
+                                                        )
+                                                    }
+                                                }
+                                                
+                                                Spacer(Modifier.width(4.dp))
+                                                
+                                                // Copy button
+                                                IconButton(
+                                                    onClick = {
+                                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                                        clipboard.setPrimaryClip(ClipData.newPlainText("IP", ip))
+                                                        Toast.makeText(context, context.getString(R.string.dns_ips_copied), Toast.LENGTH_SHORT).show()
+                                                    },
+                                                    modifier = Modifier.size(28.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.ContentCopy,
+                                                        contentDescription = "Copy IP",
+                                                        modifier = Modifier.size(14.dp),
+                                                        tint = MaterialTheme.colorScheme.outline
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                 }

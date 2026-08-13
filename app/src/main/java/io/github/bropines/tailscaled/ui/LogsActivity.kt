@@ -281,28 +281,11 @@ fun LogsScreen(onBack: () -> Unit) {
                         }
                     )
                     
-                    OutlinedTextField(
+                    CompactSearchBar(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                            .height(46.dp),
-                        textStyle = LocalTextStyle.current.copy(fontSize = 14.sp),
-                        placeholder = { Text(stringResource(R.string.logs_search_placeholder), fontSize = 14.sp) },
-                        leadingIcon = { Icon(Icons.Default.Search, null, modifier = Modifier.size(18.dp)) },
-                        trailingIcon = {
-                            if (searchQuery.isNotEmpty()) {
-                                IconButton(
-                                    onClick = { searchQuery = "" },
-                                    modifier = Modifier.size(24.dp)
-                                ) {
-                                    Icon(Icons.Default.Close, null, modifier = Modifier.size(16.dp))
-                                }
-                            }
-                        },
-                        singleLine = true,
-                        shape = RoundedCornerShape(10.dp)
+                        placeholderText = stringResource(R.string.logs_search_placeholder),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                     )
 
                     val selectedCategoryIndex = categories.indexOf(selectedCategory).coerceAtLeast(0)

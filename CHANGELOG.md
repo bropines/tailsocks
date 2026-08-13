@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [3.5.4] - 2026-08-13
+
+### Fixed
+- Fixed text alignment and vertical clipping in search fields by introducing a custom compact search bar layout.
+- Modernized borders of device name and Split Routes info blocks on the DNS page using rounded corners (8.dp).
+
 ## [3.5.3] - 2026-08-13
 
 ### Added

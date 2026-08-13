@@ -605,7 +605,9 @@ fun DeviceDetailBottomSheet(
                         onValueChange = { tempTags = it },
                         placeholder = { Text(stringResource(R.string.admin_device_tags_custom_placeholder)) },
                         label = { Text(stringResource(R.string.admin_device_tags_custom_label)) },
-                        supportingText = { Text(stringResource(R.string.admin_device_tags_prefix_hint)) }
+                        supportingText = { Text(stringResource(R.string.admin_device_tags_prefix_hint)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             },

@@ -29,6 +29,8 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -653,13 +655,20 @@ fun SlideBypassSetup() {
                             )
                             OutlinedTextField(
                                 value = proxyPort,
-                                onValueChange = {
-                                    proxyPort = it
-                                    GlobalSettings.setCPField(context, "port", it)
+                                onValueChange = { newValue ->
+                                    val digits = newValue.filter { it.isDigit() }
+                                    if (digits.length <= 5) {
+                                        val num = digits.toIntOrNull()
+                                        if (num == null || num <= 65535) {
+                                            proxyPort = digits
+                                            GlobalSettings.setCPField(context, "port", digits)
+                                        }
+                                    }
                                 },
                                 label = { Text(stringResource(R.string.first_start_proxy_port_label)) },
                                 modifier = Modifier.weight(1f),
-                                singleLine = true
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                             )
                         }
 
