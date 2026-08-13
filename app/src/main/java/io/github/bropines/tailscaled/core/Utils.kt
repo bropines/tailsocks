@@ -159,88 +159,12 @@ fun PredictiveBackContainer(
     targetIcon: androidx.compose.ui.graphics.vector.ImageVector? = null,
     content: @Composable () -> Unit
 ) {
-    if (onBack == null) {
-        content()
-        return
-    }
-
-    var backProgress by remember { mutableFloatStateOf(0f) }
-    PredictiveBackHandler { progressFlow ->
-        try {
-            progressFlow.collect { backEvent ->
-                backProgress = backEvent.progress
-            }
-            onBack()
-        } catch (e: CancellationException) {
-            backProgress = 0f
-        }
-    }
-
-    val backScale = 1f - (backProgress * 0.12f)
-    val backAlpha = 1f - (backProgress * 0.35f)
-
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        // Destination preview card in the background (visible as main screen scales down)
-        if (backProgress > 0.001f) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                androidx.compose.material3.Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                    tonalElevation = 6.dp,
-                    shadowElevation = 8.dp,
-                    modifier = Modifier
-                        .padding(horizontal = 32.dp)
-                        .graphicsLayer {
-                            val scale = 0.85f + (backProgress * 0.15f)
-                            scaleX = scale
-                            scaleY = scale
-                            alpha = (backProgress * 3f).coerceIn(0f, 1f)
-                        }
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        androidx.compose.material3.Icon(
-                            imageVector = targetIcon ?: Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(22.dp)
-                        )
-                        Text(
-                            text = targetTitle ?: androidx.compose.ui.res.stringResource(R.string.action_back),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-        }
-
-        // Main screen content scaling down
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer {
-                    scaleX = backScale
-                    scaleY = backScale
-                    alpha = backAlpha
-                    clip = true
-                    shape = RoundedCornerShape((backProgress * 28).dp)
-                }
-        ) {
-            content()
-        }
+        content()
     }
 }
 

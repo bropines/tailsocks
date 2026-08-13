@@ -2,6 +2,18 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [3.5.3] - 2026-08-13
+
+### Added
+- Added built-in local DNS server health test with latency measurement.
+
+### Changed
+- Re-designed and modernized the DNS page with premium status cards.
+- Delegated back gestures to standard system-native transitions, resolving UI freezes and revealing the actual previous screen.
+- Reduced the height and padding of search input fields across the entire application.
+- Simplified Serve and Funnel rules page by removing the logs tab and log polling background loop.
+- Added automatic configuration refresh on opening Serve and Funnel screens.
+
 ## [3.5.2] - 2026-08-13
 
 ### Fixed

@@ -551,6 +551,15 @@
     <string name="dns_cd_copy_ips">Копировать IP</string>
     <string name="dns_ips_copied">IP скопированы</string>
 
+    <string name="dns_test_local_server_title">Локальный DNS-сервер</string>
+    <string name="dns_test_address_label">Адрес прокси</string>
+    <string name="dns_test_status_untested">Не проверен</string>
+    <string name="dns_test_status_active">АКТИВЕН</string>
+    <string name="dns_test_status_error">ОШИБКА</string>
+    <string name="dns_test_btn">Проверить работу DNS</string>
+    <string name="dns_test_success_format">Успешно (Ответ: %1$d б, пинг: %2$d мс)</string>
+    <string name="dns_test_failed_format">Ошибка: %1$s</string>
+
     <!-- ======================== Taildrop / Files ======================== -->
     <string name="files_hub_title">Хаб Taildrop</string>
     <string name="files_cd_taildrive">Taildrive</string>
@@ -692,8 +701,8 @@
     <string name="serve_node_port_format">Порт узла %1$s</string>
     <string name="serve_link_copied">Ссылка скопирована!</string>
     <string name="serve_service_port_format">Служба: %1$s (Порт %2$s)</string>
-    <string name="serve_no_funnel_rules">Нет активных правил Funnel</string>
-    <string name="serve_no_serve_rules">Нет активных правил Serve</string>
+    <string name="serve_no_funnel_rules">Нет активных правил Funnel. Вы можете опубликовать сервис наружу через кнопку «+» ниже.</string>
+    <string name="serve_no_serve_rules">Нет активных правил. Вы можете создать сервис, нажав кнопку «+» ниже.</string>
     <string name="serve_clear_title">Очистить Serve &amp; Funnel?</string>
     <string name="serve_clear_text">Это принудительно удалит все локальные и удаленные конфигурации Serve/Funnel для этого узла. Вы уверены?</string>
     <string name="serve_clear_confirm">Очистить</string>

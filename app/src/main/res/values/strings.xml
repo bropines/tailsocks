@@ -551,6 +551,15 @@
     <string name="dns_cd_copy_ips">Copy IPs</string>
     <string name="dns_ips_copied">IPs copied</string>
 
+    <string name="dns_test_local_server_title">Local DNS Server</string>
+    <string name="dns_test_address_label">Proxy Address</string>
+    <string name="dns_test_status_untested">Not Tested</string>
+    <string name="dns_test_status_active">ACTIVE</string>
+    <string name="dns_test_status_error">ERROR</string>
+    <string name="dns_test_btn">Run DNS Test</string>
+    <string name="dns_test_success_format">Success (Reply: %1$d bytes, ping: %2$d ms)</string>
+    <string name="dns_test_failed_format">Failed: %1$s</string>
+
     <!-- ======================== Taildrop / Files ======================== -->
     <string name="files_hub_title">Taildrop Hub</string>
     <string name="files_cd_taildrive">Taildrive</string>
@@ -692,8 +701,8 @@
     <string name="serve_node_port_format">Node Port %1$s</string>
     <string name="serve_link_copied">Link copied!</string>
     <string name="serve_service_port_format">Service: %1$s (Port %2$s)</string>
-    <string name="serve_no_funnel_rules">No active Funnel rules</string>
-    <string name="serve_no_serve_rules">No active Serve rules</string>
+    <string name="serve_no_funnel_rules">No active Funnel rules. You can expose a service via Funnel by clicking the "+" button below.</string>
+    <string name="serve_no_serve_rules">No active Serve rules. You can create a service by clicking the "+" button below.</string>
     <string name="serve_clear_title">Clear Serve &amp; Funnel?</string>
     <string name="serve_clear_text">This will aggressively purge all local and remote Serve/Funnel configurations for this node. Are you sure?</string>
     <string name="serve_clear_confirm">Purge</string>

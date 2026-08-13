@@ -86,13 +86,12 @@ fun ServeScreen(onBack: () -> Unit) {
     var config by remember { mutableStateOf<ServeConfig?>(null) }
     var selfDns by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(true) }
-    val pagerState = rememberPagerState(pageCount = { 3 })
+    val pagerState = rememberPagerState(pageCount = { 2 })
     var showEditDialog by remember { mutableStateOf<ServeRuleEditData?>(null) }
     var showClearDialog by remember { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
     val clipboard = LocalClipboardManager.current
     var healthMap by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
-    var serveLogs by remember { mutableStateOf<List<LogEntry>>(emptyList()) }
 
     var pendingCertData by remember { mutableStateOf("") }
     var showCertExportDialog by remember { mutableStateOf(false) }
@@ -100,7 +99,10 @@ fun ServeScreen(onBack: () -> Unit) {
         if (uri != null && pendingCertData.isNotEmpty()) {
             scope.launch(Dispatchers.IO) {
                 try {
-                    context.contentResolver.openOutputStream(uri)?.use { it.write(pendingCertData.toByteArray()) }
+                    context.contentResolver.openOutputStream(uri)?.use { out ->
+                        out.write(pendingCertData.toByteArray())
+                        out.flush()
+                    }
                     withContext(Dispatchers.Main) {
                         Toast.makeText(context, context.getString(R.string.serve_cert_saved), Toast.LENGTH_SHORT).show()
                     }
@@ -109,33 +111,6 @@ fun ServeScreen(onBack: () -> Unit) {
                         Toast.makeText(context, context.getString(R.string.serve_save_failed_format, e.message), Toast.LENGTH_LONG).show()
                     }
                 }
-            }
-        }
-    }
-
-    fun loadServeLogs() {
-        scope.launch(Dispatchers.IO) {
-            val jsonString = try { Appctr.getLogsJSON() } catch (e: Exception) { "[]" }
-            val logsList: List<LogEntry> = try {
-                Gson().fromJson(jsonString, object : com.google.gson.reflect.TypeToken<List<LogEntry>>() {}.type)
-            } catch (e: Exception) { emptyList() }
-            
-            val filtered = logsList.filter { log ->
-                val msg = log.message.lowercase()
-                msg.contains("serve") || msg.contains("funnel") || msg.contains("ingress") || msg.contains("accept: tcp") || msg.contains("tls")
-            }
-            
-            withContext(Dispatchers.Main) {
-                serveLogs = filtered
-            }
-        }
-    }
-
-    LaunchedEffect(pagerState.currentPage) {
-        if (pagerState.currentPage == 2) {
-            while (true) {
-                loadServeLogs()
-                delay(3000)
             }
         }
     }
@@ -186,6 +161,10 @@ fun ServeScreen(onBack: () -> Unit) {
             } catch (e: Exception) { e.printStackTrace() }
             withContext(Dispatchers.Main) { isLoading = false }
         }
+    }
+
+    LaunchedEffect(Unit) {
+        refresh()
     }
 
     fun saveConfig(newConfig: ServeConfig) {
@@ -247,8 +226,7 @@ fun ServeScreen(onBack: () -> Unit) {
                     )
                     val serveTabs = listOf(
                         stringResource(R.string.serve_tab_serve),
-                        stringResource(R.string.serve_tab_funnel),
-                        stringResource(R.string.serve_tab_logs)
+                        stringResource(R.string.serve_tab_funnel)
                     )
                     val pageOffset = (pagerState.currentPage + pagerState.currentPageOffsetFraction).coerceIn(0f, (serveTabs.size - 1).toFloat())
                     SlidingSegmentedChips(
@@ -282,40 +260,7 @@ fun ServeScreen(onBack: () -> Unit) {
             modifier = Modifier.padding(padding).fillMaxSize()
         ) {
             HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
-                if (page == 2) {
-                    val listState = rememberLazyListState()
-                    LaunchedEffect(serveLogs.size) {
-                        if (serveLogs.isNotEmpty()) {
-                            listState.animateScrollToItem(serveLogs.size - 1)
-                        }
-                    }
-                    if (serveLogs.isEmpty()) {
-                        Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                            Icon(Icons.AutoMirrored.Filled.List, null, modifier = Modifier.size(64.dp), tint = Color.Gray)
-                            Spacer(Modifier.height(16.dp))
-                            Text(stringResource(R.string.serve_no_logs), style = MaterialTheme.typography.bodyLarge, color = Color.Gray)
-                        }
-                    } else {
-                        LazyColumn(
-                            state = listState,
-                            modifier = Modifier.fillMaxSize().padding(16.dp)
-                        ) {
-                            items(serveLogs) { log ->
-                                val defaultColor = MaterialTheme.colorScheme.onSurface
-                                val highlightedText = remember(log, defaultColor) {
-                                    highlightLogMessage(log.timestamp, log.category, log.message, defaultColor)
-                                }
-                                Text(
-                                    text = highlightedText,
-                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                                    fontSize = 11.sp,
-                                    modifier = Modifier.padding(vertical = 2.dp)
-                                )
-                            }
-                        }
-                    }
-                } else {
-                    val isFunnelTab = page == 1
+                val isFunnelTab = page == 1
                     val serveItems = mutableListOf<@Composable () -> Unit>()
                     val funnelItems = mutableListOf<@Composable () -> Unit>()
 
@@ -489,7 +434,6 @@ fun ServeScreen(onBack: () -> Unit) {
                 }
             }
         }
-    }
     }
 
     showEditDialog?.let { editData ->

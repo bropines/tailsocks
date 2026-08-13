@@ -157,16 +157,21 @@ fun TunExcludedAppsScreen(onBack: () -> Unit) {
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = { Text(stringResource(R.string.logs_search_placeholder)) },
-                    leadingIcon = { Icon(Icons.Default.Search, null, tint = MaterialTheme.colorScheme.outline) },
+                    placeholder = { Text(stringResource(R.string.logs_search_placeholder), fontSize = 14.sp) },
+                    leadingIcon = { Icon(Icons.Default.Search, null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp)) },
                     trailingIcon = if (searchQuery.isNotEmpty()) {
                         {
-                            IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Default.Clear, null)
+                            IconButton(
+                                onClick = { searchQuery = "" },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(Icons.Default.Clear, null, modifier = Modifier.size(16.dp))
                             }
                         }
                     } else null,
                     singleLine = true,
+                    textStyle = LocalTextStyle.current.copy(fontSize = 14.sp),
+                    shape = RoundedCornerShape(10.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
                         unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
@@ -174,9 +179,9 @@ fun TunExcludedAppsScreen(onBack: () -> Unit) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 8.dp)
+                        .height(46.dp)
                 )
 
-                // Filtering Chips
                 val filterOptions = listOf(
                     stringResource(R.string.tun_apps_filter_all) + " (${apps.size})",
                     stringResource(R.string.tun_apps_filter_excluded) + " (${excluded.value.size})"

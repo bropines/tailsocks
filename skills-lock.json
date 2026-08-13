@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "council": {
+      "source": "warpdotdev/common-skills",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/council/SKILL.md",
+      "computedHash": "0eecde0e3b4e20cab0f8376c7994e7aa7b8dd2cdc6e5bb56f945baf98bef1c95"
+    }
+  }
+}
