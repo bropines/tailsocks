@@ -62,14 +62,14 @@ bash build.sh
 
 ## 📂 Project Layout
 
-* [`app/src/main/java/io/github/bropines/tailscaled/`](file:///Users/pinus/projects/tailsocks/app/src/main/java/io/github/bropines/tailscaled/) — Kotlin Android source code.
-  * [`admin/`](file:///Users/pinus/projects/tailsocks/app/src/main/java/io/github/bropines/tailscaled/admin/) — Device & network management via Tailscale Admin API.
-  * [`core/`](file:///Users/pinus/projects/tailsocks/app/src/main/java/io/github/bropines/tailscaled/core/) — Background services, VPN tunnel, ByeDPI JNI, account storage, tasker receiver.
-  * [`ui/`](file:///Users/pinus/projects/tailsocks/app/src/main/java/io/github/bropines/tailscaled/ui/) — Jetpack Compose dashboards, settings, serve UI, and dialogs.
-* [`appctr/`](file:///Users/pinus/projects/tailsocks/appctr/) — Go Gomobile bridge and core engine.
-  * [`patches/`](file:///Users/pinus/projects/tailsocks/appctr/patches/) — Atomic Tailscale patch files (`01-*.patch` .. `11-*.patch`).
-  * [`tailscale_src/`](file:///Users/pinus/projects/tailsocks/appctr/tailscale_src/) — Active patched Tailscale source copy (git-ignored).
-  * [`orig/`](file:///Users/pinus/projects/tailsocks/appctr/orig/) — Original clean Tailscale sources (git-ignored).
+* [`app/src/main/java/io/github/bropines/tailscaled/`](app/src/main/java/io/github/bropines/tailscaled/) — Kotlin Android source code.
+  * [`admin/`](app/src/main/java/io/github/bropines/tailscaled/admin/) — Device & network management via Tailscale Admin API.
+  * [`core/`](app/src/main/java/io/github/bropines/tailscaled/core/) — Background services, VPN tunnel, ByeDPI JNI, account storage, tasker receiver.
+  * [`ui/`](app/src/main/java/io/github/bropines/tailscaled/ui/) — Jetpack Compose dashboards, settings, serve UI, and dialogs.
+* [`appctr/`](appctr/) — Go Gomobile bridge and core engine.
+  * [`patches/`](appctr/patches/) — Atomic Tailscale patch files (`01-*.patch` .. `11-*.patch`).
+  * [`tailscale_src/`](appctr/tailscale_src/) — Active patched Tailscale source copy (git-ignored).
+  * [`orig/`](appctr/orig/) — Original clean Tailscale sources (git-ignored).
 
 ---
 
@@ -81,14 +81,14 @@ bash build.sh
   - Colors, shapes, and typography must dynamically adapt via `TailSocksTheme`, which supports multiple presets, AMOLED pure black mode, and dynamic color (`dynamicLightColorScheme` / `dynamicDarkColorScheme`). Use semantic colors (e.g., `MaterialTheme.colorScheme.surfaceContainerHigh`) rather than hardcoded hex values.
 
 * **High-Density 2×4 Grid Dashboard**:
-  - The main dashboard ([`MainActivity.kt`](file:///Users/pinus/projects/tailsocks/app/src/main/java/io/github/bropines/tailscaled/ui/MainActivity.kt)) utilizes a dense, scroll-free vertical layout encapsulated in a `Column`.
+  - The main dashboard ([`MainActivity.kt`](app/src/main/java/io/github/bropines/tailscaled/ui/MainActivity.kt)) utilizes a dense, scroll-free vertical layout encapsulated in a `Column`.
   - Core control is a large `StatusCard` with 28.dp rounded corners serving as the primary connection toggle.
   - Sub-menus are arranged in a 2×4 grid using `Row` components where each `MenuCard` uses `Modifier.weight(1f)` for a precise 2-column distribution.
 
 * **Component & Layout Patterns**:
   - **Cards & Surfaces**: Extensively use `ElevatedCard` or `Surface` with `RoundedCornerShape(16.dp)` for list items and configuration containers.
   - **Pull-To-Refresh**: Use Material 3's `PullToRefreshBox` with `rememberPullToRefreshState` for lists requiring manual sync (e.g., Peers list, Logs).
-  - **Horizontal Pager**: Use `HorizontalPager` for tabbed views (e.g., Serve/Funnel/Logs in [`ServeActivity.kt`](file:///Users/pinus/projects/tailsocks/app/src/main/java/io/github/bropines/tailscaled/ui/ServeActivity.kt)).
+  - **Horizontal Pager**: Use `HorizontalPager` for tabbed views (e.g., Serve/Funnel/Logs in [`ServeActivity.kt`](app/src/main/java/io/github/bropines/tailscaled/ui/ServeActivity.kt)).
   - **Chip-Based Controls**: For mutually exclusive settings (e.g., Serve Mode [Web/TCP], Transport [HTTP/HTTPS]), use `FilterChip` organized in horizontally scrollable rows: `Row(horizontalArrangement = Arrangement.spacedBy(8.dp))`.
 
 * **Dialog & BottomSheet Patterns**:
@@ -100,7 +100,7 @@ bash build.sh
   - **Preference Sync**: Use `DisposableEffect` with `SharedPreferences.OnSharedPreferenceChangeListener` to react to global/account preference changes instantly across the app.
   - **Side Effects**: Use `LaunchedEffect` and `CoroutineScope(Dispatchers.IO)` for backend API calls via `Appctr`, returning state to the main thread via `withContext(Dispatchers.Main)`. Never block the UI thread during JNI calls.
 
-* **KISS & DRY Principles**: Keep code simple and reusable. Reuse common utilities in [`Utils.kt`](file:///Users/pinus/projects/tailsocks/app/src/main/java/io/github/bropines/tailscaled/core/Utils.kt) and preferences in [`GlobalSettings.kt`](file:///Users/pinus/projects/tailsocks/app/src/main/java/io/github/bropines/tailscaled/core/GlobalSettings.kt).
+* **KISS & DRY Principles**: Keep code simple and reusable. Reuse common utilities in [`Utils.kt`](app/src/main/java/io/github/bropines/tailscaled/core/Utils.kt) and preferences in [`GlobalSettings.kt`](app/src/main/java/io/github/bropines/tailscaled/core/GlobalSettings.kt).
 
 ---
 
@@ -111,9 +111,10 @@ bash build.sh
   - Release builds: `v<version>-<6_char_hash>(release)` (e.g., `v3.1.4-081be9(release)`)
   - Debug/Dev builds: `v<version>-<6_char_hash>-dev` (e.g., `v3.1.4-081be9-dev`)  
   Always use `.replace(Regex("[^0-9.]"), "")` when parsing or comparing version name strings in Kotlin (e.g., `isVersionNewer` in `MainActivity.kt`) to strip non-numeric suffixes before splitting.
-* **Changelog Rules**: Track changes in [`CHANGELOG.md`](file:///Users/pinus/projects/tailsocks/CHANGELOG.md):
+* **Changelog Rules**: Track changes in [`CHANGELOG.md`](CHANGELOG.md):
   - Always record new changes under a bumped version header (`## [X.Y.Z] - YYYY-MM-DD`). Do not append changes to an already released or tagged version header.
   - Document factual updates only ("What" and "Why"). Do not include discarded experiments or marketing fluff.
+  - **User & Releaser Oriented (Minimal Technical Noise)**: `CHANGELOG.md` is created for end-users and the releaser, not for internal code diff tracking. Keep entries simple, concise, and focused on user-facing impact. **Do NOT include low-level technical details**: avoid internal class/struct names (e.g., `PredictiveBackContainer`), source file paths (`Utils.kt`, `appctr/api.go`), function arguments/constants (`scale = 0.88`, `maxLines = 1`), XML resource IDs, or code-level API payloads.
 
 ---
 
