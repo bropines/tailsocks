@@ -310,6 +310,16 @@ fun PredictiveBackContainer(
         return
     }
 
+    // Official Android Predictive Back Rule:
+    // Intercepting back at Activity level (when no in-compose previousContent is provided)
+    // DISABLES system cross-activity predictive back animation!
+    // When previousContent is null, do NOT register PredictiveBackHandler so Android OS
+    // WindowManager natively animates Activity-to-Activity window scaling & reveals real previous Activity window.
+    if (previousContent == null) {
+        content()
+        return
+    }
+
     var backProgress by remember { mutableFloatStateOf(0f) }
     var swipeEdge by remember { mutableIntStateOf(0) }
 
@@ -326,22 +336,22 @@ fun PredictiveBackContainer(
     }
 
     val density = androidx.compose.ui.platform.LocalDensity.current
-    val backScale = 1f - (backProgress * 0.06f)
-    val backAlpha = 1f - (backProgress * 0.15f)
+    val backScale = 1f - (backProgress * 0.08f)
+    val backAlpha = 1f - (backProgress * 0.2f)
     val translationDirection = if (swipeEdge == 1) -1f else 1f
     val translationXOffset = with(density) { (backProgress * 24.dp.toPx() * translationDirection) }
 
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(androidx.compose.ui.graphics.Color.Transparent)
+            .background(MaterialTheme.colorScheme.background)
     ) {
-        if (previousContent != null && backProgress > 0.001f) {
+        if (backProgress > 0.001f) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer {
-                        val scale = 0.95f + (backProgress * 0.05f)
+                        val scale = 0.94f + (backProgress * 0.06f)
                         scaleX = scale
                         scaleY = scale
                         alpha = (backProgress * 2f).coerceIn(0f, 1f)
@@ -360,7 +370,7 @@ fun PredictiveBackContainer(
                     alpha = backAlpha
                     translationX = translationXOffset
                     clip = true
-                    shape = RoundedCornerShape((backProgress * 18).dp)
+                    shape = RoundedCornerShape((backProgress * 20).dp)
                 }
         ) {
             content()
