@@ -326,22 +326,22 @@ fun PredictiveBackContainer(
     }
 
     val density = androidx.compose.ui.platform.LocalDensity.current
-    val backScale = 1f - (backProgress * 0.12f)
-    val backAlpha = 1f - (backProgress * 0.25f)
+    val backScale = 1f - (backProgress * 0.06f)
+    val backAlpha = 1f - (backProgress * 0.15f)
     val translationDirection = if (swipeEdge == 1) -1f else 1f
-    val translationXOffset = with(density) { (backProgress * 120.dp.toPx() * translationDirection) }
+    val translationXOffset = with(density) { (backProgress * 24.dp.toPx() * translationDirection) }
 
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(androidx.compose.ui.graphics.Color.Transparent)
     ) {
         if (previousContent != null && backProgress > 0.001f) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer {
-                        val scale = 0.92f + (backProgress * 0.08f)
+                        val scale = 0.95f + (backProgress * 0.05f)
                         scaleX = scale
                         scaleY = scale
                         alpha = (backProgress * 2f).coerceIn(0f, 1f)
@@ -360,7 +360,7 @@ fun PredictiveBackContainer(
                     alpha = backAlpha
                     translationX = translationXOffset
                     clip = true
-                    shape = RoundedCornerShape((backProgress * 24).dp)
+                    shape = RoundedCornerShape((backProgress * 18).dp)
                 }
         ) {
             content()
