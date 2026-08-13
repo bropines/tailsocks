@@ -10,6 +10,26 @@ import android.content.Context
 import android.net.Uri
 import com.google.gson.Gson
 import java.io.File
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.activity.compose.PredictiveBackHandler
+import kotlinx.coroutines.CancellationException
 
 fun getFileName(context: Context, uri: Uri): String? {
     var result: String? = null
@@ -125,6 +145,112 @@ fun wrapContextWithLocale(context: Context): Context {
         val config = android.content.res.Configuration(context.resources.configuration)
         config.setLocale(locale)
         context.createConfigurationContext(config)
+    }
+}
+
+@Composable
+fun PredictiveBackContainer(
+    onBack: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    if (onBack == null) {
+        content()
+        return
+    }
+
+    var backProgress by remember { mutableFloatStateOf(0f) }
+    PredictiveBackHandler { progressFlow ->
+        try {
+            progressFlow.collect { backEvent ->
+                backProgress = backEvent.progress
+            }
+            onBack()
+        } catch (e: CancellationException) {
+            backProgress = 0f
+        }
+    }
+
+    val backScale = 1f - (backProgress * 0.12f)
+    val backAlpha = 1f - (backProgress * 0.3f)
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .graphicsLayer {
+                scaleX = backScale
+                scaleY = backScale
+                alpha = backAlpha
+                clip = true
+                shape = RoundedCornerShape((backProgress * 28).dp)
+            }
+    ) {
+        content()
+    }
+}
+
+@Composable
+fun SlidingSegmentedChips(
+    options: List<String>,
+    selectedIndex: Int,
+    onOptionSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    positionOffset: Float? = null,
+    height: Dp = 40.dp
+) {
+    val animPosition by animateFloatAsState(
+        targetValue = positionOffset ?: selectedIndex.toFloat(),
+        animationSpec = tween(durationMillis = 220),
+        label = "slidingPosition"
+    )
+
+    BoxWithConstraints(
+        modifier = modifier
+            .height(height)
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+    ) {
+        val totalWidth = maxWidth
+        val count = options.size.coerceAtLeast(1)
+        val itemWidth = totalWidth / count
+
+        // Smooth Continuous Drag-Bound / Animated Active Pill
+        val offsetX = itemWidth * animPosition.coerceIn(0f, (count - 1).toFloat())
+        Box(
+            modifier = Modifier
+                .offset(x = offsetX)
+                .width(itemWidth)
+                .fillMaxHeight()
+                .padding(2.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.primaryContainer)
+        )
+
+        // Labels overlay
+        Row(modifier = Modifier.fillMaxSize()) {
+            options.forEachIndexed { index, option ->
+                val isSelected = (animPosition - index).let { Math.abs(it) < 0.5f }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            onOptionSelected(index)
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = option,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                        fontSize = 13.sp,
+                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
     }
 }
 

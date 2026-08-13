@@ -186,32 +186,7 @@ fun FilesScreen(onBack: () -> Unit) {
         } else { fileToSaveManual = file; saveLauncher.launch(file.Name) }
     }
 
-    var backProgress by remember { mutableFloatStateOf(0f) }
-    PredictiveBackHandler { progressFlow ->
-        try {
-            progressFlow.collect { backEvent ->
-                backProgress = backEvent.progress
-            }
-            onBack()
-        } catch (e: CancellationException) {
-            backProgress = 0f
-        }
-    }
-
-    val backScale = 1f - (backProgress * 0.12f)
-    val backAlpha = 1f - (backProgress * 0.3f)
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .graphicsLayer {
-                scaleX = backScale
-                scaleY = backScale
-                alpha = backAlpha
-                clip = true
-                shape = RoundedCornerShape((backProgress * 28).dp)
-            }
-    ) {
+    PredictiveBackContainer(onBack = onBack) {
         Scaffold(
             topBar = {
                 Column {
@@ -322,7 +297,7 @@ fun FilesScreen(onBack: () -> Unit) {
                         }
                     }
 
-                    // Sub-tabs: Smoothly animated display when TailDrop (page 1) is selected
+                    // Sub-tabs: Smooth drag-bound sliding pill for TailDrop sub-pages
                     AnimatedVisibility(
                         visible = mainPagerState.currentPage == 1,
                         enter = fadeIn(animationSpec = tween(250)) + expandVertically(animationSpec = tween(250)),
@@ -333,34 +308,20 @@ fun FilesScreen(onBack: () -> Unit) {
                             stringResource(R.string.files_tab_devices),
                             stringResource(R.string.files_tab_history)
                         )
-                        val listState = rememberLazyListState()
-                        LaunchedEffect(taildropPagerState.currentPage) {
-                            listState.animateScrollToItem(taildropPagerState.currentPage)
-                        }
-                        LazyRow(
-                            state = listState,
+                        val dropSubOffset = (taildropPagerState.currentPage + taildropPagerState.currentPageOffsetFraction).coerceIn(0f, 2f)
+
+                        SlidingSegmentedChips(
+                            options = fileTabs,
+                            selectedIndex = taildropPagerState.currentPage,
+                            onOptionSelected = { index ->
+                                scope.launch { taildropPagerState.animateScrollToPage(index) }
+                            },
+                            positionOffset = dropSubOffset,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            items(fileTabs.size) { index ->
-                                FilterChip(
-                                    selected = taildropPagerState.currentPage == index,
-                                    onClick = {
-                                        scope.launch {
-                                            taildropPagerState.animateScrollToPage(index)
-                                        }
-                                    },
-                                    label = { Text(fileTabs[index]) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                        selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
-                                    )
-                                )
-                            }
-                        }
+                                .padding(horizontal = 24.dp, vertical = 4.dp),
+                            height = 36.dp
+                        )
                     }
                 }
             },

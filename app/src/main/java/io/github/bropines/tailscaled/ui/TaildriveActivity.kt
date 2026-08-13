@@ -77,7 +77,8 @@ fun TaildriveScreen(onBack: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
-    val context = LocalContext.current
+    PredictiveBackContainer(onBack = onBack) {
+        val context = LocalContext.current
     val activeAccount = remember { AccountManager.getActiveAccount(context) }
     val prefs = remember(activeAccount.id) { context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE) }
 
@@ -720,6 +721,7 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
             }
         }
     }
+}
 }
 
 private fun checkStoragePermission(context: Context): Boolean {
