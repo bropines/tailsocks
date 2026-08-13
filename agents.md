@@ -132,6 +132,10 @@ bash build.sh
    - **Step 4 (Push Approval)**: **NEVER run `git push` automatically.** Only push changes to remote repository AFTER the user explicitly tests and approves the result ("все хорошо" / "good").
 3. **Skill & Local Artifact Isolation**:
    - Do NOT commit files inside `.agents/`, `.skills/`, `skills-lock.json`, or `.gemini/` directories. Verify that these remain untracked using `git status`.
+4. **CRITICAL ADB & Data Preservation Rules**:
+   - **NEVER execute `adb uninstall` without explicit user permission.**
+   - If uninstallation is ever required and explicitly approved by the user, **ALWAYS pass the `-k` flag (`adb uninstall -k <package_name>`)** to preserve the user's state, account profiles, keys, and preferences in internal storage.
+   - Never run destructive commands that wipe user data or state without prior confirmation.
 
 ---
 
