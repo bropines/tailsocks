@@ -69,12 +69,16 @@ for i in $(seq 1 30); do
         chcon u:object_r:app_data_file:s0 "$SOCKET_PATH" 2>/dev/null || true
         chmod 777 "$STATE_DIR" 2>/dev/null || true
 
+        while iptables -t nat -D OUTPUT -d 100.64.0.0/10 -p udp --dport 53 -j ACCEPT 2>/dev/null; do :; done
+        while iptables -t nat -D OUTPUT -d 100.64.0.0/10 -p tcp --dport 53 -j ACCEPT 2>/dev/null; do :; done
         while iptables -t nat -D OUTPUT -p udp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null; do :; done
         while iptables -t nat -D OUTPUT -p tcp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null; do :; done
 
         resetprop net.dns1 100.100.100.100 2>/dev/null || setprop net.dns1 100.100.100.100 2>/dev/null || true
         iptables -t nat -I OUTPUT 1 -p udp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null || true
         iptables -t nat -I OUTPUT 1 -p tcp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null || true
+        iptables -t nat -I OUTPUT 1 -d 100.64.0.0/10 -p udp --dport 53 -j ACCEPT 2>/dev/null || true
+        iptables -t nat -I OUTPUT 1 -d 100.64.0.0/10 -p tcp --dport 53 -j ACCEPT 2>/dev/null || true
         break
     fi
     sleep 0.2

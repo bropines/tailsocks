@@ -183,11 +183,15 @@ object RootUtils {
     fun applyRootDnsRedirect(): Boolean {
         return try {
             val sb = StringBuilder()
+            sb.append("while iptables -t nat -D OUTPUT -d 100.64.0.0/10 -p udp --dport 53 -j ACCEPT 2>/dev/null; do :; done\n")
+            sb.append("while iptables -t nat -D OUTPUT -d 100.64.0.0/10 -p tcp --dport 53 -j ACCEPT 2>/dev/null; do :; done\n")
             sb.append("while iptables -t nat -D OUTPUT -p udp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null; do :; done\n")
             sb.append("while iptables -t nat -D OUTPUT -p tcp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null; do :; done\n")
             sb.append("resetprop net.dns1 100.100.100.100 2>/dev/null || setprop net.dns1 100.100.100.100 2>/dev/null || true\n")
             sb.append("iptables -t nat -I OUTPUT 1 -p udp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null || true\n")
             sb.append("iptables -t nat -I OUTPUT 1 -p tcp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null || true\n")
+            sb.append("iptables -t nat -I OUTPUT 1 -d 100.64.0.0/10 -p udp --dport 53 -j ACCEPT 2>/dev/null || true\n")
+            sb.append("iptables -t nat -I OUTPUT 1 -d 100.64.0.0/10 -p tcp --dport 53 -j ACCEPT 2>/dev/null || true\n")
 
             val process = Runtime.getRuntime().exec("su")
             process.outputStream.bufferedWriter().use { writer ->
@@ -205,6 +209,8 @@ object RootUtils {
     fun cleanupRootDnsRedirect(): Boolean {
         return try {
             val sb = StringBuilder()
+            sb.append("while iptables -t nat -D OUTPUT -d 100.64.0.0/10 -p udp --dport 53 -j ACCEPT 2>/dev/null; do :; done\n")
+            sb.append("while iptables -t nat -D OUTPUT -d 100.64.0.0/10 -p tcp --dport 53 -j ACCEPT 2>/dev/null; do :; done\n")
             sb.append("while iptables -t nat -D OUTPUT -p udp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null; do :; done\n")
             sb.append("while iptables -t nat -D OUTPUT -p tcp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null; do :; done\n")
             sb.append("resetprop --delete net.dns1 2>/dev/null || setprop net.dns1 \"\" 2>/dev/null || true\n")
