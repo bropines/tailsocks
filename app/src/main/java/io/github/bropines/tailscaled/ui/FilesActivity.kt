@@ -49,6 +49,12 @@ import java.io.FileOutputStream
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.core.tween
 
 class FilesActivity : ComponentActivity() {
     override fun attachBaseContext(newBase: Context) {
@@ -188,73 +194,82 @@ fun FilesScreen(onBack: () -> Unit) {
                     }
                 )
 
-                // Large Main Hub Mode Chips: TailDrive vs TailDrop
+                // Large Main Hub Mode Chips: TailDrive vs TailDrop (30% narrower & centered)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        .padding(horizontal = 24.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.Center
                 ) {
                     val isDriveSelected = mainPagerState.currentPage == 0
                     val isDropSelected = mainPagerState.currentPage == 1
 
-                    FilterChip(
-                        selected = isDriveSelected,
-                        onClick = { scope.launch { mainPagerState.animateScrollToPage(0) } },
-                        label = {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(48.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        FilterChip(
+                            selected = isDriveSelected,
+                            onClick = { scope.launch { mainPagerState.animateScrollToPage(0) } },
+                            label = {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(44.dp),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(Icons.Default.Storage, null, modifier = Modifier.size(20.dp))
-                                    Text("TailDrive", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.Default.Storage, null, modifier = Modifier.size(18.dp))
+                                        Text("TailDrive", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    }
                                 }
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
                         )
-                    )
 
-                    FilterChip(
-                        selected = isDropSelected,
-                        onClick = { scope.launch { mainPagerState.animateScrollToPage(1) } },
-                        label = {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(48.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                        FilterChip(
+                            selected = isDropSelected,
+                            onClick = { scope.launch { mainPagerState.animateScrollToPage(1) } },
+                            label = {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(44.dp),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(Icons.AutoMirrored.Filled.Send, null, modifier = Modifier.size(20.dp))
-                                    Text("TailDrop", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.AutoMirrored.Filled.Send, null, modifier = Modifier.size(18.dp))
+                                        Text("TailDrop", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    }
                                 }
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
                         )
-                    )
+                    }
                 }
 
-                // Sub-tabs: Only displayed when TailDrop (page 1) is selected
-                if (mainPagerState.currentPage == 1) {
+                // Sub-tabs: Smoothly animated display when TailDrop (page 1) is selected
+                AnimatedVisibility(
+                    visible = mainPagerState.currentPage == 1,
+                    enter = fadeIn(animationSpec = tween(250)) + expandVertically(animationSpec = tween(250)),
+                    exit = fadeOut(animationSpec = tween(200)) + shrinkVertically(animationSpec = tween(200))
+                ) {
                     val fileTabs = listOf(
                         stringResource(R.string.files_tab_inbox),
                         stringResource(R.string.files_tab_devices),
@@ -292,8 +307,14 @@ fun FilesScreen(onBack: () -> Unit) {
             }
         },
         floatingActionButton = { 
-            if (mainPagerState.currentPage == 1) {
-                FloatingActionButton(onClick = { filePickerLauncher.launch("*/*") }) { Icon(Icons.Default.FileUpload, stringResource(R.string.action_send)) } 
+            AnimatedVisibility(
+                visible = mainPagerState.currentPage == 1,
+                enter = fadeIn(animationSpec = tween(200)),
+                exit = fadeOut(animationSpec = tween(150))
+            ) {
+                FloatingActionButton(onClick = { filePickerLauncher.launch("*/*") }) {
+                    Icon(Icons.Default.FileUpload, stringResource(R.string.action_send))
+                } 
             }
         }
     ) { padding ->
