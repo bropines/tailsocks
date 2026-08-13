@@ -1001,11 +1001,6 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
         }
     }
 
-    PredictiveBackContainer(
-        onBack = { (context as? ComponentActivity)?.finish() },
-        targetTitle = stringResource(R.string.predictive_back_target_exit),
-        targetIcon = Icons.Default.ExitToApp
-    ) {
         Scaffold(
             topBar = {
             TopAppBar(
@@ -1710,7 +1705,6 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                 }
             }
         }
-    }
     }
 }
 
