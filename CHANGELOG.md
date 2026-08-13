@@ -2,18 +2,13 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
-## [3.5.5] - 2026-08-13
-
-### Fixed
-- Fixed DNS server latency testing to perform real end-to-end network resolution.
-- Standardized text input fields across screens and dialogs with single-line nowrap layout, compact sizing, and text clipping protection.
-- Restored native Back-to-Home minimize animation on the main dashboard screen.
-
 ## [3.5.4] - 2026-08-13
 
 ### Fixed
-- Fixed text alignment and vertical clipping in search fields by introducing a custom compact search bar layout.
+- Fixed text alignment and vertical clipping in search and input fields across screens and dialogs with single-line nowrap layout and compact sizing.
 - Modernized borders of device name and Split Routes info blocks on the DNS page using rounded corners (8.dp).
+- Fixed DNS server latency testing to perform real end-to-end network resolution.
+- Restored native Back-to-Home minimize animation on the main dashboard screen.
 
 ## [3.5.3] - 2026-08-13
 
