@@ -19,6 +19,21 @@ func GetLastError() string {
 
 func ForceRefresh() {
 	slog.Info("Manual refresh requested")
+	data, err := doLocalRequest("GET", "/localapi/v0/status", nil)
+	if err == nil && len(data) > 0 {
+		var res struct {
+			BackendState string `json:"BackendState"`
+			AuthURL      string `json:"AuthURL"`
+		}
+		if json.Unmarshal(data, &res) == nil {
+			busStateMu.Lock()
+			if res.BackendState != "" {
+				busState.BackendState = res.BackendState
+			}
+			busState.AuthURL = res.AuthURL
+			busStateMu.Unlock()
+		}
+	}
 	ReUp()
 }
 

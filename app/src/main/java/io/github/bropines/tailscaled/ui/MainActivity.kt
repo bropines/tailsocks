@@ -210,6 +210,15 @@ class MainActivity : ComponentActivity() {
         }
         if (currentLocale.language != targetLocale.language) {
             recreate()
+            return
+        }
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                if (appctr.Appctr.isRunning()) {
+                    appctr.Appctr.forceRefresh()
+                }
+            } catch (_: Exception) {}
         }
     }
 
