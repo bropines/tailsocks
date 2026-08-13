@@ -305,36 +305,19 @@ fun AdminApiDashboardScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            val listState = rememberLazyListState()
-            LaunchedEffect(pagerState.currentPage) {
-                listState.animateScrollToItem(pagerState.currentPage)
-            }
-
-            LazyRow(
-                state = listState,
+            ScrollableSlidingSegmentedChips(
+                options = tabs,
+                selectedIndex = pagerState.currentPage,
+                onOptionSelected = { index ->
+                    scope.launch {
+                        pagerState.animateScrollToPage(index)
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                items(tabs.size) { index ->
-                    val title = tabs[index]
-                    FilterChip(
-                        selected = pagerState.currentPage == index,
-                        onClick = {
-                            scope.launch {
-                                pagerState.animateScrollToPage(index)
-                            }
-                        },
-                        label = { Text(title) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    )
-                }
-            }
+                height = 40.dp
+            )
 
             HorizontalPager(
                 state = pagerState,

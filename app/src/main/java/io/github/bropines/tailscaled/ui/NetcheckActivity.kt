@@ -10,6 +10,7 @@ import io.github.bropines.tailscaled.models.*
 
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -435,13 +436,27 @@ fun NetcheckScreen(onBack: () -> Unit) {
                             )
                         }
                         Spacer(modifier = Modifier.height(24.dp))
-                        Button(
-                            onClick = { runDiagnostics() },
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                        ) {
-                            Icon(Icons.Default.Refresh, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(stringResource(R.string.action_retry))
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Button(
+                                onClick = {
+                                    context.startService(Intent(context, TailscaledService::class.java).apply { action = "START" })
+                                    runDiagnostics()
+                                },
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                            ) {
+                                Icon(Icons.Default.PlayArrow, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(stringResource(R.string.action_start_service))
+                            }
+                            OutlinedButton(
+                                onClick = { runDiagnostics() },
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(stringResource(R.string.action_retry))
+                            }
                         }
                     }
                 }

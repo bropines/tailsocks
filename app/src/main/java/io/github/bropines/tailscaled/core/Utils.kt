@@ -282,7 +282,7 @@ fun SlidingSegmentedChips(
 ) {
     val animPosition by animateFloatAsState(
         targetValue = positionOffset ?: selectedIndex.toFloat(),
-        animationSpec = tween(durationMillis = 120, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+        animationSpec = tween(durationMillis = 60),
         label = "slidingPosition"
     )
 
@@ -294,7 +294,7 @@ fun SlidingSegmentedChips(
 
     val activeBgColor by androidx.compose.animation.animateColorAsState(
         targetValue = targetContainer,
-        animationSpec = tween(durationMillis = 120, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+        animationSpec = tween(durationMillis = 60),
         label = "activePillBg"
     )
 
@@ -327,7 +327,7 @@ fun SlidingSegmentedChips(
                 val targetContent = if (isSelected) (item.contentColor ?: defaultContent) else MaterialTheme.colorScheme.onSurfaceVariant
                 val contentColor by androidx.compose.animation.animateColorAsState(
                     targetValue = targetContent,
-                    animationSpec = tween(durationMillis = 120, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                    animationSpec = tween(durationMillis = 60),
                     label = "chipContentColor"
                 )
 
@@ -423,12 +423,12 @@ fun ScrollableSlidingSegmentedChips(
 
             val bgColor by androidx.compose.animation.animateColorAsState(
                 targetValue = if (isSelected) itemContainer else androidx.compose.ui.graphics.Color.Transparent,
-                animationSpec = tween(durationMillis = 120, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                animationSpec = tween(durationMillis = 60),
                 label = "chipBgColor"
             )
             val contentColor by androidx.compose.animation.animateColorAsState(
                 targetValue = if (isSelected) itemContent else MaterialTheme.colorScheme.onSurfaceVariant,
-                animationSpec = tween(durationMillis = 120, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                animationSpec = tween(durationMillis = 60),
                 label = "chipContentColor"
             )
 

@@ -199,22 +199,21 @@ fun AdminApiSetupScreen(
                 }
             }
 
-            // Auth Type TabRow
-            TabRow(
-                selectedTabIndex = if (authType == "TOKEN") 0 else 1,
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-            ) {
-                Tab(
-                    selected = authType == "TOKEN",
-                    onClick = { authType = "TOKEN" },
-                    text = { Text(stringResource(R.string.admin_setup_tab_token), fontSize = 13.sp) }
-                )
-                Tab(
-                    selected = authType == "OAUTH",
-                    onClick = { authType = "OAUTH" },
-                    text = { Text(stringResource(R.string.admin_setup_tab_oauth), fontSize = 13.sp) }
-                )
-            }
+            // Auth Type SlidingSegmentedChips
+            val authTypes = listOf(
+                stringResource(R.string.admin_setup_tab_token),
+                stringResource(R.string.admin_setup_tab_oauth)
+            )
+            val selectedAuthIdx = if (authType == "TOKEN") 0 else 1
+            SlidingSegmentedChips(
+                options = authTypes,
+                selectedIndex = selectedAuthIdx,
+                onOptionSelected = { idx ->
+                    authType = if (idx == 0) "TOKEN" else "OAUTH"
+                },
+                modifier = Modifier.fillMaxWidth(),
+                height = 38.dp
+            )
 
             if (authType == "TOKEN") {
                 OutlinedTextField(

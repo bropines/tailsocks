@@ -673,6 +673,7 @@
     <string name="peers_failed_format">Failed: %1$s</string>
     <string name="peers_daemon_not_running">Daemon not running</string>
     <string name="peers_network_error">Network error</string>
+    <string name="action_start_service">Start Service</string>
     <string name="action_retry">Retry</string>
 
     <!-- ======================== Serve & Funnel ======================== -->
@@ -760,7 +761,7 @@
     <string name="settings_theme_dark">Dark</string>
     <string name="settings_theme_title">Interface Theme</string>
     <string name="settings_lang_title">App Language</string>
-    <string name="settings_lang_sys">System Default</string>
+    <string name="settings_lang_sys">System</string>
     <string name="settings_lang_en">English</string>
     <string name="settings_lang_ru">Russian</string>
     <string name="settings_preset_default">Default</string>
