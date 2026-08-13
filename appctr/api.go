@@ -258,14 +258,7 @@ func DeleteDriveShare(name string) error {
 
 // SetFileServerAddr registers the local Taildrive Web interface server address.
 func SetFileServerAddr(addr string) error {
-	payload := map[string]string{
-		"address": addr,
-	}
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("SetFileServerAddr payload error: %w", err)
-	}
-	_, err = doLocalRequest("PUT", "/localapi/v0/drive/fileserver-address", bytes.NewReader(body))
+	_, err := doLocalRequest("PUT", "/localapi/v0/drive/fileserver-address", strings.NewReader(addr))
 	if err != nil {
 		return fmt.Errorf("SetFileServerAddr failed: %w", err)
 	}
