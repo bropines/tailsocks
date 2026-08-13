@@ -2,6 +2,11 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [3.5.2] - 2026-08-13
+
+### Fixed
+- Fixed settings full backup and restore permission denied issues when Root Mode is active.
+
 ## [3.5.1] - 2026-08-13
 
 ### Fixed
