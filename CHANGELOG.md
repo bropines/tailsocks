@@ -2,7 +2,7 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
-## [3.4.1] - 2026-08-13
+## [3.5.0] - 2026-08-13
 
 ### Added
 - **Settings Restructuring**: Reorganized settings tabs into an intuitive flow (`App`, `Network`, `TS-Core`, `Root Mode`, `DPI Bypass`, `Profile`), grouping TUN and proxy controls under Network, and service advertisements under TS-Core.
