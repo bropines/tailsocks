@@ -237,7 +237,11 @@ object GlobalSettings {
     fun isRootModeEnabled(context: Context): Boolean = getPrefs(context).getBoolean("root_mode_enabled", false)
     fun setRootModeEnabled(context: Context, enabled: Boolean) = getPrefs(context).edit().putBoolean("root_mode_enabled", enabled).apply()
 
+    fun isRootTunEnabled(context: Context): Boolean = getPrefs(context).getBoolean("root_tun_enabled", true)
+    fun setRootTunEnabled(context: Context, enabled: Boolean) = getPrefs(context).edit().putBoolean("root_tun_enabled", enabled).apply()
+
     fun shouldKillRootDaemonOnStop(context: Context): Boolean = getPrefs(context).getBoolean("root_kill_daemon_on_stop", true)
     fun setKillRootDaemonOnStop(context: Context, kill: Boolean) = getPrefs(context).edit().putBoolean("root_kill_daemon_on_stop", kill).apply()
 }
+
 

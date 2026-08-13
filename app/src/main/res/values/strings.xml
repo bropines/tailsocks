@@ -729,7 +729,7 @@
     <string name="settings_tab_app">APP</string>
     <string name="settings_tab_root">Root Mode [EXP]</string>
     <string name="settings_tab_network">Network</string>
-    <string name="settings_tab_core">Core</string>
+    <string name="settings_tab_core">TS-Core</string>
     <string name="settings_tab_profile">Profile</string>
     <string name="settings_root_sect_title">Root Mode &amp; System Service (EXPERIMENTAL)</string>
     <string name="settings_root_enable_title">Enable Native Root Mode (EXPERIMENTAL)</string>

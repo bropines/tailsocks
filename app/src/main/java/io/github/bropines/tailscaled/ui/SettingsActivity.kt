@@ -148,12 +148,13 @@ fun SettingsScreen(
     // Tab Navigation State
     val tabs = listOf(
         Pair(stringResource(R.string.settings_tab_app), Icons.Default.Palette),
-        Pair(stringResource(R.string.settings_tab_root), Icons.Default.Security),
         Pair(stringResource(R.string.settings_tab_network), Icons.Default.Language),
         Pair(stringResource(R.string.settings_tab_core), Icons.Default.Tune),
+        Pair(stringResource(R.string.settings_tab_root), Icons.Default.Security),
         Pair(stringResource(R.string.settings_tab_byedpi), Icons.Default.Shield),
         Pair(stringResource(R.string.settings_tab_profile), Icons.Default.AccountCircle)
     )
+
     val pagerState = rememberPagerState(pageCount = { tabs.size })
 
     // Global Settings
@@ -753,8 +754,214 @@ fun SettingsScreen(
                             }
                         }
 
-                        1 -> { // TAB 1: Root Mode & System Service (Dedicated Tab)
+                        1 -> { // TAB 1: Network & Proxy (SOCKS5, HTTP Proxy, Control Proxy, Non-Root TUN)
+                            val isRootModeActive = GlobalSettings.isRootModeEnabled(context)
+
+                            SettingsCard(title = stringResource(R.string.settings_sect_socks5)) {
+                                SettingsEditItem(stringResource(R.string.settings_socks5_address_title), socks5, Icons.Default.Language, onAction = { generateRandomLoopbackAddress() }, actionIcon = Icons.Default.Casino) { socks5 = it; saveGlobalPref("socks5", it) }
+                                SettingsEditItem(stringResource(R.string.settings_socks5_username_title), socks5User, Icons.Default.Person, onAction = { generateRandomString(8) }, actionIcon = Icons.Default.Casino) { socks5User = it; saveGlobalPref("socks5_user", it) }
+                                SettingsEditItem(stringResource(R.string.settings_socks5_password_title), socks5Pass, Icons.Default.Password, onAction = { generateRandomString(12) }, actionIcon = Icons.Default.Casino) { socks5Pass = it; saveGlobalPref("socks5_pass", it) }
+                                Spacer(Modifier.height(12.dp))
+                                OutlinedButton(onClick = { copySagerNetLink() }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+                                    Icon(Icons.Default.Share, null)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(stringResource(R.string.settings_sagernet_copy))
+                                }
+                            }
+
+                            Spacer(Modifier.height(12.dp))
+
+                            SettingsCard(title = stringResource(R.string.settings_sect_http)) {
+                                val isHttpEnabled = httpProxy.isNotEmpty()
+                                SettingsSwitchItem(
+                                    title = stringResource(R.string.settings_http_enable_title),
+                                    subtitle = stringResource(R.string.settings_http_enable_desc),
+                                    icon = Icons.Default.Http,
+                                    checked = isHttpEnabled
+                                ) { enabled ->
+                                    if (enabled) {
+                                        val defaultAddr = "127.0.0.1:8080"
+                                        httpProxy = defaultAddr
+                                        saveGlobalPref("httpproxy", defaultAddr)
+                                    } else {
+                                        httpProxy = ""
+                                        saveGlobalPref("httpproxy", "")
+                                    }
+                                }
+
+                                if (isHttpEnabled) {
+                                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                                    SettingsEditItem(
+                                        title = stringResource(R.string.settings_http_address_title),
+                                        value = httpProxy,
+                                        icon = Icons.Default.Http,
+                                        placeholder = "127.0.0.1:8080",
+                                        onAction = { generateRandomLoopbackAddress() },
+                                        actionIcon = Icons.Default.Casino
+                                    ) { 
+                                        httpProxy = it
+                                        saveGlobalPref("httpproxy", it) 
+                                    }
+                                    Text(
+                                        text = stringResource(R.string.settings_http_desc),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                        modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 8.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(Modifier.height(12.dp))
+
+                            SettingsCard(title = stringResource(R.string.settings_sect_control_proxy)) {
+                                val isByeDpi = GlobalSettings.isCPByeDpiEnabled(context)
+                                val statusText = if (isProxyEnabled) {
+                                    if (isByeDpi) "ByeDPI (DPI Bypass)" else stringResource(R.string.settings_control_proxy_enabled_format, GlobalSettings.getCPField(context, "type"))
+                                } else {
+                                    stringResource(R.string.settings_control_proxy_disabled)
+                                }
+                                SettingsClickableItem(
+                                    stringResource(R.string.settings_control_proxy_title), 
+                                    statusText,
+                                    Icons.Default.Shield
+                                ) { showProxyDialog = true }
+                            }
+
+                            Spacer(Modifier.height(12.dp))
+
+                            SettingsCard(title = stringResource(R.string.settings_sect_tun_mode)) {
+                                SettingsSwitchItem(
+                                    title = stringResource(R.string.settings_tun_enable_title),
+                                    subtitle = if (isRootModeActive) stringResource(R.string.settings_root_disabled_tun_note) else stringResource(R.string.settings_tun_enable_desc),
+                                    icon = Icons.Default.VpnLock,
+                                    checked = if (isRootModeActive) false else tunModeEnabled,
+                                    enabled = !isRootModeActive
+                                ) {
+                                    tunModeEnabled = it
+                                    saveGlobalPref("tun_mode_enabled", it)
+                                }
+
+                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                SettingsSwitchItem(
+                                    title = stringResource(R.string.settings_tun_ipv6_title),
+                                    subtitle = if (isRootModeActive) stringResource(R.string.settings_root_disabled_general_note) else stringResource(R.string.settings_tun_ipv6_desc),
+                                    icon = Icons.Default.Language,
+                                    checked = tunIpv6Enabled,
+                                    enabled = !isRootModeActive
+                                ) {
+                                    tunIpv6Enabled = it
+                                    saveGlobalPref("tun_ipv6_enabled", it)
+                                }
+
+                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                SettingsEditItem(
+                                    title = stringResource(R.string.settings_tun_address_title),
+                                    value = tunAddress,
+                                    icon = Icons.Default.Settings,
+                                    placeholder = "10.0.0.1/8",
+                                    description = stringResource(R.string.settings_tun_address_desc)
+                                ) {
+                                    tunAddress = it
+                                    saveGlobalPref("tun_address", it)
+                                }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                SettingsEditItem(
+                                    title = stringResource(R.string.settings_tun_excluded_cidrs_title),
+                                    value = tunExcludedCIDRs,
+                                    icon = Icons.Default.Block,
+                                    placeholder = "192.168.0.0/16, 10.0.0.0/8",
+                                    description = stringResource(R.string.settings_tun_excluded_cidrs_desc)
+                                ) {
+                                    tunExcludedCIDRs = it
+                                    saveGlobalPref("tun_excluded_cidrs", it)
+                                }
+
+                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                SettingsClickableItem(
+                                    title = stringResource(R.string.settings_tun_excluded_apps_title),
+                                    subtitle = if (isRootModeActive) stringResource(R.string.settings_root_disabled_general_note) else stringResource(R.string.settings_tun_excluded_apps_desc, tunExcludedApps.size),
+                                    icon = Icons.Default.Apps,
+                                    enabled = !isRootModeActive
+                                ) {
+                                    excludedAppsLauncher.launch(Intent(context, TunExcludedAppsActivity::class.java))
+                                }
+                            }
+                        }
+
+                        2 -> { // TAB 2: TS-Core Settings
+                            val isRootModeActive = GlobalSettings.isRootModeEnabled(context)
+
+                            SettingsCard(title = stringResource(R.string.settings_sect_service_ad)) {
+                                SettingsEditItem(
+                                    title = stringResource(R.string.settings_ad_tags_title),
+                                    value = advertiseTags,
+                                    icon = Icons.AutoMirrored.Filled.Label,
+                                    placeholder = stringResource(R.string.settings_ad_tags_placeholder),
+                                    description = stringResource(R.string.settings_ad_tags_desc),
+                                    suggestions = availableNetworkTags
+                                ) { 
+                                    advertiseTags = it
+                                    saveProfilePref("advertise_tags", it) 
+                                }
+                                if (appliedTags.isNotEmpty()) {
+                                    Text(
+                                        text = stringResource(R.string.settings_applied_tags_label, appliedTags.joinToString(", ")),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 4.dp)
+                                    )
+                                }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                SettingsEditItem(
+                                    title = stringResource(R.string.settings_ad_routes_title),
+                                    value = advertiseRoutes,
+                                    icon = Icons.Default.Map,
+                                    placeholder = stringResource(R.string.settings_ad_routes_placeholder),
+                                    description = stringResource(R.string.settings_ad_routes_desc)
+                                ) { 
+                                    advertiseRoutes = it
+                                    saveProfilePref("advertise_routes", it) 
+                                }
+                            }
+
+                            Spacer(Modifier.height(12.dp))
+
+                            SettingsCard(title = stringResource(R.string.settings_sect_dns_proxy)) {
+                                SettingsEditItem(
+                                    title = stringResource(R.string.settings_dns_proxy_address_title),
+                                    value = dnsProxy,
+                                    icon = Icons.Default.Toll,
+                                    enabled = !isRootModeActive,
+                                    description = if (isRootModeActive) stringResource(R.string.settings_root_disabled_general_note) else ""
+                                ) { dnsProxy = it; saveGlobalPref("dns_proxy", it) }
+                            }
+
+                            Spacer(Modifier.height(12.dp))
+
+                            SettingsCard(title = stringResource(R.string.settings_sect_fallback_dns)) {
+                                SettingsEditItem(stringResource(R.string.settings_dns_fallbacks_title), dnsFallbacks, Icons.AutoMirrored.Filled.List, placeholder = stringResource(R.string.settings_dns_fallbacks_placeholder)) { dnsFallbacks = it; saveGlobalPref("dns_fallbacks", it) }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                SettingsEditItem(stringResource(R.string.settings_doh_fallback_title), dohUrl, Icons.Default.Link, placeholder = stringResource(R.string.settings_doh_fallback_placeholder)) { dohUrl = it; saveGlobalPref("doh_url", it) }
+                            }
+
+                            Spacer(Modifier.height(12.dp))
+
+                            SettingsCard(title = stringResource(R.string.settings_sect_flags_logs)) {
+                                SettingsSwitchItem(stringResource(R.string.settings_accept_routes_title), stringResource(R.string.settings_accept_routes_desc), Icons.Default.Map, acceptRoutes) { acceptRoutes = it; saveGlobalPref("accept_routes", it) }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                SettingsSwitchItem(stringResource(R.string.settings_accept_dns_title), stringResource(R.string.settings_accept_dns_desc), Icons.Default.Dns, acceptDns) { acceptDns = it; saveGlobalPref("accept_dns", it) }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                SettingsSwitchItem(stringResource(R.string.settings_force_bg_title), stringResource(R.string.settings_force_bg_desc), Icons.Default.BatteryFull, forceBg) { forceBg = it; saveGlobalPref("force_bg", it) }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                SettingsSwitchItem(stringResource(R.string.settings_detailed_logs_title), stringResource(R.string.settings_detailed_logs_desc), Icons.Default.BugReport, detailedLogs) { detailedLogs = it; saveGlobalPref("detailed_logs", it) }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                SettingsEditItem(stringResource(R.string.settings_extra_args_title), extraArgs, Icons.Default.Code, stringResource(R.string.settings_extra_args_placeholder)) { extraArgs = it; saveGlobalPref("extra_args_raw", it) }
+                            }
+                        }
+
+                        3 -> { // TAB 3: Root Mode & System Service
                             var rootModeEnabled by remember { mutableStateOf(GlobalSettings.isRootModeEnabled(context)) }
+                            var rootTunEnabled by remember { mutableStateOf(GlobalSettings.isRootTunEnabled(context)) }
                             var serviceScriptInstalled by remember { mutableStateOf(RootUtils.isServiceScriptInstalled()) }
                             var cliInstalled by remember { mutableStateOf(RootUtils.isTailscaleCliInstalled()) }
                             var killDaemonOnStop by remember { mutableStateOf(GlobalSettings.shouldKillRootDaemonOnStop(context)) }
@@ -791,6 +998,10 @@ fun SettingsScreen(
                                                 if (RootUtils.isRootAvailable()) {
                                                     rootModeEnabled = true
                                                     GlobalSettings.setRootModeEnabled(context, true)
+                                                    if (GlobalSettings.isTunModeEnabled(context)) {
+                                                        GlobalSettings.setRootTunEnabled(context, true)
+                                                        rootTunEnabled = true
+                                                    }
                                                     Toast.makeText(context, "Root Mode enabled", Toast.LENGTH_SHORT).show()
                                                     if (Appctr.isRunning()) {
                                                         val intent = Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" }
@@ -863,6 +1074,24 @@ fun SettingsScreen(
                                 }
 
                                 if (rootModeEnabled) {
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+
+                                    SettingsSwitchItem(
+                                        title = "Native Linux TUN (tailscale0)",
+                                        subtitle = if (rootTunEnabled)
+                                            "Creates native Linux kernel network interface tailscale0 via su. Leaves Android VpnService slot 100% free."
+                                            else "Runs daemon in SOCKS5/Proxy mode via su (uses SOCKS settings from Network tab).",
+                                        icon = Icons.Default.VpnLock,
+                                        checked = rootTunEnabled
+                                    ) { enabled ->
+                                        rootTunEnabled = enabled
+                                        GlobalSettings.setRootTunEnabled(context, enabled)
+                                        if (Appctr.isRunning()) {
+                                            val intent = Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" }
+                                            context.startService(intent)
+                                        }
+                                    }
+
                                     HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
 
                                     SettingsSwitchItem(
@@ -1003,208 +1232,6 @@ fun SettingsScreen(
                             }
                         }
 
-                        2 -> { // TAB 2: Network & Proxy
-                            SettingsCard(title = stringResource(R.string.settings_sect_socks5)) {
-                                SettingsEditItem(stringResource(R.string.settings_socks5_address_title), socks5, Icons.Default.Language, onAction = { generateRandomLoopbackAddress() }, actionIcon = Icons.Default.Casino) { socks5 = it; saveGlobalPref("socks5", it) }
-                                SettingsEditItem(stringResource(R.string.settings_socks5_username_title), socks5User, Icons.Default.Person, onAction = { generateRandomString(8) }, actionIcon = Icons.Default.Casino) { socks5User = it; saveGlobalPref("socks5_user", it) }
-                                SettingsEditItem(stringResource(R.string.settings_socks5_password_title), socks5Pass, Icons.Default.Password, onAction = { generateRandomString(12) }, actionIcon = Icons.Default.Casino) { socks5Pass = it; saveGlobalPref("socks5_pass", it) }
-                                Spacer(Modifier.height(12.dp))
-                                OutlinedButton(onClick = { copySagerNetLink() }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
-                                    Icon(Icons.Default.Share, null)
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(stringResource(R.string.settings_sagernet_copy))
-                                }
-                            }
-
-                            Spacer(Modifier.height(12.dp))
-
-                            SettingsCard(title = stringResource(R.string.settings_sect_http)) {
-                                val isHttpEnabled = httpProxy.isNotEmpty()
-                                SettingsSwitchItem(
-                                    title = stringResource(R.string.settings_http_enable_title),
-                                    subtitle = stringResource(R.string.settings_http_enable_desc),
-                                    icon = Icons.Default.Http,
-                                    checked = isHttpEnabled
-                                ) { enabled ->
-                                    if (enabled) {
-                                        val defaultAddr = "127.0.0.1:8080"
-                                        httpProxy = defaultAddr
-                                        saveGlobalPref("httpproxy", defaultAddr)
-                                    } else {
-                                        httpProxy = ""
-                                        saveGlobalPref("httpproxy", "")
-                                    }
-                                }
-
-                                if (isHttpEnabled) {
-                                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
-                                    SettingsEditItem(
-                                        title = stringResource(R.string.settings_http_address_title),
-                                        value = httpProxy,
-                                        icon = Icons.Default.Http,
-                                        placeholder = "127.0.0.1:8080",
-                                        onAction = { generateRandomLoopbackAddress() },
-                                        actionIcon = Icons.Default.Casino
-                                    ) { 
-                                        httpProxy = it
-                                        saveGlobalPref("httpproxy", it) 
-                                    }
-                                    Text(
-                                        text = stringResource(R.string.settings_http_desc),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                        modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 8.dp)
-                                    )
-                                }
-                            }
-
-                            Spacer(Modifier.height(12.dp))
-
-                            SettingsCard(title = stringResource(R.string.settings_sect_control_proxy)) {
-                                val isByeDpi = GlobalSettings.isCPByeDpiEnabled(context)
-                                val statusText = if (isProxyEnabled) {
-                                    if (isByeDpi) "ByeDPI (DPI Bypass)" else stringResource(R.string.settings_control_proxy_enabled_format, GlobalSettings.getCPField(context, "type"))
-                                } else {
-                                    stringResource(R.string.settings_control_proxy_disabled)
-                                }
-                                SettingsClickableItem(
-                                    stringResource(R.string.settings_control_proxy_title), 
-                                    statusText,
-                                    Icons.Default.Shield
-                                ) { showProxyDialog = true }
-                            }
-
-                            Spacer(Modifier.height(12.dp))
-
-                            SettingsCard(title = stringResource(R.string.settings_sect_service_ad)) {
-                                SettingsEditItem(
-                                    title = stringResource(R.string.settings_ad_tags_title),
-                                    value = advertiseTags,
-                                    icon = Icons.AutoMirrored.Filled.Label,
-                                    placeholder = stringResource(R.string.settings_ad_tags_placeholder),
-                                    description = stringResource(R.string.settings_ad_tags_desc),
-                                    suggestions = availableNetworkTags
-                                ) { 
-                                    advertiseTags = it
-                                    saveProfilePref("advertise_tags", it) 
-                                }
-                                if (appliedTags.isNotEmpty()) {
-                                    Text(
-                                        text = stringResource(R.string.settings_applied_tags_label, appliedTags.joinToString(", ")),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 4.dp)
-                                    )
-                                }
-                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                SettingsEditItem(
-                                    title = stringResource(R.string.settings_ad_routes_title),
-                                    value = advertiseRoutes,
-                                    icon = Icons.Default.Map,
-                                    placeholder = stringResource(R.string.settings_ad_routes_placeholder),
-                                    description = stringResource(R.string.settings_ad_routes_desc)
-                                ) { 
-                                    advertiseRoutes = it
-                                    saveProfilePref("advertise_routes", it) 
-                                }
-                            }
-                        }
-
-                        3 -> { // TAB 3: TUN Mode & Core Settings
-                            val isRootModeActive = GlobalSettings.isRootModeEnabled(context)
-
-                            SettingsCard(title = stringResource(R.string.settings_sect_tun_mode)) {
-                                SettingsSwitchItem(
-                                    title = stringResource(R.string.settings_tun_enable_title),
-                                    subtitle = if (isRootModeActive) stringResource(R.string.settings_root_disabled_tun_note) else stringResource(R.string.settings_tun_enable_desc),
-                                    icon = Icons.Default.VpnLock,
-                                    checked = if (isRootModeActive) false else tunModeEnabled,
-                                    enabled = !isRootModeActive
-                                ) {
-                                    tunModeEnabled = it
-                                    saveGlobalPref("tun_mode_enabled", it)
-                                }
-
-                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                SettingsSwitchItem(
-                                    title = stringResource(R.string.settings_tun_ipv6_title),
-                                    subtitle = if (isRootModeActive) stringResource(R.string.settings_root_disabled_general_note) else stringResource(R.string.settings_tun_ipv6_desc),
-                                    icon = Icons.Default.Language,
-                                    checked = tunIpv6Enabled,
-                                    enabled = !isRootModeActive
-                                ) {
-                                    tunIpv6Enabled = it
-                                    saveGlobalPref("tun_ipv6_enabled", it)
-                                }
-
-                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                SettingsEditItem(
-                                    title = stringResource(R.string.settings_tun_address_title),
-                                    value = tunAddress,
-                                    icon = Icons.Default.Settings,
-                                    placeholder = "10.0.0.1/8",
-                                    description = stringResource(R.string.settings_tun_address_desc)
-                                ) {
-                                    tunAddress = it
-                                    saveGlobalPref("tun_address", it)
-                                }
-                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                SettingsEditItem(
-                                    title = stringResource(R.string.settings_tun_excluded_cidrs_title),
-                                    value = tunExcludedCIDRs,
-                                    icon = Icons.Default.Block,
-                                    placeholder = "192.168.0.0/16, 10.0.0.0/8",
-                                    description = stringResource(R.string.settings_tun_excluded_cidrs_desc)
-                                ) {
-                                    tunExcludedCIDRs = it
-                                    saveGlobalPref("tun_excluded_cidrs", it)
-                                }
-
-                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                SettingsClickableItem(
-                                    title = stringResource(R.string.settings_tun_excluded_apps_title),
-                                    subtitle = if (isRootModeActive) stringResource(R.string.settings_root_disabled_general_note) else stringResource(R.string.settings_tun_excluded_apps_desc, tunExcludedApps.size),
-                                    icon = Icons.Default.Apps,
-                                    enabled = !isRootModeActive
-                                ) {
-                                    excludedAppsLauncher.launch(Intent(context, TunExcludedAppsActivity::class.java))
-                                }
-                            }
-
-                            Spacer(Modifier.height(12.dp))
-
-                            SettingsCard(title = stringResource(R.string.settings_sect_dns_proxy)) {
-                                SettingsEditItem(
-                                    title = stringResource(R.string.settings_dns_proxy_address_title),
-                                    value = dnsProxy,
-                                    icon = Icons.Default.Toll,
-                                    enabled = !isRootModeActive,
-                                    description = if (isRootModeActive) stringResource(R.string.settings_root_disabled_general_note) else ""
-                                ) { dnsProxy = it; saveGlobalPref("dns_proxy", it) }
-                            }
-
-                            Spacer(Modifier.height(12.dp))
-
-                            SettingsCard(title = stringResource(R.string.settings_sect_fallback_dns)) {
-                                SettingsEditItem(stringResource(R.string.settings_dns_fallbacks_title), dnsFallbacks, Icons.AutoMirrored.Filled.List, placeholder = stringResource(R.string.settings_dns_fallbacks_placeholder)) { dnsFallbacks = it; saveGlobalPref("dns_fallbacks", it) }
-                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                SettingsEditItem(stringResource(R.string.settings_doh_fallback_title), dohUrl, Icons.Default.Link, placeholder = stringResource(R.string.settings_doh_fallback_placeholder)) { dohUrl = it; saveGlobalPref("doh_url", it) }
-                            }
-
-                            Spacer(Modifier.height(12.dp))
-
-                            SettingsCard(title = stringResource(R.string.settings_sect_flags_logs)) {
-                                SettingsSwitchItem(stringResource(R.string.settings_accept_routes_title), stringResource(R.string.settings_accept_routes_desc), Icons.Default.Map, acceptRoutes) { acceptRoutes = it; saveGlobalPref("accept_routes", it) }
-                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                SettingsSwitchItem(stringResource(R.string.settings_accept_dns_title), stringResource(R.string.settings_accept_dns_desc), Icons.Default.Dns, acceptDns) { acceptDns = it; saveGlobalPref("accept_dns", it) }
-                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                SettingsSwitchItem(stringResource(R.string.settings_force_bg_title), stringResource(R.string.settings_force_bg_desc), Icons.Default.BatteryFull, forceBg) { forceBg = it; saveGlobalPref("force_bg", it) }
-                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                SettingsSwitchItem(stringResource(R.string.settings_detailed_logs_title), stringResource(R.string.settings_detailed_logs_desc), Icons.Default.BugReport, detailedLogs) { detailedLogs = it; saveGlobalPref("detailed_logs", it) }
-                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                SettingsEditItem(stringResource(R.string.settings_extra_args_title), extraArgs, Icons.Default.Code, stringResource(R.string.settings_extra_args_placeholder)) { extraArgs = it; saveGlobalPref("extra_args_raw", it) }
-                            }
-                        }
 
                         4 -> { // TAB 4: DPI Bypass (ByeByeDPI)
                             var byedpiEnabled by remember { mutableStateOf(GlobalSettings.isCPByeDpiEnabled(context)) }

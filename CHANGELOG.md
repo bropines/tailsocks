@@ -4,8 +4,14 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ## [3.4.1] - 2026-08-13
 
+### Added
+- **Settings Restructuring**: Reorganized settings tabs into an intuitive flow (`App`, `Network`, `TS-Core`, `Root Mode`, `DPI Bypass`, `Profile`), grouping TUN and proxy controls under Network, and service advertisements under TS-Core.
+- **Root TUN Migration**: Enabling Root Mode while TUN mode is active automatically migrates the connection to native Linux kernel TUN (`tailscale0`).
+
 ### Fixed
+- **Root Mode Native TUN (`tailscale0`)**: Enabled Linux kernel router support in Go core, allowing Root Mode to create native `tailscale0` network interfaces without occupying Android VPN slot (`tun0`).
 - **Root Mode SELinux Sockets**: Fixed a crash/timeout issue on physical Android devices where SELinux Enforcing mode blocked connection between the app interface and the Root daemon socket.
+
 
 ## [3.4.0] - 2026-08-13
 

@@ -75,7 +75,11 @@ diff -u orig/net/dns/noop.go tailscale_src/net/dns/noop.go > patches/11-noop-dns
 # 12-socket-permissions.patch (safesocket/unixsocket.go)
 diff -u orig/safesocket/unixsocket.go tailscale_src/safesocket/unixsocket.go > patches/12-socket-permissions.patch || true
 
+# 13-android-osrouter.patch (wgengine/router/osrouter/router_linux.go)
+diff -u orig/wgengine/router/osrouter/router_linux.go tailscale_src/wgengine/router/osrouter/router_linux.go > patches/13-android-osrouter.patch || true
+
 echo "✅ Atomic patches generated successfully in appctr/patches/."
+
 
 
 

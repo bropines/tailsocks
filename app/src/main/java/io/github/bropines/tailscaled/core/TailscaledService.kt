@@ -284,8 +284,9 @@ class TailscaledService : Service() {
                             httpAddr = options.httpProxy,
                             controlProxy = options.controlProxy,
                             taildropDir = options.taildropDir,
-                            tunMode = GlobalSettings.isTunModeEnabled(this@TailscaledService)
+                            tunMode = GlobalSettings.isRootTunEnabled(this@TailscaledService)
                         )
+
                         if (ok) {
                             Appctr.attachExternal(options)
                         }
