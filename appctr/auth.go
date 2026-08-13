@@ -18,7 +18,7 @@ func GetLastError() string {
 }
 
 func ForceRefresh() {
-	slog.Info("Manual refresh requested")
+	slog.Debug("Manual refresh requested")
 	data, err := doLocalRequest("GET", "/localapi/v0/status", nil)
 	if err == nil && len(data) > 0 {
 		var res struct {
@@ -142,12 +142,13 @@ func registerMachineWithAuthKey(pc pathControl, opt *StartOptions) {
 		stStr, err := GetStatusJSON(false)
 		if err == nil && len(stStr) > 0 {
 			if json.Unmarshal([]byte(stStr), &statusResp) == nil {
-				slog.Info("Daemon startup state poll", "attempt", i+1, "backend_state", statusResp.BackendState, "has_auth_url", statusResp.AuthURL != "")
+				slog.Debug("Daemon startup state poll", "attempt", i+1, "backend_state", statusResp.BackendState, "has_auth_url", statusResp.AuthURL != "")
 				if statusResp.BackendState == "Running" {
-					slog.Info("Account is already logged in (BackendState: Running). Preserving active session.")
+					slog.Debug("Account is already logged in (BackendState: Running). Preserving active session.")
 					return
 				}
 				if statusResp.BackendState == "NeedsLogin" || statusResp.AuthURL != "" {
+					slog.Info("Daemon needs login", "backend_state", statusResp.BackendState, "has_auth_url", statusResp.AuthURL != "")
 					break
 				}
 			}
@@ -156,7 +157,7 @@ func registerMachineWithAuthKey(pc pathControl, opt *StartOptions) {
 	}
 
 	if statusResp.BackendState == "Running" {
-		slog.Info("Account is already logged in (BackendState: Running). Preserving active session.")
+		slog.Debug("Account is already logged in (BackendState: Running). Preserving active session.")
 		return
 	}
 
