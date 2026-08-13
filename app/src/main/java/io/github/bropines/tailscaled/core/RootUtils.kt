@@ -158,6 +158,32 @@ object RootUtils {
         }
     }
 
+    fun updateRootHosts(hostsMap: Map<String, String>): Boolean {
+        return try {
+            val sb = StringBuilder()
+            sb.append("mkdir -p /data/adb/tailshosts\n")
+            sb.append("cp /system/etc/hosts /data/adb/tailshosts/hosts 2>/dev/null || echo '127.0.0.1 localhost\n::1 ip6-localhost' > /data/adb/tailshosts/hosts\n")
+            for ((ip, domain) in hostsMap) {
+                sb.append("echo '$ip $domain' >> /data/adb/tailshosts/hosts\n")
+            }
+            sb.append("chmod 644 /data/adb/tailshosts/hosts\n")
+            sb.append("chcon u:object_r:system_file:s0 /data/adb/tailshosts/hosts 2>/dev/null || true\n")
+            sb.append("mount -o bind /data/adb/tailshosts/hosts /system/etc/hosts 2>/dev/null || true\n")
+
+            val process = Runtime.getRuntime().exec("su")
+            process.outputStream.bufferedWriter().use { writer ->
+                writer.write(sb.toString())
+                writer.write("\nexit\n")
+                writer.flush()
+            }
+            process.waitFor() == 0
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to update root hosts: ${e.message}", e)
+            false
+        }
+    }
+
+
     fun stopRootDaemon(socketPath: String = ""): Boolean {
         return try {
             val script = """
