@@ -114,6 +114,11 @@ object RootUtils {
             sb.append("nohup $cmd >> \"$logFile\" 2>&1 &\n")
             sb.append("chmod 666 \"$logFile\" 2>/dev/null || true\n")
             sb.append("magiskpolicy --live \"allow untrusted_app magisk unix_stream_socket connectto\" 2>/dev/null || supolicy --live \"allow untrusted_app magisk unix_stream_socket connectto\" 2>/dev/null || true\n")
+            if (tunMode) {
+                sb.append("resetprop net.dns1 100.100.100.100 2>/dev/null || setprop net.dns1 100.100.100.100 2>/dev/null || true\n")
+                sb.append("iptables -t nat -I OUTPUT 1 -p udp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null || true\n")
+                sb.append("iptables -t nat -I OUTPUT 1 -p tcp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null || true\n")
+            }
             sb.append("for i in \$(seq 1 30); do\n")
             sb.append("    if [ -S \"$socketPath\" ] || [ -e \"$socketPath\" ]; then\n")
             sb.append("        chmod 777 \"$socketPath\"\n")

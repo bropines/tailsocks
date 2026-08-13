@@ -62,4 +62,8 @@ fi
 nohup "$DAEMON_BIN" --statedir="$STATE_DIR" --socket="$SOCKET_PATH" --tun=tailscale0 >> "$LOG_FILE" 2>&1 &
 chmod 666 "$LOG_FILE" 2>/dev/null || true
 magiskpolicy --live "allow untrusted_app magisk unix_stream_socket connectto" 2>/dev/null || supolicy --live "allow untrusted_app magisk unix_stream_socket connectto" 2>/dev/null || true
+resetprop net.dns1 100.100.100.100 2>/dev/null || setprop net.dns1 100.100.100.100 2>/dev/null || true
+iptables -t nat -I OUTPUT 1 -p udp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null || true
+iptables -t nat -I OUTPUT 1 -p tcp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null || true
+
 
