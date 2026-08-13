@@ -2,6 +2,9 @@ package io.github.bropines.tailscaled.ui
 
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.GlobalSettings
+import io.github.bropines.tailscaled.core.SlidingSegmentedChips
+import io.github.bropines.tailscaled.core.SegmentedChipItem
+import io.github.bropines.tailscaled.core.PredictiveBackContainer
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -254,33 +257,30 @@ fun SlideWelcome() {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                listOf(
-                    "sys" to stringResource(R.string.settings_lang_sys),
-                    "en" to stringResource(R.string.settings_lang_en),
-                    "ru" to stringResource(R.string.settings_lang_ru)
-                ).forEach { (id, label) ->
-                    val isSelected = currentLang == id
-                    FilterChip(
-                        selected = isSelected,
-                        onClick = {
-                            currentLang = id
-                            GlobalSettings.setString(context, "app_locale", id)
-                            val localeList = if (id == "sys") {
-                                androidx.core.os.LocaleListCompat.getEmptyLocaleList()
-                            } else {
-                                androidx.core.os.LocaleListCompat.forLanguageTags(id)
-                            }
-                            androidx.appcompat.app.AppCompatDelegate.setApplicationLocales(localeList)
-                            (context as? android.app.Activity)?.recreate()
-                        },
-                        label = { Text(label) }
-                    )
-                }
-            }
+            val langList = listOf(
+                "sys" to stringResource(R.string.settings_lang_sys),
+                "en" to stringResource(R.string.settings_lang_en),
+                "ru" to stringResource(R.string.settings_lang_ru)
+            )
+            val selectedLangIdx = langList.indexOfFirst { it.first == currentLang }.coerceAtLeast(0)
+            SlidingSegmentedChips(
+                options = langList.map { it.second },
+                selectedIndex = selectedLangIdx,
+                onOptionSelected = { idx ->
+                    val id = langList[idx].first
+                    currentLang = id
+                    GlobalSettings.setString(context, "app_locale", id)
+                    val localeList = if (id == "sys") {
+                        androidx.core.os.LocaleListCompat.getEmptyLocaleList()
+                    } else {
+                        androidx.core.os.LocaleListCompat.forLanguageTags(id)
+                    }
+                    androidx.appcompat.app.AppCompatDelegate.setApplicationLocales(localeList)
+                    (context as? android.app.Activity)?.recreate()
+                },
+                modifier = Modifier.fillMaxWidth(),
+                height = 38.dp
+            )
         }
     }
 }
@@ -331,32 +331,18 @@ fun SlideHowItWorks() {
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Row(
+            SlidingSegmentedChips(
+                options = listOf("Proxy Mode", "VPN (TUN) Mode"),
+                selectedIndex = if (isTunMode) 1 else 0,
+                onOptionSelected = { idx ->
+                    if (!isRootMode) {
+                        isTunMode = (idx == 1)
+                        GlobalSettings.setTunModeEnabled(context, isTunMode)
+                    }
+                },
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                FilterChip(
-                    selected = !isTunMode && !isRootMode,
-                    enabled = !isRootMode,
-                    onClick = {
-                        isTunMode = false
-                        GlobalSettings.setTunModeEnabled(context, false)
-                    },
-                    label = { Text("Proxy Mode") },
-                    modifier = Modifier.weight(1f)
-                )
-                FilterChip(
-                    selected = isTunMode && !isRootMode,
-                    enabled = !isRootMode,
-                    onClick = {
-                        isTunMode = true
-                        GlobalSettings.setTunModeEnabled(context, true)
-                    },
-                    label = { Text("VPN (TUN) Mode") },
-                    modifier = Modifier.weight(1f)
-                )
-            }
+                height = 38.dp
+            )
 
             Card(
                 shape = RoundedCornerShape(16.dp),

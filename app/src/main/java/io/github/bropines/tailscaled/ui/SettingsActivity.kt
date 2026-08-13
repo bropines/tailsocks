@@ -451,50 +451,38 @@ fun SettingsScreen(
         )
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.settings_title), fontWeight = FontWeight.Bold) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back)) } }
-            )
-        }
-    ) { padding ->
-        Column(
-            Modifier
-                .padding(padding)
-                .fillMaxSize()
-        ) {
-            // Modern Tab Layout using Chips
-            val listState = rememberLazyListState()
-            LaunchedEffect(pagerState.currentPage) {
-                listState.animateScrollToItem(pagerState.currentPage)
+    PredictiveBackContainer(
+        onBack = onBack,
+        targetTitle = stringResource(R.string.predictive_back_target_dashboard),
+        targetIcon = Icons.Default.Home
+    ) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text(stringResource(R.string.settings_title), fontWeight = FontWeight.Bold) },
+                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back)) } }
+                )
             }
-            LazyRow(
-                state = listState,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+        ) { padding ->
+            Column(
+                Modifier
+                    .padding(padding)
+                    .fillMaxSize()
             ) {
-                items(tabs.size) { index ->
-                    val (title, icon) = tabs[index]
-                    FilterChip(
-                        selected = pagerState.currentPage == index,
-                        onClick = {
-                            scope.launch {
-                                pagerState.animateScrollToPage(index)
-                            }
-                        },
-                        label = { Text(title) },
-                        leadingIcon = { Icon(icon, null, modifier = Modifier.size(16.dp)) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    )
-                }
-            }
+                // Modern Tab Layout using Segmented Chips
+                ScrollableSlidingSegmentedChips(
+                    items = tabs.map { (title, icon) -> SegmentedChipItem(title, icon) },
+                    selectedIndex = pagerState.currentPage,
+                    onOptionSelected = { index ->
+                        scope.launch {
+                            pagerState.animateScrollToPage(index)
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    height = 40.dp
+                )
 
             HorizontalPager(
                 state = pagerState,
@@ -517,29 +505,19 @@ fun SettingsScreen(
                                     Triple("light", Icons.Default.LightMode, stringResource(R.string.settings_theme_light)),
                                     Triple("dark", Icons.Default.DarkMode, stringResource(R.string.settings_theme_dark))
                                 )
+                                val selectedThemeIdx = themeOptions.indexOfFirst { it.first == currentTheme }.coerceAtLeast(0)
                                 Column(Modifier.padding(bottom = 8.dp)) {
                                     Text(stringResource(R.string.settings_theme_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Spacer(Modifier.height(8.dp))
-                                    Row(
-                                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        themeOptions.forEach { (id, icon, label) ->
-                                            val isSelected = currentTheme == id
-                                            FilterChip(
-                                                selected = isSelected,
-                                                onClick = { onThemeChange(id) },
-                                                label = { Text(label) },
-                                                leadingIcon = { Icon(icon, null, modifier = Modifier.size(16.dp)) },
-                                                colors = FilterChipDefaults.filterChipColors(
-                                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                                )
-                                            )
-                                        }
-                                    }
+                                    SlidingSegmentedChips(
+                                        items = themeOptions.map { SegmentedChipItem(it.third, it.second) },
+                                        selectedIndex = selectedThemeIdx,
+                                        onOptionSelected = { idx -> onThemeChange(themeOptions[idx].first) },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        height = 38.dp
+                                    )
                                 }
- 
+
                                 // Language selector (Chips row)
                                 var currentLang by remember { mutableStateOf(GlobalSettings.getString(context, "app_locale", "sys")) }
                                 val languageOptions = listOf(
@@ -547,38 +525,29 @@ fun SettingsScreen(
                                     Triple("en", Icons.Default.Language, stringResource(R.string.settings_lang_en)),
                                     Triple("ru", Icons.Default.Language, stringResource(R.string.settings_lang_ru))
                                 )
+                                val selectedLangIdx = languageOptions.indexOfFirst { it.first == currentLang }.coerceAtLeast(0)
                                 Spacer(Modifier.height(12.dp))
                                 Column(Modifier.padding(bottom = 8.dp)) {
                                     Text(stringResource(R.string.settings_lang_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Spacer(Modifier.height(8.dp))
-                                    Row(
-                                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        languageOptions.forEach { (id, icon, label) ->
-                                            val isSelected = currentLang == id
-                                            FilterChip(
-                                                selected = isSelected,
-                                                onClick = {
-                                                    currentLang = id
-                                                    GlobalSettings.setString(context, "app_locale", id)
-                                                    val localeList = if (id == "sys") {
-                                                        LocaleListCompat.getEmptyLocaleList()
-                                                    } else {
-                                                        LocaleListCompat.forLanguageTags(id)
-                                                    }
-                                                    AppCompatDelegate.setApplicationLocales(localeList)
-                                                    context.findActivity()?.recreate()
-                                                },
-                                                label = { Text(label) },
-                                                leadingIcon = { Icon(icon, null, modifier = Modifier.size(16.dp)) },
-                                                colors = FilterChipDefaults.filterChipColors(
-                                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                                )
-                                            )
-                                        }
-                                    }
+                                    SlidingSegmentedChips(
+                                        items = languageOptions.map { SegmentedChipItem(it.third, it.second) },
+                                        selectedIndex = selectedLangIdx,
+                                        onOptionSelected = { idx ->
+                                            val id = languageOptions[idx].first
+                                            currentLang = id
+                                            GlobalSettings.setString(context, "app_locale", id)
+                                            val localeList = if (id == "sys") {
+                                                LocaleListCompat.getEmptyLocaleList()
+                                            } else {
+                                                LocaleListCompat.forLanguageTags(id)
+                                            }
+                                            AppCompatDelegate.setApplicationLocales(localeList)
+                                            context.findActivity()?.recreate()
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        height = 38.dp
+                                    )
                                 }
 
                                 // Theme preset selector (Color Circles)
@@ -1496,6 +1465,7 @@ fun SettingsScreen(
                 }) { Text(stringResource(R.string.action_cancel)) }
             }
         )
+    }
     }
 }
 

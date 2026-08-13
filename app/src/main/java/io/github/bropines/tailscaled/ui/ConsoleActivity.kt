@@ -176,9 +176,14 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
         }
     }
 
-    Scaffold(
-        // KEYBOARD FIX: Keyboard insets (imePadding)
-        modifier = Modifier.imePadding(),
+    PredictiveBackContainer(
+        onBack = onBack,
+        targetTitle = stringResource(R.string.predictive_back_target_dashboard),
+        targetIcon = Icons.Default.Home
+    ) {
+        Scaffold(
+            // KEYBOARD FIX: Keyboard insets (imePadding)
+            modifier = Modifier.imePadding(),
         topBar = {
             Column {
                 TopAppBar(
@@ -321,4 +326,5 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
             dismissButton = { TextButton(onClick = { showAddPresetDialog = false }) { Text(stringResource(R.string.action_cancel)) } }
         )
     }
+}
 }

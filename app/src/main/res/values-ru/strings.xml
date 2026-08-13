@@ -91,7 +91,11 @@
     <string name="action_copy">Copy</string>
     <string name="action_open">Open</string>
     <string name="action_send">Send</string>
-    <string name="action_back">Back</string>
+    <string name="action_back">Назад</string>
+    <string name="predictive_back_target_dashboard">Главный экран</string>
+    <string name="predictive_back_target_settings">Настройки</string>
+    <string name="predictive_back_target_files_hub">Файловый центр</string>
+    <string name="predictive_back_target_exit">Закрыть приложение</string>
     <string name="action_disconnect">Disconnect</string>
     <string name="action_unlock">Unlock Console</string>
 

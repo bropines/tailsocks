@@ -215,69 +215,82 @@ fun LogsScreen(onBack: () -> Unit) {
         }
     }
 
-    Scaffold(
-        topBar = {
-            Column {
-                TopAppBar(
-                    title = { Text(stringResource(R.string.logs_title)) },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
-                    },
-                    actions = {
-                        IconButton(onClick = { 
-                            Appctr.flushDNS()
-                            Toast.makeText(context, context.getString(R.string.logs_dns_flushed), Toast.LENGTH_SHORT).show()
-                        }) { Icon(Icons.Default.CleaningServices, contentDescription = stringResource(R.string.logs_cd_flush_dns)) }
+    PredictiveBackContainer(
+        onBack = onBack,
+        targetTitle = stringResource(R.string.predictive_back_target_dashboard),
+        targetIcon = Icons.Default.Home
+    ) {
+        Scaffold(
+            topBar = {
+                Column {
+                    TopAppBar(
+                        title = { Text(stringResource(R.string.logs_title)) },
+                        navigationIcon = {
+                            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
+                        },
+                        actions = {
+                            IconButton(onClick = { 
+                                Appctr.flushDNS()
+                                Toast.makeText(context, context.getString(R.string.logs_dns_flushed), Toast.LENGTH_SHORT).show()
+                            }) { Icon(Icons.Default.CleaningServices, contentDescription = stringResource(R.string.logs_cd_flush_dns)) }
 
-                        IconButton(onClick = { 
-                            val fullLog = buildFullLogString(context)
-                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            clipboard.setPrimaryClip(ClipData.newPlainText("TailSocks Logs", fullLog))
-                            Toast.makeText(context, context.getString(R.string.logs_copied), Toast.LENGTH_SHORT).show()
-                        }) { Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.action_copy)) }
-                        
-                        IconButton(onClick = { saveFileLauncher.launch("tailsocks_logs_${System.currentTimeMillis()}.txt") }) { Icon(Icons.Default.Save, contentDescription = stringResource(R.string.action_save)) }
+                            IconButton(onClick = { 
+                                val fullLog = buildFullLogString(context)
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                clipboard.setPrimaryClip(ClipData.newPlainText("TailSocks Logs", fullLog))
+                                Toast.makeText(context, context.getString(R.string.logs_copied), Toast.LENGTH_SHORT).show()
+                            }) { Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.action_copy)) }
+                            
+                            IconButton(onClick = { saveFileLauncher.launch("tailsocks_logs_${System.currentTimeMillis()}.txt") }) { Icon(Icons.Default.Save, contentDescription = stringResource(R.string.action_save)) }
 
-                        if (GlobalSettings.isRootModeEnabled(context)) {
-                            IconButton(onClick = {
-                                coroutineScope.launch(Dispatchers.IO) {
-                                    try {
-                                        val dataDir = context.filesDir.parentFile ?: context.filesDir
-                                        val logFile = java.io.File(dataDir, "logs/tailscaled.log")
-                                        if (logFile.exists()) logFile.writeText("")
-                                        withContext(Dispatchers.Main) {
-                                            allLogs = emptyList()
-                                            Toast.makeText(context, context.getString(R.string.logs_cleared), Toast.LENGTH_SHORT).show()
-                                        }
-                                    } catch (e: Exception) {
-                                        withContext(Dispatchers.Main) {
-                                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
+                            if (GlobalSettings.isRootModeEnabled(context)) {
+                                IconButton(onClick = {
+                                    coroutineScope.launch(Dispatchers.IO) {
+                                        try {
+                                            val dataDir = context.filesDir.parentFile ?: context.filesDir
+                                            val logFile = java.io.File(dataDir, "logs/tailscaled.log")
+                                            if (logFile.exists()) logFile.writeText("")
+                                            withContext(Dispatchers.Main) {
+                                                allLogs = emptyList()
+                                                Toast.makeText(context, context.getString(R.string.logs_cleared), Toast.LENGTH_SHORT).show()
+                                            }
+                                        } catch (e: Exception) {
+                                            withContext(Dispatchers.Main) {
+                                                Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
+                                            }
                                         }
                                     }
-                                }
-                            }) { Icon(Icons.Default.DeleteForever, contentDescription = stringResource(R.string.action_clear)) }
+                                }) { Icon(Icons.Default.DeleteForever, contentDescription = stringResource(R.string.action_clear)) }
+                            }
                         }
-                    }
-                )
-                
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                    placeholder = { Text(stringResource(R.string.logs_search_placeholder)) },
-                    leadingIcon = { Icon(Icons.Default.Search, null) },
-                    trailingIcon = { if (searchQuery.isNotEmpty()) IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Default.Close, null) } },
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp)
-                )
+                    )
+                    
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                        placeholder = { Text(stringResource(R.string.logs_search_placeholder)) },
+                        leadingIcon = { Icon(Icons.Default.Search, null) },
+                        trailingIcon = { if (searchQuery.isNotEmpty()) IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Default.Close, null) } },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp)
+                    )
 
-                LazyRow(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(categories) { category ->
-                        FilterChip(selected = selectedCategory == category, onClick = { selectedCategory = category; isAutoScroll = true }, label = { Text(category) })
-                    }
+                    val selectedCategoryIndex = categories.indexOf(selectedCategory).coerceAtLeast(0)
+                    ScrollableSlidingSegmentedChips(
+                        options = categories,
+                        selectedIndex = selectedCategoryIndex,
+                        onOptionSelected = { idx ->
+                            selectedCategory = categories[idx]
+                            isAutoScroll = true
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 4.dp),
+                        height = 36.dp
+                    )
                 }
-            }
-        },
+            },
         floatingActionButton = {
             FloatingActionButton(onClick = {
                 coroutineScope.launch(Dispatchers.IO) {
@@ -318,4 +331,5 @@ fun LogsScreen(onBack: () -> Unit) {
             }
         }
     }
+}
 }

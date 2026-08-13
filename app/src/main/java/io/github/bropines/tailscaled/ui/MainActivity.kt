@@ -1001,8 +1001,13 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
         }
     }
 
-    Scaffold(
-        topBar = {
+    PredictiveBackContainer(
+        onBack = { (context as? ComponentActivity)?.finish() },
+        targetTitle = stringResource(R.string.predictive_back_target_exit),
+        targetIcon = Icons.Default.ExitToApp
+    ) {
+        Scaffold(
+            topBar = {
             TopAppBar(
                 title = {
                     Column(modifier = Modifier.clickable { accountMenuExpanded = true }) {
@@ -1705,6 +1710,7 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                 }
             }
         }
+    }
     }
 }
 

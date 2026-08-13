@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -136,15 +137,20 @@ fun DnsScreen(onBack: () -> Unit) {
 
     LaunchedEffect(Unit) { refresh(doFlush = false) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.dns_title)) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) } },
-                actions = { IconButton(onClick = { refresh(doFlush = false) }) { Icon(Icons.Default.Refresh, null) } }
-            )
-        }
-    ) { padding ->
+    PredictiveBackContainer(
+        onBack = onBack,
+        targetTitle = stringResource(R.string.predictive_back_target_settings),
+        targetIcon = Icons.Default.Settings
+    ) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text(stringResource(R.string.dns_title)) },
+                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) } },
+                    actions = { IconButton(onClick = { refresh(doFlush = false) }) { Icon(Icons.Default.Refresh, null) } }
+                )
+            }
+        ) { padding ->
         LazyColumn(modifier = Modifier.padding(padding).padding(horizontal = 16.dp)) {
 
             errorText?.let { msg ->
@@ -282,4 +288,5 @@ fun DnsScreen(onBack: () -> Unit) {
             item { Spacer(Modifier.height(32.dp)) }
         }
     }
+}
 }

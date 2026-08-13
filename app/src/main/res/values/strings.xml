@@ -92,6 +92,10 @@
     <string name="action_open">Open</string>
     <string name="action_send">Send</string>
     <string name="action_back">Back</string>
+    <string name="predictive_back_target_dashboard">Dashboard</string>
+    <string name="predictive_back_target_settings">Settings</string>
+    <string name="predictive_back_target_files_hub">Files Hub</string>
+    <string name="predictive_back_target_exit">Close App</string>
     <string name="action_disconnect">Disconnect</string>
     <string name="action_unlock">Unlock Console</string>
 

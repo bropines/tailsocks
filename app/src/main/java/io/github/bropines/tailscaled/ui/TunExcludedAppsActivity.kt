@@ -19,6 +19,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,6 +36,8 @@ import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.GlobalSettings
+import io.github.bropines.tailscaled.core.PredictiveBackContainer
+import io.github.bropines.tailscaled.core.SlidingSegmentedChips
 import io.github.bropines.tailscaled.core.TunVpnService
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 import kotlinx.coroutines.Dispatchers
@@ -101,92 +104,92 @@ fun TunExcludedAppsScreen(onBack: () -> Unit) {
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { 
-                    Column {
-                        Text(
-                            text = stringResource(R.string.title_activity_tun_excluded_apps),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp
-                        )
-                        Text(
-                            text = stringResource(R.string.settings_tun_excluded_apps_desc, excluded.value.size),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = {
-                        // Also auto-save on back for safety
-                        saveAndExit()
-                    }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                    }
-                },
-                actions = {
-                    TextButton(
-                        onClick = { saveAndExit() },
-                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
-                    ) {
-                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(stringResource(R.string.action_save), fontWeight = FontWeight.Bold)
-                    }
-                }
-            )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp)
-        ) {
-            // Search Bar
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                placeholder = { Text(stringResource(R.string.logs_search_placeholder)) },
-                leadingIcon = { Icon(Icons.Default.Search, null, tint = MaterialTheme.colorScheme.outline) },
-                trailingIcon = if (searchQuery.isNotEmpty()) {
-                    {
-                        IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Default.Clear, null)
+    PredictiveBackContainer(
+        onBack = { saveAndExit() },
+        targetTitle = stringResource(R.string.predictive_back_target_settings),
+        targetIcon = Icons.Default.Settings
+    ) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { 
+                        Column {
+                            Text(
+                                text = stringResource(R.string.title_activity_tun_excluded_apps),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp
+                            )
+                            Text(
+                                text = stringResource(R.string.settings_tun_excluded_apps_desc, excluded.value.size),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = {
+                            // Also auto-save on back for safety
+                            saveAndExit()
+                        }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                        }
+                    },
+                    actions = {
+                        TextButton(
+                            onClick = { saveAndExit() },
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(stringResource(R.string.action_save), fontWeight = FontWeight.Bold)
                         }
                     }
-                } else null,
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp)
-            )
-
-            // Filtering Chips
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                FilterChip(
-                    selected = !showOnlyExcluded,
-                    onClick = { showOnlyExcluded = false },
-                    label = { Text(stringResource(R.string.tun_apps_filter_all) + " (${apps.size})") }
-                )
-                FilterChip(
-                    selected = showOnlyExcluded,
-                    onClick = { showOnlyExcluded = true },
-                    label = { Text(stringResource(R.string.tun_apps_filter_excluded) + " (${excluded.value.size})") }
                 )
             }
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = 16.dp)
+            ) {
+                // Search Bar
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text(stringResource(R.string.logs_search_placeholder)) },
+                    leadingIcon = { Icon(Icons.Default.Search, null, tint = MaterialTheme.colorScheme.outline) },
+                    trailingIcon = if (searchQuery.isNotEmpty()) {
+                        {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(Icons.Default.Clear, null)
+                            }
+                        }
+                    } else null,
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                )
+
+                // Filtering Chips
+                val filterOptions = listOf(
+                    stringResource(R.string.tun_apps_filter_all) + " (${apps.size})",
+                    stringResource(R.string.tun_apps_filter_excluded) + " (${excluded.value.size})"
+                )
+                SlidingSegmentedChips(
+                    options = filterOptions,
+                    selectedIndex = if (showOnlyExcluded) 1 else 0,
+                    onOptionSelected = { idx -> showOnlyExcluded = (idx == 1) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    height = 38.dp
+                )
 
             if (loading) {
                 Box(Modifier.fillMaxSize().weight(1f), contentAlignment = Alignment.Center) {
@@ -225,6 +228,7 @@ fun TunExcludedAppsScreen(onBack: () -> Unit) {
                 }
             }
         }
+    }
     }
 }
 

@@ -329,7 +329,12 @@ fun NetcheckScreen(onBack: () -> Unit) {
         }
     }
 
-    Scaffold(
+    PredictiveBackContainer(
+        onBack = onBack,
+        targetTitle = stringResource(R.string.predictive_back_target_dashboard),
+        targetIcon = Icons.Default.Home
+    ) {
+        Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.netcheck_title)) },
@@ -633,6 +638,7 @@ fun NetcheckScreen(onBack: () -> Unit) {
             }
         }
     }
+}
 }
 
 @Composable

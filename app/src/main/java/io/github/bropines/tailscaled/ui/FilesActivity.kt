@@ -186,7 +186,11 @@ fun FilesScreen(onBack: () -> Unit) {
         } else { fileToSaveManual = file; saveLauncher.launch(file.Name) }
     }
 
-    PredictiveBackContainer(onBack = onBack) {
+    PredictiveBackContainer(
+        onBack = onBack,
+        targetTitle = stringResource(R.string.predictive_back_target_dashboard),
+        targetIcon = Icons.Default.Home
+    ) {
         Scaffold(
             topBar = {
                 Column {
@@ -206,96 +210,21 @@ fun FilesScreen(onBack: () -> Unit) {
                     // Continuous Drag-Bound Sliding Pill Selector (TailDrive vs TailDrop)
                     val pagePosition = (mainPagerState.currentPage + mainPagerState.currentPageOffsetFraction).coerceIn(0f, 1f)
 
-                    BoxWithConstraints(
+                    SlidingSegmentedChips(
+                        items = listOf(
+                            SegmentedChipItem("TailDrive", Icons.Default.Storage),
+                            SegmentedChipItem("TailDrop", Icons.AutoMirrored.Filled.Send)
+                        ),
+                        selectedIndex = mainPagerState.currentPage,
+                        onOptionSelected = { index ->
+                            scope.launch { mainPagerState.animateScrollToPage(index) }
+                        },
+                        positionOffset = pagePosition,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 24.dp, vertical = 6.dp)
-                            .height(48.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                    ) {
-                        val totalWidth = maxWidth
-                        val halfWidth = totalWidth / 2
-
-                        // Smooth Continuous Drag-Bound Active Pill Background
-                        val offsetX = halfWidth * pagePosition
-                        Box(
-                            modifier = Modifier
-                                .offset(x = offsetX)
-                                .width(halfWidth)
-                                .fillMaxHeight()
-                                .padding(3.dp)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(MaterialTheme.colorScheme.primaryContainer)
-                        )
-
-                        // Mode Buttons Content Overlay
-                        Row(modifier = Modifier.fillMaxSize()) {
-                            // Left Option: TailDrive
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight()
-                                    .clickable(
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        indication = null
-                                    ) {
-                                        scope.launch { mainPagerState.animateScrollToPage(0) }
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        Icons.Default.Storage,
-                                        null,
-                                        modifier = Modifier.size(18.dp),
-                                        tint = if (pagePosition < 0.5f) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Text(
-                                        "TailDrive",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp,
-                                        color = if (pagePosition < 0.5f) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-
-                            // Right Option: TailDrop
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight()
-                                    .clickable(
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        indication = null
-                                    ) {
-                                        scope.launch { mainPagerState.animateScrollToPage(1) }
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        Icons.AutoMirrored.Filled.Send,
-                                        null,
-                                        modifier = Modifier.size(18.dp),
-                                        tint = if (pagePosition >= 0.5f) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Text(
-                                        "TailDrop",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp,
-                                        color = if (pagePosition >= 0.5f) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                        }
-                    }
+                            .padding(horizontal = 24.dp, vertical = 6.dp),
+                        height = 44.dp
+                    )
 
                     // Sub-tabs: Smooth drag-bound sliding pill for TailDrop sub-pages
                     AnimatedVisibility(

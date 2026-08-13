@@ -77,7 +77,11 @@ fun TaildriveScreen(onBack: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
-    PredictiveBackContainer(onBack = onBack) {
+    PredictiveBackContainer(
+        onBack = onBack,
+        targetTitle = stringResource(R.string.predictive_back_target_files_hub),
+        targetIcon = Icons.Default.Folder
+    ) {
         val context = LocalContext.current
     val activeAccount = remember { AccountManager.getActiveAccount(context) }
     val prefs = remember(activeAccount.id) { context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE) }

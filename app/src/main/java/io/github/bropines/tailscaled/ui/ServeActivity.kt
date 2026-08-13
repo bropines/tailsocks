@@ -222,61 +222,49 @@ fun ServeScreen(onBack: () -> Unit) {
         return "$realProto://$baseDns$portSuffix"
     }
 
-    LaunchedEffect(Unit) { refresh() }
-
-    Scaffold(
-        topBar = {
-            Column {
-                TopAppBar(
-                    title = { Text(stringResource(R.string.serve_title)) },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back)) }
-                    },
-                    actions = {
-                        if (selfDns.isNotEmpty()) {
-                            IconButton(onClick = { showCertExportDialog = true }) { 
-                                Icon(Icons.Default.Security, stringResource(R.string.serve_cd_export_cert)) 
-                            }
-                        }
-                        IconButton(onClick = { showClearDialog = true }) { Icon(Icons.Default.DeleteSweep, stringResource(R.string.serve_cd_clear_all)) }
-                        IconButton(onClick = { refresh() }) { Icon(Icons.Default.Refresh, stringResource(R.string.action_refresh)) }
-                    }
-                )
-                val serveTabs = listOf(
-                    stringResource(R.string.serve_tab_serve),
-                    stringResource(R.string.serve_tab_funnel),
-                    stringResource(R.string.serve_tab_logs)
-                )
-                val listState = rememberLazyListState()
-                LaunchedEffect(pagerState.currentPage) {
-                    listState.animateScrollToItem(pagerState.currentPage)
-                }
-                LazyRow(
-                    state = listState,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    items(serveTabs.size) { index ->
-                        FilterChip(
-                            selected = pagerState.currentPage == index,
-                            onClick = {
-                                scope.launch {
-                                    pagerState.animateScrollToPage(index)
+    PredictiveBackContainer(
+        onBack = onBack,
+        targetTitle = stringResource(R.string.predictive_back_target_dashboard),
+        targetIcon = Icons.Default.Home
+    ) {
+        Scaffold(
+            topBar = {
+                Column {
+                    TopAppBar(
+                        title = { Text(stringResource(R.string.serve_title)) },
+                        navigationIcon = {
+                            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back)) }
+                        },
+                        actions = {
+                            if (selfDns.isNotEmpty()) {
+                                IconButton(onClick = { showCertExportDialog = true }) { 
+                                    Icon(Icons.Default.Security, stringResource(R.string.serve_cd_export_cert)) 
                                 }
-                            },
-                            label = { Text(serveTabs[index]) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        )
-                    }
+                            }
+                            IconButton(onClick = { showClearDialog = true }) { Icon(Icons.Default.DeleteSweep, stringResource(R.string.serve_cd_clear_all)) }
+                            IconButton(onClick = { refresh() }) { Icon(Icons.Default.Refresh, stringResource(R.string.action_refresh)) }
+                        }
+                    )
+                    val serveTabs = listOf(
+                        stringResource(R.string.serve_tab_serve),
+                        stringResource(R.string.serve_tab_funnel),
+                        stringResource(R.string.serve_tab_logs)
+                    )
+                    val pageOffset = (pagerState.currentPage + pagerState.currentPageOffsetFraction).coerceIn(0f, (serveTabs.size - 1).toFloat())
+                    SlidingSegmentedChips(
+                        options = serveTabs,
+                        selectedIndex = pagerState.currentPage,
+                        onOptionSelected = { index ->
+                            scope.launch { pagerState.animateScrollToPage(index) }
+                        },
+                        positionOffset = pageOffset,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 6.dp),
+                        height = 40.dp
+                    )
                 }
-            }
-        },
+            },
         floatingActionButton = {
             FloatingActionButton(onClick = { 
                 showEditDialog = ServeRuleEditData(
@@ -501,6 +489,7 @@ fun ServeScreen(onBack: () -> Unit) {
                 }
             }
         }
+    }
     }
 
     showEditDialog?.let { editData ->

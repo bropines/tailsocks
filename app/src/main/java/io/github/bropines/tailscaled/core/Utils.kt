@@ -30,6 +30,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.activity.compose.PredictiveBackHandler
 import kotlinx.coroutines.CancellationException
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 
 fun getFileName(context: Context, uri: Uri): String? {
     var result: String? = null
@@ -152,6 +154,8 @@ fun wrapContextWithLocale(context: Context): Context {
 fun PredictiveBackContainer(
     onBack: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    targetTitle: String? = null,
+    targetIcon: androidx.compose.ui.graphics.vector.ImageVector? = null,
     content: @Composable () -> Unit
 ) {
     if (onBack == null) {
@@ -172,23 +176,79 @@ fun PredictiveBackContainer(
     }
 
     val backScale = 1f - (backProgress * 0.12f)
-    val backAlpha = 1f - (backProgress * 0.3f)
+    val backAlpha = 1f - (backProgress * 0.35f)
 
     Box(
         modifier = modifier
             .fillMaxSize()
-            .graphicsLayer {
-                scaleX = backScale
-                scaleY = backScale
-                alpha = backAlpha
-                clip = true
-                shape = RoundedCornerShape((backProgress * 28).dp)
-            }
+            .background(MaterialTheme.colorScheme.background)
     ) {
-        content()
+        // Destination preview card in the background (visible as main screen scales down)
+        if (backProgress > 0.001f) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                androidx.compose.material3.Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                    tonalElevation = 6.dp,
+                    shadowElevation = 8.dp,
+                    modifier = Modifier
+                        .padding(horizontal = 32.dp)
+                        .graphicsLayer {
+                            val scale = 0.85f + (backProgress * 0.15f)
+                            scaleX = scale
+                            scaleY = scale
+                            alpha = (backProgress * 3f).coerceIn(0f, 1f)
+                        }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        androidx.compose.material3.Icon(
+                            imageVector = targetIcon ?: Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Text(
+                            text = targetTitle ?: androidx.compose.ui.res.stringResource(R.string.action_back),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+
+        // Main screen content scaling down
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    scaleX = backScale
+                    scaleY = backScale
+                    alpha = backAlpha
+                    clip = true
+                    shape = RoundedCornerShape((backProgress * 28).dp)
+                }
+        ) {
+            content()
+        }
     }
 }
 
+data class SegmentedChipItem(
+    val title: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector? = null
+)
+
+@JvmName("SlidingSegmentedChipsOptions")
 @Composable
 fun SlidingSegmentedChips(
     options: List<String>,
@@ -198,20 +258,39 @@ fun SlidingSegmentedChips(
     positionOffset: Float? = null,
     height: Dp = 40.dp
 ) {
+    SlidingSegmentedChips(
+        items = options.map { SegmentedChipItem(it) },
+        selectedIndex = selectedIndex,
+        onOptionSelected = onOptionSelected,
+        modifier = modifier,
+        positionOffset = positionOffset,
+        height = height
+    )
+}
+
+@Composable
+fun SlidingSegmentedChips(
+    items: List<SegmentedChipItem>,
+    selectedIndex: Int,
+    onOptionSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    positionOffset: Float? = null,
+    height: Dp = 40.dp
+) {
     val animPosition by animateFloatAsState(
         targetValue = positionOffset ?: selectedIndex.toFloat(),
-        animationSpec = tween(durationMillis = 220),
+        animationSpec = tween(durationMillis = 140),
         label = "slidingPosition"
     )
 
     BoxWithConstraints(
         modifier = modifier
             .height(height)
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
     ) {
         val totalWidth = maxWidth
-        val count = options.size.coerceAtLeast(1)
+        val count = items.size.coerceAtLeast(1)
         val itemWidth = totalWidth / count
 
         // Smooth Continuous Drag-Bound / Animated Active Pill
@@ -222,13 +301,13 @@ fun SlidingSegmentedChips(
                 .width(itemWidth)
                 .fillMaxHeight()
                 .padding(2.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(14.dp))
                 .background(MaterialTheme.colorScheme.primaryContainer)
         )
 
-        // Labels overlay
+        // Labels & Icons overlay
         Row(modifier = Modifier.fillMaxSize()) {
-            options.forEachIndexed { index, option ->
+            items.forEachIndexed { index, item ->
                 val isSelected = (animPosition - index).let { Math.abs(it) < 0.5f }
                 Box(
                     modifier = Modifier
@@ -242,11 +321,121 @@ fun SlidingSegmentedChips(
                         },
                     contentAlignment = Alignment.Center
                 ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (item.icon != null) {
+                            androidx.compose.material3.Icon(
+                                imageVector = item.icon,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Text(
+                            text = item.title,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            fontSize = 13.sp,
+                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@JvmName("ScrollableSlidingSegmentedChipsOptions")
+@Composable
+fun ScrollableSlidingSegmentedChips(
+    options: List<String>,
+    selectedIndex: Int,
+    onOptionSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    icons: List<androidx.compose.ui.graphics.vector.ImageVector?>? = null,
+    height: Dp = 40.dp
+) {
+    val items = options.mapIndexed { index, title ->
+        SegmentedChipItem(title, icons?.getOrNull(index))
+    }
+    ScrollableSlidingSegmentedChips(
+        items = items,
+        selectedIndex = selectedIndex,
+        onOptionSelected = onOptionSelected,
+        modifier = modifier,
+        height = height
+    )
+}
+
+@Composable
+fun ScrollableSlidingSegmentedChips(
+    items: List<SegmentedChipItem>,
+    selectedIndex: Int,
+    onOptionSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    height: Dp = 40.dp
+) {
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    LaunchedEffect(selectedIndex) {
+        listState.animateScrollToItem(selectedIndex)
+    }
+
+    androidx.compose.foundation.lazy.LazyRow(
+        state = listState,
+        modifier = modifier
+            .height(height)
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        items(items.size) { index ->
+            val item = items[index]
+            val isSelected = selectedIndex == index
+            val bgColor by androidx.compose.animation.animateColorAsState(
+                targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer else androidx.compose.ui.graphics.Color.Transparent,
+                animationSpec = tween(durationMillis = 140),
+                label = "chipBgColor"
+            )
+            val contentColor by androidx.compose.animation.animateColorAsState(
+                targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                animationSpec = tween(durationMillis = 140),
+                label = "chipContentColor"
+            )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(bgColor)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        onOptionSelected(index)
+                    }
+                    .padding(horizontal = 14.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (item.icon != null) {
+                        androidx.compose.material3.Icon(
+                            imageVector = item.icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = contentColor
+                        )
+                    }
                     Text(
-                        text = option,
+                        text = item.title,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                         fontSize = 13.sp,
-                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                        color = contentColor
                     )
                 }
             }
