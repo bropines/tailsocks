@@ -113,6 +113,7 @@ object RootUtils {
 
             sb.append("nohup $cmd >> \"$logFile\" 2>&1 &\n")
             sb.append("chmod 666 \"$logFile\" 2>/dev/null || true\n")
+            sb.append("magiskpolicy --live \"allow untrusted_app magisk unix_stream_socket connectto\" 2>/dev/null || supolicy --live \"allow untrusted_app magisk unix_stream_socket connectto\" 2>/dev/null || true\n")
             sb.append("for i in \$(seq 1 30); do\n")
             sb.append("    if [ -S \"$socketPath\" ] || [ -e \"$socketPath\" ]; then\n")
             sb.append("        chmod 777 \"$socketPath\"\n")

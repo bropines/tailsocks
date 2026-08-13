@@ -2,7 +2,13 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [3.4.1] - 2026-08-13
+
+### Fixed
+- **Root Mode SELinux Sockets**: Fixed a crash/timeout issue on physical Android devices where SELinux Enforcing mode blocked connection between the app interface and the Root daemon socket.
+
 ## [3.4.0] - 2026-08-13
+
 
 ### Added
 - **Predictive Back Gestures**: Added smooth predictive back animations across all app screens.
