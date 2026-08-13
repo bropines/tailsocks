@@ -2,6 +2,11 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [3.5.1] - 2026-08-13
+
+### Fixed
+- Fixed compilation errors in Go core when building under Android targets with Tailscale v1.102.1.
+
 ## [3.5.0] - 2026-08-13
 
 ### Added
