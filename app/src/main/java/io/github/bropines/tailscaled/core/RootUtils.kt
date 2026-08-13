@@ -124,6 +124,22 @@ object RootUtils {
             sb.append("    sleep 0.2\n")
             sb.append("done\n")
 
+            if (tunMode) {
+                sb.append("(\n")
+                sb.append("    for j in \$(seq 1 30); do\n")
+                sb.append("        if ip link show tailscale0 >/dev/null 2>&1; then\n")
+                sb.append("            ip route add 100.64.0.0/10 dev tailscale0 table 1099 metric 1 2>/dev/null || ip route add 100.64.0.0/10 dev tailscale0 metric 1\n")
+                sb.append("            iptables -t mangle -A OUTPUT -d 100.64.0.0/10 -j MARK --set-mark 1099 2>/dev/null || true\n")
+                sb.append("            ip rule add fwmark 1099 table 1099 priority 100 2>/dev/null || ip rule add fwmark 1099 table 1099 2>/dev/null || true\n")
+                sb.append("            iptables -I FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || true\n")
+                sb.append("            iptables -I FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || true\n")
+                sb.append("            break\n")
+                sb.append("        fi\n")
+                sb.append("        sleep 1\n")
+                sb.append("    done\n")
+                sb.append(") &\n")
+            }
+
             val script = sb.toString()
             Log.d(TAG, "Executing root launch script:\n$script")
 
@@ -179,19 +195,21 @@ object RootUtils {
         }
     }
 
-
-    fun applyRootDnsRedirect(): Boolean {
+    fun applyTailscale0Routing(): Boolean {
         return try {
             val sb = StringBuilder()
-            sb.append("while iptables -t nat -D OUTPUT -d 100.64.0.0/10 -p udp --dport 53 -j ACCEPT 2>/dev/null; do :; done\n")
-            sb.append("while iptables -t nat -D OUTPUT -d 100.64.0.0/10 -p tcp --dport 53 -j ACCEPT 2>/dev/null; do :; done\n")
-            sb.append("while iptables -t nat -D OUTPUT -p udp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null; do :; done\n")
-            sb.append("while iptables -t nat -D OUTPUT -p tcp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null; do :; done\n")
-            sb.append("resetprop net.dns1 100.100.100.100 2>/dev/null || setprop net.dns1 100.100.100.100 2>/dev/null || true\n")
-            sb.append("iptables -t nat -I OUTPUT 1 -p udp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null || true\n")
-            sb.append("iptables -t nat -I OUTPUT 1 -p tcp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null || true\n")
-            sb.append("iptables -t nat -I OUTPUT 1 -d 100.64.0.0/10 -p udp --dport 53 -j ACCEPT 2>/dev/null || true\n")
-            sb.append("iptables -t nat -I OUTPUT 1 -d 100.64.0.0/10 -p tcp --dport 53 -j ACCEPT 2>/dev/null || true\n")
+            sb.append("while ip rule del fwmark 1099 table 1099 2>/dev/null; do :; done\n")
+            sb.append("while ip rule del fwmark 1099 lookup 1099 2>/dev/null; do :; done\n")
+            sb.append("while iptables -t mangle -D OUTPUT -d 100.64.0.0/10 -j MARK --set-mark 1099 2>/dev/null; do :; done\n")
+            sb.append("while iptables -D FORWARD -o tailscale0 -j ACCEPT 2>/dev/null; do :; done\n")
+            sb.append("while iptables -D FORWARD -i tailscale0 -j ACCEPT 2>/dev/null; do :; done\n")
+            sb.append("ip route del 100.64.0.0/10 dev tailscale0 table 1099 2>/dev/null || true\n")
+
+            sb.append("ip route add 100.64.0.0/10 dev tailscale0 table 1099 metric 1 2>/dev/null || ip route add 100.64.0.0/10 dev tailscale0 metric 1\n")
+            sb.append("iptables -t mangle -A OUTPUT -d 100.64.0.0/10 -j MARK --set-mark 1099 2>/dev/null || true\n")
+            sb.append("ip rule add fwmark 1099 table 1099 priority 100 2>/dev/null || ip rule add fwmark 1099 table 1099 2>/dev/null || true\n")
+            sb.append("iptables -I FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || true\n")
+            sb.append("iptables -I FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || true\n")
 
             val process = Runtime.getRuntime().exec("su")
             process.outputStream.bufferedWriter().use { writer ->
@@ -201,19 +219,21 @@ object RootUtils {
             }
             process.waitFor() == 0
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to apply root DNS redirect: ${e.message}", e)
+            Log.e(TAG, "Failed to apply tailscale0 routing: ${e.message}", e)
             false
         }
     }
 
-    fun cleanupRootDnsRedirect(): Boolean {
+    fun cleanupTailscale0Routing(): Boolean {
         return try {
             val sb = StringBuilder()
-            sb.append("while iptables -t nat -D OUTPUT -d 100.64.0.0/10 -p udp --dport 53 -j ACCEPT 2>/dev/null; do :; done\n")
-            sb.append("while iptables -t nat -D OUTPUT -d 100.64.0.0/10 -p tcp --dport 53 -j ACCEPT 2>/dev/null; do :; done\n")
-            sb.append("while iptables -t nat -D OUTPUT -p udp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null; do :; done\n")
-            sb.append("while iptables -t nat -D OUTPUT -p tcp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null; do :; done\n")
-            sb.append("resetprop --delete net.dns1 2>/dev/null || setprop net.dns1 \"\" 2>/dev/null || true\n")
+            sb.append("while ip rule del fwmark 1099 table 1099 2>/dev/null; do :; done\n")
+            sb.append("while ip rule del fwmark 1099 lookup 1099 2>/dev/null; do :; done\n")
+            sb.append("while iptables -t mangle -D OUTPUT -d 100.64.0.0/10 -j MARK --set-mark 1099 2>/dev/null; do :; done\n")
+            sb.append("while iptables -D FORWARD -o tailscale0 -j ACCEPT 2>/dev/null; do :; done\n")
+            sb.append("while iptables -D FORWARD -i tailscale0 -j ACCEPT 2>/dev/null; do :; done\n")
+            sb.append("ip route del 100.64.0.0/10 dev tailscale0 table 1099 2>/dev/null || true\n")
+            sb.append("ip route del 100.64.0.0/10 dev tailscale0 2>/dev/null || true\n")
             sb.append("umount /system/etc/hosts 2>/dev/null || true\n")
 
             val process = Runtime.getRuntime().exec("su")
@@ -224,14 +244,14 @@ object RootUtils {
             }
             process.waitFor() == 0
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to cleanup root DNS redirect: ${e.message}", e)
+            Log.e(TAG, "Failed to cleanup tailscale0 routing: ${e.message}", e)
             false
         }
     }
 
     fun stopRootDaemon(socketPath: String = ""): Boolean {
         return try {
-            cleanupRootDnsRedirect()
+            cleanupTailscale0Routing()
             val script = """
                 pkill -15 -f libtailscale.so || killall -15 tailscaled 2>/dev/null || true
                 sleep 0.2

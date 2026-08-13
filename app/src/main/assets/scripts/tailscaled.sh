@@ -62,23 +62,32 @@ fi
 nohup "$DAEMON_BIN" --statedir="$STATE_DIR" --socket="$SOCKET_PATH" --tun=tailscale0 >> "$LOG_FILE" 2>&1 &
 chmod 666 "$LOG_FILE" 2>/dev/null || true
 magiskpolicy --live "allow untrusted_app magisk unix_stream_socket connectto" 2>/dev/null || supolicy --live "allow untrusted_app magisk unix_stream_socket connectto" 2>/dev/null || true
-# Wait for daemon socket then apply DNS redirect safely
+# Wait for daemon socket then apply table 1099 routing safely
 for i in $(seq 1 30); do
     if [ -S "$SOCKET_PATH" ] || [ -e "$SOCKET_PATH" ]; then
         chmod 777 "$SOCKET_PATH"
         chcon u:object_r:app_data_file:s0 "$SOCKET_PATH" 2>/dev/null || true
         chmod 777 "$STATE_DIR" 2>/dev/null || true
 
-        while iptables -t nat -D OUTPUT -d 100.64.0.0/10 -p udp --dport 53 -j ACCEPT 2>/dev/null; do :; done
-        while iptables -t nat -D OUTPUT -d 100.64.0.0/10 -p tcp --dport 53 -j ACCEPT 2>/dev/null; do :; done
-        while iptables -t nat -D OUTPUT -p udp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null; do :; done
-        while iptables -t nat -D OUTPUT -p tcp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null; do :; done
+        # Wait for tailscale0 and apply table 1099 policy routing
+        for j in $(seq 1 30); do
+            if ip link show tailscale0 >/dev/null 2>&1; then
+                while ip rule del fwmark 1099 table 1099 2>/dev/null; do :; done
+                while ip rule del fwmark 1099 lookup 1099 2>/dev/null; do :; done
+                while iptables -t mangle -D OUTPUT -d 100.64.0.0/10 -j MARK --set-mark 1099 2>/dev/null; do :; done
+                while iptables -D FORWARD -o tailscale0 -j ACCEPT 2>/dev/null; do :; done
+                while iptables -D FORWARD -i tailscale0 -j ACCEPT 2>/dev/null; do :; done
+                ip route del 100.64.0.0/10 dev tailscale0 table 1099 2>/dev/null || true
 
-        resetprop net.dns1 100.100.100.100 2>/dev/null || setprop net.dns1 100.100.100.100 2>/dev/null || true
-        iptables -t nat -I OUTPUT 1 -p udp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null || true
-        iptables -t nat -I OUTPUT 1 -p tcp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null || true
-        iptables -t nat -I OUTPUT 1 -d 100.64.0.0/10 -p udp --dport 53 -j ACCEPT 2>/dev/null || true
-        iptables -t nat -I OUTPUT 1 -d 100.64.0.0/10 -p tcp --dport 53 -j ACCEPT 2>/dev/null || true
+                ip route add 100.64.0.0/10 dev tailscale0 table 1099 metric 1 2>/dev/null || ip route add 100.64.0.0/10 dev tailscale0 metric 1
+                iptables -t mangle -A OUTPUT -d 100.64.0.0/10 -j MARK --set-mark 1099 2>/dev/null || true
+                ip rule add fwmark 1099 table 1099 priority 100 2>/dev/null || ip rule add fwmark 1099 table 1099 2>/dev/null || true
+                iptables -I FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || true
+                iptables -I FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || true
+                break
+            fi
+            sleep 1
+        done
         break
     fi
     sleep 0.2

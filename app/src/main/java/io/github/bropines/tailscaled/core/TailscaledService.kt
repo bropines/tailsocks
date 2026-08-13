@@ -96,15 +96,15 @@ class TailscaledService : Service() {
             if (GlobalSettings.isRootModeEnabled(this@TailscaledService) && GlobalSettings.isRootTunEnabled(this@TailscaledService)) {
                 if (isRunning && backendState == "Running") {
                     if (!dnsRedirectApplied) {
-                        Log.i(TAG, "Daemon is Running. Applying Root DNS redirect.")
-                        RootUtils.applyRootDnsRedirect()
+                        Log.i(TAG, "Daemon is Running. Applying Root tailscale0 routing.")
+                        RootUtils.applyTailscale0Routing()
                         dnsRedirectApplied = true
                     }
                     syncTailnetHosts()
                 } else {
                     if (dnsRedirectApplied) {
-                        Log.i(TAG, "Daemon is not Running ($backendState). Cleaning up DNS redirect.")
-                        RootUtils.cleanupRootDnsRedirect()
+                        Log.i(TAG, "Daemon is not Running ($backendState). Cleaning up tailscale0 routing.")
+                        RootUtils.cleanupTailscale0Routing()
                         dnsRedirectApplied = false
                     }
                     if (isRunning && (backendState == "NeedsLogin" || backendState == "Starting" || backendState == "NoState")) {
