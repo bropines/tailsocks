@@ -183,8 +183,8 @@ object RootUtils {
     fun applyRootDnsRedirect(): Boolean {
         return try {
             val sb = StringBuilder()
-            sb.append("iptables -t nat -D OUTPUT -p udp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null || true\n")
-            sb.append("iptables -t nat -D OUTPUT -p tcp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null || true\n")
+            sb.append("while iptables -t nat -D OUTPUT -p udp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null; do :; done\n")
+            sb.append("while iptables -t nat -D OUTPUT -p tcp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null; do :; done\n")
             sb.append("resetprop net.dns1 100.100.100.100 2>/dev/null || setprop net.dns1 100.100.100.100 2>/dev/null || true\n")
             sb.append("iptables -t nat -I OUTPUT 1 -p udp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null || true\n")
             sb.append("iptables -t nat -I OUTPUT 1 -p tcp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null || true\n")
@@ -205,8 +205,8 @@ object RootUtils {
     fun cleanupRootDnsRedirect(): Boolean {
         return try {
             val sb = StringBuilder()
-            sb.append("iptables -t nat -D OUTPUT -p udp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null || true\n")
-            sb.append("iptables -t nat -D OUTPUT -p tcp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null || true\n")
+            sb.append("while iptables -t nat -D OUTPUT -p udp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null; do :; done\n")
+            sb.append("while iptables -t nat -D OUTPUT -p tcp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null; do :; done\n")
             sb.append("resetprop --delete net.dns1 2>/dev/null || setprop net.dns1 \"\" 2>/dev/null || true\n")
             sb.append("umount /system/etc/hosts 2>/dev/null || true\n")
 

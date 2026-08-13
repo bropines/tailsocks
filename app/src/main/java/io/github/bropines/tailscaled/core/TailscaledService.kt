@@ -76,6 +76,7 @@ class TailscaledService : Service() {
     private var byedpiProxyAddress: Pair<String, Int>? = null
     private var lastStartedFlags: String? = null
     private var lastStartedIpv6Disabled: Boolean? = null
+    private var dnsRedirectApplied = false
     
     private val refreshHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private val refreshRunnable = object : Runnable {
@@ -84,14 +85,37 @@ class TailscaledService : Service() {
             // as LocalAPI synchronization in ApplySettings handles profile-dependent settings.
             val activeAccount = AccountManager.getActiveAccount(this@TailscaledService)
             val profilePrefs = getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
-            val interval = profilePrefs.getString("refresh_interval", "15000")?.toLongOrNull() ?: 15000L
+            val defaultInterval = profilePrefs.getString("refresh_interval", "15000")?.toLongOrNull() ?: 15000L
+            var interval = defaultInterval
+
+            val isRunning = Appctr.isRunning()
+            val backendState = if (isRunning) {
+                try { Appctr.getBackendState() } catch (e: Exception) { "" }
+            } else ""
+
+            if (GlobalSettings.isRootModeEnabled(this@TailscaledService) && GlobalSettings.isRootTunEnabled(this@TailscaledService)) {
+                if (isRunning && backendState == "Running") {
+                    if (!dnsRedirectApplied) {
+                        Log.i(TAG, "Daemon is Running. Applying Root DNS redirect.")
+                        RootUtils.applyRootDnsRedirect()
+                        dnsRedirectApplied = true
+                    }
+                    syncTailnetHosts()
+                } else {
+                    if (dnsRedirectApplied) {
+                        Log.i(TAG, "Daemon is not Running ($backendState). Cleaning up DNS redirect.")
+                        RootUtils.cleanupRootDnsRedirect()
+                        dnsRedirectApplied = false
+                    }
+                    if (isRunning && (backendState == "NeedsLogin" || backendState == "Starting" || backendState == "NoState")) {
+                        interval = 2000L
+                    }
+                }
+            }
             
             val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-            if (Appctr.isRunning() && powerManager.isInteractive) {
+            if (isRunning && powerManager.isInteractive) {
                 updateAllWidgets(this@TailscaledService)
-                if (GlobalSettings.isRootModeEnabled(this@TailscaledService) && GlobalSettings.isRootTunEnabled(this@TailscaledService)) {
-                    syncTailnetHosts()
-                }
             }
             
             refreshHandler.postDelayed(this, interval)
@@ -303,11 +327,6 @@ class TailscaledService : Service() {
                 forceAppWidgetUpdate(this@TailscaledService)
                 if (waitForDaemonReady()) {
                     Log.d(TAG, "Daemon readiness checkpoint reached. Launching auxiliary modules...")
-                    if (GlobalSettings.isRootModeEnabled(this@TailscaledService) && GlobalSettings.isRootTunEnabled(this@TailscaledService)) {
-                        Log.i(TAG, "Applying Root DNS redirect post-auth/post-ready")
-                        RootUtils.applyRootDnsRedirect()
-                        syncTailnetHosts()
-                    }
                     applyTagsAndRoutes(this@TailscaledService)
                     applyTaildrive(this@TailscaledService)
                     
