@@ -1022,7 +1022,7 @@ fun SettingsScreen(
                                 val isHttpEnabled = httpProxy.isNotEmpty()
                                 SettingsSwitchItem(
                                     title = stringResource(R.string.settings_http_enable_title),
-                                    description = stringResource(R.string.settings_http_enable_desc),
+                                    subtitle = stringResource(R.string.settings_http_enable_desc),
                                     icon = Icons.Default.Http,
                                     checked = isHttpEnabled
                                 ) { enabled ->
@@ -1036,31 +1036,25 @@ fun SettingsScreen(
                                     }
                                 }
 
-                                AnimatedVisibility(visible = isHttpEnabled) {
-                                    Column {
-                                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
-                                        SettingsEditItem(
-                                            title = stringResource(R.string.settings_http_address_title),
-                                            value = httpProxy,
-                                            icon = Icons.Default.SettingsEthernet,
-                                            placeholder = "127.0.0.1:8080",
-                                            onAction = { 
-                                                val rnd = generateRandomLoopbackAddress()
-                                                httpProxy = rnd
-                                                saveGlobalPref("httpproxy", rnd)
-                                            },
-                                            actionIcon = Icons.Default.Casino
-                                        ) { 
-                                            httpProxy = it
-                                            saveGlobalPref("httpproxy", it) 
-                                        }
-                                        Text(
-                                            text = stringResource(R.string.settings_http_desc),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                            modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 8.dp)
-                                        )
+                                if (isHttpEnabled) {
+                                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                                    SettingsEditItem(
+                                        title = stringResource(R.string.settings_http_address_title),
+                                        value = httpProxy,
+                                        icon = Icons.Default.Http,
+                                        placeholder = "127.0.0.1:8080",
+                                        onAction = { generateRandomLoopbackAddress() },
+                                        actionIcon = Icons.Default.Casino
+                                    ) { 
+                                        httpProxy = it
+                                        saveGlobalPref("httpproxy", it) 
                                     }
+                                    Text(
+                                        text = stringResource(R.string.settings_http_desc),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                        modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 8.dp)
+                                    )
                                 }
                             }
 

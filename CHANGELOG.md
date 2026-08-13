@@ -23,6 +23,8 @@ All notable changes to the TailSocks project will be documented in this file. Th
   - Added full storage sharing toggle (`/storage/emulated/0`) and folder choice dialog (System Picker vs Manual Path) in `TaildriveActivity`.
 - **Onboarding & Proxy Enhancements**:
   - Added randomizer buttons for loopback proxy ports in `SettingsActivity`, proxy authentication fields in `FirstStartActivity`, and auto-generated device hostnames in `TailscaledService`.
+- **Internal HTTP Proxy Master Toggle**:
+  - Added a master switch in `SettingsActivity` to enable/disable the internal HTTP proxy, automatically hiding configuration fields when disabled to simplify UI.
 
 ### Fixed
 - **DNS Lookup Input Field Layout**:
