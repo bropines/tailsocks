@@ -873,6 +873,10 @@ fun SettingsScreen(
                                     } else {
                                         rootModeEnabled = false
                                         GlobalSettings.setRootModeEnabled(context, false)
+                                        if (serviceScriptInstalled) {
+                                            RootUtils.setServiceScriptInstalled(context, false)
+                                            serviceScriptInstalled = false
+                                        }
                                         Toast.makeText(context, "Root Mode disabled", Toast.LENGTH_SHORT).show()
                                         if (Appctr.isRunning()) {
                                             val intent = Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" }
