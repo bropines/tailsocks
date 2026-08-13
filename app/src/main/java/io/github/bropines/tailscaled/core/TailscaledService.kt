@@ -468,6 +468,7 @@ class TailscaledService : Service() {
         try { Appctr.stopDriveProxy() } catch (e: Exception) {}
         if (GlobalSettings.isRootModeEnabled(this)) {
             val socketPath = "${filesDir.absolutePath}/tailscaled.sock"
+            RootUtils.cleanupTailscale0Routing()
             Appctr.setExternalSocketPath("")
             if (GlobalSettings.shouldKillRootDaemonOnStop(this)) {
                 RootUtils.stopRootDaemon(socketPath)
@@ -694,6 +695,7 @@ class TailscaledService : Service() {
     override fun onDestroy() {
         if (GlobalSettings.isRootModeEnabled(this)) {
             val socketPath = "${filesDir.absolutePath}/tailscaled.sock"
+            RootUtils.cleanupTailscale0Routing()
             Appctr.setExternalSocketPath("")
             if (!RootUtils.isServiceScriptInstalled()) {
                 RootUtils.stopRootDaemon(socketPath)
