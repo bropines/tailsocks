@@ -54,6 +54,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -221,30 +222,34 @@ class MainActivity : ComponentActivity() {
         val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
         val appctrPrefs = getSharedPreferences("appctr", Context.MODE_PRIVATE)
         
-        try {
-            val packageInfo = packageManager.getPackageInfo(packageName, 0)
-            val currentUpdateTime = packageInfo.lastUpdateTime
-            val savedUpdateTime = prefs.getLong("last_update_time", 0)
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val packageInfo = packageManager.getPackageInfo(packageName, 0)
+                val currentUpdateTime = packageInfo.lastUpdateTime
+                val savedUpdateTime = prefs.getLong("last_update_time", 0)
 
-            if (savedUpdateTime != currentUpdateTime) {
-                Runtime.getRuntime().exec("killall tailscaled")
-                prefs.edit().putLong("last_update_time", currentUpdateTime).apply()
-            }
-        } catch (e: Exception) {}
-
-        val forceBg = appctrPrefs.getBoolean("force_bg", false)
-
-        if (ProxyState.isUserLetRunning(this) && !ProxyState.isActualRunning(this)) {
-            if (forceBg) {
-                val authKey = appctrPrefs.getString("authkey", "") ?: ""
-                if (authKey.isNotBlank()) {
-                    val intent = Intent(this, TailscaledService::class.java).apply { action = "START_ACTION" }
-                    ContextCompat.startForegroundService(this, intent)
-                } else {
-                    ProxyState.setUserState(this, false)
+                if (savedUpdateTime != currentUpdateTime) {
+                    Runtime.getRuntime().exec("killall tailscaled").waitFor()
+                    prefs.edit().putLong("last_update_time", currentUpdateTime).apply()
                 }
-            } else {
-                ProxyState.setUserState(this, false)
+            } catch (e: Exception) {}
+
+            val forceBg = appctrPrefs.getBoolean("force_bg", false)
+
+            if (ProxyState.isUserLetRunning(this@MainActivity) && !ProxyState.isActualRunning(this@MainActivity)) {
+                withContext(Dispatchers.Main) {
+                    if (forceBg) {
+                        val authKey = appctrPrefs.getString("authkey", "") ?: ""
+                        if (authKey.isNotBlank()) {
+                            val intent = Intent(this@MainActivity, TailscaledService::class.java).apply { action = "START_ACTION" }
+                            ContextCompat.startForegroundService(this@MainActivity, intent)
+                        } else {
+                            ProxyState.setUserState(this@MainActivity, false)
+                        }
+                    } else {
+                        ProxyState.setUserState(this@MainActivity, false)
+                    }
+                }
             }
         }
     }

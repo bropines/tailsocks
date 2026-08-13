@@ -266,8 +266,8 @@ class TailscaledService : Service() {
                     val isRunningValid = statusJson != null && !statusJson.contains("\"BackendState\":\"NoState\"")
 
                     if (isRunningValid) {
-                        Log.i(TAG, "Root daemon is already running and configured. Attaching to existing socket.")
-                        Appctr.setExternalSocketPath(options.socketPath)
+                        Log.i(TAG, "Root daemon is already running. Attaching to existing socket with full options.")
+                        Appctr.attachExternal(options)
                     } else {
                         if (socketFile.exists()) {
                             Log.w(TAG, "Root daemon is in NoState or unconfigured. Stopping stale daemon and restarting.")
@@ -287,7 +287,7 @@ class TailscaledService : Service() {
                             tunMode = GlobalSettings.isTunModeEnabled(this@TailscaledService)
                         )
                         if (ok) {
-                            Appctr.setExternalSocketPath(options.socketPath)
+                            Appctr.attachExternal(options)
                         }
                     }
                 } else {

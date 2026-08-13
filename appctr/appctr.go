@@ -472,6 +472,49 @@ func Start(opt *StartOptions) {
 	}
 }
 
+func AttachExternal(opt *StartOptions) {
+	stateMu.Lock()
+	externalSocketPath = opt.SocketPath
+	PC = newPathControl(opt.ExecPath, opt.SocketPath, opt.StatePath)
+	lastOptions = opt
+	daemonStartTime = time.Now()
+	stateMu.Unlock()
+
+	slog.Info("========================================")
+	slog.Info("=== TAILSOCKS GO CORE ATTACHING (ROOT) ===", "version", coreVersion, "do_reset", opt.DoReset, "has_authkey", opt.AuthKey != "")
+	slog.Info("========================================")
+	GConfig.update(opt.Socks5Server, opt.Socks5User, opt.Socks5Pass, opt.DnsProxy)
+
+	go func() {
+		// Wait for socket
+		for i := 0; i < 20; i++ {
+			if _, err := os.Stat(opt.SocketPath); err == nil {
+				break
+			}
+			time.Sleep(500 * time.Millisecond)
+		}
+		EnsureIPNBusListener()
+		if opt.AuthKey != "" {
+			Login(opt.AuthKey)
+		} else {
+			registerMachineWithAuthKey(PC, opt)
+		}
+		syncSettings(opt)
+	}()
+
+	if opt.DnsProxy != "" {
+		RestartDNS()
+	}
+
+	if opt.TaildropDir != "" {
+		stateMu.Lock()
+		ctx, cancel := context.WithCancel(context.Background())
+		taildropCancel = cancel
+		stateMu.Unlock()
+		go startTaildropCollector(ctx, opt.TaildropDir)
+	}
+}
+
 func RestartDNS() {
 	stateMu.Lock()
 	opt := lastOptions
