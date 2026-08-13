@@ -170,6 +170,74 @@ fun TaildriveScreen(onBack: () -> Unit) {
         }
     }
 
+    var showChoiceDialog by remember { mutableStateOf(false) }
+
+    if (showChoiceDialog) {
+        AlertDialog(
+            onDismissRequest = { showChoiceDialog = false },
+            title = { Text(stringResource(R.string.taildrive_cd_add)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Choose how to add folder:", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(4.dp))
+                    OutlinedCard(
+                        onClick = {
+                            showChoiceDialog = false
+                            dirPickerLauncher.launch(null)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(Icons.Default.FolderOpen, null, tint = MaterialTheme.colorScheme.primary)
+                            Column {
+                                Text("System Folder Picker", fontWeight = FontWeight.Bold)
+                                Text("Browse and select folder visually", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+
+                    OutlinedCard(
+                        onClick = {
+                            showChoiceDialog = false
+                            showAddShareDialogWithPath("") { newShare ->
+                                if (shares.any { it.name.lowercase() == newShare.name.lowercase() }) {
+                                    Toast.makeText(context, context.getString(R.string.taildrive_err_name_exists), Toast.LENGTH_SHORT).show()
+                                } else {
+                                    shares.add(newShare)
+                                    saveShares(prefs, shares)
+                                    triggerServiceSettingsUpdate(context)
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.primary)
+                            Column {
+                                Text("Enter Path Manually", fontWeight = FontWeight.Bold)
+                                Text("Type path (e.g. /storage/emulated/0/Download)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showChoiceDialog = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -189,7 +257,7 @@ fun TaildriveScreen(onBack: () -> Unit) {
         floatingActionButton = {
             if (isEnabled && hasStoragePermission) {
                 FloatingActionButton(onClick = {
-                    dirPickerLauncher.launch(null)
+                    showChoiceDialog = true
                 }) {
                     Icon(Icons.Default.Add, stringResource(R.string.taildrive_cd_add))
                 }
