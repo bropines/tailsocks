@@ -71,6 +71,7 @@ data class DnsStatus(
 )
 
 private fun buildDnsQuery(domain: String): ByteArray {
+    val clean = domain.trim().trimEnd('.').ifBlank { "google.com" }
     val baos = java.io.ByteArrayOutputStream()
     val dos = java.io.DataOutputStream(baos)
     
@@ -88,8 +89,9 @@ private fun buildDnsQuery(domain: String): ByteArray {
     dos.writeShort(0)
     
     // Name (variable length)
-    val parts = domain.split(".")
+    val parts = clean.split(".")
     for (part in parts) {
+        if (part.isEmpty()) continue
         val bytes = part.toByteArray(java.nio.charset.StandardCharsets.US_ASCII)
         dos.writeByte(bytes.size)
         dos.write(bytes)
@@ -105,13 +107,29 @@ private fun buildDnsQuery(domain: String): ByteArray {
     return baos.toByteArray()
 }
 
-private fun testDnsServer(serverIp: String, serverPort: Int, domain: String = "google.com"): String {
+private fun testDnsServer(serverIp: String, serverPort: Int = 53, domain: String = "google.com"): String {
     return try {
+        var targetHost = serverIp.trim()
+        var targetPort = serverPort
+        if (targetHost.startsWith("[")) {
+            val closingIndex = targetHost.indexOf("]")
+            if (closingIndex != -1) {
+                val hostPart = targetHost.substring(1, closingIndex)
+                val portPart = targetHost.substring(closingIndex + 1).removePrefix(":")
+                targetHost = hostPart
+                if (portPart.isNotEmpty()) targetPort = portPart.toIntOrNull() ?: serverPort
+            }
+        } else if (targetHost.count { it == ':' } == 1) {
+            val parts = targetHost.split(":")
+            targetHost = parts[0]
+            targetPort = parts[1].toIntOrNull() ?: serverPort
+        }
+
         val socket = java.net.DatagramSocket()
-        socket.soTimeout = 2000 // 2 seconds timeout
+        socket.soTimeout = 2500
         val dnsQuery = buildDnsQuery(domain)
-        val address = java.net.InetAddress.getByName(serverIp)
-        val packet = java.net.DatagramPacket(dnsQuery, dnsQuery.size, address, serverPort)
+        val address = java.net.InetAddress.getByName(targetHost)
+        val packet = java.net.DatagramPacket(dnsQuery, dnsQuery.size, address, targetPort)
         val startTime = System.currentTimeMillis()
         socket.send(packet)
         val buffer = ByteArray(512)
@@ -154,9 +172,28 @@ fun DnsScreen(onBack: () -> Unit) {
     var queryResult by remember { mutableStateOf<String?>(null) }
     var isQuerying by remember { mutableStateOf(false) }
 
-    // Split Route DNS test states
+    // Split Route & Local DNS test states
     var routeTestResults by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var routeTestingState by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
+    var localTestResult by remember { mutableStateOf<String?>(null) }
+    var isTestingLocal by remember { mutableStateOf(false) }
+
+    fun runLocalDnsTest() {
+        isTestingLocal = true
+        scope.launch(Dispatchers.IO) {
+            var res = testDnsServer("100.100.100.100", 53, "google.com")
+            if (res.startsWith("Failed")) {
+                val resLocal = testDnsServer("127.0.0.1", 1053, "google.com")
+                if (resLocal.startsWith("Success")) {
+                    res = resLocal
+                }
+            }
+            withContext(Dispatchers.Main) {
+                localTestResult = res
+                isTestingLocal = false
+            }
+        }
+    }
 
     fun refresh(doFlush: Boolean) {
         loading = true
@@ -263,6 +300,71 @@ fun DnsScreen(onBack: () -> Unit) {
                 }
 
 
+
+                // 1.5 LOCAL DNS SERVER TEST CARD
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    stringResource(R.string.dns_test_local_server_title),
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                Button(
+                                    onClick = { runLocalDnsTest() },
+                                    enabled = !isTestingLocal,
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                    modifier = Modifier.height(36.dp)
+                                ) {
+                                    if (isTestingLocal) {
+                                        CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                                    } else {
+                                        Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(stringResource(R.string.dns_test_btn), fontSize = 12.sp)
+                                    }
+                                }
+                            }
+                            localTestResult?.let { res ->
+                                Spacer(Modifier.height(8.dp))
+                                val isSuccess = res.startsWith("Success")
+                                val latency = if (isSuccess) {
+                                    res.substringAfter("latency: ").substringBefore(" ms").toIntOrNull() ?: 0
+                                } else 0
+                                val textMsg = if (isSuccess) {
+                                    stringResource(R.string.dns_test_success_format, 512, latency)
+                                } else {
+                                    stringResource(R.string.dns_test_failed_format, res.substringAfter("Failed: "))
+                                }
+                                Surface(
+                                    color = (if (isSuccess) androidx.compose.ui.graphics.Color(0xFF4CAF50) else MaterialTheme.colorScheme.error).copy(alpha = 0.12f),
+                                    shape = RoundedCornerShape(6.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = textMsg,
+                                        color = if (isSuccess) androidx.compose.ui.graphics.Color(0xFF4CAF50) else MaterialTheme.colorScheme.error,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
 
                 // 2. DNS QUERY TOOL
                 item {

@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [3.5.5] - 2026-08-13
+
+### Fixed
+- Fixed DNS server latency testing for local DNS proxy and split route servers.
+- Standardized text input fields across screens and dialogs with single-line nowrap layout, compact sizing, and text clipping protection.
+
 ## [3.5.4] - 2026-08-13
 
 ### Fixed

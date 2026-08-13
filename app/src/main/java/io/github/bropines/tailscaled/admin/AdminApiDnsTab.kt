@@ -114,6 +114,7 @@ fun DnsTabContent(
                         onValueChange = { newNs = it },
                         placeholder = { Text(stringResource(R.string.admin_dns_ns_placeholder)) },
                         singleLine = true,
+                        maxLines = 1,
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(8.dp)
                     )
@@ -184,6 +185,7 @@ fun DnsTabContent(
                     label = { Text(stringResource(R.string.admin_dns_domain_label)) },
                     placeholder = { Text(stringResource(R.string.admin_dns_domain_placeholder)) },
                     singleLine = true,
+                    maxLines = 1,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(8.dp)
                 )
@@ -194,6 +196,7 @@ fun DnsTabContent(
                     label = { Text(stringResource(R.string.admin_dns_ns_list_label)) },
                     placeholder = { Text(stringResource(R.string.admin_dns_ns_list_placeholder)) },
                     singleLine = true,
+                    maxLines = 1,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(8.dp)
                 )
@@ -259,6 +262,7 @@ fun DnsTabContent(
                         onValueChange = { newSearchPath = it },
                         placeholder = { Text(stringResource(R.string.admin_dns_search_domain_placeholder)) },
                         singleLine = true,
+                        maxLines = 1,
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(8.dp)
                     )

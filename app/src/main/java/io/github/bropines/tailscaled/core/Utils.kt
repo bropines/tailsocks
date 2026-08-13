@@ -34,13 +34,14 @@ import kotlin.math.roundToInt
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.ui.text.style.TextOverflow
 
 fun getFileName(context: Context, uri: Uri): String? {
     var result: String? = null
@@ -157,6 +158,40 @@ fun wrapContextWithLocale(context: Context): Context {
         config.setLocale(locale)
         context.createConfigurationContext(config)
     }
+}
+
+@Composable
+fun CompactTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    label: String? = null,
+    placeholder: String? = null,
+    supportingText: String? = null,
+    enabled: Boolean = true,
+    keyboardOptions: androidx.compose.foundation.text.KeyboardOptions = androidx.compose.foundation.text.KeyboardOptions.Default,
+    keyboardActions: androidx.compose.foundation.text.KeyboardActions = androidx.compose.foundation.text.KeyboardActions.Default,
+    leadingIcon: (@Composable () -> Unit)? = null,
+    trailingIcon: (@Composable () -> Unit)? = null,
+    shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(10.dp)
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier.fillMaxWidth(),
+        label = if (label != null) { { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) } } else null,
+        placeholder = if (placeholder != null) { { Text(placeholder, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) } } else null,
+        supportingText = if (supportingText != null) { { Text(supportingText, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) } } else null,
+        enabled = enabled,
+        singleLine = true,
+        maxLines = 1,
+        keyboardOptions = keyboardOptions,
+        keyboardActions = keyboardActions,
+        leadingIcon = leadingIcon,
+        trailingIcon = trailingIcon,
+        shape = shape,
+        textStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp)
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

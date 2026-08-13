@@ -194,6 +194,8 @@ fun CreateKeyDialog(
                     label = { Text(stringResource(R.string.admin_keys_desc_label)) },
                     placeholder = { Text(stringResource(R.string.admin_keys_desc_placeholder)) },
                     singleLine = true,
+                    maxLines = 1,
+                    shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -205,6 +207,8 @@ fun CreateKeyDialog(
                     label = { Text(stringResource(R.string.admin_keys_expiry_label)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
+                    maxLines = 1,
+                    shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -239,6 +243,8 @@ fun CreateKeyDialog(
                     placeholder = { Text(stringResource(R.string.admin_keys_tags_placeholder)) },
                     supportingText = { Text(stringResource(R.string.admin_keys_tags_supporting)) },
                     singleLine = true,
+                    maxLines = 1,
+                    shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
             }

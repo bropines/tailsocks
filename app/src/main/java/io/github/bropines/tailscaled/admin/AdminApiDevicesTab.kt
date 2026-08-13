@@ -553,7 +553,10 @@ fun DeviceDetailBottomSheet(
                     value = tempName,
                     onValueChange = { tempName = it },
                     singleLine = true,
-                    label = { Text(stringResource(R.string.admin_device_rename_label)) }
+                    maxLines = 1,
+                    shape = RoundedCornerShape(10.dp),
+                    label = { Text(stringResource(R.string.admin_device_rename_label)) },
+                    modifier = Modifier.fillMaxWidth()
                 )
             },
             confirmButton = {
@@ -607,6 +610,8 @@ fun DeviceDetailBottomSheet(
                         label = { Text(stringResource(R.string.admin_device_tags_custom_label)) },
                         supportingText = { Text(stringResource(R.string.admin_device_tags_prefix_hint)) },
                         singleLine = true,
+                        maxLines = 1,
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
                 }

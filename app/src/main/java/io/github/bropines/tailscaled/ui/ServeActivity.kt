@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
@@ -736,6 +737,8 @@ fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm
                         supportingText = { Text(stringResource(R.string.serve_field_service_hint)) },
                         enabled = !data.isEditing,
                         singleLine = true,
+                        maxLines = 1,
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -830,6 +833,8 @@ fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm
                     supportingText = { Text(portSupportingText) },
                     enabled = !data.isEditing,
                     singleLine = true,
+                    maxLines = 1,
+                    shape = RoundedCornerShape(10.dp),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -859,6 +864,8 @@ fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm
                     }, 
                     label = { Text(targetLabel) },
                     singleLine = true,
+                    maxLines = 1,
+                    shape = RoundedCornerShape(10.dp),
                     keyboardOptions = if (isTargetPortOnly) KeyboardOptions(keyboardType = KeyboardType.Number) else KeyboardOptions.Default,
                     modifier = Modifier.fillMaxWidth()
                 )
