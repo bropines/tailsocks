@@ -244,41 +244,14 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
         )
     }
 
-    Scaffold(
-        topBar = {
-            if (onBack != null) {
-                TopAppBar(
-                    title = {
-                        Column {
-                            Text(stringResource(R.string.taildrive_title))
-                            Text(activeAccount.name, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                        }
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back))
-                        }
-                    }
-                )
-            }
-        },
-        floatingActionButton = {
-            if (isEnabled && hasStoragePermission) {
-                FloatingActionButton(onClick = {
-                    showChoiceDialog = true
-                }) {
-                    Icon(Icons.Default.Add, stringResource(R.string.taildrive_cd_add))
-                }
-            }
-        }
-    ) { padding ->
+    val mainContent = @Composable { paddingValues: PaddingValues ->
         LazyColumn(
             modifier = Modifier
-                .padding(padding)
+                .padding(paddingValues)
                 .fillMaxSize()
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp)
+            contentPadding = PaddingValues(top = 12.dp, bottom = 88.dp)
         ) {
             // Permission Card
             if (!hasStoragePermission) {
@@ -702,6 +675,49 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
                     }
                 }
             )
+        }
+    }
+
+    if (onBack != null) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Column {
+                            Text(stringResource(R.string.taildrive_title))
+                            Text(activeAccount.name, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        }
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back))
+                        }
+                    }
+                )
+            },
+            floatingActionButton = {
+                if (isEnabled && hasStoragePermission) {
+                    FloatingActionButton(onClick = { showChoiceDialog = true }) {
+                        Icon(Icons.Default.Add, stringResource(R.string.taildrive_cd_add))
+                    }
+                }
+            }
+        ) { padding ->
+            mainContent(padding)
+        }
+    } else {
+        Box(modifier = Modifier.fillMaxSize()) {
+            mainContent(PaddingValues(0.dp))
+            if (isEnabled && hasStoragePermission) {
+                FloatingActionButton(
+                    onClick = { showChoiceDialog = true },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(16.dp)
+                ) {
+                    Icon(Icons.Default.Add, stringResource(R.string.taildrive_cd_add))
+                }
+            }
         }
     }
 }
