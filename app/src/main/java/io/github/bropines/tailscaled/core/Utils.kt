@@ -169,6 +169,8 @@ fun CompactTextField(
     placeholder: String? = null,
     supportingText: String? = null,
     enabled: Boolean = true,
+    readOnly: Boolean = false,
+    visualTransformation: androidx.compose.ui.text.input.VisualTransformation = androidx.compose.ui.text.input.VisualTransformation.None,
     keyboardOptions: androidx.compose.foundation.text.KeyboardOptions = androidx.compose.foundation.text.KeyboardOptions.Default,
     keyboardActions: androidx.compose.foundation.text.KeyboardActions = androidx.compose.foundation.text.KeyboardActions.Default,
     leadingIcon: (@Composable () -> Unit)? = null,
@@ -179,12 +181,14 @@ fun CompactTextField(
         value = value,
         onValueChange = onValueChange,
         modifier = modifier.fillMaxWidth(),
-        label = if (label != null) { { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) } } else null,
-        placeholder = if (placeholder != null) { { Text(placeholder, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) } } else null,
-        supportingText = if (supportingText != null) { { Text(supportingText, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) } } else null,
+        label = if (label != null) { { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis, softWrap = false) } } else null,
+        placeholder = if (placeholder != null) { { Text(placeholder, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, softWrap = false) } } else null,
+        supportingText = if (supportingText != null) { { Text(supportingText, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, softWrap = false) } } else null,
         enabled = enabled,
+        readOnly = readOnly,
         singleLine = true,
         maxLines = 1,
+        visualTransformation = visualTransformation,
         keyboardOptions = keyboardOptions,
         keyboardActions = keyboardActions,
         leadingIcon = leadingIcon,
@@ -300,12 +304,88 @@ fun PredictiveBackContainer(
     targetIcon: androidx.compose.ui.graphics.vector.ImageVector? = null,
     content: @Composable () -> Unit
 ) {
+    if (onBack == null) {
+        content()
+        return
+    }
+
+    var backProgress by remember { mutableFloatStateOf(0f) }
+    PredictiveBackHandler { progressFlow ->
+        try {
+            progressFlow.collect { backEvent ->
+                backProgress = backEvent.progress
+            }
+            onBack()
+        } catch (e: CancellationException) {
+            backProgress = 0f
+        }
+    }
+
+    val backScale = 1f - (backProgress * 0.12f)
+    val backAlpha = 1f - (backProgress * 0.35f)
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        content()
+        // Destination preview card in the background (visible as main screen scales down)
+        if (backProgress > 0.001f) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                androidx.compose.material3.Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                    tonalElevation = 6.dp,
+                    shadowElevation = 8.dp,
+                    modifier = Modifier
+                        .padding(horizontal = 32.dp)
+                        .graphicsLayer {
+                            val scale = 0.85f + (backProgress * 0.15f)
+                            scaleX = scale
+                            scaleY = scale
+                            alpha = (backProgress * 3f).coerceIn(0f, 1f)
+                        }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = targetIcon ?: Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Text(
+                            text = targetTitle ?: androidx.compose.ui.res.stringResource(R.string.action_back),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+
+        // Main screen content scaling down
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    scaleX = backScale
+                    scaleY = backScale
+                    alpha = backAlpha
+                    clip = true
+                    shape = RoundedCornerShape((backProgress * 28).dp)
+                }
+        ) {
+            content()
+        }
     }
 }
 

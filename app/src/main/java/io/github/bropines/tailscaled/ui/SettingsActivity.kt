@@ -773,30 +773,26 @@ fun SettingsScreen(
 
                                 if (automationEnabled) {
                                     HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                                    OutlinedTextField(
-                                        value = automationSecret,
-                                        onValueChange = {
-                                            automationSecret = it
-                                            GlobalSettings.setAutomationSecret(context, it)
-                                        },
-                                        label = { Text("Security Secret Token (Optional)") },
-                                        placeholder = { Text("Leave empty to disable token authentication") },
-                                        leadingIcon = { Icon(Icons.Default.Key, null) },
-                                        trailingIcon = {
-                                            if (automationSecret.isNotEmpty()) {
-                                                IconButton(onClick = {
-                                                    automationSecret = ""
-                                                    GlobalSettings.setAutomationSecret(context, "")
-                                                }) {
-                                                    Icon(Icons.Default.Clear, null)
-                                                }
-                                            }
-                                        },
-                                        singleLine = true,
-                                        maxLines = 1,
-                                        shape = RoundedCornerShape(10.dp),
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
+                                     CompactTextField(
+                                         value = automationSecret,
+                                         onValueChange = {
+                                             automationSecret = it
+                                             GlobalSettings.setAutomationSecret(context, it)
+                                         },
+                                         label = "Security Secret Token (Optional)",
+                                         placeholder = "Leave empty to disable token authentication",
+                                         leadingIcon = { Icon(Icons.Default.Key, null) },
+                                         trailingIcon = {
+                                             if (automationSecret.isNotEmpty()) {
+                                                 IconButton(onClick = {
+                                                     automationSecret = ""
+                                                     GlobalSettings.setAutomationSecret(context, "")
+                                                 }) {
+                                                     Icon(Icons.Default.Clear, null)
+                                                 }
+                                             }
+                                         }
+                                     )
                                     Spacer(Modifier.height(4.dp))
                                     Text(
                                         text = if (automationSecret.isEmpty()) "No secret token set. Any automation app can send intents." else "Token active. Intents must include extra: secret=\"$automationSecret\"",
