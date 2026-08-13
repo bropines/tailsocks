@@ -815,6 +815,10 @@ fun SettingsScreen(
                                                     rootModeEnabled = true
                                                     GlobalSettings.setRootModeEnabled(context, true)
                                                     Toast.makeText(context, "Root Mode enabled", Toast.LENGTH_SHORT).show()
+                                                    if (Appctr.isRunning()) {
+                                                        val intent = Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" }
+                                                        context.startService(intent)
+                                                    }
                                                 } else {
                                                     Toast.makeText(context, "Root access (su) not granted or unavailable", Toast.LENGTH_LONG).show()
                                                 }
@@ -870,6 +874,10 @@ fun SettingsScreen(
                                         rootModeEnabled = false
                                         GlobalSettings.setRootModeEnabled(context, false)
                                         Toast.makeText(context, "Root Mode disabled", Toast.LENGTH_SHORT).show()
+                                        if (Appctr.isRunning()) {
+                                            val intent = Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" }
+                                            context.startService(intent)
+                                        }
                                     }
                                 }
 
