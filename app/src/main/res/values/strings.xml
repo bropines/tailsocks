@@ -540,7 +540,7 @@
     <string name="dns_error_parse_failed">Failed to parse DNS status.\n\nRaw output:\n%1$s</string>
     <string name="dns_status_unavailable">⚠ DNS Status Unavailable</string>
     <string name="dns_lookup_tool">DNS Lookup Tool</string>
-    <string name="dns_lookup_placeholder">e.g. peer.ts.net or google.com</string>
+    <string name="dns_lookup_placeholder">e.g. peer.ts.net or...</string>
     <string name="dns_cd_query">Query</string>
     <string name="dns_config_status">Configuration Status</string>
     <string name="dns_global_state">Global State</string>

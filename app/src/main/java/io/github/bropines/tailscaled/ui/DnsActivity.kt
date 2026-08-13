@@ -29,6 +29,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import appctr.Appctr
@@ -196,7 +197,14 @@ fun DnsScreen(onBack: () -> Unit) {
                                 value = queryDomain,
                                 onValueChange = { queryDomain = it },
                                 modifier = Modifier.weight(1f),
-                                placeholder = { Text(stringResource(R.string.dns_lookup_placeholder)) },
+                                placeholder = {
+                                    Text(
+                                        text = stringResource(R.string.dns_lookup_placeholder),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        softWrap = false
+                                    )
+                                },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                                 keyboardActions = KeyboardActions(onSearch = { performQuery(queryDomain) })
