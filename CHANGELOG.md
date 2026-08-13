@@ -5,38 +5,20 @@ All notable changes to the TailSocks project will be documented in this file. Th
 ## [3.4.0] - 2026-08-13
 
 ### Added
-- **Universal Interactive Predictive Back Gesture (`PredictiveBackContainer`)**:
-  - Implemented `PredictiveBackContainer` in `Utils.kt` wrapping screen layouts with `PredictiveBackHandler`.
-  - Performs smooth real-time screen scaling (`scale = 0.88`), fading (`alpha = 0.7`), and rounded corners (`28.dp`) when initiating the Android back gesture across all activities, revealing the target underlying activity underneath.
-- **Ultra-Fast Unified Segmented Chips (`SlidingSegmentedChips` & `ScrollableSlidingSegmentedChips`)**:
-  - Created reusable animated chip components in `Utils.kt` with snappy 60ms transitions and continuous drag-bound sliding pill indicator.
-  - Added support for custom active container and content color customization per item (`SegmentedChipItem`).
-- **Log Type Category Colors**:
-  - Colorized category filter chips in `LogsActivity` to match log types (ERROR: Red, CORE: Blue, TAILSCALE: Green, OTHER: Amber).
-- **Admin Panel Tabs Modernization**:
-  - Upgraded main navigation tabs in `AdminApiDashboardScreen` and authentication mode selector in `AdminApiSetupScreen` to `SlidingSegmentedChips`.
-- **Netcheck Service Control**:
-  - Added a prominent "Start Service" / "Запустить" button to `NetcheckActivity` when the Tailscale daemon is stopped.
-- **TailFiles Hub Two-Level Navigation**:
-  - Reorganized `FilesActivity` into a clean two-level structure with TailDrive / TailDrop mode chips and Inbox / Devices / History sub-tabs with swipe gesture navigation.
-- **Taildrive Storage Sharing Enhancements**:
-  - Added full storage sharing toggle (`/storage/emulated/0`) and folder choice dialog (System Picker vs Manual Path) in `TaildriveActivity`.
-- **Onboarding & Proxy Enhancements**:
-  - Added randomizer buttons for loopback proxy ports in `SettingsActivity`, proxy authentication fields in `FirstStartActivity`, and auto-generated device hostnames in `TailscaledService`.
-- **Internal HTTP Proxy Master Toggle**:
-  - Added a master switch in `SettingsActivity` to enable/disable the internal HTTP proxy, automatically hiding configuration fields when disabled to simplify UI.
-- **Uninstall Data Retention (`android:hasFragileUserData="true"`)**:
-  - Configured Android OS uninstall data retention prompt in `AndroidManifest.xml` allowing users to retain account state and preferences when uninstalling.
+- **Predictive Back Gestures**: Added smooth predictive back animations across all app screens.
+- **Modern Segmented Control & Navigation**: Redesigned tab selectors and chips with smooth sliding animations and log category color coding.
+- **TailFiles & Taildrive Upgrades**: Reorganized Files screen into clean sub-tabs with swipe gestures, and added full storage sharing and folder selector options for Taildrive.
+- **Internal HTTP Proxy Master Toggle**: Added a master switch in settings to easily enable or disable the internal HTTP proxy.
+- **Onboarding & Proxy Improvements**: Added port randomizer buttons, proxy authentication settings, and automatic hostname generation.
+- **Uninstall Data Retention**: Added support for preserving user settings and profile data when uninstalling the app on supported Android versions.
+- **Netcheck Controls**: Added a direct service start button when the daemon is stopped.
 
 ### Fixed
-- **DNS Lookup Input Field Layout**:
-  - Enforced `maxLines = 1`, `overflow = TextOverflow.Ellipsis`, and `softWrap = false` on `OutlinedTextField` placeholder in `DnsActivity`, preventing vertical container expansion.
-- **Taildrive LocalAPI WebDAV Address Payload**:
-  - Fixed `SetFileServerAddr` payload format in `appctr/api.go` to send raw string payload instead of JSON map, resolving WebDAV proxy connection errors.
-- **Russian Localization Restoration**:
-  - Restored full Russian localization in `values-ru/strings.xml` from commit `442f30c` and populated all missing string resources (`predictive_back_target_*`, `action_start_service`, `settings_lang_sys`).
-- **Redundant Daemon Polling Log Demotion**:
-  - Demoted repetitive daemon startup state poll and active session preservation logs from `INFO` to `DEBUG` level in `appctr/auth.go`, keeping live logs clean during manual refreshes.
+- **Root Mode Stability & Fixes**: Fixed Root authentication, resolved WSA startup ANR freezes, ensured smooth transition to Running state, included Root logs in log exports, auto-restarted daemon on mode toggle, and automatically cleaned up autostart scripts when Root mode is disabled.
+- **Taildrive WebDAV Proxy**: Fixed WebDAV proxy connection errors when sharing drives.
+- **UI & Layout Fixes**: Fixed text truncation and layout overflow in DNS lookup fields.
+- **Localization**: Fully restored Russian translation coverage across all new screens and features.
+- **Log Noise Reduction**: Demoted repetitive background status logs to reduce log spam.
 
 ## [3.3.0] - 2026-08-11
 
