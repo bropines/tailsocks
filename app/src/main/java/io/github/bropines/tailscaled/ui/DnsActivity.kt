@@ -108,28 +108,49 @@ private fun buildDnsQuery(domain: String): ByteArray {
 }
 
 private fun testDnsServer(serverIp: String, serverPort: Int = 53, domain: String = "google.com"): String {
-    return try {
-        var targetHost = serverIp.trim()
-        var targetPort = serverPort
-        if (targetHost.startsWith("[")) {
-            val closingIndex = targetHost.indexOf("]")
-            if (closingIndex != -1) {
-                val hostPart = targetHost.substring(1, closingIndex)
-                val portPart = targetHost.substring(closingIndex + 1).removePrefix(":")
-                targetHost = hostPart
-                if (portPart.isNotEmpty()) targetPort = portPart.toIntOrNull() ?: serverPort
-            }
-        } else if (targetHost.count { it == ':' } == 1) {
-            val parts = targetHost.split(":")
-            targetHost = parts[0]
-            targetPort = parts[1].toIntOrNull() ?: serverPort
+    var targetHost = serverIp.trim()
+    var targetPort = serverPort
+    if (targetHost.startsWith("[")) {
+        val closingIndex = targetHost.indexOf("]")
+        if (closingIndex != -1) {
+            val hostPart = targetHost.substring(1, closingIndex)
+            val portPart = targetHost.substring(closingIndex + 1).removePrefix(":")
+            targetHost = hostPart
+            if (portPart.isNotEmpty()) targetPort = portPart.toIntOrNull() ?: serverPort
         }
+    } else if (targetHost.count { it == ':' } == 1) {
+        val parts = targetHost.split(":")
+        targetHost = parts[0]
+        targetPort = parts[1].toIntOrNull() ?: serverPort
+    }
 
+    // For Tailscale CGNAT IPs (100.x.y.z), MagicDNS (100.100.100.100), or localhost, route via daemon's native resolver
+    if (targetHost.startsWith("100.") || targetHost == "127.0.0.1" || targetHost == "localhost") {
+        return try {
+            val startTime = System.currentTimeMillis()
+            val cleanDomain = domain.trimEnd('.')
+            val result = Appctr.nativeDnsQuery(if (cleanDomain.isBlank()) "google.com" else cleanDomain, "A")
+            val latency = System.currentTimeMillis() - startTime
+            if (result.isNotBlank() && !result.startsWith("Error")) {
+                "Success via Tailscale daemon (${latency} ms)\n$result"
+            } else {
+                testUdpDnsServer("127.0.0.1", 1053, domain)
+            }
+        } catch (e: Exception) {
+            testUdpDnsServer("127.0.0.1", 1053, domain)
+        }
+    }
+
+    return testUdpDnsServer(targetHost, targetPort, domain)
+}
+
+private fun testUdpDnsServer(host: String, port: Int, domain: String): String {
+    return try {
         val socket = java.net.DatagramSocket()
         socket.soTimeout = 2500
         val dnsQuery = buildDnsQuery(domain)
-        val address = java.net.InetAddress.getByName(targetHost)
-        val packet = java.net.DatagramPacket(dnsQuery, dnsQuery.size, address, targetPort)
+        val address = java.net.InetAddress.getByName(host)
+        val packet = java.net.DatagramPacket(dnsQuery, dnsQuery.size, address, port)
         val startTime = System.currentTimeMillis()
         socket.send(packet)
         val buffer = ByteArray(512)
@@ -181,9 +202,11 @@ fun DnsScreen(onBack: () -> Unit) {
     fun runLocalDnsTest() {
         isTestingLocal = true
         scope.launch(Dispatchers.IO) {
-            var res = testDnsServer("100.100.100.100", 53, "google.com")
+            val domainToTest = queryDomain.ifBlank { status?.tailnet?.selfName ?: status?.tailnet?.suffix ?: "google.com" }
+            val firstConfiguredIp = status?.splitRoutes?.values?.flatMap { list -> list.map { it.addr } }?.firstOrNull() ?: "127.0.0.1"
+            var res = testDnsServer(firstConfiguredIp, 53, domainToTest)
             if (res.startsWith("Failed")) {
-                val resLocal = testDnsServer("127.0.0.1", 1053, "google.com")
+                val resLocal = testDnsServer("127.0.0.1", 1053, domainToTest)
                 if (resLocal.startsWith("Success")) {
                     res = resLocal
                 }
