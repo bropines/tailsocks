@@ -2,24 +2,35 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
-## [3.3.1] - 2026-08-13
+## [3.4.0] - 2026-08-13
 
 ### Added
-- **Real-Time Continuous Drag-Bound Sliding Pill Selector (`SlidingSegmentedChips`)**:
-  - Implemented a continuous active background slider (`halfWidth * pagePosition`) bound in real time to `mainPagerState.currentPage + mainPagerState.currentPageOffsetFraction` in `FilesActivity.kt`.
-  - As the user drags their finger across mode chips (TailDrive vs TailDrop) or sub-tabs (Inbox | Devices | History), the active highlighted background physically flows continuously matching finger velocity.
-  - Reusable `SlidingSegmentedChips` composable added to `Utils.kt` for application-wide tab and mode chip switching.
 - **Universal Interactive Predictive Back Gesture (`PredictiveBackContainer`)**:
   - Implemented `PredictiveBackContainer` in `Utils.kt` wrapping screen layouts with `PredictiveBackHandler`.
-  - Performs smooth real-time screen scaling (`scale = 0.88`), fading (`alpha = 0.7`), and rounded corners (`28.dp`) when initiating the Android back gesture across all activities (`FilesActivity`, `TaildriveActivity`, `SettingsActivity`, etc.), revealing the underlying activity underneath.
-- **SOCKS5 & HTTP Proxy IP:Port Randomizers**: Added randomizer buttons to `SettingsActivity.kt` generating random loopback binding addresses (`127.X.Y.Z:PORT`).
-- **Onboarding Proxy Authentication Fields & Root Mode Switch**: Added Username/Password inputs for Proxy setup and a dedicated Root Mode toggle switch card in `FirstStartActivity.kt`.
-- **Auto-Generated Device Hostname**: Automatically generates sanitized device model hostname on first startup in `TailscaledService.kt` if unconfigured.
-- **Full Storage Sharing Card for Taildrive**: Added dedicated switch card in `TaildriveActivity.kt` to share `/storage/emulated/0`.
+  - Performs smooth real-time screen scaling (`scale = 0.88`), fading (`alpha = 0.7`), and rounded corners (`28.dp`) when initiating the Android back gesture across all activities, revealing the target underlying activity underneath.
+- **Ultra-Fast Unified Segmented Chips (`SlidingSegmentedChips` & `ScrollableSlidingSegmentedChips`)**:
+  - Created reusable animated chip components in `Utils.kt` with snappy 60ms transitions and continuous drag-bound sliding pill indicator.
+  - Added support for custom active container and content color customization per item (`SegmentedChipItem`).
+- **Log Type Category Colors**:
+  - Colorized category filter chips in `LogsActivity` to match log types (ERROR: Red, CORE: Blue, TAILSCALE: Green, OTHER: Amber).
+- **Admin Panel Tabs Modernization**:
+  - Upgraded main navigation tabs in `AdminApiDashboardScreen` and authentication mode selector in `AdminApiSetupScreen` to `SlidingSegmentedChips`.
+- **Netcheck Service Control**:
+  - Added a prominent "Start Service" / "Запустить" button to `NetcheckActivity` when the Tailscale daemon is stopped.
+- **TailFiles Hub Two-Level Navigation**:
+  - Reorganized `FilesActivity` into a clean two-level structure with TailDrive / TailDrop mode chips and Inbox / Devices / History sub-tabs with swipe gesture navigation.
+- **Taildrive Storage Sharing Enhancements**:
+  - Added full storage sharing toggle (`/storage/emulated/0`) and folder choice dialog (System Picker vs Manual Path) in `TaildriveActivity`.
+- **Onboarding & Proxy Enhancements**:
+  - Added randomizer buttons for loopback proxy ports in `SettingsActivity`, proxy authentication fields in `FirstStartActivity`, and auto-generated device hostnames in `TailscaledService`.
 
 ### Fixed
-- **Taildrive LocalAPI WebDAV Address Payload**: Fixed `SetFileServerAddr` payload format in `appctr/api.go` to send raw string instead of a JSON map, resolving WebDAV proxy connection errors.
-- **English Codebase Purge**: Cleaned up Cyrillic strings in resources (`values-ru/strings.xml`) to enforce 100% English codebase compliance.
+- **DNS Lookup Input Field Layout**:
+  - Enforced `maxLines = 1`, `overflow = TextOverflow.Ellipsis`, and `softWrap = false` on `OutlinedTextField` placeholder in `DnsActivity`, preventing vertical container expansion.
+- **Taildrive LocalAPI WebDAV Address Payload**:
+  - Fixed `SetFileServerAddr` payload format in `appctr/api.go` to send raw string payload instead of JSON map, resolving WebDAV proxy connection errors.
+- **Russian Localization Restoration**:
+  - Restored full Russian localization in `values-ru/strings.xml` from commit `442f30c` and populated all missing string resources (`predictive_back_target_*`, `action_start_service`, `settings_lang_sys`).
 
 ## [3.3.0] - 2026-08-11
 
