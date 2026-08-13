@@ -2,6 +2,25 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [3.3.1] - 2026-08-13
+
+### Added
+- **Real-Time Continuous Drag-Bound Sliding Pill Selector (`SlidingSegmentedChips`)**:
+  - Implemented a continuous active background slider (`halfWidth * pagePosition`) bound in real time to `mainPagerState.currentPage + mainPagerState.currentPageOffsetFraction` in `FilesActivity.kt`.
+  - As the user drags their finger across mode chips (TailDrive vs TailDrop) or sub-tabs (Inbox | Devices | History), the active highlighted background physically flows continuously matching finger velocity.
+  - Reusable `SlidingSegmentedChips` composable added to `Utils.kt` for application-wide tab and mode chip switching.
+- **Universal Interactive Predictive Back Gesture (`PredictiveBackContainer`)**:
+  - Implemented `PredictiveBackContainer` in `Utils.kt` wrapping screen layouts with `PredictiveBackHandler`.
+  - Performs smooth real-time screen scaling (`scale = 0.88`), fading (`alpha = 0.7`), and rounded corners (`28.dp`) when initiating the Android back gesture across all activities (`FilesActivity`, `TaildriveActivity`, `SettingsActivity`, etc.), revealing the underlying activity underneath.
+- **SOCKS5 & HTTP Proxy IP:Port Randomizers**: Added randomizer buttons to `SettingsActivity.kt` generating random loopback binding addresses (`127.X.Y.Z:PORT`).
+- **Onboarding Proxy Authentication Fields & Root Mode Switch**: Added Username/Password inputs for Proxy setup and a dedicated Root Mode toggle switch card in `FirstStartActivity.kt`.
+- **Auto-Generated Device Hostname**: Automatically generates sanitized device model hostname on first startup in `TailscaledService.kt` if unconfigured.
+- **Full Storage Sharing Card for Taildrive**: Added dedicated switch card in `TaildriveActivity.kt` to share `/storage/emulated/0`.
+
+### Fixed
+- **Taildrive LocalAPI WebDAV Address Payload**: Fixed `SetFileServerAddr` payload format in `appctr/api.go` to send raw string instead of a JSON map, resolving WebDAV proxy connection errors.
+- **English Codebase Purge**: Cleaned up Cyrillic strings in resources (`values-ru/strings.xml`) to enforce 100% English codebase compliance.
+
 ## [3.3.0] - 2026-08-11
 
 ### Added
