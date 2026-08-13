@@ -71,11 +71,17 @@ data class LocalShare(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TaildriveScreen(onBack: () -> Unit) {
+    TaildriveTabContent(onBack = onBack)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
     val context = LocalContext.current
     val activeAccount = remember { AccountManager.getActiveAccount(context) }
     val prefs = remember(activeAccount.id) { context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE) }
 
-    var isEnabled by remember { mutableStateOf(prefs.getBoolean("taildrive_enabled", false)) }
+    var isEnabled by remember { mutableStateOf(prefs.getBoolean("taildrive_enabled", true)) }
     var sharesJson = prefs.getString("taildrive_shares", "[]") ?: "[]"
     val gson = Gson()
     val listType = object : TypeToken<ArrayList<LocalShare>>() {}.type
@@ -240,19 +246,21 @@ fun TaildriveScreen(onBack: () -> Unit) {
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(stringResource(R.string.taildrive_title))
-                        Text(activeAccount.name, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            if (onBack != null) {
+                TopAppBar(
+                    title = {
+                        Column {
+                            Text(stringResource(R.string.taildrive_title))
+                            Text(activeAccount.name, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        }
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back))
+                        }
                     }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back))
-                    }
-                }
-            )
+                )
+            }
         },
         floatingActionButton = {
             if (isEnabled && hasStoragePermission) {

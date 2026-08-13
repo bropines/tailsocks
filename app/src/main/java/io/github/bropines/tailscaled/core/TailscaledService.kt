@@ -509,7 +509,14 @@ class TailscaledService : Service() {
     private fun applyTaildrive(context: Context) {
         val activeAccount = AccountManager.getActiveAccount(context)
         val profilePrefs = context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
-        val taildriveEnabled = profilePrefs.getBoolean("taildrive_enabled", false)
+        if (!profilePrefs.contains("taildrive_enabled")) {
+            profilePrefs.edit()
+                .putBoolean("taildrive_enabled", true)
+                .putString("taildrive_shares", "[{\"name\":\"Downloads\",\"path\":\"/storage/emulated/0/Download\"}]")
+                .apply()
+        }
+
+        val taildriveEnabled = profilePrefs.getBoolean("taildrive_enabled", true)
         val proxyEnabled = profilePrefs.getBoolean("taildrive_proxy_enabled", false)
 
         if (!Appctr.isRunning()) {

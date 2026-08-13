@@ -64,7 +64,7 @@ class FilesActivity : ComponentActivity() {
 fun FilesScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val pagerState = rememberPagerState(pageCount = { 3 })
+    val pagerState = rememberPagerState(pageCount = { 4 })
     val activeAccount = remember { AccountManager.getActiveAccount(context) }
     val taildropDir = remember(activeAccount.id) { File(context.filesDir, "states/${activeAccount.id}/taildrop").apply { if (!exists()) mkdirs() } }
 
@@ -175,7 +175,7 @@ fun FilesScreen(onBack: () -> Unit) {
                     navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back)) } },
                     actions = {
                         IconButton(onClick = {
-                            context.startActivity(Intent(context, TaildriveActivity::class.java))
+                            scope.launch { pagerState.animateScrollToPage(2) }
                         }) { Icon(Icons.Default.Storage, stringResource(R.string.files_cd_taildrive)) }
                         IconButton(onClick = { 
                             refreshData();
@@ -184,6 +184,7 @@ fun FilesScreen(onBack: () -> Unit) {
                 val fileTabs = listOf(
                     stringResource(R.string.files_tab_inbox),
                     stringResource(R.string.files_tab_devices),
+                    "Shared Drives",
                     stringResource(R.string.files_tab_history)
                 )
                 val listState = rememberLazyListState()
@@ -216,7 +217,11 @@ fun FilesScreen(onBack: () -> Unit) {
                 }
             }
         },
-        floatingActionButton = { FloatingActionButton(onClick = { filePickerLauncher.launch("*/*") }) { Icon(Icons.Default.FileUpload, stringResource(R.string.action_send)) } }
+        floatingActionButton = { 
+            if (pagerState.currentPage != 2) {
+                FloatingActionButton(onClick = { filePickerLauncher.launch("*/*") }) { Icon(Icons.Default.FileUpload, stringResource(R.string.action_send)) } 
+            }
+        }
     ) { padding ->
         PullToRefreshBox(
             isRefreshing = isLoading,
@@ -241,7 +246,10 @@ fun FilesScreen(onBack: () -> Unit) {
                                 PeerItem(p, false) { Toast.makeText(context, context.getString(R.string.files_use_fab_to_send), Toast.LENGTH_SHORT).show() }
                             }
                         }
-                    2 -> if (sentFiles.isEmpty() && !isLoading) EmptyState(Icons.Default.History, stringResource(R.string.files_empty_history)) 
+                    2 -> Box(modifier = Modifier.fillMaxSize()) {
+                        TaildriveTabContent()
+                    }
+                    3 -> if (sentFiles.isEmpty() && !isLoading) EmptyState(Icons.Default.History, stringResource(R.string.files_empty_history)) 
                         else LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(sentFiles) { e -> SentFileCard(e) }
                         }
