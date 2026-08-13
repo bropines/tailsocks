@@ -11,9 +11,9 @@ All notable changes to the TailSocks project will be documented in this file. Th
 ### Fixed
 - **Root Mode Native TUN (`tailscale0`)**: Enabled Linux kernel router support in Go core, allowing Root Mode to create native `tailscale0` network interfaces without occupying Android VPN slot (`tun0`).
 - **Root Mode SELinux Sockets**: Fixed a crash/timeout issue on physical Android devices where SELinux Enforcing mode blocked connection between the app interface and the Root daemon socket.
-- **Root Mode System-Wide DNS Resolution**: Added automatic tailnet domain resolution sync to `/system/etc/hosts` with `0644` permissions and systemless bind-mounting under Root Mode, enabling transparent resolution across all browsers, apps, and terminal shells (`curl`).
-- **Root Mode DNS & Proxy Fixes**: Resolved a startup issue where DNS redirection rules remained active after stopping the service, blocking proxy resolution on subsequent launches. Redirection rules are now cleanly removed on stop and deferred on startup until the daemon is fully ready.
-- **Root Mode Autostart Socket Handling**: Added waiting and permission initialization loops in the boot autostart script, preventing connection failures for background autostart instances.
+- **Root Mode System-Wide DNS & Loop Bypass**: Fixed a critical DNS loop issue where native daemon requests to Split DNS servers inside the Tailnet (like custom DNS servers) were recursively hijacked by our own system-wide DNS redirection rules, causing DNS timeouts and queue blocks. Added explicit routing bypass for the CGNAT IP range (`100.64.0.0/10`) to allow direct resolution.
+- **Root Mode Deferral of DNS Interception**: Deferred system-wide DNS redirection until the daemon reaches a fully authenticated `Running` state, resolving `err name not resolved` issues in the browser when attempting to log in on startup.
+- **Root Mode IPTables Cleanups**: Fixed accumulation of duplicate iptables rules by ensuring aggressive cleaning loops run on every service state transition.
 
 
 
