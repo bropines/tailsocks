@@ -5,8 +5,9 @@ All notable changes to the TailSocks project will be documented in this file. Th
 ## [3.5.5] - 2026-08-13
 
 ### Fixed
-- Fixed DNS server latency testing for local DNS proxy and split route servers.
+- Fixed DNS server latency testing to perform real end-to-end network resolution.
 - Standardized text input fields across screens and dialogs with single-line nowrap layout, compact sizing, and text clipping protection.
+- Restored native Back-to-Home minimize animation on the main dashboard screen.
 
 ## [3.5.4] - 2026-08-13
 
