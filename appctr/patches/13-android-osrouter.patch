@@ -1,5 +1,5 @@
 --- orig/wgengine/router/osrouter/router_linux.go	2026-07-31 19:22:18.000000000 +0300
-+++ tailscale_src/wgengine/router/osrouter/router_linux.go	2026-08-04 22:04:08.707181283 +0300
++++ tailscale_src/wgengine/router/osrouter/router_linux.go	2026-08-13 18:37:15.822491565 +0300
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause
@@ -8,4 +8,26 @@
 +//go:build linux
  
  package osrouter
+ 
+--- orig/net/netmon/netmon_linux.go	2026-07-31 19:22:18.000000000 +0300
++++ tailscale_src/net/netmon/netmon_linux.go	2026-08-13 18:37:15.822710601 +0300
+@@ -1,7 +1,7 @@
+ // Copyright (c) Tailscale Inc & contributors
+ // SPDX-License-Identifier: BSD-3-Clause
+ 
+-//go:build !android
++//go:build linux
+ 
+ package netmon
+ 
+--- orig/net/netmon/netmon_polling.go	2026-07-31 19:22:18.000000000 +0300
++++ tailscale_src/net/netmon/netmon_polling.go	2026-08-13 18:37:28.260198420 +0300
+@@ -1,7 +1,7 @@
+ // Copyright (c) Tailscale Inc & contributors
+ // SPDX-License-Identifier: BSD-3-Clause
+ 
+-//go:build (!linux && !freebsd && !windows && !darwin) || android
++//go:build !linux && !freebsd && !windows && !darwin
+ 
+ package netmon
  
