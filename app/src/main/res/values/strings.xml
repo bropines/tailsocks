@@ -790,6 +790,8 @@
     <string name="settings_socks5_password_title">SOCKS5 Password</string>
     <string name="settings_sagernet_copy">Copy SagerNet Link</string>
     <string name="settings_sect_http">HTTP Proxy (Internal)</string>
+    <string name="settings_http_enable_title">Enable HTTP Proxy</string>
+    <string name="settings_http_enable_desc">Runs a local HTTP proxy server for apps without SOCKS5 support</string>
     <string name="settings_http_address_title">HTTP Proxy Address</string>
     <string name="settings_http_desc">Starts a local HTTP proxy on the specified port. Allows other applications that do not support SOCKS5 to route traffic to the Tailscale network without authentication.</string>
     <string name="settings_sect_control_proxy">Control Plane Proxy</string>
