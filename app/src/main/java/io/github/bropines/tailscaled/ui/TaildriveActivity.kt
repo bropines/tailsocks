@@ -267,6 +267,64 @@ fun TaildriveScreen(onBack: () -> Unit) {
                 }
             }
 
+            // Share Full Internal Storage Toggle Card
+            item {
+                var isFullStorageShared by remember {
+                    mutableStateOf(shares.any { it.path == "/storage/emulated/0" || it.path == "/storage/emulated/0/" })
+                }
+
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isFullStorageShared) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Icon(Icons.Default.SdCard, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                                Text("Share Full Storage", fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "Stream entire internal memory (/storage/emulated/0) via Taildrive",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = isFullStorageShared,
+                            onCheckedChange = { checked ->
+                                if (checked) {
+                                    if (!checkStoragePermission(context)) {
+                                        requestStoragePermission(context)
+                                    }
+                                    if (!shares.any { it.path == "/storage/emulated/0" || it.path == "/storage/emulated/0/" }) {
+                                        shares.add(LocalShare("sdcard", "/storage/emulated/0"))
+                                        saveShares(prefs, shares)
+                                        triggerServiceSettingsUpdate(context)
+                                    }
+                                    isFullStorageShared = true
+                                } else {
+                                    shares.removeAll { it.path == "/storage/emulated/0" || it.path == "/storage/emulated/0/" }
+                                    saveShares(prefs, shares)
+                                    triggerServiceSettingsUpdate(context)
+                                    isFullStorageShared = false
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+
             // Enable TailDrive Proxy Card
             item {
                 Card(
