@@ -203,6 +203,12 @@ object RootUtils {
             sb.append("while iptables -t mangle -D OUTPUT -d 100.64.0.0/10 -j MARK --set-mark 1099 2>/dev/null; do :; done\n")
             sb.append("while iptables -D FORWARD -o tailscale0 -j ACCEPT 2>/dev/null; do :; done\n")
             sb.append("while iptables -D FORWARD -i tailscale0 -j ACCEPT 2>/dev/null; do :; done\n")
+            sb.append("while iptables -t nat -D OUTPUT -d 100.64.0.0/10 -p udp --dport 53 -j ACCEPT 2>/dev/null; do :; done\n")
+            sb.append("while iptables -t nat -D OUTPUT -d 100.64.0.0/10 -p tcp --dport 53 -j ACCEPT 2>/dev/null; do :; done\n")
+            sb.append("while iptables -t nat -D OUTPUT -p udp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null; do :; done\n")
+            sb.append("while iptables -t nat -D OUTPUT -p tcp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null; do :; done\n")
+            sb.append("while iptables -t nat -D OUTPUT -p udp --dport 53 -j REDIRECT --to-ports 1053 2>/dev/null; do :; done\n")
+            sb.append("while iptables -t nat -D OUTPUT -p tcp --dport 53 -j REDIRECT --to-ports 1053 2>/dev/null; do :; done\n")
             sb.append("ip route del 100.64.0.0/10 dev tailscale0 table 1099 2>/dev/null || true\n")
 
             sb.append("ip route add 100.64.0.0/10 dev tailscale0 table 1099 metric 1 2>/dev/null || ip route add 100.64.0.0/10 dev tailscale0 metric 1\n")
@@ -210,6 +216,11 @@ object RootUtils {
             sb.append("ip rule add fwmark 1099 table 1099 priority 100 2>/dev/null || ip rule add fwmark 1099 table 1099 2>/dev/null || true\n")
             sb.append("iptables -I FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || true\n")
             sb.append("iptables -I FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || true\n")
+
+            sb.append("iptables -t nat -I OUTPUT 1 -p udp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null || true\n")
+            sb.append("iptables -t nat -I OUTPUT 1 -p tcp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null || true\n")
+            sb.append("iptables -t nat -I OUTPUT 1 -d 100.64.0.0/10 -p udp --dport 53 -j ACCEPT 2>/dev/null || true\n")
+            sb.append("iptables -t nat -I OUTPUT 1 -d 100.64.0.0/10 -p tcp --dport 53 -j ACCEPT 2>/dev/null || true\n")
 
             val process = Runtime.getRuntime().exec("su")
             process.outputStream.bufferedWriter().use { writer ->
@@ -232,6 +243,12 @@ object RootUtils {
             sb.append("while iptables -t mangle -D OUTPUT -d 100.64.0.0/10 -j MARK --set-mark 1099 2>/dev/null; do :; done\n")
             sb.append("while iptables -D FORWARD -o tailscale0 -j ACCEPT 2>/dev/null; do :; done\n")
             sb.append("while iptables -D FORWARD -i tailscale0 -j ACCEPT 2>/dev/null; do :; done\n")
+            sb.append("while iptables -t nat -D OUTPUT -d 100.64.0.0/10 -p udp --dport 53 -j ACCEPT 2>/dev/null; do :; done\n")
+            sb.append("while iptables -t nat -D OUTPUT -d 100.64.0.0/10 -p tcp --dport 53 -j ACCEPT 2>/dev/null; do :; done\n")
+            sb.append("while iptables -t nat -D OUTPUT -p udp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null; do :; done\n")
+            sb.append("while iptables -t nat -D OUTPUT -p tcp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null; do :; done\n")
+            sb.append("while iptables -t nat -D OUTPUT -p udp --dport 53 -j REDIRECT --to-ports 1053 2>/dev/null; do :; done\n")
+            sb.append("while iptables -t nat -D OUTPUT -p tcp --dport 53 -j REDIRECT --to-ports 1053 2>/dev/null; do :; done\n")
             sb.append("ip route del 100.64.0.0/10 dev tailscale0 table 1099 2>/dev/null || true\n")
             sb.append("ip route del 100.64.0.0/10 dev tailscale0 2>/dev/null || true\n")
             sb.append("umount /system/etc/hosts 2>/dev/null || true\n")

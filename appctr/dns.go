@@ -176,23 +176,22 @@ func processDNSQuery(query []byte, fallbacks []string, dohUrl string) []byte {
 		}
 	}
 
-	// 3. Local API DNS Query (only for MagicDNS domains or short names)
-	if isMagicDNS || isShortName {
-		typeStr := "A"
-		if q.Type == dnsmessage.TypeAAAA {
-			typeStr = "AAAA"
-		}
-		path := fmt.Sprintf("/localapi/v0/dns-query?name=%s&type=%s", domain, typeStr)
-		data, err := doLocalRequest("GET", path, nil)
-		if err == nil {
-			var dnsResp struct{ Bytes []byte }
-			if json.Unmarshal(data, &dnsResp) == nil && len(dnsResp.Bytes) >= 4 {
-				rcode := dnsResp.Bytes[3] & 0x0F
-				if rcode == 0 || isMagicDNS {
-					dnsResp.Bytes[0] = query[0]
-					dnsResp.Bytes[1] = query[1]
-					return dnsResp.Bytes
-				}
+	// 3. Local API DNS Query (asks Tailscaled resolver for MagicDNS, Split DNS, Search Domains, and custom records)
+	typeStr := "A"
+	if q.Type == dnsmessage.TypeAAAA {
+		typeStr = "AAAA"
+	}
+	path := fmt.Sprintf("/localapi/v0/dns-query?name=%s&type=%s", domain, typeStr)
+	data, err := doLocalRequest("GET", path, nil)
+	if err == nil {
+		var dnsResp struct{ Bytes []byte }
+		if json.Unmarshal(data, &dnsResp) == nil && len(dnsResp.Bytes) >= 4 {
+			rcode := dnsResp.Bytes[3] & 0x0F
+			var parsedMsg dnsmessage.Message
+			if rcode == 0 && parsedMsg.Unpack(dnsResp.Bytes) == nil && len(parsedMsg.Answers) > 0 {
+				dnsResp.Bytes[0] = query[0]
+				dnsResp.Bytes[1] = query[1]
+				return dnsResp.Bytes
 			}
 		}
 	}

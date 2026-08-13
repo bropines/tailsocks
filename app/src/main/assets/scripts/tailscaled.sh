@@ -84,6 +84,10 @@ for i in $(seq 1 30); do
                 ip rule add fwmark 1099 table 1099 priority 100 2>/dev/null || ip rule add fwmark 1099 table 1099 2>/dev/null || true
                 iptables -I FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || true
                 iptables -I FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || true
+                iptables -t nat -I OUTPUT 1 -p udp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null || true
+                iptables -t nat -I OUTPUT 1 -p tcp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null || true
+                iptables -t nat -I OUTPUT 1 -d 100.64.0.0/10 -p udp --dport 53 -j ACCEPT 2>/dev/null || true
+                iptables -t nat -I OUTPUT 1 -d 100.64.0.0/10 -p tcp --dport 53 -j ACCEPT 2>/dev/null || true
                 break
             fi
             sleep 1
