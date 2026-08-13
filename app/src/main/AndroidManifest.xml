@@ -25,6 +25,7 @@
         android:theme="@style/Theme.Tailscaled" 
         android:usesCleartextTraffic="true"
         android:enableOnBackInvokedCallback="true"
+        android:hasFragileUserData="true"
         tools:targetApi="34">
 
         <activity android:name=".ui.MainActivity" android:exported="true" android:launchMode="singleTask">
