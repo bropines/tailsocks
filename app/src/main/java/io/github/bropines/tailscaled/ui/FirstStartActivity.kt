@@ -337,7 +337,8 @@ fun SlideHowItWorks() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 FilterChip(
-                    selected = !isTunMode,
+                    selected = !isTunMode && !isRootMode,
+                    enabled = !isRootMode,
                     onClick = {
                         isTunMode = false
                         GlobalSettings.setTunModeEnabled(context, false)
@@ -346,7 +347,8 @@ fun SlideHowItWorks() {
                     modifier = Modifier.weight(1f)
                 )
                 FilterChip(
-                    selected = isTunMode,
+                    selected = isTunMode && !isRootMode,
+                    enabled = !isRootMode,
                     onClick = {
                         isTunMode = true
                         GlobalSettings.setTunModeEnabled(context, true)
@@ -359,19 +361,32 @@ fun SlideHowItWorks() {
             Card(
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (isRootMode) 0.2f else 0.4f)
                 ),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = if (!isTunMode) stringResource(R.string.first_start_mode_proxy_title) else stringResource(R.string.first_start_mode_vpn_title),
+                        text = if (isRootMode) {
+                            "Root Mode active"
+                        } else if (!isTunMode) {
+                            stringResource(R.string.first_start_mode_proxy_title)
+                        } else {
+                            stringResource(R.string.first_start_mode_vpn_title)
+                        },
                         fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (isRootMode) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = if (!isTunMode) stringResource(R.string.first_start_mode_proxy_desc) else stringResource(R.string.first_start_mode_vpn_desc),
+                        text = if (isRootMode) {
+                            "Proxy and TUN modes are inactive because TailSocks operates natively as a system daemon in Root mode."
+                        } else if (!isTunMode) {
+                            stringResource(R.string.first_start_mode_proxy_desc)
+                        } else {
+                            stringResource(R.string.first_start_mode_vpn_desc)
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                     )
