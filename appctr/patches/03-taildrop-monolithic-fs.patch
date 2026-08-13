@@ -1,6 +1,6 @@
 diff -N -r -u orig/feature/taildrop/ext.go tailscale_src/feature/taildrop/ext.go
 --- orig/feature/taildrop/ext.go	2026-07-31 19:22:18.000000000 +0300
-+++ tailscale_src/feature/taildrop/ext.go	2026-08-04 21:31:25.529726387 +0300
++++ tailscale_src/feature/taildrop/ext.go	2026-08-13 18:37:15.800316737 +0300
 @@ -4,6 +4,12 @@
  package taildrop
  
@@ -172,7 +172,7 @@ diff -N -r -u orig/feature/taildrop/ext.go tailscale_src/feature/taildrop/ext.go
 +}
 diff -N -r -u orig/feature/taildrop/ext.go.orig tailscale_src/feature/taildrop/ext.go.orig
 --- orig/feature/taildrop/ext.go.orig	1970-01-01 03:00:00.000000000 +0300
-+++ tailscale_src/feature/taildrop/ext.go.orig	2026-07-31 19:22:18.000000000 +0300
++++ tailscale_src/feature/taildrop/ext.go.orig	2026-08-13 18:37:15.800415561 +0300
 @@ -0,0 +1,437 @@
 +// Copyright (c) Tailscale Inc & contributors
 +// SPDX-License-Identifier: BSD-3-Clause

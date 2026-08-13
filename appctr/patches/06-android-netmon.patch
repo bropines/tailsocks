@@ -1,5 +1,5 @@
---- /dev/null	2026-08-13 13:56:28.091097368 +0300
-+++ tailscale_src/cmd/tailscaled/fix_android_netmon.go	2026-08-04 21:31:25.539010824 +0300
+--- /dev/null	2026-08-13 18:32:17.056300698 +0300
++++ tailscale_src/cmd/tailscaled/fix_android_netmon.go	2026-08-13 18:37:15.806958336 +0300
 @@ -0,0 +1,93 @@
 +// +build android
 +

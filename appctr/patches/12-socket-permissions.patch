@@ -1,5 +1,5 @@
 --- orig/safesocket/unixsocket.go	2026-07-31 19:22:18.000000000 +0300
-+++ tailscale_src/safesocket/unixsocket.go	2026-08-05 08:09:28.342622973 +0300
++++ tailscale_src/safesocket/unixsocket.go	2026-08-13 18:37:15.820426210 +0300
 @@ -83,9 +83,5 @@
  // socketPermissionsForOS returns the permissions to use for the
  // tailscaled.sock.

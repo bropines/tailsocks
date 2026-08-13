@@ -1,5 +1,5 @@
 --- orig/ipn/ipnlocal/local.go	2026-07-31 19:22:18.000000000 +0300
-+++ tailscale_src/ipn/ipnlocal/local.go	2026-08-04 21:31:25.532820601 +0300
++++ tailscale_src/ipn/ipnlocal/local.go	2026-08-13 18:37:15.802347909 +0300
 @@ -5724,8 +5724,9 @@
  
  	// Make a shallow copy of hostinfo so we can mutate
@@ -13,7 +13,7 @@
  
  	// Don't mutate hi.Service's underlying array. Append to
 --- orig/ipn/ipnlocal/serve.go	2026-07-31 19:22:18.000000000 +0300
-+++ tailscale_src/ipn/ipnlocal/serve.go	2026-08-04 21:31:25.533327734 +0300
++++ tailscale_src/ipn/ipnlocal/serve.go	2026-08-13 18:37:15.803091965 +0300
 @@ -511,6 +511,7 @@
  			mak.Set(&services, svc, &tailcfg.VIPService{
  				Name:  svc,
