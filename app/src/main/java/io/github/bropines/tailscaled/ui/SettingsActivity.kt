@@ -793,6 +793,8 @@ fun SettingsScreen(
                                             }
                                         },
                                         singleLine = true,
+                                        maxLines = 1,
+                                        shape = RoundedCornerShape(10.dp),
                                         modifier = Modifier.fillMaxWidth()
                                     )
                                     Spacer(Modifier.height(4.dp))
@@ -1496,6 +1498,8 @@ fun SettingsScreen(
                         onValueChange = { tempPassword = it },
                         label = { Text(stringResource(R.string.settings_password_label)) },
                         singleLine = true,
+                        maxLines = 1,
+                        shape = RoundedCornerShape(10.dp),
                         visualTransformation = if (isPasswordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
                         trailingIcon = {
                             IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
@@ -1543,6 +1547,8 @@ fun SettingsScreen(
                         onValueChange = { tempPassword = it },
                         label = { Text(stringResource(R.string.settings_password_label)) },
                         singleLine = true,
+                        maxLines = 1,
+                        shape = RoundedCornerShape(10.dp),
                         visualTransformation = if (isPasswordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
                         trailingIcon = {
                             IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
@@ -1641,6 +1647,8 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
                         placeholder = { Text("socks5://user:pass@host:port") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
+                        maxLines = 1,
+                        shape = RoundedCornerShape(10.dp),
                         trailingIcon = {
                             IconButton(onClick = {
                                 val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -1744,7 +1752,7 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
                     }
                     Spacer(Modifier.height(16.dp))
                     
-                    OutlinedTextField(value = host, onValueChange = { host = it }, label = { Text(stringResource(R.string.settings_control_proxy_host)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                    OutlinedTextField(value = host, onValueChange = { host = it }, label = { Text(stringResource(R.string.settings_control_proxy_host)) }, modifier = Modifier.fillMaxWidth(), singleLine = true, maxLines = 1, shape = RoundedCornerShape(10.dp))
                     OutlinedTextField(
                         value = port,
                         onValueChange = { newValue ->
@@ -1759,11 +1767,13 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
                         label = { Text(stringResource(R.string.settings_control_proxy_port)) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
+                        maxLines = 1,
+                        shape = RoundedCornerShape(10.dp),
                         placeholder = { Text(if (type == "SOCKS5") "1080" else "8080") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                     )
-                    OutlinedTextField(value = user, onValueChange = { user = it }, label = { Text(stringResource(R.string.settings_control_proxy_username)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                    OutlinedTextField(value = pass, onValueChange = { pass = it }, label = { Text(stringResource(R.string.settings_control_proxy_password)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                    OutlinedTextField(value = user, onValueChange = { user = it }, label = { Text(stringResource(R.string.settings_control_proxy_username)) }, modifier = Modifier.fillMaxWidth(), singleLine = true, maxLines = 1, shape = RoundedCornerShape(10.dp))
+                    OutlinedTextField(value = pass, onValueChange = { pass = it }, label = { Text(stringResource(R.string.settings_control_proxy_password)) }, modifier = Modifier.fillMaxWidth(), singleLine = true, maxLines = 1, shape = RoundedCornerShape(10.dp))
                     
                     Spacer(Modifier.height(12.dp))
                     
@@ -1809,6 +1819,8 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
                     onValueChange = { presetName = it },
                     label = { Text(stringResource(R.string.settings_proxy_preset_name_label)) },
                     singleLine = true,
+                    maxLines = 1,
+                    shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
             },
@@ -1941,6 +1953,8 @@ fun SettingsEditItem(
                         onValueChange = { text = it }, 
                         modifier = Modifier.fillMaxWidth(), 
                         singleLine = true,
+                        maxLines = 1,
+                        shape = RoundedCornerShape(10.dp),
                         label = { if (placeholder.isNotEmpty()) Text(stringResource(R.string.settings_field_example, placeholder)) },
                         placeholder = { if (placeholder.isNotEmpty()) Text(placeholder) },
                         trailingIcon = if (onAction != null && actionIcon != null) {
