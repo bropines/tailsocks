@@ -107,7 +107,31 @@ private fun buildDnsQuery(domain: String): ByteArray {
     return baos.toByteArray()
 }
 
-private fun testDnsServer(serverIp: String, serverPort: Int = 53, domain: String = "google.com"): String {
+private fun getActiveSocksProxy(context: Context): java.net.Proxy? {
+    val controlProxyUrl = GlobalSettings.getControlProxyUrl(context)
+    if (controlProxyUrl.isNotEmpty()) {
+        val parsed = GlobalSettings.parseProxyUri(controlProxyUrl)
+        if (parsed != null) {
+            val host = parsed["host"] ?: "127.0.0.1"
+            val port = parsed["port"]?.toIntOrNull() ?: 1055
+            val typeStr = parsed["type"] ?: "SOCKS5"
+            val proxyType = if (typeStr.equals("HTTP", true) || typeStr.equals("HTTPS", true)) java.net.Proxy.Type.HTTP else java.net.Proxy.Type.SOCKS
+            return java.net.Proxy(proxyType, java.net.InetSocketAddress(host, port))
+        }
+    }
+    if (ProxyState.isActualRunning(context)) {
+        val activeAccount = io.github.bropines.tailscaled.core.AccountManager.getActiveAccount(context)
+        val prefs = context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
+        val socks5Str = prefs.getString("socks5", "127.0.0.1:1055") ?: "127.0.0.1:1055"
+        val parts = socks5Str.split(":")
+        val host = parts.getOrNull(0) ?: "127.0.0.1"
+        val port = parts.getOrNull(1)?.toIntOrNull() ?: 1055
+        return java.net.Proxy(java.net.Proxy.Type.SOCKS, java.net.InetSocketAddress(host, port))
+    }
+    return null
+}
+
+private fun testDnsServer(context: Context, serverIp: String, serverPort: Int = 53, domain: String = "google.com"): String {
     var targetHost = serverIp.trim()
     var targetPort = serverPort
     if (targetHost.startsWith("[")) {
@@ -124,24 +148,57 @@ private fun testDnsServer(serverIp: String, serverPort: Int = 53, domain: String
         targetPort = parts[1].toIntOrNull() ?: serverPort
     }
 
-    // For Tailscale CGNAT IPs (100.x.y.z), MagicDNS (100.100.100.100), or localhost, route via daemon's native resolver
+    val proxy = getActiveSocksProxy(context)
+
+    // Try testing DNS via SOCKS5 proxy TCP first if proxy is active
+    if (proxy != null) {
+        val socksResult = testSocksDnsServer(proxy, targetHost, targetPort, domain)
+        if (socksResult.startsWith("Success")) {
+            return socksResult
+        }
+    }
+
+    // Fallback for Tailscale daemon resolver if local/CGNAT
     if (targetHost.startsWith("100.") || targetHost == "127.0.0.1" || targetHost == "localhost") {
-        return try {
+        try {
             val startTime = System.currentTimeMillis()
             val cleanDomain = domain.trimEnd('.')
             val result = Appctr.nativeDnsQuery(if (cleanDomain.isBlank()) "google.com" else cleanDomain, "A")
             val latency = System.currentTimeMillis() - startTime
             if (result.isNotBlank() && !result.startsWith("Error")) {
-                "Success via Tailscale daemon (${latency} ms)\n$result"
-            } else {
-                testUdpDnsServer("127.0.0.1", 1053, domain)
+                return "Success via Tailscale daemon (${latency} ms)\n$result"
             }
         } catch (e: Exception) {
-            testUdpDnsServer("127.0.0.1", 1053, domain)
+            // continue
         }
     }
 
     return testUdpDnsServer(targetHost, targetPort, domain)
+}
+
+private fun testSocksDnsServer(proxy: java.net.Proxy, host: String, port: Int, domain: String): String {
+    return try {
+        val socket = java.net.Socket(proxy)
+        val startTime = System.currentTimeMillis()
+        socket.connect(java.net.InetSocketAddress(host, port), 3000)
+        socket.soTimeout = 3000
+        
+        val rawQuery = buildDnsQuery(domain)
+        val dos = java.io.DataOutputStream(socket.getOutputStream())
+        dos.writeShort(rawQuery.size)
+        dos.write(rawQuery)
+        dos.flush()
+
+        val dis = java.io.DataInputStream(socket.getInputStream())
+        val respLen = dis.readUnsignedShort()
+        val buffer = ByteArray(respLen)
+        dis.readFully(buffer)
+        val latency = System.currentTimeMillis() - startTime
+        socket.close()
+        "Success via SOCKS5 (reply: ${respLen} bytes, latency: ${latency} ms)"
+    } catch (e: Exception) {
+        "Failed via SOCKS5: ${e.message ?: e.javaClass.simpleName}"
+    }
 }
 
 private fun testUdpDnsServer(host: String, port: Int, domain: String): String {
@@ -204,9 +261,9 @@ fun DnsScreen(onBack: () -> Unit) {
         scope.launch(Dispatchers.IO) {
             val domainToTest = queryDomain.ifBlank { status?.tailnet?.selfName ?: status?.tailnet?.suffix ?: "google.com" }
             val firstConfiguredIp = status?.splitRoutes?.values?.flatMap { list -> list.map { it.addr } }?.firstOrNull() ?: "127.0.0.1"
-            var res = testDnsServer(firstConfiguredIp, 53, domainToTest)
+            var res = testDnsServer(context, firstConfiguredIp, 53, domainToTest)
             if (res.startsWith("Failed")) {
-                val resLocal = testDnsServer("127.0.0.1", 1053, domainToTest)
+                val resLocal = testDnsServer(context, "127.0.0.1", 1053, domainToTest)
                 if (resLocal.startsWith("Success")) {
                     res = resLocal
                 }
@@ -264,7 +321,7 @@ fun DnsScreen(onBack: () -> Unit) {
         routeTestingState = routeTestingState + (key to true)
         scope.launch(Dispatchers.IO) {
             val cleanDomain = domain.trimEnd('.')
-            val res = testDnsServer(ip, 53, cleanDomain)
+            val res = testDnsServer(context, ip, 53, cleanDomain)
             withContext(Dispatchers.Main) {
                 routeTestResults = routeTestResults + (key to res)
                 routeTestingState = routeTestingState + (key to false)
