@@ -302,9 +302,17 @@ fun PredictiveBackContainer(
     modifier: Modifier = Modifier,
     targetTitle: String? = null,
     targetIcon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    previousContent: (@Composable () -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
     if (onBack == null) {
+        content()
+        return
+    }
+
+    // If no custom in-compose previousContent is provided, let Android OS native
+    // window manager execute real system Predictive Back animation between Activities (showing real underlying window).
+    if (previousContent == null) {
         content()
         return
     }
@@ -329,50 +337,21 @@ fun PredictiveBackContainer(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        // Destination preview card in the background (visible as main screen scales down)
         if (backProgress > 0.001f) {
             Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                androidx.compose.material3.Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                    tonalElevation = 6.dp,
-                    shadowElevation = 8.dp,
-                    modifier = Modifier
-                        .padding(horizontal = 32.dp)
-                        .graphicsLayer {
-                            val scale = 0.85f + (backProgress * 0.15f)
-                            scaleX = scale
-                            scaleY = scale
-                            alpha = (backProgress * 3f).coerceIn(0f, 1f)
-                        }
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Icon(
-                            imageVector = targetIcon ?: Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(22.dp)
-                        )
-                        Text(
-                            text = targetTitle ?: androidx.compose.ui.res.stringResource(R.string.action_back),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        val scale = 0.9f + (backProgress * 0.1f)
+                        scaleX = scale
+                        scaleY = scale
+                        alpha = (backProgress * 2f).coerceIn(0f, 1f)
                     }
-                }
+            ) {
+                previousContent()
             }
         }
 
-        // Main screen content scaling down
         Box(
             modifier = Modifier
                 .fillMaxSize()
