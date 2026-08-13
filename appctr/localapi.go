@@ -171,11 +171,16 @@ func SetPrefs(prefsJson string) string {
 	return "OK"
 }
 
-// GetLoginURL returns the authentication URL from the daemon status.
+// GetLoginURL returns the authentication URL from IPN bus snapshot or daemon status.
 func GetLoginURL() string {
 	if !IsRunning() {
 		return ""
 	}
+	bs := GetBusState()
+	if bs.AuthURL != "" {
+		return bs.AuthURL
+	}
+
 	data, err := doLocalRequest("GET", "/localapi/v0/status", nil)
 	if err != nil {
 		return ""
@@ -187,6 +192,11 @@ func GetLoginURL() string {
 	var s status
 	if err := json.Unmarshal(data, &s); err != nil {
 		return ""
+	}
+	if s.AuthURL != "" {
+		busStateMu.Lock()
+		busState.AuthURL = s.AuthURL
+		busStateMu.Unlock()
 	}
 	return s.AuthURL
 }

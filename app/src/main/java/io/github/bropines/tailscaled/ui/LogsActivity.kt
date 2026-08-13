@@ -109,6 +109,19 @@ fun getDebugHeader(context: Context): String {
     """.trimIndent()
 }
 
+fun buildFullLogString(context: Context): String {
+    val header = getDebugHeader(context)
+    val goLogs = try { Appctr.getLogs() } catch (e: Exception) { "" }
+    val dataDir = context.filesDir.parentFile ?: context.filesDir
+    val logFile = java.io.File(dataDir, "logs/tailscaled.log")
+    val rootLogs = if (logFile.exists()) {
+        try {
+            "\n--- ROOT DAEMON LOGS (tailscaled.log) ---\n" + logFile.readText()
+        } catch (e: Exception) { "" }
+    } else ""
+    return header + goLogs + rootLogs
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LogsScreen(onBack: () -> Unit) {
@@ -139,7 +152,7 @@ fun LogsScreen(onBack: () -> Unit) {
         uri?.let {
             coroutineScope.launch(Dispatchers.IO) {
                 try {
-                    val fullLog = getDebugHeader(context) + Appctr.getLogs()
+                    val fullLog = buildFullLogString(context)
                     context.contentResolver.openOutputStream(it)?.use { os ->
                         OutputStreamWriter(os).use { writer -> writer.write(fullLog) }
                     }
@@ -217,7 +230,7 @@ fun LogsScreen(onBack: () -> Unit) {
                         }) { Icon(Icons.Default.CleaningServices, contentDescription = stringResource(R.string.logs_cd_flush_dns)) }
 
                         IconButton(onClick = { 
-                            val fullLog = getDebugHeader(context) + Appctr.getLogs()
+                            val fullLog = buildFullLogString(context)
                             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                             clipboard.setPrimaryClip(ClipData.newPlainText("TailSocks Logs", fullLog))
                             Toast.makeText(context, context.getString(R.string.logs_copied), Toast.LENGTH_SHORT).show()

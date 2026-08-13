@@ -158,25 +158,31 @@ func GetBackendState() string {
 	if !IsRunning() {
 		return "Stopped"
 	}
-	// Prefer bus State if set
 	bs := GetBusState()
-	if bs.BackendState != "" {
+	if bs.BackendState != "" && bs.BackendState != "NeedsLogin" {
 		return bs.BackendState
 	}
 
-	// Fallback to LocalAPI one-shot status
 	data, err := doLocalRequest("GET", "/localapi/v0/status", nil)
 	if err != nil {
+		if bs.BackendState != "" {
+			return bs.BackendState
+		}
 		return "Error"
 	}
 	var res struct {
 		BackendState string `json:"BackendState"`
 	}
-	if err := json.Unmarshal(data, &res); err != nil {
-		slog.Error("LocalAPI: Failed to parse BackendState", "err", err)
-		return "Error"
+	if err := json.Unmarshal(data, &res); err == nil && res.BackendState != "" {
+		busStateMu.Lock()
+		busState.BackendState = res.BackendState
+		if res.BackendState == "Running" {
+			busState.AuthURL = ""
+		}
+		busStateMu.Unlock()
+		return res.BackendState
 	}
-	return res.BackendState
+	return bs.BackendState
 }
 
 // GetSelfDNSName returns the MagicDNS name of the current device.
