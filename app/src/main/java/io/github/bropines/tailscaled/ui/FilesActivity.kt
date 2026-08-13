@@ -32,6 +32,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -50,6 +51,8 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.expandVertically
@@ -194,7 +197,7 @@ fun FilesScreen(onBack: () -> Unit) {
                     }
                 )
 
-                // Large Main Hub Mode Chips: TailDrive vs TailDrop (30% narrower & centered)
+                // Large Main Hub Mode Chips: TailDrive vs TailDrop with Animated Focus Shift
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -203,6 +206,9 @@ fun FilesScreen(onBack: () -> Unit) {
                 ) {
                     val isDriveSelected = mainPagerState.currentPage == 0
                     val isDropSelected = mainPagerState.currentPage == 1
+
+                    val driveScale by animateFloatAsState(if (isDriveSelected) 1.02f else 0.96f, label = "driveScale")
+                    val dropScale by animateFloatAsState(if (isDropSelected) 1.02f else 0.96f, label = "dropScale")
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -227,7 +233,12 @@ fun FilesScreen(onBack: () -> Unit) {
                                     }
                                 }
                             },
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier
+                                .weight(1f)
+                                .graphicsLayer {
+                                    scaleX = driveScale
+                                    scaleY = driveScale
+                                },
                             shape = RoundedCornerShape(16.dp),
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -254,7 +265,12 @@ fun FilesScreen(onBack: () -> Unit) {
                                     }
                                 }
                             },
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier
+                                .weight(1f)
+                                .graphicsLayer {
+                                    scaleX = dropScale
+                                    scaleY = dropScale
+                                },
                             shape = RoundedCornerShape(16.dp),
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
