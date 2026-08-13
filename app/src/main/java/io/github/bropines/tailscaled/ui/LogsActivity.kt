@@ -27,8 +27,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -138,7 +140,16 @@ fun LogsScreen(onBack: () -> Unit) {
     var scale by remember { mutableFloatStateOf(1f) }
     val listState = rememberLazyListState()
 
-    val categories = listOf("ALL", "ERROR", "CORE", "TAILSCALE", "OTHER")
+    val categoryItems = remember {
+        listOf(
+            SegmentedChipItem("ALL", Icons.AutoMirrored.Filled.List),
+            SegmentedChipItem("ERROR", Icons.Default.Error, containerColor = Color(0xFFEF5350).copy(alpha = 0.25f), contentColor = Color(0xFFEF5350)),
+            SegmentedChipItem("CORE", Icons.Default.Memory, containerColor = Color(0xFF42A5F5).copy(alpha = 0.25f), contentColor = Color(0xFF1E88E5)),
+            SegmentedChipItem("TAILSCALE", Icons.Default.VpnLock, containerColor = Color(0xFF66BB6A).copy(alpha = 0.25f), contentColor = Color(0xFF43A047)),
+            SegmentedChipItem("OTHER", Icons.Default.Category, containerColor = Color(0xFFFFA726).copy(alpha = 0.25f), contentColor = Color(0xFFFB8C00))
+        )
+    }
+    val categories = remember(categoryItems) { categoryItems.map { it.title } }
 
     val displayedLogs = remember(allLogs, selectedCategory, searchQuery) {
         allLogs.filter { log ->
@@ -278,7 +289,7 @@ fun LogsScreen(onBack: () -> Unit) {
 
                     val selectedCategoryIndex = categories.indexOf(selectedCategory).coerceAtLeast(0)
                     ScrollableSlidingSegmentedChips(
-                        options = categories,
+                        items = categoryItems,
                         selectedIndex = selectedCategoryIndex,
                         onOptionSelected = { idx ->
                             selectedCategory = categories[idx]

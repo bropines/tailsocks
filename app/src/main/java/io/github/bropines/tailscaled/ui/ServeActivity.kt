@@ -795,65 +795,69 @@ fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm
                 
                 Column {
                     Text(stringResource(R.string.serve_field_mode), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("Web", "TCP").forEach { m ->
-                            FilterChip(
-                                selected = mode == m,
-                                onClick = { 
-                                    mode = m
-                                    if (m == "Web" && port == "10000") port = "443"
-                                    if (m == "TCP" && (port == "443" || port == "80")) port = "10000"
-                                },
-                                label = { Text(m) }
-                            )
-                        }
-                    }
+                    Spacer(Modifier.height(6.dp))
+                    val modes = listOf("Web", "TCP")
+                    val selectedModeIdx = modes.indexOf(mode).coerceAtLeast(0)
+                    SlidingSegmentedChips(
+                        options = modes,
+                        selectedIndex = selectedModeIdx,
+                        onOptionSelected = { idx ->
+                            val m = modes[idx]
+                            mode = m
+                            if (m == "Web" && port == "10000") port = "443"
+                            if (m == "TCP" && (port == "443" || port == "80")) port = "10000"
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        height = 36.dp
+                    )
                 }
 
                 if (mode == "Web") {
                     Column {
                         Text(stringResource(R.string.serve_field_transport), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            // Funnel forces HTTPS
-                            val transports = if (data.isFunnel) listOf("HTTPS") else listOf("HTTPS", "HTTP")
-                            transports.forEach { t ->
-                                FilterChip(
-                                    selected = transport == t,
-                                    onClick = { 
-                                        transport = t 
-                                        if (t == "HTTPS" && port == "80") port = "443"
-                                        if (t == "HTTP" && port == "443") port = "80"
-                                    },
-                                    label = { Text(t) }
-                                )
-                            }
-                        }
+                        Spacer(Modifier.height(6.dp))
+                        val transports = if (data.isFunnel) listOf("HTTPS") else listOf("HTTPS", "HTTP")
+                        val selectedTransportIdx = transports.indexOf(transport).coerceAtLeast(0)
+                        SlidingSegmentedChips(
+                            options = transports,
+                            selectedIndex = selectedTransportIdx,
+                            onOptionSelected = { idx ->
+                                val t = transports[idx]
+                                transport = t
+                                if (t == "HTTPS" && port == "80") port = "443"
+                                if (t == "HTTP" && port == "443") port = "80"
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            height = 36.dp
+                        )
                     }
 
                     Column {
                         Text(stringResource(R.string.serve_field_handler), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                            listOf("Proxy", "Text", "Redirect").forEach { h ->
-                                FilterChip(
-                                    selected = handlerType == h,
-                                    onClick = { handlerType = h },
-                                    label = { Text(h) }
-                                )
-                            }
-                        }
+                        Spacer(Modifier.height(6.dp))
+                        val handlers = listOf("Proxy", "Text", "Redirect")
+                        val selectedHandlerIdx = handlers.indexOf(handlerType).coerceAtLeast(0)
+                        SlidingSegmentedChips(
+                            options = handlers,
+                            selectedIndex = selectedHandlerIdx,
+                            onOptionSelected = { idx -> handlerType = handlers[idx] },
+                            modifier = Modifier.fillMaxWidth(),
+                            height = 36.dp
+                        )
                     }
                 } else {
                     Column {
                         Text(stringResource(R.string.serve_field_proxy_proto), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf(0 to "None", 1 to "v1", 2 to "v2").forEach { (v, label) ->
-                                FilterChip(
-                                    selected = proxyProtocol == v,
-                                    onClick = { proxyProtocol = v },
-                                    label = { Text(label) }
-                                )
-                            }
-                        }
+                        Spacer(Modifier.height(6.dp))
+                        val proxyProtos = listOf(0 to "None", 1 to "v1", 2 to "v2")
+                        val selectedProtoIdx = proxyProtos.indexOfFirst { it.first == proxyProtocol }.coerceAtLeast(0)
+                        SlidingSegmentedChips(
+                            options = proxyProtos.map { it.second },
+                            selectedIndex = selectedProtoIdx,
+                            onOptionSelected = { idx -> proxyProtocol = proxyProtos[idx].first },
+                            modifier = Modifier.fillMaxWidth(),
+                            height = 36.dp
+                        )
                     }
                 }
 

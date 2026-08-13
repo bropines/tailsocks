@@ -1621,26 +1621,17 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
 
                     Spacer(Modifier.height(16.dp))
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(stringResource(R.string.settings_control_proxy_type), Modifier.weight(1f))
-                        FilterChip(
-                            selected = type == "SOCKS5",
-                            onClick = { type = "SOCKS5" },
-                            label = { Text(stringResource(R.string.settings_proxy_socks5)) }
-                        )
-                        FilterChip(
-                            selected = type == "HTTP",
-                            onClick = { type = "HTTP" },
-                            label = { Text(stringResource(R.string.settings_proxy_http)) }
-                        )
-                        FilterChip(
-                            selected = type == "HTTPS",
-                            onClick = { type = "HTTPS" },
-                            label = { Text(stringResource(R.string.settings_proxy_type_https)) }
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.settings_control_proxy_type), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(8.dp))
+                        val proxyTypes = listOf("SOCKS5", "HTTP", "HTTPS")
+                        val selectedProxyTypeIdx = proxyTypes.indexOf(type).coerceAtLeast(0)
+                        SlidingSegmentedChips(
+                            options = proxyTypes,
+                            selectedIndex = selectedProxyTypeIdx,
+                            onOptionSelected = { idx -> type = proxyTypes[idx] },
+                            modifier = Modifier.fillMaxWidth(),
+                            height = 36.dp
                         )
                     }
                     Spacer(Modifier.height(16.dp))

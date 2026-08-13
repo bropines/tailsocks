@@ -106,20 +106,16 @@ fun AdminApiLogsTabContent(
 
         // Action Filter Chips
         val actionsList = listOf("ALL", "CREATE", "UPDATE", "DELETE")
-        LazyRow(
+        val selectedActionIdx = actionsList.indexOf(selectedActionFilter).coerceAtLeast(0)
+        ScrollableSlidingSegmentedChips(
+            options = actionsList,
+            selectedIndex = selectedActionIdx,
+            onOptionSelected = { idx -> selectedActionFilter = actionsList[idx] },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(actionsList) { action ->
-                FilterChip(
-                    selected = selectedActionFilter == action,
-                    onClick = { selectedActionFilter = action },
-                    label = { Text(action) }
-                )
-            }
-        }
+            height = 36.dp
+        )
 
         Row(
             modifier = Modifier

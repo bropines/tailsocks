@@ -30,6 +30,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.activity.compose.PredictiveBackHandler
 import kotlinx.coroutines.CancellationException
+import kotlin.math.roundToInt
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 
@@ -245,7 +246,9 @@ fun PredictiveBackContainer(
 
 data class SegmentedChipItem(
     val title: String,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector? = null
+    val icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    val containerColor: androidx.compose.ui.graphics.Color? = null,
+    val contentColor: androidx.compose.ui.graphics.Color? = null
 )
 
 @JvmName("SlidingSegmentedChipsOptions")
@@ -279,8 +282,20 @@ fun SlidingSegmentedChips(
 ) {
     val animPosition by animateFloatAsState(
         targetValue = positionOffset ?: selectedIndex.toFloat(),
-        animationSpec = tween(durationMillis = 140),
+        animationSpec = tween(durationMillis = 120, easing = androidx.compose.animation.core.FastOutSlowInEasing),
         label = "slidingPosition"
+    )
+
+    val count = items.size.coerceAtLeast(1)
+    val activeIndex = animPosition.roundToInt().coerceIn(0, count - 1)
+    val selectedItem = items.getOrNull(activeIndex)
+    val defaultContainer = MaterialTheme.colorScheme.primaryContainer
+    val targetContainer = selectedItem?.containerColor ?: defaultContainer
+
+    val activeBgColor by androidx.compose.animation.animateColorAsState(
+        targetValue = targetContainer,
+        animationSpec = tween(durationMillis = 120, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+        label = "activePillBg"
     )
 
     BoxWithConstraints(
@@ -290,7 +305,6 @@ fun SlidingSegmentedChips(
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
     ) {
         val totalWidth = maxWidth
-        val count = items.size.coerceAtLeast(1)
         val itemWidth = totalWidth / count
 
         // Smooth Continuous Drag-Bound / Animated Active Pill
@@ -302,13 +316,21 @@ fun SlidingSegmentedChips(
                 .fillMaxHeight()
                 .padding(2.dp)
                 .clip(RoundedCornerShape(14.dp))
-                .background(MaterialTheme.colorScheme.primaryContainer)
+                .background(activeBgColor)
         )
 
         // Labels & Icons overlay
         Row(modifier = Modifier.fillMaxSize()) {
             items.forEachIndexed { index, item ->
                 val isSelected = (animPosition - index).let { Math.abs(it) < 0.5f }
+                val defaultContent = MaterialTheme.colorScheme.onPrimaryContainer
+                val targetContent = if (isSelected) (item.contentColor ?: defaultContent) else MaterialTheme.colorScheme.onSurfaceVariant
+                val contentColor by androidx.compose.animation.animateColorAsState(
+                    targetValue = targetContent,
+                    animationSpec = tween(durationMillis = 120, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                    label = "chipContentColor"
+                )
+
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -330,14 +352,14 @@ fun SlidingSegmentedChips(
                                 imageVector = item.icon,
                                 contentDescription = null,
                                 modifier = Modifier.size(16.dp),
-                                tint = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                tint = contentColor
                             )
                         }
                         Text(
                             text = item.title,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                             fontSize = 13.sp,
-                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                            color = contentColor
                         )
                     }
                 }
@@ -394,14 +416,19 @@ fun ScrollableSlidingSegmentedChips(
         items(items.size) { index ->
             val item = items[index]
             val isSelected = selectedIndex == index
+            val defaultContainer = MaterialTheme.colorScheme.primaryContainer
+            val defaultContent = MaterialTheme.colorScheme.onPrimaryContainer
+            val itemContainer = item.containerColor ?: defaultContainer
+            val itemContent = item.contentColor ?: defaultContent
+
             val bgColor by androidx.compose.animation.animateColorAsState(
-                targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer else androidx.compose.ui.graphics.Color.Transparent,
-                animationSpec = tween(durationMillis = 140),
+                targetValue = if (isSelected) itemContainer else androidx.compose.ui.graphics.Color.Transparent,
+                animationSpec = tween(durationMillis = 120, easing = androidx.compose.animation.core.FastOutSlowInEasing),
                 label = "chipBgColor"
             )
             val contentColor by androidx.compose.animation.animateColorAsState(
-                targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                animationSpec = tween(durationMillis = 140),
+                targetValue = if (isSelected) itemContent else MaterialTheme.colorScheme.onSurfaceVariant,
+                animationSpec = tween(durationMillis = 120, easing = androidx.compose.animation.core.FastOutSlowInEasing),
                 label = "chipContentColor"
             )
 
