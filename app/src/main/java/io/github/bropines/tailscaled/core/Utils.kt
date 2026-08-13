@@ -310,18 +310,14 @@ fun PredictiveBackContainer(
         return
     }
 
-    // If no custom in-compose previousContent is provided, let Android OS native
-    // window manager execute real system Predictive Back animation between Activities (showing real underlying window).
-    if (previousContent == null) {
-        content()
-        return
-    }
-
     var backProgress by remember { mutableFloatStateOf(0f) }
+    var swipeEdge by remember { mutableIntStateOf(0) }
+
     PredictiveBackHandler { progressFlow ->
         try {
             progressFlow.collect { backEvent ->
                 backProgress = backEvent.progress
+                swipeEdge = backEvent.swipeEdge
             }
             onBack()
         } catch (e: CancellationException) {
@@ -329,20 +325,23 @@ fun PredictiveBackContainer(
         }
     }
 
+    val density = androidx.compose.ui.platform.LocalDensity.current
     val backScale = 1f - (backProgress * 0.12f)
-    val backAlpha = 1f - (backProgress * 0.35f)
+    val backAlpha = 1f - (backProgress * 0.25f)
+    val translationDirection = if (swipeEdge == 1) -1f else 1f
+    val translationXOffset = with(density) { (backProgress * 120.dp.toPx() * translationDirection) }
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        if (backProgress > 0.001f) {
+        if (previousContent != null && backProgress > 0.001f) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer {
-                        val scale = 0.9f + (backProgress * 0.1f)
+                        val scale = 0.92f + (backProgress * 0.08f)
                         scaleX = scale
                         scaleY = scale
                         alpha = (backProgress * 2f).coerceIn(0f, 1f)
@@ -359,8 +358,9 @@ fun PredictiveBackContainer(
                     scaleX = backScale
                     scaleY = backScale
                     alpha = backAlpha
+                    translationX = translationXOffset
                     clip = true
-                    shape = RoundedCornerShape((backProgress * 28).dp)
+                    shape = RoundedCornerShape((backProgress * 24).dp)
                 }
         ) {
             content()

@@ -148,32 +148,24 @@ private fun testDnsServer(context: Context, serverIp: String, serverPort: Int = 
         targetPort = parts[1].toIntOrNull() ?: serverPort
     }
 
-    val proxy = getActiveSocksProxy(context)
+    val cleanDomain = domain.trim().trimEnd('.').ifBlank { "google.com" }
 
-    // Try testing DNS via SOCKS5 proxy TCP first if proxy is active
-    if (proxy != null) {
-        val socksResult = testSocksDnsServer(proxy, targetHost, targetPort, domain)
-        if (socksResult.startsWith("Success")) {
-            return socksResult
-        }
-    }
-
-    // Fallback for Tailscale daemon resolver if local/CGNAT
-    if (targetHost.startsWith("100.") || targetHost == "127.0.0.1" || targetHost == "localhost") {
+    // If daemon is running, execute real end-to-end resolution via Appctr to measure true network RTT
+    if (ProxyState.isActualRunning(context)) {
         try {
             val startTime = System.currentTimeMillis()
-            val cleanDomain = domain.trimEnd('.')
-            val result = Appctr.nativeDnsQuery(if (cleanDomain.isBlank()) "google.com" else cleanDomain, "A")
+            val result = Appctr.nativeDnsQuery(cleanDomain, "A")
             val latency = System.currentTimeMillis() - startTime
             if (result.isNotBlank() && !result.startsWith("Error")) {
-                return "Success via Tailscale daemon (${latency} ms)\n$result"
+                return "Success via Tailscale daemon (latency: ${latency} ms)\n$result"
             }
         } catch (e: Exception) {
-            // continue
+            // fallback to direct socket test
         }
     }
 
-    return testUdpDnsServer(targetHost, targetPort, domain)
+    // Direct UDP socket test for custom external IPs
+    return testUdpDnsServer(targetHost, targetPort, cleanDomain)
 }
 
 private fun testSocksDnsServer(proxy: java.net.Proxy, host: String, port: Int, domain: String): String {
