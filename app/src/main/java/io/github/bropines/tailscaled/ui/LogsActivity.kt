@@ -140,14 +140,19 @@ fun LogsScreen(onBack: () -> Unit) {
     var scale by remember { mutableFloatStateOf(1f) }
     val listState = rememberLazyListState()
 
-    val categoryItems = remember {
-        listOf(
+    val isRootMode = remember { GlobalSettings.isRootModeEnabled(context) }
+    val categoryItems = remember(isRootMode) {
+        val list = mutableListOf(
             SegmentedChipItem("ALL", Icons.AutoMirrored.Filled.List),
             SegmentedChipItem("ERROR", Icons.Default.Error, containerColor = Color(0xFFEF5350).copy(alpha = 0.25f), contentColor = Color(0xFFEF5350)),
             SegmentedChipItem("CORE", Icons.Default.Memory, containerColor = Color(0xFF42A5F5).copy(alpha = 0.25f), contentColor = Color(0xFF1E88E5)),
-            SegmentedChipItem("TAILSCALE", Icons.Default.VpnLock, containerColor = Color(0xFF66BB6A).copy(alpha = 0.25f), contentColor = Color(0xFF43A047)),
-            SegmentedChipItem("OTHER", Icons.Default.Category, containerColor = Color(0xFFFFA726).copy(alpha = 0.25f), contentColor = Color(0xFFFB8C00))
+            SegmentedChipItem("TAILSCALE", Icons.Default.VpnLock, containerColor = Color(0xFF66BB6A).copy(alpha = 0.25f), contentColor = Color(0xFF43A047))
         )
+        if (isRootMode) {
+            list.add(SegmentedChipItem("ROOT", Icons.Default.Terminal, containerColor = Color(0xFF9C27B0).copy(alpha = 0.25f), contentColor = Color(0xFF9C27B0)))
+        }
+        list.add(SegmentedChipItem("OTHER", Icons.Default.Category, containerColor = Color(0xFFFFA726).copy(alpha = 0.25f), contentColor = Color(0xFFFB8C00)))
+        list.toList()
     }
     val categories = remember(categoryItems) { categoryItems.map { it.title } }
 
