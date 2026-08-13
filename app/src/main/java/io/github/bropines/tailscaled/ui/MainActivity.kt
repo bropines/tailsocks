@@ -93,46 +93,47 @@ fun launchApkInstaller(context: Context, apkFile: java.io.File) {
     }
 
     try {
-        val packageInstaller = context.packageManager.packageInstaller
-        val params = android.content.pm.PackageInstaller.SessionParams(
-            android.content.pm.PackageInstaller.SessionParams.MODE_FULL_INSTALL
+        val apkUri = androidx.core.content.FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            apkFile
         )
-        val sessionId = packageInstaller.createSession(params)
-        val session = packageInstaller.openSession(sessionId)
-
-        session.openWrite("tailsocks_update", 0, apkFile.length()).use { output ->
-            apkFile.inputStream().use { input ->
-                input.copyTo(output)
-            }
-            session.fsync(output)
+        val installIntent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(apkUri, "application/vnd.android.package-archive")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
-
-        val intent = Intent(context, MainActivity::class.java).apply {
-            action = "ACTION_INSTALL_COMPLETE"
-        }
-        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_MUTABLE
-        } else {
-            android.app.PendingIntent.FLAG_UPDATE_CURRENT
-        }
-        val pendingIntent = android.app.PendingIntent.getActivity(context, 0, intent, flags)
-
-        session.commit(pendingIntent.intentSender)
-        session.close()
+        context.startActivity(installIntent)
     } catch (e: Exception) {
-        android.util.Log.e("MainActivity", "Failed to launch package installer session, falling back", e)
+        android.util.Log.e("MainActivity", "FileProvider install intent failed, falling back to PackageInstaller session", e)
         try {
-            val apkUri = androidx.core.content.FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                apkFile
+            val packageInstaller = context.packageManager.packageInstaller
+            val params = android.content.pm.PackageInstaller.SessionParams(
+                android.content.pm.PackageInstaller.SessionParams.MODE_FULL_INSTALL
             )
-            val installIntent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(apkUri, "application/vnd.android.package-archive")
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            val sessionId = packageInstaller.createSession(params)
+            val session = packageInstaller.openSession(sessionId)
+
+            session.openWrite("tailsocks_update", 0, apkFile.length()).use { output ->
+                apkFile.inputStream().use { input ->
+                    input.copyTo(output)
+                }
+                session.fsync(output)
             }
-            context.startActivity(installIntent)
+
+            val intent = Intent(context, MainActivity::class.java).apply {
+                action = "ACTION_INSTALL_COMPLETE"
+            }
+            val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_MUTABLE
+            } else {
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT
+            }
+            val pendingIntent = android.app.PendingIntent.getActivity(context, 0, intent, flags)
+
+            session.commit(pendingIntent.intentSender)
+            session.close()
         } catch (fallbackEx: Exception) {
             Toast.makeText(context, "Installer failed: ${fallbackEx.message}", Toast.LENGTH_SHORT).show()
         }

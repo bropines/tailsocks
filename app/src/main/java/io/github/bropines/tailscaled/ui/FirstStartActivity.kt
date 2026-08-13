@@ -77,102 +77,118 @@ fun FirstStartScreen(onFinished: () -> Unit) {
     val activeAccount = remember { io.github.bropines.tailscaled.core.AccountManager.getActiveAccount(context) }
     val profilePrefs = remember(activeAccount) { context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE) }
 
-    Scaffold(
-        bottomBar = {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 8.dp
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            bottomBar = {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 8.dp
                 ) {
-                    // Back Button
-                    if (pagerState.currentPage > 0) {
-                        TextButton(
-                            onClick = {
-                                scope.launch {
-                                    pagerState.animateScrollToPage(pagerState.currentPage - 1)
-                                }
-                            }
-                        ) {
-                            Text(stringResource(R.string.first_start_btn_back))
-                        }
-                    } else {
-                        Spacer(modifier = Modifier.width(80.dp))
-                    }
-
-                    // Indicators
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        repeat(6) { idx ->
-                            val isSelected = pagerState.currentPage == idx
-                            Box(
-                                modifier = Modifier
-                                    .size(if (isSelected) 10.dp else 8.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        if (isSelected) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
-                                    )
-                            )
+                        // Back Button
+                        if (pagerState.currentPage > 0) {
+                            TextButton(
+                                onClick = {
+                                    scope.launch {
+                                        pagerState.animateScrollToPage(pagerState.currentPage - 1)
+                                    }
+                                }
+                            ) {
+                                Text(stringResource(R.string.first_start_btn_back))
+                            }
+                        } else {
+                            Spacer(modifier = Modifier.width(80.dp))
+                        }
+
+                        // Indicators
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            repeat(6) { idx ->
+                                val isSelected = pagerState.currentPage == idx
+                                Box(
+                                    modifier = Modifier
+                                        .size(if (isSelected) 10.dp else 8.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (isSelected) MaterialTheme.colorScheme.primary
+                                            else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+                                        )
+                                )
+                            }
+                        }
+
+                        // Next / Finish Button
+                        if (pagerState.currentPage < 5) {
+                            Button(
+                                onClick = {
+                                    scope.launch {
+                                        pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                                    }
+                                },
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(stringResource(R.string.first_start_btn_next))
+                            }
+                        } else {
+                            Button(
+                                onClick = onFinished,
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(stringResource(R.string.first_start_btn_finish))
+                            }
                         }
                     }
-
-                    // Next / Finish Button
-                    if (pagerState.currentPage < 5) {
-                        Button(
-                            onClick = {
-                                scope.launch {
-                                    pagerState.animateScrollToPage(pagerState.currentPage + 1)
-                                }
-                            },
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text(stringResource(R.string.first_start_btn_next))
-                        }
-                    } else {
-                        Button(
-                            onClick = onFinished,
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text(stringResource(R.string.first_start_btn_finish))
-                        }
+                }
+            }
+        ) { paddingValues ->
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                userScrollEnabled = false
+            ) { page ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    when (page) {
+                        0 -> SlideWelcome()
+                        1 -> SlideHowItWorks()
+                        2 -> SlideControlPlane(profilePrefs)
+                        3 -> SlideBypassSetup()
+                        4 -> SlideLogin(profilePrefs)
+                        5 -> SlidePermissions()
                     }
                 }
             }
         }
-    ) { paddingValues ->
-        HorizontalPager(
-            state = pagerState,
+
+        IconButton(
+            onClick = onFinished,
             modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
-            userScrollEnabled = false
-        ) { page ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                when (page) {
-                    0 -> SlideWelcome()
-                    1 -> SlideHowItWorks()
-                    2 -> SlideControlPlane(profilePrefs)
-                    3 -> SlideBypassSetup()
-                    4 -> SlideLogin(profilePrefs)
-                    5 -> SlidePermissions()
-                }
-            }
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .padding(12.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = stringResource(R.string.action_close),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -273,6 +289,38 @@ fun SlideWelcome() {
 fun SlideHowItWorks() {
     val context = LocalContext.current
     var isTunMode by remember { mutableStateOf(GlobalSettings.isTunModeEnabled(context)) }
+    var isRootMode by remember { mutableStateOf(GlobalSettings.isRootModeEnabled(context)) }
+    var showRootWarningDialog by remember { mutableStateOf(false) }
+
+    if (showRootWarningDialog) {
+        AlertDialog(
+            onDismissRequest = { showRootWarningDialog = false },
+            title = { Text(stringResource(R.string.settings_root_warning_dialog_title)) },
+            text = { Text(stringResource(R.string.settings_root_warning_dialog_body)) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showRootWarningDialog = false
+                        if (io.github.bropines.tailscaled.core.RootUtils.isRootAvailable()) {
+                            isRootMode = true
+                            GlobalSettings.setRootModeEnabled(context, true)
+                            Toast.makeText(context, "Root Mode enabled", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, "Root access (su) not granted or unavailable", Toast.LENGTH_LONG).show()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text(stringResource(R.string.settings_root_warning_dialog_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRootWarningDialog = false }) {
+                    Text(stringResource(R.string.settings_root_warning_dialog_cancel))
+                }
+            }
+        )
+    }
 
     SlideContainer(
         icon = Icons.Default.Language,
@@ -326,6 +374,40 @@ fun SlideHowItWorks() {
                         text = if (!isTunMode) stringResource(R.string.first_start_mode_proxy_desc) else stringResource(R.string.first_start_mode_vpn_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                    )
+                }
+            }
+
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Icon(Icons.Default.Security, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
+                            Text(stringResource(R.string.settings_root_sect_title), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(stringResource(R.string.settings_root_enable_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(
+                        checked = isRootMode,
+                        onCheckedChange = { checked ->
+                            if (checked) {
+                                showRootWarningDialog = true
+                            } else {
+                                isRootMode = false
+                                GlobalSettings.setRootModeEnabled(context, false)
+                            }
+                        }
                     )
                 }
             }
@@ -575,6 +657,31 @@ fun SlideBypassSetup() {
                                     GlobalSettings.setCPField(context, "port", it)
                                 },
                                 label = { Text(stringResource(R.string.first_start_proxy_port_label)) },
+                                modifier = Modifier.weight(1f),
+                                singleLine = true
+                            )
+                        }
+
+                        Spacer(Modifier.height(4.dp))
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = proxyUser,
+                                onValueChange = {
+                                    proxyUser = it
+                                    GlobalSettings.setCPField(context, "user", it)
+                                },
+                                label = { Text(stringResource(R.string.settings_socks5_username_title)) },
+                                modifier = Modifier.weight(1f),
+                                singleLine = true
+                            )
+                            OutlinedTextField(
+                                value = proxyPass,
+                                onValueChange = {
+                                    proxyPass = it
+                                    GlobalSettings.setCPField(context, "pass", it)
+                                },
+                                label = { Text(stringResource(R.string.settings_socks5_password_title)) },
                                 modifier = Modifier.weight(1f),
                                 singleLine = true
                             )

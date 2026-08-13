@@ -339,7 +339,14 @@ class TailscaledService : Service() {
 
         val accRoutes = GlobalSettings.getBoolean(this@TailscaledService, "accept_routes", false)
         val accDNS = GlobalSettings.getBoolean(this@TailscaledService, "accept_dns", true)
-        val host = profilePrefs.getString("hostname", "") ?: ""
+        var host = profilePrefs.getString("hostname", "") ?: ""
+        if (host.isBlank()) {
+            val defaultHost = android.os.Build.MODEL.replace(" ", "-").lowercase().replace(Regex("[^a-z0-9-]"), "")
+            if (defaultHost.isNotBlank()) {
+                host = defaultHost
+                profilePrefs.edit().putString("hostname", defaultHost).apply()
+            }
+        }
 
         val byedpiEnabled = GlobalSettings.isCPByeDpiEnabled(this@TailscaledService)
         val flags = GlobalSettings.getCPByeDpiFlags(this@TailscaledService)

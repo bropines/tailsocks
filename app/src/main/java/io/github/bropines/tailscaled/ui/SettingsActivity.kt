@@ -117,6 +117,14 @@ fun generateRandomString(length: Int = 12): String {
     return (1..length).map { allowedChars.random() }.joinToString("")
 }
 
+fun generateRandomLoopbackAddress(): String {
+    val x = (1..254).random()
+    val y = (1..254).random()
+    val z = (1..254).random()
+    val port = (1024..65535).random()
+    return "127.$x.$y.$z:$port"
+}
+
 data class PresetItem(val id: String, val color: Color, val name: String)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1028,7 +1036,7 @@ fun SettingsScreen(
 
                         2 -> { // TAB 2: Network & Proxy
                             SettingsCard(title = stringResource(R.string.settings_sect_socks5)) {
-                                SettingsEditItem(stringResource(R.string.settings_socks5_address_title), socks5, Icons.Default.Language) { socks5 = it; saveGlobalPref("socks5", it) }
+                                SettingsEditItem(stringResource(R.string.settings_socks5_address_title), socks5, Icons.Default.Language, onAction = { generateRandomLoopbackAddress() }, actionIcon = Icons.Default.Casino) { socks5 = it; saveGlobalPref("socks5", it) }
                                 SettingsEditItem(stringResource(R.string.settings_socks5_username_title), socks5User, Icons.Default.Person, onAction = { generateRandomString(8) }, actionIcon = Icons.Default.Casino) { socks5User = it; saveGlobalPref("socks5_user", it) }
                                 SettingsEditItem(stringResource(R.string.settings_socks5_password_title), socks5Pass, Icons.Default.Password, onAction = { generateRandomString(12) }, actionIcon = Icons.Default.Casino) { socks5Pass = it; saveGlobalPref("socks5_pass", it) }
                                 Spacer(Modifier.height(12.dp))
@@ -1042,7 +1050,7 @@ fun SettingsScreen(
                             Spacer(Modifier.height(12.dp))
 
                             SettingsCard(title = stringResource(R.string.settings_sect_http)) {
-                                SettingsEditItem(stringResource(R.string.settings_http_address_title), httpProxy, Icons.Default.Http, placeholder = "127.0.0.1:8080") { httpProxy = it; saveGlobalPref("httpproxy", it) }
+                                SettingsEditItem(stringResource(R.string.settings_http_address_title), httpProxy, Icons.Default.Http, placeholder = "127.0.0.1:8080", onAction = { generateRandomLoopbackAddress() }, actionIcon = Icons.Default.Casino) { httpProxy = it; saveGlobalPref("httpproxy", it) }
                                 Text(
                                     text = stringResource(R.string.settings_http_desc),
                                     style = MaterialTheme.typography.bodySmall,
