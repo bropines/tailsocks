@@ -183,7 +183,7 @@ fun LogsScreen(onBack: () -> Unit) {
                 Gson().fromJson(jsonString, object : TypeToken<List<LogEntry>>() {}.type)
             } catch (e: Exception) { emptyList() }
 
-            if (logsList.isEmpty() || GlobalSettings.isRootModeEnabled(context)) {
+            if (GlobalSettings.isRootModeEnabled(context)) {
                 val dataDir = context.filesDir.parentFile ?: context.filesDir
                 val logFile = java.io.File(dataDir, "logs/tailscaled.log")
                 if (logFile.exists()) {
@@ -198,7 +198,7 @@ fun LogsScreen(onBack: () -> Unit) {
                             )
                         }
                         if (parsed.isNotEmpty()) {
-                            logsList = parsed
+                            logsList = (logsList + parsed).sortedBy { it.timestamp.takeLast(8) }
                         }
                     } catch (e: Exception) {
                         android.util.Log.e("LogsActivity", "Error reading root log file: ${e.message}")
