@@ -25,6 +25,8 @@ All notable changes to the TailSocks project will be documented in this file. Th
   - Added randomizer buttons for loopback proxy ports in `SettingsActivity`, proxy authentication fields in `FirstStartActivity`, and auto-generated device hostnames in `TailscaledService`.
 - **Internal HTTP Proxy Master Toggle**:
   - Added a master switch in `SettingsActivity` to enable/disable the internal HTTP proxy, automatically hiding configuration fields when disabled to simplify UI.
+- **Uninstall Data Retention (`android:hasFragileUserData="true"`)**:
+  - Configured Android OS uninstall data retention prompt in `AndroidManifest.xml` allowing users to retain account state and preferences when uninstalling.
 
 ### Fixed
 - **DNS Lookup Input Field Layout**:
@@ -33,6 +35,8 @@ All notable changes to the TailSocks project will be documented in this file. Th
   - Fixed `SetFileServerAddr` payload format in `appctr/api.go` to send raw string payload instead of JSON map, resolving WebDAV proxy connection errors.
 - **Russian Localization Restoration**:
   - Restored full Russian localization in `values-ru/strings.xml` from commit `442f30c` and populated all missing string resources (`predictive_back_target_*`, `action_start_service`, `settings_lang_sys`).
+- **Redundant Daemon Polling Log Demotion**:
+  - Demoted repetitive daemon startup state poll and active session preservation logs from `INFO` to `DEBUG` level in `appctr/auth.go`, keeping live logs clean during manual refreshes.
 
 ## [3.3.0] - 2026-08-11
 
