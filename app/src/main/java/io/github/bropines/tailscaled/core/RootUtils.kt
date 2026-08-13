@@ -114,11 +114,6 @@ object RootUtils {
             sb.append("nohup $cmd >> \"$logFile\" 2>&1 &\n")
             sb.append("chmod 666 \"$logFile\" 2>/dev/null || true\n")
             sb.append("magiskpolicy --live \"allow untrusted_app magisk unix_stream_socket connectto\" 2>/dev/null || supolicy --live \"allow untrusted_app magisk unix_stream_socket connectto\" 2>/dev/null || true\n")
-            if (tunMode) {
-                sb.append("resetprop net.dns1 100.100.100.100 2>/dev/null || setprop net.dns1 100.100.100.100 2>/dev/null || true\n")
-                sb.append("iptables -t nat -I OUTPUT 1 -p udp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null || true\n")
-                sb.append("iptables -t nat -I OUTPUT 1 -p tcp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null || true\n")
-            }
             sb.append("for i in \$(seq 1 30); do\n")
             sb.append("    if [ -S \"$socketPath\" ] || [ -e \"$socketPath\" ]; then\n")
             sb.append("        chmod 777 \"$socketPath\"\n")
@@ -162,6 +157,7 @@ object RootUtils {
         return try {
             val sb = StringBuilder()
             sb.append("mkdir -p /data/adb/tailshosts\n")
+            sb.append("umount /system/etc/hosts 2>/dev/null || true\n")
             sb.append("cp /system/etc/hosts /data/adb/tailshosts/hosts 2>/dev/null || echo '127.0.0.1 localhost\n::1 ip6-localhost' > /data/adb/tailshosts/hosts\n")
             for ((ip, domain) in hostsMap) {
                 sb.append("echo '$ip $domain' >> /data/adb/tailshosts/hosts\n")
@@ -184,8 +180,52 @@ object RootUtils {
     }
 
 
+    fun applyRootDnsRedirect(): Boolean {
+        return try {
+            val sb = StringBuilder()
+            sb.append("iptables -t nat -D OUTPUT -p udp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null || true\n")
+            sb.append("iptables -t nat -D OUTPUT -p tcp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null || true\n")
+            sb.append("resetprop net.dns1 100.100.100.100 2>/dev/null || setprop net.dns1 100.100.100.100 2>/dev/null || true\n")
+            sb.append("iptables -t nat -I OUTPUT 1 -p udp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null || true\n")
+            sb.append("iptables -t nat -I OUTPUT 1 -p tcp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null || true\n")
+
+            val process = Runtime.getRuntime().exec("su")
+            process.outputStream.bufferedWriter().use { writer ->
+                writer.write(sb.toString())
+                writer.write("\nexit\n")
+                writer.flush()
+            }
+            process.waitFor() == 0
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to apply root DNS redirect: ${e.message}", e)
+            false
+        }
+    }
+
+    fun cleanupRootDnsRedirect(): Boolean {
+        return try {
+            val sb = StringBuilder()
+            sb.append("iptables -t nat -D OUTPUT -p udp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null || true\n")
+            sb.append("iptables -t nat -D OUTPUT -p tcp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null || true\n")
+            sb.append("resetprop --delete net.dns1 2>/dev/null || setprop net.dns1 \"\" 2>/dev/null || true\n")
+            sb.append("umount /system/etc/hosts 2>/dev/null || true\n")
+
+            val process = Runtime.getRuntime().exec("su")
+            process.outputStream.bufferedWriter().use { writer ->
+                writer.write(sb.toString())
+                writer.write("\nexit\n")
+                writer.flush()
+            }
+            process.waitFor() == 0
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to cleanup root DNS redirect: ${e.message}", e)
+            false
+        }
+    }
+
     fun stopRootDaemon(socketPath: String = ""): Boolean {
         return try {
+            cleanupRootDnsRedirect()
             val script = """
                 pkill -15 -f libtailscale.so || killall -15 tailscaled 2>/dev/null || true
                 sleep 0.2

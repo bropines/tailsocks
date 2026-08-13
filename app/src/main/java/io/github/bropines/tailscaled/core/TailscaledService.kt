@@ -89,6 +89,9 @@ class TailscaledService : Service() {
             val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
             if (Appctr.isRunning() && powerManager.isInteractive) {
                 updateAllWidgets(this@TailscaledService)
+                if (GlobalSettings.isRootModeEnabled(this@TailscaledService) && GlobalSettings.isRootTunEnabled(this@TailscaledService)) {
+                    syncTailnetHosts()
+                }
             }
             
             refreshHandler.postDelayed(this, interval)
@@ -300,6 +303,11 @@ class TailscaledService : Service() {
                 forceAppWidgetUpdate(this@TailscaledService)
                 if (waitForDaemonReady()) {
                     Log.d(TAG, "Daemon readiness checkpoint reached. Launching auxiliary modules...")
+                    if (GlobalSettings.isRootModeEnabled(this@TailscaledService) && GlobalSettings.isRootTunEnabled(this@TailscaledService)) {
+                        Log.i(TAG, "Applying Root DNS redirect post-auth/post-ready")
+                        RootUtils.applyRootDnsRedirect()
+                        syncTailnetHosts()
+                    }
                     applyTagsAndRoutes(this@TailscaledService)
                     applyTaildrive(this@TailscaledService)
                     
@@ -606,6 +614,62 @@ class TailscaledService : Service() {
         } catch (e: Exception) {
             Log.e(TAG, "Failed to stop TunVpnService", e)
         }
+    }
+
+    private var lastHostsHash: Int = 0
+
+    private fun syncTailnetHosts() {
+        if (!GlobalSettings.isRootModeEnabled(this) || !GlobalSettings.isRootTunEnabled(this)) return
+        
+        Thread {
+            try {
+                val statusJson = Appctr.getStatusJSON(true)
+                if (statusJson.isNullOrEmpty()) return@Thread
+                
+                val gson = Gson()
+                val mapType = object : com.google.gson.reflect.TypeToken<Map<String, Any>>() {}.type
+                val root: Map<String, Any> = gson.fromJson(statusJson, mapType)
+                val peers = root["Peer"] as? Map<String, Any> ?: emptyMap()
+                
+                val hostsMap = mutableMapOf<String, String>()
+                
+                // Add self
+                val self = root["Self"] as? Map<String, Any>
+                if (self != null) {
+                    val dnsName = (self["DNSName"] as? String)?.removeSuffix(".")
+                    val ips = self["TailscaleIPs"] as? List<*>
+                    if (!dnsName.isNullOrEmpty() && ips != null) {
+                        for (ip in ips) {
+                            val ipStr = ip?.toString() ?: continue
+                            hostsMap[ipStr] = dnsName
+                        }
+                    }
+                }
+                
+                // Add peers
+                for ((_, peerData) in peers) {
+                    val p = peerData as? Map<String, Any> ?: continue
+                    val dnsName = (p["DNSName"] as? String)?.removeSuffix(".")
+                    val ips = p["TailscaleIPs"] as? List<*>
+                    if (!dnsName.isNullOrEmpty() && ips != null) {
+                        for (ip in ips) {
+                            val ipStr = ip?.toString() ?: continue
+                            hostsMap[ipStr] = dnsName
+                        }
+                    }
+                }
+                
+                val currentHash = hostsMap.hashCode()
+                if (currentHash != lastHostsHash && hostsMap.isNotEmpty()) {
+                    Log.i(TAG, "Syncing ${hostsMap.size} tailnet hosts to /system/etc/hosts")
+                    if (RootUtils.updateRootHosts(hostsMap)) {
+                        lastHostsHash = currentHash
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to sync tailnet hosts: ${e.message}")
+            }
+        }.start()
     }
 
     override fun onDestroy() {

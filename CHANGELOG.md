@@ -12,6 +12,8 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - **Root Mode Native TUN (`tailscale0`)**: Enabled Linux kernel router support in Go core, allowing Root Mode to create native `tailscale0` network interfaces without occupying Android VPN slot (`tun0`).
 - **Root Mode SELinux Sockets**: Fixed a crash/timeout issue on physical Android devices where SELinux Enforcing mode blocked connection between the app interface and the Root daemon socket.
 - **Root Mode System-Wide DNS Resolution**: Added automatic tailnet domain resolution sync to `/system/etc/hosts` with `0644` permissions and systemless bind-mounting under Root Mode, enabling transparent resolution across all browsers, apps, and terminal shells (`curl`).
+- **Root Mode DNS & Proxy Fixes**: Resolved a startup issue where DNS redirection rules remained active after stopping the service, blocking proxy resolution on subsequent launches. Redirection rules are now cleanly removed on stop and deferred on startup until the daemon is fully ready.
+- **Root Mode Autostart Socket Handling**: Added waiting and permission initialization loops in the boot autostart script, preventing connection failures for background autostart instances.
 
 
 
