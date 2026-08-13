@@ -302,7 +302,32 @@ fun SettingsScreen(
     val fullBackupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         if (uri != null) {
             scope.launch(Dispatchers.IO) {
+                val tempStatesDir = File(context.cacheDir, "temp_states_backup")
+                var useTempStates = false
                 try {
+                    val statesDir = File(context.filesDir, "states")
+                    if (statesDir.exists() && RootUtils.isRootAvailable()) {
+                        val uid = context.applicationInfo.uid
+                        val cmd = "rm -rf \"${tempStatesDir.absolutePath}\" && " +
+                                  "mkdir -p \"${tempStatesDir.absolutePath}\" && " +
+                                  "cp -R \"${statesDir.absolutePath}/\"* \"${tempStatesDir.absolutePath}/\" && " +
+                                  "chown -R $uid:$uid \"${tempStatesDir.absolutePath}\" && " +
+                                  "chmod -R u+rwX \"${tempStatesDir.absolutePath}\""
+                        try {
+                            val process = Runtime.getRuntime().exec("su")
+                            process.outputStream.use { os ->
+                                os.write(("$cmd\nexit\n").toByteArray())
+                                os.flush()
+                            }
+                            process.waitFor()
+                            if (tempStatesDir.exists() && tempStatesDir.list()?.isNotEmpty() == true) {
+                                useTempStates = true
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("SettingsActivity", "Failed to copy states using root", e)
+                        }
+                    }
+
                     val baos = java.io.ByteArrayOutputStream()
                     java.util.zip.ZipOutputStream(baos).use { zos ->
                         val prefsDir = File(context.applicationInfo.dataDir, "shared_prefs")
@@ -314,10 +339,10 @@ fun SettingsScreen(
                                 zos.closeEntry()
                             }
                         }
-                        val statesDir = File(context.filesDir, "states")
-                        if (statesDir.exists()) {
-                            statesDir.walkTopDown().filter { it.isFile }.forEach { file ->
-                                val entryName = "files/states/${file.relativeTo(statesDir).path}"
+                        val targetStatesDir = if (useTempStates) tempStatesDir else statesDir
+                        if (targetStatesDir.exists()) {
+                            targetStatesDir.walkTopDown().filter { it.isFile }.forEach { file ->
+                                val entryName = "files/states/${file.relativeTo(targetStatesDir).path}"
                                 zos.putNextEntry(java.util.zip.ZipEntry(entryName))
                                 file.inputStream().use { it.copyTo(zos) }
                                 zos.closeEntry()
@@ -338,6 +363,9 @@ fun SettingsScreen(
                     withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.settings_full_backup_failed_format, e.message), Toast.LENGTH_LONG).show() }
                 } finally {
                     backupPassword = ""
+                    try {
+                        tempStatesDir.deleteRecursively()
+                    } catch (e: Exception) {}
                 }
             }
         }
@@ -359,6 +387,27 @@ fun SettingsScreen(
                     return@launch
                 }
                 val decryptedBytes = BackupCrypto.decrypt(encryptedBytes, passwordStr.toCharArray())
+
+                // Prior to restore, if root is available, change ownership of existing states to app
+                if (RootUtils.isRootAvailable()) {
+                    val uid = context.applicationInfo.uid
+                    val statesDir = File(context.filesDir, "states")
+                    if (statesDir.exists()) {
+                        val cmd = "chown -R $uid:$uid \"${statesDir.absolutePath}\" && " +
+                                  "chmod -R u+rwX \"${statesDir.absolutePath}\""
+                        try {
+                            val process = Runtime.getRuntime().exec("su")
+                            process.outputStream.use { os ->
+                                os.write(("$cmd\nexit\n").toByteArray())
+                                os.flush()
+                            }
+                            process.waitFor()
+                        } catch (e: Exception) {
+                            android.util.Log.e("SettingsActivity", "Failed to chown states before restore", e)
+                        }
+                    }
+                }
+
                 java.util.zip.ZipInputStream(java.io.ByteArrayInputStream(decryptedBytes)).use { zis ->
                     var entry = zis.nextEntry
                     while (entry != null) {
