@@ -593,8 +593,10 @@ class SelectExitNodeActionCallback : ActionCallback {
             editor.putString("exit_node_id", "")
             editor.apply()
 
-            if (ProxyState.isActualRunning()) {
+            if (appctr.Appctr.isRunning()) {
                 try { appctr.Appctr.setPrefs("{\"ExitNodeID\": \"\", \"ExitNodeIDSet\": true}") } catch (e: Exception) { e.printStackTrace() }
+            } else if (ProxyState.isActualRunning(context)) {
+                TailscaledService.requestApplySettings(context)
             }
             CoroutineScope(Dispatchers.Main).launch {
                 Toast.makeText(context, context.getString(R.string.widget_toast_exit_disabled), Toast.LENGTH_SHORT).show()
@@ -607,8 +609,10 @@ class SelectExitNodeActionCallback : ActionCallback {
             editor.putString("last_exit_node_id", targetId)
             editor.apply()
 
-            if (ProxyState.isActualRunning()) {
+            if (appctr.Appctr.isRunning()) {
                 try { appctr.Appctr.setPrefs("{\"ExitNodeID\": \"$targetId\", \"ExitNodeIDSet\": true}") } catch (e: Exception) { e.printStackTrace() }
+            } else if (ProxyState.isActualRunning(context)) {
+                TailscaledService.requestApplySettings(context)
             }
             CoroutineScope(Dispatchers.Main).launch {
                 Toast.makeText(context, context.getString(R.string.widget_toast_exit_routing_format, targetIp), Toast.LENGTH_SHORT).show()

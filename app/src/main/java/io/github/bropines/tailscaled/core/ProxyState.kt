@@ -26,16 +26,20 @@ object ProxyState {
             .getBoolean(KEY_DESIRED, false)
     }
 
+    /**
+     * Whether a daemon we can talk to is alive right now.
+     *
+     * Read-only by design: it never attaches the Go bridge to a socket. In Root
+     * Mode the daemon outlives the app process, so the socket is probed
+     * directly; attaching to it is [TailscaledService]'s job, not a getter's.
+     */
     fun isActualRunning(context: Context? = null): Boolean {
-        val ctx = context?.applicationContext ?: appContext
         if (Appctr.isRunning()) return true
 
-        if (ctx != null && GlobalSettings.isRootModeEnabled(ctx)) {
-            val socketFile = java.io.File(ctx.filesDir, "tailscaled.sock")
-            if (socketFile.exists()) {
-                Appctr.setExternalSocketPath(socketFile.absolutePath)
-                return Appctr.isRunning()
-            }
+        val ctx = context?.applicationContext ?: appContext ?: return false
+        if (GlobalSettings.isRootModeEnabled(ctx)) {
+            val socketPath = java.io.File(ctx.filesDir, "tailscaled.sock").absolutePath
+            return RootUtils.isDaemonAlive(socketPath)
         }
         return false
     }

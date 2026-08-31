@@ -239,7 +239,12 @@ class MainActivity : ComponentActivity() {
                 val savedUpdateTime = prefs.getLong("last_update_time", 0)
 
                 if (savedUpdateTime != currentUpdateTime) {
-                    Runtime.getRuntime().exec("killall tailscaled").waitFor()
+                    // In Root Mode the daemon is owned by su and is restarted through
+                    // RootUtils together with its routing; killing it from here would
+                    // strand the iptables rules it installed.
+                    if (!GlobalSettings.isRootModeEnabled(this@MainActivity)) {
+                        Runtime.getRuntime().exec("killall tailscaled").waitFor()
+                    }
                     prefs.edit().putLong("last_update_time", currentUpdateTime).apply()
                 }
             } catch (e: Exception) {}
@@ -365,8 +370,11 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
         editor.apply()
         
         scope.launch(Dispatchers.IO) {
-            val prefsJson = "{\"ExitNodeID\": \"$id\", \"ExitNodeIDSet\": true}"
-            appctr.Appctr.setPrefs(prefsJson)
+            if (appctr.Appctr.isRunning()) {
+                appctr.Appctr.setPrefs("{\"ExitNodeID\": \"$id\", \"ExitNodeIDSet\": true}")
+            } else if (ProxyState.isActualRunning(context)) {
+                TailscaledService.requestApplySettings(context)
+            }
             updateAllWidgets(context)
             if (GlobalSettings.isTunModeEnabled(context)) {
                 context.startService(Intent(context, TunVpnService::class.java).apply {
@@ -1164,7 +1172,8 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                     val intent = Intent(context, TailscaledService::class.java).apply { action = "STOP_ACTION" }
                     context.startService(intent)
                 } else {
-                    val currentSocks = prefs.getString("socks5", "127.0.0.1:1055") ?: "127.0.0.1:1055"
+                    // SOCKS5 lives in global settings, not in the profile store.
+                    val currentSocks = GlobalSettings.getString(context, "socks5", "127.0.0.1:48115")
 
                     if (currentSocks.isBlank()) {
                         Toast.makeText(context, context.getString(R.string.main_error_socks5_empty), Toast.LENGTH_LONG).show()
