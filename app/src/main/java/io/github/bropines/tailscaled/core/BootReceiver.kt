@@ -24,8 +24,9 @@ class BootReceiver : BroadcastReceiver() {
                 RootUtils.setTailscaleCliInstalled(context, true)
             }
 
-            val prefs = context.getSharedPreferences("appctr", Context.MODE_PRIVATE)
-            val forceBg = prefs.getBoolean("force_bg", false)
+            // "Keep running in background" is a global setting; it used to be read
+            // from an unrelated preference file here, so it never took effect.
+            val forceBg = GlobalSettings.getBoolean(context, "force_bg", false)
             val userLetRunning = ProxyState.isUserLetRunning(context)
 
             if (forceBg && userLetRunning) {

@@ -76,9 +76,15 @@
             </intent-filter>
         </activity>
 
-        <service android:name=".core.TailscaledService" android:directBootAware="true" android:exported="false" android:foregroundServiceType="specialUse">
+        <service android:name=".core.TailscaledService" android:directBootAware="true" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="tailscale node service" />
         </service>
+
+        <receiver android:name=".core.WatchdogReceiver" android:enabled="true" android:exported="false">
+            <intent-filter>
+                <action android:name="io.github.bropines.tailscaled.WATCHDOG_CHECK" />
+            </intent-filter>
+        </receiver>
 
         <service
             android:name=".core.TunVpnService"

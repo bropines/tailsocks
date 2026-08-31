@@ -268,6 +268,38 @@ object GlobalSettings {
 
     fun shouldKillRootDaemonOnStop(context: Context): Boolean = getPrefs(context).getBoolean("root_kill_daemon_on_stop", true)
     fun setKillRootDaemonOnStop(context: Context, kill: Boolean) = getPrefs(context).edit().putBoolean("root_kill_daemon_on_stop", kill).apply()
+
+    /**
+     * Whether Root Mode redirects the whole device's port 53 to MagicDNS.
+     *
+     * Turning it off is the escape hatch for coexisting with another VPN or a
+     * DNS filtering app: those own the system resolver, and a global redirect
+     * takes their queries away from them.
+     */
+    fun isRootDnsRedirectEnabled(context: Context): Boolean = getPrefs(context).getBoolean("root_dns_redirect", true)
+    fun setRootDnsRedirectEnabled(context: Context, enabled: Boolean) = getPrefs(context).edit().putBoolean("root_dns_redirect", enabled).apply()
+
+    // -------------------------------------------------------------------------
+    // Connection recovery
+    // -------------------------------------------------------------------------
+
+    /**
+     * Restart the daemon automatically when it fails to reach a connected state,
+     * or when it dies while the user still wants it running.
+     */
+    fun isAutoReconnectEnabled(context: Context): Boolean = getBoolean(context, "auto_reconnect", false)
+    fun setAutoReconnectEnabled(context: Context, enabled: Boolean) = setBoolean(context, "auto_reconnect", enabled)
+
+    /** How many automatic restarts to attempt before giving up (0 = unlimited). */
+    fun getAutoReconnectAttempts(context: Context): Int =
+        getString(context, "auto_reconnect_attempts", "3").toIntOrNull()?.coerceIn(0, 99) ?: 3
+
+    /**
+     * Periodically check that the service is still alive and revive it.
+     * Complements START_STICKY, which does not cover OEM task killers.
+     */
+    fun isServiceWatchdogEnabled(context: Context): Boolean = getBoolean(context, "service_watchdog", true)
+    fun setServiceWatchdogEnabled(context: Context, enabled: Boolean) = setBoolean(context, "service_watchdog", enabled)
 }
 
 

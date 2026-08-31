@@ -130,36 +130,66 @@ func registerMachineWithAuthKey(opt *StartOptions) {
 		return
 	}
 
-	// Poll status for 1.5s (5 x 300ms) to allow tailscaled to evaluate saved state from disk naturally.
+	// Wait for the daemon's own verdict instead of guessing from an early state.
+	//
+	// tailscaled always starts in NoState and only decides between Starting (a
+	// saved session it can resume) and NeedsLogin (nothing to resume) once it has
+	// reached the control plane. Behind a control-plane proxy that easily takes
+	// several seconds. Treating that window as "not logged in" and calling
+	// LoginInteractive regenerates the node key and logs the device out of a
+	// perfectly good session — which showed up as "did not connect on the first
+	// try, worked on the second".
 	var statusResp struct {
 		BackendState string `json:"BackendState"`
 		AuthURL      string `json:"AuthURL"`
 	}
 
-	for i := 0; i < 5; i++ {
+	const stateSettleTimeout = 45 * time.Second
+	deadline := time.Now().Add(stateSettleTimeout)
+	needsLogin := false
+
+	for time.Now().Before(deadline) {
 		stStr, err := GetStatusJSON(false)
-		if err == nil && len(stStr) > 0 {
-			if json.Unmarshal([]byte(stStr), &statusResp) == nil {
-				slog.Debug("Daemon startup state poll", "attempt", i+1, "backend_state", statusResp.BackendState, "has_auth_url", statusResp.AuthURL != "")
-				if statusResp.BackendState == "Running" {
-					slog.Debug("Account is already logged in (BackendState: Running). Preserving active session.")
+		if err == nil && len(stStr) > 0 && json.Unmarshal([]byte(stStr), &statusResp) == nil {
+			slog.Debug("Daemon startup state poll", "backend_state", statusResp.BackendState, "has_auth_url", statusResp.AuthURL != "")
+
+			switch statusResp.BackendState {
+			case "Running", "Starting":
+				// A saved session is being resumed; never interrupt it.
+				slog.Info("Account has an active session, preserving it", "backend_state", statusResp.BackendState)
+				return
+			case "Stopped":
+				// Logged in but paused. Ask it to run; logging in again would
+				// throw away a working node key for no reason.
+				slog.Info("Account is logged in but stopped, requesting WantRunning")
+				_ = PatchPrefsJSON(`{"WantRunning":true,"WantRunningSet":true}`)
+				return
+			case "NeedsLogin":
+				if statusResp.AuthURL != "" {
+					slog.Info("Daemon already produced an auth URL, nothing to trigger")
 					return
 				}
-				if statusResp.BackendState == "NeedsLogin" || statusResp.AuthURL != "" {
-					slog.Info("Daemon needs login", "backend_state", statusResp.BackendState, "has_auth_url", statusResp.AuthURL != "")
-					break
-				}
+				needsLogin = true
+			}
+			if needsLogin {
+				break
+			}
+			if statusResp.AuthURL != "" {
+				return
 			}
 		}
-		time.Sleep(300 * time.Millisecond)
+		time.Sleep(500 * time.Millisecond)
 	}
 
-	if statusResp.BackendState == "Running" {
-		slog.Debug("Account is already logged in (BackendState: Running). Preserving active session.")
+	if !needsLogin {
+		// Still undecided after the timeout. The daemon is stuck rather than
+		// logged out — forcing a login here would throw away the node key.
+		slog.Warn("Daemon did not settle into a known state, not forcing a login",
+			"backend_state", statusResp.BackendState)
 		return
 	}
 
-	// Account is NOT logged in (BackendState == "NeedsLogin" or "NoState").
+	// The daemon itself reports NeedsLogin.
 	// Configure custom ControlURL (Headscale) if specified, then trigger LoginInteractive.
 	if opt.LoginServer != "" {
 		slog.Info("LocalAPI: configuring custom ControlURL before LoginInteractive", "url", opt.LoginServer)

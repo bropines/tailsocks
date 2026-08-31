@@ -119,6 +119,15 @@ fun generateRandomString(length: Int = 12): String {
     return (1..length).map { allowedChars.random() }.joinToString("")
 }
 
+/** Reduces a device name to what a DNS label may contain. */
+fun sanitizeHostnameInput(raw: String): String =
+    raw.trim()
+        .replace(" ", "-")
+        .lowercase()
+        .replace(Regex("[^a-z0-9-]"), "")
+        .trim('-')
+        .take(63)
+
 fun generateRandomLoopbackAddress(): String {
     val x = (1..254).random()
     val y = (1..254).random()
@@ -162,6 +171,9 @@ fun SettingsScreen(
     // Global Settings
     var taildropRootUri by remember { mutableStateOf(GlobalSettings.getTaildropRootUri(context)) }
     var autoStart by remember { mutableStateOf(GlobalSettings.isAutoStartEnabled(context)) }
+    var autoReconnect by remember { mutableStateOf(GlobalSettings.isAutoReconnectEnabled(context)) }
+    var autoReconnectAttempts by remember { mutableStateOf(GlobalSettings.getAutoReconnectAttempts(context).toString()) }
+    var serviceWatchdog by remember { mutableStateOf(GlobalSettings.isServiceWatchdogEnabled(context)) }
     var showProxyDialog by remember { mutableStateOf(false) }
     var isProxyEnabled by remember { mutableStateOf(GlobalSettings.isCPProxyEnabled(context)) }
     
@@ -742,6 +754,37 @@ fun SettingsScreen(
                                     autoStart = it
                                 }
                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                SettingsSwitchItem(
+                                    stringResource(R.string.settings_auto_reconnect_title),
+                                    stringResource(R.string.settings_auto_reconnect_desc),
+                                    Icons.Default.Autorenew,
+                                    autoReconnect
+                                ) {
+                                    GlobalSettings.setAutoReconnectEnabled(context, it)
+                                    autoReconnect = it
+                                }
+                                if (autoReconnect) {
+                                    SettingsEditItem(
+                                        title = stringResource(R.string.settings_auto_reconnect_attempts_title),
+                                        value = autoReconnectAttempts,
+                                        icon = Icons.Default.Repeat
+                                    ) {
+                                        autoReconnectAttempts = it.filter { ch -> ch.isDigit() }.take(2)
+                                        saveGlobalPref("auto_reconnect_attempts", autoReconnectAttempts)
+                                    }
+                                }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                SettingsSwitchItem(
+                                    stringResource(R.string.settings_watchdog_title),
+                                    stringResource(R.string.settings_watchdog_desc),
+                                    Icons.Default.MonitorHeart,
+                                    serviceWatchdog
+                                ) {
+                                    GlobalSettings.setServiceWatchdogEnabled(context, it)
+                                    serviceWatchdog = it
+                                    if (it) ServiceWatchdog.schedule(context) else ServiceWatchdog.cancel(context)
+                                }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
                                 SettingsClickableItem(
                                      stringResource(R.string.settings_show_onboarding),
                                      stringResource(R.string.settings_show_onboarding_desc),
@@ -1073,6 +1116,7 @@ fun SettingsScreen(
                             var serviceScriptInstalled by remember { mutableStateOf(false) }
                             var cliInstalled by remember { mutableStateOf(false) }
                             var killDaemonOnStop by remember { mutableStateOf(GlobalSettings.shouldKillRootDaemonOnStop(context)) }
+                            var rootDnsRedirect by remember { mutableStateOf(GlobalSettings.isRootDnsRedirectEnabled(context)) }
                             var showRootWarningDialog by remember { mutableStateOf(false) }
                             var isRootBusy by remember { mutableStateOf(false) }
 
@@ -1323,6 +1367,26 @@ fun SettingsScreen(
                                         killDaemonOnStop = it
                                         GlobalSettings.setKillRootDaemonOnStop(context, it)
                                     }
+
+                                    if (rootTunEnabled) {
+                                        HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+
+                                        SettingsSwitchItem(
+                                            title = stringResource(R.string.settings_root_dns_redirect_title),
+                                            subtitle = stringResource(R.string.settings_root_dns_redirect_desc),
+                                            icon = Icons.Default.Dns,
+                                            checked = rootDnsRedirect
+                                        ) { enabled ->
+                                            rootDnsRedirect = enabled
+                                            GlobalSettings.setRootDnsRedirectEnabled(context, enabled)
+                                            if (Appctr.isRunning()) {
+                                                val intent = Intent(context, TailscaledService::class.java).apply {
+                                                    action = "RESTART_ACTION"
+                                                }
+                                                context.startService(intent)
+                                            }
+                                        }
+                                    }
                                 }
                             }
 
@@ -1517,7 +1581,20 @@ fun SettingsScreen(
                                     }
                                 }
                                 SettingsEditItem(stringResource(R.string.settings_auth_key_title), authKey, Icons.Default.VpnKey) { authKey = it; saveProfilePref("authkey", it) }
-                                SettingsEditItem(stringResource(R.string.settings_hostname_title), hostname, Icons.Default.Badge, onAction = { android.os.Build.MODEL.replace(" ", "-").lowercase() }, actionIcon = Icons.Default.AutoFixHigh) { hostname = it; saveProfilePref("hostname", it) }
+                                SettingsEditItem(
+                                    stringResource(R.string.settings_hostname_title),
+                                    hostname,
+                                    Icons.Default.Badge,
+                                    onAction = { sanitizeHostnameInput(android.os.Build.MODEL) },
+                                    actionIcon = Icons.Default.AutoFixHigh
+                                ) {
+                                    // The device name becomes a DNS label on the tailnet, so
+                                    // whitespace and stray characters are dropped before it is
+                                    // stored rather than being sent to the control plane.
+                                    val clean = sanitizeHostnameInput(it)
+                                    hostname = clean
+                                    saveProfilePref("hostname", clean)
+                                }
                                  @Suppress("UNCHECKED_CAST")
                                  SettingsExitNodeItem(stringResource(R.string.settings_exit_node_title), exitNodeId, exitNodeIp, Icons.AutoMirrored.Filled.Input) { id, ip ->
                                      exitNodeId = id

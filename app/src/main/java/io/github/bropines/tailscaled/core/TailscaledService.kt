@@ -7,6 +7,7 @@ import io.github.bropines.tailscaled.models.*
 import io.github.bropines.tailscaled.ui.*
 
 import android.app.*
+import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -103,69 +104,195 @@ class TailscaledService : Service() {
     private val maxRootRoutingAttempts = 3
 
     private val refreshHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    @Volatile private var refreshTickRunning = false
+
+    /**
+     * The tick queries the daemon over its socket, so it runs off the main
+     * thread and only re-schedules itself once it is done.
+     */
     private val refreshRunnable = object : Runnable {
         override fun run() {
-            // No longer need to manually check and reset Exit Nodes here,
-            // as LocalAPI synchronization in ApplySettings handles profile-dependent settings.
-            val activeAccount = AccountManager.getActiveAccount(this@TailscaledService)
-            val profilePrefs = getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
-            val defaultInterval = profilePrefs.getString("refresh_interval", "15000")?.toLongOrNull() ?: 15000L
-            var interval = defaultInterval
-
-            val isRunning = Appctr.isRunning()
-            val backendState = if (isRunning) {
-                try { Appctr.getBackendState() } catch (e: Exception) { "" }
-            } else ""
-
-            if (GlobalSettings.isRootModeEnabled(this@TailscaledService) && GlobalSettings.isRootTunEnabled(this@TailscaledService)) {
-                if (isRunning && backendState == "Running") {
-                    rootNotRunningTicks = 0
-                    if (!rootRoutingApplied && rootRoutingFailures < maxRootRoutingAttempts) {
-                        rootRoutingApplied = true
-                        Log.i(TAG, "Daemon is Running. Applying Root tailscale0 routing.")
-                        val dnsRedirect = GlobalSettings.getBoolean(this@TailscaledService, "accept_dns", true)
-                        val bypass = upstreamDnsAddresses()
-                        Thread {
-                            if (RootUtils.applyTailscale0Routing(dnsRedirect, bypass)) {
-                                rootRoutingFailures = 0
-                            } else {
-                                rootRoutingApplied = false
-                                rootRoutingFailures++
-                                if (rootRoutingFailures >= maxRootRoutingAttempts) {
-                                    Log.e(TAG, "Giving up on tailscale0 routing after $rootRoutingFailures attempts")
-                                    Appctr.logAndroid(
-                                        "ERROR", "ROOT",
-                                        "Routing setup failed $rootRoutingFailures times — giving up. " +
-                                            "Use Settings → Root Mode → Check Routing for details."
-                                    )
-                                }
-                            }
-                        }.start()
-                    }
-                    syncTailnetHosts()
-                } else {
-                    if (rootRoutingApplied) {
-                        rootNotRunningTicks++
-                        if (rootNotRunningTicks >= 2) {
-                            Log.i(TAG, "Daemon is not Running ($backendState). Cleaning up tailscale0 routing.")
-                            rootRoutingApplied = false
-                            rootNotRunningTicks = 0
-                            Thread { RootUtils.cleanupTailscale0Routing() }.start()
-                        }
-                    }
-                    if (isRunning && (backendState == "NeedsLogin" || backendState == "Starting" || backendState == "NoState")) {
-                        interval = 2000L
+            if (refreshTickRunning) return
+            refreshTickRunning = true
+            Thread {
+                val interval = try {
+                    runRefreshTick()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Refresh tick failed: ${e.message}")
+                    15000L
+                } finally {
+                    refreshTickRunning = false
+                }
+                refreshHandler.post {
+                    if (!teardownStarted) {
+                        refreshHandler.removeCallbacks(this)
+                        refreshHandler.postDelayed(this, interval)
                     }
                 }
-            }
-
-            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-            if (isRunning && powerManager.isInteractive) {
-                updateAllWidgets(this@TailscaledService)
-            }
-
-            refreshHandler.postDelayed(this, interval)
+            }.start()
         }
+    }
+
+    private fun runRefreshTick(): Long {
+        // No longer need to manually check and reset Exit Nodes here,
+        // as LocalAPI synchronization in ApplySettings handles profile-dependent settings.
+        val activeAccount = AccountManager.getActiveAccount(this@TailscaledService)
+        val profilePrefs = getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
+        val defaultInterval = profilePrefs.getString("refresh_interval", "15000")?.toLongOrNull() ?: 15000L
+        var interval = defaultInterval
+
+        val isRunning = Appctr.isRunning()
+        val backendState = if (isRunning) {
+            try { Appctr.getBackendState() } catch (e: Exception) { "" }
+        } else ""
+
+        if (GlobalSettings.isRootModeEnabled(this@TailscaledService) && GlobalSettings.isRootTunEnabled(this@TailscaledService)) {
+            if (isRunning && backendState == "Running") {
+                rootNotRunningTicks = 0
+                if (!rootRoutingApplied && rootRoutingFailures < maxRootRoutingAttempts) {
+                    rootRoutingApplied = true
+                    Log.i(TAG, "Daemon is Running. Applying Root tailscale0 routing.")
+                    val dnsRedirect = GlobalSettings.getBoolean(this@TailscaledService, "accept_dns", true) &&
+                        GlobalSettings.isRootDnsRedirectEnabled(this@TailscaledService)
+                    val bypass = upstreamDnsAddresses()
+                    Thread {
+                        if (RootUtils.applyTailscale0Routing(dnsRedirect, bypass)) {
+                            rootRoutingFailures = 0
+                        } else {
+                            rootRoutingApplied = false
+                            rootRoutingFailures++
+                            if (rootRoutingFailures >= maxRootRoutingAttempts) {
+                                Log.e(TAG, "Giving up on tailscale0 routing after $rootRoutingFailures attempts")
+                                Appctr.logAndroid(
+                                    "ERROR", "ROOT",
+                                    "Routing setup failed $rootRoutingFailures times — giving up. " +
+                                        "Use Settings → Root Mode → Check Routing for details."
+                                )
+                            }
+                        }
+                    }.start()
+                }
+                syncTailnetHosts()
+            } else {
+                if (rootRoutingApplied) {
+                    rootNotRunningTicks++
+                    if (rootNotRunningTicks >= 2) {
+                        Log.i(TAG, "Daemon is not Running ($backendState). Cleaning up tailscale0 routing.")
+                        rootRoutingApplied = false
+                        rootNotRunningTicks = 0
+                        Thread { RootUtils.cleanupTailscale0Routing() }.start()
+                    }
+                }
+                if (isRunning && (backendState == "NeedsLogin" || backendState == "Starting" || backendState == "NoState")) {
+                    interval = 2000L
+                }
+            }
+        }
+
+        if (checkConnectionHealth(isRunning, backendState)) {
+            interval = 5000L
+        }
+
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        if (isRunning && powerManager.isInteractive) {
+            updateAllWidgets(this@TailscaledService)
+        }
+
+        return interval
+    }
+
+    /**
+     * Holds the CPU awake for as long as the connection is wanted.
+     *
+     * The setting is stored globally but used to be read from the per-profile
+     * store, so the lock was never taken; and even when it was, it expired after
+     * ten minutes. Without it the CPU sleeps in Doze, the daemon stops servicing
+     * its DERP/WireGuard keepalives, and the connection is dead by morning.
+     */
+    private fun acquireKeepAliveLock() {
+        if (!GlobalSettings.getBoolean(this, "force_bg", false)) return
+        try {
+            if (wakeLock?.isHeld != true) {
+                @Suppress("WakelockTimeout")
+                wakeLock?.acquire()
+                Log.i(TAG, "Keep-alive wake lock acquired for the session")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to acquire wake lock: ${e.message}")
+        }
+    }
+
+    /** Ticks spent without reaching a connected state while the user wants one. */
+    private var unhealthyTicks = 0
+    private var autoRestartsDone = 0
+    @Volatile private var autoRestartInFlight = false
+
+    /**
+     * Watches for a connection that never came up, or one that died on its own,
+     * and restarts the daemon when the user asked for that.
+     *
+     * A daemon waiting for the user to log in is not unhealthy, so states that
+     * need human action are left alone — restarting them would only throw the
+     * pending login away.
+     *
+     * @return true while a recovery is pending, so the caller polls faster.
+     */
+    private fun checkConnectionHealth(isRunning: Boolean, backendState: String): Boolean {
+        if (!ProxyState.isUserLetRunning(this) || teardownStarted || autoRestartInFlight) {
+            return false
+        }
+        if (!GlobalSettings.isAutoReconnectEnabled(this)) {
+            unhealthyTicks = 0
+            return false
+        }
+
+        val awaitingUser = backendState == "NeedsLogin" ||
+            backendState == "NoState" ||
+            (isRunning && runCatching { Appctr.getLoginURL().isNotEmpty() }.getOrDefault(false))
+        if (awaitingUser) {
+            unhealthyTicks = 0
+            return false
+        }
+
+        val healthy = isRunning && (backendState == "Running" || backendState == "Starting")
+        if (healthy) {
+            unhealthyTicks = 0
+            autoRestartsDone = 0
+            return false
+        }
+
+        unhealthyTicks++
+        // Three consecutive unhealthy ticks before acting, so a momentary
+        // reconnect is not answered with a full daemon restart.
+        if (unhealthyTicks < 3) return true
+
+        val limit = GlobalSettings.getAutoReconnectAttempts(this)
+        if (limit != 0 && autoRestartsDone >= limit) {
+            return false
+        }
+
+        unhealthyTicks = 0
+        autoRestartsDone++
+        autoRestartInFlight = true
+        Log.w(TAG, "Connection is not coming up (state=$backendState), restarting daemon (attempt $autoRestartsDone)")
+        Appctr.logAndroid(
+            "WARN", "CORE",
+            "Connection did not come up (state: ${backendState.ifEmpty { "stopped" }}), restarting the daemon (attempt $autoRestartsDone)"
+        )
+        updateNotification("Reconnecting...")
+
+        Thread {
+            try {
+                stopTunMode()
+                shutdownDaemon()
+                Thread.sleep(1500)
+                teardownStarted = false
+                startTailscale()
+            } finally {
+                autoRestartInFlight = false
+            }
+        }.start()
+        return true
     }
 
     /**
@@ -176,6 +303,18 @@ class TailscaledService : Service() {
      * caught by that rule too and bounce straight back into MagicDNS, so their
      * destinations are excluded from the redirect.
      */
+    /**
+     * Reduces a user-entered device name to what a DNS label may contain.
+     * Trailing newlines and spaces used to be sent verbatim to the control plane.
+     */
+    private fun sanitizeHostname(raw: String): String =
+        raw.trim()
+            .replace(" ", "-")
+            .lowercase()
+            .replace(Regex("[^a-z0-9-]"), "")
+            .trim('-')
+            .take(63)
+
     private fun upstreamDnsAddresses(): List<String> {
         val raw = GlobalSettings.getString(this, "dns_fallbacks", "8.8.8.8:53,1.1.1.1:53")
         // The redirect chain is IPv4-only, so only IPv4 literals are usable here.
@@ -229,13 +368,46 @@ class TailscaledService : Service() {
         }
     }
 
+    /**
+     * Doze suspends the CPU and defers work; a connection that died while the
+     * device was idle is only noticed on the next refresh tick, which can be
+     * minutes later. Leaving idle is the moment to check and recover.
+     */
+    private val idleModeReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+            val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+            if (pm.isDeviceIdleMode) {
+                Log.d(TAG, "Device entered Doze")
+                return
+            }
+            Log.i(TAG, "Device left Doze, re-checking connection")
+            refreshHandler.removeCallbacks(refreshRunnable)
+            refreshHandler.post(refreshRunnable)
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         try { android.system.Os.setenv("TZ", java.util.TimeZone.getDefault().id, true) } catch (e: Exception) {}
         connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Tailscaled::WakeLock")
+        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Tailscaled::WakeLock").apply {
+            setReferenceCounted(false)
+        }
         try { connectivityManager.registerDefaultNetworkCallback(networkCallback) } catch (e: Exception) {}
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            try {
+                ContextCompat.registerReceiver(
+                    this,
+                    idleModeReceiver,
+                    android.content.IntentFilter(PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED),
+                    ContextCompat.RECEIVER_NOT_EXPORTED
+                )
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to register Doze receiver: ${e.message}")
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -333,6 +505,7 @@ class TailscaledService : Service() {
         // A previous stop may have marked this instance as torn down; a fresh start
         // command revives it, so the guard has to be cleared.
         teardownStarted = false
+        ServiceWatchdog.schedule(this)
         updateTile()
         if (!Appctr.isRunning()) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -368,7 +541,7 @@ class TailscaledService : Service() {
         val activeAccount = AccountManager.getActiveAccount(this)
         val profilePrefs = getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
         
-        if (profilePrefs.getBoolean("force_bg", false)) wakeLock?.acquire(10 * 60 * 1000L)
+        acquireKeepAliveLock()
         
         Thread {
             try {
@@ -465,9 +638,15 @@ class TailscaledService : Service() {
 
         val accRoutes = GlobalSettings.getBoolean(this@TailscaledService, "accept_routes", false)
         val accDNS = GlobalSettings.getBoolean(this@TailscaledService, "accept_dns", true)
-        var host = profilePrefs.getString("hostname", "") ?: ""
+        // Whitespace and stray characters make it all the way to the control
+        // plane as part of the node name, so the stored value is sanitised here
+        // and written back to repair profiles that already hold a broken one.
+        var host = sanitizeHostname(profilePrefs.getString("hostname", "") ?: "")
+        if (host != (profilePrefs.getString("hostname", "") ?: "")) {
+            profilePrefs.edit().putString("hostname", host).apply()
+        }
         if (host.isBlank()) {
-            val defaultHost = android.os.Build.MODEL.replace(" ", "-").lowercase().replace(Regex("[^a-z0-9-]"), "")
+            val defaultHost = sanitizeHostname(android.os.Build.MODEL)
             if (defaultHost.isNotBlank()) {
                 host = defaultHost
                 profilePrefs.edit().putString("hostname", defaultHost).apply()
@@ -567,6 +746,7 @@ class TailscaledService : Service() {
 
         stopTunMode()
         ProxyState.setUserState(this, false)
+        ServiceWatchdog.cancel(this)
         refreshHandler.removeCallbacks(refreshRunnable)
         updateNotification("Stopping...")
 
@@ -839,6 +1019,26 @@ class TailscaledService : Service() {
         }.start()
     }
 
+    /**
+     * Swiping the app out of Recents destroys the task but must not take the
+     * connection with it, so the service asks to be started again.
+     */
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        if (ProxyState.isUserLetRunning(this) && !teardownStarted) {
+            Log.i(TAG, "Task removed while running, requesting restart")
+            ServiceWatchdog.schedule(this)
+            try {
+                ContextCompat.startForegroundService(
+                    this,
+                    Intent(this, TailscaledService::class.java).apply { action = "START_ACTION" }
+                )
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not re-request service start after task removal: ${e.message}")
+            }
+        }
+        super.onTaskRemoved(rootIntent)
+    }
+
     override fun onDestroy() {
         refreshHandler.removeCallbacks(refreshRunnable)
         // stopMe() already ran the teardown (or is running it); only handle the
@@ -868,6 +1068,7 @@ class TailscaledService : Service() {
             lastStartedIpv6Disabled = null
         }
         try { connectivityManager.unregisterNetworkCallback(networkCallback) } catch (e: Exception) {}
+        try { unregisterReceiver(idleModeReceiver) } catch (e: Exception) {}
         if (wakeLock?.isHeld == true) wakeLock?.release()
         super.onDestroy()
     }

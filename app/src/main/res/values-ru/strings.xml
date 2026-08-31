@@ -798,6 +798,15 @@
     <string name="settings_battery_opt_error">Не удалось открыть настройки батареи</string>
     <string name="settings_autostart_title">Автозапуск при загрузке</string>
     <string name="settings_autostart_desc">Запускать TailSocks при включении устройства</string>
+
+    <!-- Connection recovery -->
+    <string name="settings_auto_reconnect_title">Автопереподключение</string>
+    <string name="settings_auto_reconnect_desc">Перезапускать демон, если соединение не поднялось или отвалилось. Ожидание вашего входа сбоем не считается.</string>
+    <string name="settings_auto_reconnect_attempts_title">Попыток перезапуска (0 — без лимита)</string>
+    <string name="settings_watchdog_title">Восстанавливать службу в фоне</string>
+    <string name="settings_watchdog_desc">Раз в 15 минут проверяет, жива ли служба, и запускает её заново. Некоторые прошивки блокируют фоновый запуск — там нужно ещё выдать автозапуск.</string>
+    <string name="settings_root_dns_redirect_title">Системный DNS через MagicDNS</string>
+    <string name="settings_root_dns_redirect_desc">Направляет весь DNS устройства в MagicDNS. Выключите, если системный резолвер должен остаться за другим VPN или DNS-фильтром.</string>
     <string name="settings_sect_socks5">SOCKS5-прокси (внутренний)</string>
 
     <!-- LAN access -->
@@ -839,7 +848,7 @@
     <string name="settings_accept_dns_title">Принимать DNS</string>
     <string name="settings_accept_dns_desc">Разрешить сети настраивать DNS</string>
     <string name="settings_force_bg_title">Принудительный фоновый запуск</string>
-    <string name="settings_force_bg_desc">Держать WakeLock активным в фоновом режиме</string>
+    <string name="settings_force_bg_desc">Удерживает wake lock на всю сессию, чтобы соединение переживало глубокий сон. Расходует батарею.</string>
     <string name="settings_detailed_logs_title">Подробные логи</string>
     <string name="settings_detailed_logs_desc">Отключить фильтрацию логов (шумно!)</string>
     <string name="settings_extra_args_title">Дополнительные аргументы</string>

@@ -249,7 +249,7 @@ class MainActivity : ComponentActivity() {
                 }
             } catch (e: Exception) {}
 
-            val forceBg = appctrPrefs.getBoolean("force_bg", false)
+            val forceBg = GlobalSettings.getBoolean(this@MainActivity, "force_bg", false)
 
             if (ProxyState.isUserLetRunning(this@MainActivity) && !ProxyState.isActualRunning(this@MainActivity)) {
                 withContext(Dispatchers.Main) {

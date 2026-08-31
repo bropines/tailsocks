@@ -7,8 +7,16 @@ All notable changes to the TailSocks project will be documented in this file. Th
 ### Added
 - **LAN Access**: New switch in Network settings that opens the SOCKS5 proxy, the HTTP proxy and the local DNS server to the local network (`0.0.0.0`) instead of this device only, so other devices can route through your tailnet. Shows the address to connect to and warns when the SOCKS5 proxy has no password.
 - **Root Mode routing check**: A button in Root Mode settings that shows the live routing and firewall state of `tailscale0`, and failures now appear in the ROOT tab of the Logs screen instead of failing silently.
+- **Auto-reconnect**: Optionally restarts the daemon when the connection does not come up or drops, with a configurable attempt limit. Waiting for you to sign in is not treated as a failure.
+- **Background revival**: Optionally checks every 15 minutes that the service is still alive and starts it again after a background kill. On skins that block background starts the refusal is written to the log, so it is clear that autostart permission is what is missing.
+- **System-wide DNS switch for Root Mode**: DNS redirection to MagicDNS can now be turned off, so another VPN or DNS filtering app can keep the system resolver.
 
 ### Fixed
+- **Connection failed on the first attempt and worked on the second.** The app decided the account needed a new login while the daemon was still contacting the control plane, which discarded a working session and asked for a browser sign-in. It now waits for the daemon's own verdict, and never interrupts a session that is starting or already connected.
+- **Device name sent with stray characters.** Spaces and line breaks in the device name reached the control plane as part of the node name; the name is now cleaned up when entered and repaired for existing profiles.
+- **"Keep running in background" never did anything.** The switch was saved in one place and read from three others, so the wake lock was never taken — and when it was, it expired after ten minutes. It now holds for the whole session, which is what kept the connection dying overnight.
+- **Connection dropping in deep sleep** is now noticed as soon as the device wakes instead of on the next scheduled check.
+- **Root Mode: conflict with another VPN.** The firewall mark used for tailnet traffic overwrote Android's own routing mark, which broke routing when another VPN owned the default network. A dedicated mark bit is used instead, leaving the system's mark untouched.
 - **Root Mode: external sites did not resolve.** System-wide DNS redirection also captured the Tailscale resolver's own upstream queries, so anything outside the tailnet looped back and timed out. Upstream resolvers are now excluded from the redirect.
 - **Root Mode: DNS redirection with MagicDNS off.** Redirection is no longer installed when "Accept DNS" is disabled, which previously left the device without working DNS.
 - **Root Mode: duplicate firewall rules.** Rules are now grouped and replaced as a unit instead of accumulating on every start; leftovers from earlier versions are removed automatically.

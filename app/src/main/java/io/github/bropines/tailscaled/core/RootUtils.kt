@@ -12,8 +12,24 @@ object RootUtils {
     const val SERVICE_D_DIR = "/data/adb/service.d"
     const val SERVICE_SCRIPT_PATH = "$SERVICE_D_DIR/tailscaled.sh"
 
-    /** Policy routing table and firewall mark reserved for the tailscale0 interface. */
+    /** Policy routing table reserved for the tailscale0 interface. */
     private const val ROUTE_TABLE = "1099"
+
+    /**
+     * Firewall mark used to steer tailnet traffic into [ROUTE_TABLE].
+     *
+     * Android packs its own routing decision into fwmark: the low 16 bits are the
+     * netId, above them sit the explicit/protect/permission flags. Writing a bare
+     * `--set-mark 1099` overwrites all of it, which tells netd the packet belongs
+     * to network 1099 and breaks routing whenever another VPN owns the default
+     * network. A single high bit is set through a mask instead, leaving netd's
+     * bookkeeping intact.
+     */
+    private const val MARK_BIT = "0x1000000"
+    private const val MARK_MASK = "0x1000000"
+
+    /** Pre-3.6 mark, still removed on cleanup so upgrades do not leave it behind. */
+    private const val LEGACY_MARK = "1099"
 
     /** Dedicated iptables chains. Owning named chains makes every rule we install
      *  idempotent, inspectable and removable in one shot — unlike appending to
@@ -281,11 +297,11 @@ object RootUtils {
 
         // --- IPv4 policy routing ---
         sb.append("ip route replace $CGNAT_V4 dev tailscale0 table $ROUTE_TABLE metric 1\n")
-        sb.append("ip rule del fwmark $ROUTE_TABLE table $ROUTE_TABLE 2>/dev/null || true\n")
-        sb.append("ip rule add fwmark $ROUTE_TABLE table $ROUTE_TABLE priority 100\n")
+        sb.append("ip rule del fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE 2>/dev/null || true\n")
+        sb.append("ip rule add fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE priority 100\n")
 
         sb.append("iptables -t mangle -N $CHAIN_MARK 2>/dev/null || iptables -t mangle -F $CHAIN_MARK\n")
-        sb.append("iptables -t mangle -A $CHAIN_MARK -j MARK --set-mark $ROUTE_TABLE\n")
+        sb.append("iptables -t mangle -A $CHAIN_MARK -j MARK --set-xmark $MARK_BIT/$MARK_MASK\n")
         sb.append("iptables -t mangle -C OUTPUT -d $CGNAT_V4 -j $CHAIN_MARK 2>/dev/null || iptables -t mangle -A OUTPUT -d $CGNAT_V4 -j $CHAIN_MARK\n")
 
         sb.append("iptables -C FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || iptables -I FORWARD -o tailscale0 -j ACCEPT\n")
@@ -293,11 +309,11 @@ object RootUtils {
 
         // --- IPv6 policy routing ---
         sb.append("ip -6 route replace $TAILNET_V6 dev tailscale0 table $ROUTE_TABLE metric 1 2>/dev/null || true\n")
-        sb.append("ip -6 rule del fwmark $ROUTE_TABLE table $ROUTE_TABLE 2>/dev/null || true\n")
-        sb.append("ip -6 rule add fwmark $ROUTE_TABLE table $ROUTE_TABLE priority 100 2>/dev/null || true\n")
+        sb.append("ip -6 rule del fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE 2>/dev/null || true\n")
+        sb.append("ip -6 rule add fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE priority 100 2>/dev/null || true\n")
 
         sb.append("ip6tables -t mangle -N $CHAIN_MARK 2>/dev/null || ip6tables -t mangle -F $CHAIN_MARK\n")
-        sb.append("ip6tables -t mangle -A $CHAIN_MARK -j MARK --set-mark $ROUTE_TABLE 2>/dev/null || true\n")
+        sb.append("ip6tables -t mangle -A $CHAIN_MARK -j MARK --set-xmark $MARK_BIT/$MARK_MASK 2>/dev/null || true\n")
         sb.append("ip6tables -t mangle -C OUTPUT -d $TAILNET_V6 -j $CHAIN_MARK 2>/dev/null || ip6tables -t mangle -A OUTPUT -d $TAILNET_V6 -j $CHAIN_MARK 2>/dev/null || true\n")
 
         sb.append("ip6tables -C FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || ip6tables -I FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || true\n")
@@ -357,10 +373,12 @@ object RootUtils {
         sb.append("while ip6tables -D FORWARD -o tailscale0 -j ACCEPT 2>/dev/null; do :; done\n")
         sb.append("while ip6tables -D FORWARD -i tailscale0 -j ACCEPT 2>/dev/null; do :; done\n")
 
-        sb.append("while ip rule del fwmark $ROUTE_TABLE table $ROUTE_TABLE 2>/dev/null; do :; done\n")
-        sb.append("while ip rule del fwmark $ROUTE_TABLE lookup $ROUTE_TABLE 2>/dev/null; do :; done\n")
-        sb.append("while ip -6 rule del fwmark $ROUTE_TABLE table $ROUTE_TABLE 2>/dev/null; do :; done\n")
-        sb.append("while ip -6 rule del fwmark $ROUTE_TABLE lookup $ROUTE_TABLE 2>/dev/null; do :; done\n")
+        sb.append("while ip rule del fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE 2>/dev/null; do :; done\n")
+        sb.append("while ip -6 rule del fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE 2>/dev/null; do :; done\n")
+        sb.append("while ip rule del fwmark $LEGACY_MARK table $ROUTE_TABLE 2>/dev/null; do :; done\n")
+        sb.append("while ip rule del fwmark $LEGACY_MARK lookup $ROUTE_TABLE 2>/dev/null; do :; done\n")
+        sb.append("while ip -6 rule del fwmark $LEGACY_MARK table $ROUTE_TABLE 2>/dev/null; do :; done\n")
+        sb.append("while ip -6 rule del fwmark $LEGACY_MARK lookup $ROUTE_TABLE 2>/dev/null; do :; done\n")
 
         sb.append("ip route flush table $ROUTE_TABLE 2>/dev/null || true\n")
         sb.append("ip -6 route flush table $ROUTE_TABLE 2>/dev/null || true\n")
@@ -389,8 +407,10 @@ object RootUtils {
      * restart, so they are drained here until none are left.
      */
     private fun legacyRuleCleanup(): String = buildString {
-        append("while iptables -t mangle -D OUTPUT -d $CGNAT_V4 -j MARK --set-mark $ROUTE_TABLE 2>/dev/null; do :; done\n")
-        append("while ip6tables -t mangle -D OUTPUT -d $TAILNET_V6 -j MARK --set-mark $ROUTE_TABLE 2>/dev/null; do :; done\n")
+        append("while iptables -t mangle -D OUTPUT -d $CGNAT_V4 -j MARK --set-mark $LEGACY_MARK 2>/dev/null; do :; done\n")
+        append("while ip6tables -t mangle -D OUTPUT -d $TAILNET_V6 -j MARK --set-mark $LEGACY_MARK 2>/dev/null; do :; done\n")
+        append("while ip rule del fwmark $LEGACY_MARK table $ROUTE_TABLE 2>/dev/null; do :; done\n")
+        append("while ip rule del fwmark $LEGACY_MARK lookup $ROUTE_TABLE 2>/dev/null; do :; done\n")
         append("while iptables -t nat -D OUTPUT -p udp --dport 53 -j DNAT --to-destination $MAGIC_DNS:53 2>/dev/null; do :; done\n")
         append("while iptables -t nat -D OUTPUT -p tcp --dport 53 -j DNAT --to-destination $MAGIC_DNS:53 2>/dev/null; do :; done\n")
         append("while iptables -t nat -D OUTPUT -d $CGNAT_V4 -p udp --dport 53 -j ACCEPT 2>/dev/null; do :; done\n")
@@ -401,8 +421,10 @@ object RootUtils {
     fun dumpRoutingState(): String {
         val script = buildString {
             append("echo '--- ip rule ---'\n")
-            append("ip rule list 2>/dev/null | grep -i $ROUTE_TABLE || echo '(no v4 rule)'\n")
-            append("ip -6 rule list 2>/dev/null | grep -i $ROUTE_TABLE || echo '(no v6 rule)'\n")
+            append("ip rule list 2>/dev/null | grep -i '$ROUTE_TABLE' || echo '(no v4 rule)'\n")
+            append("ip -6 rule list 2>/dev/null | grep -i '$ROUTE_TABLE' || echo '(no v6 rule)'\n")
+            append("echo '--- other tunnels ---'\n")
+            append("ip -o link show 2>/dev/null | grep -Eo '(tun[0-9]+|ppp[0-9]+|wg[0-9]+)' | grep -v tailscale0 | sort -u || echo '(none)'\n")
             append("echo '--- table $ROUTE_TABLE ---'\n")
             append("ip route show table $ROUTE_TABLE 2>/dev/null || echo '(empty)'\n")
             append("echo '--- mangle $CHAIN_MARK ---'\n")

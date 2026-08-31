@@ -798,6 +798,15 @@
     <string name="settings_battery_opt_error">Cannot open battery settings</string>
     <string name="settings_autostart_title">Auto-start on Boot</string>
     <string name="settings_autostart_desc">Start TailSocks when device turns on</string>
+
+    <!-- Connection recovery -->
+    <string name="settings_auto_reconnect_title">Auto-reconnect</string>
+    <string name="settings_auto_reconnect_desc">Restart the daemon when the connection does not come up or drops. Waiting for you to sign in is not treated as a failure.</string>
+    <string name="settings_auto_reconnect_attempts_title">Restart attempts (0 = unlimited)</string>
+    <string name="settings_watchdog_title">Revive service in background</string>
+    <string name="settings_watchdog_desc">Checks every 15 minutes that the service is still alive and starts it again. Some skins block background starts — grant the app autostart permission there as well.</string>
+    <string name="settings_root_dns_redirect_title">System-wide DNS via MagicDNS</string>
+    <string name="settings_root_dns_redirect_desc">Sends DNS from the whole device to MagicDNS. Turn off when another VPN or DNS filtering app should keep the system resolver.</string>
     <string name="settings_sect_socks5">SOCKS5 Proxy (Internal)</string>
 
     <!-- LAN access -->
@@ -839,7 +848,7 @@
     <string name="settings_accept_dns_title">Accept DNS</string>
     <string name="settings_accept_dns_desc">Allow network to configure DNS</string>
     <string name="settings_force_bg_title">Force Background Run</string>
-    <string name="settings_force_bg_desc">Keep WakeLock active in background</string>
+    <string name="settings_force_bg_desc">Holds a wake lock for the whole session so the connection survives deep sleep. Costs battery.</string>
     <string name="settings_detailed_logs_title">Detailed Logs</string>
     <string name="settings_detailed_logs_desc">Disable log filtering (noisy!)</string>
     <string name="settings_extra_args_title">Extra Arguments</string>
