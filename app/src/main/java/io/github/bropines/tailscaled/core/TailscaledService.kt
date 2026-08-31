@@ -31,6 +31,24 @@ class TailscaledService : Service() {
         const val ACTION_STATUS_CHANGED = "io.github.bropines.tailscaled.STATUS_CHANGED"
         const val ALIAS_STATUS_CHANGED = "io.github.bropines.tailscaled.STATUS"
 
+        /**
+         * Asks the service to push current preferences to the daemon.
+         *
+         * Callers outside the service (widgets, automation) must not talk to the
+         * bridge directly: in Root Mode the daemon can be alive while this process
+         * is not attached to it, and only the service knows how to attach.
+         */
+        fun requestApplySettings(context: Context) {
+            try {
+                ContextCompat.startForegroundService(
+                    context,
+                    Intent(context, TailscaledService::class.java).apply { action = ACTION_APPLY_SETTINGS }
+                )
+            } catch (e: Exception) {
+                Log.w("TailscaledService", "Failed to request settings apply: ${e.message}")
+            }
+        }
+
         fun sendStatusBroadcast(context: Context, statusOverride: String? = null) {
             try {
                 val isRunning = Appctr.isRunning()
@@ -76,8 +94,14 @@ class TailscaledService : Service() {
     private var byedpiProxyAddress: Pair<String, Int>? = null
     private var lastStartedFlags: String? = null
     private var lastStartedIpv6Disabled: Boolean? = null
-    private var dnsRedirectApplied = false
-    
+    private var rootRoutingApplied = false
+    /** Consecutive non-Running ticks; routing is only torn down after a couple of
+     *  them so a brief state flap does not thrash iptables through `su`. */
+    private var rootNotRunningTicks = 0
+    /** Consecutive failed routing attempts; retrying forever through `su` is noise. */
+    @Volatile private var rootRoutingFailures = 0
+    private val maxRootRoutingAttempts = 3
+
     private val refreshHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private val refreshRunnable = object : Runnable {
         override fun run() {
@@ -95,31 +119,71 @@ class TailscaledService : Service() {
 
             if (GlobalSettings.isRootModeEnabled(this@TailscaledService) && GlobalSettings.isRootTunEnabled(this@TailscaledService)) {
                 if (isRunning && backendState == "Running") {
-                    if (!dnsRedirectApplied) {
+                    rootNotRunningTicks = 0
+                    if (!rootRoutingApplied && rootRoutingFailures < maxRootRoutingAttempts) {
+                        rootRoutingApplied = true
                         Log.i(TAG, "Daemon is Running. Applying Root tailscale0 routing.")
-                        RootUtils.applyTailscale0Routing()
-                        dnsRedirectApplied = true
+                        val dnsRedirect = GlobalSettings.getBoolean(this@TailscaledService, "accept_dns", true)
+                        val bypass = upstreamDnsAddresses()
+                        Thread {
+                            if (RootUtils.applyTailscale0Routing(dnsRedirect, bypass)) {
+                                rootRoutingFailures = 0
+                            } else {
+                                rootRoutingApplied = false
+                                rootRoutingFailures++
+                                if (rootRoutingFailures >= maxRootRoutingAttempts) {
+                                    Log.e(TAG, "Giving up on tailscale0 routing after $rootRoutingFailures attempts")
+                                    Appctr.logAndroid(
+                                        "ERROR", "ROOT",
+                                        "Routing setup failed $rootRoutingFailures times — giving up. " +
+                                            "Use Settings → Root Mode → Check Routing for details."
+                                    )
+                                }
+                            }
+                        }.start()
                     }
                     syncTailnetHosts()
                 } else {
-                    if (dnsRedirectApplied) {
-                        Log.i(TAG, "Daemon is not Running ($backendState). Cleaning up tailscale0 routing.")
-                        RootUtils.cleanupTailscale0Routing()
-                        dnsRedirectApplied = false
+                    if (rootRoutingApplied) {
+                        rootNotRunningTicks++
+                        if (rootNotRunningTicks >= 2) {
+                            Log.i(TAG, "Daemon is not Running ($backendState). Cleaning up tailscale0 routing.")
+                            rootRoutingApplied = false
+                            rootNotRunningTicks = 0
+                            Thread { RootUtils.cleanupTailscale0Routing() }.start()
+                        }
                     }
                     if (isRunning && (backendState == "NeedsLogin" || backendState == "Starting" || backendState == "NoState")) {
                         interval = 2000L
                     }
                 }
             }
-            
+
             val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
             if (isRunning && powerManager.isInteractive) {
                 updateAllWidgets(this@TailscaledService)
             }
-            
+
             refreshHandler.postDelayed(this, interval)
         }
+    }
+
+    /**
+     * Upstream resolver IPs that must keep reaching port 53 directly.
+     *
+     * The system-wide DNS redirect sends every port-53 packet to MagicDNS. The
+     * daemon's own upstream queries and our local DNS proxy's fallbacks would be
+     * caught by that rule too and bounce straight back into MagicDNS, so their
+     * destinations are excluded from the redirect.
+     */
+    private fun upstreamDnsAddresses(): List<String> {
+        val raw = GlobalSettings.getString(this, "dns_fallbacks", "8.8.8.8:53,1.1.1.1:53")
+        // The redirect chain is IPv4-only, so only IPv4 literals are usable here.
+        val ipv4 = Regex("^\\d{1,3}(\\.\\d{1,3}){3}$")
+        return raw.split(",")
+            .map { it.trim().substringBefore(":") }
+            .filter { ipv4.matches(it) }
+            .distinct()
     }
 
     private lateinit var connectivityManager: ConnectivityManager
@@ -197,7 +261,7 @@ class TailscaledService : Service() {
         }
         
         if (action == "REFRESH_ACTION" || action == "APPLY_SETTINGS" || action == ACTION_APPLY_SETTINGS) {
-            if (!Appctr.isRunning()) {
+            if (!ProxyState.isActualRunning(this)) {
                 stopMe()
                 return START_NOT_STICKY
             }
@@ -209,6 +273,17 @@ class TailscaledService : Service() {
                 )
             } else {
                 startForeground(1, buildNotification("Active"))
+            }
+            if (!Appctr.isRunning()) {
+                // The daemon is alive but this process is not attached to it —
+                // Root Mode after the app was killed. Attach through the normal
+                // start path, which applies the settings on the way.
+                Log.i(TAG, "Apply requested while detached, attaching to running daemon first")
+                ProxyState.setUserState(this, true)
+                startTailscale()
+                refreshHandler.removeCallbacks(refreshRunnable)
+                refreshHandler.postDelayed(refreshRunnable, 1000)
+                return START_STICKY
             }
             Thread {
                 Appctr.applySettings(buildStartOptions())
@@ -235,15 +310,29 @@ class TailscaledService : Service() {
             } else {
                 startForeground(1, buildNotification(notificationText))
             }
+            // A restart must not run through stopMe(): that calls stopSelf(), and
+            // the daemon was then started again on a service the system was already
+            // tearing down. Shut the daemon down in place and bring it back up.
+            ProxyState.setUserState(this, true)
+            refreshHandler.removeCallbacks(refreshRunnable)
             Thread {
-                stopMe()
-                Thread.sleep(1500)
+                stopTunMode()
+                shutdownDaemon()
+                Thread.sleep(1000)
+                teardownStarted = false
                 startTailscale()
+                refreshHandler.post {
+                    refreshHandler.removeCallbacks(refreshRunnable)
+                    refreshHandler.postDelayed(refreshRunnable, 1000)
+                }
             }.start()
             return START_STICKY
         }
 
         ProxyState.setUserState(this, true)
+        // A previous stop may have marked this instance as torn down; a fresh start
+        // command revives it, so the guard has to be cleared.
+        teardownStarted = false
         updateTile()
         if (!Appctr.isRunning()) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -286,7 +375,10 @@ class TailscaledService : Service() {
                 applicationContext.sendBroadcast(Intent("STARTING"))
                 if (GlobalSettings.isRootModeEnabled(this@TailscaledService)) {
                     val socketFile = java.io.File(options.socketPath)
-                    val statusJson = if (socketFile.exists()) {
+                    // A socket file left behind by a killed daemon still exists, so
+                    // liveness is decided by an actual connect before we query it.
+                    val daemonAlive = RootUtils.isDaemonAlive(options.socketPath)
+                    val statusJson = if (daemonAlive) {
                         kotlinx.coroutines.runBlocking { LocalApiClient { options.socketPath }.getStatus().getOrNull() }
                     } else null
 
@@ -297,7 +389,7 @@ class TailscaledService : Service() {
                         Appctr.attachExternal(options)
                     } else {
                         if (socketFile.exists()) {
-                            Log.w(TAG, "Root daemon is in NoState or unconfigured. Stopping stale daemon and restarting.")
+                            Log.w(TAG, "Root daemon socket is stale or unconfigured. Stopping leftover daemon and restarting.")
                             RootUtils.stopRootDaemon(options.socketPath)
                         }
                         val logsDir = java.io.File(filesDir.parentFile ?: filesDir, "logs").absolutePath
@@ -311,12 +403,18 @@ class TailscaledService : Service() {
                             httpAddr = options.httpProxy,
                             controlProxy = options.controlProxy,
                             taildropDir = options.taildropDir,
-                            tunMode = GlobalSettings.isRootTunEnabled(this@TailscaledService)
+                            tunMode = GlobalSettings.isRootTunEnabled(this@TailscaledService),
+                            dnsFallbacks = upstreamDnsAddresses()
                         )
 
-                        if (ok) {
-                            Appctr.attachExternal(options)
+                        if (!ok) {
+                            // Do not report "Active" for a daemon that never came up.
+                            Log.e(TAG, "Root daemon failed to start, aborting service start")
+                            updateNotification("Root daemon failed to start")
+                            stopMe()
+                            return@Thread
                         }
+                        Appctr.attachExternal(options)
                     }
                 } else {
                     Appctr.setExternalSocketPath("")
@@ -460,16 +558,51 @@ class TailscaledService : Service() {
         }
     }
 
+    /** Guards against running the daemon teardown twice (stopMe then onDestroy). */
+    @Volatile private var teardownStarted = false
+
     private fun stopMe() {
+        if (teardownStarted) return
+        teardownStarted = true
+
         stopTunMode()
         ProxyState.setUserState(this, false)
         refreshHandler.removeCallbacks(refreshRunnable)
+        updateNotification("Stopping...")
+
+        // Root teardown talks to `su` and can take seconds; doing that on the
+        // caller's thread froze the UI whenever the tile or the notification
+        // triggered a stop. The service stays in the foreground until it is done
+        // so the process is not killed mid-cleanup.
+        Thread {
+            try {
+                shutdownDaemon()
+            } finally {
+                refreshHandler.post {
+                    if (wakeLock?.isHeld == true) wakeLock?.release()
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
+                    updateTile()
+                    applicationContext.sendBroadcast(Intent("STOP"))
+                    sendStatusBroadcast(this, "STOPPED")
+                }
+            }
+        }.start()
+    }
+
+    /** Blocking teardown of the daemon and everything attached to it. */
+    private fun shutdownDaemon() {
         try { Appctr.stopDriveServer() } catch (e: Exception) {}
         try { Appctr.stopDriveProxy() } catch (e: Exception) {}
         if (GlobalSettings.isRootModeEnabled(this)) {
             val socketPath = "${filesDir.absolutePath}/tailscaled.sock"
+            // Release the bridge first: the IPN bus, the DNS proxy and the Taildrop
+            // collector must stop talking to a daemon that is about to disappear.
+            Appctr.detachExternal()
+            rootRoutingApplied = false
+            rootRoutingFailures = 0
+            rootNotRunningTicks = 0
             RootUtils.cleanupTailscale0Routing()
-            Appctr.setExternalSocketPath("")
             if (GlobalSettings.shouldKillRootDaemonOnStop(this)) {
                 RootUtils.stopRootDaemon(socketPath)
             }
@@ -480,12 +613,6 @@ class TailscaledService : Service() {
         byedpiProxyAddress = null
         lastStartedFlags = null
         lastStartedIpv6Disabled = null
-        if (wakeLock?.isHeld == true) wakeLock?.release()
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
-        updateTile()
-        applicationContext.sendBroadcast(Intent("STOP"))
-        sendStatusBroadcast(this, "STOPPED")
     }
     
     private fun updateTile() {
@@ -637,10 +764,22 @@ class TailscaledService : Service() {
     }
 
     private var lastHostsHash: Int = 0
+    private var lastHostsSyncAt: Long = 0
+    @Volatile private var hostsSyncInFlight = false
+
+    /** Minimum gap between full peer-status fetches for the /etc/hosts sync. */
+    private val hostsSyncIntervalMs = 60_000L
 
     private fun syncTailnetHosts() {
         if (!GlobalSettings.isRootModeEnabled(this) || !GlobalSettings.isRootTunEnabled(this)) return
-        
+
+        // The peer list changes rarely; pulling the full status on every refresh
+        // tick is the polling this architecture deliberately moved away from.
+        val now = System.currentTimeMillis()
+        if (hostsSyncInFlight || now - lastHostsSyncAt < hostsSyncIntervalMs) return
+        lastHostsSyncAt = now
+        hostsSyncInFlight = true
+
         Thread {
             try {
                 val statusJson = Appctr.getStatusJSON(true)
@@ -694,25 +833,40 @@ class TailscaledService : Service() {
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to sync tailnet hosts: ${e.message}")
+            } finally {
+                hostsSyncInFlight = false
             }
         }.start()
     }
 
     override fun onDestroy() {
-        if (GlobalSettings.isRootModeEnabled(this)) {
+        refreshHandler.removeCallbacks(refreshRunnable)
+        // stopMe() already ran the teardown (or is running it); only handle the
+        // case where the system tore the service down without going through it.
+        if (!teardownStarted) {
+            teardownStarted = true
+            val rootMode = GlobalSettings.isRootModeEnabled(this)
             val socketPath = "${filesDir.absolutePath}/tailscaled.sock"
-            RootUtils.cleanupTailscale0Routing()
-            Appctr.setExternalSocketPath("")
-            if (!RootUtils.isServiceScriptInstalled()) {
-                RootUtils.stopRootDaemon(socketPath)
-            }
-        } else {
-            Appctr.stop()
+            Thread {
+                if (rootMode) {
+                    Appctr.detachExternal()
+                    rootRoutingApplied = false
+                    rootRoutingFailures = 0
+                    rootNotRunningTicks = 0
+                    RootUtils.cleanupTailscale0Routing()
+                    // Autostart installed means the daemon is expected to outlive the app.
+                    if (!RootUtils.isServiceScriptInstalled()) {
+                        RootUtils.stopRootDaemon(socketPath)
+                    }
+                } else {
+                    Appctr.stop()
+                }
+                try { ByeDpiProxy.stop() } catch (e: Exception) {}
+            }.start()
+            byedpiProxyAddress = null
+            lastStartedFlags = null
+            lastStartedIpv6Disabled = null
         }
-        try { ByeDpiProxy.stop() } catch (e: Exception) {}
-        byedpiProxyAddress = null
-        lastStartedFlags = null
-        lastStartedIpv6Disabled = null
         try { connectivityManager.unregisterNetworkCallback(networkCallback) } catch (e: Exception) {}
         if (wakeLock?.isHeld == true) wakeLock?.release()
         super.onDestroy()

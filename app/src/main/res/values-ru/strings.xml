@@ -4,6 +4,10 @@
     <string name="first_fragment_label">Главная</string>
     <string name="back">Назад</string>
 
+    <!-- Quick Settings tile -->
+    <string name="tile_state_connecting">Подключение…</string>
+    <string name="tile_state_disconnecting">Отключение…</string>
+
     <!-- Main screen -->
     <string name="status_stopped">Остановлено</string>
     <string name="status_running">Работает</string>
@@ -751,6 +755,7 @@
     <string name="settings_root_disabled_tun_note">Недоступно в Root-режиме (активен нативный kernel TUN tailscale0. ЭКСПЕРИМЕНТАЛЬНО)</string>
     <string name="settings_root_disabled_general_note">Недоступно в Root-режиме (ЭКСПЕРИМЕНТАЛЬНО)</string>
     <string name="settings_root_script_reinstall">Переустановить скрипт</string>
+    <string name="settings_root_routing_check">Проверить маршрутизацию</string>
     <string name="settings_root_script_reinstalled">Скрипт службы успешно переустановлен</string>
     <string name="settings_backup_saved">Резервная копия сохранена</string>
     <string name="settings_backup_failed_format">Ошибка резервного копирования: %1$s</string>
@@ -794,6 +799,13 @@
     <string name="settings_autostart_title">Автозапуск при загрузке</string>
     <string name="settings_autostart_desc">Запускать TailSocks при включении устройства</string>
     <string name="settings_sect_socks5">SOCKS5-прокси (внутренний)</string>
+
+    <!-- LAN access -->
+    <string name="settings_sect_lan">Доступ из локальной сети</string>
+    <string name="settings_lan_access_title">Открыть прокси в локальную сеть</string>
+    <string name="settings_lan_access_desc">Сейчас SOCKS5, HTTP-прокси и локальный DNS слушают только 127.0.0.1. Включите, чтобы ими могли пользоваться другие устройства сети.</string>
+    <string name="settings_lan_access_active">Слушает все интерфейсы — доступно по адресу %1$s</string>
+    <string name="settings_lan_access_no_auth_warning">У SOCKS5-прокси не заданы логин и пароль. Любое устройство в сети сможет пустить трафик через ваш tailnet.</string>
     <string name="settings_socks5_address_title">Адрес SOCKS5</string>
     <string name="settings_socks5_username_title">Имя пользователя SOCKS5</string>
     <string name="settings_socks5_password_title">Пароль SOCKS5</string>

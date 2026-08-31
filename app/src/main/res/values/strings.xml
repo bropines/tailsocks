@@ -4,6 +4,10 @@
     <string name="first_fragment_label">Home</string>
     <string name="back">Back</string>
 
+    <!-- Quick Settings tile -->
+    <string name="tile_state_connecting">Connecting…</string>
+    <string name="tile_state_disconnecting">Disconnecting…</string>
+
     <!-- Main screen -->
     <string name="status_stopped">Stopped</string>
     <string name="status_running">Running</string>
@@ -751,6 +755,7 @@
     <string name="settings_root_disabled_tun_note">Unavailable in Root mode (native kernel TUN tailscale0 is active. EXPERIMENTAL)</string>
     <string name="settings_root_disabled_general_note">Unavailable in Root mode (EXPERIMENTAL)</string>
     <string name="settings_root_script_reinstall">Reinstall Script</string>
+    <string name="settings_root_routing_check">Check Routing</string>
     <string name="settings_root_script_reinstalled">Service script reinstalled successfully</string>
     <string name="settings_backup_saved">Backup saved</string>
     <string name="settings_backup_failed_format">Backup failed: %1$s</string>
@@ -794,6 +799,13 @@
     <string name="settings_autostart_title">Auto-start on Boot</string>
     <string name="settings_autostart_desc">Start TailSocks when device turns on</string>
     <string name="settings_sect_socks5">SOCKS5 Proxy (Internal)</string>
+
+    <!-- LAN access -->
+    <string name="settings_sect_lan">LAN Access</string>
+    <string name="settings_lan_access_title">Expose proxies to local network</string>
+    <string name="settings_lan_access_desc">Binds SOCKS5, HTTP proxy and local DNS to 127.0.0.1 only. Enable to let other devices on this network use them.</string>
+    <string name="settings_lan_access_active">Listening on all interfaces — reachable at %1$s</string>
+    <string name="settings_lan_access_no_auth_warning">The SOCKS5 proxy has no username or password. Anyone on this network can route traffic through your tailnet.</string>
     <string name="settings_socks5_address_title">SOCKS5 Address</string>
     <string name="settings_socks5_username_title">SOCKS5 Username</string>
     <string name="settings_socks5_password_title">SOCKS5 Password</string>
