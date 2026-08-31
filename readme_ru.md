@@ -15,7 +15,7 @@
 <p align="center">
   <a href="https://github.com/bropines/tailsocks/releases/latest"><img src="https://img.shields.io/github/v/release/bropines/tailsocks?style=for-the-badge&logo=github&logoColor=white&label=Latest%20Release&color=2ea44f" alt="Последний Релиз" /></a>
   <a href="https://github.com/bropines/tailsocks/releases"><img src="https://img.shields.io/github/downloads/bropines/tailsocks/total?style=for-the-badge&logo=android&logoColor=white&label=Downloads&color=3ddc84" alt="Загрузки" /></a>
-  <a href="https://github.com/tailscale/tailscale/releases/tag/v1.98.3"><img src="https://img.shields.io/badge/Tailscale_Core-v1.98.3-blue?style=for-the-badge&logo=tailscale&logoColor=white" alt="Ядро Tailscale" /></a>
+  <a href="https://github.com/tailscale/tailscale/releases/tag/v1.102.1"><img src="https://img.shields.io/badge/Tailscale_Core-v1.102.1-blue?style=for-the-badge&logo=tailscale&logoColor=white" alt="Ядро Tailscale" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-BSD_3--Clause-orange?style=for-the-badge" alt="Лицензия" /></a>
 </p>
 
@@ -241,7 +241,7 @@ git clone --recurse-submodules https://github.com/bropines/tailsocks.git
 cd tailsocks
 ```
 
-**2. Компиляция Go-ядра** (автоматически скачивает Tailscale v1.98.3, накладывает патчи и кросс-компилирует):
+**2. Компиляция Go-ядра** (скачивает версию Tailscale, указанную в `appctr/TAILSCALE_VERSION`, накладывает патчи и кросс-компилирует):
 ```bash
 cd appctr
 bash build.sh

@@ -2,6 +2,23 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [3.6.0] - 2026-08-31
+
+### Added
+- **LAN Access**: New switch in Network settings that opens the SOCKS5 proxy, the HTTP proxy and the local DNS server to the local network (`0.0.0.0`) instead of this device only, so other devices can route through your tailnet. Shows the address to connect to and warns when the SOCKS5 proxy has no password.
+- **Root Mode routing check**: A button in Root Mode settings that shows the live routing and firewall state of `tailscale0`, and failures now appear in the ROOT tab of the Logs screen instead of failing silently.
+
+### Fixed
+- **Root Mode: external sites did not resolve.** System-wide DNS redirection also captured the Tailscale resolver's own upstream queries, so anything outside the tailnet looped back and timed out. Upstream resolvers are now excluded from the redirect.
+- **Root Mode: DNS redirection with MagicDNS off.** Redirection is no longer installed when "Accept DNS" is disabled, which previously left the device without working DNS.
+- **Root Mode: duplicate firewall rules.** Rules are now grouped and replaced as a unit instead of accumulating on every start; leftovers from earlier versions are removed automatically.
+- **Root Mode: freezes when stopping or restarting.** Stopping no longer blocks the interface while root commands run, and restarting no longer shuts the service down before bringing it back up.
+- **Root Mode: false "Active" state.** A daemon that fails to start is now reported as such instead of showing a running connection.
+- **Root Mode: settings screen stutter.** Opening the Root Mode tab no longer freezes while it checks for root.
+- **Quick Settings tile**: The tile showed a state it would not act on, so a tap could disconnect when it appeared disconnected. It now tracks the real connection, updates live while the panel is open, keeps its icon on all skins, unlocks the device first when needed, and opens the app if the system refuses a background start.
+- **Battery and traffic**: The app no longer keeps contacting the Tailscale service before it starts or after it stops, and the tailnet host list is refreshed on a timer instead of on every status update.
+- **Wrong values in settings and diagnostics**: The proxy address, DNS and route options were read from the wrong place, so the DNS test and the exported debug report showed defaults that were never in use.
+
 ## [3.5.4] - 2026-08-13
 
 ### Fixed

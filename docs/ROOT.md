@@ -26,6 +26,33 @@ TailSocks supports advanced **Root Mode** for Android devices running root solut
 * **Events Listened:** `ACTION_BOOT_COMPLETED`, `QUICKBOOT_POWERON`, and `ACTION_MY_PACKAGE_REPLACED`.
 * **Auto-Refresh Logic:** When TailSocks is updated (APK replaced), `BootReceiver` automatically re-installs the `service.d` daemon script and CLI wrapper script from assets. This guarantees that paths to `libtailscale.so` and `libtailscale_cli.so` inside `/data/app/...` stay perfectly aligned with the newly installed version without manual intervention.
 
+### 4. Native TUN Routing (`tailscale0`)
+
+When **Native Linux TUN** is enabled, the daemon creates a real kernel interface
+`tailscale0`, leaving Android's VPN slot free. TailSocks installs the policy
+routing around it once the daemon reaches the `Running` state:
+
+* **Table `1099`** carries `100.64.0.0/10` (and `fd7a:115c:a1e0::/48`) via `tailscale0`.
+  Traffic is steered into it by firewall mark `1099`.
+* **`TAILSOCKS_MARK`** (mangle) sets that mark on tailnet-bound packets.
+* **`TAILSOCKS_DNS`** (nat) redirects system-wide port 53 to MagicDNS
+  (`100.100.100.100`). Two classes of traffic are explicitly excluded, in this
+  order, before the redirect:
+  * the tailnet range `100.64.0.0/10`, so Split DNS resolvers hosted on peers
+    are reached directly;
+  * the daemon's own upstream resolvers (`TS_DNS_FALLBACK`, mirrored from the
+    DNS fallback setting). Without this, the resolver's own queries are
+    redirected back into itself and no external name ever resolves.
+
+  The redirect is installed **only** when `accept-dns` is on — redirecting the
+  whole device to a resolver that is not answering would break DNS entirely.
+
+Everything lives in named chains, so the rules are idempotent, can be inspected
+with `iptables -t nat -S TAILSOCKS_DNS`, and are removed in one shot when the
+service stops. **Settings → Root Mode → Check Routing** dumps the live state of
+all of the above, and failures are reported in the **ROOT** tab of the Logs
+screen instead of being silently discarded.
+
 ---
 
 ## 📱 Enabling Root Integration in App

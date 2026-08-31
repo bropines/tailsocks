@@ -15,7 +15,7 @@
 <p align="center">
   <a href="https://github.com/bropines/tailsocks/releases/latest"><img src="https://img.shields.io/github/v/release/bropines/tailsocks?style=for-the-badge&logo=github&logoColor=white&label=Latest%20Release&color=2ea44f" alt="Latest Release" /></a>
   <a href="https://github.com/bropines/tailsocks/releases"><img src="https://img.shields.io/github/downloads/bropines/tailsocks/total?style=for-the-badge&logo=android&logoColor=white&label=Downloads&color=3ddc84" alt="Downloads" /></a>
-  <a href="https://github.com/tailscale/tailscale/releases/tag/v1.98.3"><img src="https://img.shields.io/badge/Tailscale_Core-v1.98.3-blue?style=for-the-badge&logo=tailscale&logoColor=white" alt="Tailscale Core" /></a>
+  <a href="https://github.com/tailscale/tailscale/releases/tag/v1.102.1"><img src="https://img.shields.io/badge/Tailscale_Core-v1.102.1-blue?style=for-the-badge&logo=tailscale&logoColor=white" alt="Tailscale Core" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-BSD_3--Clause-orange?style=for-the-badge" alt="License" /></a>
 </p>
 
@@ -241,7 +241,7 @@ git clone --recurse-submodules https://github.com/bropines/tailsocks.git
 cd tailsocks
 ```
 
-**2. Compile Go core** (downloads Tailscale v1.98.3 source, patches, and cross-compiles):
+**2. Compile Go core** (downloads the Tailscale source pinned in `appctr/TAILSCALE_VERSION`, patches, and cross-compiles):
 ```bash
 cd appctr
 bash build.sh

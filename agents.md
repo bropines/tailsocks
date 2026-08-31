@@ -8,7 +8,7 @@ This document contains mandatory rules, architectural principles, engineering st
 
 TailSocks is a hybrid, multi-layer Android client for Tailscale operating in **userspace-networking mode**:
 
-1. **Core (Go Daemon)**: Patched `tailscaled` daemon (v1.98.3+), compiled as the native shared library `libtailscale.so` (PIE).
+1. **Core (Go Daemon)**: Patched `tailscaled` daemon (version pinned in `appctr/TAILSCALE_VERSION`, currently v1.102.1), compiled as the native shared library `libtailscale.so` (PIE).
 2. **Bridge (Go/Gomobile)**: The `appctr` module provides JNI bindings (`appctr.Appctr` in Kotlin) and handles LocalAPI v0 communication over Unix Domain Sockets (`tailscaled.sock`).
 3. **UI (Kotlin/Compose)**: High-density, no-scroll Material 3 dashboard implemented in Jetpack Compose.
 4. **TUN Engine (C)**: System-wide transparent VPN routing powered by the native `hev-socks5-tunnel` library (optional VPN mode).
@@ -42,7 +42,7 @@ When Go code, bridge JNI bindings, or Tailscale patches are modified:
 cd appctr
 bash build.sh
 ```
-*   **Dynamic Patch Pipeline**: `build.sh` downloads clean Tailscale source code, applies 11 atomic patches from `appctr/patches/` in alphabetical order (`01-enable-socks-android` through `11-noop-dns-fallback`), and cross-compiles native `.so` binaries for 4 target architectures (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`).
+*   **Dynamic Patch Pipeline**: `build.sh` downloads clean Tailscale source code, applies 13 atomic patches from `appctr/patches/` in alphabetical order (`01-enable-socks-android` through `13-android-osrouter`), and cross-compiles native `.so` binaries for 4 target architectures (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`).
 *   **Patch Management**: If code in `appctr/tailscale_src/` is modified, recreate the atomic patch files before committing:
     ```bash
     ./appctr/patches/recreate_patches.sh
@@ -67,7 +67,7 @@ bash build.sh
   * [`core/`](app/src/main/java/io/github/bropines/tailscaled/core/) — Background services, VPN tunnel, ByeDPI JNI, account storage, tasker receiver.
   * [`ui/`](app/src/main/java/io/github/bropines/tailscaled/ui/) — Jetpack Compose dashboards, settings, serve UI, and dialogs.
 * [`appctr/`](appctr/) — Go Gomobile bridge and core engine.
-  * [`patches/`](appctr/patches/) — Atomic Tailscale patch files (`01-*.patch` .. `11-*.patch`).
+  * [`patches/`](appctr/patches/) — Atomic Tailscale patch files (`01-*.patch` .. `13-*.patch`).
   * [`tailscale_src/`](appctr/tailscale_src/) — Active patched Tailscale source copy (git-ignored).
   * [`orig/`](appctr/orig/) — Original clean Tailscale sources (git-ignored).
 
