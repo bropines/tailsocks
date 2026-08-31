@@ -157,8 +157,9 @@ class TunVpnService : VpnService() {
         currentExitNodeId = exitNodeId
 
         val socksAddr = GlobalSettings.getString(this, "socks5", "127.0.0.1:48115")
-        val socksHost = socksAddr.substringBeforeLast(":")
-        val socksPort = socksAddr.substringAfterLast(":").toIntOrNull() ?: 48115
+        // The tunnel dials the proxy locally; a wildcard bind is reached via loopback.
+        val socksHost = NetAddr.dialableHost(socksAddr)
+        val socksPort = NetAddr.port(socksAddr) ?: 48115
         val mtu       = TUN_MTU
         val fullTunnel = exitNodeId.isNotEmpty()
         val excludedApps = GlobalSettings.getTunExcludedApps(this)

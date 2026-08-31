@@ -170,6 +170,7 @@ fun SettingsScreen(
     var socks5Pass by remember { mutableStateOf(GlobalSettings.getString(context, "socks5_pass", "")) }
     var httpProxy by remember { mutableStateOf(GlobalSettings.getString(context, "httpproxy", "")) }
     var dnsProxy by remember { mutableStateOf(GlobalSettings.getString(context, "dns_proxy", "127.0.0.1:1053")) }
+    var lanAccessEnabled by remember { mutableStateOf(GlobalSettings.isLanAccessEnabled(context)) }
     var dnsFallbacks by remember { mutableStateOf(GlobalSettings.getString(context, "dns_fallbacks", "8.8.8.8:53,1.1.1.1:53")) }
     var dohUrl by remember { mutableStateOf(GlobalSettings.getString(context, "doh_url", "https://1.1.1.1/dns-query")) }
     var loginServer by remember { mutableStateOf(profilePrefs.getString("login_server", "") ?: "") }
@@ -820,6 +821,64 @@ fun SettingsScreen(
 
                             Spacer(Modifier.height(12.dp))
 
+                            SettingsCard(title = stringResource(R.string.settings_sect_lan)) {
+                                val lanIp = remember { NetAddr.lanIpv4() }
+                                val socksHasAuth = socks5User.isNotEmpty() || socks5Pass.isNotEmpty()
+
+                                SettingsSwitchItem(
+                                    title = stringResource(R.string.settings_lan_access_title),
+                                    subtitle = if (lanAccessEnabled) {
+                                        stringResource(R.string.settings_lan_access_active, lanIp ?: "?")
+                                    } else {
+                                        stringResource(R.string.settings_lan_access_desc)
+                                    },
+                                    icon = Icons.Default.Lan,
+                                    checked = lanAccessEnabled
+                                ) { enabled ->
+                                    lanAccessEnabled = enabled
+                                    GlobalSettings.setLanAccessEnabled(context, enabled)
+                                    // Re-read what the rebind produced so the fields stay truthful.
+                                    socks5 = GlobalSettings.getString(context, "socks5", socks5)
+                                    httpProxy = GlobalSettings.getString(context, "httpproxy", httpProxy)
+                                    dnsProxy = GlobalSettings.getString(context, "dns_proxy", dnsProxy)
+                                    if (Appctr.isRunning()) {
+                                        val intent = Intent(context, TailscaledService::class.java).apply {
+                                            action = "RESTART_ACTION"
+                                        }
+                                        context.startService(intent)
+                                    }
+                                }
+
+                                if (lanAccessEnabled && !socksHasAuth) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 8.dp)
+                                            .background(
+                                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
+                                                shape = RoundedCornerShape(8.dp)
+                                            )
+                                            .padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Warning,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            text = stringResource(R.string.settings_lan_access_no_auth_warning),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onErrorContainer
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(Modifier.height(12.dp))
+
                             SettingsCard(title = stringResource(R.string.settings_sect_http)) {
                                 val isHttpEnabled = httpProxy.isNotEmpty()
                                 SettingsSwitchItem(
@@ -1011,10 +1070,25 @@ fun SettingsScreen(
                         3 -> { // TAB 3: Root Mode & System Service
                             var rootModeEnabled by remember { mutableStateOf(GlobalSettings.isRootModeEnabled(context)) }
                             var rootTunEnabled by remember { mutableStateOf(GlobalSettings.isRootTunEnabled(context)) }
-                            var serviceScriptInstalled by remember { mutableStateOf(RootUtils.isServiceScriptInstalled()) }
-                            var cliInstalled by remember { mutableStateOf(RootUtils.isTailscaleCliInstalled()) }
+                            var serviceScriptInstalled by remember { mutableStateOf(false) }
+                            var cliInstalled by remember { mutableStateOf(false) }
                             var killDaemonOnStop by remember { mutableStateOf(GlobalSettings.shouldKillRootDaemonOnStop(context)) }
                             var showRootWarningDialog by remember { mutableStateOf(false) }
+                            var isRootBusy by remember { mutableStateOf(false) }
+
+                            // Probing these spawns a root shell, which must never run on the
+                            // composition thread — it blocks the UI until su answers.
+                            LaunchedEffect(rootModeEnabled) {
+                                if (!rootModeEnabled) return@LaunchedEffect
+                                withContext(Dispatchers.IO) {
+                                    val script = RootUtils.isServiceScriptInstalled()
+                                    val cli = RootUtils.isTailscaleCliInstalled()
+                                    withContext(Dispatchers.Main) {
+                                        serviceScriptInstalled = script
+                                        cliInstalled = cli
+                                    }
+                                }
+                            }
 
                             if (showRootWarningDialog) {
                                 AlertDialog(
@@ -1044,20 +1118,25 @@ fun SettingsScreen(
                                         Button(
                                             onClick = {
                                                 showRootWarningDialog = false
-                                                if (RootUtils.isRootAvailable()) {
-                                                    rootModeEnabled = true
-                                                    GlobalSettings.setRootModeEnabled(context, true)
-                                                    if (GlobalSettings.isTunModeEnabled(context)) {
-                                                        GlobalSettings.setRootTunEnabled(context, true)
-                                                        rootTunEnabled = true
+                                                isRootBusy = true
+                                                scope.launch {
+                                                    val granted = withContext(Dispatchers.IO) { RootUtils.isRootAvailable() }
+                                                    isRootBusy = false
+                                                    if (granted) {
+                                                        rootModeEnabled = true
+                                                        GlobalSettings.setRootModeEnabled(context, true)
+                                                        if (GlobalSettings.isTunModeEnabled(context)) {
+                                                            GlobalSettings.setRootTunEnabled(context, true)
+                                                            rootTunEnabled = true
+                                                        }
+                                                        Toast.makeText(context, "Root Mode enabled", Toast.LENGTH_SHORT).show()
+                                                        if (Appctr.isRunning()) {
+                                                            val intent = Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" }
+                                                            context.startService(intent)
+                                                        }
+                                                    } else {
+                                                        Toast.makeText(context, "Root access (su) not granted or unavailable", Toast.LENGTH_LONG).show()
                                                     }
-                                                    Toast.makeText(context, "Root Mode enabled", Toast.LENGTH_SHORT).show()
-                                                    if (Appctr.isRunning()) {
-                                                        val intent = Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" }
-                                                        context.startService(intent)
-                                                    }
-                                                } else {
-                                                    Toast.makeText(context, "Root access (su) not granted or unavailable", Toast.LENGTH_LONG).show()
                                                 }
                                             },
                                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
@@ -1111,8 +1190,10 @@ fun SettingsScreen(
                                         rootModeEnabled = false
                                         GlobalSettings.setRootModeEnabled(context, false)
                                         if (serviceScriptInstalled) {
-                                            RootUtils.setServiceScriptInstalled(context, false)
                                             serviceScriptInstalled = false
+                                            scope.launch(Dispatchers.IO) {
+                                                RootUtils.setServiceScriptInstalled(context, false)
+                                            }
                                         }
                                         Toast.makeText(context, "Root Mode disabled", Toast.LENGTH_SHORT).show()
                                         if (Appctr.isRunning()) {
@@ -1147,14 +1228,21 @@ fun SettingsScreen(
                                         title = stringResource(R.string.settings_root_service_title),
                                         subtitle = stringResource(R.string.settings_root_service_desc),
                                         icon = Icons.Default.Build,
-                                        checked = serviceScriptInstalled
-                                    ) {
-                                        val success = RootUtils.setServiceScriptInstalled(context, it)
-                                        if (success) {
-                                            serviceScriptInstalled = it
-                                            Toast.makeText(context, if (it) "Service script installed to service.d" else "Service script removed", Toast.LENGTH_SHORT).show()
-                                        } else {
-                                            Toast.makeText(context, "Failed to manage service.d script", Toast.LENGTH_SHORT).show()
+                                        checked = serviceScriptInstalled,
+                                        enabled = !isRootBusy
+                                    ) { install ->
+                                        isRootBusy = true
+                                        scope.launch {
+                                            val success = withContext(Dispatchers.IO) {
+                                                RootUtils.setServiceScriptInstalled(context, install)
+                                            }
+                                            isRootBusy = false
+                                            if (success) {
+                                                serviceScriptInstalled = install
+                                                Toast.makeText(context, if (install) "Service script installed to service.d" else "Service script removed", Toast.LENGTH_SHORT).show()
+                                            } else {
+                                                Toast.makeText(context, "Failed to manage service.d script", Toast.LENGTH_SHORT).show()
+                                            }
                                         }
                                     }
 
@@ -1206,14 +1294,21 @@ fun SettingsScreen(
                                         title = stringResource(R.string.settings_root_cli_title),
                                         subtitle = stringResource(R.string.settings_root_cli_desc),
                                         icon = Icons.Default.Terminal,
-                                        checked = cliInstalled
-                                    ) {
-                                        val success = RootUtils.setTailscaleCliInstalled(context, it)
-                                        if (success) {
-                                            cliInstalled = it
-                                            Toast.makeText(context, if (it) "CLI wrapper installed to /system/bin/tailscale" else "CLI wrapper removed", Toast.LENGTH_SHORT).show()
-                                        } else {
-                                            Toast.makeText(context, "Failed to manage CLI wrapper", Toast.LENGTH_SHORT).show()
+                                        checked = cliInstalled,
+                                        enabled = !isRootBusy
+                                    ) { install ->
+                                        isRootBusy = true
+                                        scope.launch {
+                                            val success = withContext(Dispatchers.IO) {
+                                                RootUtils.setTailscaleCliInstalled(context, install)
+                                            }
+                                            isRootBusy = false
+                                            if (success) {
+                                                cliInstalled = install
+                                                Toast.makeText(context, if (install) "CLI wrapper installed to /system/bin/tailscale" else "CLI wrapper removed", Toast.LENGTH_SHORT).show()
+                                            } else {
+                                                Toast.makeText(context, "Failed to manage CLI wrapper", Toast.LENGTH_SHORT).show()
+                                            }
                                         }
                                     }
 
@@ -1277,6 +1372,50 @@ fun SettingsScreen(
                                         style = MaterialTheme.typography.bodySmall,
                                         color = if (daemonAlive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                                     )
+
+                                    if (rootTunEnabled) {
+                                        var routingDump by remember { mutableStateOf<String?>(null) }
+                                        var isDumping by remember { mutableStateOf(false) }
+
+                                        Spacer(Modifier.height(12.dp))
+                                        OutlinedButton(
+                                            onClick = {
+                                                isDumping = true
+                                                scope.launch {
+                                                    val dump = withContext(Dispatchers.IO) { RootUtils.dumpRoutingState() }
+                                                    routingDump = dump.ifBlank { "(no output)" }
+                                                    isDumping = false
+                                                }
+                                            },
+                                            enabled = !isDumping,
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                        ) {
+                                            Icon(Icons.Default.Terminal, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(Modifier.width(4.dp))
+                                            Text(
+                                                stringResource(R.string.settings_root_routing_check),
+                                                style = MaterialTheme.typography.labelMedium
+                                            )
+                                        }
+
+                                        routingDump?.let { dump ->
+                                            Spacer(Modifier.height(8.dp))
+                                            Surface(
+                                                shape = RoundedCornerShape(8.dp),
+                                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Text(
+                                                    text = dump,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                                    modifier = Modifier
+                                                        .padding(10.dp)
+                                                        .horizontalScroll(rememberScrollState())
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }

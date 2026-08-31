@@ -638,11 +638,9 @@ class TaildriveClient(private val context: Context, private val accountId: Strin
     private fun getSocksProxy(): Proxy? {
         val socksAddr = GlobalSettings.getString(context, "socks5", "127.0.0.1:48115")
         if (socksAddr.isBlank()) return null
-        val parts = socksAddr.split(":")
-        if (parts.size != 2) return null
-        val host = parts[0]
-        val port = parts[1].toIntOrNull() ?: return null
-        
+        val host = NetAddr.dialableHost(socksAddr)
+        val port = NetAddr.port(socksAddr) ?: return null
+
         val user = GlobalSettings.getString(context, "socks5_user", "")
         val pass = GlobalSettings.getString(context, "socks5_pass", "")
         if (user.isNotEmpty() || pass.isNotEmpty()) {

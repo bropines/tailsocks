@@ -120,12 +120,11 @@ private fun getActiveSocksProxy(context: Context): java.net.Proxy? {
         }
     }
     if (ProxyState.isActualRunning(context)) {
-        val activeAccount = io.github.bropines.tailscaled.core.AccountManager.getActiveAccount(context)
-        val prefs = context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
-        val socks5Str = prefs.getString("socks5", "127.0.0.1:1055") ?: "127.0.0.1:1055"
-        val parts = socks5Str.split(":")
-        val host = parts.getOrNull(0) ?: "127.0.0.1"
-        val port = parts.getOrNull(1)?.toIntOrNull() ?: 1055
+        // SOCKS5 is a global setting; reading it from the profile preferences
+        // always missed and silently fell back to a port nothing listens on.
+        val socks5Str = GlobalSettings.getString(context, "socks5", "127.0.0.1:48115")
+        val host = NetAddr.dialableHost(socks5Str)
+        val port = NetAddr.port(socks5Str) ?: 48115
         return java.net.Proxy(java.net.Proxy.Type.SOCKS, java.net.InetSocketAddress(host, port))
     }
     return null
@@ -255,7 +254,13 @@ fun DnsScreen(onBack: () -> Unit) {
             val firstConfiguredIp = status?.splitRoutes?.values?.flatMap { list -> list.map { it.addr } }?.firstOrNull() ?: "127.0.0.1"
             var res = testDnsServer(context, firstConfiguredIp, 53, domainToTest)
             if (res.startsWith("Failed")) {
-                val resLocal = testDnsServer(context, "127.0.0.1", 1053, domainToTest)
+                val localDns = GlobalSettings.getString(context, "dns_proxy", "127.0.0.1:1053")
+                val resLocal = testDnsServer(
+                    context,
+                    NetAddr.dialableHost(localDns),
+                    NetAddr.port(localDns) ?: 1053,
+                    domainToTest
+                )
                 if (resLocal.startsWith("Success")) {
                     res = resLocal
                 }

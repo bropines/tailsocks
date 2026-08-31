@@ -82,6 +82,32 @@ object GlobalSettings {
         return "$scheme://$auth$host:$p"
     }
 
+    // -------------------------------------------------------------------------
+    // LAN exposure of the local proxies
+    // -------------------------------------------------------------------------
+
+    /**
+     * When enabled, the SOCKS5 proxy, the outbound HTTP proxy and the local DNS
+     * proxy bind to `0.0.0.0` instead of loopback, so other devices on the same
+     * network can use this phone as a Tailscale gateway.
+     */
+    fun isLanAccessEnabled(context: Context): Boolean = getBoolean(context, "lan_access_enabled", false)
+
+    /**
+     * Applies the LAN exposure choice to every local listener, keeping the ports
+     * the user configured. Loopback addresses become wildcards and vice versa; a
+     * host the user chose explicitly is left untouched.
+     */
+    fun setLanAccessEnabled(context: Context, enabled: Boolean) {
+        setBoolean(context, "lan_access_enabled", enabled)
+        for (key in listOf("socks5", "httpproxy", "dns_proxy")) {
+            val current = getString(context, key, "")
+            if (current.isNotEmpty()) {
+                setString(context, key, NetAddr.rebind(current, enabled))
+            }
+        }
+    }
+
     fun parseProxyUri(uriStr: String): Map<String, String>? {
         try {
             val trimmed = uriStr.trim().split("#").first().trim()

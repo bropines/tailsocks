@@ -2,6 +2,7 @@ package io.github.bropines.tailscaled.admin
 
 import android.util.Log
 import com.google.gson.Gson
+import io.github.bropines.tailscaled.core.NetAddr
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -89,9 +90,8 @@ class TailscaleApiClient(
             }
             "LOCAL_SOCKS5" -> {
                 val addr = localSocksAddr.takeIf { it.isNotEmpty() } ?: "127.0.0.1:48115"
-                val parts = addr.split(":")
-                val host = parts.getOrNull(0) ?: "127.0.0.1"
-                val port = parts.getOrNull(1)?.toIntOrNull() ?: 48115
+                val host = NetAddr.dialableHost(addr)
+                val port = NetAddr.port(addr) ?: 48115
                 authUser = localSocksUser
                 authPass = localSocksPass
                 Proxy(Proxy.Type.SOCKS, InetSocketAddress(host, port))
