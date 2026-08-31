@@ -11,11 +11,82 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 )
 
 // errNotRunning is returned when the daemon process is not active.
 var errNotRunning = errors.New("tailscaled is not running")
+
+// socketProbeTTL is how long a liveness probe result stays valid. IsRunning() is
+// called on every UI tick, so the probe is cached to avoid a connect() storm.
+const socketProbeTTL = 500 * time.Millisecond
+
+var (
+	probeMu   sync.Mutex
+	probePath string
+	probeAt   time.Time
+	probeOK   bool
+)
+
+// probeSocket reports whether a daemon is actually listening on the Unix socket
+// at path. A leftover socket file from a crashed daemon fails this check, which
+// os.Stat alone cannot detect.
+func probeSocket(path string) bool {
+	if path == "" {
+		return false
+	}
+	ok := false
+	if _, err := os.Stat(path); err == nil {
+		conn, err := net.DialTimeout("unix", path, 500*time.Millisecond)
+		if err == nil {
+			ok = true
+			_ = conn.Close()
+		}
+	}
+
+	probeMu.Lock()
+	probePath = path
+	probeAt = time.Now()
+	probeOK = ok
+	probeMu.Unlock()
+	return ok
+}
+
+// socketAlive is probeSocket with a short result cache.
+func socketAlive(path string) bool {
+	if path == "" {
+		return false
+	}
+	probeMu.Lock()
+	if probePath == path && time.Since(probeAt) < socketProbeTTL {
+		ok := probeOK
+		probeMu.Unlock()
+		return ok
+	}
+	probeMu.Unlock()
+	return probeSocket(path)
+}
+
+// waitForLocalAPI blocks until the daemon socket accepts connections or the
+// timeout expires. Every startup path funnels through this so no LocalAPI call
+// is issued before the daemon is able to answer it.
+func waitForLocalAPI(timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for {
+		stateMu.Lock()
+		sock := PC.Socket()
+		stateMu.Unlock()
+
+		if probeSocket(sock) {
+			return true
+		}
+		if time.Now().After(deadline) {
+			return false
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+}
 
 // newLocalClient returns an http.Client that dials the daemon's Unix socket.
 func newLocalClient(socketPath string) http.Client {
@@ -30,13 +101,20 @@ func newLocalClient(socketPath string) http.Client {
 }
 
 // doLocalRequest sends a request to the daemon's Unix socket.
+//
+// It is the single choke point for LocalAPI traffic: when no socket is
+// configured, or the socket file is gone, the request is rejected here instead
+// of producing a connection error for every caller.
 func doLocalRequest(method, path string, body io.Reader) ([]byte, error) {
 	stateMu.Lock()
 	pc := PC
 	stateMu.Unlock()
 
 	if pc.Socket() == "" {
-		return nil, fmt.Errorf("socket path is empty")
+		return nil, ErrSocketEmpty
+	}
+	if _, err := os.Stat(pc.Socket()); err != nil {
+		return nil, ErrDaemonNotRunning
 	}
 
 	client := newLocalClient(pc.Socket())

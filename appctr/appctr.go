@@ -34,7 +34,27 @@ type GlobalConfig struct {
 func (c *GlobalConfig) get() (socks, user, pass, dns string) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.Socks5Addr, c.Socks5User, c.Socks5Pass, c.DNSAddr
+	return dialableAddr(c.Socks5Addr), c.Socks5User, c.Socks5Pass, c.DNSAddr
+}
+
+// dialableAddr rewrites a listen address into one that can be dialed locally.
+// A proxy bound to a wildcard address (0.0.0.0 / ::) so that the LAN can reach
+// it is still reachable over loopback, which is what in-process consumers use.
+func dialableAddr(addr string) string {
+	if addr == "" {
+		return ""
+	}
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return addr
+	}
+	switch host {
+	case "", "0.0.0.0":
+		return net.JoinHostPort("127.0.0.1", port)
+	case "::":
+		return net.JoinHostPort("::1", port)
+	}
+	return addr
 }
 
 func (c *GlobalConfig) update(socks, user, pass, dns string) {
@@ -127,19 +147,32 @@ func SetExternalSocketPath(path string) {
 	stateMu.Lock()
 	externalSocketPath = path
 	PC.SetSocket(path)
-	slog.Info("External daemon socket path set", "path", path)
 	stateMu.Unlock()
+
+	if path == "" {
+		slog.Info("External daemon socket path cleared")
+		StopIPNBusListener()
+		return
+	}
+	slog.Info("External daemon socket path set", "path", path)
 	EnsureIPNBusListener()
 }
 
+// IsRunning reports whether a daemon we can talk to is available.
+//
+// For an externally managed (root) daemon the socket is probed for real: a
+// leftover socket file from a killed daemon must not be reported as running,
+// otherwise every LocalAPI caller keeps hammering a dead socket.
 func IsRunning() bool {
 	stateMu.Lock()
-	defer stateMu.Unlock()
-	if externalSocketPath != "" {
-		_, err := os.Stat(externalSocketPath)
-		return err == nil
+	ext := externalSocketPath
+	embedded := cmd != nil && cmd.Process != nil
+	stateMu.Unlock()
+
+	if ext != "" {
+		return socketAlive(ext)
 	}
-	return cmd != nil && cmd.Process != nil
+	return embedded
 }
 
 // --- JNI Exported Functions (Static methods in Appctr class) ---
@@ -232,15 +265,10 @@ func syncSettings(opt *StartOptions) {
 		return
 	}
 	go func() {
-		// Wait for socket to be ready
-		for i := 0; i < 20; i++ {
-			if _, err := os.Stat(opt.SocketPath); err == nil {
-				break
-			}
-			time.Sleep(500 * time.Millisecond)
+		if !waitForLocalAPI(15 * time.Second) {
+			slog.Warn("syncSettings: LocalAPI never became ready, settings not applied")
+			return
 		}
-
-		time.Sleep(500 * time.Millisecond)
 
 		// Check backend status; skip PATCH /prefs if in NeedsLogin state to avoid resetting controlclient / interrupting interactive login
 		statusDataStr, err := GetStatusJSON(false)
@@ -390,7 +418,6 @@ func ApplySettings(opt *StartOptions) {
 func ReUp() {
 	stateMu.Lock()
 	opt := lastOptions
-	pc := PC
 	stateMu.Unlock()
 
 	if opt != nil && IsRunning() {
@@ -401,7 +428,7 @@ func ReUp() {
 		if opt.AuthKey != "" {
 			Login(opt.AuthKey)
 		} else {
-			go registerMachineWithAuthKey(pc, opt)
+			go registerMachineWithAuthKey(opt)
 		}
 	}
 }
@@ -443,18 +470,15 @@ func Start(opt *StartOptions) {
 	}()
 
 	go func() {
-		// Wait for socket
-		for i := 0; i < 20; i++ {
-			if _, err := os.Stat(opt.SocketPath); err == nil {
-				break
-			}
-			time.Sleep(500 * time.Millisecond)
+		if !waitForLocalAPI(20 * time.Second) {
+			slog.Error("Daemon socket never became ready after start")
+			return
 		}
 		EnsureIPNBusListener()
 		if opt.AuthKey != "" {
 			Login(opt.AuthKey)
 		} else {
-			registerMachineWithAuthKey(PC, opt)
+			registerMachineWithAuthKey(opt)
 		}
 		syncSettings(opt)
 	}()
@@ -486,18 +510,15 @@ func AttachExternal(opt *StartOptions) {
 	GConfig.update(opt.Socks5Server, opt.Socks5User, opt.Socks5Pass, opt.DnsProxy)
 
 	go func() {
-		// Wait for socket
-		for i := 0; i < 20; i++ {
-			if _, err := os.Stat(opt.SocketPath); err == nil {
-				break
-			}
-			time.Sleep(500 * time.Millisecond)
+		if !waitForLocalAPI(20 * time.Second) {
+			slog.Error("Root daemon socket never became ready, aborting attach")
+			return
 		}
 		EnsureIPNBusListener()
 		if opt.AuthKey != "" {
 			Login(opt.AuthKey)
 		} else {
-			registerMachineWithAuthKey(PC, opt)
+			registerMachineWithAuthKey(opt)
 		}
 		syncSettings(opt)
 	}()
@@ -553,15 +574,42 @@ func RestartDNS() {
 }
 
 func Stop() {
+	releaseGoResources()
+
+	stateMu.Lock()
+	defer stateMu.Unlock()
+	if cmd != nil && cmd.Process != nil {
+		_ = cmd.Process.Signal(os.Interrupt)
+		go func(p *os.Process) {
+			time.Sleep(2 * time.Second)
+			_ = p.Kill()
+		}(cmd.Process)
+		cmd = nil
+	}
+}
+
+// DetachExternal releases every Go-side resource bound to an externally managed
+// (root) daemon without terminating the daemon process itself. Used when the
+// service stops but the user asked the root daemon to keep running.
+func DetachExternal() {
+	releaseGoResources()
+	slog.Info("Detached from external daemon")
+}
+
+// releaseGoResources tears down everything the bridge owns — bus listener, DNS
+// proxy, Taildrop collector, Taildrive server and Web UI — and clears the socket
+// path so no further LocalAPI request is attempted.
+func releaseGoResources() {
 	StopWebUI()
 	StopDriveServer()
-	FlushDNS()
-	ResetDNSMetadata()
 	StopIPNBusListener()
+	FlushDNS()
+
 	stateMu.Lock()
 	defer stateMu.Unlock()
 	externalSocketPath = ""
 	daemonStartTime = time.Time{}
+	PC.SetSocket("")
 
 	if dnsProxyCancel != nil {
 		dnsProxyCancel()
@@ -570,14 +618,6 @@ func Stop() {
 	if taildropCancel != nil {
 		taildropCancel()
 		taildropCancel = nil
-	}
-	if cmd != nil && cmd.Process != nil {
-		_ = cmd.Process.Signal(os.Interrupt)
-		go func(p *os.Process) {
-			time.Sleep(2 * time.Second)
-			_ = p.Kill()
-		}(cmd.Process)
-		cmd = nil
 	}
 }
 

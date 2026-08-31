@@ -3,7 +3,6 @@ package appctr
 import (
 	"encoding/json"
 	"log/slog"
-	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -18,6 +17,9 @@ func GetLastError() string {
 }
 
 func ForceRefresh() {
+	if !IsRunning() {
+		return
+	}
 	slog.Debug("Manual refresh requested")
 	data, err := doLocalRequest("GET", "/localapi/v0/status", nil)
 	if err == nil && len(data) > 0 {
@@ -76,18 +78,14 @@ func RunTailscaleArgs(parts ...string) string {
 
 // registerMachineWithAuthKey waits for the daemon socket to be ready, then
 // applies initial authentication and preferences via LocalAPI (CLI-free).
-func registerMachineWithAuthKey(pc pathControl, opt *StartOptions) {
-	// Poll until socket exists and LocalAPI responds.
-	var stStr string
+func registerMachineWithAuthKey(opt *StartOptions) {
+	// Poll until the LocalAPI answers a real request, not just until the socket
+	// file appears — the daemon binds the socket before it can serve traffic.
 	apiReady := false
 	for i := 1; i <= 20; i++ {
-		if _, err := os.Stat(pc.Socket()); err == nil {
-			var err error
-			stStr, err = GetStatusJSON(false)
-			if err == nil && len(stStr) > 0 {
-				apiReady = true
-				break
-			}
+		if stStr, err := GetStatusJSON(false); err == nil && len(stStr) > 0 {
+			apiReady = true
+			break
 		}
 		time.Sleep(1 * time.Second)
 	}

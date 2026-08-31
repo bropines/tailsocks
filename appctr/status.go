@@ -9,6 +9,9 @@ import (
 
 // GetStatusFromAPI returns the daemon status as JSON.
 func GetStatusFromAPI() string {
+	if !IsRunning() {
+		return `{"Error": "` + errNotRunning.Error() + `"}`
+	}
 	data, err := GetStatusJSON(true)
 	if err != nil {
 		return fmt.Sprintf(`{"Error": %q}`, err.Error())

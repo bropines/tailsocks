@@ -61,6 +61,9 @@ func (c *LocalClient) execute(method, path string, body io.Reader) ([]byte, erro
 // GetStatusJSON retrieves the current node status from /localapi/v0/status.
 // When includePeers is true, full peer metadata is included in the response.
 func GetStatusJSON(includePeers bool) (string, error) {
+	if !IsRunning() {
+		return "", ErrDaemonNotRunning
+	}
 	path := "/localapi/v0/status"
 	if includePeers {
 		path += "?peers=true"
@@ -74,6 +77,9 @@ func GetStatusJSON(includePeers bool) (string, error) {
 
 // GetProfilesJSON fetches all registered account profiles from /localapi/v0/profiles/.
 func GetProfilesJSON() (string, error) {
+	if !IsRunning() {
+		return "", ErrDaemonNotRunning
+	}
 	data, err := doLocalRequest("GET", "/localapi/v0/profiles/", nil)
 	if err != nil {
 		return "", fmt.Errorf("GetProfilesJSON failed: %w", err)
@@ -83,6 +89,9 @@ func GetProfilesJSON() (string, error) {
 
 // SwitchProfile switches the active daemon profile by profile ID.
 func SwitchProfile(profileID string) error {
+	if !IsRunning() {
+		return ErrDaemonNotRunning
+	}
 	if strings.TrimSpace(profileID) == "" {
 		return ErrBadRequest
 	}
@@ -98,6 +107,9 @@ func SwitchProfile(profileID string) error {
 
 // GetPrefsJSON fetches the current daemon preferences from /localapi/v0/prefs.
 func GetPrefsJSON() (string, error) {
+	if !IsRunning() {
+		return "", ErrDaemonNotRunning
+	}
 	data, err := doLocalRequest("GET", "/localapi/v0/prefs", nil)
 	if err != nil {
 		return "", fmt.Errorf("GetPrefsJSON failed: %w", err)
@@ -161,6 +173,9 @@ func LogoutDaemon() error {
 
 // GetNetcheckJSON initiates or retrieves network diagnostic results from /localapi/v0/netcheck.
 func GetNetcheckJSON(requestDERP bool) (string, error) {
+	if !IsRunning() {
+		return "", ErrDaemonNotRunning
+	}
 	path := "/localapi/v0/netcheck"
 	if requestDERP {
 		path += "?full=true"
@@ -174,6 +189,9 @@ func GetNetcheckJSON(requestDERP bool) (string, error) {
 
 // PingTarget sends a DERP or disco ping to a remote peer target via /localapi/v0/ping.
 func PingTarget(targetIP string, pingType string) (string, error) {
+	if !IsRunning() {
+		return "", ErrDaemonNotRunning
+	}
 	if strings.TrimSpace(targetIP) == "" {
 		return "", ErrBadRequest
 	}
@@ -192,6 +210,9 @@ func PingTarget(targetIP string, pingType string) (string, error) {
 
 // WhoIsAddr performs identity lookup for a remote IP address via /localapi/v0/whois.
 func WhoIsAddr(addr string) (string, error) {
+	if !IsRunning() {
+		return "", ErrDaemonNotRunning
+	}
 	if strings.TrimSpace(addr) == "" {
 		return "", ErrBadRequest
 	}
@@ -205,6 +226,9 @@ func WhoIsAddr(addr string) (string, error) {
 
 // GetDERPMapJSON retrieves the current DERP relay region map from /localapi/v0/derp/map.
 func GetDERPMapJSON() (string, error) {
+	if !IsRunning() {
+		return "", ErrDaemonNotRunning
+	}
 	data, err := doLocalRequest("GET", "/localapi/v0/derp/map", nil)
 	if err != nil {
 		return "", fmt.Errorf("GetDERPMapJSON failed: %w", err)
@@ -216,6 +240,9 @@ func GetDERPMapJSON() (string, error) {
 
 // GetDriveSharesJSON lists all configured Taildrive shared directories.
 func GetDriveSharesJSON() (string, error) {
+	if !IsRunning() {
+		return "", ErrDaemonNotRunning
+	}
 	data, err := doLocalRequest("GET", "/localapi/v0/drive/shares", nil)
 	if err != nil {
 		return "", fmt.Errorf("GetDriveSharesJSON failed: %w", err)
@@ -225,6 +252,9 @@ func GetDriveSharesJSON() (string, error) {
 
 // PutDriveShare adds or updates a local directory share in Taildrive.
 func PutDriveShare(name, path string) error {
+	if !IsRunning() {
+		return ErrDaemonNotRunning
+	}
 	if strings.TrimSpace(name) == "" || strings.TrimSpace(path) == "" {
 		return ErrBadRequest
 	}
@@ -245,6 +275,9 @@ func PutDriveShare(name, path string) error {
 
 // DeleteDriveShare removes a Taildrive share by its share name.
 func DeleteDriveShare(name string) error {
+	if !IsRunning() {
+		return ErrDaemonNotRunning
+	}
 	if strings.TrimSpace(name) == "" {
 		return ErrBadRequest
 	}
@@ -258,6 +291,9 @@ func DeleteDriveShare(name string) error {
 
 // SetFileServerAddr registers the local Taildrive Web interface server address.
 func SetFileServerAddr(addr string) error {
+	if !IsRunning() {
+		return ErrDaemonNotRunning
+	}
 	_, err := doLocalRequest("PUT", "/localapi/v0/drive/fileserver-address", strings.NewReader(addr))
 	if err != nil {
 		return fmt.Errorf("SetFileServerAddr failed: %w", err)
@@ -267,6 +303,9 @@ func SetFileServerAddr(addr string) error {
 
 // GetFileTargetsJSON fetches remote tailnet nodes capable of receiving files via Taildrop.
 func GetFileTargetsJSON() (string, error) {
+	if !IsRunning() {
+		return "", ErrDaemonNotRunning
+	}
 	data, err := doLocalRequest("GET", "/localapi/v0/file-targets", nil)
 	if err != nil {
 		return "", fmt.Errorf("GetFileTargetsJSON failed: %w", err)
@@ -276,6 +315,9 @@ func GetFileTargetsJSON() (string, error) {
 
 // GetWaitingFilesJSON retrieves incoming Taildrop files waiting to be received.
 func GetWaitingFilesJSON() (string, error) {
+	if !IsRunning() {
+		return "", ErrDaemonNotRunning
+	}
 	data, err := doLocalRequest("GET", "/localapi/v0/files/", nil)
 	if err != nil {
 		return "", fmt.Errorf("GetWaitingFilesJSON failed: %w", err)
@@ -287,6 +329,9 @@ func GetWaitingFilesJSON() (string, error) {
 
 // GetServeConfigJSON retrieves active Serve/Funnel virtual service rules from /localapi/v0/serve-config.
 func GetServeConfigJSON() (string, error) {
+	if !IsRunning() {
+		return "", ErrDaemonNotRunning
+	}
 	data, err := doLocalRequest("GET", "/localapi/v0/serve-config", nil)
 	if err != nil {
 		return "", fmt.Errorf("GetServeConfigJSON failed: %w", err)
@@ -324,6 +369,9 @@ func ResetServeConfig() error {
 
 // SetDNSJSON pushes custom DNS configuration updates to /localapi/v0/set-dns.
 func SetDNSJSON(dnsJSON string) error {
+	if !IsRunning() {
+		return ErrDaemonNotRunning
+	}
 	var body io.Reader
 	if dnsJSON != "" {
 		body = strings.NewReader(dnsJSON)

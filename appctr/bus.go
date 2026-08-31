@@ -178,21 +178,37 @@ var magicDNSSuffix string
 var busCancel context.CancelFunc
 var busMu sync.Mutex
 
-// EnsureIPNBusListener starts the bus listener goroutine if not already running,
-// provided the daemon socket is active.
+// EnsureIPNBusListener starts the bus listener goroutine if not already running.
+// The listener waits for the LocalAPI socket to accept connections before it
+// issues its first request, so calling this during startup is safe.
 func EnsureIPNBusListener() {
 	busMu.Lock()
 	defer busMu.Unlock()
 	if busCancel != nil {
 		return
 	}
-	if !IsRunning() {
+
+	stateMu.Lock()
+	sock := PC.Socket()
+	stateMu.Unlock()
+	if sock == "" {
 		return
 	}
+
 	slog.Info("Starting IPN Bus Listener...")
 	busCtx, cancel := context.WithCancel(context.Background())
 	busCancel = cancel
-	go startIPNBusListener(busCtx)
+	go func() {
+		if !waitForLocalAPI(30 * time.Second) {
+			slog.Warn("IPN Bus: daemon socket never became ready, listener not started")
+			busMu.Lock()
+			busCancel = nil
+			busMu.Unlock()
+			cancel()
+			return
+		}
+		startIPNBusListener(busCtx)
+	}()
 }
 
 // StopIPNBusListener cancels the running bus listener.
@@ -235,6 +251,13 @@ func startIPNBusListener(ctx context.Context) {
 			errStr := err.Error()
 			if strings.Contains(errStr, "permission denied") {
 				slog.Error("Bus listener: permission denied — SELinux/chmod issue. Not retrying.", "err", err)
+				return
+			}
+
+			// The daemon is gone (stopped, killed, or detached): stop reconnecting
+			// instead of retrying a dead socket for the lifetime of the process.
+			if !IsRunning() {
+				slog.Info("Bus listener: daemon is no longer running, stopping listener")
 				return
 			}
 
