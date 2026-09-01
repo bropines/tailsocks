@@ -158,6 +158,10 @@ class TailscaledService : Service() {
                     Thread {
                         if (RootUtils.applyTailscale0Routing(dnsRedirect, bypass)) {
                             rootRoutingFailures = 0
+                            // Persist the fact that system rules now exist, so they
+                            // can be removed even if the app is killed or Root Mode
+                            // is switched off before the next stop.
+                            GlobalSettings.setRootRoutingInstalled(this@TailscaledService, true)
                         } else {
                             rootRoutingApplied = false
                             rootRoutingFailures++
@@ -180,7 +184,10 @@ class TailscaledService : Service() {
                         Log.i(TAG, "Daemon is not Running ($backendState). Cleaning up tailscale0 routing.")
                         rootRoutingApplied = false
                         rootNotRunningTicks = 0
-                        Thread { RootUtils.cleanupTailscale0Routing() }.start()
+                        Thread {
+                            RootUtils.cleanupTailscale0Routing()
+                            GlobalSettings.setRootRoutingInstalled(this@TailscaledService, false)
+                        }.start()
                     }
                 }
                 if (isRunning && (backendState == "NeedsLogin" || backendState == "Starting" || backendState == "NoState")) {
@@ -590,6 +597,13 @@ class TailscaledService : Service() {
                         Appctr.attachExternal(options)
                     }
                 } else {
+                    // Starting in userspace mode while system rules from a previous
+                    // Root Mode session are still installed would leave the device
+                    // routing tailnet traffic into an interface nobody manages.
+                    if (GlobalSettings.isRootRoutingInstalled(this@TailscaledService)) {
+                        Log.i(TAG, "Removing leftover Root Mode routing before userspace start")
+                        removeRootArtifacts(killDaemon = true)
+                    }
                     Appctr.setExternalSocketPath("")
                     Appctr.start(options)
                 }
@@ -774,25 +788,52 @@ class TailscaledService : Service() {
     private fun shutdownDaemon() {
         try { Appctr.stopDriveServer() } catch (e: Exception) {}
         try { Appctr.stopDriveProxy() } catch (e: Exception) {}
-        if (GlobalSettings.isRootModeEnabled(this)) {
-            val socketPath = "${filesDir.absolutePath}/tailscaled.sock"
+
+        val rootMode = GlobalSettings.isRootModeEnabled(this)
+        if (rootMode) {
             // Release the bridge first: the IPN bus, the DNS proxy and the Taildrop
             // collector must stop talking to a daemon that is about to disappear.
             Appctr.detachExternal()
-            rootRoutingApplied = false
-            rootRoutingFailures = 0
-            rootNotRunningTicks = 0
-            RootUtils.cleanupTailscale0Routing()
-            if (GlobalSettings.shouldKillRootDaemonOnStop(this)) {
-                RootUtils.stopRootDaemon(socketPath)
-            }
         } else {
             Appctr.stop()
         }
+
+        // Rule removal is deliberately not tied to Root Mode still being on.
+        // Turning the mode off flips the setting before the service is asked to
+        // stop, which used to send this down the non-root path and leave the
+        // firewall rules, the routing table and the hosts bind-mount behind.
+        removeRootArtifacts(killDaemon = !rootMode || GlobalSettings.shouldKillRootDaemonOnStop(this))
+
         try { ByeDpiProxy.stop() } catch (e: Exception) {}
         byedpiProxyAddress = null
         lastStartedFlags = null
         lastStartedIpv6Disabled = null
+    }
+
+    /**
+     * Removes everything Root Mode installs on the system, if anything is
+     * recorded as installed. Safe to call when nothing is.
+     *
+     * @param killDaemon also terminate the root daemon. When Root Mode is being
+     *   switched off the daemon must go regardless of the keep-alive preference,
+     *   since nothing will manage it any more.
+     */
+    private fun removeRootArtifacts(killDaemon: Boolean) {
+        val installed = GlobalSettings.isRootRoutingInstalled(this)
+        val rootMode = GlobalSettings.isRootModeEnabled(this)
+        if (!installed && !rootMode) return
+
+        rootRoutingApplied = false
+        rootRoutingFailures = 0
+        rootNotRunningTicks = 0
+
+        if (installed) {
+            RootUtils.cleanupTailscale0Routing()
+            GlobalSettings.setRootRoutingInstalled(this, false)
+        }
+        if (killDaemon) {
+            RootUtils.stopRootDaemon("${filesDir.absolutePath}/tailscaled.sock")
+        }
     }
     
     private fun updateTile() {
@@ -1046,21 +1087,16 @@ class TailscaledService : Service() {
         if (!teardownStarted) {
             teardownStarted = true
             val rootMode = GlobalSettings.isRootModeEnabled(this)
-            val socketPath = "${filesDir.absolutePath}/tailscaled.sock"
             Thread {
                 if (rootMode) {
                     Appctr.detachExternal()
-                    rootRoutingApplied = false
-                    rootRoutingFailures = 0
-                    rootNotRunningTicks = 0
-                    RootUtils.cleanupTailscale0Routing()
-                    // Autostart installed means the daemon is expected to outlive the app.
-                    if (!RootUtils.isServiceScriptInstalled()) {
-                        RootUtils.stopRootDaemon(socketPath)
-                    }
                 } else {
                     Appctr.stop()
                 }
+                // Autostart installed means the daemon is expected to outlive the
+                // app, so it is left alone — but its rules are still ours to drop
+                // if the daemon is going away with us.
+                removeRootArtifacts(killDaemon = !RootUtils.isServiceScriptInstalled())
                 try { ByeDpiProxy.stop() } catch (e: Exception) {}
             }.start()
             byedpiProxyAddress = null

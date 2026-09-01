@@ -279,6 +279,18 @@ object GlobalSettings {
     fun isRootDnsRedirectEnabled(context: Context): Boolean = getPrefs(context).getBoolean("root_dns_redirect", true)
     fun setRootDnsRedirectEnabled(context: Context, enabled: Boolean) = getPrefs(context).edit().putBoolean("root_dns_redirect", enabled).apply()
 
+    /**
+     * Records that firewall and policy-routing rules are currently installed on
+     * the system.
+     *
+     * Cleanup must not depend on Root Mode still being switched on: the user can
+     * turn it off, or the app can be killed, while the rules are live. This
+     * marker survives both, so the rules can always be found and removed.
+     */
+    fun isRootRoutingInstalled(context: Context): Boolean = getPrefs(context).getBoolean("root_routing_installed", false)
+    fun setRootRoutingInstalled(context: Context, installed: Boolean) =
+        getPrefs(context).edit().putBoolean("root_routing_installed", installed).apply()
+
     // -------------------------------------------------------------------------
     // Connection recovery
     // -------------------------------------------------------------------------

@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os/exec"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -78,7 +79,18 @@ func RunTailscaleArgs(parts ...string) string {
 
 // registerMachineWithAuthKey waits for the daemon socket to be ready, then
 // applies initial authentication and preferences via LocalAPI (CLI-free).
+// registerInFlight keeps a single registration attempt alive at a time. Every
+// app resume calls ForceRefresh → ReUp, which used to spawn another polling
+// loop; several of them then raced and flooded the log with the same states.
+var registerInFlight atomic.Bool
+
 func registerMachineWithAuthKey(opt *StartOptions) {
+	if !registerInFlight.CompareAndSwap(false, true) {
+		slog.Debug("Registration already in progress, skipping duplicate")
+		return
+	}
+	defer registerInFlight.Store(false)
+
 	// Poll until the LocalAPI answers a real request, not just until the socket
 	// file appears — the daemon binds the socket before it can serve traffic.
 	apiReady := false
@@ -106,39 +118,29 @@ func registerMachineWithAuthKey(opt *StartOptions) {
 
 	if opt.AuthKey != "" {
 		slog.Info("LocalAPI: authenticating with auth key")
-		updatePrefs := map[string]interface{}{
-			"WantRunning": true,
-			"RouteAll":    opt.AcceptRoutes,
-			"RouteAllSet": true,
-			"CorpDNS":     opt.AcceptDNS,
-			"CorpDNSSet":  true,
-		}
-		if opt.Hostname != "" {
-			updatePrefs["Hostname"] = opt.Hostname
-			updatePrefs["HostnameSet"] = true
-		}
-		if opt.LoginServer != "" {
-			updatePrefs["ControlURL"] = opt.LoginServer
-			updatePrefs["ControlURLSet"] = true
-		}
-		startOpts := map[string]interface{}{
-			"AuthKey":     opt.AuthKey,
-			"UpdatePrefs": updatePrefs,
-		}
-		payload, _ := json.Marshal(startOpts)
+		// Preferences go through PATCH /prefs, which is a masked partial update.
+		// Passing them as Start's UpdatePrefs would replace the whole prefs
+		// object and silently drop everything not listed here — exit node,
+		// advertised routes and tags among them.
+		applyStartupPrefs(opt)
+		payload, _ := json.Marshal(map[string]interface{}{"AuthKey": opt.AuthKey})
 		_ = StartDaemon(string(payload))
 		return
 	}
 
-	// Wait for the daemon's own verdict instead of guessing from an early state.
+	// Let the daemon reach its own verdict instead of guessing from an early state.
 	//
-	// tailscaled always starts in NoState and only decides between Starting (a
-	// saved session it can resume) and NeedsLogin (nothing to resume) once it has
-	// reached the control plane. Behind a control-plane proxy that easily takes
-	// several seconds. Treating that window as "not logged in" and calling
-	// LoginInteractive regenerates the node key and logs the device out of a
-	// perfectly good session — which showed up as "did not connect on the first
-	// try, worked on the second".
+	// tailscaled always begins in NoState. It only decides between Starting (a
+	// saved session it can resume) and NeedsLogin (nothing to resume) once its
+	// backend has been started and it has reached the control plane — behind a
+	// control-plane proxy that easily takes several seconds. Treating that window
+	// as "not logged in" and calling LoginInteractive regenerates the node key
+	// and logs the device out of a perfectly good session.
+	//
+	// NoState also means the backend was never started at all, which is the
+	// normal situation for a profile that has not been used yet. A bare Start
+	// (no UpdatePrefs, so nothing is overwritten) makes the daemon commit to
+	// NeedsLogin or Starting; only then is a login decision possible.
 	var statusResp struct {
 		BackendState string `json:"BackendState"`
 		AuthURL      string `json:"AuthURL"`
@@ -147,15 +149,21 @@ func registerMachineWithAuthKey(opt *StartOptions) {
 	const stateSettleTimeout = 45 * time.Second
 	deadline := time.Now().Add(stateSettleTimeout)
 	needsLogin := false
+	startNudged := false
+	lastLogged := ""
 
 	for time.Now().Before(deadline) {
 		stStr, err := GetStatusJSON(false)
 		if err == nil && len(stStr) > 0 && json.Unmarshal([]byte(stStr), &statusResp) == nil {
-			slog.Debug("Daemon startup state poll", "backend_state", statusResp.BackendState, "has_auth_url", statusResp.AuthURL != "")
+			// Log transitions, not every poll: this loop runs twice a second and
+			// used to bury the rest of the log while waiting for a login.
+			if statusResp.BackendState != lastLogged {
+				lastLogged = statusResp.BackendState
+				slog.Info("Daemon startup state", "backend_state", statusResp.BackendState, "has_auth_url", statusResp.AuthURL != "")
+			}
 
 			switch statusResp.BackendState {
 			case "Running", "Starting":
-				// A saved session is being resumed; never interrupt it.
 				slog.Info("Account has an active session, preserving it", "backend_state", statusResp.BackendState)
 				return
 			case "Stopped":
@@ -170,6 +178,13 @@ func registerMachineWithAuthKey(opt *StartOptions) {
 					return
 				}
 				needsLogin = true
+			case "NoState":
+				if !startNudged {
+					startNudged = true
+					slog.Info("Backend has not been started yet, sending Start")
+					applyStartupPrefs(opt)
+					_ = StartDaemon("{}")
+				}
 			}
 			if needsLogin {
 				break
@@ -182,34 +197,39 @@ func registerMachineWithAuthKey(opt *StartOptions) {
 	}
 
 	if !needsLogin {
-		// Still undecided after the timeout. The daemon is stuck rather than
-		// logged out — forcing a login here would throw away the node key.
+		// Still undecided after the timeout: the daemon is stuck, not logged out.
+		// Forcing a login here would throw away the node key.
 		slog.Warn("Daemon did not settle into a known state, not forcing a login",
 			"backend_state", statusResp.BackendState)
 		return
 	}
 
-	// The daemon itself reports NeedsLogin.
-	// Configure custom ControlURL (Headscale) if specified, then trigger LoginInteractive.
-	if opt.LoginServer != "" {
-		slog.Info("LocalAPI: configuring custom ControlURL before LoginInteractive", "url", opt.LoginServer)
-		updatePrefs := map[string]interface{}{
-			"ControlURL":    opt.LoginServer,
-			"ControlURLSet": true,
-			"WantRunning":   true,
-		}
-		if opt.Hostname != "" {
-			updatePrefs["Hostname"] = opt.Hostname
-			updatePrefs["HostnameSet"] = true
-		}
-		startOpts := map[string]interface{}{
-			"UpdatePrefs": updatePrefs,
-		}
-		payload, _ := json.Marshal(startOpts)
-		_ = StartDaemon(string(payload))
-		time.Sleep(300 * time.Millisecond)
-	}
-
 	slog.Info("Account requires authentication (BackendState: " + statusResp.BackendState + "). Triggering interactive login.")
 	_ = LoginInteractive()
+}
+
+// applyStartupPrefs pushes the options the user configured through the masked
+// PATCH /prefs endpoint. Start's UpdatePrefs replaces the entire prefs object,
+// so it must never be used to carry a partial set.
+func applyStartupPrefs(opt *StartOptions) {
+	prefs := map[string]interface{}{
+		"WantRunning":    true,
+		"WantRunningSet": true,
+		"RouteAll":       opt.AcceptRoutes,
+		"RouteAllSet":    true,
+		"CorpDNS":        opt.AcceptDNS,
+		"CorpDNSSet":     true,
+	}
+	if opt.Hostname != "" {
+		prefs["Hostname"] = opt.Hostname
+		prefs["HostnameSet"] = true
+	}
+	if opt.LoginServer != "" {
+		prefs["ControlURL"] = opt.LoginServer
+		prefs["ControlURLSet"] = true
+	}
+	payload, _ := json.Marshal(prefs)
+	if err := PatchPrefsJSON(string(payload)); err != nil {
+		slog.Warn("Could not apply startup preferences", "err", err)
+	}
 }

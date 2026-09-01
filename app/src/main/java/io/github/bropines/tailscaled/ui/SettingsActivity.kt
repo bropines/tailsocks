@@ -1285,17 +1285,27 @@ fun SettingsScreen(
                                         showRootWarningDialog = true
                                     } else {
                                         rootModeEnabled = false
+                                        val hadRouting = GlobalSettings.isRootRoutingInstalled(context)
                                         GlobalSettings.setRootModeEnabled(context, false)
-                                        if (serviceScriptInstalled) {
-                                            serviceScriptInstalled = false
-                                            scope.launch(Dispatchers.IO) {
-                                                RootUtils.setServiceScriptInstalled(context, false)
-                                            }
-                                        }
+                                        val hadScript = serviceScriptInstalled
+                                        serviceScriptInstalled = false
                                         Toast.makeText(context, "Root Mode disabled", Toast.LENGTH_SHORT).show()
-                                        if (Appctr.isRunning()) {
-                                            val intent = Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" }
-                                            context.startService(intent)
+                                        scope.launch(Dispatchers.IO) {
+                                            if (hadScript) RootUtils.setServiceScriptInstalled(context, false)
+                                            // Take the system rules and the daemon down here rather
+                                            // than hoping a later stop does it: nothing else knows
+                                            // Root Mode was ever on once the setting is cleared.
+                                            if (hadRouting) {
+                                                RootUtils.cleanupTailscale0Routing()
+                                                GlobalSettings.setRootRoutingInstalled(context, false)
+                                            }
+                                            RootUtils.stopRootDaemon("${context.filesDir.absolutePath}/tailscaled.sock")
+                                            if (Appctr.isRunning()) {
+                                                withContext(Dispatchers.Main) {
+                                                    val intent = Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" }
+                                                    context.startService(intent)
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -1312,10 +1322,22 @@ fun SettingsScreen(
                                         checked = rootTunEnabled
                                     ) { enabled ->
                                         rootTunEnabled = enabled
+                                        val hadRouting = GlobalSettings.isRootRoutingInstalled(context)
                                         GlobalSettings.setRootTunEnabled(context, enabled)
-                                        if (Appctr.isRunning()) {
-                                            val intent = Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" }
-                                            context.startService(intent)
+                                        scope.launch(Dispatchers.IO) {
+                                            // Leaving native TUN drops tailscale0, so its policy
+                                            // routing has to go with it — the refresh loop no longer
+                                            // looks at Root Mode routing once this is off.
+                                            if (!enabled && hadRouting) {
+                                                RootUtils.cleanupTailscale0Routing()
+                                                GlobalSettings.setRootRoutingInstalled(context, false)
+                                            }
+                                            if (Appctr.isRunning()) {
+                                                withContext(Dispatchers.Main) {
+                                                    val intent = Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" }
+                                                    context.startService(intent)
+                                                }
+                                            }
                                         }
                                     }
 
