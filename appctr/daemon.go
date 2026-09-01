@@ -98,23 +98,24 @@ func tailscaledCmd(p pathControl, dnsFallbacks string, socksAddr, httpAddr, sock
 		return err
 	}
 
+	// A daemon log line can exceed bufio.Scanner's default 64 KB token, which
+	// silently kills the scanner and drops all later output; give it room.
+	scan := func(r interface{ Read([]byte) (int, error) }) {
+		s := bufio.NewScanner(r)
+		s.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+		for s.Scan() {
+			logWithFilter(s.Text())
+		}
+	}
+
 	var wg sync.WaitGroup
 	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		s := bufio.NewScanner(stdOut)
-		for s.Scan() {
-			logWithFilter(s.Text())
-		}
-	}()
-	go func() {
-		defer wg.Done()
-		s := bufio.NewScanner(stdErr)
-		for s.Scan() {
-			logWithFilter(s.Text())
-		}
-	}()
+	go func() { defer wg.Done(); scan(stdOut) }()
+	go func() { defer wg.Done(); scan(stdErr) }()
 
+	// Drain both pipes before Wait() closes them, so the last lines before a
+	// crash — the interesting ones — are not lost.
+	wg.Wait()
 	return c.Wait()
 }
 

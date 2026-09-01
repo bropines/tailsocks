@@ -95,10 +95,10 @@ class TailscaledService : Service() {
     private var byedpiProxyAddress: Pair<String, Int>? = null
     private var lastStartedFlags: String? = null
     private var lastStartedIpv6Disabled: Boolean? = null
-    private var rootRoutingApplied = false
+    @Volatile private var rootRoutingApplied = false
     /** Consecutive non-Running ticks; routing is only torn down after a couple of
      *  them so a brief state flap does not thrash iptables through `su`. */
-    private var rootNotRunningTicks = 0
+    @Volatile private var rootNotRunningTicks = 0
     /** Consecutive failed routing attempts; retrying forever through `su` is noise. */
     @Volatile private var rootRoutingFailures = 0
     private val maxRootRoutingAttempts = 3
@@ -970,8 +970,8 @@ class TailscaledService : Service() {
         }
     }
 
-    private var lastHostsHash: Int = 0
-    private var lastHostsSyncAt: Long = 0
+    @Volatile private var lastHostsHash: Int = 0
+    @Volatile private var lastHostsSyncAt: Long = 0
     @Volatile private var hostsSyncInFlight = false
 
     /** Minimum gap between full peer-status fetches for the /etc/hosts sync. */
