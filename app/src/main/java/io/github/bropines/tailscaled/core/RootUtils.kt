@@ -488,12 +488,23 @@ object RootUtils {
 
     fun stopRootDaemon(socketPath: String = ""): Boolean {
         cleanupTailscale0Routing()
+        // Match only our own daemon by its --socket argument, which contains this
+        // app's private data path. `pkill -f libtailscale.so` matched the full
+        // command line of every process on the device, so a second profile, a
+        // Termux tailscaled, or any unrelated app shipping that library was
+        // killed as root too.
         val script = buildString {
-            append("pkill -15 -f 'libtailscale.so' 2>/dev/null || killall -15 tailscaled 2>/dev/null || true\n")
-            append("sleep 1\n")
-            append("pkill -9 -f 'libtailscale.so' 2>/dev/null || killall -9 tailscaled 2>/dev/null || true\n")
             if (socketPath.isNotEmpty()) {
-                append("rm -f \"$socketPath\"\n")
+                val pat = shQuote("--socket=$socketPath")
+                append("pkill -15 -f -- $pat 2>/dev/null || true\n")
+                append("sleep 1\n")
+                append("pkill -9 -f -- $pat 2>/dev/null || true\n")
+                append("rm -f ${shQuote(socketPath)}\n")
+            } else {
+                // No socket path to scope by; fall back to the exact process name.
+                append("killall -15 libtailscale.so 2>/dev/null || true\n")
+                append("sleep 1\n")
+                append("killall -9 libtailscale.so 2>/dev/null || true\n")
             }
         }
         val res = runSu("daemon-stop", script)
@@ -561,9 +572,14 @@ object RootUtils {
                     chmod 755 "$MAGISK_MODULE_CLI_PATH"
                     chcon u:object_r:system_file:s0 "$MAGISK_MODULE_CLI_PATH" 2>/dev/null || true
 
-                    mount -o remount,rw /product/bin 2>/dev/null && cp "${tempFile.absolutePath}" /product/bin/tailscale && chmod 755 /product/bin/tailscale && chcon u:object_r:system_file:s0 /product/bin/tailscale && mount -o remount,ro /product/bin 2>/dev/null || true
-                    mount -o remount,rw /system 2>/dev/null || true
-                    cp "${tempFile.absolutePath}" "$CLI_SCRIPT_PATH" 2>/dev/null && chmod 755 "$CLI_SCRIPT_PATH" || true
+                    if mount -o remount,rw /product/bin 2>/dev/null; then
+                        cp "${tempFile.absolutePath}" /product/bin/tailscale 2>/dev/null && chmod 755 /product/bin/tailscale && chcon u:object_r:system_file:s0 /product/bin/tailscale 2>/dev/null
+                        mount -o remount,ro /product/bin 2>/dev/null || true
+                    fi
+                    if mount -o remount,rw /system 2>/dev/null; then
+                        cp "${tempFile.absolutePath}" "$CLI_SCRIPT_PATH" 2>/dev/null && chmod 755 "$CLI_SCRIPT_PATH" 2>/dev/null
+                        mount -o remount,ro /system 2>/dev/null || true
+                    fi
                     rm -f "${tempFile.absolutePath}"
                 """.trimIndent()
 

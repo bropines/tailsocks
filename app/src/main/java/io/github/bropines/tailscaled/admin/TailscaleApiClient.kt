@@ -135,12 +135,26 @@ class TailscaleApiClient(
                 chain.proceed(request)
             }
 
-            // 3. JVM-wide Authenticator for SOCKS5 proxy authentication
-            java.net.Authenticator.setDefault(object : java.net.Authenticator() {
-                override fun getPasswordAuthentication(): java.net.PasswordAuthentication {
-                    return java.net.PasswordAuthentication(authUser, authPass.toCharArray())
-                }
-            })
+            // 3. SOCKS5 has no per-connection auth in the JDK, so a default
+            //    Authenticator is unavoidable — but it is scoped to the exact
+            //    proxy endpoint and to PROXY requests only. An unscoped default
+            //    handed the proxy password to any host that answered with a 401
+            //    or 407, including remote avatar URLs and the update check that
+            //    share this process.
+            val socksAddr = (selectedProxy.address() as? InetSocketAddress)
+            if (socksAddr != null) {
+                val proxyHostName = socksAddr.hostString
+                val proxyPortNum = socksAddr.port
+                val user = authUser
+                val pass = authPass
+                java.net.Authenticator.setDefault(object : java.net.Authenticator() {
+                    override fun getPasswordAuthentication(): java.net.PasswordAuthentication? {
+                        if (requestorType != RequestorType.PROXY) return null
+                        if (requestingHost != proxyHostName || requestingPort != proxyPortNum) return null
+                        return java.net.PasswordAuthentication(user, pass.toCharArray())
+                    }
+                })
+            }
         }
 
         return builder.build()

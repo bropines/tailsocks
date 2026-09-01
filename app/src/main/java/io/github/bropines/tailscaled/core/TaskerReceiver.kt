@@ -42,17 +42,22 @@ class TaskerReceiver : BroadcastReceiver() {
             return
         }
 
-        // 2. Verify Secret Token (if configured)
+        // 2. Require a secret token. This receiver is exported with no
+        //    permission, so an empty token used to leave it open to every app on
+        //    the device — any of them could disable the VPN or reroute traffic.
+        //    Nothing is honoured until the user sets a token in settings.
         val requiredSecret = GlobalSettings.getAutomationSecret(context)
-        if (requiredSecret.isNotEmpty()) {
-            val providedSecret = intent.getStringExtra("secret")
-                ?: intent.getStringExtra("token")
-                ?: intent.getStringExtra("key")
-                ?: ""
-            if (providedSecret != requiredSecret) {
-                Log.e(TAG, "Unauthorized automation intent rejected! Invalid or missing secret token.")
-                return
-            }
+        if (requiredSecret.isEmpty()) {
+            Log.e(TAG, "Automation intent rejected: no secret token configured. Set one in Settings.")
+            return
+        }
+        val providedSecret = intent.getStringExtra("secret")
+            ?: intent.getStringExtra("token")
+            ?: intent.getStringExtra("key")
+            ?: ""
+        if (!constantTimeEquals(providedSecret, requiredSecret)) {
+            Log.e(TAG, "Unauthorized automation intent rejected! Invalid or missing secret token.")
+            return
         }
 
         val serviceIntent = Intent(context, TailscaledService::class.java)
@@ -165,6 +170,10 @@ class TaskerReceiver : BroadcastReceiver() {
             Log.e(TAG, "Failed to switch account via intent: ${e.message}", e)
         }
     }
+
+    /** Compares two secrets without leaking their length or content via timing. */
+    private fun constantTimeEquals(a: String, b: String): Boolean =
+        java.security.MessageDigest.isEqual(a.toByteArray(Charsets.UTF_8), b.toByteArray(Charsets.UTF_8))
 
     private fun startServiceSafely(context: Context, serviceIntent: Intent) {
         try {

@@ -644,13 +644,18 @@ class TaildriveClient(private val context: Context, private val accountId: Strin
         val user = GlobalSettings.getString(context, "socks5_user", "")
         val pass = GlobalSettings.getString(context, "socks5_pass", "")
         if (user.isNotEmpty() || pass.isNotEmpty()) {
+            // Scoped to this proxy endpoint only. An unscoped default Authenticator
+            // handed the SOCKS credentials to any host in the process that returned
+            // a 401/407 — the admin API, DoH, the GitHub update check.
             java.net.Authenticator.setDefault(object : java.net.Authenticator() {
-                override fun getPasswordAuthentication(): java.net.PasswordAuthentication {
+                override fun getPasswordAuthentication(): java.net.PasswordAuthentication? {
+                    if (requestorType != RequestorType.PROXY) return null
+                    if (requestingHost != host || requestingPort != port) return null
                     return java.net.PasswordAuthentication(user, pass.toCharArray())
                 }
             })
         }
-        
+
         return Proxy(Proxy.Type.SOCKS, InetSocketAddress(host, port))
     }
 

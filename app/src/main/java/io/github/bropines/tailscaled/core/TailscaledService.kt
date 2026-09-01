@@ -552,7 +552,7 @@ class TailscaledService : Service() {
         
         Thread {
             try {
-                applicationContext.sendBroadcast(Intent("STARTING"))
+                applicationContext.sendBroadcast(Intent("STARTING").setPackage(packageName))
                 if (GlobalSettings.isRootModeEnabled(this@TailscaledService)) {
                     val socketFile = java.io.File(options.socketPath)
                     // A socket file left behind by a killed daemon still exists, so
@@ -608,7 +608,7 @@ class TailscaledService : Service() {
                     Appctr.start(options)
                 }
                 updateNotification("Active")
-                applicationContext.sendBroadcast(Intent("START"))
+                applicationContext.sendBroadcast(Intent("START").setPackage(packageName))
                 forceAppWidgetUpdate(this@TailscaledService)
                 if (waitForDaemonReady()) {
                     Log.d(TAG, "Daemon readiness checkpoint reached. Launching auxiliary modules...")
@@ -777,7 +777,7 @@ class TailscaledService : Service() {
                     stopForeground(STOP_FOREGROUND_REMOVE)
                     stopSelf()
                     updateTile()
-                    applicationContext.sendBroadcast(Intent("STOP"))
+                    applicationContext.sendBroadcast(Intent("STOP").setPackage(packageName))
                     sendStatusBroadcast(this, "STOPPED")
                 }
             }
