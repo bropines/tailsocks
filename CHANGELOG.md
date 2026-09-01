@@ -2,7 +2,19 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
-## [3.6.0] - 2026-08-31
+## [3.6.0] - 2026-09-01
+
+### Security
+- **Automation was open to any app.** The Tasker/broadcast receiver honoured commands with no token by default, so any installed app could disable the VPN or reroute traffic. It now requires a secret token before acting on anything.
+- **Root Mode ran untrusted names as root.** A tailnet peer's self-reported name was pasted into a root shell every minute, so a hostile device on your tailnet could run code as root on your phone. Peer names and settings fields are now treated as untrusted.
+- Proxy credentials no longer leak to unrelated servers, the CLI install no longer leaves `/system` writable, stopping the root daemon no longer risks other apps' processes, and the API token and node keys are excluded from device-to-device transfer and cloud backup.
+
+### Fixed
+- **Connection stability**: closed a file-descriptor leak that built up until the proxy stopped working (worst in Root Mode), stopped a restart from killing the daemon it had just started, and stopped a background DNS proxy from being resurrected after the service was stopped.
+- **DNS correctness**: internal tailnet names are no longer leaked to public resolvers, AAAA lookups no longer return bogus addresses, and split-DNS servers with a port or a DoH URL are no longer mangled.
+- **Crashes**: fixed a Web UI crash, a foreground-service crash when applying settings while stopped, and a use-after-close when stopping the TUN tunnel.
+- **Netstack routing fix restored**: a patch that keeps Taildrive/WebDAV working in userspace mode had been silently blanked during the v1.102.1 upgrade and is back.
+- Serve TCP targets can be entered again, editing a Serve rule keeps its PROXY setting, sending a file to an offline device reports the failure instead of "Sent!", deleting an account cleans up its daemon and stored keys, and blocking work was moved off the UI thread in several screens.
 
 ### Added
 - **LAN Access**: New switch in Network settings that opens the SOCKS5 proxy, the HTTP proxy and the local DNS server to the local network (`0.0.0.0`) instead of this device only, so other devices can route through your tailnet. Shows the address to connect to and warns when the SOCKS5 proxy has no password.
