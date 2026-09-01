@@ -29,8 +29,10 @@ on:
         type: choice
         options: [ 'debug', 'release', 'all' ]
 
+# Least privilege: the compile jobs only read the repo. Write to contents is
+# granted per-job, to the release job alone (it creates the GitHub release).
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build-go:
@@ -302,6 +304,9 @@ jobs:
     needs: build-apk
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    # Only this job publishes the GitHub release, so it alone needs write.
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:

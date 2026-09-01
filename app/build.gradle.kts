@@ -28,7 +28,7 @@ val releaseKeystorePath: String? = System.getenv("KEYSTORE_FILE")
 
 android {
     namespace = "io.github.bropines.tailscaled"
-    // Оставляем 36, так как core-ktx 1.17.0 этого требует
+    // compileSdk = 37 (не 36): core-ktx 1.17.0 требует как минимум 36
     compileSdk = 37
 
     signingConfigs {

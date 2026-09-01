@@ -231,7 +231,7 @@ Grab the latest APK from the [Releases](https://github.com/bropines/tailsocks/re
 
 **Prerequisites:**
 - Android NDK (set `ANDROID_NDK_HOME`)
-- Go 1.23+
+- Go — no specific version to install; the build sets `GOTOOLCHAIN=auto` and fetches the exact Go toolchain the module requires
 - `gomobile` (`go install golang.org/x/mobile/cmd/gomobile@latest && gomobile init`)
 - Android SDK with Gradle
 

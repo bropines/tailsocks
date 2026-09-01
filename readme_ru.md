@@ -231,7 +231,7 @@ TailSocks поддерживает 11 минимальных атомарных 
 
 **Требования:**
 - Android NDK (установите переменную `ANDROID_NDK_HOME`)
-- Go 1.23+
+- Go — конкретная версия не нужна: сборка выставляет `GOTOOLCHAIN=auto` и сама скачивает нужный тулчейн Go, который требует модуль
 - `gomobile` (`go install golang.org/x/mobile/cmd/gomobile@latest && gomobile init`)
 - Android SDK с Gradle
 
