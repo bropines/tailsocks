@@ -10,6 +10,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - **Auto-reconnect**: Optionally restarts the daemon when the connection does not come up or drops, with a configurable attempt limit. Waiting for you to sign in is not treated as a failure.
 - **Background revival**: Optionally checks every 15 minutes that the service is still alive and starts it again after a background kill. On skins that block background starts the refusal is written to the log, so it is clear that autostart permission is what is missing.
 - **System-wide DNS switch for Root Mode**: DNS redirection to MagicDNS can now be turned off, so another VPN or DNS filtering app can keep the system resolver.
+- **Backups now record which version produced them**, and a restore refuses an archive made by a newer app version or in a newer format instead of overwriting the profile with data it cannot read. Backups made by earlier versions still restore.
 
 ### Fixed
 - **Connection failed on the first attempt and worked on the second.** The app decided the account needed a new login while the daemon was still contacting the control plane, which discarded a working session and asked for a browser sign-in. It now waits for the daemon's own verdict, and never interrupts a session that is starting or already connected.

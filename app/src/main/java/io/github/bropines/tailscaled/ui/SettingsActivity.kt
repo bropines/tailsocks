@@ -269,7 +269,11 @@ fun SettingsScreen(
             scope.launch(Dispatchers.IO) {
                 try {
                     val allPrefs = profilePrefs.all
-                    val backupData = mapOf("account" to activeAccount, "settings" to allPrefs)
+                    val backupData = mapOf(
+                        "manifest" to BackupFormat.current(context),
+                        "account" to activeAccount,
+                        "settings" to allPrefs
+                    )
                     context.contentResolver.openOutputStream(uri)?.use { it.write(Gson().toJson(backupData).toByteArray()) }
                     withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.settings_backup_saved), Toast.LENGTH_SHORT).show() }
                 } catch (e: Exception) {
@@ -287,6 +291,29 @@ fun SettingsScreen(
                     if (jsonBytes != null) {
                         val jsonString = String(jsonBytes)
                         val backupData = Gson().fromJson(jsonString, Map::class.java)
+
+                        // Same provenance rule as the full backup: never apply an
+                        // export produced by a build newer than this one.
+                        val manifest = (backupData["manifest"] as? Map<*, *>)?.let {
+                            BackupFormat.fromJson(Gson().toJson(it))
+                        }
+                        val refusal: String? = when (val c = BackupFormat.check(context, manifest)) {
+                            is BackupFormat.Compatibility.Ok -> null
+                            is BackupFormat.Compatibility.Legacy -> null
+                            is BackupFormat.Compatibility.FormatTooNew ->
+                                context.getString(R.string.settings_restore_format_too_new, c.backupVersion, c.supported)
+                            is BackupFormat.Compatibility.AppTooNew ->
+                                context.getString(R.string.settings_restore_app_too_new, c.backupVersion, c.installedVersion)
+                            is BackupFormat.Compatibility.WrongPackage ->
+                                context.getString(R.string.settings_restore_wrong_package, c.backupPackage)
+                        }
+                        if (refusal != null) {
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(context, refusal, Toast.LENGTH_LONG).show()
+                            }
+                            return@launch
+                        }
+
                         @Suppress("UNCHECKED_CAST")
                         val settings = backupData["settings"] as? Map<String, Any>
                         if (settings != null) {
@@ -345,6 +372,12 @@ fun SettingsScreen(
 
                     val baos = java.io.ByteArrayOutputStream()
                     java.util.zip.ZipOutputStream(baos).use { zos ->
+                        // Written first so a restore can identify the archive
+                        // before touching anything.
+                        zos.putNextEntry(java.util.zip.ZipEntry(BackupFormat.MANIFEST_ENTRY))
+                        zos.write(BackupFormat.toJson(BackupFormat.current(context)).toByteArray())
+                        zos.closeEntry()
+
                         val prefsDir = File(context.applicationInfo.dataDir, "shared_prefs")
                         if (prefsDir.exists()) {
                             prefsDir.walkTopDown().filter { it.isFile }.forEach { file ->
@@ -402,6 +435,26 @@ fun SettingsScreen(
                     return@launch
                 }
                 val decryptedBytes = BackupCrypto.decrypt(encryptedBytes, passwordStr.toCharArray())
+
+                // Refuse an archive this build cannot honour before writing a
+                // single file: a half-applied restore is worse than none.
+                val manifest = BackupFormat.readManifest(decryptedBytes)
+                val refusal: String? = when (val c = BackupFormat.check(context, manifest)) {
+                    is BackupFormat.Compatibility.Ok -> null
+                    is BackupFormat.Compatibility.Legacy -> null
+                    is BackupFormat.Compatibility.FormatTooNew ->
+                        context.getString(R.string.settings_restore_format_too_new, c.backupVersion, c.supported)
+                    is BackupFormat.Compatibility.AppTooNew ->
+                        context.getString(R.string.settings_restore_app_too_new, c.backupVersion, c.installedVersion)
+                    is BackupFormat.Compatibility.WrongPackage ->
+                        context.getString(R.string.settings_restore_wrong_package, c.backupPackage)
+                }
+                if (refusal != null) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, refusal, Toast.LENGTH_LONG).show()
+                    }
+                    return@launch
+                }
 
                 // Prior to restore, if root is available, change ownership of existing states to app
                 if (RootUtils.isRootAvailable()) {

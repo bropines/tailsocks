@@ -24,6 +24,8 @@ val gitHash = providers.exec {
 println("-> Build VersionCode: $gitVersionCode")
 println("-> Build VersionName: v$baseVersion-$gitHash")
 
+val releaseKeystorePath: String? = System.getenv("KEYSTORE_FILE")
+
 android {
     namespace = "io.github.bropines.tailscaled"
     // Оставляем 36, так как core-ktx 1.17.0 этого требует
@@ -31,9 +33,8 @@ android {
 
     signingConfigs {
         create("release") {
-            val keystorePath = System.getenv("KEYSTORE_FILE")
-            if (keystorePath != null) {
-                storeFile = file(keystorePath)
+            if (releaseKeystorePath != null) {
+                storeFile = file(releaseKeystorePath)
                 storePassword = System.getenv("KEYSTORE_PASSWORD")
                 keyAlias = System.getenv("KEY_ALIAS")
                 keyPassword = System.getenv("KEY_PASSWORD")
@@ -93,10 +94,16 @@ android {
             buildConfigField("boolean", "IS_DEV", "false")
             versionNameSuffix = ".release"
             
-            if (System.getenv("KEYSTORE_FILE") != null) {
+            // Deliberately left unsigned when no keystore is supplied.
+            //
+            // Falling back to the debug key here produced a release APK that
+            // installs once and can then never be updated by a properly signed
+            // build: Android refuses any update whose certificate differs, so the
+            // only way out is uninstalling and losing the app's state. Use
+            // assembleDebug for a locally installable build — it carries the
+            // .dev suffix and coexists with the real one.
+            if (releaseKeystorePath != null) {
                 signingConfig = signingConfigs.getByName("release")
-            } else {
-                signingConfig = signingConfigs.getByName("debug")
             }
         }
     }
@@ -166,4 +173,35 @@ ksp {
 
 tasks.matching { it.name.contains("AarMetadata") }.configureEach {
     enabled = false
+}
+
+// Refuse to package a release that nothing can sign, instead of emitting an
+// artifact that looks finished and turns out to be uninstallable or, worse,
+// signed with a throwaway key.
+tasks.matching { it.name.startsWith("package") && it.name.endsWith("Release") }.configureEach {
+    doFirst {
+        val path = System.getenv("KEYSTORE_FILE")
+            ?: throw GradleException(
+                """
+                Release builds require a signing keystore.
+
+                Set KEYSTORE_FILE, KEYSTORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD, e.g.
+
+                  KEYSTORE_FILE="${'$'}PWD/tailsocks.jks" KEYSTORE_PASSWORD=... \
+                  KEY_ALIAS=... KEY_PASSWORD=... ./gradlew app:assembleRelease
+
+                For a build you just want to install locally, use ./gradlew app:assembleDebug —
+                it carries the .dev application id and installs alongside the real app.
+                """.trimIndent()
+            )
+
+        if (!file(path).exists()) {
+            throw GradleException("KEYSTORE_FILE points at a missing file: $path")
+        }
+        for (v in listOf("KEYSTORE_PASSWORD", "KEY_ALIAS", "KEY_PASSWORD")) {
+            if (System.getenv(v).isNullOrBlank()) {
+                throw GradleException("KEYSTORE_FILE is set but $v is empty; release signing needs all four values.")
+            }
+        }
+    }
 }

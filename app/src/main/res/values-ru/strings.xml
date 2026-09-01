@@ -758,6 +758,11 @@
     <string name="settings_root_routing_check">Проверить маршрутизацию</string>
     <string name="settings_root_script_reinstalled">Скрипт службы успешно переустановлен</string>
     <string name="settings_backup_saved">Резервная копия сохранена</string>
+
+    <!-- Backup compatibility -->
+    <string name="settings_restore_app_too_new">Бэкап создан в TailSocks %1$s — это новее установленной %2$s. Обновите приложение, прежде чем восстанавливать.</string>
+    <string name="settings_restore_format_too_new">Формат бэкапа версии %1$d, эта сборка понимает до %2$d. Обновите приложение, прежде чем восстанавливать.</string>
+    <string name="settings_restore_wrong_package">Бэкап принадлежит другому приложению (%1$s).</string>
     <string name="settings_backup_failed_format">Ошибка резервного копирования: %1$s</string>
     <string name="settings_restored_success">Настройки успешно восстановлены. Пожалуйста, перезапустите приложение.</string>
     <string name="settings_restore_failed_format">Ошибка восстановления: %1$s</string>

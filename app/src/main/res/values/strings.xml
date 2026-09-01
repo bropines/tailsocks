@@ -758,6 +758,11 @@
     <string name="settings_root_routing_check">Check Routing</string>
     <string name="settings_root_script_reinstalled">Service script reinstalled successfully</string>
     <string name="settings_backup_saved">Backup saved</string>
+
+    <!-- Backup compatibility -->
+    <string name="settings_restore_app_too_new">This backup was made by TailSocks %1$s, which is newer than the installed %2$s. Update the app before restoring it.</string>
+    <string name="settings_restore_format_too_new">This backup uses format version %1$d; this build supports up to %2$d. Update the app before restoring it.</string>
+    <string name="settings_restore_wrong_package">This backup belongs to a different app (%1$s).</string>
     <string name="settings_backup_failed_format">Backup failed: %1$s</string>
     <string name="settings_restored_success">Settings restored successfully. Please restart the app.</string>
     <string name="settings_restore_failed_format">Restore failed: %1$s</string>
