@@ -14,6 +14,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - **DNS correctness**: internal tailnet names are no longer leaked to public resolvers, AAAA lookups no longer return bogus addresses, and split-DNS servers with a port or a DoH URL are no longer mangled.
 - **Crashes**: fixed a Web UI crash, a foreground-service crash when applying settings while stopped, and a use-after-close when stopping the TUN tunnel.
 - **Netstack routing fix restored**: a patch that keeps Taildrive/WebDAV working in userspace mode had been silently blanked during the v1.102.1 upgrade and is back.
+- **AppFunctions revived**: the Gemini on-device integration service had been left abstract since 3.3.0, so none of the 14 `@AppFunction` entry points could ever execute. The service now bridges execute requests to the generated invoker, runs functions off the main thread, and all mutating functions respect the automation kill-switch.
 - Serve TCP targets can be entered again, editing a Serve rule keeps its PROXY setting, sending a file to an offline device reports the failure instead of "Sent!", deleting an account cleans up its daemon and stored keys, and blocking work was moved off the UI thread in several screens.
 
 ### Added
