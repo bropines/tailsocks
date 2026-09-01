@@ -417,41 +417,51 @@ class TailscaledService : Service() {
         }
     }
 
+    /**
+     * Enters the foreground within the FGS start window. Android 12+ kills the
+     * process if a foreground-service start does not call startForeground within
+     * a few seconds, so every onStartCommand path goes through this before any
+     * branching or teardown — several branches used to reach stopMe(), whose
+     * root teardown can take seconds, without ever calling it.
+     */
+    private fun enterForeground(status: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(
+                1,
+                buildNotification(status),
+                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            )
+        } else {
+            startForeground(1, buildNotification(status))
+        }
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent == null && !ProxyState.isUserLetRunning(this)) {
-            stopMe()
-            return START_NOT_STICKY
-        }
         val action = intent?.action
-        
-        if (action == "STOP_ACTION") {
-            val notificationText = "Stopping..."
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                startForeground(
-                    1,
-                    buildNotification(notificationText),
-                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-                )
-            } else {
-                startForeground(1, buildNotification(notificationText))
-            }
+
+        if (intent == null && !ProxyState.isUserLetRunning(this)) {
+            enterForeground("Stopping...")
             stopMe()
             return START_NOT_STICKY
         }
-        
+
+        if (action == "STOP_ACTION") {
+            enterForeground("Stopping...")
+            stopMe()
+            return START_NOT_STICKY
+        }
+
         if (action == "REFRESH_ACTION" || action == "APPLY_SETTINGS" || action == ACTION_APPLY_SETTINGS) {
+            enterForeground("Active")
             if (!ProxyState.isActualRunning(this)) {
-                stopMe()
+                // Nothing is running and the daemon is genuinely gone. Do not run
+                // the full stopMe() teardown here — it clears the user's
+                // desired-running state and kills the root daemon. Just leave the
+                // foreground quietly.
+                Log.i(TAG, "Apply/refresh with no running daemon; standing down without teardown")
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
                 return START_NOT_STICKY
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                startForeground(
-                    1,
-                    buildNotification("Active"),
-                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-                )
-            } else {
-                startForeground(1, buildNotification("Active"))
             }
             if (!Appctr.isRunning()) {
                 // The daemon is alive but this process is not attached to it —
@@ -479,16 +489,7 @@ class TailscaledService : Service() {
         }
         
         if (action == "RESTART_ACTION") {
-            val notificationText = "Restarting..."
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                startForeground(
-                    1,
-                    buildNotification(notificationText),
-                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-                )
-            } else {
-                startForeground(1, buildNotification(notificationText))
-            }
+            enterForeground("Restarting...")
             // A restart must not run through stopMe(): that calls stopSelf(), and
             // the daemon was then started again on a service the system was already
             // tearing down. Shut the daemon down in place and bring it back up.
@@ -515,26 +516,10 @@ class TailscaledService : Service() {
         ServiceWatchdog.schedule(this)
         updateTile()
         if (!Appctr.isRunning()) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                startForeground(
-                    1,
-                    buildNotification("Starting..."),
-                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-                )
-            } else {
-                startForeground(1, buildNotification("Starting..."))
-            }
+            enterForeground("Starting...")
             startTailscale()
         } else {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                startForeground(
-                    1,
-                    buildNotification("Active"),
-                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-                )
-            } else {
-                startForeground(1, buildNotification("Active"))
-            }
+            enterForeground("Active")
             updateNotification("Active")
         }
         
