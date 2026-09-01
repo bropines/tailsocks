@@ -5,7 +5,9 @@ import java.net.ServerSocket
 
 object ByeDpiProxy {
     private const val TAG = "ByeDpiProxy"
+    @Volatile
     private var isRunning = false
+    private var proxyThread: Thread? = null
 
     init {
         try {
@@ -31,9 +33,16 @@ object ByeDpiProxy {
     var activeAddress: Pair<String, Int>? = null
         private set
 
+    @Synchronized
     fun start(customFlags: String, context: android.content.Context): Pair<String, Int>? {
         if (isRunning) return null
-        
+        // A previous run may still be tearing down natively. Wait for its thread
+        // so the new proxy does not overlap it. Without this, a flags change
+        // (stop + 200ms + start) saw isRunning still set and silently returned
+        // null, leaving DPI bypass off with no error.
+        proxyThread?.let { if (it.isAlive) it.join(1500) }
+        isRunning = true
+
         // Generate random localhost IP in 127.0.0.0/8 subnet (excluding 127.0.0.1 for security)
         val ip = "127.${(2..254).random()}.${(2..254).random()}.${(2..254).random()}"
         
@@ -71,8 +80,7 @@ object ByeDpiProxy {
         val address = Pair(ip, port)
         activeAddress = address
 
-        Thread {
-            isRunning = true
+        val t = Thread {
             Log.d(TAG, "Starting ByeDPI on $ip:$port with args: $baseArgs")
             appctr.Appctr.logAndroid("INFO", "CORE", "DPI Bypass (ByeDPI) starting on $ip:$port...")
             
@@ -85,13 +93,19 @@ object ByeDpiProxy {
             stopLogReader()
             activeAddress = null
             isRunning = false
-        }.start()
+        }
+        proxyThread = t
+        t.start()
 
         return address
     }
 
+    @Synchronized
     fun stop() {
         if (!isRunning) return
+        // Clear the flag synchronously so a start() right after stop() is not
+        // rejected while the native side is still winding down.
+        isRunning = false
         activeAddress = null
         stopLogReader()
         Thread {

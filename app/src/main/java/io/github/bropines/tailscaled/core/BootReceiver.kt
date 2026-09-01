@@ -14,31 +14,46 @@ import android.os.Build
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action
-        if (action == Intent.ACTION_BOOT_COMPLETED || action == "android.intent.action.QUICKBOOT_POWERON" || action == Intent.ACTION_MY_PACKAGE_REPLACED) {
-            
-            // Auto-refresh root scripts on update if they were previously installed
-            if (RootUtils.isServiceScriptInstalled()) {
-                RootUtils.setServiceScriptInstalled(context, true)
-            }
-            if (RootUtils.isTailscaleCliInstalled()) {
-                RootUtils.setTailscaleCliInstalled(context, true)
-            }
+        if (action != Intent.ACTION_BOOT_COMPLETED &&
+            action != "android.intent.action.QUICKBOOT_POWERON" &&
+            action != Intent.ACTION_MY_PACKAGE_REPLACED
+        ) return
 
-            // "Keep running in background" is a global setting; it used to be read
-            // from an unrelated preference file here, so it never took effect.
-            val forceBg = GlobalSettings.getBoolean(context, "force_bg", false)
-            val userLetRunning = ProxyState.isUserLetRunning(context)
+        // "Keep running in background" is a global setting; it used to be read
+        // from an unrelated preference file here, so it never took effect.
+        val forceBg = GlobalSettings.getBoolean(context, "force_bg", false)
+        val userLetRunning = ProxyState.isUserLetRunning(context)
 
-            if (forceBg && userLetRunning) {
-                val serviceIntent = Intent(context, TailscaledService::class.java)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    context.startForegroundService(serviceIntent)
-                } else {
-                    context.startService(serviceIntent)
-                }
+        if (forceBg && userLetRunning) {
+            val serviceIntent = Intent(context, TailscaledService::class.java).apply { this.action = "START_ACTION" }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(serviceIntent)
             } else {
-                ProxyState.setUserState(context, false)
+                context.startService(serviceIntent)
             }
+        } else if (action != Intent.ACTION_MY_PACKAGE_REPLACED) {
+            ProxyState.setUserState(context, false)
         }
+
+        // Refreshing the root scripts spawns su shells and can block for seconds
+        // (the Magisk prompt may not resolve at boot). Run it off the main thread
+        // so it never ANRs the boot/update broadcast.
+        val onlyIfRoot = GlobalSettings.isRootModeEnabled(context)
+        if (!onlyIfRoot) return
+        val pending = goAsync()
+        Thread {
+            try {
+                if (RootUtils.isServiceScriptInstalled()) {
+                    RootUtils.setServiceScriptInstalled(context, true)
+                }
+                if (RootUtils.isTailscaleCliInstalled()) {
+                    RootUtils.setTailscaleCliInstalled(context, true)
+                }
+            } catch (e: Exception) {
+                // Best effort; nothing to recover at boot.
+            } finally {
+                pending.finish()
+            }
+        }.start()
     }
 }

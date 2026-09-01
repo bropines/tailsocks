@@ -529,13 +529,12 @@ class TailscaledService : Service() {
     }
 
     private fun startTailscale() {
-        val options = buildStartOptions()
-        val activeAccount = AccountManager.getActiveAccount(this)
-        val profilePrefs = getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
-        
         acquireKeepAliveLock()
-        
+
         Thread {
+            // buildStartOptions does file IO, preference writes, a ServerSocket
+            // bind (ByeDPI) and a JNI call — all off the main thread.
+            val options = buildStartOptions()
             try {
                 applicationContext.sendBroadcast(Intent("STARTING").setPackage(packageName))
                 if (GlobalSettings.isRootModeEnabled(this@TailscaledService)) {
