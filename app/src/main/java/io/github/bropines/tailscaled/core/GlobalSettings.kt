@@ -8,6 +8,9 @@ import io.github.bropines.tailscaled.ui.*
 
 import android.content.Context
 import android.net.Uri
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
 
 object GlobalSettings {
     private const val PREFS_NAME = "tailsocks_global"
@@ -234,27 +237,24 @@ object GlobalSettings {
     fun isTunIpv6Enabled(context: Context): Boolean = getBoolean(context, "tun_ipv6_enabled", true)
     fun setTunIpv6Enabled(context: Context, enabled: Boolean) = setBoolean(context, "tun_ipv6_enabled", enabled)
 
+    @Serializable
     data class ProxyPreset(
-        val name: String,
-        val type: String,
-        val host: String,
-        val port: String,
+        val name: String = "",
+        val type: String = "",
+        val host: String = "",
+        val port: String = "",
         val user: String = "",
         val pass: String = ""
     )
 
     fun getCPPresets(context: Context): List<ProxyPreset> {
-        val json = getPrefs(context).getString("cp_presets", null) ?: return emptyList()
-        return try {
-            val typeToken = object : com.google.gson.reflect.TypeToken<List<ProxyPreset>>() {}.type
-            com.google.gson.Gson().fromJson(json, typeToken) ?: emptyList()
-        } catch (e: Exception) {
-            emptyList()
-        }
+        val json = getPrefs(context).getString("cp_presets", null)
+        if (json.isNullOrBlank()) return emptyList()
+        return runCatching { AppJson.decodeFromString<List<ProxyPreset>>(json) }.getOrDefault(emptyList())
     }
 
     fun saveCPPresets(context: Context, presets: List<ProxyPreset>) {
-        val json = com.google.gson.Gson().toJson(presets)
+        val json = AppJson.encodeToString(presets)
         getPrefs(context).edit().putString("cp_presets", json).apply()
     }
 

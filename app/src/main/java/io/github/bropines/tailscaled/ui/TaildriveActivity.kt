@@ -46,8 +46,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
 import java.io.File
 
 class TaildriveActivity : ComponentActivity() {
@@ -65,9 +66,10 @@ class TaildriveActivity : ComponentActivity() {
     }
 }
 
+@Serializable
 data class LocalShare(
-    val name: String,
-    val path: String
+    val name: String = "",
+    val path: String = ""
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -90,15 +92,12 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
 
     var isEnabled by remember { mutableStateOf(prefs.getBoolean("taildrive_enabled", true)) }
     val sharesJson = prefs.getString("taildrive_shares", "[]") ?: "[]"
-    // Parsing the shares JSON with Gson is expensive; key it on the stored value so it
+    // Parsing the shares JSON is expensive; key it on the stored value so it
     // runs only when the prefs actually change instead of on every recomposition frame.
     val initialShares: ArrayList<LocalShare> = remember(sharesJson) {
-        val listType = object : TypeToken<ArrayList<LocalShare>>() {}.type
-        try {
-            Gson().fromJson(sharesJson, listType) ?: ArrayList()
-        } catch (e: Exception) {
-            ArrayList()
-        }
+        if (sharesJson.isBlank()) ArrayList()
+        else runCatching { ArrayList(AppJson.decodeFromString<List<LocalShare>>(sharesJson)) }
+            .getOrDefault(ArrayList())
     }
     val shares = remember { mutableStateListOf<LocalShare>().apply { addAll(initialShares) } }
 
@@ -765,7 +764,7 @@ private fun requestStoragePermission(context: Context) {
 }
 
 private fun saveShares(prefs: SharedPreferences, shares: List<LocalShare>) {
-    val json = Gson().toJson(shares)
+    val json = AppJson.encodeToString(shares)
     prefs.edit().putString("taildrive_shares", json).apply()
 }
 

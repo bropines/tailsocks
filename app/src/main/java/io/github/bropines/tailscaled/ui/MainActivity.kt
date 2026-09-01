@@ -58,6 +58,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.*
+import io.github.bropines.tailscaled.core.AppJson
 import java.lang.Runtime
 
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
@@ -282,8 +285,8 @@ class MainActivity : ComponentActivity() {
                 connection.setRequestProperty("Accept", "application/vnd.github.v3+json")
                 if (connection.responseCode == 200) {
                     val response = connection.inputStream.bufferedReader().use { it.readText() }
-                    val json = com.google.gson.Gson().fromJson(response, com.google.gson.JsonObject::class.java)
-                    val tag = json.get("tag_name").asString
+                    val json = AppJson.parseToJsonElement(response).jsonObject
+                    val tag = json["tag_name"]!!.jsonPrimitive.content
                     if (isVersionNewer(currentVersion, tag)) {
                         withContext(Dispatchers.Main) {
                             Toast.makeText(this@MainActivity, getString(R.string.main_update_available_format, tag), Toast.LENGTH_LONG).show()
@@ -442,8 +445,8 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                     scope.launch(Dispatchers.IO) {
                         try {
                             val pJson = appctr.Appctr.getStatusFromAPI()
-                            if (!pJson.startsWith("Error")) {
-                                val status = com.google.gson.Gson().fromJson(pJson, StatusResponse::class.java)
+                            if (!pJson.startsWith("Error") && pJson.isNotBlank()) {
+                                val status = AppJson.decodeFromString<StatusResponse>(pJson)
                                 val selfUserId = status.self?.userID
                                 val selfUser = status.users?.get(selfUserId?.toString()) ?: status.users?.values?.firstOrNull()
                                 val picUrl = selfUser?.profilePicUrl
@@ -1122,8 +1125,8 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                         scope.launch(Dispatchers.IO) {
                             try {
                                 val pJson = appctr.Appctr.getStatusFromAPI()
-                                if (!pJson.startsWith("Error")) {
-                                    val status = com.google.gson.Gson().fromJson(pJson, StatusResponse::class.java)
+                                if (!pJson.startsWith("Error") && pJson.isNotBlank()) {
+                                    val status = AppJson.decodeFromString<StatusResponse>(pJson)
                                     val nodes = status.peers?.values?.filter { it.exitNodeOption == true }?.toList() ?: emptyList()
                                     withContext(Dispatchers.Main) { exitNodes = nodes }
                                 }
@@ -1472,17 +1475,17 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                                         connection.setRequestProperty("Accept", "application/vnd.github.v3+json")
                                         if (connection.responseCode == 200) {
                                             val response = connection.inputStream.bufferedReader().use { it.readText() }
-                                            val json = com.google.gson.Gson().fromJson(response, com.google.gson.JsonObject::class.java)
-                                            val tag = json.get("tag_name").asString
+                                            val json = AppJson.parseToJsonElement(response).jsonObject
+                                            val tag = json["tag_name"]!!.jsonPrimitive.content
                                             var foundApkUrl: String? = null
                                             var anyApkUrl: String? = null
                                             val primaryAbi = if (Build.SUPPORTED_ABIS.isNotEmpty()) Build.SUPPORTED_ABIS[0] else ""
-                                            if (json.has("assets")) {
-                                                val assets = json.getAsJsonArray("assets")
+                                            val assets = json["assets"]?.jsonArray
+                                            if (assets != null) {
                                                 for (asset in assets) {
-                                                    val obj = asset.asJsonObject
-                                                    val name = obj.get("name").asString.lowercase()
-                                                    val url = obj.get("browser_download_url").asString
+                                                    val obj = asset.jsonObject
+                                                    val name = (obj["name"]?.jsonPrimitive?.content ?: "").lowercase()
+                                                    val url = obj["browser_download_url"]?.jsonPrimitive?.content ?: ""
                                                     if (name.endsWith(".apk")) {
                                                         if (anyApkUrl == null) anyApkUrl = url
                                                         if (primaryAbi.isNotEmpty() && name.contains(primaryAbi.lowercase())) {

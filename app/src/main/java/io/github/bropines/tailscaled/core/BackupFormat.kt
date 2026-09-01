@@ -3,7 +3,9 @@ package io.github.bropines.tailscaled.core
 import android.content.Context
 import android.content.pm.PackageInfo
 import android.os.Build
-import com.google.gson.Gson
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
 import java.io.ByteArrayInputStream
 import java.util.zip.ZipInputStream
 
@@ -28,6 +30,7 @@ object BackupFormat {
      */
     const val CURRENT_FORMAT_VERSION = 1
 
+    @Serializable
     data class Manifest(
         val formatVersion: Int = CURRENT_FORMAT_VERSION,
         val appVersionCode: Long = 0,
@@ -75,12 +78,11 @@ object BackupFormat {
         )
     }
 
-    fun toJson(manifest: Manifest): String = Gson().toJson(manifest)
+    fun toJson(manifest: Manifest): String = AppJson.encodeToString(manifest)
 
-    fun fromJson(json: String): Manifest? = try {
-        Gson().fromJson(json, Manifest::class.java)
-    } catch (e: Exception) {
-        null
+    fun fromJson(json: String): Manifest? {
+        if (json.isBlank()) return null
+        return runCatching { AppJson.decodeFromString<Manifest>(json) }.getOrNull()
     }
 
     /** Reads the manifest out of a decrypted archive, or null for a legacy one. */

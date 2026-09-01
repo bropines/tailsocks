@@ -6,182 +6,181 @@ import io.github.bropines.tailscaled.core.*
 import io.github.bropines.tailscaled.models.*
 import io.github.bropines.tailscaled.ui.*
 
-import androidx.annotation.Keep
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
 
-@Keep
+@Serializable
 data class ApiDevice(
-    @SerializedName("id") val id: String,
-    @SerializedName("name") val name: String,
-    @SerializedName("addresses") val addresses: List<String>?,
-    @SerializedName("user") val user: String?,
-    @SerializedName("authorized") val authorized: Boolean?,
-    @SerializedName("lastSeen") val lastSeen: String?,
-    @SerializedName("keyExpiryDisabled") val keyExpiryDisabled: Boolean?,
-    @SerializedName("expires") val expires: String?,
-    @SerializedName("hostname") val hostname: String?,
-    @SerializedName("os") val os: String?,
-    @SerializedName("clientVersion") val clientVersion: String?,
-    @SerializedName("tags") val tags: List<String>?,
-    @SerializedName("updateAvailable") val updateAvailable: Boolean?,
-    @SerializedName("machineKey") val machineKey: String? = null,
-    @SerializedName("nodeKey") val nodeKey: String? = null
+    @SerialName("id") val id: String = "",
+    @SerialName("name") val name: String = "",
+    @SerialName("addresses") val addresses: List<String>? = null,
+    @SerialName("user") val user: String? = null,
+    @SerialName("authorized") val authorized: Boolean? = null,
+    @SerialName("lastSeen") val lastSeen: String? = null,
+    @SerialName("keyExpiryDisabled") val keyExpiryDisabled: Boolean? = null,
+    @SerialName("expires") val expires: String? = null,
+    @SerialName("hostname") val hostname: String? = null,
+    @SerialName("os") val os: String? = null,
+    @SerialName("clientVersion") val clientVersion: String? = null,
+    @SerialName("tags") val tags: List<String>? = null,
+    @SerialName("updateAvailable") val updateAvailable: Boolean? = null,
+    @SerialName("machineKey") val machineKey: String? = null,
+    @SerialName("nodeKey") val nodeKey: String? = null
 ) {
     fun getPrimaryIp(): String = addresses?.firstOrNull() ?: "0.0.0.0"
     fun getDisplayName(): String = name.substringBefore(".ts.net").removeSuffix(".")
 }
 
-@Keep
+@Serializable
 data class ListDevicesResponse(
-    @SerializedName("devices") val devices: List<ApiDevice>?
+    @SerialName("devices") val devices: List<ApiDevice>? = null
 )
 
-@Keep
+@Serializable
 data class ApiKeyInfo(
-    @SerializedName("id") val id: String,
-    @SerializedName("key") val key: String?, // Only present in POST response (creation)
-    @SerializedName("keyType") val keyType: String?,
-    @SerializedName("description") val description: String?,
-    @SerializedName("created") val created: String?,
-    @SerializedName("expires") val expires: String?,
-    @SerializedName("revoked") val revoked: Boolean?,
-    @SerializedName("userId") val userId: String?
+    @SerialName("id") val id: String = "",
+    @SerialName("key") val key: String? = null, // Only present in POST response (creation)
+    @SerialName("keyType") val keyType: String? = null,
+    @SerialName("description") val description: String? = null,
+    @SerialName("created") val created: String? = null,
+    @SerialName("expires") val expires: String? = null,
+    @SerialName("revoked") val revoked: Boolean? = null,
+    @SerialName("userId") val userId: String? = null
 )
 
-@Keep
+@Serializable
 data class ListKeysResponse(
-    @SerializedName("keys") val keys: List<ApiKeyInfo>?
+    @SerialName("keys") val keys: List<ApiKeyInfo>? = null
 )
 
-@Keep
+@Serializable
 data class DnsPreferences(
-    @SerializedName("magicDNS") val magicDNS: Boolean
+    @SerialName("magicDNS") val magicDNS: Boolean = false
 )
 
-@Keep
+@Serializable
 data class DnsNameserversResponse(
-    @SerializedName("dns") val dns: List<String>?
+    @SerialName("dns") val dns: List<String>? = null
 )
 
-@Keep
+@Serializable
 data class ApiUser(
-    @SerializedName("id") val id: String,
-    @SerializedName("displayName") val displayName: String?,
-    @SerializedName("loginName") val loginName: String,
-    @SerializedName("profilePicUrl") val profilePicUrl: String?,
-    @SerializedName("created") val created: String?,
-    @SerializedName("type") val type: String?,
-    @SerializedName("role") val role: String?,
-    @SerializedName("status") val status: String?,
-    @SerializedName("deviceCount") val deviceCount: Int?
+    @SerialName("id") val id: String = "",
+    @SerialName("displayName") val displayName: String? = null,
+    @SerialName("loginName") val loginName: String = "",
+    @SerialName("profilePicUrl") val profilePicUrl: String? = null,
+    @SerialName("created") val created: String? = null,
+    @SerialName("type") val type: String? = null,
+    @SerialName("role") val role: String? = null,
+    @SerialName("status") val status: String? = null,
+    @SerialName("deviceCount") val deviceCount: Int? = null
 )
 
-@Keep
+@Serializable
 data class ListUsersResponse(
-    @SerializedName("users") val users: List<ApiUser>?
+    @SerialName("users") val users: List<ApiUser>? = null
 )
 
-@Keep
+@Serializable
 data class DnsSearchPaths(
-    @SerializedName("searchPaths") val searchPaths: List<String>
+    @SerialName("searchPaths") val searchPaths: List<String> = emptyList()
 )
 
-@Keep
+@Serializable
 data class TailnetSettings(
-    @SerializedName("aclsExternallyManagedOn") val aclsExternallyManagedOn: Boolean?,
-    @SerializedName("aclsExternalLink") val aclsExternalLink: String?,
-    @SerializedName("devicesApprovalOn") val devicesApprovalOn: Boolean?,
-    @SerializedName("devicesAutoUpdatesOn") val devicesAutoUpdatesOn: Boolean?,
-    @SerializedName("devicesKeyDurationDays") val devicesKeyDurationDays: Int?,
-    @SerializedName("usersApprovalOn") val usersApprovalOn: Boolean?,
-    @SerializedName("usersRoleAllowedToJoinExternalTailnets") val usersRoleAllowedToJoinExternalTailnets: String?,
-    @SerializedName("networkFlowLoggingOn") val networkFlowLoggingOn: Boolean?,
-    @SerializedName("regionalRoutingOn") val regionalRoutingOn: Boolean?,
-    @SerializedName("postureIdentityCollectionOn") val postureIdentityCollectionOn: Boolean? = null
+    @SerialName("aclsExternallyManagedOn") val aclsExternallyManagedOn: Boolean? = null,
+    @SerialName("aclsExternalLink") val aclsExternalLink: String? = null,
+    @SerialName("devicesApprovalOn") val devicesApprovalOn: Boolean? = null,
+    @SerialName("devicesAutoUpdatesOn") val devicesAutoUpdatesOn: Boolean? = null,
+    @SerialName("devicesKeyDurationDays") val devicesKeyDurationDays: Int? = null,
+    @SerialName("usersApprovalOn") val usersApprovalOn: Boolean? = null,
+    @SerialName("usersRoleAllowedToJoinExternalTailnets") val usersRoleAllowedToJoinExternalTailnets: String? = null,
+    @SerialName("networkFlowLoggingOn") val networkFlowLoggingOn: Boolean? = null,
+    @SerialName("regionalRoutingOn") val regionalRoutingOn: Boolean? = null,
+    @SerialName("postureIdentityCollectionOn") val postureIdentityCollectionOn: Boolean? = null
 )
 
-@Keep
+@Serializable
 data class OauthTokenResponse(
-    @SerializedName("access_token") val accessToken: String,
-    @SerializedName("token_type") val tokenType: String,
-    @SerializedName("expires_in") val expiresIn: Long
+    @SerialName("access_token") val accessToken: String = "",
+    @SerialName("token_type") val tokenType: String = "",
+    @SerialName("expires_in") val expiresIn: Long = 0
 )
 
-@Keep
+@Serializable
 data class DeviceRoutes(
-    @SerializedName("advertisedRoutes") val advertisedRoutes: List<String>?,
-    @SerializedName("enabledRoutes") val enabledRoutes: List<String>?
+    @SerialName("advertisedRoutes") val advertisedRoutes: List<String>? = null,
+    @SerialName("enabledRoutes") val enabledRoutes: List<String>? = null
 )
 
-@Keep
+@Serializable
 data class WebhookEndpoint(
-    @SerializedName("endpointId") val endpointId: String,
-    @SerializedName("endpointUrl") val endpointUrl: String,
-    @SerializedName("subscribedEvents") val subscribedEvents: List<String>?,
-    @SerializedName("lastTriggered") val lastTriggered: String?
+    @SerialName("endpointId") val endpointId: String = "",
+    @SerialName("endpointUrl") val endpointUrl: String = "",
+    @SerialName("subscribedEvents") val subscribedEvents: List<String>? = null,
+    @SerialName("lastTriggered") val lastTriggered: String? = null
 )
 
-@Keep
+@Serializable
 data class ListWebhooksResponse(
-    @SerializedName("webhooks") val webhooks: List<WebhookEndpoint>?
+    @SerialName("webhooks") val webhooks: List<WebhookEndpoint>? = null
 )
 
-@Keep
+@Serializable
 data class VIPServiceInfo(
-    @SerializedName("name") val name: String,
-    @SerializedName("addrs") val addrs: List<String>?,
-    @SerializedName("comment") val comment: String?,
-    @SerializedName("ports") val ports: List<String>?,
-    @SerializedName("tags") val tags: List<String>?
+    @SerialName("name") val name: String = "",
+    @SerialName("addrs") val addrs: List<String>? = null,
+    @SerialName("comment") val comment: String? = null,
+    @SerialName("ports") val ports: List<String>? = null,
+    @SerialName("tags") val tags: List<String>? = null
 )
 
-@Keep
+@Serializable
 data class ListServicesResponse(
-    @SerializedName("vipServices") val vipServices: List<VIPServiceInfo>?
+    @SerialName("vipServices") val vipServices: List<VIPServiceInfo>? = null
 )
 
-@Keep
+@Serializable
 data class ServiceHostInfo(
-    @SerializedName("stableNodeID") val stableNodeID: String,
-    @SerializedName("approvalLevel") val approvalLevel: String?,
-    @SerializedName("configured") val configured: String?
+    @SerialName("stableNodeID") val stableNodeID: String = "",
+    @SerialName("approvalLevel") val approvalLevel: String? = null,
+    @SerialName("configured") val configured: String? = null
 )
 
-@Keep
+@Serializable
 data class ListServiceHostsResponse(
-    @SerializedName("hosts") val hosts: List<ServiceHostInfo>?
+    @SerialName("hosts") val hosts: List<ServiceHostInfo>? = null
 )
 
-@Keep
+@Serializable
 data class ApiAuditLogActor(
-    @SerializedName("displayName") val displayName: String?,
-    @SerializedName("id") val id: String?,
-    @SerializedName("loginName") val loginName: String?,
-    @SerializedName("type") val type: String?
+    @SerialName("displayName") val displayName: String? = null,
+    @SerialName("id") val id: String? = null,
+    @SerialName("loginName") val loginName: String? = null,
+    @SerialName("type") val type: String? = null
 )
 
-@Keep
+@Serializable
 data class ApiAuditLogTarget(
-    @SerializedName("id") val id: String?,
-    @SerializedName("isEphemeral") val isEphemeral: Boolean?,
-    @SerializedName("name") val name: String?,
-    @SerializedName("type") val type: String?
+    @SerialName("id") val id: String? = null,
+    @SerialName("isEphemeral") val isEphemeral: Boolean? = null,
+    @SerialName("name") val name: String? = null,
+    @SerialName("type") val type: String? = null
 )
 
-@Keep
+@Serializable
 data class ApiAuditLogEntry(
-    @SerializedName("action") val action: String?,
-    @SerializedName("actor") val actor: ApiAuditLogActor?,
-    @SerializedName("eventTime") val eventTime: String?,
-    @SerializedName("origin") val origin: String?,
-    @SerializedName("target") val target: ApiAuditLogTarget?,
-    @SerializedName("type") val type: String?
+    @SerialName("action") val action: String? = null,
+    @SerialName("actor") val actor: ApiAuditLogActor? = null,
+    @SerialName("eventTime") val eventTime: String? = null,
+    @SerialName("origin") val origin: String? = null,
+    @SerialName("target") val target: ApiAuditLogTarget? = null,
+    @SerialName("type") val type: String? = null
 )
 
-@Keep
+@Serializable
 data class AuditLogsResponse(
-    @SerializedName("version") val version: String?,
-    @SerializedName("tailnet") val tailnet: String?,
-    @SerializedName("logs") val logs: List<ApiAuditLogEntry>?
+    @SerialName("version") val version: String? = null,
+    @SerialName("tailnet") val tailnet: String? = null,
+    @SerialName("logs") val logs: List<ApiAuditLogEntry>? = null
 )
-

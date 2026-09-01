@@ -39,7 +39,9 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.google.gson.Gson
+import io.github.bropines.tailscaled.core.AppJson
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
 import appctr.Appctr
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 import kotlinx.coroutines.Dispatchers
@@ -158,8 +160,8 @@ fun ServeScreen(onBack: () -> Unit) {
             try {
                 selfDns = Appctr.getSelfDNSName()
                 val json = Appctr.getServeConfig()
-                if (!json.startsWith("Error")) {
-                    config = Gson().fromJson(json, ServeConfig::class.java)
+                if (!json.startsWith("Error") && json.isNotBlank()) {
+                    config = runCatching { AppJson.decodeFromString<ServeConfig>(json) }.getOrNull()
                 }
             } catch (e: Exception) { e.printStackTrace() }
             withContext(Dispatchers.Main) { isLoading = false }
@@ -178,7 +180,7 @@ fun ServeScreen(onBack: () -> Unit) {
             val jsonPayload = if (newConfig.tcp == null && newConfig.web == null && newConfig.services == null && newConfig.allowFunnel == null) {
                 if (newConfig.etag != null) "{\"etag\": \"${newConfig.etag}\", \"TCP\": {}, \"Web\": {}, \"AllowFunnel\": {}}" else "{\"TCP\": {}, \"Web\": {}, \"AllowFunnel\": {}}"
             } else {
-                Gson().toJson(newConfig)
+                AppJson.encodeToString(newConfig)
             }
             val res = Appctr.setServeConfig(jsonPayload)
             updateAllWidgets(context)

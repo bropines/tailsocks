@@ -45,8 +45,10 @@ import androidx.glance.layout.padding
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
+import io.github.bropines.tailscaled.core.AppJson
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -62,10 +64,11 @@ val paramExitNodeIp = ActionParameters.Key<String>("exit_node_ip")
 // Helpers for widget state
 // ----------------------------------------------------------------
 
+@Serializable
 data class ExitNodeOption(
-    val id: String,
-    val ip: String,
-    val name: String
+    val id: String = "",
+    val ip: String = "",
+    val name: String = ""
 )
 
 /** Build fresh live state from the daemon and account prefs */
@@ -87,8 +90,7 @@ fun getAvailableExitNodes(context: Context): List<ExitNodeOption> {
     val cachedJson = prefs.getString("cached_exit_nodes_json", "") ?: ""
     if (cachedJson.isNotEmpty()) {
         try {
-            val type = object : TypeToken<List<ExitNodeOption>>() {}.type
-            val cachedList: List<ExitNodeOption> = Gson().fromJson(cachedJson, type)
+            val cachedList: List<ExitNodeOption> = AppJson.decodeFromString<List<ExitNodeOption>>(cachedJson)
             options.addAll(cachedList)
         } catch (e: Exception) { e.printStackTrace() }
     }
@@ -98,7 +100,7 @@ fun getAvailableExitNodes(context: Context): List<ExitNodeOption> {
         try {
             val json = appctr.Appctr.getStatusFromAPI()
             if (json.isNotEmpty() && !json.startsWith("Error")) {
-                val status = Gson().fromJson(json, StatusResponse::class.java)
+                val status = AppJson.decodeFromString<StatusResponse>(json)
                 val liveNodes = mutableListOf<ExitNodeOption>()
                 status.peers?.values?.filter { it.exitNodeOption == true }?.forEach { peer ->
                     val ip = peer.getPrimaryIp()
@@ -117,7 +119,7 @@ fun getAvailableExitNodes(context: Context): List<ExitNodeOption> {
                         }
                     }
                     try {
-                        val jsonStr = Gson().toJson(options)
+                        val jsonStr = AppJson.encodeToString<List<ExitNodeOption>>(options)
                         prefs.edit().putString("cached_exit_nodes_json", jsonStr).apply()
                     } catch (e: Exception) { e.printStackTrace() }
                 }

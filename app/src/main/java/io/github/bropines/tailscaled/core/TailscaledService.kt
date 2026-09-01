@@ -24,7 +24,8 @@ import androidx.core.content.ContextCompat
 import appctr.Appctr
 import appctr.Closer
 import appctr.StartOptions
-import com.google.gson.Gson
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.*
 
 class TailscaledService : Service() {
     companion object {
@@ -366,17 +367,22 @@ class TailscaledService : Service() {
             Thread {
                 try {
                     val interfaces = java.net.NetworkInterface.getNetworkInterfaces()
-                    val list = mutableListOf<Map<String, Any>>()
-                    if (interfaces != null) {
-                        for (iface in interfaces) {
-                            if (!iface.isUp || iface.isLoopback) continue
-                            val addrs = iface.inetAddresses?.toList()?.filter { !it.isLoopbackAddress }?.map { it.hostAddress ?: "" } ?: emptyList()
-                            if (addrs.isNotEmpty()) {
-                                list.add(mapOf("name" to iface.name, "addresses" to addrs, "up" to iface.isUp, "mtu" to iface.mtu))
+                    val arr = kotlinx.serialization.json.buildJsonArray {
+                        if (interfaces != null) {
+                            for (iface in interfaces) {
+                                if (!iface.isUp || iface.isLoopback) continue
+                                val addrs = iface.inetAddresses?.toList()?.filter { !it.isLoopbackAddress }?.map { it.hostAddress ?: "" } ?: emptyList()
+                                if (addrs.isEmpty()) continue
+                                addJsonObject {
+                                    put("name", iface.name)
+                                    putJsonArray("addresses") { addrs.forEach { add(it) } }
+                                    put("up", iface.isUp)
+                                    put("mtu", iface.mtu)
+                                }
                             }
                         }
                     }
-                    val json = Gson().toJson(list)
+                    val json = arr.toString()
                     if (json != lastStateJson) {
                         lastStateJson = json
                         Appctr.injectNetworkState(json)
@@ -867,13 +873,12 @@ class TailscaledService : Service() {
         }
         val routes = routesStr.split(",").map { it.trim() }.filter { it.isNotEmpty() }
 
-        val payload = mapOf(
-            "AdvertiseTags" to tags,
-            "AdvertiseTagsSet" to true,
-            "AdvertiseRoutes" to routes,
-            "AdvertiseRoutesSet" to true
-        )
-        val json = Gson().toJson(payload)
+        val json = kotlinx.serialization.json.buildJsonObject {
+            putJsonArray("AdvertiseTags") { tags.forEach { add(it) } }
+            put("AdvertiseTagsSet", true)
+            putJsonArray("AdvertiseRoutes") { routes.forEach { add(it) } }
+            put("AdvertiseRoutesSet", true)
+        }.toString()
         Log.d(TAG, "Syncing tags & routes via LocalAPI: $json")
         val res = Appctr.setPrefs(json)
         if (res != "OK") {
@@ -1002,43 +1007,40 @@ class TailscaledService : Service() {
         Thread {
             try {
                 val statusJson = Appctr.getStatusJSON(true)
-                if (statusJson.isNullOrEmpty()) return@Thread
-                
-                val gson = Gson()
-                val mapType = object : com.google.gson.reflect.TypeToken<Map<String, Any>>() {}.type
-                val root: Map<String, Any> = gson.fromJson(statusJson, mapType)
-                val peers = root["Peer"] as? Map<String, Any> ?: emptyMap()
-                
+                if (statusJson.isNullOrBlank()) return@Thread
+
+                val status = runCatching { AppJson.decodeFromString<StatusResponse>(statusJson) }.getOrNull() ?: return@Thread
+                val peers = status.peers ?: emptyMap()
+
                 val hostsMap = mutableMapOf<String, String>()
-                
+
                 // Add self
-                val self = root["Self"] as? Map<String, Any>
+                val self = status.self
                 if (self != null) {
-                    val dnsName = (self["DNSName"] as? String)?.removeSuffix(".")
-                    val hostName = (self["HostName"] as? String)?.trim()
-                    val ips = self["TailscaleIPs"] as? List<*>
+                    val dnsName = self.dnsName?.removeSuffix(".")
+                    val hostName = self.hostName?.trim()
+                    val ips = self.tailscaleIPs
                     if (!dnsName.isNullOrEmpty() && ips != null) {
                         val shortName = dnsName.substringBefore('.')
                         val aliases = listOfNotNull(dnsName, shortName.takeIf { it != dnsName }, hostName.takeIf { it != dnsName && it != shortName }).joinToString(" ")
                         for (ip in ips) {
-                            val ipStr = ip?.toString() ?: continue
-                            hostsMap[ipStr] = aliases
+                            if (ip.isEmpty()) continue
+                            hostsMap[ip] = aliases
                         }
                     }
                 }
-                
+
                 // Add peers
-                for ((_, peerData) in peers) {
-                    val p = peerData as? Map<String, Any> ?: continue
-                    val dnsName = (p["DNSName"] as? String)?.removeSuffix(".")
-                    val hostName = (p["HostName"] as? String)?.trim()
-                    val ips = p["TailscaleIPs"] as? List<*>
+                for ((_, p) in peers) {
+                    val dnsName = p.dnsName?.removeSuffix(".")
+                    val hostName = p.hostName?.trim()
+                    val ips = p.tailscaleIPs
                     if (!dnsName.isNullOrEmpty() && ips != null) {
                         val shortName = dnsName.substringBefore('.')
                         val aliases = listOfNotNull(dnsName, shortName.takeIf { it != dnsName }, hostName.takeIf { it != dnsName && it != shortName }).joinToString(" ")
                         for (ip in ips) {
-                            val ipStr = ip?.toString() ?: continue
-                            hostsMap[ipStr] = aliases
+                            if (ip.isEmpty()) continue
+                            hostsMap[ip] = aliases
                         }
                     }
                 }

@@ -1,58 +1,31 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
-
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
-
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
-
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
-
-# Rules for Gson
--keepattributes Signature
--keepattributes *Annotation*
--keep class com.google.gson.** { *; }
-
-# Keep our data models for JSON parsing
--keep class io.github.bropines.tailscaled.StatusResponse { *; }
--keep class io.github.bropines.tailscaled.PeerData { *; }
-
-# Keep Appctr bridge just in case
--keep class appctr.** { *; }
-
-# Keep all Gomobile bridge classes (internal mechanics)
--keep class go.** { *; }
--keep interface go.** { *; }
-
-# Keep all the generated Go classes of our module
+# ── Native / gomobile bridge ────────────────────────────────────────────────
+# The Go bridge is reached over JNI by name; R8 must not rename or drop it.
 -keep class appctr.** { *; }
 -keep interface appctr.** { *; }
-
-# Just in case, please don't touch the native methods (JNI)
+-keep class go.** { *; }
+-keep interface go.** { *; }
 -keepclasseswithmembernames class * {
-    native<methods>;
+    native <methods>;
 }
 
-# Be sure to keep the annotations and signatures for Gson, 
-# so that it can properly parse logs and status from JSON
--keepattributes Signature
--keepattributes *Annotation*
--keepattributes EnclosingMethod
+# ── kotlinx.serialization ───────────────────────────────────────────────────
+# Serializers are generated at compile time, so almost nothing is needed — but
+# keep the generated $$serializer classes and the synthetic serializer()
+# accessors for this app's @Serializable models so R8 does not strip them.
+-keepattributes *Annotation*, InnerClasses
+-dontnote kotlinx.serialization.**
+-keepclassmembers class io.github.bropines.tailscaled.** {
+    *** Companion;
+}
+-keepclasseswithmembers class io.github.bropines.tailscaled.** {
+    kotlinx.serialization.KSerializer serializer(...);
+}
+-keep,includedescriptorclasses class io.github.bropines.tailscaled.**$$serializer { *; }
 
-# Your data classes (@Keep) are already protected, but just in case, 
-# Let's protect the entire model package from aggressive obfuscation.
--keep class io.github.bropines.tailscaled.PeerData { *; }
--keep class io.github.bropines.tailscaled.StatusResponse { *; }
--keep class io.github.bropines.tailscaled.LogEntry { *; }
+# ── Jetpack AppFunctions (KSP-generated inventory/invoker) ───────────────────
+-keep class androidx.appfunctions.internal.** { *; }
+-keep @androidx.appfunctions.AppFunctionSerializable class * { *; }
+-keep class io.github.bropines.tailscaled.appfunctions.** { *; }
+
+# ── Misc ────────────────────────────────────────────────────────────────────
+-keepattributes Signature, EnclosingMethod

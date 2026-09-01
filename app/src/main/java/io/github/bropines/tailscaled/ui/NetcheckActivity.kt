@@ -42,9 +42,47 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import appctr.Appctr
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
+import io.github.bropines.tailscaled.core.AppJson
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.decodeFromString
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+// --- Typed models for the daemon's raw status / netcheck JSON ---
+
+@Serializable
+private data class NetcheckStatusError(
+    @SerialName("Error") val error: String? = null
+)
+
+@Serializable
+private data class NetcheckResponse(
+    @SerialName("Report") val report: NetcheckReport? = null,
+    @SerialName("DERPMeta") val derpMeta: Map<String, DerpMetaEntry>? = null,
+    @SerialName("Error") val error: String? = null
+)
+
+@Serializable
+private data class NetcheckReport(
+    @SerialName("UDP") val udp: Boolean = false,
+    @SerialName("IPv4") val ipv4: Boolean = false,
+    @SerialName("IPv6") val ipv6: Boolean = false,
+    @SerialName("MappingVariesByDestIP") val mappingVaries: Boolean = false,
+    @SerialName("GlobalV4") val globalV4: String = "",
+    @SerialName("GlobalV6") val globalV6: String = "",
+    @SerialName("PreferredDERP") val preferredDerp: Int = 0,
+    @SerialName("RegionLatency") val regionLatency: Map<String, Double?>? = null
+)
+
+@Serializable
+private data class DerpMetaEntry(
+    @SerialName("Code") val code: String? = null,
+    @SerialName("Name") val name: String? = null
+)
+
+// --- In-memory report holders for the Compose UI ---
 
 data class ConnectionStatus(
     val online: Boolean,
@@ -142,39 +180,34 @@ fun NetcheckScreen(onBack: () -> Unit) {
                 rawStatus = Appctr.getStatusFromAPI()
                 android.util.Log.d("Netcheck", "Raw Status: $rawStatus")
                 
-                val statusElement = com.google.gson.JsonParser.parseString(rawStatus)
-                if (statusElement == null || statusElement.isJsonNull) throw Exception("Status API returned null")
-                val status = statusElement.asJsonObject
-                
-                if (status.has("Error") && !status.get("Error").isJsonNull) {
-                    throw Exception(status.get("Error").asString)
-                }
+                if (rawStatus.isBlank()) throw Exception("Status API returned null")
+                val statusError = runCatching { AppJson.decodeFromString<NetcheckStatusError>(rawStatus) }.getOrNull()?.error
+                if (!statusError.isNullOrEmpty()) throw Exception(statusError)
+                val status = AppJson.decodeFromString<StatusResponse>(rawStatus)
 
-                val self = if (status.has("Self") && !status.get("Self").isJsonNull) status.getAsJsonObject("Self") else null
-                
-                val online = self?.get("Online")?.let { if (it.isJsonPrimitive) it.asBoolean else false } ?: false
-                val relay = self?.get("Relay")?.let { if (it.isJsonPrimitive) it.asString else "Direct (P2P)" } ?: "Direct (P2P)"
-                val tailscaleIp = self?.getAsJsonArray("TailscaleIPs")?.let { 
-                    if (it.size() > 0 && !it.get(0).isJsonNull) it.get(0).asString else "Unknown" 
-                } ?: "Unknown"
+                val self = status.self
+
+                val online = self?.online ?: false
+                val relay = self?.relay ?: "Direct (P2P)"
+                val tailscaleIp = self?.tailscaleIPs?.firstOrNull() ?: "Unknown"
 
                 rawNetcheck = Appctr.getNetcheckFromAPI()
                 android.util.Log.d("Netcheck", "Raw Netcheck: $rawNetcheck")
 
-                val netcheckElement = com.google.gson.JsonParser.parseString(rawNetcheck)
-                if (netcheckElement != null && !netcheckElement.isJsonNull && netcheckElement.isJsonObject) {
-                    val netcheckObj = netcheckElement.asJsonObject
-                    if (!netcheckObj.has("Error") || netcheckObj.get("Error").isJsonNull) {
-                        val netcheck = netcheckObj.getAsJsonObject("Report")
-                        val derpMetaObj = netcheckObj.getAsJsonObject("DERPMeta")
+                val netcheckResp = if (rawNetcheck.isBlank()) null
+                    else runCatching { AppJson.decodeFromString<NetcheckResponse>(rawNetcheck) }.getOrNull()
+                if (netcheckResp != null) {
+                    if (netcheckResp.error == null) {
+                        val netcheck = netcheckResp.report ?: throw Exception("Received invalid response from bridge")
+                        val derpMeta = netcheckResp.derpMeta
 
-                        val udp = netcheck.get("UDP")?.let { if (it.isJsonPrimitive) it.asBoolean else false } ?: false
-                        val ipv4 = netcheck.get("IPv4")?.let { if (it.isJsonPrimitive) it.asBoolean else false } ?: false
-                        val ipv6 = netcheck.get("IPv6")?.let { if (it.isJsonPrimitive) it.asBoolean else false } ?: false
-                        val mappingVaries = netcheck.get("MappingVariesByDestIP")?.let { if (it.isJsonPrimitive) it.asBoolean else false } ?: false
-                        
-                        val globalV4 = netcheck.get("GlobalV4")?.let { if (it.isJsonPrimitive) it.asString else "" } ?: ""
-                        val globalV6 = netcheck.get("GlobalV6")?.let { if (it.isJsonPrimitive) it.asString else "" } ?: ""
+                        val udp = netcheck.udp
+                        val ipv4 = netcheck.ipv4
+                        val ipv6 = netcheck.ipv6
+                        val mappingVaries = netcheck.mappingVaries
+
+                        val globalV4 = netcheck.globalV4
+                        val globalV6 = netcheck.globalV6
 
                         // Build text report for copying
                         val healthOutput = StringBuilder()
@@ -195,13 +228,13 @@ fun NetcheckScreen(onBack: () -> Unit) {
                         healthOutput.append(context.getString(R.string.netcheck_ipv6, if (ipv6) "✅ Yes, $globalV6" else "❌ No"))
                         healthOutput.append(context.getString(R.string.netcheck_nat_mapping, if (mappingVaries) "⚠️ Yes (Symmetric NAT)" else "✅ No"))
 
-                        val preferredDerp = netcheck.get("PreferredDERP")?.let { if (it.isJsonPrimitive) it.asInt else 0 } ?: 0
+                        val preferredDerp = netcheck.preferredDerp
                         var preferredDerpName = "Unknown"
                         if (preferredDerp != 0) {
-                            val meta = derpMetaObj?.getAsJsonObject(preferredDerp.toString())
+                            val meta = derpMeta?.get(preferredDerp.toString())
                             if (meta != null) {
-                                val code = meta.get("Code")?.asString ?: ""
-                                val name = meta.get("Name")?.asString ?: ""
+                                val code = meta.code ?: ""
+                                val name = meta.name ?: ""
                                 preferredDerpName = if (name.isNotEmpty()) "$name ($code)" else code
                             } else {
                                 preferredDerpName = "Region $preferredDerp"
@@ -209,19 +242,19 @@ fun NetcheckScreen(onBack: () -> Unit) {
                             healthOutput.append(context.getString(R.string.netcheck_nearest_derp, preferredDerp))
                         }
 
-                        val regionLatency = if (netcheck.has("RegionLatency") && !netcheck.get("RegionLatency").isJsonNull) netcheck.getAsJsonObject("RegionLatency") else null
+                        val regionLatency = netcheck.regionLatency
                         val latencyList = mutableListOf<DerpLatencyItem>()
-                        if (regionLatency != null && regionLatency.size() > 0) {
+                        if (regionLatency != null && regionLatency.isNotEmpty()) {
                             healthOutput.append(context.getString(R.string.netcheck_derp_latency))
-                            regionLatency.entrySet().forEach { entry ->
-                                val rId = entry.key.toIntOrNull() ?: 0
-                                if (rId != 0 && !entry.value.isJsonNull) {
-                                    val durationNs = entry.value.asDouble
+                            regionLatency.forEach { (key, value) ->
+                                val rId = key.toIntOrNull() ?: 0
+                                if (rId != 0 && value != null) {
+                                    val durationNs = value
                                     val latencyVal = if (durationNs < 1000.0) durationNs * 1000.0 else durationNs / 1_000_000.0
-                                    
-                                    val meta = derpMetaObj?.getAsJsonObject(rId.toString())
-                                    val code = meta?.get("Code")?.asString ?: "region$rId"
-                                    val name = meta?.get("Name")?.asString ?: "Region $rId"
+
+                                    val meta = derpMeta?.get(rId.toString())
+                                    val code = meta?.code ?: "region$rId"
+                                    val name = meta?.name ?: "Region $rId"
                                     
                                     latencyList.add(
                                         DerpLatencyItem(
@@ -240,15 +273,12 @@ fun NetcheckScreen(onBack: () -> Unit) {
                         latencyList.sortBy { it.latencyMs }
 
                         healthOutput.append(context.getString(R.string.netcheck_peer_summary))
-                        val peers = if (status.has("Peer") && !status.get("Peer").isJsonNull) status.getAsJsonObject("Peer") else null
+                        val peers = status.peers
                         var peerCount = 0
                         var onlinePeers = 0
                         if (peers != null) {
-                            peerCount = peers.size()
-                            onlinePeers = peers.entrySet().count { entry ->
-                                val p = entry.value
-                                p.isJsonObject && p.asJsonObject.get("Online")?.let { o -> if (o.isJsonPrimitive) o.asBoolean else false } ?: false 
-                            }
+                            peerCount = peers.size
+                            onlinePeers = peers.values.count { it.online == true }
                             healthOutput.append(context.getString(R.string.netcheck_total_peers, peerCount))
                             healthOutput.append(context.getString(R.string.netcheck_online_peers, onlinePeers))
                         }
@@ -291,7 +321,7 @@ fun NetcheckScreen(onBack: () -> Unit) {
                             isRunning = false
                         }
                     } else {
-                        throw Exception(netcheckObj.get("Error").asString)
+                        throw Exception(netcheckResp.error)
                     }
                 } else {
                     throw Exception("Received invalid response from bridge")

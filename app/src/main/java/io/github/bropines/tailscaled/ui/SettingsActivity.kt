@@ -58,7 +58,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 import io.github.bropines.tailscaled.ui.theme.findActivity
-import com.google.gson.Gson
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -234,8 +236,8 @@ fun SettingsScreen(
         scope.launch(Dispatchers.IO) {
             try {
                 val pJson = Appctr.getStatusFromAPI()
-                if (!pJson.startsWith("Error")) {
-                    val status = Gson().fromJson(pJson, StatusResponse::class.java)
+                if (!pJson.startsWith("Error") && pJson.isNotBlank()) {
+                    val status = AppJson.decodeFromString<StatusResponse>(pJson)
                     val selfTags = status.self?.tags ?: emptyList()
                     withContext(Dispatchers.Main) { appliedTags = selfTags }
 
@@ -269,12 +271,26 @@ fun SettingsScreen(
             scope.launch(Dispatchers.IO) {
                 try {
                     val allPrefs = profilePrefs.all
-                    val backupData = mapOf(
-                        "manifest" to BackupFormat.current(context),
-                        "account" to activeAccount,
-                        "settings" to allPrefs
-                    )
-                    context.contentResolver.openOutputStream(uri)?.use { it.write(Gson().toJson(backupData).toByteArray()) }
+                    val settingsObj = kotlinx.serialization.json.buildJsonObject {
+                        for ((k, v) in allPrefs) {
+                            when (v) {
+                                is String -> put(k, v)
+                                is Boolean -> put(k, v)
+                                is Int -> put(k, v)
+                                is Long -> put(k, v)
+                                is Float -> put(k, v)
+                                is Set<*> -> putJsonArray(k) { v.forEach { add(it.toString()) } }
+                                null -> {}
+                                else -> put(k, v.toString())
+                            }
+                        }
+                    }
+                    val backupObj = kotlinx.serialization.json.buildJsonObject {
+                        put("manifest", AppJson.encodeToJsonElement(BackupFormat.current(context)))
+                        put("account", AppJson.encodeToJsonElement(activeAccount))
+                        put("settings", settingsObj)
+                    }
+                    context.contentResolver.openOutputStream(uri)?.use { it.write(backupObj.toString().toByteArray()) }
                     withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.settings_backup_saved), Toast.LENGTH_SHORT).show() }
                 } catch (e: Exception) {
                     withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.settings_backup_failed_format, e.message), Toast.LENGTH_LONG).show() }
@@ -290,12 +306,14 @@ fun SettingsScreen(
                     val jsonBytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
                     if (jsonBytes != null) {
                         val jsonString = String(jsonBytes)
-                        val backupData = Gson().fromJson(jsonString, Map::class.java)
+                        // AppJson throws on blank/malformed where Gson returned null;
+                        // either way the outer catch turns it into the restore-failed toast.
+                        val backupData = AppJson.decodeFromString<JsonObject>(jsonString)
 
                         // Same provenance rule as the full backup: never apply an
                         // export produced by a build newer than this one.
-                        val manifest = (backupData["manifest"] as? Map<*, *>)?.let {
-                            BackupFormat.fromJson(Gson().toJson(it))
+                        val manifest = (backupData["manifest"] as? JsonObject)?.let {
+                            BackupFormat.fromJson(AppJson.encodeToString(it))
                         }
                         val refusal: String? = when (val c = BackupFormat.check(context, manifest)) {
                             is BackupFormat.Compatibility.Ok -> null
@@ -314,23 +332,24 @@ fun SettingsScreen(
                             return@launch
                         }
 
-                        @Suppress("UNCHECKED_CAST")
-                        val settings = backupData["settings"] as? Map<String, Any>
+                        val settings = backupData["settings"] as? JsonObject
                         if (settings != null) {
                             val editor = profilePrefs.edit()
-                            settings.forEach { (k, v) ->
-                                when (v) {
-                                    is String -> editor.putString(k, v)
-                                    is Boolean -> editor.putBoolean(k, v)
-                                    is Double -> editor.putFloat(k, v.toFloat())
-                                    is Float -> editor.putFloat(k, v)
-                                    is Int -> editor.putInt(k, v)
-                                    is Long -> editor.putLong(k, v)
+                            settings.forEach { (k, element) ->
+                                val prim = element as? JsonPrimitive ?: return@forEach
+                                when {
+                                    // A quoted value is a string even if it reads like a
+                                    // bool/number, so this branch must come first.
+                                    prim.isString -> editor.putString(k, prim.content)
+                                    prim.booleanOrNull != null -> editor.putBoolean(k, prim.booleanOrNull!!)
+                                    // Gson decoded every JSON number to Double and wrote it
+                                    // as a float; keep that lossy-but-identical behaviour.
+                                    prim.floatOrNull != null -> editor.putFloat(k, prim.floatOrNull!!)
                                 }
                             }
                             editor.apply()
-                            withContext(Dispatchers.Main) { 
-                                Toast.makeText(context, context.getString(R.string.settings_restored_success), Toast.LENGTH_LONG).show() 
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(context, context.getString(R.string.settings_restored_success), Toast.LENGTH_LONG).show()
                             }
                         }
                     }
@@ -2393,8 +2412,8 @@ fun SettingsExitNodeItem(
             scope.launch(Dispatchers.IO) {
                 try {
                     val pJson = Appctr.getStatusFromAPI()
-                    if (!pJson.startsWith("Error")) {
-                        val status = Gson().fromJson(pJson, StatusResponse::class.java)
+                    if (!pJson.startsWith("Error") && pJson.isNotBlank()) {
+                        val status = AppJson.decodeFromString<StatusResponse>(pJson)
                         val nodes = status.peers?.values?.filter { it.exitNodeOption == true }?.toList() ?: emptyList()
                         withContext(Dispatchers.Main) { exitNodes = nodes }
                     }

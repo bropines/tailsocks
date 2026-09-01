@@ -8,7 +8,8 @@ import io.github.bropines.tailscaled.ui.*
 
 import android.content.Context
 import android.net.Uri
-import com.google.gson.Gson
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
 import java.io.File
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -67,19 +68,20 @@ fun getFileName(context: Context, uri: Uri): String? {
 fun logSentFile(context: Context, fileName: String, targetName: String) {
     try {
         val historyFile = File(context.filesDir, "sent_history.json")
-        val gson = Gson()
-        val type = object : com.google.gson.reflect.TypeToken<MutableList<SentFileEntry>>() {}.type
-        
+
         val history: MutableList<SentFileEntry> = if (historyFile.exists()) {
-            gson.fromJson(historyFile.readText(), type)
+            val text = historyFile.readText()
+            if (text.isBlank()) mutableListOf()
+            else runCatching { AppJson.decodeFromString<List<SentFileEntry>>(text).toMutableList() }
+                .getOrDefault(mutableListOf())
         } else {
             mutableListOf()
         }
-        
+
         history.add(0, SentFileEntry(fileName, targetName, System.currentTimeMillis()))
         if (history.size > 50) history.removeAt(history.size - 1)
-        
-        historyFile.writeText(gson.toJson(history))
+
+        historyFile.writeText(AppJson.encodeToString<List<SentFileEntry>>(history))
     } catch (e: Exception) {}
 }
 

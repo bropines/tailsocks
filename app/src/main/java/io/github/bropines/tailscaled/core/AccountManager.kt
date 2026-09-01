@@ -7,12 +7,14 @@ import io.github.bropines.tailscaled.models.*
 import io.github.bropines.tailscaled.ui.*
 
 import android.content.Context
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
 
+@Serializable
 data class TailscaleAccount(
-    val id: String,
-    val name: String,
+    val id: String = "",
+    val name: String = "",
     val avatarUrl: String? = null
 )
 
@@ -23,9 +25,10 @@ object AccountManager {
 
     fun getAccounts(context: Context): List<TailscaleAccount> {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val json = prefs.getString(KEY_ACCOUNTS, null) ?: return listOf(TailscaleAccount("default", "Default"))
-        val type = object : TypeToken<List<TailscaleAccount>>() {}.type
-        return Gson().fromJson(json, type)
+        val json = prefs.getString(KEY_ACCOUNTS, null)
+        if (json.isNullOrBlank()) return listOf(TailscaleAccount("default", "Default"))
+        return runCatching { AppJson.decodeFromString<List<TailscaleAccount>>(json) }
+            .getOrDefault(listOf(TailscaleAccount("default", "Default")))
     }
 
     fun getActiveAccount(context: Context): TailscaleAccount {
@@ -92,7 +95,7 @@ object AccountManager {
     }
 
     private fun saveAccounts(context: Context, accounts: List<TailscaleAccount>) {
-        val json = Gson().toJson(accounts)
+        val json = AppJson.encodeToString(accounts)
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .putString(KEY_ACCOUNTS, json)

@@ -1,8 +1,16 @@
 package io.github.bropines.tailscaled.admin
 
 import android.util.Log
-import com.google.gson.Gson
+import io.github.bropines.tailscaled.core.AppJson
 import io.github.bropines.tailscaled.core.NetAddr
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.*
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.putJsonObject
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -227,7 +235,10 @@ class TailscaleApiClient(
             .header("Accept", "application/json")
             .build()
 
-        return executeCall(req) { json -> Gson().fromJson(json, OauthTokenResponse::class.java) }
+        return executeCall(req) { json ->
+            require(json.isNotBlank()) { "Empty OAuth token response" }
+            AppJson.decodeFromString<OauthTokenResponse>(json)
+        }
     }
 
     private fun request(method: String, path: String, body: Any? = null): String {
@@ -246,7 +257,8 @@ class TailscaleApiClient(
                 "".toRequestBody(mediaTypeJson)
             }
             body != null -> {
-                val json = if (body is String) body else Gson().toJson(body)
+                // body is a JSON String or a kotlinx JsonObject (whose toString() is valid JSON).
+                val json = if (body is String) body else body.toString()
                 json.toRequestBody(mediaTypeJson)
             }
             else -> null
@@ -259,8 +271,9 @@ class TailscaleApiClient(
     // Devices
     fun listDevices(): List<ApiDevice> {
         val json = request("GET", "/tailnet/$tailnet/devices")
-        val response = Gson().fromJson(json, ListDevicesResponse::class.java)
-        return response.devices ?: emptyList()
+        if (json.isBlank()) return emptyList()
+        val response = runCatching { AppJson.decodeFromString<ListDevicesResponse>(json) }.getOrNull()
+        return response?.devices ?: emptyList()
     }
 
     fun expireDevice(deviceId: String) {
@@ -272,85 +285,102 @@ class TailscaleApiClient(
     }
 
     fun setDeviceAuthorized(deviceId: String, authorized: Boolean) {
-        request("POST", "/device/$deviceId/authorized", mapOf("authorized" to authorized))
+        request("POST", "/device/$deviceId/authorized", buildJsonObject { put("authorized", authorized) })
     }
 
     fun renameDevice(deviceId: String, name: String) {
-        request("POST", "/device/$deviceId/name", mapOf("name" to name))
+        request("POST", "/device/$deviceId/name", buildJsonObject { put("name", name) })
     }
 
     fun setDeviceTags(deviceId: String, tags: List<String>) {
-        request("POST", "/device/$deviceId/tags", mapOf("tags" to tags))
+        request("POST", "/device/$deviceId/tags", buildJsonObject {
+            putJsonArray("tags") { tags.forEach { add(it) } }
+        })
     }
 
     // DNS
     fun getDnsPreferences(): DnsPreferences {
         val json = request("GET", "/tailnet/$tailnet/dns/preferences")
-        return Gson().fromJson(json, DnsPreferences::class.java)
+        if (json.isBlank()) return DnsPreferences()
+        return runCatching { AppJson.decodeFromString<DnsPreferences>(json) }.getOrDefault(DnsPreferences())
     }
 
     fun updateDnsPreferences(magicDns: Boolean) {
-        request("POST", "/tailnet/$tailnet/dns/preferences", mapOf("magicDNS" to magicDns))
+        request("POST", "/tailnet/$tailnet/dns/preferences", buildJsonObject { put("magicDNS", magicDns) })
     }
 
     fun getDnsNameservers(): List<String> {
         val json = request("GET", "/tailnet/$tailnet/dns/nameservers")
-        val response = Gson().fromJson(json, DnsNameserversResponse::class.java)
-        return response.dns ?: emptyList()
+        if (json.isBlank()) return emptyList()
+        val response = runCatching { AppJson.decodeFromString<DnsNameserversResponse>(json) }.getOrNull()
+        return response?.dns ?: emptyList()
     }
 
     fun setDnsNameservers(nameservers: List<String>) {
-        request("POST", "/tailnet/$tailnet/dns/nameservers", mapOf("dns" to nameservers))
+        request("POST", "/tailnet/$tailnet/dns/nameservers", buildJsonObject {
+            putJsonArray("dns") { nameservers.forEach { add(it) } }
+        })
     }
 
     // Split DNS
     fun getSplitDns(): Map<String, List<String>> {
         val json = request("GET", "/tailnet/$tailnet/dns/split-dns")
-        val type = object : com.google.gson.reflect.TypeToken<Map<String, List<String>>>() {}.type
-        return Gson().fromJson(json, type) ?: emptyMap()
+        if (json.isBlank()) return emptyMap()
+        return runCatching { AppJson.decodeFromString<Map<String, List<String>>>(json) }.getOrDefault(emptyMap())
     }
 
     fun updateSplitDns(domain: String, nameservers: List<String>?) {
-        val body = mapOf(domain to nameservers)
-        val jsonBody = com.google.gson.GsonBuilder().serializeNulls().create().toJson(body)
-        request("PATCH", "/tailnet/$tailnet/dns/split-dns", jsonBody)
+        // Must explicitly include the domain -> nameservers mapping, with an
+        // explicit null when clearing (the old GsonBuilder used serializeNulls()).
+        val body = buildJsonObject {
+            if (nameservers == null) {
+                put(domain, JsonNull)
+            } else {
+                putJsonArray(domain) { nameservers.forEach { add(it) } }
+            }
+        }
+        request("PATCH", "/tailnet/$tailnet/dns/split-dns", body)
     }
 
     // DNS Search Paths
     fun listDnsSearchPaths(): List<String> {
         val json = request("GET", "/tailnet/$tailnet/dns/searchpaths")
-        val response = Gson().fromJson(json, DnsSearchPaths::class.java)
-        return response.searchPaths
+        if (json.isBlank()) return emptyList()
+        val response = runCatching { AppJson.decodeFromString<DnsSearchPaths>(json) }.getOrNull()
+        return response?.searchPaths ?: emptyList()
     }
 
     fun setDnsSearchPaths(searchPaths: List<String>) {
-        val body = DnsSearchPaths(searchPaths)
-        request("POST", "/tailnet/$tailnet/dns/searchpaths", body)
+        request("POST", "/tailnet/$tailnet/dns/searchpaths", AppJson.encodeToString(DnsSearchPaths(searchPaths)))
     }
 
     // Tailnet Settings
     fun getTailnetSettings(): TailnetSettings {
         val json = request("GET", "/tailnet/$tailnet/settings")
-        return Gson().fromJson(json, TailnetSettings::class.java)
+        if (json.isBlank()) return TailnetSettings()
+        return runCatching { AppJson.decodeFromString<TailnetSettings>(json) }.getOrDefault(TailnetSettings())
     }
 
     fun updateTailnetSettings(settings: TailnetSettings): TailnetSettings {
-        val json = request("PATCH", "/tailnet/$tailnet/settings", settings)
-        return Gson().fromJson(json, TailnetSettings::class.java)
+        val json = request("PATCH", "/tailnet/$tailnet/settings", AppJson.encodeToString(settings))
+        if (json.isBlank()) return TailnetSettings()
+        return runCatching { AppJson.decodeFromString<TailnetSettings>(json) }.getOrDefault(TailnetSettings())
     }
 
     // Users
     fun listUsers(): List<ApiUser> {
         val json = request("GET", "/tailnet/$tailnet/users")
-        val response = Gson().fromJson(json, ListUsersResponse::class.java)
-        return response.users ?: emptyList()
+        if (json.isBlank()) return emptyList()
+        val response = runCatching { AppJson.decodeFromString<ListUsersResponse>(json) }.getOrNull()
+        return response?.users ?: emptyList()
     }
 
     // Keys
     fun listKeys(): List<ApiKeyInfo> {
         val json = request("GET", "/tailnet/$tailnet/keys")
-        val response = Gson().fromJson(json, ListKeysResponse::class.java)
-        return response.keys ?: emptyList()
+        if (json.isBlank()) return emptyList()
+        val response = runCatching { AppJson.decodeFromString<ListKeysResponse>(json) }.getOrNull()
+        return response?.keys ?: emptyList()
     }
 
     fun createKey(
@@ -360,26 +390,29 @@ class TailscaleApiClient(
         preauthorized: Boolean,
         tags: List<String>?
     ): ApiKeyInfo {
-        val capabilities = mapOf(
-            "devices" to mapOf(
-                "create" to mapOf(
-                    "reusable" to !ephemeral,
-                    "ephemeral" to ephemeral,
-                    "preauthorized" to preauthorized,
-                    "tags" to tags
-                )
-            )
-        )
-        val body = mutableMapOf<String, Any>(
-            "capabilities" to capabilities,
-            "expirySeconds" to expirySeconds,
-            "keyType" to "auth"
-        )
-        if (description.isNotBlank()) {
-            body["description"] = description
+        val body = buildJsonObject {
+            putJsonObject("capabilities") {
+                putJsonObject("devices") {
+                    putJsonObject("create") {
+                        put("reusable", !ephemeral)
+                        put("ephemeral", ephemeral)
+                        put("preauthorized", preauthorized)
+                        // Gson (no serializeNulls) omitted a null "tags"; match that.
+                        if (tags != null) {
+                            putJsonArray("tags") { tags.forEach { add(it) } }
+                        }
+                    }
+                }
+            }
+            put("expirySeconds", expirySeconds)
+            put("keyType", "auth")
+            if (description.isNotBlank()) {
+                put("description", description)
+            }
         }
         val json = request("POST", "/tailnet/$tailnet/keys", body)
-        return Gson().fromJson(json, ApiKeyInfo::class.java)
+        if (json.isBlank()) return ApiKeyInfo()
+        return runCatching { AppJson.decodeFromString<ApiKeyInfo>(json) }.getOrDefault(ApiKeyInfo())
     }
 
     fun revokeKey(keyId: String) {
@@ -388,7 +421,7 @@ class TailscaleApiClient(
 
     // User Management
     fun changeUserRole(userId: String, role: String) {
-        request("POST", "/users/$userId/role", mapOf("role" to role))
+        request("POST", "/users/$userId/role", buildJsonObject { put("role", role) })
     }
 
     fun approveUser(userId: String) {
@@ -409,18 +442,22 @@ class TailscaleApiClient(
 
     // Key Expiry
     fun setDeviceKeyExpiryDisabled(deviceId: String, disabled: Boolean) {
-        request("POST", "/device/$deviceId/key", mapOf("keyExpiryDisabled" to disabled))
+        request("POST", "/device/$deviceId/key", buildJsonObject { put("keyExpiryDisabled", disabled) })
     }
 
     // Device Routes
     fun getDeviceRoutes(deviceId: String): DeviceRoutes {
         val json = request("GET", "/device/$deviceId/routes")
-        return Gson().fromJson(json, DeviceRoutes::class.java)
+        if (json.isBlank()) return DeviceRoutes()
+        return runCatching { AppJson.decodeFromString<DeviceRoutes>(json) }.getOrDefault(DeviceRoutes())
     }
 
     fun setDeviceRoutes(deviceId: String, routes: List<String>): DeviceRoutes {
-        val json = request("POST", "/device/$deviceId/routes", mapOf("routes" to routes))
-        return Gson().fromJson(json, DeviceRoutes::class.java)
+        val json = request("POST", "/device/$deviceId/routes", buildJsonObject {
+            putJsonArray("routes") { routes.forEach { add(it) } }
+        })
+        if (json.isBlank()) return DeviceRoutes()
+        return runCatching { AppJson.decodeFromString<DeviceRoutes>(json) }.getOrDefault(DeviceRoutes())
     }
 
     // ACL Tags
@@ -437,17 +474,19 @@ class TailscaleApiClient(
     // Webhooks
     fun listWebhooks(): List<WebhookEndpoint> {
         val json = request("GET", "/tailnet/$tailnet/webhooks")
-        val response = Gson().fromJson(json, ListWebhooksResponse::class.java)
-        return response.webhooks ?: emptyList()
+        if (json.isBlank()) return emptyList()
+        val response = runCatching { AppJson.decodeFromString<ListWebhooksResponse>(json) }.getOrNull()
+        return response?.webhooks ?: emptyList()
     }
 
     fun createWebhook(endpointUrl: String, subscribedEvents: List<String>): WebhookEndpoint {
-        val body = mapOf(
-            "endpointUrl" to endpointUrl,
-            "subscribedEvents" to subscribedEvents
-        )
+        val body = buildJsonObject {
+            put("endpointUrl", endpointUrl)
+            putJsonArray("subscribedEvents") { subscribedEvents.forEach { add(it) } }
+        }
         val json = request("POST", "/tailnet/$tailnet/webhooks", body)
-        return Gson().fromJson(json, WebhookEndpoint::class.java)
+        if (json.isBlank()) return WebhookEndpoint()
+        return runCatching { AppJson.decodeFromString<WebhookEndpoint>(json) }.getOrDefault(WebhookEndpoint())
     }
 
     fun deleteWebhook(endpointId: String) {
@@ -461,26 +500,30 @@ class TailscaleApiClient(
     // Virtual Services
     fun listTailnetServices(): List<VIPServiceInfo> {
         val json = request("GET", "/tailnet/$tailnet/services")
-        val response = Gson().fromJson(json, ListServicesResponse::class.java)
-        return response.vipServices ?: emptyList()
+        if (json.isBlank()) return emptyList()
+        val response = runCatching { AppJson.decodeFromString<ListServicesResponse>(json) }.getOrNull()
+        return response?.vipServices ?: emptyList()
     }
 
     fun listServiceHosts(serviceName: String): List<ServiceHostInfo> {
         val json = request("GET", "/tailnet/$tailnet/services/$serviceName/devices")
-        val response = Gson().fromJson(json, ListServiceHostsResponse::class.java)
-        return response.hosts ?: emptyList()
+        if (json.isBlank()) return emptyList()
+        val response = runCatching { AppJson.decodeFromString<ListServiceHostsResponse>(json) }.getOrNull()
+        return response?.hosts ?: emptyList()
     }
 
     fun setServiceDeviceApproved(serviceName: String, deviceId: String, approved: Boolean) {
-        request("POST", "/tailnet/$tailnet/services/$serviceName/device/$deviceId/approved", mapOf("approved" to approved))
+        request("POST", "/tailnet/$tailnet/services/$serviceName/device/$deviceId/approved", buildJsonObject {
+            put("approved", approved)
+        })
     }
 
     fun triggerDeviceUpdate(deviceId: String, machineKey: String, nodeKey: String): String {
-        val body = mapOf(
-            "state" to "update-client",
-            "machinekey" to machineKey,
-            "nodekey" to nodeKey
-        )
+        val body = buildJsonObject {
+            put("state", "update-client")
+            put("machinekey", machineKey)
+            put("nodekey", nodeKey)
+        }
         return request("POST", "https://login.tailscale.com/admin/api/machines", body)
     }
 
@@ -491,7 +534,8 @@ class TailscaleApiClient(
     fun getAuditLogs(start: String, end: String): List<ApiAuditLogEntry> {
         val path = "/tailnet/$tailnet/logging/configuration?start=$start&end=$end"
         val json = request("GET", path)
-        val response = Gson().fromJson(json, AuditLogsResponse::class.java)
-        return response.logs ?: emptyList()
+        if (json.isBlank()) return emptyList()
+        val response = runCatching { AppJson.decodeFromString<AuditLogsResponse>(json) }.getOrNull()
+        return response?.logs ?: emptyList()
     }
 }

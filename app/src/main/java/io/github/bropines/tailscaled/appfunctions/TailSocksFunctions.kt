@@ -9,9 +9,10 @@ import io.github.bropines.tailscaled.core.AccountManager
 import io.github.bropines.tailscaled.core.GlobalSettings
 import io.github.bropines.tailscaled.core.ProxyState
 import io.github.bropines.tailscaled.core.TailscaledService
+import io.github.bropines.tailscaled.core.AppJson
+import io.github.bropines.tailscaled.models.StatusResponse
 import appctr.Appctr
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
+import kotlinx.serialization.decodeFromString
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -113,12 +114,11 @@ class TailSocksFunctions {
         return try {
             val statusJson = Appctr.getStatusJSON(true)
             if (statusJson.isNullOrEmpty()) return ""
-            val root: Map<String, Any> = Gson().fromJson(statusJson, object : TypeToken<Map<String, Any>>() {}.type)
-            val peers = root["Peer"] as? Map<String, Any> ?: emptyMap()
-            for ((_, peerData) in peers) {
-                val p = peerData as? Map<String, Any> ?: continue
-                val ips = (p["TailscaleIPs"] as? List<*>)?.map { it.toString() } ?: emptyList()
-                if (ips.contains(ip)) return (p["ID"] as? String) ?: ""
+            val status = AppJson.decodeFromString<StatusResponse>(statusJson)
+            val peers = status.peers ?: emptyMap()
+            for ((_, p) in peers) {
+                val ips = p.tailscaleIPs ?: emptyList()
+                if (ips.contains(ip)) return p.id ?: ""
             }
             ""
         } catch (e: Exception) {
@@ -181,20 +181,16 @@ class TailSocksFunctions {
         try {
             val statusJson = Appctr.getStatusJSON(true)
             if (!statusJson.isNullOrEmpty()) {
-                val gson = Gson()
-                val mapType = object : TypeToken<Map<String, Any>>() {}.type
-                val root: Map<String, Any> = gson.fromJson(statusJson, mapType)
-                val peers = root["Peer"] as? Map<String, Any> ?: emptyMap()
-                
-                for ((_, peerData) in peers) {
-                    val p = peerData as? Map<String, Any> ?: continue
-                    val isExitNode = p["ExitNode"] as? Boolean ?: false
-                    val exitNodeOption = p["ExitNodeOption"] as? Boolean ?: false
+                val status = AppJson.decodeFromString<StatusResponse>(statusJson)
+                val peers = status.peers ?: emptyMap()
+
+                for ((_, p) in peers) {
+                    val isExitNode = p.exitNode ?: false
+                    val exitNodeOption = p.exitNodeOption ?: false
                     if (isExitNode || exitNodeOption) {
-                        val name = (p["HostName"] as? String) ?: (p["DNSName"] as? String) ?: "Exit Node"
-                        val ips = p["TailscaleIPs"] as? List<*>
-                        val ip = ips?.firstOrNull()?.toString() ?: ""
-                        val isOnline = p["Online"] as? Boolean ?: false
+                        val name = p.hostName ?: p.dnsName ?: "Exit Node"
+                        val ip = p.tailscaleIPs?.firstOrNull() ?: ""
+                        val isOnline = p.online ?: false
                         exitNodeItems.add(
                             ExitNodeItem(
                                 name = name.removeSuffix("."),
@@ -226,18 +222,14 @@ class TailSocksFunctions {
         try {
             val statusJson = Appctr.getStatusJSON(true)
             if (!statusJson.isNullOrEmpty()) {
-                val gson = Gson()
-                val mapType = object : TypeToken<Map<String, Any>>() {}.type
-                val root: Map<String, Any> = gson.fromJson(statusJson, mapType)
-                val peers = root["Peer"] as? Map<String, Any> ?: emptyMap()
-                
-                for ((_, peerData) in peers) {
-                    val p = peerData as? Map<String, Any> ?: continue
-                    val name = (p["HostName"] as? String) ?: (p["DNSName"] as? String) ?: "Peer"
-                    val ips = p["TailscaleIPs"] as? List<*>
-                    val ip = ips?.firstOrNull()?.toString() ?: ""
-                    val os = p["OS"] as? String ?: "unknown"
-                    val isOnline = p["Online"] as? Boolean ?: false
+                val status = AppJson.decodeFromString<StatusResponse>(statusJson)
+                val peers = status.peers ?: emptyMap()
+
+                for ((_, p) in peers) {
+                    val name = p.hostName ?: p.dnsName ?: "Peer"
+                    val ip = p.tailscaleIPs?.firstOrNull() ?: ""
+                    val os = p.os ?: "unknown"
+                    val isOnline = p.online ?: false
                     peerItems.add(
                         PeerItem(
                             name = name.removeSuffix("."),

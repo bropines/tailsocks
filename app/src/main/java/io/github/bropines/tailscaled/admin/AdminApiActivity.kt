@@ -30,6 +30,7 @@ import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.decodeFromString
 
 class AdminApiActivity : FragmentActivity() {
     private val isAuthenticated = mutableStateOf(false)
@@ -150,9 +151,9 @@ fun AdminApiMainScreen(onBack: () -> Unit) {
         scope.launch(Dispatchers.IO) {
             try {
                 val pJson = appctr.Appctr.getStatusFromAPI()
-                if (!pJson.startsWith("Error")) {
-                    val status = com.google.gson.Gson().fromJson(pJson, StatusResponse::class.java)
-                    val suffix = status.magicDnsSuffix?.trim()?.removeSuffix(".")
+                if (!pJson.startsWith("Error") && pJson.isNotBlank()) {
+                    val status = runCatching { AppJson.decodeFromString<StatusResponse>(pJson) }.getOrNull()
+                    val suffix = status?.magicDnsSuffix?.trim()?.removeSuffix(".")
                     if (!suffix.isNullOrBlank()) {
                         profilePrefs.edit().putString("last_known_tailnet", suffix).apply()
                         withContext(Dispatchers.Main) {

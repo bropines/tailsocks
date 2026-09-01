@@ -18,7 +18,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.Keep
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -42,9 +41,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import appctr.Appctr
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
-import com.google.gson.Gson
-import com.google.gson.annotations.SerializedName
-import com.google.gson.reflect.TypeToken
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.decodeFromString
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -52,12 +51,12 @@ import kotlinx.coroutines.withContext
 import java.io.OutputStreamWriter
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 
-@Keep
+@Serializable
 data class LogEntry(
-    @SerializedName("timestamp") val timestamp: String,
-    @SerializedName("level") val level: String,
-    @SerializedName("category") val category: String,
-    @SerializedName("message") val message: String
+    @SerialName("timestamp") val timestamp: String = "",
+    @SerialName("level") val level: String = "",
+    @SerialName("category") val category: String = "",
+    @SerialName("message") val message: String = ""
 )
 
 class LogsActivity : ComponentActivity() {
@@ -192,9 +191,8 @@ fun LogsScreen(onBack: () -> Unit) {
         if (manual) isRefreshing = true
         coroutineScope.launch(Dispatchers.IO) {
             var jsonString = try { Appctr.getLogsJSON() } catch (e: Exception) { "[]" }
-            var logsList: List<LogEntry> = try {
-                Gson().fromJson(jsonString, object : TypeToken<List<LogEntry>>() {}.type)
-            } catch (e: Exception) { emptyList() }
+            var logsList: List<LogEntry> = if (jsonString.isBlank()) emptyList()
+                else runCatching { AppJson.decodeFromString<List<LogEntry>>(jsonString) }.getOrDefault(emptyList())
 
             if (GlobalSettings.isRootModeEnabled(context)) {
                 val dataDir = context.filesDir.parentFile ?: context.filesDir

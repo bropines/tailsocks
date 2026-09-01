@@ -1,24 +1,18 @@
 package io.github.bropines.tailscaled.models
-import io.github.bropines.tailscaled.R
-import io.github.bropines.tailscaled.BuildConfig
 
-import io.github.bropines.tailscaled.admin.*
-import io.github.bropines.tailscaled.core.*
-import io.github.bropines.tailscaled.ui.*
+import kotlinx.serialization.Serializable
 
-import androidx.annotation.Keep
-
-@Keep
+@Serializable
 data class SentFileEntry(
     val name: String,
     val target: String,
     val timestamp: Long
 )
 
-@Keep
+@Serializable
 data class TaildropFile(
-    val Name: String,
-    val Size: Long,
-    val ModTime: Long,
-    val Path: String
+    val Name: String = "",
+    val Size: Long = 0,
+    val ModTime: Long = 0,
+    val Path: String = ""
 )

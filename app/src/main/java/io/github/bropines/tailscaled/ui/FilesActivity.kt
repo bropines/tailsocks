@@ -40,8 +40,8 @@ import androidx.compose.ui.unit.sp
 import androidx.documentfile.provider.DocumentFile
 import appctr.Appctr
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
+import io.github.bropines.tailscaled.core.AppJson
+import kotlinx.serialization.decodeFromString
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -119,7 +119,8 @@ fun FilesScreen(onBack: () -> Unit) {
                 } else {
                     Appctr.getWaitingFiles(taildropDir.absolutePath)
                 }
-                val newFiles: List<TaildropFile> = Gson().fromJson(json, object : TypeToken<List<TaildropFile>>() {}.type) ?: emptyList()
+                val newFiles: List<TaildropFile> = if (json.isNullOrBlank()) emptyList()
+                    else runCatching { AppJson.decodeFromString<List<TaildropFile>>(json) }.getOrDefault(emptyList())
                 withContext(Dispatchers.Main) { files = newFiles }
             } catch (e: Exception) {
                 android.util.Log.e("FilesActivity", "Failed to load waiting files", e)
@@ -133,8 +134,8 @@ fun FilesScreen(onBack: () -> Unit) {
                     Appctr.getStatusFromAPI()
                 }
                 
-                if (!pJson.startsWith("Error")) {
-                    val status = Gson().fromJson(pJson, StatusResponse::class.java)
+                if (!pJson.startsWith("Error") && pJson.isNotBlank()) {
+                    val status = AppJson.decodeFromString<StatusResponse>(pJson)
                     val newPeers = status.peers?.values?.toList()
                         ?.filter { it.id != status.self?.id && (!it.hostName.isNullOrBlank() || !it.dnsName.isNullOrBlank()) && it.shareeNode != true && it.hostName != "funnel-ingress-node" }
                         ?.sortedWith(compareByDescending<PeerData> { it.online == true }.thenBy { it.getDisplayName() })
@@ -154,7 +155,9 @@ fun FilesScreen(onBack: () -> Unit) {
             try {
                 val hf = File(context.filesDir, "sent_history.json")
                 if (hf.exists()) {
-                    val newHistory: List<SentFileEntry> = Gson().fromJson(hf.readText(), object : TypeToken<List<SentFileEntry>>() {}.type) ?: emptyList()
+                    val historyText = hf.readText()
+                    val newHistory: List<SentFileEntry> = if (historyText.isBlank()) emptyList()
+                        else runCatching { AppJson.decodeFromString<List<SentFileEntry>>(historyText) }.getOrDefault(emptyList())
                     withContext(Dispatchers.Main) { sentFiles = newHistory }
                 }
             } catch (e: Exception) {

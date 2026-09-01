@@ -36,7 +36,8 @@ import androidx.compose.ui.unit.sp
 import appctr.Appctr
 import androidx.compose.ui.res.stringResource
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
-import com.google.gson.Gson
+import io.github.bropines.tailscaled.core.AppJson
+import kotlinx.serialization.decodeFromString
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -81,8 +82,8 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
         scope.launch(Dispatchers.IO) {
             try {
                 val json = Appctr.getStatusFromAPI()
-                if (json.startsWith("Error")) throw Exception(json)
-                val status = Gson().fromJson(json, StatusResponse::class.java)
+                if (json.isBlank() || json.startsWith("Error")) throw Exception(if (json.isBlank()) "Empty status" else json)
+                val status = AppJson.decodeFromString<StatusResponse>(json)
                 peers = status.peers?.values?.toList()?.sortedByDescending { it.online == true } ?: emptyList()
                 withContext(Dispatchers.Main) { isLoadingPeers = false; errorMsg = null }
             } catch (e: Exception) { withContext(Dispatchers.Main) { errorMsg = e.message; isLoadingPeers = false } }

@@ -10,7 +10,6 @@ import io.github.bropines.tailscaled.models.*
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.annotation.Keep
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardActions
@@ -34,8 +33,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import appctr.Appctr
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
-import com.google.gson.Gson
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.decodeFromString
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -53,21 +53,21 @@ import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.ui.graphics.Color
 
-@Keep
-data class DnsAddr(@SerializedName("Addr") val addr: String)
+@Serializable
+data class DnsAddr(@SerialName("Addr") val addr: String = "")
 
-@Keep
+@Serializable
 data class CurrentTailnetInfo(
-    @SerializedName("MagicDNSEnabled") val enabled: Boolean,
-    @SerializedName("MagicDNSSuffix") val suffix: String?,
-    @SerializedName("SelfDNSName") val selfName: String?
+    @SerialName("MagicDNSEnabled") val enabled: Boolean = false,
+    @SerialName("MagicDNSSuffix") val suffix: String? = null,
+    @SerialName("SelfDNSName") val selfName: String? = null
 )
 
-@Keep
+@Serializable
 data class DnsStatus(
-    @SerializedName("TailscaleDNS") val active: Boolean?,
-    @SerializedName("CurrentTailnet") val tailnet: CurrentTailnetInfo?,
-    @SerializedName("SplitDNSRoutes") val splitRoutes: Map<String, List<DnsAddr>>?
+    @SerialName("TailscaleDNS") val active: Boolean? = null,
+    @SerialName("CurrentTailnet") val tailnet: CurrentTailnetInfo? = null,
+    @SerialName("SplitDNSRoutes") val splitRoutes: Map<String, List<DnsAddr>>? = null
 )
 
 private fun buildDnsQuery(domain: String): ByteArray {
@@ -237,9 +237,8 @@ fun DnsScreen(onBack: () -> Unit) {
                 return@launch
             }
             val json = Appctr.getDnsStatusJSON()
-            val parsed = try {
-                Gson().fromJson(json, DnsStatus::class.java)
-            } catch (e: Exception) { null }
+            val parsed = if (json.isBlank()) null
+                else runCatching { AppJson.decodeFromString<DnsStatus>(json) }.getOrNull()
             withContext(Dispatchers.Main) {
                 status = parsed
                 if (parsed == null) {

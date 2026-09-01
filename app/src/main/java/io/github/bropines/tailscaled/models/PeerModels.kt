@@ -1,64 +1,58 @@
 package io.github.bropines.tailscaled.models
-import io.github.bropines.tailscaled.R
-import io.github.bropines.tailscaled.BuildConfig
 
-import io.github.bropines.tailscaled.admin.*
-import io.github.bropines.tailscaled.core.*
-import io.github.bropines.tailscaled.ui.*
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
-import androidx.annotation.Keep
-import com.google.gson.annotations.SerializedName
-
-@Keep
+@Serializable
 data class UserProfile(
-    @SerializedName("ID") val id: Long,
-    @SerializedName("LoginName") val loginName: String?,
-    @SerializedName("DisplayName") val displayName: String?,
-    @SerializedName("ProfilePicURL") val profilePicUrl: String?
+    @SerialName("ID") val id: Long = 0,
+    @SerialName("LoginName") val loginName: String? = null,
+    @SerialName("DisplayName") val displayName: String? = null,
+    @SerialName("ProfilePicURL") val profilePicUrl: String? = null
 )
 
-@Keep
+@Serializable
 data class StatusResponse(
-    @SerializedName("Self") val self: PeerData?,
-    @SerializedName("Peer") val peers: Map<String, PeerData>?,
-    @SerializedName("User") val users: Map<String, UserProfile>?,
-    @SerializedName("MagicDNSSuffix") val magicDnsSuffix: String?
+    @SerialName("Self") val self: PeerData? = null,
+    @SerialName("Peer") val peers: Map<String, PeerData>? = null,
+    @SerialName("User") val users: Map<String, UserProfile>? = null,
+    @SerialName("MagicDNSSuffix") val magicDnsSuffix: String? = null
 )
 
-@Keep
+@Serializable
 data class PeerData(
-    @SerializedName("ID") val id: String?,
-    @SerializedName("UserID") val userID: Long?,
-    @SerializedName("HostName") val hostName: String?,
-    @SerializedName("DNSName") val dnsName: String?,
-    @SerializedName("OS") val os: String?,
-    @SerializedName("TailscaleIPs") val tailscaleIPs: List<String>?,
-    @SerializedName("AllowedIPs") val allowedIPs: List<String>?,
-    @SerializedName("Addrs") val addrs: List<String>?,
-    @SerializedName("CurAddr") val curAddr: String?,
-    @SerializedName("Online") val online: Boolean?,
-    @SerializedName("Active") val active: Boolean?,
-    @SerializedName("Relay") val relay: String?,
-    @SerializedName("PeerRelay") val peerRelay: String?,
-    @SerializedName("Created") val created: String?,
-    @SerializedName("LastWrite") val lastWrite: String?,
-    @SerializedName("LastSeen") val lastSeen: String?,
-    @SerializedName("LastHandshake") val lastHandshake: String?,
-    @SerializedName("KeyExpiry") val keyExpiry: String?,
-    @SerializedName("Version") val version: String?,
-    @SerializedName("ExitNode") val exitNode: Boolean?,
-    @SerializedName("ExitNodeOption") val exitNodeOption: Boolean?,
-    @SerializedName("RxBytes") val rxBytes: Long?,
-    @SerializedName("TxBytes") val txBytes: Long?,
-    @SerializedName("InNetworkMap") val inNetworkMap: Boolean?,
-    @SerializedName("InMagicSock") val inMagicSock: Boolean?,
-    @SerializedName("InEngine") val inEngine: Boolean?,
-    @SerializedName("PeerAPIURL") val peerApiUrl: List<String>?,
-    @SerializedName("TaildropTarget") val taildropTarget: Int?,
-    @SerializedName("NoFileSharingReason") val noFileSharingReason: String?,
-    @SerializedName("Capabilities") val capabilities: List<String>?,
-    @SerializedName("ShareeNode") val shareeNode: Boolean?,
-    @SerializedName("Tags") val tags: List<String>?
+    @SerialName("ID") val id: String? = null,
+    @SerialName("UserID") val userID: Long? = null,
+    @SerialName("HostName") val hostName: String? = null,
+    @SerialName("DNSName") val dnsName: String? = null,
+    @SerialName("OS") val os: String? = null,
+    @SerialName("TailscaleIPs") val tailscaleIPs: List<String>? = null,
+    @SerialName("AllowedIPs") val allowedIPs: List<String>? = null,
+    @SerialName("Addrs") val addrs: List<String>? = null,
+    @SerialName("CurAddr") val curAddr: String? = null,
+    @SerialName("Online") val online: Boolean? = null,
+    @SerialName("Active") val active: Boolean? = null,
+    @SerialName("Relay") val relay: String? = null,
+    @SerialName("PeerRelay") val peerRelay: String? = null,
+    @SerialName("Created") val created: String? = null,
+    @SerialName("LastWrite") val lastWrite: String? = null,
+    @SerialName("LastSeen") val lastSeen: String? = null,
+    @SerialName("LastHandshake") val lastHandshake: String? = null,
+    @SerialName("KeyExpiry") val keyExpiry: String? = null,
+    @SerialName("Version") val version: String? = null,
+    @SerialName("ExitNode") val exitNode: Boolean? = null,
+    @SerialName("ExitNodeOption") val exitNodeOption: Boolean? = null,
+    @SerialName("RxBytes") val rxBytes: Long? = null,
+    @SerialName("TxBytes") val txBytes: Long? = null,
+    @SerialName("InNetworkMap") val inNetworkMap: Boolean? = null,
+    @SerialName("InMagicSock") val inMagicSock: Boolean? = null,
+    @SerialName("InEngine") val inEngine: Boolean? = null,
+    @SerialName("PeerAPIURL") val peerApiUrl: List<String>? = null,
+    @SerialName("TaildropTarget") val taildropTarget: Int? = null,
+    @SerialName("NoFileSharingReason") val noFileSharingReason: String? = null,
+    @SerialName("Capabilities") val capabilities: List<String>? = null,
+    @SerialName("ShareeNode") val shareeNode: Boolean? = null,
+    @SerialName("Tags") val tags: List<String>? = null
 ) {
     fun getPrimaryIp(): String = tailscaleIPs?.firstOrNull() ?: "0.0.0.0"
 
@@ -103,11 +97,11 @@ data class PeerData(
             "Capabilities" to (capabilities?.size?.toString() ?: "0"),
             "Taildrop Target" to (taildropTarget?.toString() ?: "Unknown")
         )
-        
+
         if (!tags.isNullOrEmpty()) {
             list.add("Tags" to tags.joinToString(", "))
         }
-        
+
         if (!noFileSharingReason.isNullOrEmpty()) {
             list.add("No File Sharing" to noFileSharingReason)
         }

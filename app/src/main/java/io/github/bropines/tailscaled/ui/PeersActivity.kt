@@ -31,7 +31,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import appctr.Appctr
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
-import com.google.gson.Gson
+import io.github.bropines.tailscaled.core.AppJson
+import kotlinx.serialization.decodeFromString
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -95,7 +96,7 @@ fun PeersScreen(onBack: () -> Unit) {
                 if (json.isNullOrBlank() || json.startsWith("Error")) {
                     throw Exception(if (json.isNullOrBlank()) context.getString(R.string.peers_daemon_not_running) else json)
                 }
-                val status = Gson().fromJson(json, StatusResponse::class.java)
+                val status = AppJson.decodeFromString<StatusResponse>(json)
                 
                 withContext(Dispatchers.Main) {
                     selfPeer = status.self

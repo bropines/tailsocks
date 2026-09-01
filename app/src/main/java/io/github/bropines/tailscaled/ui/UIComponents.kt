@@ -49,6 +49,10 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import appctr.Appctr
+import io.github.bropines.tailscaled.core.AppJson
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.decodeFromString
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -57,6 +61,13 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 // --- PEERS ---
+
+@Serializable
+private data class PingResult(
+    @SerialName("Err") val err: String? = null,
+    @SerialName("LatencySeconds") val latencySeconds: Double? = null,
+    @SerialName("LatencyMs") val latencyMs: Double? = null
+)
 
 fun getOsVisuals(os: String?): Pair<ImageVector, Color> {
     val osLower = os?.lowercase().orEmpty()
@@ -210,16 +221,15 @@ fun PeerDetailsModal(
         pingResult == "Pinging..." -> stringResource(R.string.peer_pinging)
         pingResult!!.isNotBlank() && !pingResult!!.contains("Failed") && !pingResult!!.startsWith("Error") -> {
             val parsedTime = try {
-                val jsonObj = com.google.gson.JsonParser.parseString(pingResult!!).asJsonObject
-                val err = jsonObj.get("Err")?.asString
-                if (!err.isNullOrEmpty()) {
+                val ping = AppJson.decodeFromString<PingResult>(pingResult!!)
+                if (!ping.err.isNullOrEmpty()) {
                     null
                 } else {
-                    val sec = jsonObj.get("LatencySeconds")?.asDouble
+                    val sec = ping.latencySeconds
                     if (sec != null && sec > 0) {
                         "${(sec * 1000).toInt()} ms"
                     } else {
-                        val ms = jsonObj.get("LatencyMs")?.asDouble
+                        val ms = ping.latencyMs
                         if (ms != null && ms > 0) "${ms.toInt()} ms" else null
                     }
                 }

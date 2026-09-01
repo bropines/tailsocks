@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlinAndroid)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.kotlinSerialization)
 }
 
 // Получаем версию из git через современные провайдеры Gradle
@@ -88,8 +89,8 @@ android {
             versionNameSuffix = "-dev"
         }
         release {
-            isMinifyEnabled = false 
-            isShrinkResources = false 
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             buildConfigField("boolean", "IS_DEV", "false")
             versionNameSuffix = ".release"
@@ -135,7 +136,7 @@ android {
 
 dependencies {
     implementation(project(":appctr"))
-    implementation(libs.gson)
+    implementation(libs.kotlinx.serialization.json)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("androidx.biometric:biometric:1.1.0")
     implementation(libs.androidx.appcompat)
