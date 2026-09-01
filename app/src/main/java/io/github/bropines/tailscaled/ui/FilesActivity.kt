@@ -281,9 +281,11 @@ fun FilesScreen(onBack: () -> Unit) {
                         when (page) {
                             0 -> if (files.isEmpty() && !isLoading) EmptyState(Icons.Default.Inbox, stringResource(R.string.files_empty_inbox)) 
                                 else LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    items(files) { f -> FileCard(f, { openTaildropFile(context, f) }, { handleSaveRequest(f) }, { 
-                                        val deleted = Appctr.deleteTaildropFileFromAPI(f.Name)
-                                        if (deleted) refreshData() 
+                                    items(files) { f -> FileCard(f, { openTaildropFile(context, f) }, { handleSaveRequest(f) }, {
+                                        scope.launch(Dispatchers.IO) {
+                                            val deleted = Appctr.deleteTaildropFileFromAPI(f.Name)
+                                            if (deleted) refreshData()
+                                        }
                                     }) }
                                 }
                             1 -> if (peers.isEmpty() && selfPeer == null && !isLoading) EmptyState(Icons.Default.Devices, stringResource(R.string.files_empty_devices)) 

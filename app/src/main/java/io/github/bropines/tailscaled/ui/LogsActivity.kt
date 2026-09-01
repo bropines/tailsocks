@@ -253,16 +253,26 @@ fun LogsScreen(onBack: () -> Unit) {
                             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
                         },
                         actions = {
-                            IconButton(onClick = { 
-                                Appctr.flushDNS()
-                                Toast.makeText(context, context.getString(R.string.logs_dns_flushed), Toast.LENGTH_SHORT).show()
+                            IconButton(onClick = {
+                                coroutineScope.launch(Dispatchers.IO) {
+                                    Appctr.flushDNS()
+                                    withContext(Dispatchers.Main) {
+                                        Toast.makeText(context, context.getString(R.string.logs_dns_flushed), Toast.LENGTH_SHORT).show()
+                                    }
+                                }
                             }) { Icon(Icons.Default.CleaningServices, contentDescription = stringResource(R.string.logs_cd_flush_dns)) }
 
-                            IconButton(onClick = { 
-                                val fullLog = buildFullLogString(context)
-                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                clipboard.setPrimaryClip(ClipData.newPlainText("TailSocks Logs", fullLog))
-                                Toast.makeText(context, context.getString(R.string.logs_copied), Toast.LENGTH_SHORT).show()
+                            IconButton(onClick = {
+                                // buildFullLogString reads the whole root daemon log
+                                // and calls JNI — off the main thread.
+                                coroutineScope.launch(Dispatchers.IO) {
+                                    val fullLog = buildFullLogString(context)
+                                    withContext(Dispatchers.Main) {
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                        clipboard.setPrimaryClip(ClipData.newPlainText("TailSocks Logs", fullLog))
+                                        Toast.makeText(context, context.getString(R.string.logs_copied), Toast.LENGTH_SHORT).show()
+                                    }
+                                }
                             }) { Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.action_copy)) }
                             
                             IconButton(onClick = { saveFileLauncher.launch("tailsocks_logs_${System.currentTimeMillis()}.txt") }) { Icon(Icons.Default.Save, contentDescription = stringResource(R.string.action_save)) }

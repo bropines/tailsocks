@@ -719,10 +719,12 @@ class TailscaledService : Service() {
             // in SettingsActivity. We no longer pass them in 'up' to avoid restarting
             // configuration unnecessarily.
 
-            if (profilePrefs.getBoolean("advertise_exit_node", false)) {
-                argsBuilder.append("--advertise-exit-node=true ")
-            } else {
-                argsBuilder.append("--advertise-exit-node=false ")
+            // Only emit the flag when the app actually owns this preference.
+            // Nothing writes it (there is no UI), so unconditionally appending
+            // --advertise-exit-node=false un-advertised a device that had been
+            // made an exit node from the CLI or the admin console on every start.
+            if (profilePrefs.contains("advertise_exit_node")) {
+                argsBuilder.append("--advertise-exit-node=${profilePrefs.getBoolean("advertise_exit_node", false)} ")
             }
 
             val extraArgs = GlobalSettings.getString(this@TailscaledService, "extra_args_raw", "")
