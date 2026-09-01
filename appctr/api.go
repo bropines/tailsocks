@@ -100,6 +100,9 @@ func SwitchProfile(profileID string) error {
 	if err != nil {
 		return fmt.Errorf("SwitchProfile failed: %w", err)
 	}
+	// The DNS caches belong to the previous tailnet. Without this, MagicDNS keeps
+	// answering with the old profile's peers until the next FlushDNS.
+	FlushDNS()
 	return nil
 }
 

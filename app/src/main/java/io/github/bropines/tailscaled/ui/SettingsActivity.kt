@@ -2363,12 +2363,19 @@ fun SettingsExitNodeItem(
     fun applyExitNode(id: String, ip: String) {
         onSave(id, ip)
         scope.launch(Dispatchers.IO) {
-            val prefsJson = "{\"ExitNodeID\": \"$id\", \"ExitNodeIDSet\": true}"
-            val res = Appctr.setPrefs(prefsJson)
-            if (res != "OK") {
-                withContext(Dispatchers.Main) {
-                    android.widget.Toast.makeText(context, context.getString(R.string.settings_local_api_error_format, res), android.widget.Toast.LENGTH_SHORT).show()
+            // The choice is saved regardless; only push it live when the daemon
+            // is up. Calling setPrefs while stopped surfaced a LocalAPI error for
+            // a change that was in fact stored fine.
+            if (Appctr.isRunning()) {
+                val prefsJson = "{\"ExitNodeID\": \"$id\", \"ExitNodeIDSet\": true}"
+                val res = Appctr.setPrefs(prefsJson)
+                if (res != "OK") {
+                    withContext(Dispatchers.Main) {
+                        android.widget.Toast.makeText(context, context.getString(R.string.settings_local_api_error_format, res), android.widget.Toast.LENGTH_SHORT).show()
+                    }
                 }
+            } else if (ProxyState.isActualRunning(context)) {
+                TailscaledService.requestApplySettings(context)
             }
             updateAllWidgets(context)
             if (GlobalSettings.isTunModeEnabled(context)) {

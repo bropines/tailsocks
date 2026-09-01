@@ -320,6 +320,7 @@ fun ServeScreen(onBack: () -> Unit) {
                                         },
                                         isDisabled = handler.disabled == true,
                                         isFunnel = isFunnel,
+                                        proxyProtocol = handler.proxyProtocol ?: 0,
                                         isEditing = true
                                     )
                                 },
@@ -404,6 +405,7 @@ fun ServeScreen(onBack: () -> Unit) {
                                             oldServiceName = cleanSvcName,
                                             isDisabled = handler.disabled == true,
                                             isFunnel = false,
+                                            proxyProtocol = handler.proxyProtocol ?: 0,
                                             isEditing = true
                                         )
                                     },
@@ -846,27 +848,16 @@ fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm
                     handlerType == "Redirect" -> stringResource(R.string.serve_field_target_redirect)
                     else -> stringResource(R.string.serve_field_target)
                 }
-                val isTargetPortOnly = (mode == "TCP")
+                // The TCP target is a host:port forward (e.g. 127.0.0.1:8080),
+                // not a port. The old digit-only filter dropped the dots and the
+                // colon, so every TCP serve rule stored a malformed forward.
                 OutlinedTextField(
-                    value = target, 
-                    onValueChange = { newValue ->
-                        if (isTargetPortOnly) {
-                            val digits = newValue.filter { it.isDigit() }
-                            if (digits.length <= 5) {
-                                val num = digits.toIntOrNull()
-                                if (num == null || num <= 65535) {
-                                    target = digits
-                                }
-                            }
-                        } else {
-                            target = newValue
-                        }
-                    }, 
+                    value = target,
+                    onValueChange = { target = it },
                     label = { Text(targetLabel) },
                     singleLine = true,
                     maxLines = 1,
                     shape = RoundedCornerShape(10.dp),
-                    keyboardOptions = if (isTargetPortOnly) KeyboardOptions(keyboardType = KeyboardType.Number) else KeyboardOptions.Default,
                     modifier = Modifier.fillMaxWidth()
                 )
             }

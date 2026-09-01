@@ -252,9 +252,18 @@ private suspend fun sendFilesWithProgress(context: Context, uris: List<Uri>, pee
             val tmp = File(outDir, originalName)
             context.contentResolver.openInputStream(uri)?.use { input -> tmp.outputStream().use { output -> input.copyTo(output); output.flush() } }
             val target = if (!peer.id.isNullOrEmpty()) peer.id else (peer.hostName ?: peer.dnsName ?: peer.getDisplayName())
-            Appctr.sendFileFromAPI(target, tmp.absolutePath)
-            logSentFile(context, originalName, peer.getDisplayName())
+            val res = Appctr.sendFileFromAPI(target, tmp.absolutePath)
             tmp.delete()
-        } catch (e: Exception) {}
+            // Only record and report success when the daemon actually accepted
+            // it. Sending to an offline peer used to show "Sent!" and add a
+            // phantom history entry.
+            if (res == "OK") {
+                logSentFile(context, originalName, peer.getDisplayName())
+            } else {
+                onProgress("Failed: $originalName\n${res.removePrefix("Error: ")}")
+            }
+        } catch (e: Exception) {
+            onProgress("Failed: $originalName\n${e.message ?: ""}")
+        }
     }
 }

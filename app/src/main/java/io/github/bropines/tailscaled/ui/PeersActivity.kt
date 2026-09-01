@@ -190,10 +190,14 @@ private fun sendFileToPeer(context: Context, uri: Uri, peer: PeerData, scope: Co
             val tmp = File(outDir, originalName)
             context.contentResolver.openInputStream(uri)?.use { i -> tmp.outputStream().use { o -> i.copyTo(o); o.flush() } }
             val target = if (!peer.id.isNullOrEmpty()) peer.id else (peer.hostName ?: peer.dnsName ?: peer.getDisplayName())
-            Appctr.sendFileFromAPI(target, tmp.absolutePath)
-            logSentFile(context, originalName, peer.getDisplayName())
+            val res = Appctr.sendFileFromAPI(target, tmp.absolutePath)
             tmp.delete()
-            withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.peers_sent), Toast.LENGTH_SHORT).show() }
+            if (res == "OK") {
+                logSentFile(context, originalName, peer.getDisplayName())
+                withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.peers_sent), Toast.LENGTH_SHORT).show() }
+            } else {
+                withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.peers_failed_format, res.removePrefix("Error: ")), Toast.LENGTH_LONG).show() }
+            }
         } catch (e: Exception) { withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.peers_failed_format, e.message), Toast.LENGTH_LONG).show() } }
     }
 }

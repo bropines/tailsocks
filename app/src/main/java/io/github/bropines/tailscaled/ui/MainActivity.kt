@@ -719,9 +719,20 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                     onClick = {
                         accountToDeleteConfirm = null
                         accountMenuExpanded = false
-                        AccountManager.deleteAccount(context, targetAcc.id)
-                        activeAccount = AccountManager.getActiveAccount(context)
-                        accounts.value = AccountManager.getAccounts(context)
+                        // Deleting the active, running account would pull its
+                        // state dir out from under the live daemon; stop first.
+                        val wasActiveRunning = targetAcc.id == activeAccount.id && ProxyState.isActualRunning(context)
+                        if (wasActiveRunning) {
+                            context.startService(Intent(context, TailscaledService::class.java).apply { action = "STOP_ACTION" })
+                        }
+                        scope.launch(Dispatchers.IO) {
+                            if (wasActiveRunning) { try { Thread.sleep(800) } catch (_: Exception) {} }
+                            AccountManager.deleteAccount(context, targetAcc.id)
+                            withContext(Dispatchers.Main) {
+                                activeAccount = AccountManager.getActiveAccount(context)
+                                accounts.value = AccountManager.getAccounts(context)
+                            }
+                        }
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.error,

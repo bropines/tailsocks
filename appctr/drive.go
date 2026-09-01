@@ -10,6 +10,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"sync"
+	"time"
 
 	"golang.org/x/net/proxy"
 	"tailscale.com/drive"
@@ -159,7 +160,9 @@ func StartDriveProxy(localAddr, username, password string) error {
 
 	if driveProxyServer != nil {
 		slog.Info("Taildrive Proxy: Recreating proxy to apply new settings", "addr", localAddr, "has_auth", username != "")
-		_ = driveProxyServer.Shutdown(context.Background())
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		_ = driveProxyServer.Shutdown(ctx)
+		cancel()
 		driveProxyServer = nil
 	}
 
@@ -253,7 +256,9 @@ func StopDriveProxy() error {
 	}
 
 	slog.Info("Taildrive Proxy: Stopping server...")
-	err := driveProxyServer.Shutdown(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	err := driveProxyServer.Shutdown(ctx)
 	driveProxyServer = nil
 	if err != nil {
 		slog.Error("Taildrive Proxy: Error stopping server", "error", err)
