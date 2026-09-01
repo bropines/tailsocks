@@ -107,29 +107,6 @@ private fun buildDnsQuery(domain: String): ByteArray {
     return baos.toByteArray()
 }
 
-private fun getActiveSocksProxy(context: Context): java.net.Proxy? {
-    val controlProxyUrl = GlobalSettings.getControlProxyUrl(context)
-    if (controlProxyUrl.isNotEmpty()) {
-        val parsed = GlobalSettings.parseProxyUri(controlProxyUrl)
-        if (parsed != null) {
-            val host = parsed["host"] ?: "127.0.0.1"
-            val port = parsed["port"]?.toIntOrNull() ?: 1055
-            val typeStr = parsed["type"] ?: "SOCKS5"
-            val proxyType = if (typeStr.equals("HTTP", true) || typeStr.equals("HTTPS", true)) java.net.Proxy.Type.HTTP else java.net.Proxy.Type.SOCKS
-            return java.net.Proxy(proxyType, java.net.InetSocketAddress(host, port))
-        }
-    }
-    if (ProxyState.isActualRunning(context)) {
-        // SOCKS5 is a global setting; reading it from the profile preferences
-        // always missed and silently fell back to a port nothing listens on.
-        val socks5Str = GlobalSettings.getString(context, "socks5", "127.0.0.1:48115")
-        val host = NetAddr.dialableHost(socks5Str)
-        val port = NetAddr.port(socks5Str) ?: 48115
-        return java.net.Proxy(java.net.Proxy.Type.SOCKS, java.net.InetSocketAddress(host, port))
-    }
-    return null
-}
-
 private fun testDnsServer(context: Context, serverIp: String, serverPort: Int = 53, domain: String = "google.com"): String {
     var targetHost = serverIp.trim()
     var targetPort = serverPort
@@ -165,31 +142,6 @@ private fun testDnsServer(context: Context, serverIp: String, serverPort: Int = 
 
     // Direct UDP socket test for custom external IPs
     return testUdpDnsServer(targetHost, targetPort, cleanDomain)
-}
-
-private fun testSocksDnsServer(proxy: java.net.Proxy, host: String, port: Int, domain: String): String {
-    return try {
-        val socket = java.net.Socket(proxy)
-        val startTime = System.currentTimeMillis()
-        socket.connect(java.net.InetSocketAddress(host, port), 3000)
-        socket.soTimeout = 3000
-        
-        val rawQuery = buildDnsQuery(domain)
-        val dos = java.io.DataOutputStream(socket.getOutputStream())
-        dos.writeShort(rawQuery.size)
-        dos.write(rawQuery)
-        dos.flush()
-
-        val dis = java.io.DataInputStream(socket.getInputStream())
-        val respLen = dis.readUnsignedShort()
-        val buffer = ByteArray(respLen)
-        dis.readFully(buffer)
-        val latency = System.currentTimeMillis() - startTime
-        socket.close()
-        "Success via SOCKS5 (reply: ${respLen} bytes, latency: ${latency} ms)"
-    } catch (e: Exception) {
-        "Failed via SOCKS5: ${e.message ?: e.javaClass.simpleName}"
-    }
 }
 
 private fun testUdpDnsServer(host: String, port: Int, domain: String): String {
@@ -514,14 +466,14 @@ fun DnsScreen(onBack: () -> Unit) {
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Text("Статус", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
+                                    Text(stringResource(R.string.dns_magic_status), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
                                     val magicActive = data.tailnet?.enabled ?: false
                                     Surface(
                                         color = (if (magicActive) androidx.compose.ui.graphics.Color(0xFF4CAF50) else MaterialTheme.colorScheme.outline).copy(alpha = 0.12f),
                                         shape = RoundedCornerShape(6.dp)
                                     ) {
                                         Text(
-                                            text = if (magicActive) "ВКЛЮЧЕН" else "ВЫКЛЮЧЕН",
+                                            text = if (magicActive) stringResource(R.string.dns_magic_enabled) else stringResource(R.string.dns_magic_disabled),
                                             color = if (magicActive) androidx.compose.ui.graphics.Color(0xFF4CAF50) else MaterialTheme.colorScheme.outline,
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 11.sp,
@@ -536,14 +488,14 @@ fun DnsScreen(onBack: () -> Unit) {
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
-                                        Text("Домен сети", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
+                                        Text(stringResource(R.string.dns_network_domain), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
                                         Text(suffix, fontFamily = FontFamily.Monospace, fontSize = 13.sp)
                                     }
                                 }
                                 data.tailnet?.selfName?.let { name ->
                                     Spacer(Modifier.height(8.dp))
                                     Column(modifier = Modifier.fillMaxWidth()) {
-                                        Text("DNS-имя устройства", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
+                                        Text(stringResource(R.string.dns_device_name), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
                                         Spacer(Modifier.height(2.dp))
                                         Surface(
                                             shape = RoundedCornerShape(8.dp),

@@ -53,6 +53,27 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
+// The persisted scrollback is reloaded into a single String and re-appended
+// every session; without a cap the file (and the in-memory buffer read back
+// from it) grew without bound. Keep only the tail when persisting.
+private const val MAX_HISTORY_LINES = 4000
+private const val MAX_HISTORY_BYTES = 200 * 1024
+
+private fun capScrollback(text: String): String {
+    var capped = text
+    val lines = capped.split("\n")
+    if (lines.size > MAX_HISTORY_LINES) {
+        capped = lines.takeLast(MAX_HISTORY_LINES).joinToString("\n")
+    }
+    // A handful of very long lines can still blow the size budget, so trim bytes
+    // too (a split multibyte char at the cut is harmless for a console log).
+    val bytes = capped.toByteArray(Charsets.UTF_8)
+    if (bytes.size > MAX_HISTORY_BYTES) {
+        capped = String(bytes, bytes.size - MAX_HISTORY_BYTES, MAX_HISTORY_BYTES, Charsets.UTF_8)
+    }
+    return capped
+}
+
 class ConsoleActivity : ComponentActivity() {
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(wrapContextWithLocale(newBase))
@@ -115,24 +136,33 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
     }
 
     LaunchedEffect(Unit) {
-        if (historyFile.exists()) {
-            try { outputText = historyFile.readText() } catch (e: Exception) {}
+        // Read the persisted scrollback/command history off the UI dispatcher;
+        // only the resulting state writes stay on main.
+        val (savedOutput, savedCmds) = withContext(Dispatchers.IO) {
+            val out = if (historyFile.exists()) try { historyFile.readText() } catch (e: Exception) { null } else null
+            val cmds = if (cmdHistoryFile.exists()) try { cmdHistoryFile.readLines() } catch (e: Exception) { null } else null
+            out to cmds
+        }
+        if (savedOutput != null) {
+            outputText = savedOutput
             verticalScrollState.animateScrollTo(verticalScrollState.maxValue)
         }
-        if (cmdHistoryFile.exists()) {
-            try {
-                val lines = cmdHistoryFile.readLines()
-                commandHistory.addAll(lines)
-            } catch (e: Exception) {}
-        }
+        if (savedCmds != null) commandHistory.addAll(savedCmds)
         if (initialCmd.isNotEmpty()) currentCommand = initialCmd
         focusRequester.requestFocus()
     }
 
     DisposableEffect(Unit) {
         onDispose {
-            try { historyFile.writeText(outputText) } catch (e: Exception) {}
-            saveCommandHistory()
+            // onDispose runs on main; snapshot here and persist off it. The write
+            // is wrapped NonCancellable so it still completes if the composition
+            // scope is cancelled mid-write during disposal.
+            val snapshot = outputText
+            val cmds = commandHistory.toList()
+            coroutineScope.launch(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
+                try { historyFile.writeText(capScrollback(snapshot)) } catch (e: Exception) {}
+                try { cmdHistoryFile.writeText(cmds.joinToString("\n")) } catch (e: Exception) {}
+            }
         }
     }
 

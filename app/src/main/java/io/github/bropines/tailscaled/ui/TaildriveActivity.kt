@@ -89,13 +89,16 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
     val prefs = remember(activeAccount.id) { context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE) }
 
     var isEnabled by remember { mutableStateOf(prefs.getBoolean("taildrive_enabled", true)) }
-    var sharesJson = prefs.getString("taildrive_shares", "[]") ?: "[]"
-    val gson = Gson()
-    val listType = object : TypeToken<ArrayList<LocalShare>>() {}.type
-    val initialShares: ArrayList<LocalShare> = try {
-        gson.fromJson(sharesJson, listType) ?: ArrayList()
-    } catch (e: Exception) {
-        ArrayList()
+    val sharesJson = prefs.getString("taildrive_shares", "[]") ?: "[]"
+    // Parsing the shares JSON with Gson is expensive; key it on the stored value so it
+    // runs only when the prefs actually change instead of on every recomposition frame.
+    val initialShares: ArrayList<LocalShare> = remember(sharesJson) {
+        val listType = object : TypeToken<ArrayList<LocalShare>>() {}.type
+        try {
+            Gson().fromJson(sharesJson, listType) ?: ArrayList()
+        } catch (e: Exception) {
+            ArrayList()
+        }
     }
     val shares = remember { mutableStateListOf<LocalShare>().apply { addAll(initialShares) } }
 
@@ -116,7 +119,7 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
             val chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
             val generated = (1..8).map { chars.random() }.joinToString("")
             proxyPassword = generated
-            prefs.edit().putString("taildrive_proxy_password", generated).commit()
+            prefs.edit().putString("taildrive_proxy_password", generated).apply()
             triggerServiceSettingsUpdate(context)
         }
     }
@@ -314,7 +317,7 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
                                     requestStoragePermission(context)
                                 } else {
                                     isEnabled = checked
-                                    prefs.edit().putBoolean("taildrive_enabled", checked).commit()
+                                    prefs.edit().putBoolean("taildrive_enabled", checked).apply()
                                     triggerServiceSettingsUpdate(context)
                                 }
                             }
@@ -405,7 +408,7 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
                                 checked = isProxyEnabled,
                                 onCheckedChange = { checked ->
                                     isProxyEnabled = checked
-                                    prefs.edit().putBoolean("taildrive_proxy_enabled", checked).commit()
+                                    prefs.edit().putBoolean("taildrive_proxy_enabled", checked).apply()
                                     triggerServiceSettingsUpdate(context)
                                 }
                             )
@@ -421,7 +424,7 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
                                 value = proxyIp,
                                 onValueChange = { ip ->
                                     proxyIp = ip
-                                    prefs.edit().putString("taildrive_proxy_ip", ip).commit()
+                                    prefs.edit().putString("taildrive_proxy_ip", ip).apply()
                                     triggerServiceSettingsUpdate(context)
                                 },
                                 label = { Text(stringResource(R.string.taildrive_proxy_ip)) },
@@ -441,7 +444,7 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
                                         val num = cleanPort.toIntOrNull()
                                         if (num == null || num <= 65535) {
                                             proxyPort = cleanPort
-                                            prefs.edit().putString("taildrive_proxy_port", cleanPort).commit()
+                                            prefs.edit().putString("taildrive_proxy_port", cleanPort).apply()
                                             triggerServiceSettingsUpdate(context)
                                         }
                                     }
@@ -472,7 +475,7 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
                                     checked = isProxyAuthEnabled,
                                     onCheckedChange = { checked ->
                                         isProxyAuthEnabled = checked
-                                        prefs.edit().putBoolean("taildrive_proxy_auth_enabled", checked).commit()
+                                        prefs.edit().putBoolean("taildrive_proxy_auth_enabled", checked).apply()
                                         triggerServiceSettingsUpdate(context)
                                     }
                                 )
@@ -485,7 +488,7 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
                                     value = proxyUsername,
                                     onValueChange = { user ->
                                         proxyUsername = user
-                                        prefs.edit().putString("taildrive_proxy_username", user).commit()
+                                        prefs.edit().putString("taildrive_proxy_username", user).apply()
                                         triggerServiceSettingsUpdate(context)
                                     },
                                     label = { Text(stringResource(R.string.taildrive_username)) },
@@ -499,7 +502,7 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
                                     value = proxyPassword,
                                     onValueChange = { pass ->
                                         proxyPassword = pass
-                                        prefs.edit().putString("taildrive_proxy_password", pass).commit()
+                                        prefs.edit().putString("taildrive_proxy_password", pass).apply()
                                         triggerServiceSettingsUpdate(context)
                                     },
                                     label = { Text(stringResource(R.string.taildrive_password)) },
@@ -763,7 +766,7 @@ private fun requestStoragePermission(context: Context) {
 
 private fun saveShares(prefs: SharedPreferences, shares: List<LocalShare>) {
     val json = Gson().toJson(shares)
-    prefs.edit().putString("taildrive_shares", json).commit()
+    prefs.edit().putString("taildrive_shares", json).apply()
 }
 
 private fun triggerServiceSettingsUpdate(context: Context) {

@@ -563,6 +563,11 @@
     <string name="dns_test_btn">Run DNS Test</string>
     <string name="dns_test_success_format">Success (Reply: %1$d bytes, ping: %2$d ms)</string>
     <string name="dns_test_failed_format">Failed: %1$s</string>
+    <string name="dns_magic_status">Status</string>
+    <string name="dns_magic_enabled">ENABLED</string>
+    <string name="dns_magic_disabled">DISABLED</string>
+    <string name="dns_network_domain">Network domain</string>
+    <string name="dns_device_name">Device DNS name</string>
 
     <!-- ======================== Taildrop / Files ======================== -->
     <string name="files_hub_title">Taildrop Hub</string>

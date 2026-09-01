@@ -1,6 +1,5 @@
 package io.github.bropines.tailscaled.ui
 import io.github.bropines.tailscaled.R
-import io.github.bropines.tailscaled.BuildConfig
 import androidx.compose.ui.res.stringResource
 
 import io.github.bropines.tailscaled.admin.*
@@ -64,7 +63,6 @@ import java.lang.Runtime
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 
 fun isVersionNewer(current: String, latest: String): Boolean {
-    val isDev = current.contains("-dev", ignoreCase = true) || current.contains("dev", ignoreCase = true) || BuildConfig.DEBUG
     val cleanCurrent = current.removePrefix("v").substringBefore("-").replace(Regex("[^0-9.]"), "")
     val cleanLatest = latest.removePrefix("v").substringBefore("-").replace(Regex("[^0-9.]"), "")
     val c = cleanCurrent.split(".").map { it.toIntOrNull() ?: 0 }
@@ -75,9 +73,8 @@ fun isVersionNewer(current: String, latest: String): Boolean {
         if (lVal > cVal) return true
         if (lVal < cVal) return false
     }
-    // If base numeric versions are equal (e.g. 3.1.4-dev vs 3.1.4 release),
-    // a DEV/Debug build is inherently newer than the published release.
-    if (isDev) return false
+    // Equal base numeric versions are not treated as an update. The old dev/debug
+    // branch here also returned false, so it was dead and has been dropped.
     return false
 }
 
@@ -330,20 +327,21 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
     val prefs = remember(activeAccount.id) { context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE) }
     val globalPrefs = remember { context.getSharedPreferences("tailsocks_global", Context.MODE_PRIVATE) }
     var isTunEnabled by remember { mutableStateOf(GlobalSettings.isTunModeEnabled(context)) }
-    var isFullTunnel by remember { mutableStateOf(GlobalSettings.isTunFullTunnel(context)) }
 
     val globalPrefsListener = remember {
         android.content.SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
             if (key == "tun_mode_enabled") {
                 isTunEnabled = sharedPreferences.getBoolean("tun_mode_enabled", false)
-            } else if (key == "tun_full_tunnel") {
-                isFullTunnel = sharedPreferences.getBoolean("tun_full_tunnel", false)
             }
         }
     }
 
     var proxyState by remember { mutableStateOf(if (ProxyState.isActualRunning(context)) "ACTIVE" else "STOPPED") }
     var exitNodeIp by remember(activeAccount.id) { mutableStateOf(prefs.getString("exit_node_ip", "") ?: "") }
+    // TunVpnService establishes a *full* tunnel exactly when an exit node is configured.
+    // The old `tun_full_tunnel` pref was never written by anything and always read false,
+    // so derive the indicator from the live exit-node state to keep the UI truthful.
+    val isFullTunnel = exitNodeIp.isNotEmpty()
 
     val profilePrefsListener = remember(activeAccount.id) {
         android.content.SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
@@ -490,7 +488,6 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
     DisposableEffect(globalPrefs) {
         globalPrefs.registerOnSharedPreferenceChangeListener(globalPrefsListener)
         isTunEnabled = globalPrefs.getBoolean("tun_mode_enabled", false)
-        isFullTunnel = globalPrefs.getBoolean("tun_full_tunnel", false)
         onDispose {
             globalPrefs.unregisterOnSharedPreferenceChangeListener(globalPrefsListener)
         }
@@ -501,7 +498,6 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
                 isTunEnabled = GlobalSettings.isTunModeEnabled(context)
-                isFullTunnel = GlobalSettings.isTunFullTunnel(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -1562,7 +1558,6 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
                         Text(stringResource(R.string.main_no_exit_nodes), color = MaterialTheme.colorScheme.outline)
                     }
                 } else {
-                    val currentExitNodeId = remember(showExitNodeSheet, activeAccount.id) { prefs.getString("exit_node_id", "") ?: "" }
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()

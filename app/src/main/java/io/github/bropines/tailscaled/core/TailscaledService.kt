@@ -106,6 +106,13 @@ class TailscaledService : Service() {
     private val refreshHandler = android.os.Handler(android.os.Looper.getMainLooper())
     @Volatile private var refreshTickRunning = false
 
+    /** Delayed "network is back" notification refresh. Held as a named Runnable
+     *  posted on refreshHandler so onDestroy can cancel it — a throwaway Handler's
+     *  callback could otherwise fire after the service was torn down. */
+    private val networkNotifyRunnable = Runnable {
+        if (Appctr.isRunning()) updateNotification("Active")
+    }
+
     /**
      * The tick queries the daemon over its socket, so it runs off the main
      * thread and only re-schedules itself once it is done.
@@ -334,14 +341,19 @@ class TailscaledService : Service() {
 
     private lateinit var connectivityManager: ConnectivityManager
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
-        private var lastStateJson = ""
-        
+        // Read, compared and written from a fresh Thread per network event
+        // (injectIfNeeded), so the dedup check races across concurrent events.
+        // @Volatile at least makes each event's write visible to the next.
+        @Volatile private var lastStateJson = ""
+
         override fun onAvailable(network: Network) {
             Log.d(TAG, "Network Available")
             injectIfNeeded()
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                if (Appctr.isRunning()) updateNotification("Active")
-            }, 1500)
+            // Post through refreshHandler (not a throwaway Handler) so onDestroy
+            // cancels this and it cannot fire after the service is gone; remove
+            // any pending one first so rapid onAvailable events do not stack.
+            refreshHandler.removeCallbacks(networkNotifyRunnable)
+            refreshHandler.postDelayed(networkNotifyRunnable, 1500)
         }
         override fun onLost(network: Network) {
             Log.d(TAG, "Network Lost")
@@ -1068,6 +1080,7 @@ class TailscaledService : Service() {
 
     override fun onDestroy() {
         refreshHandler.removeCallbacks(refreshRunnable)
+        refreshHandler.removeCallbacks(networkNotifyRunnable)
         // stopMe() already ran the teardown (or is running it); only handle the
         // case where the system tore the service down without going through it.
         if (!teardownStarted) {

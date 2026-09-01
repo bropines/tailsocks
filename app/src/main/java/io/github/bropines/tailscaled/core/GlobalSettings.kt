@@ -56,18 +56,12 @@ object GlobalSettings {
 
     fun getControlProxyUrl(context: Context): String {
         if (isCPByeDpiEnabled(context)) {
-            var addr = ByeDpiProxy.activeAddress
-            if (addr == null) {
-                try {
-                    val flags = getCPByeDpiFlags(context)
-                    addr = ByeDpiProxy.start(flags, context)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-            if (addr != null) {
-                return "socks5://${addr.first}:${addr.second}"
-            }
+            // Pure getter: only report a ByeDPI listener that is already running.
+            // Starting it here bound a ServerSocket, and this is called from Compose
+            // composition (DnsActivity, AdminApiDashboardScreen). TailscaledService
+            // owns starting/stopping ByeDPI; if it is not up yet there is no URL.
+            val addr = ByeDpiProxy.activeAddress ?: return ""
+            return "socks5://${addr.first}:${addr.second}"
         }
         if (!isCPProxyEnabled(context)) return ""
         val type = getPrefs(context).getString("cp_type", "SOCKS5") ?: "SOCKS5"
