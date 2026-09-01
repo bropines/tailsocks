@@ -85,6 +85,10 @@ var webServer *http.Server
 var coreVersion string = "unknown"
 var daemonStartTime time.Time
 
+// daemonGeneration identifies the current daemon run so a supervisor goroutine
+// left over from a previous run cannot tear down its successor.
+var daemonGeneration uint64
+
 type Closer interface {
 	Close() error
 }
@@ -458,11 +462,30 @@ func Start(opt *StartOptions) {
 		opt.Socks5Server = "127.0.0.1:1055"
 	}
 
+	stateMu.Lock()
+	daemonGeneration++
+	generation := daemonGeneration
+	stateMu.Unlock()
+
 	go func() {
 		err := tailscaledCmd(PC, opt.DnsFallbacks, opt.Socks5Server, opt.HttpProxy, opt.Socks5User, opt.Socks5Pass, opt.TaildropDir, opt.ControlProxy)
 		if err != nil {
 			slog.Error("tailscaled cmd crashed", "err", err)
 		}
+
+		// Only the supervisor of the daemon that is still current may tear
+		// things down. A restart leaves the previous supervisor parked in
+		// Wait(); when its daemon finally exits it used to call Stop(), which
+		// by then pointed at the freshly started process — killing the daemon
+		// the restart had just brought up and reporting the service as dead.
+		stateMu.Lock()
+		stale := generation != daemonGeneration
+		stateMu.Unlock()
+		if stale {
+			slog.Info("Previous daemon exited after a restart, leaving the current one alone", "generation", generation)
+			return
+		}
+
 		Stop()
 		if opt.CloseCallBack != nil {
 			opt.CloseCallBack.Close()
@@ -604,6 +627,9 @@ func releaseGoResources() {
 	StopDriveServer()
 	StopIPNBusListener()
 	FlushDNS()
+	// Drop the pooled LocalAPI connection so nothing is left holding the
+	// daemon's socket after the bridge has let go of it.
+	closeLocalClient()
 
 	stateMu.Lock()
 	defer stateMu.Unlock()

@@ -689,16 +689,16 @@ class TailscaledService : Service() {
         }
 
         return StartOptions().apply {
-            socks5Server = GlobalSettings.getString(this@TailscaledService, "socks5", "127.0.0.1:48115")
+            socks5Server = GlobalSettings.getSocks5BindAddr(this@TailscaledService)
             socks5User   = GlobalSettings.getString(this@TailscaledService, "socks5_user", "")
             socks5Pass   = GlobalSettings.getString(this@TailscaledService, "socks5_pass", "")
-            httpProxy    = GlobalSettings.getString(this@TailscaledService, "httpproxy", "")
+            httpProxy    = GlobalSettings.getHttpProxyBindAddr(this@TailscaledService)
             controlProxy = if (byedpiEnabled && byedpiProxyAddress != null) {
                 "socks5://${byedpiProxyAddress!!.first}:${byedpiProxyAddress!!.second}"
             } else {
                 GlobalSettings.getControlProxyUrl(this@TailscaledService)
             }
-            dnsProxy     = GlobalSettings.getString(this@TailscaledService, "dns_proxy", "127.0.0.1:1053")
+            dnsProxy     = GlobalSettings.getDnsProxyBindAddr(this@TailscaledService)
             dnsFallbacks = GlobalSettings.getString(this@TailscaledService, "dns_fallbacks", "8.8.8.8:53,1.1.1.1:53")
             dohFallback  = GlobalSettings.getString(this@TailscaledService, "doh_url", "https://1.1.1.1/dns-query")
             loginServer  = profilePrefs.getString("login_server", "") ?: ""

@@ -93,20 +93,32 @@ object GlobalSettings {
      */
     fun isLanAccessEnabled(context: Context): Boolean = getBoolean(context, "lan_access_enabled", false)
 
+    fun setLanAccessEnabled(context: Context, enabled: Boolean) = setBoolean(context, "lan_access_enabled", enabled)
+
+    const val DEFAULT_SOCKS5 = "127.0.0.1:48115"
+    const val DEFAULT_DNS_PROXY = "127.0.0.1:1053"
+
     /**
-     * Applies the LAN exposure choice to every local listener, keeping the ports
-     * the user configured. Loopback addresses become wildcards and vice versa; a
-     * host the user chose explicitly is left untouched.
+     * The address a listener should actually bind to.
+     *
+     * The stored value stays whatever the user typed; the LAN choice is applied
+     * here, at the moment the address is used. Rewriting the stored values on
+     * toggle instead meant a listener the user had never touched — and so had no
+     * stored value at all — was skipped and silently stayed on loopback, and any
+     * later hand edit quietly opted that listener out again.
+     *
+     * An empty value means the listener is switched off and is left empty; a host
+     * the user chose explicitly is never overridden.
      */
-    fun setLanAccessEnabled(context: Context, enabled: Boolean) {
-        setBoolean(context, "lan_access_enabled", enabled)
-        for (key in listOf("socks5", "httpproxy", "dns_proxy")) {
-            val current = getString(context, key, "")
-            if (current.isNotEmpty()) {
-                setString(context, key, NetAddr.rebind(current, enabled))
-            }
-        }
+    private fun bindAddr(context: Context, key: String, default: String): String {
+        val configured = getString(context, key, default)
+        if (configured.isBlank()) return ""
+        return NetAddr.rebind(configured, isLanAccessEnabled(context))
     }
+
+    fun getSocks5BindAddr(context: Context): String = bindAddr(context, "socks5", DEFAULT_SOCKS5)
+    fun getHttpProxyBindAddr(context: Context): String = bindAddr(context, "httpproxy", "")
+    fun getDnsProxyBindAddr(context: Context): String = bindAddr(context, "dns_proxy", DEFAULT_DNS_PROXY)
 
     fun parseProxyUri(uriStr: String): Map<String, String>? {
         try {

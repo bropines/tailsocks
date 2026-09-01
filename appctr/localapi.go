@@ -88,15 +88,60 @@ func waitForLocalAPI(timeout time.Duration) bool {
 	}
 }
 
+// localClientMu guards the cached LocalAPI client below.
+var (
+	localClientMu   sync.Mutex
+	localClientPath string
+	localClient     *http.Client
+)
+
 // newLocalClient returns an http.Client that dials the daemon's Unix socket.
-func newLocalClient(socketPath string) http.Client {
-	return http.Client{
+//
+// The client is cached per socket path and reused. Building a fresh
+// http.Transport per request leaked a connection every time: after the body is
+// closed the connection is parked in that throwaway transport's idle pool, and
+// a hand-built transport has no IdleConnTimeout, so neither side ever closed
+// it. With the UI polling status every couple of seconds that reached the
+// process file descriptor limit — and in Root Mode the descriptors piled up
+// inside the long-lived root daemon, which does not restart with the app.
+func newLocalClient(socketPath string) *http.Client {
+	localClientMu.Lock()
+	defer localClientMu.Unlock()
+
+	if localClient != nil && localClientPath == socketPath {
+		return localClient
+	}
+	if localClient != nil {
+		localClient.CloseIdleConnections()
+	}
+
+	localClientPath = socketPath
+	localClient = &http.Client{
+		// A wedged daemon must not block the caller forever. Streaming
+		// endpoints (the IPN bus) build their own client and are unaffected.
+		Timeout: 30 * time.Second,
 		Transport: &http.Transport{
 			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 				var d net.Dialer
 				return d.DialContext(ctx, "unix", socketPath)
 			},
+			MaxIdleConns:        4,
+			MaxIdleConnsPerHost: 4,
+			IdleConnTimeout:     60 * time.Second,
 		},
+	}
+	return localClient
+}
+
+// closeLocalClient drops the cached client and its idle connections. Called
+// when the bridge lets go of a daemon so nothing is left holding its socket.
+func closeLocalClient() {
+	localClientMu.Lock()
+	defer localClientMu.Unlock()
+	if localClient != nil {
+		localClient.CloseIdleConnections()
+		localClient = nil
+		localClientPath = ""
 	}
 }
 
@@ -170,22 +215,16 @@ func Login(authKey string) string {
 	opt := lastOptions
 	stateMu.Unlock()
 
-	opts := map[string]interface{}{
-		"AuthKey": authKey,
+	// Preferences are pushed through the masked PATCH /prefs endpoint, never
+	// through Start's UpdatePrefs: the daemon replaces the entire prefs object
+	// with whatever UpdatePrefs contains, so sending a partial set here silently
+	// dropped the hostname, accepted routes, exit node, advertised routes and
+	// services. ForceRefresh reaches this on every app resume.
+	if opt != nil {
+		applyStartupPrefs(opt)
 	}
 
-	if opt != nil && opt.LoginServer != "" {
-		opts["UpdatePrefs"] = map[string]interface{}{
-			"ControlURL":  opt.LoginServer,
-			"WantRunning": true,
-		}
-	} else {
-		opts["UpdatePrefs"] = map[string]interface{}{
-			"WantRunning": true,
-		}
-	}
-
-	data, _ := json.Marshal(opts)
+	data, _ := json.Marshal(map[string]interface{}{"AuthKey": authKey})
 
 	_, err := doLocalRequest("POST", "/localapi/v0/start", strings.NewReader(string(data)))
 	if err != nil {
@@ -317,7 +356,7 @@ func GetServeConfig() string {
 }
 
 // fetchCurrentEtag retrieves the current ETag for serve-config from the daemon.
-func fetchCurrentEtag(client http.Client) string {
+func fetchCurrentEtag(client *http.Client) string {
 	resp, err := client.Get("http://local-tailscaled.sock/localapi/v0/serve-config")
 	if err != nil {
 		return ""

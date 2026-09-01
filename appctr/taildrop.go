@@ -102,6 +102,14 @@ func processIncomingFiles(taildropDir string) {
 			slog.Error("Taildrop: Save failed", "name", f.Name, "err", err)
 			continue
 		}
+
+		// The daemon drops a file from its waiting list only on DELETE. Without
+		// this the same files were fetched and rewritten on every poll, forever,
+		// for everything ever received.
+		if _, err := doLocalRequest("DELETE", "/localapi/v0/files/"+url.PathEscape(f.Name), nil); err != nil {
+			slog.Warn("Taildrop: could not clear file from the waiting list", "name", f.Name, "err", err)
+			continue
+		}
 		slog.Info("Taildrop: Saved successfully", "name", f.Name)
 	}
 }

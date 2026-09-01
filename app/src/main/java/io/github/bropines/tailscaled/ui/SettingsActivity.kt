@@ -534,10 +534,18 @@ fun SettingsScreen(
             val encodedUser = URLEncoder.encode(socks5User, "UTF-8").replace("+", "%20")
             val encodedPass = URLEncoder.encode(socks5Pass, "UTF-8").replace("+", "%20")
             val label = URLEncoder.encode("TAILSCALE (${activeAccount.name})", "UTF-8")
-            val link = if (encodedUser.isNotEmpty()) {
-                "socks5://$encodedUser:$encodedPass@$socks5#$label"
+            // A link is meant to be used from somewhere else, so a wildcard bind
+            // has to be published as the address that is actually reachable.
+            val bind = GlobalSettings.getSocks5BindAddr(context)
+            val endpoint = if (NetAddr.isWildcard(bind)) {
+                "${NetAddr.lanIpv4() ?: NetAddr.LOOPBACK_V4}:${NetAddr.port(bind) ?: ""}"
             } else {
-                "socks5://$socks5#$label"
+                bind
+            }
+            val link = if (encodedUser.isNotEmpty()) {
+                "socks5://$encodedUser:$encodedPass@$endpoint#$label"
+            } else {
+                "socks5://$endpoint#$label"
             }
             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText("SagerNet SOCKS5", link))
@@ -924,7 +932,16 @@ fun SettingsScreen(
                                 SettingsSwitchItem(
                                     title = stringResource(R.string.settings_lan_access_title),
                                     subtitle = if (lanAccessEnabled) {
-                                        stringResource(R.string.settings_lan_access_active, lanIp ?: "?")
+                                        // Show what is actually bound: the stored fields keep the
+                                        // user's own value, the wildcard is applied on top of it.
+                                        val ports = listOfNotNull(
+                                            NetAddr.port(GlobalSettings.getSocks5BindAddr(context))?.let { "SOCKS5 $it" },
+                                            GlobalSettings.getHttpProxyBindAddr(context)
+                                                .takeIf { it.isNotEmpty() }?.let { a -> NetAddr.port(a)?.let { "HTTP $it" } },
+                                            NetAddr.port(GlobalSettings.getDnsProxyBindAddr(context))?.let { "DNS $it" }
+                                        ).joinToString(", ")
+                                        stringResource(R.string.settings_lan_access_active, lanIp ?: "?") +
+                                            if (ports.isEmpty()) "" else " · $ports"
                                     } else {
                                         stringResource(R.string.settings_lan_access_desc)
                                     },
@@ -933,10 +950,6 @@ fun SettingsScreen(
                                 ) { enabled ->
                                     lanAccessEnabled = enabled
                                     GlobalSettings.setLanAccessEnabled(context, enabled)
-                                    // Re-read what the rebind produced so the fields stay truthful.
-                                    socks5 = GlobalSettings.getString(context, "socks5", socks5)
-                                    httpProxy = GlobalSettings.getString(context, "httpproxy", httpProxy)
-                                    dnsProxy = GlobalSettings.getString(context, "dns_proxy", dnsProxy)
                                     if (Appctr.isRunning()) {
                                         val intent = Intent(context, TailscaledService::class.java).apply {
                                             action = "RESTART_ACTION"

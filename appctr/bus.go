@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -175,6 +176,9 @@ var magicDNSSuffix string
 
 // ─── Bus lifecycle ───────────────────────────────────────────────────────────
 
+// lastHealthFingerprint suppresses repeated identical health reports.
+var lastHealthFingerprint string
+
 var busCancel context.CancelFunc
 var busMu sync.Mutex
 
@@ -316,22 +320,28 @@ func applyNotify(msg *BusNotify) {
 		slog.Error("Bus: daemon error message", "msg", *msg.ErrMessage)
 	}
 
-	// Backend state
+	// Backend state. The daemon repeats the current state on many notifications
+	// and on every bus reconnect, so only actual transitions are worth a line —
+	// logging each message buried the log while waiting for a login.
 	if msg.State != nil {
 		val := *msg.State
 		stateNames := [...]string{"NoState", "InUseOtherUser", "NeedsLogin", "NeedsMachineAuth", "Stopped", "Starting", "Running"}
+		name := fmt.Sprintf("State(%d)", val)
 		if val >= 0 && val < len(stateNames) {
-			busState.BackendState = stateNames[val]
-		} else {
-			busState.BackendState = fmt.Sprintf("State(%d)", val)
+			name = stateNames[val]
 		}
-		slog.Info("Bus: state changed", "state", busState.BackendState, "code", val)
+		if name != busState.BackendState {
+			slog.Info("Bus: state changed", "from", busState.BackendState, "to", name)
+		}
+		busState.BackendState = name
 	}
 
 	// Auth URL (login flow)
 	if msg.BrowseToURL != nil {
+		if *msg.BrowseToURL != busState.AuthURL {
+			slog.Info("Bus: auth URL updated")
+		}
 		busState.AuthURL = *msg.BrowseToURL
-		slog.Info("Bus: auth URL updated")
 	}
 
 	// Preferences
@@ -358,7 +368,17 @@ func applyNotify(msg *BusNotify) {
 			}
 			busState.Health = append(busState.Health, BusHealthWarning{Code: c, Text: txt})
 		}
-		slog.Warn("Bus: health warnings", "count", len(busState.Health))
+		// Health is republished constantly; report only when the set changes.
+		codes := make([]string, 0, len(busState.Health))
+		for _, w := range busState.Health {
+			codes = append(codes, w.Code)
+		}
+		sort.Strings(codes)
+		fingerprint := strings.Join(codes, ",")
+		if fingerprint != lastHealthFingerprint {
+			lastHealthFingerprint = fingerprint
+			slog.Warn("Bus: health warnings", "count", len(busState.Health), "codes", fingerprint)
+		}
 	}
 
 	// Self-node change
