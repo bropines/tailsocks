@@ -81,11 +81,11 @@ echo "[2/4] Compiling binaries in PIE mode..."
 cd tailscale_src
 mkdir -p tmp
 
-# Enable Go native toolchain and align module language version if needed
+# Let GOTOOLCHAIN fetch whatever the upstream module's `go` directive requires.
+# Forcing `-go=1.23` here downgraded the module below what v1.102.1 needs
+# (generic type aliases, sync.WaitGroup.Go) and reverted it to the unpruned
+# module graph, changing transitive versions from what upstream pinned.
 export GOTOOLCHAIN=auto
-go mod edit -go=1.23 2>/dev/null || true
-sed -i '/^tool /d' go.mod 2>/dev/null || true
-go mod tidy
 
 TAGS="ts_omit_systray,ts_omit_kube,ts_omit_aws,ts_omit_bird,ts_omit_qrcodes,ts_omit_desktop_sessions,ts_omit_dbus,ts_omit_networkmanager,ts_omit_resolved,ts_omit_sdnotify,ts_omit_tpm,ts_omit_logtail,ts_omit_synology,ts_omit_syspolicy,ts_omit_ssh,ts_omit_iptables,ts_omit_tap,ts_omit_linuxdnsfight,ts_omit_captiveportal,ts_omit_appconnectors,ts_omit_completion,ts_omit_completion_scripts,ts_omit_oauthkey"
 

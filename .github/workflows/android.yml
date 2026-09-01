@@ -71,7 +71,7 @@ jobs:
           cd appctr
           go install golang.org/x/mobile/cmd/gomobile@latest
           gomobile init
-          sh build.sh
+          bash build.sh
 
       - name: Upload Go Core Artifacts
         uses: actions/upload-artifact@v4
@@ -147,8 +147,13 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Decode Keystore
-        if: github.ref_type == 'tag' || github.event.inputs.build_type == 'release' || github.event_name == 'push'
-        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/release.jks
+        if: github.ref_type == 'tag' || github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'all' || github.event_name == 'push'
+        run: |
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > app/release.jks
+          if [ ! -s app/release.jks ]; then
+            echo "KEYSTORE_BASE64 secret is empty; cannot sign a release." >&2
+            exit 1
+          fi
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
 
@@ -157,6 +162,10 @@ jobs:
         run: |
           if [ "${{ github.ref_type }}" == "tag" ]; then
             echo "command=app:assembleRelease" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" == "pull_request" ]; then
+            # No signing secrets on PRs; a release build would fail the keystore
+            # guard. Debug only.
+            echo "command=app:assembleDebug" >> "$GITHUB_OUTPUT"
           elif [ "${{ github.event_name }}" == "push" ]; then
             echo "command=app:assembleDebug app:assembleRelease" >> "$GITHUB_OUTPUT"
           else

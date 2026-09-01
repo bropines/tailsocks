@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Cleartext is denied by default. The only cleartext the app itself makes over
+    the JVM stack is the Taildrive WebDAV endpoint (100.100.100.100, inside
+    WireGuard) and loopback; everything external (admin API, DoH, update check,
+    avatars) is HTTPS. ByeDPI and the local proxies are native or raw sockets,
+    not governed here.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">100.100.100.100</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+</network-security-config>
