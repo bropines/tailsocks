@@ -1086,6 +1086,9 @@ class TailscaledService : Service() {
         // case where the system tore the service down without going through it.
         if (!teardownStarted) {
             teardownStarted = true
+            // The system destroyed us without stopMe(): the TUN tunnel would
+            // otherwise stay up, forwarding into a SOCKS proxy that is gone.
+            stopTunMode()
             val rootMode = GlobalSettings.isRootModeEnabled(this)
             Thread {
                 if (rootMode) {

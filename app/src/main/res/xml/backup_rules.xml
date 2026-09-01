@@ -1,13 +1,10 @@
-<?xml version="1.0" encoding="utf-8"?><!--
-   Sample backup rules file; uncomment and customize as necessary.
-   See https://developer.android.com/guide/topics/data/autobackup
-   for details.
-   Note: This file is ignored for devices older that API 31
-   See https://developer.android.com/about/versions/12/backup-restore
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Pre-Android-12 auto-backup content. Cloud backup is off app-wide, but if it
+    is ever enabled these keep credentials and node keys out of it.
 -->
 <full-backup-content>
-    <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+    <exclude domain="sharedpref" path="admin_api_keys.xml" />
+    <exclude domain="sharedpref" path="tailsocks_global.xml" />
+    <exclude domain="file" path="states" />
 </full-backup-content>

@@ -269,14 +269,12 @@ class TunVpnService : VpnService() {
 
     private fun stopTunInternal() {
         Log.i(TAG, "Stopping TUN...")
-        try {
-            tunFd?.close()
-            Log.d(TAG, "tunFd closed")
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to close tunFd: ${e.message}")
-        }
-        tunFd = null
 
+        // Stop the native tunnel first, then close the fd. The lwip task keeps
+        // read()/write()ing the raw fd number until TProxyStopService joins its
+        // thread; closing the fd before that frees the number for immediate reuse
+        // by another thread (the Go daemon opens sockets constantly), so the
+        // tunnel would read and write an unrelated socket.
         if (nativeLoaded) {
             try {
                 Log.d(TAG, "Calling TProxyStopService JNI...")
@@ -286,6 +284,14 @@ class TunVpnService : VpnService() {
                 Log.e(TAG, "Error in TProxyStopService: ${e.message}")
             }
         }
+
+        try {
+            tunFd?.close()
+            Log.d(TAG, "tunFd closed")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to close tunFd: ${e.message}")
+        }
+        tunFd = null
 
         stopForeground(STOP_FOREGROUND_REMOVE)
         Log.i(TAG, "TUN service stop sequence completed")
