@@ -170,7 +170,7 @@ object RootUtils {
             socketFile.parentFile?.mkdirs()
 
             val env = StringBuilder()
-            env.append("export TS_LOGS_DIR=\"$logsDir\"\n")
+            env.append("export TS_LOGS_DIR=${shQuote(logsDir)}\n")
             env.append("export TS_NO_LOGS_NO_SUPPORT=true\n")
             env.append("export TS_AUTH_ONCE=true\n")
             // Must match the addresses excluded from the DNS redirect in
@@ -180,19 +180,23 @@ object RootUtils {
             env.append("export TS_DNS_FALLBACK=\"${fallbacks.joinToString(",")}\"\n")
 
             if (taildropDir.isNotEmpty()) {
-                env.append("export TS_TAILDROP_DIR=\"$taildropDir\"\n")
+                env.append("export TS_TAILDROP_DIR=${shQuote(taildropDir)}\n")
             }
 
+            // Single-quoted: the control proxy URL carries a user-supplied
+            // password, and this file is sourced by the boot script as root, so
+            // a value containing $(...) or backticks would otherwise run as root
+            // on every boot.
             if (controlProxy.isNotEmpty()) {
                 val staticOverride = resolveProxyHostStatic(controlProxy)
                 if (staticOverride.isNotEmpty()) {
-                    env.append("export TS_STATIC_HOSTS=\"$staticOverride\"\n")
+                    env.append("export TS_STATIC_HOSTS=${shQuote(staticOverride)}\n")
                 }
                 if (controlProxy.startsWith("socks5://")) {
-                    env.append("export ALL_PROXY=\"$controlProxy\"\n")
+                    env.append("export ALL_PROXY=${shQuote(controlProxy)}\n")
                 } else {
-                    env.append("export HTTP_PROXY=\"$controlProxy\"\n")
-                    env.append("export HTTPS_PROXY=\"$controlProxy\"\n")
+                    env.append("export HTTP_PROXY=${shQuote(controlProxy)}\n")
+                    env.append("export HTTPS_PROXY=${shQuote(controlProxy)}\n")
                 }
             }
 
@@ -205,12 +209,14 @@ object RootUtils {
                 Log.w(TAG, "Failed to write control_proxy.env: ${e.message}")
             }
 
+            // Every argument is quoted: the listen addresses come from free-text
+            // settings fields and are interpolated into a root shell.
             val cmd = mutableListOf<String>().apply {
-                add(tailscaledBin)
-                add("--statedir=$stateDir")
-                add("--socket=$socketPath")
+                add(shQuote(tailscaledBin))
+                add("--statedir=" + shQuote(stateDir))
+                add("--socket=" + shQuote(socketPath))
                 if (socksAddr.isNotEmpty() && socksAddr != "none") {
-                    add("--socks5-server=$socksAddr")
+                    add("--socks5-server=" + shQuote(socksAddr))
                 }
                 if (tunMode) {
                     add("--tun=tailscale0")
@@ -218,19 +224,19 @@ object RootUtils {
                     add("--tun=userspace-networking")
                 }
                 if (httpAddr.isNotEmpty()) {
-                    add("--outbound-http-proxy-listen=$httpAddr")
+                    add("--outbound-http-proxy-listen=" + shQuote(httpAddr))
                 }
             }.joinToString(" ")
 
             val sb = StringBuilder(env)
-            sb.append("nohup $cmd >> \"$logFile\" 2>&1 &\n")
-            sb.append("chmod 666 \"$logFile\" 2>/dev/null || true\n")
+            sb.append("nohup $cmd >> ${shQuote(logFile)} 2>&1 &\n")
+            sb.append("chmod 600 ${shQuote(logFile)} 2>/dev/null || true\n")
             sb.append("magiskpolicy --live \"allow untrusted_app magisk unix_stream_socket connectto\" 2>/dev/null || supolicy --live \"allow untrusted_app magisk unix_stream_socket connectto\" 2>/dev/null || true\n")
             sb.append("for i in \$(seq 1 30); do\n")
-            sb.append("    if [ -S \"$socketPath\" ] || [ -e \"$socketPath\" ]; then\n")
-            sb.append("        chmod 777 \"$socketPath\"\n")
-            sb.append("        chcon u:object_r:app_data_file:s0 \"$socketPath\" 2>/dev/null || true\n")
-            sb.append("        chmod 777 \"$stateDir\" 2>/dev/null || true\n")
+            sb.append("    if [ -S ${shQuote(socketPath)} ] || [ -e ${shQuote(socketPath)} ]; then\n")
+            sb.append("        chmod 666 ${shQuote(socketPath)}\n")
+            sb.append("        chcon u:object_r:app_data_file:s0 ${shQuote(socketPath)} 2>/dev/null || true\n")
+            sb.append("        chmod 700 ${shQuote(stateDir)} 2>/dev/null || true\n")
             sb.append("        break\n")
             sb.append("    fi\n")
             sb.append("    sleep 0.2\n")
@@ -262,14 +268,57 @@ object RootUtils {
         }
     }
 
+    /** Quotes a value for safe use inside a single-quoted shell word. */
+    private fun shQuote(value: String): String = "'" + value.replace("'", "'\\''") + "'"
+
+    /** A hosts entry may only contain characters valid in a DNS name. */
+    private val hostLabel = Regex("^[A-Za-z0-9._-]{1,253}$")
+
+    private val ipv4Literal = Regex("^\\d{1,3}(\\.\\d{1,3}){3}$")
+    private val ipv6Literal = Regex("^[0-9A-Fa-f:]{2,45}$")
+
+    /** An address is written to a root-owned file, so it must really be one. */
+    private fun isIpLiteral(value: String): Boolean = when {
+        ipv4Literal.matches(value) -> value.split(".").all { (it.toIntOrNull() ?: 256) <= 255 }
+        ipv6Literal.matches(value) -> value.contains(":")
+        else -> false
+    }
+
+    /**
+     * Publishes tailnet names into /system/etc/hosts.
+     *
+     * Peer names are self-reported and are not validated by the control plane,
+     * so they are treated as hostile input: anything that is not a plain DNS
+     * label is dropped, and the file is written through a quoted heredoc rather
+     * than one shell `echo` per entry. Interpolating a peer name into a root
+     * shell let any device on the tailnet run code as root on this phone.
+     */
     fun updateRootHosts(hostsMap: Map<String, String>): Boolean {
+        val lines = mutableListOf<String>()
+        for ((ip, aliases) in hostsMap) {
+            if (!isIpLiteral(ip)) {
+                Log.w(TAG, "hosts-sync: skipping non-address entry '$ip'")
+                continue
+            }
+            val safe = aliases.split(" ").filter { it.isNotEmpty() && hostLabel.matches(it) }
+            if (safe.isEmpty()) {
+                Log.w(TAG, "hosts-sync: skipping entry with no usable names for $ip")
+                continue
+            }
+            lines.add("$ip ${safe.joinToString(" ")}")
+        }
+        if (lines.isEmpty()) return true
+
+        // 'TAILSOCKS_EOF' is quoted, so the shell performs no expansion at all
+        // on the body — the entries are copied through verbatim.
         val sb = StringBuilder()
+        sb.append("set -e\n")
         sb.append("mkdir -p /data/adb/tailshosts\n")
         sb.append("umount /system/etc/hosts 2>/dev/null || true\n")
         sb.append("cp /system/etc/hosts /data/adb/tailshosts/hosts 2>/dev/null || printf '127.0.0.1 localhost\\n::1 ip6-localhost\\n' > /data/adb/tailshosts/hosts\n")
-        for ((ip, domain) in hostsMap) {
-            sb.append("echo '$ip $domain' >> /data/adb/tailshosts/hosts\n")
-        }
+        sb.append("cat >> /data/adb/tailshosts/hosts <<'TAILSOCKS_EOF'\n")
+        for (line in lines) sb.append(line).append('\n')
+        sb.append("TAILSOCKS_EOF\n")
         sb.append("chmod 644 /data/adb/tailshosts/hosts\n")
         sb.append("chcon u:object_r:system_file:s0 /data/adb/tailshosts/hosts 2>/dev/null || true\n")
         sb.append("mount -o bind /data/adb/tailshosts/hosts /system/etc/hosts 2>/dev/null || true\n")
