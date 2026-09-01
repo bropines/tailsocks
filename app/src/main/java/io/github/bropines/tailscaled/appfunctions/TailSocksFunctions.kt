@@ -12,6 +12,8 @@ import io.github.bropines.tailscaled.core.TailscaledService
 import appctr.Appctr
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @AppFunctionSerializable
 data class TailSocksStatus(
@@ -92,6 +94,51 @@ data class SettingsResult(
 
 class TailSocksFunctions {
 
+    /** True when the on-device automation surface is turned off in settings. */
+    private fun automationOff(context: Context): Boolean = !GlobalSettings.isAutomationEnabled(context)
+
+    private fun blockedConnection() = ConnectionResult(
+        success = false, isConnected = false,
+        message = "External automation is disabled in TailSocks settings."
+    )
+
+    private fun blockedSettings(name: String) = SettingsResult(
+        success = false, settingName = name, enabled = false,
+        message = "External automation is disabled in TailSocks settings."
+    )
+
+    /** Resolves a Tailscale IP to its StableID, which is what the daemon routes by. */
+    private fun resolveExitNodeId(context: Context, ip: String): String {
+        if (ip.isEmpty()) return ""
+        return try {
+            val statusJson = Appctr.getStatusJSON(true)
+            if (statusJson.isNullOrEmpty()) return ""
+            val root: Map<String, Any> = Gson().fromJson(statusJson, object : TypeToken<Map<String, Any>>() {}.type)
+            val peers = root["Peer"] as? Map<String, Any> ?: emptyMap()
+            for ((_, peerData) in peers) {
+                val p = peerData as? Map<String, Any> ?: continue
+                val ips = (p["TailscaleIPs"] as? List<*>)?.map { it.toString() } ?: emptyList()
+                if (ips.contains(ip)) return (p["ID"] as? String) ?: ""
+            }
+            ""
+        } catch (e: Exception) {
+            ""
+        }
+    }
+
+    /** Applies an exit node selection the same way the widgets do: both prefs and a live push. */
+    private fun applyExitNode(context: Context, ip: String) {
+        val activeAccount = AccountManager.getActiveAccount(context)
+        val prefs = context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
+        val id = if (ip.isEmpty()) "" else resolveExitNodeId(context, ip)
+        prefs.edit().putString("exit_node_ip", ip).putString("exit_node_id", id).apply()
+        if (Appctr.isRunning()) {
+            try { Appctr.setPrefs("{\"ExitNodeID\": \"$id\", \"ExitNodeIDSet\": true}") } catch (e: Exception) {}
+        } else if (ProxyState.isActualRunning(context)) {
+            TailscaledService.requestApplySettings(context)
+        }
+    }
+
     /**
      * Returns current status of TailSocks VPN/proxy service, active account name, active exit node, and enabled features.
      */
@@ -105,8 +152,9 @@ class TailSocksFunctions {
         val activeExitNodeIp = prefs.getString("exit_node_ip", "") ?: ""
         val isTunMode = GlobalSettings.isTunModeEnabled(context)
         val isByeDpiEnabled = GlobalSettings.isCPByeDpiEnabled(context)
-        val isMagicDnsEnabled = prefs.getBoolean("magic_dns", true)
-        val isAllowLanAccess = prefs.getBoolean("allow_lan_access", true)
+        // Read the settings the daemon actually uses, not orphan per-profile keys.
+        val isMagicDnsEnabled = GlobalSettings.getBoolean(context, "accept_dns", true)
+        val isAllowLanAccess = GlobalSettings.isLanAccessEnabled(context)
 
         return TailSocksStatus(
             isConnected = isConnected,
@@ -227,22 +275,33 @@ class TailSocksFunctions {
     @AppFunction(isDescribedByKDoc = true)
     suspend fun connect(appFunctionContext: AppFunctionContext, exitNodeIp: String): ConnectionResult {
         val context = appFunctionContext.context
+        if (automationOff(context)) return blockedConnection()
+
         if (exitNodeIp.isNotEmpty()) {
-            val activeAccount = AccountManager.getActiveAccount(context)
-            val prefs = context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
-            prefs.edit().putString("exit_node_ip", exitNodeIp.trim()).apply()
+            applyExitNode(context, exitNodeIp.trim())
         }
 
-        val intent = Intent(context, TailscaledService::class.java).apply {
-            action = "START_ACTION"
-        }
-        androidx.core.content.ContextCompat.startForegroundService(context, intent)
         ProxyState.setUserState(context, true)
+        val intent = Intent(context, TailscaledService::class.java).apply { action = "START_ACTION" }
+        androidx.core.content.ContextCompat.startForegroundService(context, intent)
 
+        // Report the observed state rather than an optimistic "connected".
+        val connected = withContext(Dispatchers.IO) {
+            var ok = false
+            for (i in 0 until 15) {
+                if (Appctr.isRunning() && runCatching { Appctr.getBackendState() }.getOrDefault("") == "Running") { ok = true; break }
+                try { Thread.sleep(400) } catch (e: Exception) {}
+            }
+            ok || ProxyState.isActualRunning(context)
+        }
         return ConnectionResult(
             success = true,
-            isConnected = true,
-            message = if (exitNodeIp.isNotEmpty()) "Connected to TailSocks with Exit Node $exitNodeIp" else "Connected to TailSocks"
+            isConnected = connected,
+            message = when {
+                !connected -> "TailSocks is starting; not connected yet."
+                exitNodeIp.isNotEmpty() -> "Connected to TailSocks with Exit Node $exitNodeIp"
+                else -> "Connected to TailSocks"
+            }
         )
     }
 
@@ -252,12 +311,10 @@ class TailSocksFunctions {
     @AppFunction(isDescribedByKDoc = true)
     suspend fun disconnect(appFunctionContext: AppFunctionContext): ConnectionResult {
         val context = appFunctionContext.context
-        val intent = Intent(context, TailscaledService::class.java).apply {
-            action = "STOP_ACTION"
-        }
-        context.startService(intent)
+        if (automationOff(context)) return blockedConnection()
         ProxyState.setUserState(context, false)
-
+        val intent = Intent(context, TailscaledService::class.java).apply { action = "STOP_ACTION" }
+        androidx.core.content.ContextCompat.startForegroundService(context, intent)
         return ConnectionResult(
             success = true,
             isConnected = false,
@@ -281,18 +338,12 @@ class TailSocksFunctions {
     @AppFunction(isDescribedByKDoc = true)
     suspend fun selectExitNode(appFunctionContext: AppFunctionContext, exitNodeIp: String): ConnectionResult {
         val context = appFunctionContext.context
-        val activeAccount = AccountManager.getActiveAccount(context)
-        val prefs = context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
+        if (automationOff(context)) return blockedConnection()
         val ipToSet = if (exitNodeIp.equals("off", ignoreCase = true) || exitNodeIp.equals("none", ignoreCase = true)) "" else exitNodeIp.trim()
 
-        prefs.edit().putString("exit_node_ip", ipToSet).apply()
-
-        if (ProxyState.isActualRunning(context)) {
-            val serviceIntent = Intent(context, TailscaledService::class.java).apply {
-                action = TailscaledService.ACTION_APPLY_SETTINGS
-            }
-            androidx.core.content.ContextCompat.startForegroundService(context, serviceIntent)
-        }
+        // Writes both exit_node_ip and the StableID the daemon routes by, and
+        // pushes it live — writing only the IP changed nothing.
+        applyExitNode(context, ipToSet)
 
         return ConnectionResult(
             success = true,
@@ -313,6 +364,7 @@ class TailSocksFunctions {
     @AppFunction(isDescribedByKDoc = true)
     suspend fun switchAccount(appFunctionContext: AppFunctionContext, accountNameOrId: String): AccountSwitchResult {
         val context = appFunctionContext.context
+        if (automationOff(context)) return AccountSwitchResult(false, AccountManager.getActiveAccount(context).id, AccountManager.getActiveAccount(context).name, "External automation is disabled in TailSocks settings.")
         val accounts = AccountManager.getAccounts(context)
         val found = accounts.find {
             it.id.equals(accountNameOrId, ignoreCase = true) || it.name.equals(accountNameOrId, ignoreCase = true)
@@ -354,6 +406,7 @@ class TailSocksFunctions {
     @AppFunction(isDescribedByKDoc = true)
     suspend fun setByeDpi(appFunctionContext: AppFunctionContext, enabled: Boolean, flags: String): SettingsResult {
         val context = appFunctionContext.context
+        if (automationOff(context)) return blockedSettings("ByeDPI")
         GlobalSettings.setCPByeDpiEnabled(context, enabled)
         if (flags.isNotBlank()) {
             GlobalSettings.setCPByeDpiFlags(context, flags)
@@ -373,6 +426,7 @@ class TailSocksFunctions {
     @AppFunction(isDescribedByKDoc = true)
     suspend fun setTunMode(appFunctionContext: AppFunctionContext, enabled: Boolean): SettingsResult {
         val context = appFunctionContext.context
+        if (automationOff(context)) return blockedSettings("TUN Mode")
         GlobalSettings.setTunModeEnabled(context, enabled)
         if (ProxyState.isActualRunning(context)) {
             val serviceIntent = Intent(context, TailscaledService::class.java).apply {
@@ -389,15 +443,10 @@ class TailSocksFunctions {
     @AppFunction(isDescribedByKDoc = true)
     suspend fun setAllowLanAccess(appFunctionContext: AppFunctionContext, enabled: Boolean): SettingsResult {
         val context = appFunctionContext.context
-        val activeAccount = AccountManager.getActiveAccount(context)
-        val prefs = context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
-        prefs.edit().putBoolean("allow_lan_access", enabled).apply()
-
+        if (automationOff(context)) return blockedSettings("Allow LAN Access")
+        GlobalSettings.setLanAccessEnabled(context, enabled)
         if (ProxyState.isActualRunning(context)) {
-            val serviceIntent = Intent(context, TailscaledService::class.java).apply {
-                action = TailscaledService.ACTION_APPLY_SETTINGS
-            }
-            androidx.core.content.ContextCompat.startForegroundService(context, serviceIntent)
+            TailscaledService.requestApplySettings(context)
         }
         return SettingsResult(success = true, settingName = "Allow LAN Access", enabled = enabled, message = "Allow LAN Access ${if (enabled) "enabled" else "disabled"}")
     }
@@ -408,15 +457,10 @@ class TailSocksFunctions {
     @AppFunction(isDescribedByKDoc = true)
     suspend fun setMagicDns(appFunctionContext: AppFunctionContext, enabled: Boolean): SettingsResult {
         val context = appFunctionContext.context
-        val activeAccount = AccountManager.getActiveAccount(context)
-        val prefs = context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
-        prefs.edit().putBoolean("magic_dns", enabled).apply()
-
+        if (automationOff(context)) return blockedSettings("MagicDNS")
+        GlobalSettings.setBoolean(context, "accept_dns", enabled)
         if (ProxyState.isActualRunning(context)) {
-            val serviceIntent = Intent(context, TailscaledService::class.java).apply {
-                action = TailscaledService.ACTION_APPLY_SETTINGS
-            }
-            androidx.core.content.ContextCompat.startForegroundService(context, serviceIntent)
+            TailscaledService.requestApplySettings(context)
         }
         return SettingsResult(success = true, settingName = "MagicDNS", enabled = enabled, message = "MagicDNS ${if (enabled) "enabled" else "disabled"}")
     }
