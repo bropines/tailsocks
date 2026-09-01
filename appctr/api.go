@@ -176,15 +176,10 @@ func GetNetcheckJSON(requestDERP bool) (string, error) {
 	if !IsRunning() {
 		return "", ErrDaemonNotRunning
 	}
-	path := "/localapi/v0/netcheck"
-	if requestDERP {
-		path += "?full=true"
-	}
-	data, err := doLocalRequest("GET", path, nil)
-	if err != nil {
-		return "", fmt.Errorf("GetNetcheckJSON failed: %w", err)
-	}
-	return string(data), nil
+	// There is no /localapi/v0/netcheck endpoint; the report is produced
+	// in-process (netcheck.go), which also works around the daemon's inability
+	// to enumerate interfaces on Android.
+	return GetNetcheckFromAPI(), nil
 }
 
 // PingTarget sends a DERP or disco ping to a remote peer target via /localapi/v0/ping.
@@ -229,7 +224,8 @@ func GetDERPMapJSON() (string, error) {
 	if !IsRunning() {
 		return "", ErrDaemonNotRunning
 	}
-	data, err := doLocalRequest("GET", "/localapi/v0/derp/map", nil)
+	// The route is "derpmap", not "derp/map" — the old path always 404'd.
+	data, err := doLocalRequest("GET", "/localapi/v0/derpmap", nil)
 	if err != nil {
 		return "", fmt.Errorf("GetDERPMapJSON failed: %w", err)
 	}

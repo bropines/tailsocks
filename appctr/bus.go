@@ -173,6 +173,19 @@ func GetBusState() busStateSnapshot {
 var splitDNSCache sync.Map // domain → []string resolverIPs
 var nodesCache sync.Map    // hostname / FQDN → []string IPs
 var magicDNSSuffix string
+var magicDNSSuffixMu sync.RWMutex
+
+func getMagicDNSSuffix() string {
+	magicDNSSuffixMu.RLock()
+	defer magicDNSSuffixMu.RUnlock()
+	return magicDNSSuffix
+}
+
+func setMagicDNSSuffix(s string) {
+	magicDNSSuffixMu.Lock()
+	magicDNSSuffix = s
+	magicDNSSuffixMu.Unlock()
+}
 
 // ─── Bus lifecycle ───────────────────────────────────────────────────────────
 
@@ -416,9 +429,9 @@ func applyNotify(msg *BusNotify) {
 func applyNetMapToDNSCache(nm *BusNetMap) {
 	// 1. MagicDNS suffix
 	if nm.MagicDNSSuffix != "" {
-		magicDNSSuffix = strings.ToLower(strings.Trim(nm.MagicDNSSuffix, "."))
+		setMagicDNSSuffix(strings.ToLower(strings.Trim(nm.MagicDNSSuffix, ".")))
 	} else if len(nm.DNS.Domains) > 0 {
-		magicDNSSuffix = strings.ToLower(strings.Trim(nm.DNS.Domains[0], "."))
+		setMagicDNSSuffix(strings.ToLower(strings.Trim(nm.DNS.Domains[0], ".")))
 	}
 
 	// 2. Peer nodes
@@ -449,8 +462,9 @@ func applyNetMapToDNSCache(nm *BusNetMap) {
 		routesCount++
 	}
 
-	if nodesCount > 0 || routesCount > 0 || magicDNSSuffix != "" {
-		slog.Info("Bus: DNS caches updated", "nodes", nodesCount, "routes", routesCount, "suffix", magicDNSSuffix)
+	suffixNow := getMagicDNSSuffix()
+	if nodesCount > 0 || routesCount > 0 || suffixNow != "" {
+		slog.Info("Bus: DNS caches updated", "nodes", nodesCount, "routes", routesCount, "suffix", suffixNow)
 	}
 }
 

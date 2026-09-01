@@ -47,7 +47,7 @@ func GetDnsStatusJSON() string {
 	}
 
 	bs := GetBusState()
-	effectiveSuffix := magicDNSSuffix
+	effectiveSuffix := getMagicDNSSuffix()
 
 	selfDNS := ""
 	if bs.Self != nil && bs.Self.DNSName != "" {

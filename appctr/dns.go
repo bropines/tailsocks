@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -115,17 +116,19 @@ func processDNSQuery(query []byte, fallbacks []string, dohUrl string) []byte {
 	q := msg.Questions[0]
 	domain := strings.ToLower(strings.Trim(q.Name.String(), "."))
 
+	suffix := getMagicDNSSuffix()
+
 	// Auto-append MagicDNS suffix for convenience in lookup tools
-	if magicDNSSuffix != "" {
+	if suffix != "" {
 		if !strings.Contains(domain, ".") {
 			// Short name, e.g. "personal-pinus-poco" -> "personal-pinus-poco.tail8a412.ts.net"
-			domain = domain + "." + magicDNSSuffix
-		} else if strings.HasSuffix(domain, ".ts.net") && !strings.HasSuffix(domain, "."+magicDNSSuffix) {
+			domain = domain + "." + suffix
+		} else if strings.HasSuffix(domain, ".ts.net") && !strings.HasSuffix(domain, "."+suffix) {
 			// Ends with ".ts.net" but missing tailnet ID, e.g. "personal-pinus-poco.ts.net" -> "personal-pinus-poco.tail8a412.ts.net"
 			parts := strings.Split(domain, ".")
 			if len(parts) >= 2 && parts[len(parts)-2] == "ts" && parts[len(parts)-1] == "net" {
 				host := strings.Join(parts[:len(parts)-2], ".")
-				domain = host + "." + magicDNSSuffix
+				domain = host + "." + suffix
 			}
 		}
 	}
@@ -136,10 +139,15 @@ func processDNSQuery(query []byte, fallbacks []string, dohUrl string) []byte {
 
 	socks, user, pass, _ := GConfig.get()
 
-	isMagicDNS := magicDNSSuffix != "" && strings.HasSuffix(domain, magicDNSSuffix)
+	// A tailnet name must match the suffix on a label boundary, otherwise
+	// "evil-tail8a412.ts.net" would be treated as MagicDNS.
+	isMagicDNS := suffix != "" && (domain == suffix || strings.HasSuffix(domain, "."+suffix))
 	isShortName := !strings.Contains(domain, ".")
 
-	// 1. Look up in the nodes cache (MagicDNS).
+	// 1. Look up in the nodes cache (MagicDNS). A cache hit is authoritative:
+	// return its response even when the record type does not match (NODATA)
+	// rather than nil, so an AAAA lookup for an IPv4-only peer does not fall
+	// through to a public resolver and leak the internal name.
 	if isMagicDNS || isShortName {
 		if ips, ok := nodesCache.Load(domain); ok {
 			return packDNSResponse(msg, q, ips.([]string), query)
@@ -152,7 +160,16 @@ func processDNSQuery(query []byte, fallbacks []string, dohUrl string) []byte {
 		if len(splitServers) > 0 {
 			if socks != "" {
 				for _, server := range splitServers {
-					target := net.JoinHostPort(server, "53")
+					// A resolver address may already be host:port, a bare IP, or
+					// a DoH URL. Only append :53 to a bare host; skip URL forms so
+					// they are not mangled into "https://...:53".
+					if strings.Contains(server, "://") {
+						continue
+					}
+					target := server
+					if _, _, err := net.SplitHostPort(server); err != nil {
+						target = net.JoinHostPort(server, "53")
+					}
 					resp, err := forwardDNSviaSOCKS5(query, socks, user, pass, target)
 					if err == nil && len(resp) >= 2 {
 						resp[0] = query[0]
@@ -181,14 +198,23 @@ func processDNSQuery(query []byte, fallbacks []string, dohUrl string) []byte {
 	if q.Type == dnsmessage.TypeAAAA {
 		typeStr = "AAAA"
 	}
-	path := fmt.Sprintf("/localapi/v0/dns-query?name=%s&type=%s", domain, typeStr)
+	path := fmt.Sprintf("/localapi/v0/dns-query?name=%s&type=%s", url.QueryEscape(domain), typeStr)
 	data, err := doLocalRequest("GET", path, nil)
 	if err == nil {
 		var dnsResp struct{ Bytes []byte }
 		if json.Unmarshal(data, &dnsResp) == nil && len(dnsResp.Bytes) >= 4 {
 			rcode := dnsResp.Bytes[3] & 0x0F
 			var parsedMsg dnsmessage.Message
-			if rcode == 0 && parsedMsg.Unpack(dnsResp.Bytes) == nil && len(parsedMsg.Answers) > 0 {
+			wellFormed := parsedMsg.Unpack(dnsResp.Bytes) == nil
+			if rcode == 0 && wellFormed && len(parsedMsg.Answers) > 0 {
+				dnsResp.Bytes[0] = query[0]
+				dnsResp.Bytes[1] = query[1]
+				return dnsResp.Bytes
+			}
+			// For a tailnet name, trust the daemon's verdict — including NODATA
+			// and NXDOMAIN. Falling through would resend the internal name to a
+			// public resolver, leaking it and overriding the correct answer.
+			if isMagicDNS && wellFormed {
 				dnsResp.Bytes[0] = query[0]
 				dnsResp.Bytes[1] = query[1]
 				return dnsResp.Bytes
@@ -196,7 +222,12 @@ func processDNSQuery(query []byte, fallbacks []string, dohUrl string) []byte {
 		}
 	}
 
-	// 4. Fallback
+	// A tailnet name that reached here has no answer; do not leak it publicly.
+	if isMagicDNS {
+		return packNoData(msg)
+	}
+
+	// 4. Fallback (public names only)
 	return tryFallbackDNS(query, fallbacks, dohUrl)
 }
 
@@ -216,19 +247,38 @@ func packDNSResponse(msg dnsmessage.Message, q dnsmessage.Question, ips []string
 				Header: dnsmessage.ResourceHeader{Name: q.Name, Type: dnsmessage.TypeA, Class: dnsmessage.ClassINET, TTL: 60},
 				Body:   &dnsmessage.AResource{A: a},
 			})
-		} else if ip6 := ip.To16(); ip6 != nil && q.Type == dnsmessage.TypeAAAA {
-			var aaaa [16]byte
-			copy(aaaa[:], ip6)
-			msg.Answers = append(msg.Answers, dnsmessage.Resource{
-				Header: dnsmessage.ResourceHeader{Name: q.Name, Type: dnsmessage.TypeAAAA, Class: dnsmessage.ClassINET, TTL: 60},
-				Body:   &dnsmessage.AAAAResource{AAAA: aaaa},
-			})
+		} else if q.Type == dnsmessage.TypeAAAA && ip.To4() == nil {
+			// Only real IPv6. net.ParseIP("100.64.0.1").To16() is non-nil, so
+			// without the To4()==nil guard an IPv4 peer answered AAAA as a bogus
+			// ::ffff: mapped address.
+			if ip6 := ip.To16(); ip6 != nil {
+				var aaaa [16]byte
+				copy(aaaa[:], ip6)
+				msg.Answers = append(msg.Answers, dnsmessage.Resource{
+					Header: dnsmessage.ResourceHeader{Name: q.Name, Type: dnsmessage.TypeAAAA, Class: dnsmessage.ClassINET, TTL: 60},
+					Body:   &dnsmessage.AAAAResource{AAAA: aaaa},
+				})
+			}
 		}
 	}
-	if len(msg.Answers) > 0 {
-		if packed, err := msg.Pack(); err == nil {
-			return packed
-		}
+	// Always return a well-formed response. Zero answers become NODATA rather
+	// than nil, so the caller does not fall through to a public resolver.
+	if packed, err := msg.Pack(); err == nil {
+		return packed
+	}
+	return nil
+}
+
+// packNoData returns an authoritative NOERROR response with no answers.
+func packNoData(msg dnsmessage.Message) []byte {
+	msg.Response = true
+	msg.Authoritative = true
+	msg.RecursionAvailable = true
+	msg.Answers = nil
+	msg.Authorities = nil
+	msg.Additionals = nil
+	if packed, err := msg.Pack(); err == nil {
+		return packed
 	}
 	return nil
 }

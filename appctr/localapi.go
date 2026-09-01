@@ -343,12 +343,15 @@ func GetServeConfig() string {
 
 	etag := resp.Header.Get("ETag")
 
-	// Embed ETag into the JSON so Kotlin can extract it for subsequent writes.
-	s := string(data)
-	if strings.HasPrefix(s, "{") {
-		s = fmt.Sprintf(`{"etag":%q, %s`, etag, s[1:])
-	} else if s == "" || s == "null" {
+	// Embed the ETag into the JSON so Kotlin can extract it for subsequent
+	// writes. An emptied serve config marshals to exactly "{}", and the old
+	// string splice turned that into `{"etag":"…", }` — a trailing comma that
+	// broke the Serve screen's parse after clearing rules.
+	s := strings.TrimSpace(string(data))
+	if s == "" || s == "null" || s == "{}" {
 		s = fmt.Sprintf(`{"etag":%q}`, etag)
+	} else if strings.HasPrefix(s, "{") {
+		s = fmt.Sprintf(`{"etag":%q,%s`, etag, s[1:])
 	}
 
 	slog.Info("LocalAPI: [GET] /localapi/v0/serve-config", "etag", etag)

@@ -256,7 +256,7 @@ func FlushDNS() {
 		nodesCache.Delete(key)
 		return true
 	})
-	magicDNSSuffix = ""
+	setMagicDNSSuffix("")
 	slog.Info("DNS caches and metadata reset")
 }
 
@@ -572,12 +572,22 @@ func RestartDNS() {
 		return
 	}
 
+	// Register the cancel synchronously, before the goroutine sleeps. The old
+	// code slept first, so two quick RestartDNS calls left two listeners
+	// fighting for the port, and a Stop() during the sleep window could not
+	// cancel a proxy that had not registered yet — it then started after Stop
+	// with no owner.
+	ctx, cancel := context.WithCancel(context.Background())
+	stateMu.Lock()
+	dnsProxyCancel = cancel
+	stateMu.Unlock()
+
 	go func() {
-		time.Sleep(500 * time.Millisecond)
-		ctx, cancel := context.WithCancel(context.Background())
-		stateMu.Lock()
-		dnsProxyCancel = cancel
-		stateMu.Unlock()
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(500 * time.Millisecond):
+		}
 
 		fallbacks := []string{"8.8.8.8:53", "1.1.1.1:53"}
 		if opt.DnsFallbacks != "" {
@@ -682,19 +692,24 @@ func StartWebUI(addr string) {
 		slog.Error("Failed to create web server", "err", err)
 		return
 	}
-	stateMu.Lock()
-	webServer = &http.Server{
+	srv := &http.Server{
 		Addr:    addr,
 		Handler: ws,
 	}
+	stateMu.Lock()
+	webServer = srv
 	stateMu.Unlock()
 	go func() {
 		slog.Info("Web UI listening", "addr", addr)
-		if err := webServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		// Use the captured local, not the global: StopWebUI can clear the global
+		// concurrently, which would nil-deref here and crash the whole process.
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("Web UI listen error", "err", err)
 		}
 		stateMu.Lock()
-		webServer = nil
+		if webServer == srv {
+			webServer = nil
+		}
 		stateMu.Unlock()
 	}()
 }
