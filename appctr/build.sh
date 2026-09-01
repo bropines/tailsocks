@@ -57,8 +57,17 @@ if [ ! -d "tailscale_src" ]; then
     echo "-> Applying atomic patches..."
     for p in patches/*.patch; do
         if [ -f "$p" ]; then
+            # A zero-byte patch is a lost fix, not a no-op — GNU patch accepts it
+            # and exits 0, so it would ship silently missing. Fail loudly instead.
+            if [ ! -s "$p" ]; then
+                echo "❌ Patch $(basename "$p") is empty — a fix was lost. Regenerate it before building." >&2
+                exit 1
+            fi
             echo "Applying patch: $(basename "$p")"
-            patch -p1 -d tailscale_src < "$p"
+            # --batch/--forward keep patch non-interactive (a moved target would
+            # otherwise hang waiting for input); -F0 refuses fuzzy placement so a
+            # version bump that shifts context fails here rather than landing wrong.
+            patch -p1 --batch --forward -F0 -d tailscale_src < "$p"
         fi
     done
 

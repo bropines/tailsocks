@@ -1,0 +1,20 @@
+--- orig/cmd/tailscaled/tailscaled.go
++++ tailscale_src/cmd/tailscaled/tailscaled.go
+@@ -48,6 +48,7 @@
+ 	"tailscale.com/net/dnsfallback"
+ 	"tailscale.com/net/netmon"
+ 	"tailscale.com/net/netns"
++	"tailscale.com/net/tsaddr"
+ 	"tailscale.com/net/tsdial"
+ 	"tailscale.com/net/tstun"
+ 	"tailscale.com/paths"
+@@ -716,6 +717,9 @@
+ 	}
+ 	if onlyNetstack {
+ 		dialer.UseNetstackForIP = func(ip netip.Addr) bool {
++			if ip == tsaddr.TailscaleServiceIP() || ip == tsaddr.TailscaleServiceIPv6() {
++				return true
++			}
+ 			_, ok := lb.PeerForIP(ip)
+ 			return ok
+ 		}

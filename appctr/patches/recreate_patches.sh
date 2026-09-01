@@ -53,8 +53,13 @@ diff -N -u /dev/null tailscale_src/cmd/tailscaled/fix_android_netmon.go > patche
 # 07-taildrive-android.patch (drive)
 diff -N -r -u orig/drive tailscale_src/drive > patches/07-taildrive-android.patch || true
 
-# 08-netstack-cgnat.patch (cmd/tailscaled/netstack.go)
-diff -u orig/cmd/tailscaled/netstack.go tailscale_src/cmd/tailscaled/netstack.go > patches/08-netstack-cgnat.patch || true
+# 08-netstack-cgnat.patch (cmd/tailscaled/tailscaled.go)
+# NOTE: in Tailscale v1.102.1 the UseNetstackForIP hook moved out of
+# cmd/tailscaled/netstack.go into cmd/tailscaled/tailscaled.go. Diffing the old
+# file produced an empty patch that `|| true` swallowed, silently dropping the
+# TailscaleServiceIP netstack route (Taildrive/WebDAV). Keep this pointed at
+# whichever file currently defines the hook.
+diff -u orig/cmd/tailscaled/tailscaled.go tailscale_src/cmd/tailscaled/tailscaled.go > patches/08-netstack-cgnat.patch || true
 
 # 09-netstack-loopback.patch (net/tstun/wrap.go and wgengine/netstack/netstack.go)
 {
@@ -81,6 +86,19 @@ diff -u orig/safesocket/unixsocket.go tailscale_src/safesocket/unixsocket.go > p
     diff -u orig/net/netmon/netmon_linux.go tailscale_src/net/netmon/netmon_linux.go || true
     diff -u orig/net/netmon/netmon_polling.go tailscale_src/net/netmon/netmon_polling.go || true
 } > patches/13-android-osrouter.patch || true
+
+# Guard: a zero-byte patch means a diff target moved or vanished and `|| true`
+# swallowed it — exactly how 08-netstack-cgnat was silently lost during the
+# v1.102.1 bump. Refuse to finish with any empty patch so it can never ship blank.
+empty=""
+for p in patches/*.patch; do
+    [ -s "$p" ] || empty="$empty $(basename "$p")"
+done
+if [ -n "$empty" ]; then
+    echo "❌ Empty patch(es) generated:$empty" >&2
+    echo "   A diff target likely moved. Fix the diff path in this script before committing." >&2
+    exit 1
+fi
 
 echo "✅ Atomic patches generated successfully in appctr/patches/."
 
