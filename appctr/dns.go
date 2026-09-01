@@ -329,6 +329,12 @@ func forwardDNSviaUDP(query []byte, server string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Verify the reply's transaction ID matches the query's first two bytes.
+	// A spoofed or stale UDP datagram with the wrong ID must be treated as a
+	// failure so it is not returned as the answer.
+	if n < 2 || len(query) < 2 || buf[0] != query[0] || buf[1] != query[1] {
+		return nil, fmt.Errorf("dns udp: transaction ID mismatch")
+	}
 	return buf[:n], nil
 }
 

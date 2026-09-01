@@ -4,6 +4,11 @@ set -e
 # Change directory to the appctr directory
 cd "$(dirname "$0")/.."
 
+# Remove stray patch leftovers before diffing: a failed/fuzzy `patch` run drops
+# *.orig and *.rej files under tailscale_src, and the directory diffs (03/07)
+# would otherwise sweep them into the generated patches.
+find tailscale_src \( -name "*.orig" -o -name "*.rej" \) -delete 2>/dev/null || true
+
 # Find Tailscale version from TAILSCALE_VERSION file or tailscale_src
 TS_VERSION=$(cat TAILSCALE_VERSION 2>/dev/null || cat tailscale_src/VERSION.txt 2>/dev/null || echo "v1.98.3")
 TS_VERSION="${TS_VERSION#v}"
@@ -33,7 +38,7 @@ echo "-> Generating atomic patches..."
 diff -u orig/cmd/tailscaled/proxy.go tailscale_src/cmd/tailscaled/proxy.go > patches/02-socks5-auth.patch || true
 
 # 03-taildrop-monolithic-fs.patch (feature/taildrop)
-diff -N -r -u orig/feature/taildrop tailscale_src/feature/taildrop > patches/03-taildrop-monolithic-fs.patch || true
+diff -N -r -u -x "*.orig" -x "*.rej" orig/feature/taildrop tailscale_src/feature/taildrop > patches/03-taildrop-monolithic-fs.patch || true
 
 # 04-vip-services.patch (ipn/ipnlocal)
 {
@@ -51,7 +56,7 @@ diff -N -r -u orig/feature/taildrop tailscale_src/feature/taildrop > patches/03-
 diff -N -u /dev/null tailscale_src/cmd/tailscaled/fix_android_netmon.go > patches/06-android-netmon.patch || true
 
 # 07-taildrive-android.patch (drive)
-diff -N -r -u orig/drive tailscale_src/drive > patches/07-taildrive-android.patch || true
+diff -N -r -u -x "*.orig" -x "*.rej" orig/drive tailscale_src/drive > patches/07-taildrive-android.patch || true
 
 # 08-netstack-cgnat.patch (cmd/tailscaled/tailscaled.go)
 # NOTE: in Tailscale v1.102.1 the UseNetstackForIP hook moved out of

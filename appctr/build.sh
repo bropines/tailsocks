@@ -22,7 +22,7 @@ elif [ -f "TAILSCALE_VERSION" ]; then
     TS_VERSION=$(cat TAILSCALE_VERSION | tr -d ' \n\r')
     echo "-> Read Tailscale version from TAILSCALE_VERSION: $TS_VERSION"
 else
-    TS_VERSION="v1.98.3"
+    TS_VERSION="v1.102.1"
     echo "$TS_VERSION" > TAILSCALE_VERSION
     echo "-> Defaulting Tailscale version to: $TS_VERSION"
 fi

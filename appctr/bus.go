@@ -193,6 +193,13 @@ func setMagicDNSSuffix(s string) {
 var lastHealthFingerprint string
 
 var busCancel context.CancelFunc
+
+// busGen is bumped every time a new listener's cancel is installed. A listener
+// goroutine captures the generation it was born with and only clears busCancel
+// if it still owns the current one — a Stop()->Start() may have already replaced
+// the listener while a stale goroutine was winding down, and an unconditional
+// nil would wipe the NEW listener's cancel and leak it.
+var busGen uint64
 var busMu sync.Mutex
 
 // EnsureIPNBusListener starts the bus listener goroutine if not already running.
@@ -215,16 +222,22 @@ func EnsureIPNBusListener() {
 	slog.Info("Starting IPN Bus Listener...")
 	busCtx, cancel := context.WithCancel(context.Background())
 	busCancel = cancel
+	busGen++
+	gen := busGen
 	go func() {
 		if !waitForLocalAPI(30 * time.Second) {
 			slog.Warn("IPN Bus: daemon socket never became ready, listener not started")
 			busMu.Lock()
-			busCancel = nil
+			// Only clear if we still own the current listener; a Stop()->Start()
+			// may have installed a newer cancel that must not be dropped.
+			if busGen == gen {
+				busCancel = nil
+			}
 			busMu.Unlock()
 			cancel()
 			return
 		}
-		startIPNBusListener(busCtx)
+		startIPNBusListener(busCtx, gen)
 	}()
 }
 
@@ -241,10 +254,14 @@ func StopIPNBusListener() {
 
 // ─── Listener loop ───────────────────────────────────────────────────────────
 
-func startIPNBusListener(ctx context.Context) {
+func startIPNBusListener(ctx context.Context, gen uint64) {
 	defer func() {
 		busMu.Lock()
-		busCancel = nil
+		// Only clear if this goroutine still owns the current listener; a
+		// Stop()->Start() may have replaced it, and niling would leak the new one.
+		if busGen == gen {
+			busCancel = nil
+		}
 		busMu.Unlock()
 	}()
 
