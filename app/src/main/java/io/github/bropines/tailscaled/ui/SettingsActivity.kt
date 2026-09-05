@@ -1019,6 +1019,19 @@ fun SettingsScreen(
 
         AnimatedVisibility(visible = selectedMode == 1) {
           SettingsCard(title = stringResource(R.string.settings_sect_tun_mode)) {
+                // The dependency is real — the tunnel forwards every packet into
+                // this local proxy — but the proxy is not TUN's: proxy mode is
+                // nothing else, and in Root mode Taildrive and the admin API
+                // still dial it. So it is named here and edited in its own
+                // category.
+                SettingsClickableItem(
+                    title = stringResource(R.string.settings_tun_uses_socks_title),
+                    subtitle = stringResource(R.string.settings_tun_uses_socks_desc, socks5.ifBlank { "127.0.0.1:48115" }),
+                    icon = Icons.Default.SwapHoriz
+                ) {
+                    openSection = "proxies"
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
                 SettingsSwitchItem(
                     title = stringResource(R.string.settings_tun_ipv6_title),
                     subtitle = stringResource(R.string.settings_tun_ipv6_desc),
@@ -1980,7 +1993,13 @@ fun SettingsScreen(
         SettingsCard(title = stringResource(R.string.settings_sect_flags_logs)) {
             SettingsSwitchItem(stringResource(R.string.settings_detailed_logs_title), stringResource(R.string.settings_detailed_logs_desc), Icons.Default.BugReport, detailedLogs) { detailedLogs = it; saveGlobalPref("detailed_logs", it) }
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-            SettingsEditItem(stringResource(R.string.settings_extra_args_title), extraArgs, Icons.Default.Code, stringResource(R.string.settings_extra_args_placeholder)) { extraArgs = it; saveGlobalPref("extra_args_raw", it) }
+            SettingsEditItem(
+                stringResource(R.string.settings_extra_args_title),
+                extraArgs,
+                Icons.Default.Code,
+                placeholder = stringResource(R.string.settings_extra_args_placeholder),
+                description = stringResource(R.string.extra_args_desc)
+            ) { extraArgs = it; saveGlobalPref("extra_args_raw", it) }
         }
 
         if (rootModeActive) {

@@ -864,38 +864,15 @@ class TailscaledService : Service() {
             acceptDNS = accDNS
             exitNodeID = profilePrefs.getString("exit_node_id", "") ?: ""
 
-            val argsBuilder = StringBuilder()
-            if (host.isNotEmpty()) argsBuilder.append("--hostname=$host ")
-            
-            val loginServer = profilePrefs.getString("login_server", "")
-            if (!loginServer.isNullOrEmpty()) argsBuilder.append("--login-server=$loginServer ")
-            
-            argsBuilder.append("--accept-routes=$accRoutes ")
-            argsBuilder.append("--accept-dns=$accDNS ")
-            
-            // Exit Nodes are now managed dynamically via LocalAPI (Appctr.setPrefs)
-            // in SettingsActivity. We no longer pass them in 'up' to avoid restarting
-            // configuration unnecessarily.
+            // The bridge parses extraUpArgs as `tailscale up`-style flags and folds
+            // the result into the same prefs PATCH syncSettings sends, after the
+            // app's own keys (appctr/extraargs.go). Only the user's own text goes
+            // here: everything the app owns already travels as a StartOptions
+            // field, and re-emitting those as flags would let the app's own
+            // --advertise-exit-node overwrite AdvertiseRoutes with just the two
+            // default routes, dropping the subnet routes applyTagsAndRoutes owns.
+            extraUpArgs = GlobalSettings.getString(this@TailscaledService, "extra_args_raw", "").trim()
 
-            // Only emit the flag when the app actually owns this preference.
-            // The "Run as exit node" switch in Settings writes it; until it is
-            // touched the key is absent, and unconditionally appending
-            // --advertise-exit-node=false would un-advertise a device that had
-            // been made an exit node from the CLI or the admin console.
-            //
-            // NOTE: extraUpArgs below is declared on StartOptions but the bridge
-            // never reads it, so nothing here reaches the daemon. What actually
-            // advertises this node is applyTagsAndRoutes(), which owns
-            // AdvertiseRoutes and folds the same preference in.
-            if (profilePrefs.contains("advertise_exit_node")) {
-                argsBuilder.append("--advertise-exit-node=${profilePrefs.getBoolean("advertise_exit_node", false)} ")
-            }
-
-            val extraArgs = GlobalSettings.getString(this@TailscaledService, "extra_args_raw", "")
-            if (extraArgs.isNotEmpty()) argsBuilder.append("$extraArgs ")
-
-            extraUpArgs = argsBuilder.toString()
-            
             val detailedLogs = GlobalSettings.getBoolean(this@TailscaledService, "detailed_logs", false)
             Appctr.setLogLevel(if (detailedLogs) 0 else 1)
         }

@@ -46,7 +46,7 @@
     <string name="sw_accept_dns_desc">Использовать настройки Magic DNS Tailscale</string>
 
     <string name="extra_args">Дополнительные аргументы (raw)</string>
-    <string name="extra_args_desc">Пользовательские флаги для tailscale up</string>
+    <string name="extra_args_desc">Флаги tailscale up. Применяются поверх настроек, которые приложение отправляет само. Поддерживаются: --accept-routes, --accept-dns, --shields-up, --ssh, --exit-node-allow-lan-access, --report-posture, --hostname, --login-server, --advertise-routes, --advertise-tags, --advertise-exit-node; отрицание — через --no-флаг или =false. Остальные флаги игнорируются, и о каждом пишется в логи. Маршруты и теги, заданные здесь, приложение почти сразу перезаписывает полями «Анонсируемые маршруты» и «Анонсируемые теги», поэтому задавайте их там.</string>
 
     <string name="force_bg_subtitle">Попытка перезапуска службы при завершении</string>
 
@@ -1158,4 +1158,6 @@
     <string name="settings_sect_resolver">Резолвер</string>
     <string name="settings_sect_service_perms">Служба и разрешения</string>
     <string name="settings_sect_backup_files">Файлы резервных копий</string>
+    <string name="settings_tun_uses_socks_title">Отдаёт трафик в локальный SOCKS5</string>
+    <string name="settings_tun_uses_socks_desc">%1$s — общий с режимом прокси, Taildrive и админ-API. Нажмите, чтобы изменить.</string>
 </resources>

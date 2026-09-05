@@ -46,7 +46,7 @@
     <string name="sw_accept_dns_desc">Use Tailscale magic DNS settings</string>
 
     <string name="extra_args">Extra Arguments (Raw)</string>
-    <string name="extra_args_desc">Custom flags for tailscale up</string>
+    <string name="extra_args_desc">tailscale up flags, applied on top of the settings the app sends itself. Supported: --accept-routes, --accept-dns, --shields-up, --ssh, --exit-node-allow-lan-access, --report-posture, --hostname, --login-server, --advertise-routes, --advertise-tags, --advertise-exit-node; negate with --no-flag or =false. Any other flag is ignored and named in the logs. Routes and tags set here are overwritten a moment after start by Advertise Routes and Advertise Tags, so set those there instead.</string>
 
     <string name="force_bg_subtitle">Try to restart service if killed</string>
 
@@ -1158,4 +1158,6 @@
     <string name="settings_sect_resolver">Resolver</string>
     <string name="settings_sect_service_perms">Service &amp; permissions</string>
     <string name="settings_sect_backup_files">Backup files</string>
+    <string name="settings_tun_uses_socks_title">Forwards into the local SOCKS5 proxy</string>
+    <string name="settings_tun_uses_socks_desc">%1$s — shared with proxy mode, Taildrive and the admin API. Tap to change it.</string>
 </resources>

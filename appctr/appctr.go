@@ -420,6 +420,15 @@ func syncSettings(ctx context.Context, opt *StartOptions) {
 		prefs["WantRunning"] = true
 		prefs["WantRunningSet"] = true
 
+		// The user's "Extra Arguments" are parsed as `tailscale up` flags and
+		// folded in last, on top of the keys above, so the escape hatch can
+		// override the app's own settings — that is the whole point of it.
+		// Keep the app-only payload around: the daemon validates the whole
+		// MaskedPrefs batch at once (checkPrefsLocked joins the errors), so a
+		// flag it refuses would otherwise take every setting down with it.
+		baseJSON, _ := json.Marshal(prefs)
+		extra := applyExtraArgs(prefs, opt.ExtraUpArgs)
+
 		// The status round-trip above may have outlived the run; do not hand
 		// these prefs to whichever daemon owns the socket now.
 		if ctx.Err() != nil {
@@ -427,7 +436,19 @@ func syncSettings(ctx context.Context, opt *StartOptions) {
 		}
 		jsonData, _ := json.Marshal(prefs)
 		slog.Info("Syncing settings via LocalAPI", "payload", string(jsonData))
-		SetPrefs(string(jsonData))
+		if err := PatchPrefsJSON(string(jsonData)); err != nil {
+			if len(extra) == 0 {
+				slog.Error("Failed to sync settings via LocalAPI", "error", err)
+			} else {
+				slog.Error("The daemon rejected the settings; retrying without the extra arguments", "error", err)
+				if ctx.Err() != nil {
+					return
+				}
+				if err := PatchPrefsJSON(string(baseJSON)); err != nil {
+					slog.Error("Failed to sync settings via LocalAPI", "error", err)
+				}
+			}
+		}
 
 		if ctx.Err() != nil {
 			return
