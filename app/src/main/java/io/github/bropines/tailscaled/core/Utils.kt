@@ -134,7 +134,7 @@ fun openAutostartSettings(context: Context) {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         )
     } catch (e: Exception) {
-        Toast.makeText(context, context.getString(R.string.autostart_hint_no_settings), Toast.LENGTH_LONG).show()
+        Toast.makeText(context, context.getString(R.string.perm_open_failed), Toast.LENGTH_LONG).show()
     }
 }
 

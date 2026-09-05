@@ -903,6 +903,10 @@ fun SettingsScreen(
                                     }
                                 }
                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                SettingsClickableItem(stringResource(R.string.settings_permissions_title), stringResource(R.string.settings_permissions_desc), Icons.Default.VerifiedUser) {
+                                    context.startActivity(Intent(context, PermissionsActivity::class.java))
+                                }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
                                 SettingsSwitchItem(stringResource(R.string.settings_autostart_title), stringResource(R.string.settings_autostart_desc), Icons.Default.PowerSettingsNew, autoStart) {
                                     GlobalSettings.setAutoStartEnabled(context, it)
                                     autoStart = it
