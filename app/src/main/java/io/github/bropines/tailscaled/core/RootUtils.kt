@@ -65,6 +65,26 @@ object RootUtils {
     private const val CATCH_ALL_MASK = "0x2020000"
     private const val CATCH_ALL_PRIO = "200"
 
+    /**
+     * Destinations kept out of the exit node, as `throw` routes in the daemon's
+     * table: the lookup falls through to Android's own rules, which send them
+     * out of the physical interface.
+     *
+     * Without this, selecting an exit node in Root Mode takes the local network
+     * with it — the router, a NAS, a printer, adb over Wi-Fi — because the
+     * pref-200 catch-all matches every unmarked local packet, LAN included.
+     * Measured on the APatch phone: `ip route get 192.168.1.100` answered
+     * `dev tailscale0 table 52` until these were added. The list is the user's
+     * own TUN exclusions, so both tunnel modes exclude the same things, plus
+     * link-local, which nothing routes anyway.
+     */
+    private const val LINK_LOCAL_V4 = "169.254.0.0/16"
+    private const val LINK_LOCAL_V6 = "fe80::/10"
+
+    /** Accepts only a bare CIDR — the list comes from a user-editable setting. */
+    private val CIDR_V4 = Regex("^\\d{1,3}(\\.\\d{1,3}){3}/\\d{1,2}$")
+    private val CIDR_V6 = Regex("^[0-9a-fA-F:]{2,45}/\\d{1,3}$")
+
     /** Pre-fix rp_filter value of `all`, kept so cleanup can restore it. */
     private const val RP_FILTER_ORIG = "$ROOT_ENV_DIR/rp_filter.orig"
 
@@ -251,7 +271,7 @@ object RootUtils {
     private val selinuxTypeName = Regex("^[a-z][a-z0-9_]*$")
 
     private fun selinuxType(context: String): String? {
-        val fields = context.replace(" ", "").trim().split(":")
+        val fields = context.replace("\u0000", "").trim().split(":")
         if (fields.size < 3) return null
         val type = fields[2]
         return if (selinuxTypeName.matches(type)) type else null
@@ -615,6 +635,7 @@ object RootUtils {
         sb.append(staleDaemonRulePurge("ip"))
         if (marks) {
             sb.append(catchAllInstall("ip", V4_CATCH_ALL_MISSING, bestEffort = false))
+            sb.append(localBypassRoutes("ip", localExclusions(context, v6 = false)))
             sb.append(rpFilterLoosen())
         }
 
@@ -640,6 +661,7 @@ object RootUtils {
         if (marks) {
             sb.append("if [ -d /proc/sys/net/ipv6 ] && [ \"\$(cat /proc/sys/net/ipv6/conf/all/disable_ipv6 2>/dev/null)\" = \"0\" ]; then\n")
             sb.append(catchAllInstall("ip -6", V6_CATCH_ALL_MISSING, bestEffort = true))
+            sb.append(localBypassRoutes("ip -6", localExclusions(context, v6 = true)))
             sb.append("fi\n")
         }
 
@@ -733,6 +755,23 @@ object RootUtils {
         // deletes its throw routes and the kernel drops the rest with tailscale0.
         sb.append("while ip rule del priority $CATCH_ALL_PRIO lookup $DAEMON_TABLE 2>/dev/null; do :; done\n")
         sb.append("while ip -6 rule del priority $CATCH_ALL_PRIO lookup $DAEMON_TABLE 2>/dev/null; do :; done\n")
+        // The local-network bypass we wrote into the daemon's table. Everything
+        // except the daemon's own loopback throw goes; a range the daemon threw
+        // for its own reasons would be re-added at its next Reconfig, and with
+        // the pref-$CATCH_ALL_PRIO rule gone nothing consults this table anyway.
+        sb.append(
+            "ip route show table $DAEMON_TABLE 2>/dev/null | while read t c rest; do\n" +
+                "    [ \"\$t\" = throw ] || continue\n" +
+                "    [ \"\$c\" = 127.0.0.0/8 ] && continue\n" +
+                "    ip route del throw \"\$c\" table $DAEMON_TABLE 2>/dev/null || true\n" +
+                "done\n"
+        )
+        sb.append(
+            "ip -6 route show table $DAEMON_TABLE 2>/dev/null | while read t c rest; do\n" +
+                "    [ \"\$t\" = throw ] || continue\n" +
+                "    ip -6 route del throw \"\$c\" table $DAEMON_TABLE 2>/dev/null || true\n" +
+                "done\n"
+        )
         sb.append(staleDaemonRulePurge("ip"))
         sb.append(staleDaemonRulePurge("ip -6"))
         sb.append(rpFilterRestore())
@@ -803,6 +842,37 @@ object RootUtils {
      * prints the zero mark as `0x0`, 5.x and later (`%#llx`) as a bare `0`;
      * the pattern accepts both.
      */
+    /**
+     * The user's TUN exclusions plus link-local, filtered to plain CIDRs of the
+     * right family. A Context is needed to read the setting; without one only
+     * link-local is excluded, which keeps the shell script valid but leaves the
+     * LAN inside the tunnel — callers pass a Context.
+     */
+    private fun localExclusions(context: Context?, v6: Boolean): List<String> {
+        val fromSettings = context?.let { GlobalSettings.getTunExcludedCIDRs(it) } ?: ""
+        val all = (fromSettings.split(',', ';', ' ', '\n') + listOf(LINK_LOCAL_V4, LINK_LOCAL_V6))
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+        val wanted = all.filter { if (v6) it.contains(':') else !it.contains(':') }
+        val valid = wanted.filter { if (v6) CIDR_V6.matches(it) else CIDR_V4.matches(it) }
+        val dropped = wanted - valid.toSet()
+        if (dropped.isNotEmpty()) {
+            rootLog("WARN", "exit-node exclusions ignored, not plain CIDRs: ${dropped.joinToString(", ")}")
+        }
+        return valid.distinct()
+    }
+
+    /**
+     * `throw` routes survive the daemon's own Reconfig — verified on the APatch
+     * phone by toggling the exit node with them installed — so they are written
+     * once here rather than being refreshed on every netmap change.
+     */
+    private fun localBypassRoutes(ip: String, cidrs: List<String>): String = buildString {
+        for (c in cidrs) {
+            append("$ip route replace throw ${shQuote(c)} table $DAEMON_TABLE 2>/dev/null || true\n")
+        }
+    }
+
     private fun catchAllInstall(ip: String, missingMarker: String, bestEffort: Boolean): String = buildString {
         val tolerate = if (bestEffort) " 2>/dev/null || true" else ""
         append("while $ip rule del priority $CATCH_ALL_PRIO lookup $DAEMON_TABLE 2>/dev/null; do :; done\n")
@@ -1033,6 +1103,38 @@ object RootUtils {
         Log.d(TAG, "Root daemon stopped exitCode=${res.exitCode}")
         rootLog("INFO", "Root daemon stopped")
         return true
+    }
+
+    /**
+     * Gives the daemon's state directory back to the app's uid.
+     *
+     * The root daemon writes `tailscaled.state` and `profile-data/` as root,
+     * 0600 — it rewrites them atomically, so every login and every prefs change
+     * produces a fresh root-owned file. The moment the app runs a daemon of its
+     * own again (Root Mode off, or root simply unavailable) it cannot read its
+     * own state, starts from nothing, and asks the user to log in while the node
+     * is still registered. Observed on WSA: state owned by root, the app back at
+     * "authentication required" with an empty peer list.
+     *
+     * Called whenever the root daemon is stopped, which is the last moment root
+     * is guaranteed to be available.
+     */
+    fun handStateBackToApp(context: Context): Boolean {
+        val uid = context.applicationInfo.uid
+        val dir = File(context.filesDir, "states").absolutePath
+        if (!File(dir).exists()) return true
+        val script = buildString {
+            append("[ -d ${shQuote(dir)} ] || exit 0\n")
+            append("chown -R $uid:$uid ${shQuote(dir)} 2>/dev/null || true\n")
+            // Ownership is what matters; keep the modes the daemon expects.
+            append("find ${shQuote(dir)} -type d -exec chmod 700 {} + 2>/dev/null || true\n")
+            append("find ${shQuote(dir)} -type f -exec chmod 600 {} + 2>/dev/null || true\n")
+        }
+        val res = runSu("state-chown", script, timeoutMs = 15_000L)
+        if (!res.ok) {
+            rootLog("WARN", "could not hand the daemon state back to the app; a non-root start may ask you to log in again")
+        }
+        return res.ok
     }
 
     fun setServiceScriptInstalled(context: Context, install: Boolean): Boolean {

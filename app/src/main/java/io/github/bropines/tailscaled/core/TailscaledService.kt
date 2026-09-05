@@ -671,6 +671,7 @@ class TailscaledService : Service() {
                         if (socketFile.exists()) {
                             Log.w(TAG, "Root daemon socket is stale or unconfigured. Stopping leftover daemon and restarting.")
                             RootUtils.stopRootDaemon(options.socketPath)
+                            RootUtils.handStateBackToApp(this@TailscaledService)
                         }
                         val logsDir = java.io.File(filesDir.parentFile ?: filesDir, "logs").absolutePath
                         val logFile = "$logsDir/tailscaled.log"
@@ -1006,6 +1007,7 @@ class TailscaledService : Service() {
         }
         if (killDaemon) {
             RootUtils.stopRootDaemon("${filesDir.absolutePath}/tailscaled.sock")
+            RootUtils.handStateBackToApp(this@TailscaledService)
         }
     }
     

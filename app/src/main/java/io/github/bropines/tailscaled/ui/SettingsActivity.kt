@@ -872,6 +872,7 @@ fun SettingsScreen(
                     GlobalSettings.setRootRoutingInstalled(context, false)
                 }
                 RootUtils.stopRootDaemon("${context.filesDir.absolutePath}/tailscaled.sock")
+                RootUtils.handStateBackToApp(context)
                 if (Appctr.isRunning()) {
                     withContext(Dispatchers.Main) {
                         val intent = Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" }
