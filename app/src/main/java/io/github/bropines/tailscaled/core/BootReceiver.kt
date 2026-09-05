@@ -24,7 +24,11 @@ class BootReceiver : BroadcastReceiver() {
         val forceBg = GlobalSettings.getBoolean(context, "force_bg", false)
         val userLetRunning = ProxyState.isUserLetRunning(context)
 
-        if (forceBg && userLetRunning) {
+        // An update kills the running service; the user did not ask for that, so
+        // resume whenever it was running before the install. "Keep running in
+        // background" only decides whether we also come back after a reboot.
+        val replaced = action == Intent.ACTION_MY_PACKAGE_REPLACED
+        if (userLetRunning && (forceBg || replaced)) {
             val serviceIntent = Intent(context, TailscaledService::class.java).apply { this.action = "START_ACTION" }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(serviceIntent)
