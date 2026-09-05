@@ -324,6 +324,14 @@ object GlobalSettings {
      * DNS filtering app: those own the system resolver, and a global redirect
      * takes their queries away from them.
      */
+    /**
+     * Whether the root daemon marks its own sockets as protected from other
+     * VPNs. On by default: without it another VPN client on the phone swallows
+     * the daemon's control and DERP connections and both tunnels stall.
+     */
+    fun isRootVpnBypassEnabled(context: Context): Boolean = getPrefs(context).getBoolean("root_vpn_bypass", true)
+    fun setRootVpnBypassEnabled(context: Context, enabled: Boolean) = getPrefs(context).edit().putBoolean("root_vpn_bypass", enabled).apply()
+
     fun isRootDnsRedirectEnabled(context: Context): Boolean = getPrefs(context).getBoolean("root_dns_redirect", true)
     fun setRootDnsRedirectEnabled(context: Context, enabled: Boolean) = getPrefs(context).edit().putBoolean("root_dns_redirect", enabled).apply()
 

@@ -817,6 +817,7 @@ fun SettingsScreen(
         var serviceScriptInstalled by remember { mutableStateOf(false) }
         var cliInstalled by remember { mutableStateOf(false) }
         var killDaemonOnStop by remember { mutableStateOf(GlobalSettings.shouldKillRootDaemonOnStop(context)) }
+        var rootVpnBypass by remember { mutableStateOf(GlobalSettings.isRootVpnBypassEnabled(context)) }
         var showRootWarningDialog by remember { mutableStateOf(false) }
         var showTunWarningDialog by remember { mutableStateOf(false) }
         // Android hands the VPN slot to one app at a time and revokes it from
@@ -1331,6 +1332,20 @@ fun SettingsScreen(
                     }
                 }
 
+                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                SettingsSwitchItem(
+                    title = stringResource(R.string.settings_root_vpn_bypass_title),
+                    subtitle = stringResource(R.string.settings_root_vpn_bypass_desc),
+                    icon = Icons.Default.Shield,
+                    checked = rootVpnBypass
+                ) { enabled ->
+                    rootVpnBypass = enabled
+                    GlobalSettings.setRootVpnBypassEnabled(context, enabled)
+                    if (ProxyState.isUserLetRunning(context)) {
+                        val intent = Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" }
+                        context.startService(intent)
+                    }
+                }
                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
 
                 SettingsSwitchItem(

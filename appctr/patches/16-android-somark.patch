@@ -1,12 +1,13 @@
---- orig/net/netns/netns_android.go
-+++ tailscale_src/net/netns/netns_android.go
-@@ -7,9 +7,13 @@
+--- orig/net/netns/netns_android.go	2026-07-31 19:22:18.000000000 +0300
++++ tailscale_src/net/netns/netns_android.go	2026-09-06 02:42:41.090808452 +0300
+@@ -7,9 +7,14 @@
  
  import (
  	"fmt"
 +	"log"
 +	"net"
 +	"os"
++	"strings"
  	"sync"
  	"syscall"
  
@@ -14,7 +15,7 @@
  	"tailscale.com/net/netmon"
  	"tailscale.com/types/logger"
  )
-@@ -22,9 +26,102 @@
+@@ -22,9 +27,134 @@
  	androidBindToNetworkFunc   func(fd int) error
  )
  
@@ -44,6 +45,38 @@
 +// the log lines in useBypassMark MUST stay stable: the app greps the root
 +// daemon log for the success line before it installs the pref-200 rule.
 +const TailsocksBypassMark = 0x2000000
++
++// androidProtectedFromVpnMark is bit 17 of netd's fwmark, the bit
++// VpnService.protect() sets on an app's socket. Android routes a socket
++// carrying it by the physical network instead of whatever VpnService currently
++// holds the tunnel.
++//
++// The root daemon has no VpnService to protect it, so it sets the bit itself.
++// Without it another VPN app on the phone swallows tailscaled's own control,
++// DERP and WireGuard connections: measured on an APatch phone with a v2ray
++// client running, which sniffed the control proxy's hostname out of our
++// connection, tried to carry it through its own relay, could not resolve that
++// relay because its queue was full of our retries, and took the whole device's
++// networking down with it.
++//
++// Setting it also keeps those packets out of table 52 — the pref-200 rule's
++// mask covers this bit as well — so it is not a second mechanism, it is the
++// same one Android already uses for every VPN client.
++const androidProtectedFromVpnMark = 0x20000
++
++// socketMark is what actually goes on the daemon's sockets.
++//
++// TS_VPN_BYPASS=0 drops the protect bit, which is the opposite choice: the
++// daemon's own connections then ride whatever VpnService holds the tunnel.
++// Some people want exactly that — a control plane reachable only through
++// another client's proxy — at the cost of double encapsulation and a loop
++// whenever that client needs this tunnel to work.
++func socketMark() int {
++	if v := strings.TrimSpace(strings.ToLower(os.Getenv("TS_VPN_BYPASS"))); v == "0" || v == "false" || v == "off" || v == "no" {
++		return TailsocksBypassMark
++	}
++	return TailsocksBypassMark | androidProtectedFromVpnMark
++}
 +
 +// bypassMarkOnce runs the root-only SO_MARK probe exactly once and caches
 +// whether tailscaled sockets carry TailsocksBypassMark.
@@ -104,7 +137,7 @@
 +
 +// setBypassMark sets TailsocksBypassMark as fd's SO_MARK.
 +func setBypassMark(fd int) error {
-+	if err := unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_MARK, TailsocksBypassMark); err != nil {
++	if err := unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_MARK, socketMark()); err != nil {
 +		return fmt.Errorf("setting SO_MARK bypass: %w", err)
 +	}
 +	return nil
@@ -119,7 +152,7 @@
  }
  
  // SetAndroidProtectFunc register a func that Android provides that JNI calls into
-@@ -61,7 +158,10 @@
+@@ -61,7 +191,10 @@
  	androidBindToNetworkFunc = f
  }
  
@@ -131,7 +164,7 @@
  	return controlC
  }
  
-@@ -75,6 +175,15 @@
+@@ -75,6 +208,15 @@
  	err := c.Control(func(fd uintptr) {
  		fdInt := int(fd)
  

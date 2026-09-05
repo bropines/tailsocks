@@ -1165,4 +1165,6 @@
     <string name="settings_tun_warning_body_busy">Another VPN is running right now — an ad blocker, a private DNS app, another tunnel. Turning this on takes the slot from it and it will stop filtering until you switch back.</string>
     <string name="settings_tun_warning_confirm">Turn on</string>
     <string name="main_status_active_root_desc">Routed by the system through tailscale0 • Tap to stop</string>
+    <string name="settings_root_vpn_bypass_title">Ignore other VPNs</string>
+    <string name="settings_root_vpn_bypass_desc">The daemon marks its own connections the way a VPN app protects its own, so another VPN client on the phone cannot swallow them. Turn it off only if you want this tunnel to run inside that other client.</string>
 </resources>

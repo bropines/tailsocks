@@ -1,5 +1,5 @@
---- orig/net/dns/resolver/forwarder.go
-+++ tailscale_src/net/dns/resolver/forwarder.go
+--- orig/net/dns/resolver/forwarder.go	2026-07-31 19:22:18.000000000 +0300
++++ tailscale_src/net/dns/resolver/forwarder.go	2026-09-06 01:08:41.229284052 +0300
 @@ -37,12 +37,14 @@
  	"tailscale.com/net/netmon"
  	"tailscale.com/net/netx"

@@ -1,5 +1,5 @@
---- orig/wgengine/router/osrouter/router_linux.go
-+++ tailscale_src/wgengine/router/osrouter/router_linux.go
+--- orig/wgengine/router/osrouter/router_linux.go	2026-07-31 19:22:18.000000000 +0300
++++ tailscale_src/wgengine/router/osrouter/router_linux.go	2026-09-05 14:11:45.107590965 +0300
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause
@@ -266,8 +266,8 @@
  	switch getDistroFunc() {
  	case distro.Synology:
  		// Synology doesn't support iptables or nftables. Attempting to run it
---- orig/net/netmon/netmon_linux.go
-+++ tailscale_src/net/netmon/netmon_linux.go
+--- orig/net/netmon/netmon_linux.go	2026-07-31 19:22:18.000000000 +0300
++++ tailscale_src/net/netmon/netmon_linux.go	2026-09-01 14:52:19.634574732 +0300
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause
@@ -277,8 +277,8 @@
  
  package netmon
  
---- orig/net/netmon/netmon_polling.go
-+++ tailscale_src/net/netmon/netmon_polling.go
+--- orig/net/netmon/netmon_polling.go	2026-07-31 19:22:18.000000000 +0300
++++ tailscale_src/net/netmon/netmon_polling.go	2026-09-01 14:52:19.634627607 +0300
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause

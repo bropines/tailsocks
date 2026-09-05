@@ -1165,4 +1165,6 @@
     <string name="settings_tun_warning_body_busy">Сейчас работает другой VPN — блокировщик рекламы, приложение приватного DNS или ещё один туннель. Включение заберёт слот у него, и он перестанет фильтровать, пока вы не вернётесь обратно.</string>
     <string name="settings_tun_warning_confirm">Включить</string>
     <string name="main_status_active_root_desc">Система идёт через tailscale0 • Нажмите для остановки</string>
+    <string name="settings_root_vpn_bypass_title">Игнорировать чужие VPN</string>
+    <string name="settings_root_vpn_bypass_desc">Демон помечает свои соединения так же, как VPN-приложения защищают свои, чтобы другой клиент на телефоне их не перехватывал. Выключайте, только если хотите, чтобы наш туннель шёл внутри того клиента.</string>
 </resources>

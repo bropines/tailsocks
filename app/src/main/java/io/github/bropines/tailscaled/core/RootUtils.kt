@@ -411,6 +411,12 @@ object RootUtils {
             // redirected into MagicDNS before MagicDNS can answer anything.
             val fallbacks = dnsFallbacks.ifEmpty { listOf("1.1.1.1", "8.8.8.8") }
             env.append("export TS_DNS_FALLBACK=${shQuote(fallbacks.joinToString(","))}\n")
+            // The daemon has no VpnService to protect its sockets, so it sets
+            // Android's protect bit itself unless the user wants the opposite:
+            // its own traffic riding whatever VPN client holds the tunnel.
+            if (!GlobalSettings.isRootVpnBypassEnabled(context)) {
+                env.append("export TS_VPN_BYPASS=0\n")
+            }
 
             if (taildropDir.isNotEmpty()) {
                 env.append("export TS_TAILDROP_DIR=${shQuote(taildropDir)}\n")
