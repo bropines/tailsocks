@@ -915,7 +915,7 @@
     <string name="settings_tun_excluded_cidrs_title">Исключенные подсети IP</string>
     <string name="settings_tun_excluded_cidrs_desc">Подсети через запятую, идущие в обход VPN</string>
     <string name="settings_tun_excluded_apps_title">Исключенные приложения</string>
-    <string name="settings_tun_excluded_apps_desc">Приложений в обход VPN: %1$d</string>
+    <string name="settings_tun_excluded_apps_desc">Приложений в обход туннеля (VPN и Root): %1$d</string>
     <string name="title_activity_tun_excluded_apps">Исключенные приложения</string>
     <string name="tun_apps_filter_all">Все</string>
     <string name="tun_apps_filter_excluded">В обход VPN</string>
@@ -1143,7 +1143,7 @@
     <string name="settings_tunnel_mode_root">Root</string>
     <string name="settings_tunnel_mode_proxy_desc">Работает в фоне без разрешения VPN. Остальные приложения придётся самому направить на локальный SOCKS5 или HTTP-прокси.</string>
     <string name="settings_tunnel_mode_vpn_desc">Пропускает весь трафик устройства через Tailscale по интерфейсу Android VPN. Потребуется системное разрешение VPN.</string>
-    <string name="settings_tunnel_mode_root_desc">Запускает демон через su как системную службу на нативном интерфейсе ядра tailscale0. Слот Android VPN остаётся свободным для другого приложения.</string>
+    <string name="settings_tunnel_mode_root_desc">Запускает демон через su как системную службу на нативном интерфейсе ядра tailscale0. Слот Android VPN остаётся свободным для другого приложения. Меняет маршрутизацию и DNS всего устройства: DNS любого приложения идёт через MagicDNS, а при выбранном выходном узле через него уходит и весь трафик. Чтобы приложение осталось на системном DNS и вне выходного узла, добавьте его в «Исключенные приложения» ниже.</string>
     <!-- 4.0 settings restructure: stage 5 link rows -->
     <string name="settings_sect_share_links">Доступ для тейлнета</string>
     <string name="settings_link_taildrive_desc">Папки, которые устройство раздаёт остальным вашим устройствам через Taildrive</string>

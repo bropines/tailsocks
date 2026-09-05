@@ -129,6 +129,14 @@ object RootUtils {
     private const val V6_CATCH_ALL_MISSING = "verify: v6 exit-node catch-all not installed"
 
     /**
+     * Printed by the apply script when an `-m owner` rule was refused — the
+     * match is a kernel module (`xt_owner`) and some ROM kernels ship without
+     * it. Only the per-app exclusions are lost; every other rule is unaffected,
+     * so the script carries on and the caller turns this into a WARN.
+     */
+    private const val OWNER_MATCH_MISSING = "verify: -m owner unavailable, per-app exclusions not installed"
+
+    /**
      * Log of the daemon launched by [startRootDaemon] and the file size just
      * before the launch. Lets [daemonMarksSockets] ignore lines from earlier runs
      * even when the caller has no Context; both stay unset when the app merely
@@ -143,6 +151,16 @@ object RootUtils {
      *  the shared OUTPUT/FORWARD chains, which accumulates duplicates. */
     private const val CHAIN_MARK = "TAILSOCKS_MARK"
     private const val CHAIN_DNS = "TAILSOCKS_DNS"
+
+    /**
+     * Per-app exclusions from Root Mode (mangle, hooked from OUTPUT with no
+     * match of its own): every uid on the user's excluded list is given
+     * [BYPASS_MARK] — the very bit the daemon sets on its own sockets — so the
+     * pref-[CATCH_ALL_PRIO] catch-all skips it and its traffic keeps leaving
+     * through the physical interface instead of the exit node. Separate from
+     * [CHAIN_MARK], which OUTPUT jumps to only for tailnet destinations.
+     */
+    private const val CHAIN_BYPASS = "TAILSOCKS_BYPASS"
 
     private const val CGNAT_V4 = "100.64.0.0/10"
     private const val TAILNET_V6 = "fd7a:115c:a1e0::/48"
@@ -607,6 +625,11 @@ object RootUtils {
             )
         }
 
+        // Root Mode is device-wide by construction; these uids are the user's
+        // opt-out and are resolved fresh on every apply (an app can be
+        // installed, removed or reinstalled with another uid between runs).
+        val bypassUids = excludedUids(context)
+
         val sb = StringBuilder()
         sb.append(legacyRuleCleanup())
 
@@ -631,6 +654,10 @@ object RootUtils {
         sb.append("iptables -C FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || iptables -I FORWARD -o tailscale0 -j ACCEPT\n")
         sb.append("iptables -C FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || iptables -I FORWARD -i tailscale0 -j ACCEPT\n")
 
+        // --- Per-app exclusions (IPv4): excluded uids carry the bypass bit ---
+        sb.append(bypassChainTeardown("iptables"))
+        sb.append(bypassChainInstall("iptables", bypassUids, bestEffort = false))
+
         // --- Exit-node catch-all (IPv4): unmarked local traffic → daemon's table 52 ---
         sb.append(staleDaemonRulePurge("ip"))
         if (marks) {
@@ -653,6 +680,10 @@ object RootUtils {
         sb.append("ip6tables -C FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || ip6tables -I FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || true\n")
         sb.append("ip6tables -C FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || ip6tables -I FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || true\n")
 
+        // --- Per-app exclusions (IPv6) ---
+        sb.append(bypassChainTeardown("ip6tables"))
+        sb.append(bypassChainInstall("ip6tables", bypassUids, bestEffort = true))
+
         // --- Exit-node catch-all (IPv6) ---
         // The purge is harmless anywhere; the rule itself only where IPv6 exists
         // and is enabled, otherwise `ip -6 rule add` fails on every apply and the
@@ -669,6 +700,12 @@ object RootUtils {
         sb.append(dnsChainTeardown())
         if (dnsRedirect) {
             sb.append("iptables -t nat -N $CHAIN_DNS 2>/dev/null || iptables -t nat -F $CHAIN_DNS\n")
+            // The apps the user carved out of Root Mode, first of all: their
+            // queries leave the chain before anything is rewritten, so they
+            // keep the system resolver even while MagicDNS is unhealthy.
+            for (uid in bypassUids) {
+                sb.append("iptables -t nat -A $CHAIN_DNS -m owner --uid-owner $uid -j RETURN 2>/dev/null || echo '$OWNER_MATCH_MISSING'\n")
+            }
             // Queries already aimed at the tailnet (MagicDNS itself, Split DNS
             // resolvers living on peers) must never be rewritten.
             sb.append("iptables -t nat -A $CHAIN_DNS -d $CGNAT_V4 -j RETURN\n")
@@ -692,6 +729,20 @@ object RootUtils {
         sb.append("echo 'verify: ok'\n")
 
         val res = runSu("routing-apply", sb.toString())
+        // Checked before the exit code: an ignored -m owner rule cannot fail the
+        // script (it is `|| echo`), but it must never pass unnoticed either.
+        if (res.output.contains(OWNER_MATCH_MISSING)) {
+            rootLog(
+                "WARN",
+                "per-app exclusions NOT applied: this kernel has no iptables `-m owner` match; " +
+                    "Root Mode stays device-wide (DNS and the exit node still cover every app)"
+            )
+        } else if (bypassUids.isNotEmpty()) {
+            rootLog(
+                "INFO",
+                "per-app exclusions: uid ${bypassUids.joinToString(",")} keep the system resolver and skip the exit node"
+            )
+        }
         if (res.ok) {
             // The catch-all verify is non-fatal (tailnet routing does not depend on
             // it) but must not pass silently: a missing v4 rule means no exit node.
@@ -727,6 +778,8 @@ object RootUtils {
     fun cleanupTailscale0Routing(): Boolean {
         val sb = StringBuilder()
         sb.append(dnsChainTeardown())
+        sb.append(bypassChainTeardown("iptables"))
+        sb.append(bypassChainTeardown("ip6tables"))
 
         sb.append("iptables -t mangle -D OUTPUT -d $CGNAT_V4 -j $CHAIN_MARK 2>/dev/null || true\n")
         sb.append("iptables -t mangle -F $CHAIN_MARK 2>/dev/null || true\n")
@@ -860,6 +913,71 @@ object RootUtils {
             rootLog("WARN", "exit-node exclusions ignored, not plain CIDRs: ${dropped.joinToString(", ")}")
         }
         return valid.distinct()
+    }
+
+    /**
+     * The user's excluded apps as uids, resolved at apply time.
+     *
+     * The same list the TUN mode hands to `addDisallowedApplication`, so one
+     * setting governs both tunnel modes. A package that is no longer installed
+     * is skipped and named in the log rather than failing the apply, and
+     * without a Context (the boot path) nothing is excluded — the device-wide
+     * behaviour, which is what earlier versions always did.
+     */
+    private fun excludedUids(context: Context?): List<Int> {
+        if (context == null) return emptyList()
+        val pkgs = GlobalSettings.getTunExcludedApps(context).map { it.trim() }.filter { it.isNotEmpty() }
+        if (pkgs.isEmpty()) return emptyList()
+        val pm = context.packageManager
+        val uids = mutableListOf<Int>()
+        val skipped = mutableListOf<String>()
+        for (pkg in pkgs.sorted()) {
+            try {
+                uids.add(pm.getApplicationInfo(pkg, 0).uid)
+            } catch (e: Exception) {
+                skipped.add(pkg)
+            }
+        }
+        if (skipped.isNotEmpty()) {
+            rootLog("INFO", "excluded apps not installed, skipped: ${skipped.joinToString(", ")}")
+        }
+        return uids.distinct().sorted()
+    }
+
+    /**
+     * Gives every excluded uid [BYPASS_MARK] in mangle OUTPUT: the same bit the
+     * daemon sets on its own sockets, and one the pref-[CATCH_ALL_PRIO]
+     * catch-all's mask already exempts, so those packets never consult the
+     * daemon's table 52 and keep leaving through the physical interface.
+     * Nothing else is touched — the pref-100 rules ignore this bit, so an
+     * excluded app can still reach tailnet addresses.
+     *
+     * Empty list: nothing at all is emitted, so the installed ruleset is the
+     * one every earlier version produced. `-m owner` is an optional kernel
+     * module; where it is missing the rule is refused, [OWNER_MATCH_MISSING] is
+     * printed for the caller to turn into a WARN and the rest of the script
+     * runs on. [ipt] is `iptables` or `ip6tables`.
+     */
+    private fun bypassChainInstall(ipt: String, uids: List<Int>, bestEffort: Boolean): String {
+        if (uids.isEmpty()) return ""
+        val tolerate = if (bestEffort) " 2>/dev/null || true" else ""
+        return buildString {
+            append("$ipt -t mangle -N $CHAIN_BYPASS 2>/dev/null || $ipt -t mangle -F $CHAIN_BYPASS$tolerate\n")
+            for (uid in uids) {
+                append(
+                    "$ipt -t mangle -A $CHAIN_BYPASS -m owner --uid-owner $uid -j MARK --set-xmark $BYPASS_MARK/$BYPASS_MARK " +
+                        "2>/dev/null || echo '$OWNER_MATCH_MISSING'\n"
+                )
+            }
+            append("$ipt -t mangle -C OUTPUT -j $CHAIN_BYPASS 2>/dev/null || $ipt -t mangle -A OUTPUT -j $CHAIN_BYPASS$tolerate\n")
+        }
+    }
+
+    /** Detaches and drops the per-app chain; safe to run when it does not exist. */
+    private fun bypassChainTeardown(ipt: String): String = buildString {
+        append("$ipt -t mangle -D OUTPUT -j $CHAIN_BYPASS 2>/dev/null || true\n")
+        append("$ipt -t mangle -F $CHAIN_BYPASS 2>/dev/null || true\n")
+        append("$ipt -t mangle -X $CHAIN_BYPASS 2>/dev/null || true\n")
     }
 
     /**
@@ -1044,6 +1162,8 @@ object RootUtils {
             }
             append("echo '--- mangle $CHAIN_MARK ---'\n")
             append("iptables -t mangle -S $CHAIN_MARK 2>/dev/null || echo '(absent)'\n")
+            append("echo '--- mangle $CHAIN_BYPASS (per-app exclusions) ---'\n")
+            append("iptables -t mangle -S $CHAIN_BYPASS 2>/dev/null || echo '(absent)'\n")
             append("echo '--- nat $CHAIN_DNS ---'\n")
             append("iptables -t nat -S $CHAIN_DNS 2>/dev/null || echo '(absent)'\n")
             append("echo '--- tailscale0 ---'\n")

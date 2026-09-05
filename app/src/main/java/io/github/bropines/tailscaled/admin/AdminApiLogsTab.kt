@@ -25,6 +25,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -198,16 +199,24 @@ fun AuditLogCard(log: ApiAuditLogEntry) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // The translated action plus the event type is a sentence; the
+                    // timestamp must not be squeezed into a wrapped column by it.
                     Text(
                         text = stringResource(R.string.admin_logs_action_type_format, actionText, log.target?.type ?: log.type ?: "CONFIG"),
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
-                        color = actionColor
+                        color = actionColor,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
                     )
+                    Spacer(Modifier.width(8.dp))
                     Text(
                         text = formatLogTime(log.eventTime),
                         fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.outline
+                        color = MaterialTheme.colorScheme.outline,
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
                 

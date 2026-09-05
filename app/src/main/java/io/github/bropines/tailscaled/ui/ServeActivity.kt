@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.bropines.tailscaled.core.AppJson
@@ -673,7 +674,16 @@ fun ServeRuleCard(title: String, subtitle: String, fullUrl: String, protocol: St
                         ) {
                             Text(protocol, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
                         }
-                        Text(title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        // The title is a host name: without the weight it eats the
+                        // row and the OFF / HEALTHY badge behind it is cut off.
+                        Text(
+                            title,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
                         if (isDisabled) {
                             Spacer(Modifier.width(8.dp))
                             Surface(color = Color.Gray, shape = MaterialTheme.shapes.extraSmall) {

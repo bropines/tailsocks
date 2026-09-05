@@ -915,7 +915,7 @@
     <string name="settings_tun_excluded_cidrs_title">Excluded IP Ranges</string>
     <string name="settings_tun_excluded_cidrs_desc">Comma-separated subnets bypassed by VPN</string>
     <string name="settings_tun_excluded_apps_title">Excluded Apps</string>
-    <string name="settings_tun_excluded_apps_desc">%1$d apps bypassed by VPN</string>
+    <string name="settings_tun_excluded_apps_desc">%1$d apps kept outside the tunnel (VPN and Root)</string>
     <string name="title_activity_tun_excluded_apps">Excluded Apps</string>
     <string name="tun_apps_filter_all">All</string>
     <string name="tun_apps_filter_excluded">Bypassed</string>
@@ -1143,7 +1143,7 @@
     <string name="settings_tunnel_mode_root">Root</string>
     <string name="settings_tunnel_mode_proxy_desc">Runs in the background without the VPN permission. Other apps have to be pointed at the local SOCKS5 or HTTP proxy themselves.</string>
     <string name="settings_tunnel_mode_vpn_desc">Routes the whole device through Tailscale over the Android VPN interface. Asks for the system VPN permission.</string>
-    <string name="settings_tunnel_mode_root_desc">Runs the daemon through su as a system service on the native kernel interface tailscale0. The Android VPN slot stays free for another app.</string>
+    <string name="settings_tunnel_mode_root_desc">Runs the daemon through su as a system service on the native kernel interface tailscale0. The Android VPN slot stays free for another app. It changes routing and DNS for the whole device: every app’s DNS goes through MagicDNS, and with an exit node selected every app’s traffic follows it. Put an app on the Excluded apps list below to leave it on the system resolver and off the exit node.</string>
     <!-- 4.0 settings restructure: stage 5 link rows -->
     <string name="settings_sect_share_links">Share with your tailnet</string>
     <string name="settings_link_taildrive_desc">Folders this device serves to your other devices over Taildrive</string>

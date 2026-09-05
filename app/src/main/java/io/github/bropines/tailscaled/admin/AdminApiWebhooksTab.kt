@@ -43,7 +43,17 @@ fun WebhooksTabContent(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(stringResource(R.string.admin_webhooks_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            // The heading takes what is left after the button; without a weight
+            // both are sized by their own text and the Russian strings collide.
+            Text(
+                stringResource(R.string.admin_webhooks_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(Modifier.width(12.dp))
             Button(
                 onClick = onCreateClick,
                 shape = RoundedCornerShape(8.dp),
@@ -51,7 +61,12 @@ fun WebhooksTabContent(
             ) {
                 Icon(Icons.Default.Add, contentDescription = null)
                 Spacer(Modifier.width(4.dp))
-                Text(stringResource(R.string.admin_webhooks_add), fontSize = 13.sp)
+                Text(
+                    stringResource(R.string.admin_webhooks_add),
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    softWrap = false
+                )
             }
         }
 

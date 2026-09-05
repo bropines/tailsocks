@@ -21,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
@@ -93,12 +94,24 @@ fun TailnetSettingsTabContent(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(stringResource(R.string.admin_settings_duration_days), fontWeight = FontWeight.Medium)
+                    // The label yields to the button, which cannot shrink.
+                    Text(
+                        stringResource(R.string.admin_settings_duration_days),
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(Modifier.width(12.dp))
 
                     var expandedDropdown by remember { mutableStateOf(false) }
                     Box {
                         OutlinedButton(onClick = { expandedDropdown = true }) {
-                            Text(stringResource(R.string.admin_settings_days_option, keyDurationDays))
+                            Text(
+                                stringResource(R.string.admin_settings_days_option, keyDurationDays),
+                                maxLines = 1,
+                                softWrap = false
+                            )
                             Spacer(Modifier.width(4.dp))
                             Icon(Icons.Default.ArrowDropDown, null)
                         }
@@ -231,12 +244,24 @@ fun TailnetSettingsTabContent(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(stringResource(R.string.admin_settings_allowed_role), fontWeight = FontWeight.Medium)
+                    // The label yields to the button, which cannot shrink.
+                    Text(
+                        stringResource(R.string.admin_settings_allowed_role),
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(Modifier.width(12.dp))
 
                     var expandedRoleDropdown by remember { mutableStateOf(false) }
                     Box {
                         OutlinedButton(onClick = { expandedRoleDropdown = true }) {
-                            Text(allowedExternalJoinRole.uppercase())
+                            Text(
+                                allowedExternalJoinRole.uppercase(),
+                                maxLines = 1,
+                                softWrap = false
+                            )
                             Spacer(Modifier.width(4.dp))
                             Icon(Icons.Default.ArrowDropDown, null)
                         }

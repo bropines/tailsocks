@@ -1170,10 +1170,14 @@ fun MainScreen(
                     Column(modifier = Modifier.clickable { accountMenuExpanded = true }) {
                         Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleMedium)
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            // The account name is free text; weighted so the caret stays visible.
                             Text(
                                 activeAccount.name,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
                             )
                             Icon(Icons.Default.ArrowDropDown, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                         }
@@ -1291,7 +1295,9 @@ fun MainScreen(
                             tint = if (exitNodeIp.isNotEmpty()) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.width(12.dp))
-                        Column {
+                        // The weight belongs on the text, not on a trailing spacer:
+                        // the description carries an IP and used to squeeze the chevron out.
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 if (exitNodeIp.isNotEmpty()) stringResource(R.string.main_traffic_routed) else stringResource(R.string.main_exit_node_none_label), 
                                 fontWeight = FontWeight.Bold, 
@@ -1303,7 +1309,7 @@ fun MainScreen(
                                 color = if (exitNodeIp.isNotEmpty()) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        Spacer(modifier = Modifier.weight(1f))
+                        Spacer(modifier = Modifier.width(12.dp))
                         Icon(
                             Icons.AutoMirrored.Filled.KeyboardArrowRight, 
                             null, 

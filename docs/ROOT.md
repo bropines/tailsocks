@@ -132,8 +132,44 @@ routing around it once the daemon reaches the `Running` state:
   from. Root Mode is client-only: this device cannot act as an exit node or
   subnet router while in Root Mode.
 
+* **`TAILSOCKS_BYPASS`** (mangle, hooked from `OUTPUT` with no match of its own)
+  is the per-app opt-out. Root Mode is device-wide by construction — the DNS
+  redirect above catches every app's port 53, and the pref-200 catch-all sends
+  every unmarked local packet into the exit node — so the apps listed under
+  **Settings → Tunnel mode → Excluded apps** (the same list TUN mode hands to
+  `addDisallowedApplication`: one list governs both tunnel modes) are resolved
+  to uids on every apply and carved out twice:
+
+  ```
+  iptables -t nat    -A TAILSOCKS_DNS    -m owner --uid-owner 10234 -j RETURN
+  iptables -t mangle -A TAILSOCKS_BYPASS -m owner --uid-owner 10234 -j MARK --set-xmark 0x2000000/0x2000000
+  ```
+
+  The `RETURN` goes in at the top of `TAILSOCKS_DNS`, ahead of the DNAT rules,
+  so that app keeps the system resolver even when MagicDNS is unhealthy — an
+  exit node answering `403` used to take the whole device's name resolution
+  with it. The mark is the daemon's own bypass bit, which pref 200's mask
+  already exempts, so the app's traffic leaves through the physical interface
+  instead of the exit node. Both rules are installed for IPv4 and IPv6 (the
+  DNS one is IPv4-only, because the redirect is).
+
+  What is **not** carved out: the priority-100 rules ignore this bit, so an
+  excluded app still reaches tailnet addresses through `tailscale0` — only its
+  DNS and its default route go back to the system. MagicDNS names therefore
+  resolve for it only through the `/etc/hosts` publication, and split-DNS
+  domains not at all.
+
+  A package that is no longer installed is skipped and named in the ROOT log.
+  `-m owner` is an optional kernel module (`xt_owner`): where it is missing the
+  rules are refused, the ROOT log says `per-app exclusions NOT applied: this
+  kernel has no iptables -m owner match`, and every other rule is installed as
+  usual — Root Mode simply stays device-wide. With an empty list nothing at all
+  is emitted, so the ruleset is byte-identical to earlier versions'. The chain
+  is torn down on cleanup with the rest.
+
 Everything lives in named chains, so the rules are idempotent, can be inspected
-with `iptables -t nat -S TAILSOCKS_DNS` / `iptables -t mangle -S TAILSOCKS_MARK`,
+with `iptables -t nat -S TAILSOCKS_DNS` / `iptables -t mangle -S TAILSOCKS_MARK`
+/ `iptables -t mangle -S TAILSOCKS_BYPASS`,
 and are replaced as a unit on every start and removed in one shot when the
 service stops. The script verifies its own result (table populated, DNS chain
 present) instead of trusting the shell's exit code, and after three failed

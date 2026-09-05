@@ -471,7 +471,9 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Column {
+                                // Same shape as the other switch rows here: the text
+                                // column takes the slack so the switch stays on screen.
+                                Column(modifier = Modifier.weight(1f)) {
                                     Text(stringResource(R.string.taildrive_require_auth), fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
                                     Text(
                                         stringResource(R.string.taildrive_require_auth_desc),
@@ -479,6 +481,7 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
+                                Spacer(Modifier.width(12.dp))
                                 Switch(
                                     checked = isProxyAuthEnabled,
                                     onCheckedChange = { checked ->

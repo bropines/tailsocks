@@ -1219,6 +1219,18 @@ fun SettingsScreen(
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
 
+                // The same list TUN mode uses: in Root Mode it takes the app's
+                // uid out of the device-wide DNS redirect and off the exit node.
+                SettingsClickableItem(
+                    title = stringResource(R.string.settings_tun_excluded_apps_title),
+                    subtitle = stringResource(R.string.settings_tun_excluded_apps_desc, tunExcludedApps.size),
+                    icon = Icons.Default.Apps
+                ) {
+                    excludedAppsLauncher.launch(Intent(context, TunExcludedAppsActivity::class.java))
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+
                 SettingsSwitchItem(
                     title = stringResource(R.string.settings_root_service_title),
                     subtitle = stringResource(R.string.settings_root_service_desc),
@@ -1255,13 +1267,20 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // The status is a whole sentence and the button never
+                        // shrinks: without the weight they were drawn over each other.
                         reinstallStatus?.let { status ->
                             Text(
                                 text = status,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = if (isReinstallOk) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                color = if (isReinstallOk) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
                             )
                         } ?: Spacer(Modifier.width(1.dp))
+
+                        Spacer(Modifier.width(12.dp))
 
                         OutlinedButton(
                             onClick = {
@@ -1278,7 +1297,12 @@ fun SettingsScreen(
                         ) {
                             Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text(stringResource(R.string.settings_root_script_reinstall), style = MaterialTheme.typography.labelMedium)
+                            Text(
+                                stringResource(R.string.settings_root_script_reinstall),
+                                style = MaterialTheme.typography.labelMedium,
+                                maxLines = 1,
+                                softWrap = false
+                            )
                         }
                     }
                 }

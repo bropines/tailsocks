@@ -467,7 +467,16 @@ fun DeviceDetailBottomSheet(
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Text(route, fontFamily = FontFamily.Monospace, fontSize = 13.sp)
+                                        // A long IPv6 CIDR would otherwise push the switch off the row.
+                                        Text(
+                                            route,
+                                            fontFamily = FontFamily.Monospace,
+                                            fontSize = 13.sp,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        Spacer(Modifier.width(8.dp))
                                         Switch(
                                             checked = isRouteEnabled,
                                             onCheckedChange = { enableRoute ->

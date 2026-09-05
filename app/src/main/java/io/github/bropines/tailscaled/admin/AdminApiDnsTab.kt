@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -95,7 +96,17 @@ fun DnsTabContent(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text(ns, fontFamily = FontFamily.Monospace, fontSize = 14.sp)
+                                // The address is arbitrary text: give it the slack
+                                // and keep the delete button on the row.
+                                Text(
+                                    ns,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 14.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Spacer(Modifier.width(8.dp))
                                 IconButton(onClick = { nsListState.remove(ns) }) {
                                     Icon(Icons.Default.Close, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
                                 }
@@ -243,7 +254,16 @@ fun DnsTabContent(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text(path, fontSize = 14.sp)
+                                // The search domain is arbitrary text: give it the
+                                // slack and keep the delete button on the row.
+                                Text(
+                                    path,
+                                    fontSize = 14.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Spacer(Modifier.width(8.dp))
                                 IconButton(onClick = { searchPathsState.remove(path) }) {
                                     Icon(Icons.Default.Close, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
                                 }

@@ -298,7 +298,15 @@ fun PeerDetailsModal(
                     ) {
                         Icon(osIcon, null, modifier = Modifier.size(16.dp), tint = osColor)
                         Spacer(Modifier.width(8.dp))
-                        Text(peer.getDisplayName(), fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        // Weighted, or a long node name pushes the status dot out of the chip.
+                        Text(
+                            peer.getDisplayName(),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
                         Spacer(Modifier.width(8.dp))
                         Box(Modifier.size(8.dp).clip(CircleShape).background(statusColor))
                     }

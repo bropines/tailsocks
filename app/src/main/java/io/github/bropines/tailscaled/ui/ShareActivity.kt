@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import appctr.Appctr
@@ -131,7 +132,16 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
                         ) {
                             Icon(Icons.Default.AccountCircle, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                             Spacer(Modifier.width(6.dp))
-                            Text(currentAccount.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                            // Free-text account name: capped, or the chip grows over
+                            // the sheet title and past its own caret.
+                            Text(
+                                currentAccount.name,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodyMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.widthIn(max = 120.dp)
+                            )
                             Spacer(Modifier.width(4.dp))
                             Icon(Icons.Default.ArrowDropDown, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                         }
