@@ -82,6 +82,7 @@ private data class SettingsCategory(
 
 /** The 11 categories of the target structure, in their A..K order. */
 private val settingsCategories = listOf(
+    SettingsCategory("appearance", R.string.settings_cat_appearance, R.string.settings_cat_appearance_desc, Icons.Default.Palette),
     SettingsCategory("account", R.string.settings_cat_account, R.string.settings_cat_account_desc, Icons.Default.AccountCircle),
     SettingsCategory("tunnel", R.string.settings_cat_tunnel, R.string.settings_cat_tunnel_desc, Icons.Default.VpnLock),
     SettingsCategory("proxies", R.string.settings_cat_proxies, R.string.settings_cat_proxies_desc, Icons.Default.Lan),
@@ -89,7 +90,6 @@ private val settingsCategories = listOf(
     SettingsCategory("bypass", R.string.settings_cat_bypass, R.string.settings_cat_bypass_desc, Icons.Default.Shield),
     SettingsCategory("sharing", R.string.settings_cat_sharing, R.string.settings_cat_sharing_desc, Icons.Default.Share),
     SettingsCategory("background", R.string.settings_cat_background, R.string.settings_cat_background_desc, Icons.Default.Bolt),
-    SettingsCategory("appearance", R.string.settings_cat_appearance, R.string.settings_cat_appearance_desc, Icons.Default.Palette),
     SettingsCategory("backup", R.string.settings_cat_backup, R.string.settings_cat_backup_desc, Icons.Default.Backup),
     SettingsCategory("automation", R.string.settings_cat_automation, R.string.settings_cat_automation_desc, Icons.Default.SmartButton),
     SettingsCategory("diagnostics", R.string.settings_cat_diagnostics, R.string.settings_cat_diagnostics_desc, Icons.Default.BugReport)

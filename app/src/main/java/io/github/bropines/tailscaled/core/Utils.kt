@@ -244,6 +244,14 @@ fun wrapContextWithLocale(context: Context): Context {
     // 13 the per-app locale is a platform feature — set it there and every
     // window agrees, this one included.
     syncFrameworkLocale(lang)
+    // Since Android 13 the platform owns the per-app locale and applies it to
+    // every window. Wrapping the Activity on top of that is not redundant, it is
+    // harmful: the two disagree while a language change settles, and the screen
+    // then renders in one language with its dialogs in the other. Let the
+    // platform be the single source of truth there.
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+        return context
+    }
     return if (lang == "sys") {
         context
     } else {
