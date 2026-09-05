@@ -151,3 +151,9 @@ KEY_ALIAS=... KEY_PASSWORD=... ./gradlew app:assembleRelease
 * **User Language Matching**: Always communicate with the user in **whatever language they write in** (e.g. if the user writes in Russian, respond in clear, professional Russian; if in English, respond in English).
 * **Code & Commit Language**: Write all code, logs, inline comments, commit messages, and documentation strictly in **English**.
 * **Professional & Minimalist Tone**: Avoid fluff, marketing jargon, or unnecessary adjectives in code, commit logs, and documentation. Focus on factual, concise engineering.
+
+## 🤝 Handoffs between sessions and models
+
+* **Working agreements**: never `git push` (the author publishes); every Go change goes through `appctr/build.sh` before an APK means anything (`verifyGoBridgeFresh` enforces it for releases); daemon changes are patches regenerated from pristine upstream files (`appctr/patches/recreate_patches.sh`, must apply with `patch -p1 -F0`); release builds need the four `KEYSTORE_*` variables and refuse the debug key.
+* **Open handoff documents** (self-contained briefs for a fresh session or another model): [`docs/HANDOFF_4.0_NATIVE_TUN.md`](docs/HANDOFF_4.0_NATIVE_TUN.md) — TUN mode rebuilt around a tailscaled-owned VpnService fd; research appendix in `docs/research/`. When you finish or abandon a handoff, update or delete the document — a stale handoff is worse than none.
+* **When starting from a handoff**: read `CHANGELOG.md` (top section = unreleased work), `docs/BUILDING.md`, the handoff, then `git log --oneline -40`. Do not re-derive decisions the handoff records as decided; if you disagree, say so in the handoff's "Decisions" list instead of silently diverging.
