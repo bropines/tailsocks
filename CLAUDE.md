@@ -14,8 +14,12 @@ points to.
    behaviour.
 3. Open handoffs — self-contained briefs meant to be picked up by a fresh
    session or another model — live in `docs/HANDOFF_*.md`. Current:
-   [`docs/HANDOFF_4.0_NATIVE_TUN.md`](docs/HANDOFF_4.0_NATIVE_TUN.md).
-   Update or delete a handoff when you finish or abandon it.
+   [`docs/HANDOFF_4.0_NATIVE_TUN.md`](docs/HANDOFF_4.0_NATIVE_TUN.md) (the
+   4.0 TUN rebuild, one large effort) and
+   [`docs/HANDOFF_BACKLOG.md`](docs/HANDOFF_BACKLOG.md) (what is left of the
+   backlog: Root Mode device verification, and the optional CLI binary, which
+   needs the author's decision first). Update or delete a handoff when you
+   finish or abandon it.
 4. Build: `docs/BUILDING.md`. Release builds need `KEYSTORE_FILE`,
    `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD` (keystore `tailsocks.jks`
    at the repo root); the build refuses the debug key and refuses a stale
