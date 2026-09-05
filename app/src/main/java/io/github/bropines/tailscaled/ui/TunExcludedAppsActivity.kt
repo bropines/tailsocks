@@ -1,6 +1,8 @@
 package io.github.bropines.tailscaled.ui
 
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
@@ -19,7 +21,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,6 +35,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.GlobalSettings
 import io.github.bropines.tailscaled.core.PredictiveBackContainer
@@ -84,15 +88,44 @@ fun TunExcludedAppsScreen(onBack: () -> Unit) {
         loading = false
     }
 
-    fun saveAndExit() {
-        GlobalSettings.setTunExcludedApps(context, excluded.value)
+    // Persisting is no longer tied to onBack(): the back gesture is handled by the platform now
+    // (see PredictiveBackContainer), which finishes the Activity without going through us.
+    val persistedExcluded = remember { mutableStateOf(initialExcluded) }
+    fun persistExclusions() {
+        val value = excluded.value
+        if (value == persistedExcluded.value) return
+        persistedExcluded.value = value
+        GlobalSettings.setTunExcludedApps(context, value)
         // If TUN is running, restart it to apply changes
         if (GlobalSettings.isTunModeEnabled(context)) {
             context.startService(Intent(context, TunVpnService::class.java).apply {
                 action = TunVpnService.ACTION_START
             })
         }
+    }
+
+    fun saveAndExit() {
+        persistExclusions()
         onBack()
+    }
+
+    // Save on the way out, whichever way the user leaves: back gesture, back key or the arrow.
+    // Only when the Activity is really finishing, so a trip to Home does not restart the tunnel
+    // behind the user's back.
+    val hostActivity = remember(context) {
+        generateSequence(context) { (it as? ContextWrapper)?.baseContext }
+            .filterIsInstance<Activity>()
+            .firstOrNull()
+    }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, hostActivity) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP && hostActivity?.isFinishing != false) {
+                persistExclusions()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     // Filter apps based on search query and tab/chip selection
@@ -107,8 +140,9 @@ fun TunExcludedAppsScreen(onBack: () -> Unit) {
 
     PredictiveBackContainer(
         onBack = { saveAndExit() },
-        targetTitle = stringResource(R.string.predictive_back_target_settings),
-        targetIcon = Icons.Default.Settings
+        // Back here only closes the Activity, so the container installs no callback and
+        // the platform animates across to the real screen underneath.
+        popsInAppState = false
     ) {
         Scaffold(
             topBar = {

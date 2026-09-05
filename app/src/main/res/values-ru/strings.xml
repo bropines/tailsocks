@@ -480,23 +480,14 @@
     <string name="settings_logout_title">Выйти из Tailnet?</string>
     <string name="settings_logout_text">Это очистит текущую сессию и состояние узла через LocalAPI. Потребуется повторная аутентификация. Продолжить?</string>
     <string name="settings_amoled_black_desc">Чисто чёрный фон в тёмном режиме</string>
-    <string name="settings_backup_zip">Создать бэкап</string>
-    <string name="settings_restore_zip">Восстановить</string>
-    <string name="settings_backup_account">Резервная копия</string>
-    <string name="settings_import_account">Импорт</string>
-    <string name="settings_reset_node">Сбросить состояние узла</string>
     <string name="settings_backup_password_title">Пароль шифрования резервной копии</string>
     <string name="settings_backup_password_text">Введите пароль для шифрования резервной копии. Этот пароль потребуется для восстановления.</string>
     <string name="settings_restore_password_title">Пароль для расшифровки резервной копии</string>
     <string name="settings_restore_password_text">Введите пароль, который использовался для шифрования резервной копии.</string>
     <string name="settings_password_label">Пароль</string>
-    <string name="settings_proxy_socks5">SOCKS5</string>
-    <string name="settings_proxy_http">HTTP</string>
     <string name="settings_proxy_apply">Применить и сохранить</string>
     <string name="settings_field_example">Пример: %1$s</string>
     <string name="settings_suggested">Рекомендуется:</string>
-    <string name="settings_add">Добавить</string>
-    <string name="settings_tailsocks">TailSocks</string>
     <string name="settings_sagernet_copied">Ссылка SagerNet скопирована!</string>
 
     <!-- ======================== Console / Terminal ======================== -->
@@ -719,20 +710,13 @@
 
     <!-- ======================== Settings ======================== -->
     <string name="settings_title">Настройки</string>
-    <string name="settings_tab_app">Интерфейс</string>
-    <string name="settings_tab_root">Root-режим [EXP]</string>
-    <string name="settings_tab_network">Сеть</string>
-    <string name="settings_tab_core">TS-Core</string>
-    <string name="settings_tab_profile">Профиль</string>
     <string name="settings_root_sect_title">Root-режим и системная служба (ЭКСПЕРИМЕНТАЛЬНО)</string>
-    <string name="settings_root_enable_title">Включить Native Root-режим (ЭКСПЕРИМЕНТАЛЬНО)</string>
     <string name="settings_root_enable_desc">ЭКСПЕРИМЕНТАЛЬНАЯ ФУНКЦИЯ (в разработке). Запуск демона через \'su\' с прямой маршрутизацией ядра (tailscale0) и iptables. Автор bropines еще не все проверил и отлаживает этот режим.</string>
     <string name="settings_root_service_title">Автозапуск Magisk/KernelSU службы (ЭКСПЕРИМЕНТАЛЬНО)</string>
     <string name="settings_root_service_desc">Установка скрипта в /data/adb/service.d/ для автозапуска при загрузке системы</string>
     <string name="settings_root_cli_title">Установить консольную утилиту Tailscale CLI (ЭКСПЕРИМЕНТАЛЬНО)</string>
     <string name="settings_root_cli_desc">Создать исполняемую утилиту \'tailscale\' для Termux и root-консоли</string>
     <string name="settings_root_info_title">Служебная информация о демоне (ЭКСПЕРИМЕНТАЛЬНО)</string>
-    <string name="settings_root_disabled_tun_note">Недоступно в Root-режиме (активен нативный kernel TUN tailscale0. ЭКСПЕРИМЕНТАЛЬНО)</string>
     <string name="settings_root_disabled_general_note">Недоступно в Root-режиме (ЭКСПЕРИМЕНТАЛЬНО)</string>
     <string name="settings_root_script_reinstall">Переустановить скрипт</string>
     <string name="settings_root_routing_check">Проверить маршрутизацию</string>
@@ -777,10 +761,6 @@
     <string name="settings_sect_storage">Хранилище</string>
     <string name="settings_taildrop_folder_title">Папка для Taildrop</string>
     <string name="settings_taildrop_folder_default">Используется внутренняя папка приложения</string>
-    <string name="settings_sect_system_backup">Система и Резервное копирование</string>
-    <string name="settings_battery_opt_title">Оптимизация батареи</string>
-    <string name="settings_battery_opt_desc">Отключите, чтобы предотвратить засыпание в фоне</string>
-    <string name="settings_battery_opt_error">Не удалось открыть настройки батареи</string>
     <string name="settings_autostart_title">Автозапуск при загрузке</string>
     <string name="settings_autostart_desc">Запускать TailSocks при включении устройства</string>
 
@@ -820,7 +800,6 @@
     <string name="settings_ad_routes_title">Анонсируемые маршруты</string>
     <string name="settings_ad_routes_placeholder">10.0.0.0/24, 192.168.1.0/24</string>
     <string name="settings_ad_routes_desc">Анонсировать локальные подсети в Tailnet</string>
-    <string name="settings_sect_dns_proxy">DNS-прокси</string>
     <string name="settings_dns_proxy_address_title">Адрес DNS-прокси</string>
     <string name="settings_sect_fallback_dns">Резервные DNS-серверы</string>
     <string name="settings_dns_fallbacks_title">Резервные DNS</string>
@@ -828,11 +807,8 @@
     <string name="settings_doh_fallback_title">DoH URL резервного DNS</string>
     <string name="settings_doh_fallback_placeholder">https://1.1.1.1/dns-query</string>
     <string name="settings_sect_flags_logs">Флаги и Логи</string>
-    <string name="settings_accept_routes_title">Принимать маршруты</string>
     <string name="settings_accept_routes_desc">Разрешить сети настраивать маршруты</string>
-    <string name="settings_accept_dns_title">Принимать DNS</string>
     <string name="settings_accept_dns_desc">Разрешить сети настраивать DNS</string>
-    <string name="settings_force_bg_title">Принудительный фоновый запуск</string>
     <string name="settings_force_bg_desc">Удерживает wake lock на всю сессию, чтобы соединение переживало глубокий сон. Расходует батарею.</string>
     <string name="settings_detailed_logs_title">Подробные логи</string>
     <string name="settings_detailed_logs_desc">Отключить фильтрацию логов (шумно!)</string>
@@ -842,7 +818,6 @@
     <string name="settings_login_server_title">Сервер авторизации (Headscale)</string>
     <string name="settings_login_server_placeholder">https://controlplane.tailscale.com</string>
     <string name="settings_auth_key_title">Ключ авторизации</string>
-    <string name="settings_hostname_title">Имя хоста</string>
     <string name="settings_exit_node_title">Выходной узел (Exit Node)</string>
     <string name="settings_sect_web">Веб-интерфейс</string>
     <string name="settings_web_enable_title">Включить Веб-интерфейс</string>
@@ -855,10 +830,7 @@
     <string name="settings_admin_token_placeholder">tskey-api-...</string>
     <string name="settings_admin_tailnet_missing">Пожалуйста, сначала укажите имя Tailnet</string>
     <string name="settings_sect_adv_profile">Расширенный профиль</string>
-    <string name="settings_restore_account">Восстановить</string>
-    <string name="settings_sect_reset">Сброс состояния</string>
     <string name="settings_logout_reset_title">Выйти и сбросить узел</string>
-    <string name="settings_logout_reset_desc">Очистить состояние авторизации и выполнить её повторно</string>
     <string name="settings_password_empty">Пароль не может быть пустым</string>
     <string name="settings_backup_action">Бекап</string>
     <string name="settings_restore_action">Восстановить</string>
@@ -940,10 +912,6 @@
     <!-- TUN Mode -->
     <string name="tun_notif_active">VPN-туннель активен</string>
     <string name="settings_sect_tun_mode">Настройки режима TUN</string>
-    <string name="settings_tun_enable_title">Включить режим TUN (экспериментально)</string>
-    <string name="settings_tun_enable_desc">Перехватывать трафик устройства через прозрачный VPN</string>
-    <string name="settings_tun_full_title">Полный туннель (Exit Node)</string>
-    <string name="settings_tun_full_desc">Направлять весь интернет-трафик в VPN (требуется Exit Node)</string>
     <string name="settings_tun_excluded_cidrs_title">Исключенные подсети IP</string>
     <string name="settings_tun_excluded_cidrs_desc">Подсети через запятую, идущие в обход VPN</string>
     <string name="settings_tun_excluded_apps_title">Исключенные приложения</string>
@@ -967,11 +935,9 @@
     <string name="settings_byedpi_status_stopped">Остановлен</string>
     <string name="settings_byedpi_desc">Обходит блокировки и DPI для трафика сервера координации Tailscale с помощью локальной фрагментации пакетов. Работает полностью в userspace.</string>
     <string name="settings_proxy_import">Вставить ссылку прокси / URI</string>
-    <string name="settings_proxy_import_btn">Импорт</string>
     <string name="settings_proxy_import_error">Неверный формат ссылки прокси</string>
     <string name="settings_proxy_copy_btn">Копировать</string>
     <string name="settings_proxy_copied">Конфигурация прокси скопирована в буфер обмена!</string>
-    <string name="settings_proxy_type_https">HTTPS</string>
 
     <string name="main_logged_out_title">Требуется авторизация</string>
     <string name="main_logged_out_desc">Устройство не подключено к Tailscale. Если вы находитесь в заблокированной сети, настройте Обход DPI или Прокси перед входом.</string>
@@ -1131,4 +1097,65 @@
     <string name="settings_permissions_title">Разрешения</string>
     <string name="settings_permissions_desc">Необязательные разрешения и их статус</string>
     <string name="settings_watchdog_exact_error">Не удалось открыть настройки будильников и напоминаний</string>
+    <!-- 4.0 settings restructure: hub categories -->
+    <string name="settings_cat_account">Аккаунт и подключение</string>
+    <string name="settings_cat_account_desc">Сервер входа, ключ авторизации, имя устройства, выходной узел, маршруты</string>
+    <string name="settings_cat_tunnel">Режим туннеля</string>
+    <string name="settings_cat_tunnel_desc">Прокси, VPN (TUN) или Root — как трафик уходит с устройства</string>
+    <string name="settings_cat_proxies">Локальные прокси</string>
+    <string name="settings_cat_proxies_desc">SOCKS5 и HTTP на этом устройстве, доступ из локальной сети</string>
+    <string name="settings_cat_dns">DNS</string>
+    <string name="settings_cat_dns_desc">MagicDNS, DNS-прокси и резервные серверы</string>
+    <string name="settings_cat_bypass">Обход блокировок</string>
+    <string name="settings_cat_bypass_desc">Прокси для control plane и ByeByeDPI</string>
+    <string name="settings_cat_sharing">Общий доступ</string>
+    <string name="settings_cat_sharing_desc">Taildrop, Taildrive, Serve и Funnel, веб-интерфейс</string>
+    <string name="settings_cat_background">Работа в фоне и разрешения</string>
+    <string name="settings_cat_background_desc">Автозапуск, переподключение, разрешения, стабильность связи</string>
+    <string name="settings_cat_appearance">Оформление и язык</string>
+    <string name="settings_cat_appearance_desc">Тема, цвета, язык приложения</string>
+    <string name="settings_cat_backup">Резервные копии</string>
+    <string name="settings_cat_backup_desc">Полный бэкап приложения и экспорт отдельного профиля</string>
+    <string name="settings_cat_automation">Автоматизация и API</string>
+    <string name="settings_cat_automation_desc">Tasker, внешние команды, доступ к консоли администратора</string>
+    <string name="settings_cat_diagnostics">Диагностика и разработчику</string>
+    <string name="settings_cat_diagnostics_desc">Логи, консоль, дополнительные аргументы, сведения о демоне</string>
+    <!-- 4.0 settings restructure: renamed labels (old names kept until every call site moves) -->
+    <string name="settings_keep_awake_title">Держать соединение активным</string>
+    <string name="settings_accept_subnet_routes_title">Принимать маршруты подсетей</string>
+    <string name="settings_magicdns_title">Использовать MagicDNS</string>
+    <string name="settings_device_name_title">Имя устройства</string>
+    <string name="settings_backup_full_title">Полный бэкап (зашифрованный)</string>
+    <string name="settings_restore_full_title">Восстановить из полного бэкапа</string>
+    <string name="settings_profile_export_title">Экспортировать профиль</string>
+    <string name="settings_profile_import_title">Импортировать профиль</string>
+    <!-- 4.0 settings restructure: root native TUN (was hardcoded English) -->
+    <string name="settings_root_tun_title">Нативный Linux TUN (tailscale0)</string>
+    <string name="settings_root_tun_desc_native">Создаёт через su настоящий интерфейс ядра Linux tailscale0. Слот Android VpnService остаётся полностью свободным.</string>
+    <string name="settings_root_tun_desc_proxy">Запускает демон через su в режиме SOCKS5/прокси (берёт настройки из «Локальных прокси»).</string>
+    <!-- 4.0 settings restructure: stage 3 row moves -->
+    <string name="settings_advertise_exit_node_title">Быть выходным узлом</string>
+    <string name="settings_advertise_exit_node_desc">Предлагать это устройство сети как выходной узел для интернет-трафика других устройств.</string>
+    <string name="settings_sect_troubleshooting">Устранение неполадок</string>
+    <!-- 4.0 settings restructure: stage 4 tunnel-mode selector -->
+    <string name="settings_tunnel_mode_proxy">Прокси</string>
+    <string name="settings_tunnel_mode_vpn">VPN (TUN)</string>
+    <string name="settings_tunnel_mode_root">Root</string>
+    <string name="settings_tunnel_mode_proxy_desc">Работает в фоне без разрешения VPN. Остальные приложения придётся самому направить на локальный SOCKS5 или HTTP-прокси.</string>
+    <string name="settings_tunnel_mode_vpn_desc">Пропускает весь трафик устройства через Tailscale по интерфейсу Android VPN. Потребуется системное разрешение VPN.</string>
+    <string name="settings_tunnel_mode_root_desc">Запускает демон через su как системную службу на нативном интерфейсе ядра tailscale0. Слот Android VPN остаётся свободным для другого приложения.</string>
+    <!-- 4.0 settings restructure: stage 5 link rows -->
+    <string name="settings_sect_share_links">Доступ для тейлнета</string>
+    <string name="settings_link_taildrive_desc">Папки, которые устройство раздаёт остальным вашим устройствам через Taildrive</string>
+    <string name="settings_link_serve_desc">Опубликовать локальный сервис внутри тейлнета или на весь интернет</string>
+    <string name="settings_sect_tools">Инструменты</string>
+    <string name="settings_link_dns_desc">Текущие резолверы, записи MagicDNS и проверка разрешения имён</string>
+    <string name="settings_link_admin_desc">Управление тейлнетом: устройства, ключи, ACL и DNS</string>
+    <string name="settings_link_logs_desc">Живой лог демона с фильтром и выгрузкой</string>
+    <string name="settings_link_console_desc">Выполняйте команды tailscale прямо на устройстве</string>
+    <string name="settings_link_netcheck_desc">Реле DERP, задержки и тип NAT</string>
+    <!-- 4.0 settings restructure: stage 6 card titles (a card must not repeat its page title) -->
+    <string name="settings_sect_resolver">Резолвер</string>
+    <string name="settings_sect_service_perms">Служба и разрешения</string>
+    <string name="settings_sect_backup_files">Файлы резервных копий</string>
 </resources>

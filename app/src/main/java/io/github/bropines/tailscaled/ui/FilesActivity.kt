@@ -47,7 +47,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
-import androidx.activity.compose.PredictiveBackHandler
 import kotlinx.coroutines.CancellationException
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.clickable
@@ -191,8 +190,9 @@ fun FilesScreen(onBack: () -> Unit) {
 
     PredictiveBackContainer(
         onBack = onBack,
-        targetTitle = stringResource(R.string.predictive_back_target_dashboard),
-        targetIcon = Icons.Default.Home
+        // Back here only closes the Activity, so the container installs no callback and
+        // the platform animates across to the real screen underneath.
+        popsInAppState = false
     ) {
         Scaffold(
             topBar = {

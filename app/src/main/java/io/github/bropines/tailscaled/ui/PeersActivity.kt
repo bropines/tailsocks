@@ -19,7 +19,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -120,8 +119,9 @@ fun PeersScreen(onBack: () -> Unit) {
 
     PredictiveBackContainer(
         onBack = onBack,
-        targetTitle = stringResource(R.string.predictive_back_target_dashboard),
-        targetIcon = Icons.Default.Home
+        // Back here only closes the Activity, so the container installs no callback and
+        // the platform animates across to the real screen underneath.
+        popsInAppState = false
     ) {
         Scaffold(
             topBar = {

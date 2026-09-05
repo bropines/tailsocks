@@ -480,23 +480,14 @@
     <string name="settings_logout_title">Log out from Tailnet?</string>
     <string name="settings_logout_text">This will clear your current session and node state using native LocalAPI. You will need to re-authenticate. Continue?</string>
     <string name="settings_amoled_black_desc">Pure black background in dark mode</string>
-    <string name="settings_backup_zip">Backup (ZIP)</string>
-    <string name="settings_restore_zip">Restore ZIP</string>
-    <string name="settings_backup_account">Backup</string>
-    <string name="settings_import_account">Import</string>
-    <string name="settings_reset_node">Reset Node State</string>
     <string name="settings_backup_password_title">Backup Encryption Password</string>
     <string name="settings_backup_password_text">Enter a password to encrypt your backup. You will need this password to restore your state.</string>
     <string name="settings_restore_password_title">Backup Decryption Password</string>
     <string name="settings_restore_password_text">Enter the password that was used to encrypt this backup.</string>
     <string name="settings_password_label">Password</string>
-    <string name="settings_proxy_socks5">SOCKS5</string>
-    <string name="settings_proxy_http">HTTP</string>
     <string name="settings_proxy_apply">Apply &amp; Save</string>
     <string name="settings_field_example">Example: %1$s</string>
     <string name="settings_suggested">Suggested:</string>
-    <string name="settings_add">Add</string>
-    <string name="settings_tailsocks">TailSocks</string>
     <string name="settings_sagernet_copied">SagerNet link copied!</string>
 
     <!-- ======================== Console / Terminal ======================== -->
@@ -719,20 +710,13 @@
 
     <!-- ======================== Settings ======================== -->
     <string name="settings_title">Settings</string>
-    <string name="settings_tab_app">APP</string>
-    <string name="settings_tab_root">Root Mode [EXP]</string>
-    <string name="settings_tab_network">Network</string>
-    <string name="settings_tab_core">TS-Core</string>
-    <string name="settings_tab_profile">Profile</string>
     <string name="settings_root_sect_title">Root Mode &amp; System Service (EXPERIMENTAL)</string>
-    <string name="settings_root_enable_title">Enable Native Root Mode (EXPERIMENTAL)</string>
     <string name="settings_root_enable_desc">EXPERIMENTAL FEATURE (work in progress). Runs daemon via \'su\' with direct kernel TUN (tailscale0) and iptables. Author bropines is still actively testing and debugging this mode.</string>
     <string name="settings_root_service_title">Autostart Magisk/KernelSU Service (EXPERIMENTAL)</string>
     <string name="settings_root_service_desc">Install script to /data/adb/service.d/ for standalone system boot</string>
     <string name="settings_root_cli_title">Install Tailscale CLI Utility (EXPERIMENTAL)</string>
     <string name="settings_root_cli_desc">Install \'tailscale\' executable wrapper for Termux and root shell</string>
     <string name="settings_root_info_title">Daemon Runtime Information (EXPERIMENTAL)</string>
-    <string name="settings_root_disabled_tun_note">Unavailable in Root mode (native kernel TUN tailscale0 is active. EXPERIMENTAL)</string>
     <string name="settings_root_disabled_general_note">Unavailable in Root mode (EXPERIMENTAL)</string>
     <string name="settings_root_script_reinstall">Reinstall Script</string>
     <string name="settings_root_routing_check">Check Routing</string>
@@ -777,10 +761,6 @@
     <string name="settings_sect_storage">Storage</string>
     <string name="settings_taildrop_folder_title">Taildrop Storage Folder</string>
     <string name="settings_taildrop_folder_default">Uses app internal folder</string>
-    <string name="settings_sect_system_backup">System &amp; Backup</string>
-    <string name="settings_battery_opt_title">Battery Optimization</string>
-    <string name="settings_battery_opt_desc">Disable to prevent background sleep</string>
-    <string name="settings_battery_opt_error">Cannot open battery settings</string>
     <string name="settings_autostart_title">Auto-start on Boot</string>
     <string name="settings_autostart_desc">Start TailSocks when device turns on</string>
 
@@ -820,7 +800,6 @@
     <string name="settings_ad_routes_title">Advertise Routes</string>
     <string name="settings_ad_routes_placeholder">10.0.0.0/24, 192.168.1.0/24</string>
     <string name="settings_ad_routes_desc">Advertise local subnets into Tailnet</string>
-    <string name="settings_sect_dns_proxy">DNS Proxy</string>
     <string name="settings_dns_proxy_address_title">DNS Proxy Address</string>
     <string name="settings_sect_fallback_dns">Fallback DNS Servers</string>
     <string name="settings_dns_fallbacks_title">DNS Fallbacks</string>
@@ -828,11 +807,8 @@
     <string name="settings_doh_fallback_title">DoH Fallback URL</string>
     <string name="settings_doh_fallback_placeholder">https://1.1.1.1/dns-query</string>
     <string name="settings_sect_flags_logs">Flags &amp; Logs</string>
-    <string name="settings_accept_routes_title">Accept Routes</string>
     <string name="settings_accept_routes_desc">Allow network to configure routes</string>
-    <string name="settings_accept_dns_title">Accept DNS</string>
     <string name="settings_accept_dns_desc">Allow network to configure DNS</string>
-    <string name="settings_force_bg_title">Force Background Run</string>
     <string name="settings_force_bg_desc">Holds a wake lock for the whole session so the connection survives deep sleep. Costs battery.</string>
     <string name="settings_detailed_logs_title">Detailed Logs</string>
     <string name="settings_detailed_logs_desc">Disable log filtering (noisy!)</string>
@@ -842,7 +818,6 @@
     <string name="settings_login_server_title">Login Server (Headscale)</string>
     <string name="settings_login_server_placeholder">https://controlplane.tailscale.com</string>
     <string name="settings_auth_key_title">Auth Key</string>
-    <string name="settings_hostname_title">Hostname</string>
     <string name="settings_exit_node_title">Exit Node</string>
     <string name="settings_sect_web">Web Interface</string>
     <string name="settings_web_enable_title">Enable Web UI</string>
@@ -855,10 +830,7 @@
     <string name="settings_admin_token_placeholder">tskey-api-...</string>
     <string name="settings_admin_tailnet_missing">Please set Tailnet Name first</string>
     <string name="settings_sect_adv_profile">Advanced Profile</string>
-    <string name="settings_restore_account">Restore</string>
-    <string name="settings_sect_reset">Reset State</string>
     <string name="settings_logout_reset_title">Log Out &amp; Reset Node</string>
-    <string name="settings_logout_reset_desc">Clear auth state and re-authenticate</string>
     <string name="settings_password_empty">Password cannot be empty</string>
     <string name="settings_backup_action">Backup</string>
     <string name="settings_restore_action">Restore</string>
@@ -940,10 +912,6 @@
     <!-- TUN Mode -->
     <string name="tun_notif_active">VPN Tunnel is active</string>
     <string name="settings_sect_tun_mode">TUN Mode Settings</string>
-    <string name="settings_tun_enable_title">Enable TUN Mode (Experimental)</string>
-    <string name="settings_tun_enable_desc">Intercept device traffic via transparent VPN</string>
-    <string name="settings_tun_full_title">Full Tunnel (Exit Node)</string>
-    <string name="settings_tun_full_desc">Route all traffic through VPN (requires Exit Node)</string>
     <string name="settings_tun_excluded_cidrs_title">Excluded IP Ranges</string>
     <string name="settings_tun_excluded_cidrs_desc">Comma-separated subnets bypassed by VPN</string>
     <string name="settings_tun_excluded_apps_title">Excluded Apps</string>
@@ -967,11 +935,9 @@
     <string name="settings_byedpi_status_stopped">Stopped</string>
     <string name="settings_byedpi_desc">Bypasses censorship/DPI for Tailscale coordination server traffic using local packet fragmentation. Runs entirely in userspace.</string>
     <string name="settings_proxy_import">Import Proxy Link / URI</string>
-    <string name="settings_proxy_import_btn">Parse</string>
     <string name="settings_proxy_import_error">Invalid proxy link format</string>
     <string name="settings_proxy_copy_btn">Copy Link</string>
     <string name="settings_proxy_copied">Proxy configuration copied to clipboard!</string>
-    <string name="settings_proxy_type_https">HTTPS</string>
 
     <string name="main_logged_out_title">Authentication Required</string>
     <string name="main_logged_out_desc">Your TailSocks node is not logged in. If you are in a restricted network, configure DPI Bypass or Proxy before logging in.</string>
@@ -1131,4 +1097,65 @@
     <string name="settings_permissions_title">Permissions</string>
     <string name="settings_permissions_desc">Optional permissions and their status</string>
     <string name="settings_watchdog_exact_error">Cannot open the alarms and reminders settings</string>
+    <!-- 4.0 settings restructure: hub categories -->
+    <string name="settings_cat_account">Account &amp; connection</string>
+    <string name="settings_cat_account_desc">Login server, auth key, device name, exit node, routes</string>
+    <string name="settings_cat_tunnel">Tunnel mode</string>
+    <string name="settings_cat_tunnel_desc">Proxy, VPN (TUN) or Root — how traffic leaves this device</string>
+    <string name="settings_cat_proxies">Local proxies</string>
+    <string name="settings_cat_proxies_desc">SOCKS5 and HTTP listeners, access from the local network</string>
+    <string name="settings_cat_dns">DNS</string>
+    <string name="settings_cat_dns_desc">MagicDNS, DNS proxy and fallback servers</string>
+    <string name="settings_cat_bypass">Censorship bypass</string>
+    <string name="settings_cat_bypass_desc">Control plane proxy and ByeByeDPI</string>
+    <string name="settings_cat_sharing">Sharing &amp; access</string>
+    <string name="settings_cat_sharing_desc">Taildrop, Taildrive, Serve &amp; Funnel, web interface</string>
+    <string name="settings_cat_background">Background &amp; permissions</string>
+    <string name="settings_cat_background_desc">Autostart, reconnect, permissions, staying connected</string>
+    <string name="settings_cat_appearance">Appearance &amp; language</string>
+    <string name="settings_cat_appearance_desc">Theme, colors, app language</string>
+    <string name="settings_cat_backup">Backup &amp; restore</string>
+    <string name="settings_cat_backup_desc">Full app backup and export of a single profile</string>
+    <string name="settings_cat_automation">Automation &amp; API</string>
+    <string name="settings_cat_automation_desc">Tasker, external commands, admin console access</string>
+    <string name="settings_cat_diagnostics">Diagnostics &amp; developer</string>
+    <string name="settings_cat_diagnostics_desc">Logs, console, extra arguments, daemon details</string>
+    <!-- 4.0 settings restructure: renamed labels (old names kept until every call site moves) -->
+    <string name="settings_keep_awake_title">Keep the connection awake</string>
+    <string name="settings_accept_subnet_routes_title">Accept subnet routes</string>
+    <string name="settings_magicdns_title">Use MagicDNS</string>
+    <string name="settings_device_name_title">Device name</string>
+    <string name="settings_backup_full_title">Full backup (encrypted)</string>
+    <string name="settings_restore_full_title">Restore full backup</string>
+    <string name="settings_profile_export_title">Export this profile</string>
+    <string name="settings_profile_import_title">Import a profile</string>
+    <!-- 4.0 settings restructure: root native TUN (was hardcoded English) -->
+    <string name="settings_root_tun_title">Native Linux TUN (tailscale0)</string>
+    <string name="settings_root_tun_desc_native">Creates the native Linux kernel interface tailscale0 via su. Leaves the Android VpnService slot 100% free.</string>
+    <string name="settings_root_tun_desc_proxy">Runs the daemon in SOCKS5/proxy mode via su (uses the Local proxies settings).</string>
+    <!-- 4.0 settings restructure: stage 3 row moves -->
+    <string name="settings_advertise_exit_node_title">Run as exit node</string>
+    <string name="settings_advertise_exit_node_desc">Offer this device to the tailnet as an exit node for other devices\' internet traffic.</string>
+    <string name="settings_sect_troubleshooting">Troubleshooting</string>
+    <!-- 4.0 settings restructure: stage 4 tunnel-mode selector -->
+    <string name="settings_tunnel_mode_proxy">Proxy</string>
+    <string name="settings_tunnel_mode_vpn">VPN (TUN)</string>
+    <string name="settings_tunnel_mode_root">Root</string>
+    <string name="settings_tunnel_mode_proxy_desc">Runs in the background without the VPN permission. Other apps have to be pointed at the local SOCKS5 or HTTP proxy themselves.</string>
+    <string name="settings_tunnel_mode_vpn_desc">Routes the whole device through Tailscale over the Android VPN interface. Asks for the system VPN permission.</string>
+    <string name="settings_tunnel_mode_root_desc">Runs the daemon through su as a system service on the native kernel interface tailscale0. The Android VPN slot stays free for another app.</string>
+    <!-- 4.0 settings restructure: stage 5 link rows -->
+    <string name="settings_sect_share_links">Share with your tailnet</string>
+    <string name="settings_link_taildrive_desc">Folders this device serves to your other devices over Taildrive</string>
+    <string name="settings_link_serve_desc">Publish a local service inside the tailnet, or to the whole internet</string>
+    <string name="settings_sect_tools">Tools</string>
+    <string name="settings_link_dns_desc">Current resolvers, MagicDNS records and a name lookup test</string>
+    <string name="settings_link_admin_desc">Manage the tailnet: devices, keys, ACLs and DNS</string>
+    <string name="settings_link_logs_desc">Live daemon log with filtering and export</string>
+    <string name="settings_link_console_desc">Run tailscale commands right on the device</string>
+    <string name="settings_link_netcheck_desc">DERP relays, latency and NAT type</string>
+    <!-- 4.0 settings restructure: stage 6 card titles (a card must not repeat its page title) -->
+    <string name="settings_sect_resolver">Resolver</string>
+    <string name="settings_sect_service_perms">Service &amp; permissions</string>
+    <string name="settings_sect_backup_files">Backup files</string>
 </resources>

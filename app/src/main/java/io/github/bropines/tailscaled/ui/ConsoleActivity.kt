@@ -217,8 +217,9 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
 
     PredictiveBackContainer(
         onBack = onBack,
-        targetTitle = stringResource(R.string.predictive_back_target_dashboard),
-        targetIcon = Icons.Default.Home
+        // Back here only closes the Activity, so the container installs no callback and
+        // the platform animates across to the real screen underneath.
+        popsInAppState = false
     ) {
         Scaffold(
             // KEYBOARD FIX: Keyboard insets (imePadding)

@@ -33,6 +33,9 @@ class TailscaledService : Service() {
         const val ACTION_STATUS_CHANGED = "io.github.bropines.tailscaled.STATUS_CHANGED"
         const val ALIAS_STATUS_CHANGED = "io.github.bropines.tailscaled.STATUS"
 
+        /** What `tailscale up --advertise-exit-node` puts into AdvertiseRoutes. */
+        private val EXIT_NODE_ROUTES = listOf("0.0.0.0/0", "::/0")
+
         /**
          * Asks the service to push current preferences to the daemon.
          *
@@ -875,9 +878,15 @@ class TailscaledService : Service() {
             // configuration unnecessarily.
 
             // Only emit the flag when the app actually owns this preference.
-            // Nothing writes it (there is no UI), so unconditionally appending
-            // --advertise-exit-node=false un-advertised a device that had been
-            // made an exit node from the CLI or the admin console on every start.
+            // The "Run as exit node" switch in Settings writes it; until it is
+            // touched the key is absent, and unconditionally appending
+            // --advertise-exit-node=false would un-advertise a device that had
+            // been made an exit node from the CLI or the admin console.
+            //
+            // NOTE: extraUpArgs below is declared on StartOptions but the bridge
+            // never reads it, so nothing here reaches the daemon. What actually
+            // advertises this node is applyTagsAndRoutes(), which owns
+            // AdvertiseRoutes and folds the same preference in.
             if (profilePrefs.contains("advertise_exit_node")) {
                 argsBuilder.append("--advertise-exit-node=${profilePrefs.getBoolean("advertise_exit_node", false)} ")
             }
@@ -1054,7 +1063,19 @@ class TailscaledService : Service() {
         val tags = tagsStr.split(",").map { it.trim() }.filter { it.isNotEmpty() }.map {
             if (it.startsWith("tag:")) it else "tag:$it"
         }
-        val routes = routesStr.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        val routes = routesStr.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toMutableList()
+
+        // Being an exit node IS advertising the two default routes — there is no
+        // separate pref for it. This is the only place that writes AdvertiseRoutes,
+        // so the "Run as exit node" switch has to be folded in here or the write
+        // below would drop the routes again on the next apply. The key is only
+        // consulted when it exists: a device made an exit node from the CLI or the
+        // admin console is left alone until the switch is touched once.
+        if (profilePrefs.contains("advertise_exit_node") &&
+            profilePrefs.getBoolean("advertise_exit_node", false)
+        ) {
+            for (r in EXIT_NODE_ROUTES) if (r !in routes) routes.add(r)
+        }
 
         val json = kotlinx.serialization.json.buildJsonObject {
             putJsonArray("AdvertiseTags") { tags.forEach { add(it) } }

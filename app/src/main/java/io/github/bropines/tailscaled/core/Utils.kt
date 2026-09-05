@@ -34,6 +34,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.activity.compose.PredictiveBackHandler
+import androidx.activity.BackEventCompat
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
 import kotlin.math.roundToInt
 import androidx.compose.material.icons.Icons
@@ -351,58 +360,119 @@ fun CompactSearchBar(
     )
 }
 
+/**
+ * Motion spec for the in-app predictive-back transition. The numbers are the platform's own:
+ * the outgoing window shrinks to 90 %, slides `width / 20` away from the swiped edge, and its
+ * corners round off to the device corner radius, all driven through the system back easing.
+ */
+private val BackGestureEasing = CubicBezierEasing(0.1f, 0.1f, 0f, 1f)
+private const val BACK_MIN_SCALE = 0.9f
+private const val BACK_MAX_X_SHIFT_FRACTION = 1f / 20f
+private val BackMaxCornerRadius = 28.dp
+private val BackMaxShadow = 8.dp
+private val BackSettleSpec = spring<Float>(
+    dampingRatio = Spring.DampingRatioNoBouncy,
+    stiffness = Spring.StiffnessMediumLow
+)
+
+/**
+ * True when the user (or a test harness) has turned system animations off, which is this
+ * platform's equivalent of `prefers-reduced-motion`. The gesture keeps working; only the
+ * decorative transform is skipped.
+ */
+@Composable
+private fun rememberReducedMotion(): Boolean {
+    val context = LocalContext.current
+    return remember(context) {
+        runCatching {
+            Settings.Global.getFloat(
+                context.contentResolver,
+                Settings.Global.ANIMATOR_DURATION_SCALE,
+                1f
+            )
+        }.getOrDefault(1f) == 0f
+    }
+}
+
+/**
+ * Wraps a full-screen destination and deals with the predictive back gesture. There are two
+ * very different modes and [popsInAppState] picks between them:
+ *
+ * * **`false` — back merely closes the Activity.** No back callback is installed at all, so the
+ *   platform keeps the gesture and plays its own cross-activity animation: the *real* previous
+ *   Activity is revealed behind the shrinking window and the system finishes this one. Anything
+ *   the screen has to persist before it disappears must happen in a lifecycle hook, because
+ *   [onBack] is no longer on the gesture path (it is still used by the toolbar arrow).
+ * * **`true` (default) — back pops state inside this screen.** The gesture is intercepted and the
+ *   transition is drawn here, over a real destination: [previousContent] when the caller can
+ *   render the screen underneath, otherwise a calm [targetIcon] + [targetTitle] hint so the user
+ *   still sees where back is going. A cancelled gesture springs back to rest instead of snapping.
+ */
 @Composable
 fun PredictiveBackContainer(
     onBack: (() -> Unit)?,
     modifier: Modifier = Modifier,
     targetTitle: String? = null,
-    targetIcon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    targetIcon: ImageVector? = null,
     previousContent: (@Composable () -> Unit)? = null,
+    popsInAppState: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    if (onBack == null) {
-        content()
+    if (onBack == null || !popsInAppState) {
+        // Nothing to pop: stay out of the way so the system can animate Activity -> Activity.
+        Box(modifier, propagateMinConstraints = true) { content() }
         return
     }
 
-    var backProgress by remember { mutableFloatStateOf(0f) }
-    var swipeEdge by remember { mutableIntStateOf(0) }
+    // The gesture coroutine is cancelled when the user changes their mind, so the settle
+    // animation has to run somewhere that survives that.
+    val settleScope = rememberCoroutineScope()
+    val progress = remember { Animatable(0f) }
+    var swipeEdge by remember { mutableIntStateOf(BackEventCompat.EDGE_LEFT) }
+    val reducedMotion = rememberReducedMotion()
 
-    PredictiveBackHandler(enabled = true) { progressFlow ->
+    PredictiveBackHandler(enabled = true) { backEvents ->
         try {
-            progressFlow.collect { backEvent ->
-                backProgress = backEvent.progress
+            backEvents.collect { backEvent ->
                 swipeEdge = backEvent.swipeEdge
+                progress.snapTo(backEvent.progress)
             }
             onBack()
-        } finally {
-            backProgress = 0f
+            settleScope.launch { progress.snapTo(0f) }
+        } catch (cancelled: CancellationException) {
+            settleScope.launch { progress.animateTo(0f, BackSettleSpec) }
         }
     }
 
-    val density = androidx.compose.ui.platform.LocalDensity.current
-    val backScale = 1f - (backProgress * 0.08f)
-    val backAlpha = 1f - (backProgress * 0.2f)
-    val translationDirection = if (swipeEdge == 1) -1f else 1f
-    val translationXOffset = with(density) { (backProgress * 28.dp.toPx() * translationDirection) }
+    // Read as a lambda: the value is sampled inside the graphics layers, so a moving finger
+    // re-runs the layer blocks instead of recomposing the whole screen.
+    val easedProgress: () -> Float = {
+        if (reducedMotion) 0f else BackGestureEasing.transform(progress.value.coerceIn(0f, 1f))
+    }
+    val gestureInFlight by remember { derivedStateOf { progress.value > 0.001f } }
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        if (previousContent != null && backProgress > 0.001f) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        val scale = 0.94f + (backProgress * 0.06f)
-                        scaleX = scale
-                        scaleY = scale
-                        alpha = (backProgress * 2f).coerceIn(0f, 1f)
-                    }
-            ) {
-                previousContent()
+        if (gestureInFlight && !reducedMotion) {
+            if (previousContent != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            val p = easedProgress()
+                            val scale = 0.92f + (0.08f * p)
+                            scaleX = scale
+                            scaleY = scale
+                            alpha = (p * 2f).coerceIn(0f, 1f)
+                        }
+                ) {
+                    previousContent()
+                }
+            } else if (targetIcon != null || !targetTitle.isNullOrBlank()) {
+                PredictiveBackDestinationHint(targetTitle, targetIcon, easedProgress)
             }
         }
 
@@ -410,15 +480,65 @@ fun PredictiveBackContainer(
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer {
-                    scaleX = backScale
-                    scaleY = backScale
-                    alpha = backAlpha
-                    translationX = translationXOffset
+                    val p = easedProgress()
+                    val scale = 1f - ((1f - BACK_MIN_SCALE) * p)
+                    scaleX = scale
+                    scaleY = scale
+                    val awayFromEdge = if (swipeEdge == BackEventCompat.EDGE_RIGHT) -1f else 1f
+                    translationX = awayFromEdge * size.width * BACK_MAX_X_SHIFT_FRACTION * p
+                    shape = RoundedCornerShape(BackMaxCornerRadius * p)
                     clip = true
-                    shape = RoundedCornerShape((backProgress * 20).dp)
+                    shadowElevation = BackMaxShadow.toPx() * p
                 }
         ) {
             content()
+        }
+    }
+}
+
+/**
+ * What sits behind the shrinking screen when the caller cannot hand us the previous screen:
+ * the destination's icon and name, centred and in theme colours, fading in with the gesture.
+ */
+@Composable
+private fun PredictiveBackDestinationHint(
+    title: String?,
+    icon: ImageVector?,
+    progress: () -> Float
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .graphicsLayer {
+                val p = progress()
+                alpha = (p * 2.5f).coerceIn(0f, 1f)
+                val scale = 0.9f + (0.1f * p)
+                scaleX = scale
+                scaleY = scale
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(horizontal = 32.dp)
+        ) {
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(36.dp)
+                )
+                Spacer(Modifier.height(12.dp))
+            }
+            if (!title.isNullOrBlank()) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
 }

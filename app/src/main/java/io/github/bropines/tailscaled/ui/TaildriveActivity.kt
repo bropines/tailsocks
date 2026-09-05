@@ -83,8 +83,9 @@ fun TaildriveScreen(onBack: () -> Unit) {
 fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
     PredictiveBackContainer(
         onBack = onBack,
-        targetTitle = stringResource(R.string.predictive_back_target_files_hub),
-        targetIcon = Icons.Default.Folder
+        // Back here only closes the Activity, so the container installs no callback and
+        // the platform animates across to the real screen underneath.
+        popsInAppState = false
     ) {
         val context = LocalContext.current
     val activeAccount = remember { AccountManager.getActiveAccount(context) }

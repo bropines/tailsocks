@@ -243,10 +243,6 @@ object GlobalSettings {
     fun isTunModeEnabled(context: Context): Boolean = getBoolean(context, "tun_mode_enabled", false)
     fun setTunModeEnabled(context: Context, enabled: Boolean) = setBoolean(context, "tun_mode_enabled", enabled)
 
-    /** true = route 0.0.0.0/0 (requires exit node), false = route only 100.64.0.0/10 */
-    fun isTunFullTunnel(context: Context): Boolean = getBoolean(context, "tun_full_tunnel", false)
-    fun setTunFullTunnel(context: Context, full: Boolean) = setBoolean(context, "tun_full_tunnel", full)
-
     private val DEFAULT_EXCLUDED_APPS = setOf(
         "ru.oneme.app",
         "com.vkontakte.android",
