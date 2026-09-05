@@ -16,7 +16,9 @@ TailSocks is a hybrid, multi-layer Android client for Tailscale operating in **u
 
 ### Fundamental Architectural Rules:
 * **CLI-less Daemon Management**: Management is 100% CLI-less. Communicate exclusively via the Unix Socket (`tailscaled.sock`) using LocalAPI v0. Do not execute shell commands or wrap CLI binaries unless recovering from process lock.
-* **Passive Management**: Trust the Tailscale daemon to manage its own lifecycle, policy synchronization, and connectivity recovery. Do not write aggressive, high-frequency configuration loops or watchdog restarts.
+* **Passive Management**: Trust the Tailscale daemon to manage its own lifecycle, policy synchronization, and connectivity recovery. Do not write aggressive, high-frequency configuration loops or watchdog restarts. The only sanctioned recovery paths are the opt-in ones in `core/ServiceWatchdog.kt` (inexact 15-minute alarm that revives a killed service) and the auto-reconnect check in `TailscaledService` (three unhealthy ticks, bounded attempts, never while the daemon waits for login). Both are cancelled by a manual Stop, which is final — never add code that restarts the service after `desired_running` was cleared.
+* **Automation is gated**: `TaskerReceiver` refuses every broadcast until a secret token is configured (`secret` / `token` / `key` extra); all mutating AppFunctions in `appfunctions/TailSocksFunctions.kt` return an error while *Allow External Automation* is off. Keep both checks when adding actions or functions.
+* **Root Mode rules live in named chains**: `TAILSOCKS_MARK` (mangle) and `TAILSOCKS_DNS` (nat), steering by masked fwmark `0x1000000/0x1000000` into table `1099`. Never write a bare `--set-mark`. Put MARK/DNAT rules only inside `TAILSOCKS_MARK` / `TAILSOCKS_DNS`; `OUTPUT` carries only the jump into those chains (guarded with `-C`), and `FORWARD` only the `tailscale0` ACCEPT pair. Treat peer names and settings fields as untrusted before they reach a root shell (`RootUtils.shQuote`).
 * **Stateless Configuration (Reset-then-Apply)**: Every configuration update (Prefs, Serve/Funnel, Virtual Services) must be explicit. For Serve/Funnel, first POST an empty object `{}` to `/localapi/v0/serve/config` (Reset) to clear stale daemon state, then apply the new configuration.
 * **Account Isolation**: Strict filesystem and preference separation per profile. Independent accounts store state in `/files/states/{id}/` and preferences in `appctr_{id}`. Full daemon restart and re-initialization is required on profile switch.
 * **Tailscale Core Source Auditing**: ALWAYS inspect the original Tailscale source code (located in `appctr/tailscale_src/` or `appctr/orig/`) before modifying Go bridge code or creating/modifying patches. Design solutions based on native Tailscale patterns rather than guessing.
@@ -51,12 +53,16 @@ bash build.sh
 
 ### 2. Compile the Android APK
 ```bash
-# Release Build
-./gradlew app:assembleRelease
+# Release Build — requires a real keystore; the build refuses to sign with the debug key
+KEYSTORE_FILE="$PWD/tailsocks.jks" KEYSTORE_PASSWORD=... \
+KEY_ALIAS=... KEY_PASSWORD=... ./gradlew app:assembleRelease
 
-# Debug/Dev Build
+# Debug/Dev Build (application id suffix .dev, no keystore needed)
 ./gradlew app:assembleDebug
 ```
+*   **R8 is on** for release (`isMinifyEnabled`/`isShrinkResources`). Do not introduce reflection-based JSON (use `kotlinx.serialization` via `core/AppJson.kt`), `getIdentifier`, or dynamically named resources — they break silently in a shrunk build.
+*   **JNI keep check**: `verifyReleaseNativeMethods` runs after `minifyReleaseWithR8` and before `assembleRelease`/`bundleRelease`; it fails the build if any `external fun` is missing from R8's `seeds.txt` or a native member shows up in `usage.txt`. New `external fun`s need a plain `-keep` for `native <methods>` in `app/proguard-rules.pro`.
+*   **Backups are versioned** (`core/BackupFormat.kt`): bump `CURRENT_FORMAT_VERSION` only when the archive layout changes so that older builds can no longer read it; a restore refuses archives from a newer app version or format.
 
 ---
 

@@ -20,7 +20,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/bropines/tailsocks/releases/latest/download/app-release.apk">
+  <a href="https://github.com/bropines/tailsocks/releases/latest">
     <img src="https://img.shields.io/badge/⬇_Download_APK-Release-2ea44f?style=for-the-badge&logo=android&logoColor=white" alt="Скачать Release APK" />
   </a>
   &nbsp;
@@ -49,6 +49,8 @@ TailSocks — это высокопроизводительный клиент A
 |---------|----------|
 | **Нативный LocalAPI** | Управление демоном 100% без CLI через Unix-сокет (`tailscaled.sock`) по протоколу LocalAPI v0. Без работы через оболочку. |
 | **SOCKS5 Прокси** | Встроенный локальный сервер SOCKS5 с опциональной авторизацией для маршрутизации конкретных приложений. |
+| **Доступ из локальной сети** | Один переключатель (Настройки → Сеть → Доступ из локальной сети) привязывает SOCKS5, HTTP-прокси и локальный DNS к `0.0.0.0`, чтобы другие устройства в вашем Wi-Fi могли ходить через ваш tailnet. Приложение показывает адрес для подключения и предупреждает, если у SOCKS5 нет пароля — без него прокси доступен любому в локальной сети. |
+| **Root-режим (экспериментально)** | На рутованных устройствах демон работает от root с настоящим интерфейсом ядра `tailscale0`, policy-routing в таблице `1099` через отдельные цепочки iptables `TAILSOCKS_MARK`/`TAILSOCKS_DNS`, опциональный системный редирект DNS, кнопка диагностики «Проверить маршрутизацию» и вкладка ROOT в логах. См. [руководство по Root](docs/ROOT_RU.md). |
 | **Прокси управляющего сервера** | Маршрутизация трафика к управляющему серверу через кастомный SOCKS5/HTTP прокси для заблокированных регионов. |
 | **Режим TUN VPN** | Прозрачный системный VPN через нативную библиотеку `hev-socks5-tunnel` — полный и раздельный туннель, исключение приложений, кастомный IP шлюза. |
 | **[Exit Nodes](https://tailscale.com/kb/1103/exit-nodes) ©** | Маршрутизация весь интернет-трафик через любой узел сети Tailscale с автовосстановлением и доступом к локальной сети. |
@@ -72,7 +74,8 @@ TailSocks — это высокопроизводительный клиент A
 | **Tailscale Admin API** | Интеграция с `api.tailscale.com/v2` — управление устройствами, DNS, пользователями, сервисами, вебхуками и логами. |
 | **Биометрическая Защита** | Защита консоли администрирования по отпечатку пальца или Face ID. |
 | **Ключи Авторизации** | Генерация, просмотр и отзыв Auth Keys прямо из приложения. |
-| **Резервное Копирование** | Полный зашифрованный бэкап состояния приложения (ZIP) и экспорт отдельных аккаунтов (JSON). |
+| **Резервное Копирование** | Полный зашифрованный бэкап состояния приложения (ZIP) и экспорт отдельных аккаунтов (JSON). Бэкап записывает версию приложения и формат, которыми был создан; более старое приложение отказывается восстанавливать архив от более новой версии, а не портит профиль (бэкапы старых версий восстанавливаются как прежде). |
+| **Автоматизация** | Защищённые токеном Broadcast Intents для Tasker/MacroDroid/ADB и 14 AppFunctions для on-device ассистентов (Gemini, Android 16+). См. [руководство по автоматизации](docs/AUTOMATION_RU.md). |
 
 ### Пользовательский Опыт
 
@@ -84,6 +87,7 @@ TailSocks — это высокопроизводительный клиент A
 | **Виджеты Рабочего Стола** | Виджеты Jetpack Glance — Переключатель службы, Выходной узел, Дашборд статистики, Статус Serve. |
 | **Плитка Быстрых Настроек** | Плитка в шторке Android с отображением активного профиля и быстрым переключением аккаунтов. |
 | **Сетевая Диагностика** | Нативный netcheck с визуализацией задержки DERP-серверов, определением типа NAT и публичного IP. |
+| **Надёжность в фоне** | Опциональное автопереподключение с лимитом попыток, 15-минутный watchdog, оживляющий убитую в фоне службу, и wake lock на всю сессию («Принудительный фоновый запуск»). Ручная остановка всегда окончательна. См. [Поведение в фоне](#-поведение-в-фоне). |
 
 ---
 
@@ -250,10 +254,17 @@ cd ..
 
 **3. Сборка APK:**
 ```bash
-./gradlew app:assembleRelease
+# Debug-сборка (ставится рядом с релизом как *.dev, keystore не нужен)
+./gradlew app:assembleDebug
+
+# Release-сборка — нужен собственный keystore; сборка отказывается подписывать debug-ключом
+KEYSTORE_FILE="$PWD/tailsocks.jks" KEYSTORE_PASSWORD=... \
+KEY_ALIAS=... KEY_PASSWORD=... ./gradlew app:assembleRelease
 ```
 
 > Скрипт сборки автоматически скачивает нужную версию Tailscale, применяет все патчи и компилирует PIE-бинарники для 4 архитектур.
+>
+> Релизные сборки минифицируются R8 со сжатием ресурсов, а задача `verifyReleaseNativeMethods` роняет сборку, если R8 удалил JNI-метод, нужный TUN-библиотеке. Подробности в [инструкции по сборке](docs/BUILDING_RU.md).
 
 </details>
 
@@ -290,18 +301,44 @@ TailSocks включает нативную JNI-реализацию [ByeDPI](ht
 
 TailSocks поддерживает фоновое управление через **Android Broadcast Intents**. Вы можете автоматизировать подключение с помощью Tasker, MacroDroid, Automate или `adb`.
 
-* **Целевой Receiver:** `io.github.bropines.tailscaled/.core.TaskerReceiver` (или пакет `io.github.bropines.tailscaled`)
-* **Поддерживаемые действия (Actions):**
-  * `io.github.bropines.tailscaled.action.CONNECT` (или `io.github.bropines.tailscaled.START`) — Запуск подключения
-  * `io.github.bropines.tailscaled.action.DISCONNECT` (или `io.github.bropines.tailscaled.STOP`) — Остановка подключения
-  * `io.github.bropines.tailscaled.action.TOGGLE` (или `io.github.bropines.tailscaled.TOGGLE`) — Переключение состояния
-  * `io.github.bropines.tailscaled.action.RESTART` (или `io.github.bropines.tailscaled.RESTART`) — Перезапуск подключения
+**Секретный токен обязателен.** Задайте его в **Настройки → APP → Tasker & Automation** (есть кнопка *Сгенерировать*) и передавайте с каждым intent строковым extra `secret` (принимаются также `token` и `key`). С версии 3.6.0 receiver игнорирует все intent-запросы, пока токен не задан, поэтому никакое другое приложение на устройстве не сможет остановить ваш VPN или перенаправить трафик.
+
+* **Целевой Receiver:** `io.github.bropines.tailscaled/.core.TaskerReceiver` (пакет `io.github.bropines.tailscaled`)
+* **Поддерживаемые действия (Actions)** (у каждого есть короткий псевдоним, например `io.github.bropines.tailscaled.START`):
+  * `io.github.bropines.tailscaled.action.CONNECT` / `DISCONNECT` / `TOGGLE` / `RESTART` — управление подключением
+  * `io.github.bropines.tailscaled.action.GET_STATUS` — обновляет состояние виджетов/плитки (broadcast `STATUS_CHANGED` не виден другим приложениям)
+  * `io.github.bropines.tailscaled.action.SET_EXIT_NODE` — extra `exit_node` (IP или `none` для сброса)
+  * `io.github.bropines.tailscaled.action.SWITCH_ACCOUNT` — extra `account` (имя или ID профиля)
+  * `io.github.bropines.tailscaled.action.SET_BYEDPI` — extras `enabled` (boolean), `flags` (string)
+  * `io.github.bropines.tailscaled.action.SET_TUN` — extra `enabled` (boolean)
+
+#### Пример ADB
+```bash
+adb shell am broadcast -a io.github.bropines.tailscaled.action.DISCONNECT -n io.github.bropines.tailscaled/.core.TaskerReceiver --es secret YOUR_TOKEN
+```
 
 #### Пример настройки в Tasker:
 1. Действие: **Система** → **Отправить Intent**
 2. Action: `io.github.bropines.tailscaled.action.CONNECT`
 3. Категория: **Broadcast Receiver**
-4. Пакет: `io.github.bropines.tailscaled`
+4. Пакет: `io.github.bropines.tailscaled`, Класс: `io.github.bropines.tailscaled.core.TaskerReceiver`
+5. Extra: `secret:YOUR_TOKEN`
+
+Полный справочник — все действия, их extras, broadcast статуса и список AppFunctions — в [руководстве по Tasker и автоматизации](docs/AUTOMATION_RU.md).
+
+### 🤖 Gemini / AppFunctions (Android 16+)
+
+На Android 16 и новее TailSocks предоставляет on-device ассистентам **14 AppFunctions**: `getStatus`, `getAvailableExitNodes`, `getTailnetPeers`, `getAccounts`, `connect`, `disconnect`, `toggle`, `selectExitNode`, `clearExitNode`, `switchAccount`, `setByeDpi`, `setTunMode`, `setAllowLanAccess`, `setMagicDns`. Каждая функция, меняющая состояние, подчиняется переключателю «Разрешить внешнюю автоматизацию»; read-only функции отвечают всегда.
+
+---
+
+## 🔄 Поведение в фоне
+
+* **Автопереподключение** (Настройки → APP → Система и Резервное копирование, по умолчанию выключено) перезапускает демон, если соединение не поднимается или обрывается, с настраиваемым лимитом попыток. Ожидание входа пользователя сбоем не считается.
+* **Восстанавливать службу в фоне** (там же, по умолчанию включено) раз в 15 минут проверяет, что служба жива, и запускает её снова после убийства в фоне. Если прошивка запрещает фоновый запуск, об этом пишется в лог — выдайте приложению разрешение на автозапуск.
+* **Принудительный фоновый запуск** (Настройки → TS-Core → Флаги и Логи, по умолчанию выключено) держит wake lock на всю сессию, чтобы соединение переживало глубокий сон. Расходует батарею.
+* **Ручная остановка окончательна.** Остановка из приложения, уведомления, плитки быстрых настроек, intent `DISCONNECT` или AppFunction `disconnect` сначала сбрасывает желаемое состояние; ни watchdog, ни автопереподключение, ни sticky-перезапуск Android не вернут службу, пока вы не запустите её снова.
+* **Смахивание приложения сохраняет соединение.** Удаление задачи из «Недавних» не останавливает службу.
 
 ---
 

@@ -11,7 +11,8 @@ TailSocks supports advanced **Root Mode** for Android devices running root solut
 * **Execution:** Executed automatically by Magisk / KernelSU / APatch during early boot (`late_start` service phase) under `root` (UID 0).
 * **State Directory Auto-Resolution:** Automatically detects existing account state directories inside `/data/data/io.github.bropines.tailscaled/files/states/` (defaults to `default` or `root`).
 * **Socket & Log Management:** Uses `/data/data/io.github.bropines.tailscaled/files/tailscaled.sock` with native `0666` socket permissions (via TailSocks atomic safesocket patches) and handles log rotation (`tailscaled.log`) automatically when size exceeds 2 MB.
-* **Proxy & Control Plane Propagation:** Reads control proxy environment settings from `/data/data/io.github.bropines.tailscaled/files/control_proxy.env` (including `ALL_PROXY`, `HTTP_PROXY`, `HTTPS_PROXY`, and pre-resolved `TS_STATIC_HOSTS` overrides).
+* **Proxy & Control Plane Propagation:** Reads control proxy environment settings from the root-owned file `/data/adb/tailsocks/control_proxy.env` (including `ALL_PROXY`, `HTTP_PROXY`, `HTTPS_PROXY`, and pre-resolved `TS_STATIC_HOSTS` overrides). The app writes it through `su` whenever the root daemon starts; the script only accepts `export NAME='value'` lines and never executes anything from the app's own data directory, which the app (or a restored backup) could write to.
+* **Boot-time routing:** Once `tailscale0` appears, the script installs the same rule layout as the app (section 4 below): masked fwmark `0x1000000/0x1000000` → table `1099`, the `TAILSOCKS_MARK` / `TAILSOCKS_DNS` chains, IPv4 and IPv6. The DNS redirect is installed only if neither `accept_dns` nor `root_dns_redirect` is set to `false` in `shared_prefs/tailsocks_global.xml`; leftover rules from 3.5.x (bare mark `1099`, direct `OUTPUT` entries) are removed first. The app re-applies the same rules as a unit when it attaches to the daemon, and the `service.d` copy of the script is refreshed automatically on app update (section 3).
 
 ### 2. Tailscale CLI Integration (`tailscale_cli.sh`)
 * **Installed Wrapper Paths:**
@@ -33,11 +34,19 @@ When **Native Linux TUN** is enabled, the daemon creates a real kernel interface
 routing around it once the daemon reaches the `Running` state:
 
 * **Table `1099`** carries `100.64.0.0/10` (and `fd7a:115c:a1e0::/48`) via `tailscale0`.
-  Traffic is steered into it by firewall mark `1099`.
-* **`TAILSOCKS_MARK`** (mangle) sets that mark on tailnet-bound packets.
-* **`TAILSOCKS_DNS`** (nat) redirects system-wide port 53 to MagicDNS
-  (`100.100.100.100`). Two classes of traffic are explicitly excluded, in this
-  order, before the redirect:
+  Traffic is steered into it by the `ip rule … fwmark 0x1000000/0x1000000 table 1099`
+  rule (priority 100).
+* **`TAILSOCKS_MARK`** (mangle, hooked from `OUTPUT` for the tailnet ranges) sets
+  that mark with `--set-xmark 0x1000000/0x1000000`. Only a single high bit is
+  touched through a mask: Android packs its own routing decision into fwmark (the
+  netId in the low 16 bits, then the explicit/protect/permission flags), and the
+  bare `--set-mark 1099` used before 3.6.0 overwrote all of it, which broke
+  routing whenever another VPN owned the default network. The old mark and the
+  old un-chained rules are removed automatically on the first start after an
+  upgrade.
+* **`TAILSOCKS_DNS`** (nat, hooked from `OUTPUT` for port 53 UDP/TCP) redirects
+  system-wide DNS to MagicDNS (`100.100.100.100`). Two classes of traffic are
+  explicitly excluded, in this order, before the redirect:
   * the tailnet range `100.64.0.0/10`, so Split DNS resolvers hosted on peers
     are reached directly;
   * the daemon's own upstream resolvers (`TS_DNS_FALLBACK`, mirrored from the
@@ -45,20 +54,47 @@ routing around it once the daemon reaches the `Running` state:
     redirected back into itself and no external name ever resolves.
 
   The redirect is installed **only** when `accept-dns` is on — redirecting the
-  whole device to a resolver that is not answering would break DNS entirely.
+  whole device to a resolver that is not answering would break DNS entirely —
+  and can be turned off independently with **System-wide DNS via MagicDNS**
+  (Root Mode tab), which is the escape hatch when another VPN or a DNS filtering
+  app should keep the system resolver.
 
 Everything lives in named chains, so the rules are idempotent, can be inspected
-with `iptables -t nat -S TAILSOCKS_DNS`, and are removed in one shot when the
-service stops. **Settings → Root Mode → Check Routing** dumps the live state of
-all of the above, and failures are reported in the **ROOT** tab of the Logs
-screen instead of being silently discarded.
+with `iptables -t nat -S TAILSOCKS_DNS` / `iptables -t mangle -S TAILSOCKS_MARK`,
+and are replaced as a unit on every start and removed in one shot when the
+service stops. The script verifies its own result (table populated, DNS chain
+present) instead of trusting the shell's exit code, and after three failed
+attempts it gives up and says so in the log.
+
+### 5. Diagnostics: Check Routing and the ROOT log tab
+
+* **Settings → Root Mode → Check Routing** dumps the live state of everything
+  above: `ip rule` entries for table 1099, other tunnels present on the device,
+  the contents of table 1099, both chains, and the `tailscale0` address.
+* Every root shell invocation (routing apply/cleanup, daemon stop, script
+  install) is logged under the **ROOT** category, which has its own tab in the
+  **Logs** screen. Failures land there instead of being silently discarded.
+
+### 6. Stop behaviour: Terminate Root Daemon on Stop
+
+**Terminate Root Daemon on Stop** (Root Mode tab, on by default) sends
+SIGTERM/SIGKILL to the root `libtailscale.so` process when you press Stop. Only
+the daemon that was started for this app is matched — by its `--socket=` argument
+pointing at the app's private data path — so a second profile, a Termux
+`tailscaled`, or another app shipping the same library is never killed.
+
+Turn it off to keep the root daemon running across app stops; the app then
+merely detaches. On the next Start (or a settings change while the user wants the
+connection) it re-attaches to the running daemon instead of starting a new one.
+A manual Stop is final in either case: nothing revives the service until you
+start it again.
 
 ---
 
 ## 📱 Enabling Root Integration in App
 
 1. Open **TailSocks**.
-2. Go to **Settings** → **Root Integration**.
+2. Go to **Settings** → **Root Mode** tab.
 3. **Grant Root Access:** Tap to verify `su` availability.
 4. **Install Service Autostart:** Toggles deployment of `/data/adb/service.d/tailscaled.sh`.
 5. **Install Tailscale CLI:** Toggles deployment of `/system/bin/tailscale` and Magisk module overlays.
@@ -94,6 +130,7 @@ su -c tailscale version
 * **Daemon Logs:** Saved at `/data/data/io.github.bropines.tailscaled/logs/tailscaled.log`
 * **Socket File:** Located at `/data/data/io.github.bropines.tailscaled/files/tailscaled.sock`
 * **Magisk Module Prop:** `/data/adb/modules/tailscaled/module.prop`
+* **In-app:** Logs screen → **ROOT** tab, and **Settings → Root Mode → Check Routing**.
 
 ### Useful Troubleshooting Commands:
 
@@ -106,4 +143,41 @@ su -c ps -ef | grep tailscaled
 
 # Verify socket permissions
 su -c ls -la /data/data/io.github.bropines.tailscaled/files/tailscaled.sock
+
+# Inspect the rules TailSocks owns
+su -c ip rule list | grep 1099
+su -c ip route show table 1099
+su -c iptables -t mangle -S TAILSOCKS_MARK
+su -c iptables -t nat -S TAILSOCKS_DNS
 ```
+
+### Diagnostic scripts (`tools/`)
+
+Two scripts in the repository automate the above for bug reports:
+
+* **`tools/root-debug.sh`** — a read-only snapshot to run on the device as root.
+  It prints the app version, the relevant global settings, the daemon process
+  and socket, the `tailscale0` interface and other tunnels, policy rules, table
+  1099, route decisions with and without the mark, both chains **with packet
+  counters** (which tells "the rule is missing" apart from "the rule is there
+  but never hit"), leftover legacy rules, the `/system/etc/hosts` bind mount, a
+  DNS resolution probe and the last 40 daemon log lines. Nothing is modified.
+
+  ```bash
+  adb push tools/root-debug.sh /data/local/tmp/
+  adb shell su -c sh /data/local/tmp/root-debug.sh          # optional arg: package name
+  ```
+
+* **`tools/root-debug-session.sh <adb-serial> [package]`** — drives a full
+  start/stop cycle over adb from the host and captures a snapshot at every phase
+  into `./root-debug-<timestamp>/`: `00-before.txt`, `01-t{5,15,30}s.txt` while
+  the daemon comes up, `02-after.txt`, `03-after-stop.txt` (this one shows
+  whether any rules were left behind), plus `logcat.txt` and the in-app
+  `applog.txt`. It starts and stops the service via
+  `am start-foreground-service … -a START_ACTION` / `-a STOP_ACTION`.
+
+  ```bash
+  tools/root-debug-session.sh 192.168.1.83:44895
+  ```
+
+Attach the resulting directory (or the single snapshot) to a Root Mode issue.

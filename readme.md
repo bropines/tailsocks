@@ -20,7 +20,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/bropines/tailsocks/releases/latest/download/app-release.apk">
+  <a href="https://github.com/bropines/tailsocks/releases/latest">
     <img src="https://img.shields.io/badge/⬇_Download_APK-Release-2ea44f?style=for-the-badge&logo=android&logoColor=white" alt="Download Release APK" />
   </a>
   &nbsp;
@@ -49,6 +49,8 @@ Optionally, TailSocks supports a **transparent TUN VPN mode** powered by the nat
 |---------|-------------|
 | **Native LocalAPI** | 100% CLI-less daemon management via Unix socket (`tailscaled.sock`) using LocalAPI v0. No shell commands. |
 | **SOCKS5 Proxy** | Built-in local SOCKS5 proxy server with optional authentication for per-app routing. |
+| **LAN Access** | One switch (Settings → Network → LAN Access) binds the SOCKS5 proxy, HTTP proxy and local DNS to `0.0.0.0` so other devices on your Wi-Fi can route through your tailnet. The app shows the address to connect to and warns when the SOCKS5 proxy has no password — without one, anyone on the LAN can use it. |
+| **Root Mode (experimental)** | On rooted devices the daemon runs as root with a real `tailscale0` kernel interface, policy routing in table `1099` via dedicated `TAILSOCKS_MARK`/`TAILSOCKS_DNS` iptables chains, optional system-wide DNS redirect, a *Check Routing* diagnostics button and a ROOT log tab. See the [Root guide](docs/ROOT.md). |
 | **Control Plane Proxy** | Route coordination server traffic through a custom SOCKS5/HTTP proxy for restricted regions. |
 | **TUN VPN Mode** | Transparent system-wide VPN via native `hev-socks5-tunnel` — full tunnel & split tunnel, per-app exclusions, custom gateway IP. |
 | **[Exit Nodes](https://tailscale.com/kb/1103/exit-nodes) ©** | Route all internet traffic through any authorized Tailscale peer with auto-healing and LAN access. |
@@ -72,7 +74,8 @@ Optionally, TailSocks supports a **transparent TUN VPN mode** powered by the nat
 | **Tailscale Admin API** | Full `api.tailscale.com/v2` integration — manage devices, DNS, users, services, webhooks, ACLs, and audit logs. |
 | **Biometric Lock** | Admin Console protected by fingerprint/face authentication. |
 | **Auth Keys** | Generate, view, and revoke authentication keys from inside the app. |
-| **Data Portability** | Full encrypted app state backups (ZIP) and individual account exports (JSON). |
+| **Data Portability** | Full encrypted app state backups (ZIP) and individual account exports (JSON). Backups record the app version and format that produced them; an older app refuses to restore an archive made by a newer version instead of corrupting the profile (backups from older versions still restore). |
+| **Automation** | Token-protected Broadcast Intents for Tasker/MacroDroid/ADB and 14 AppFunctions for on-device assistants (Gemini, Android 16+). See the [Automation guide](docs/AUTOMATION.md). |
 
 ### User Experience
 
@@ -84,6 +87,7 @@ Optionally, TailSocks supports a **transparent TUN VPN mode** powered by the nat
 | **Home Screen Widgets** | Jetpack Glance widgets — Service Toggle, Exit Node, Stats Dashboard, Serve status. |
 | **Quick Settings Tile** | System Quick Settings tile with active profile display and account switching. |
 | **Network Diagnostics** | Native netcheck with DERP latency visualization, NAT type detection, and public IP reporting. |
+| **Background Reliability** | Optional auto-reconnect with an attempt limit, a 15-minute watchdog that revives a service killed in the background, and a session-long wake lock (*Force Background Run*). A manual Stop is always final. See [Background behaviour](#-background-behaviour). |
 
 ---
 
@@ -250,10 +254,17 @@ cd ..
 
 **3. Build APK:**
 ```bash
-./gradlew app:assembleRelease
+# Debug build (installs alongside the release app as *.dev, no keystore needed)
+./gradlew app:assembleDebug
+
+# Release build — requires your own keystore; the build refuses to sign with the debug key
+KEYSTORE_FILE="$PWD/tailsocks.jks" KEYSTORE_PASSWORD=... \
+KEY_ALIAS=... KEY_PASSWORD=... ./gradlew app:assembleRelease
 ```
 
 > The build script automatically downloads the correct Tailscale version, applies all patches, and compiles PIE binaries for 4 architectures. No fork maintenance required.
+>
+> Release builds are R8-minified with resource shrinking, and the `verifyReleaseNativeMethods` task fails the build if R8 ever drops a JNI method the TUN library needs. Details in [Build Instructions](docs/BUILDING.md).
 
 </details>
 
@@ -288,20 +299,44 @@ TailSocks bundles a native JNI implementation of [ByeDPI](https://github.com/huf
 
 TailSocks supports background control via **Android Broadcast Intents**. You can automate connections using Tasker, MacroDroid, Automate, or `adb`.
 
-* **Target Receiver:** `io.github.bropines.tailscaled/.core.TaskerReceiver` (or package `io.github.bropines.tailscaled`)
-* **Supported Actions:**
-  * `io.github.bropines.tailscaled.action.CONNECT` (or `io.github.bropines.tailscaled.START`) — Start connection
-  * `io.github.bropines.tailscaled.action.DISCONNECT` (or `io.github.bropines.tailscaled.STOP`) — Stop connection
-  * `io.github.bropines.tailscaled.action.TOGGLE` (or `io.github.bropines.tailscaled.TOGGLE`) — Toggle connection state
-  * `io.github.bropines.tailscaled.action.RESTART` (or `io.github.bropines.tailscaled.RESTART`) — Restart connection
+**A secret token is required.** Set one under **Settings → APP → Tasker & Automation** (there is a *Generate* button) and pass it with every intent as the string extra `secret` (`token` and `key` are accepted too). Since 3.6.0 the receiver ignores every intent until a token is configured, so no other app on the device can stop your VPN or reroute traffic.
+
+* **Target Receiver:** `io.github.bropines.tailscaled/.core.TaskerReceiver` (package `io.github.bropines.tailscaled`)
+* **Supported Actions** (each also has a short alias, e.g. `io.github.bropines.tailscaled.START`):
+  * `io.github.bropines.tailscaled.action.CONNECT` / `DISCONNECT` / `TOGGLE` / `RESTART` — control the connection
+  * `io.github.bropines.tailscaled.action.GET_STATUS` — refreshes the widgets/tile state (the `STATUS_CHANGED` broadcast is not visible to other apps)
+  * `io.github.bropines.tailscaled.action.SET_EXIT_NODE` — extra `exit_node` (IP, or `none` to clear)
+  * `io.github.bropines.tailscaled.action.SWITCH_ACCOUNT` — extra `account` (profile name or ID)
+  * `io.github.bropines.tailscaled.action.SET_BYEDPI` — extras `enabled` (boolean), `flags` (string)
+  * `io.github.bropines.tailscaled.action.SET_TUN` — extra `enabled` (boolean)
+
+#### ADB example
+```bash
+adb shell am broadcast -a io.github.bropines.tailscaled.action.DISCONNECT -n io.github.bropines.tailscaled/.core.TaskerReceiver --es secret YOUR_TOKEN
+```
 
 #### Tasker Configuration Example:
 1. Action: **System** → **Send Intent**
 2. Action: `io.github.bropines.tailscaled.action.CONNECT`
 3. Target: **Broadcast Receiver**
-4. Package: `io.github.bropines.tailscaled`
+4. Package: `io.github.bropines.tailscaled`, Class: `io.github.bropines.tailscaled.core.TaskerReceiver`
+5. Extra: `secret:YOUR_TOKEN`
 
+Full reference — every action, its extras, the status broadcast, and the AppFunctions list — in the [Tasker & Automation Guide](docs/AUTOMATION.md).
 
+### 🤖 Gemini / AppFunctions (Android 16+)
+
+On Android 16 and newer TailSocks exposes **14 AppFunctions** to on-device assistants: `getStatus`, `getAvailableExitNodes`, `getTailnetPeers`, `getAccounts`, `connect`, `disconnect`, `toggle`, `selectExitNode`, `clearExitNode`, `switchAccount`, `setByeDpi`, `setTunMode`, `setAllowLanAccess`, `setMagicDns`. Every function that changes state obeys the *Allow External Automation* switch; the read-only ones always answer.
+
+---
+
+## 🔄 Background behaviour
+
+* **Auto-reconnect** (Settings → APP → System & Backup, off by default) restarts the daemon when the connection does not come up or drops, with a configurable attempt limit. Waiting for you to sign in is not treated as a failure.
+* **Revive service in background** (same place, on by default) checks every 15 minutes that the service is still alive and starts it again after a background kill. If your ROM refuses background starts, the log says so — grant the app autostart permission.
+* **Force Background Run** (Settings → TS-Core → Flags & Logs, off by default) holds a wake lock for the whole session so the connection survives deep sleep. Costs battery.
+* **A manual Stop is final.** Stopping from the app, notification, Quick Settings tile, a `DISCONNECT` intent or the `disconnect` AppFunction clears the desired state first; neither the watchdog, auto-reconnect nor Android's sticky restart bring the service back until you start it again.
+* **Swiping the app away keeps the connection.** Removing the task from Recents does not stop the service.
 
 ---
 
