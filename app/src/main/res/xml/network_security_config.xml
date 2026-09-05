@@ -1,16 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Cleartext is denied by default. The only cleartext the app itself makes over
-    the JVM stack is the Taildrive WebDAV endpoint (100.100.100.100, inside
-    WireGuard) and loopback; everything external (admin API, DoH, update check,
-    avatars) is HTTPS. ByeDPI and the local proxies are native or raw sockets,
-    not governed here.
+    Cleartext is denied everywhere except one destination.
+
+    Allowed: 100.100.100.100 - the tailnet service address. TaildriveClient
+    (core/TailsocksFileProvider.kt, getUrl) speaks WebDAV to
+    http://100.100.100.100:8080 through the daemon's local SOCKS5 proxy. The
+    request never leaves the device in the clear: it is carried inside the
+    WireGuard tunnel, and the endpoint is the daemon itself.
+
+    Not listed, on purpose:
+      * 127.0.0.1 / localhost - no JVM code in this app makes an http:// request
+        to loopback, and there is no WebView. The local listeners (Web UI,
+        Taildrive WebDAV proxy, SOCKS5/HTTP proxies, DNS proxy, ByeDPI) are Go
+        or native, and are used by other apps or by the daemon; this file does
+        not govern them. Raw java.net.Socket / DatagramSocket probes (Serve
+        target health, DNS latency) are not governed either.
+      * Everything else the app fetches over the JVM stack is HTTPS: the
+        Tailscale admin API, the GitHub update check, the APK download and the
+        profile avatar.
+
+    Adding an in-app http:// client (a WebView for the Web UI, for example)
+    means adding its host here first.
 -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="false" />
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="false">100.100.100.100</domain>
-        <domain includeSubdomains="false">127.0.0.1</domain>
-        <domain includeSubdomains="false">localhost</domain>
     </domain-config>
 </network-security-config>

@@ -10,6 +10,9 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.util.Log
+
+private const val TAG = "BootReceiver"
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -28,12 +31,22 @@ class BootReceiver : BroadcastReceiver() {
         // resume whenever it was running before the install. "Keep running in
         // background" only decides whether we also come back after a reboot.
         val replaced = action == Intent.ACTION_MY_PACKAGE_REPLACED
+        Log.i(TAG, "$action: userLetRunning=$userLetRunning forceBg=$forceBg")
         if (userLetRunning && (forceBg || replaced)) {
             val serviceIntent = Intent(context, TailscaledService::class.java).apply { this.action = "START_ACTION" }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(serviceIntent)
-            } else {
-                context.startService(serviceIntent)
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(serviceIntent)
+                } else {
+                    context.startService(serviceIntent)
+                }
+                Log.i(TAG, "Service start requested")
+            } catch (e: Exception) {
+                // Android 12+ and OEM skins can refuse a background start. An
+                // uncaught exception here would take down whatever process the
+                // system happened to run this receiver in; the watchdog alarm
+                // and the next app launch both retry.
+                Log.e(TAG, "Service start refused: ${e.message}")
             }
         } else if (action != Intent.ACTION_MY_PACKAGE_REPLACED) {
             ProxyState.setUserState(context, false)

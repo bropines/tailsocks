@@ -584,7 +584,7 @@ fun DnsScreen(onBack: () -> Unit) {
                                                     } else {
                                                         Icon(
                                                             imageVector = Icons.Default.PlayArrow,
-                                                            contentDescription = "Test DNS Server",
+                                                            contentDescription = stringResource(R.string.dns_cd_test_server),
                                                             modifier = Modifier.size(16.dp),
                                                             tint = if (testRes != null && testRes.startsWith("Success")) androidx.compose.ui.graphics.Color(0xFF4CAF50) else MaterialTheme.colorScheme.outline
                                                         )
@@ -604,7 +604,7 @@ fun DnsScreen(onBack: () -> Unit) {
                                                 ) {
                                                     Icon(
                                                         imageVector = Icons.Default.ContentCopy,
-                                                        contentDescription = "Copy IP",
+                                                        contentDescription = stringResource(R.string.dns_cd_copy_ip),
                                                         modifier = Modifier.size(14.dp),
                                                         tint = MaterialTheme.colorScheme.outline
                                                     )

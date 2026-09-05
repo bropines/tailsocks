@@ -221,17 +221,117 @@ object RootUtils {
      * LocalSocket connect() to the Unix domain socket.
      * Returns false if the file doesn't exist or the connect() is refused.
      */
-    fun isDaemonAlive(socketPath: String): Boolean {
-        if (!File(socketPath).exists()) return false
+    fun isDaemonAlive(socketPath: String): Boolean = probeSocket(socketPath) == null
+
+    /**
+     * Connects to the daemon socket once. Returns null on success, otherwise the
+     * reason — [allowSocketConnect] needs to tell "the daemon is not there" from
+     * "SELinux refused the connect", which look identical to [isDaemonAlive].
+     */
+    private fun probeSocket(socketPath: String): Exception? {
+        if (!File(socketPath).exists()) return java.io.FileNotFoundException("no socket at $socketPath")
         return try {
             LocalSocket().use { socket ->
                 socket.connect(LocalSocketAddress(socketPath, LocalSocketAddress.Namespace.FILESYSTEM))
-                socket.isConnected
+                if (socket.isConnected) null else java.io.IOException("connect returned an unconnected socket")
             }
         } catch (e: Exception) {
-            Log.d(TAG, "isDaemonAlive: connect failed: ${e.message}")
-            false
+            Log.d(TAG, "probeSocket: connect failed: ${e.message}")
+            e
         }
+    }
+
+    /** A connect refused by policy, as opposed to a daemon that is simply not running. */
+    private fun isPolicyDenial(e: Exception): Boolean {
+        val msg = e.message ?: return false
+        return msg.contains("EACCES") || msg.contains("Permission denied", ignoreCase = true)
+    }
+
+    /** SELinux type of a context like `u:r:untrusted_app_32:s0:c512,c768`. */
+    private val selinuxTypeName = Regex("^[a-z][a-z0-9_]*$")
+
+    private fun selinuxType(context: String): String? {
+        val fields = context.replace(" ", "").trim().split(":")
+        if (fields.size < 3) return null
+        val type = fields[2]
+        return if (selinuxTypeName.matches(type)) type else null
+    }
+
+    /** The domain this app runs in, straight from the kernel. */
+    private fun appDomain(): String? = try {
+        selinuxType(File("/proc/self/attr/current").readText())
+    } catch (e: Exception) {
+        Log.w(TAG, "Cannot read own SELinux context: ${e.message}")
+        null
+    }
+
+    /**
+     * The domain the root daemon runs in. Matched by its `--socket=` argument,
+     * like [stopRootDaemon], so a second profile or an unrelated tailscaled is
+     * never sampled. Falls back to the domain of the root shell itself, which is
+     * what the daemon inherits when it is spawned from one.
+     */
+    private fun daemonDomain(socketPath: String): String? {
+        val pat = shQuote("--socket=$socketPath")
+        val script = buildString {
+            append("pid=\$(pgrep -f -- $pat 2>/dev/null | head -n1)\n")
+            append("if [ -n \"\$pid\" ]; then cat /proc/\$pid/attr/current; else cat /proc/self/attr/current; fi\n")
+        }
+        val res = runSu("daemon-domain", script, timeoutMs = 10_000L)
+        if (!res.ok) return null
+        return res.output.lineSequence().firstNotNullOfOrNull { selinuxType(it) }
+    }
+
+    /**
+     * Makes the app able to reach the root daemon socket when SELinux is what is
+     * stopping it — and does nothing at all otherwise.
+     *
+     * The daemon is started from a root shell, so it runs in the root solution's
+     * domain while the app connects from its own. Stock policy grants no
+     * `connectto` across that pair, and the connect fails with EACCES.
+     *
+     * Up to 3.6 the fix was a fixed `allow untrusted_app magisk
+     * unix_stream_socket connectto`, injected on every service start and on
+     * every boot. It named domains nobody had looked up: `untrusted_app` is not
+     * what an app with a modern targetSdk runs as, and `magisk` is not the
+     * domain of a KernelSU or APatch daemon — so on many devices it patched the
+     * policy of every untrusted app on the device and still did not fix
+     * anything. Now both domains are read at runtime, and the rule is only
+     * applied after a connect was actually denied.
+     *
+     * Returns true when the socket is reachable afterwards.
+     */
+    fun allowSocketConnect(socketPath: String): Boolean {
+        val error = probeSocket(socketPath) ?: return true
+        if (!isPolicyDenial(error)) return false
+        return injectSocketConnectRule(socketPath) && isDaemonAlive(socketPath)
+    }
+
+    private fun injectSocketConnectRule(socketPath: String): Boolean {
+        val app = appDomain()
+        val daemon = daemonDomain(socketPath)
+        if (app == null || daemon == null) {
+            rootLog("ERROR", "SELinux denied the daemon socket, but the domains could not be read (app=$app daemon=$daemon)")
+            return false
+        }
+        if (app == daemon) {
+            rootLog("ERROR", "SELinux denied the daemon socket although both sides run as $app; not a domain-transition problem")
+            return false
+        }
+        val rule = shQuote("allow $app $daemon unix_stream_socket connectto")
+        // magiskpolicy (Magisk, and APatch which ships the same tool), then
+        // KernelSU's ksud, then SuperSU's supolicy. Whichever exists wins; the
+        // rule is live-only and gone after a reboot.
+        val script = "magiskpolicy --live $rule 2>/dev/null || " +
+            "ksud sepolicy patch $rule 2>/dev/null || " +
+            "supolicy --live $rule 2>/dev/null"
+        val res = runSu("sepolicy-allow", script, timeoutMs = 10_000L)
+        if (!res.ok) {
+            rootLog("ERROR", "No SELinux policy tool accepted: allow $app $daemon unix_stream_socket connectto")
+            return false
+        }
+        rootLog("INFO", "SELinux denied the app -> daemon socket connect; injected: allow $app $daemon unix_stream_socket connectto")
+        return true
     }
 
     fun isRootAvailable(): Boolean {
@@ -341,7 +441,8 @@ object RootUtils {
             // directory (0700), so nothing else can. 0600 left the Logs screen
             // empty in Root Mode.
             sb.append("chmod 644 ${shQuote(logFile)} 2>/dev/null || true\n")
-            sb.append("magiskpolicy --live \"allow untrusted_app magisk unix_stream_socket connectto\" 2>/dev/null || supolicy --live \"allow untrusted_app magisk unix_stream_socket connectto\" 2>/dev/null || true\n")
+            // No SELinux rule is injected here any more: allowSocketConnect adds
+            // one below, with the real domains, and only if a connect is denied.
             sb.append("for i in \$(seq 1 30); do\n")
             sb.append("    if [ -S ${shQuote(socketPath)} ] || [ -e ${shQuote(socketPath)} ]; then\n")
             sb.append("        chmod 666 ${shQuote(socketPath)}\n")
@@ -360,11 +461,23 @@ object RootUtils {
 
             // Verify the daemon really came up rather than trusting the exit code.
             var attempts = 0
+            var policyPatched = false
             while (attempts < 25) {
-                if (isDaemonAlive(socketPath)) {
+                val error = probeSocket(socketPath)
+                if (error == null) {
                     Log.i(TAG, "Root daemon socket is accepting connections at $socketPath")
                     rootLog("INFO", "Root daemon started (socket ready)")
                     return true
+                }
+                // The socket exists and the kernel refused us: that is policy,
+                // not a daemon that failed to start. Fix it once, then keep
+                // probing as before.
+                if (!policyPatched && isPolicyDenial(error)) {
+                    policyPatched = true
+                    if (injectSocketConnectRule(socketPath) && isDaemonAlive(socketPath)) {
+                        rootLog("INFO", "Root daemon started (socket ready)")
+                        return true
+                    }
                 }
                 Thread.sleep(200)
                 attempts++

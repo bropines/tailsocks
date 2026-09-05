@@ -71,6 +71,10 @@ object AccountManager {
         val stateDir = java.io.File(context.filesDir, "states/$id")
         if (stateDir.exists()) stateDir.deleteRecursively()
 
+        // Received Taildrop files live outside the state directory since 4.0.
+        val taildropDir = TaildropPaths.dir(context, id)
+        if (taildropDir.exists()) taildropDir.deleteRecursively()
+
         // Drop the profile's preferences too — they hold the auth key and login
         // server. They used to be left on disk indefinitely after deletion.
         try { context.deleteSharedPreferences("appctr_$id") } catch (e: Exception) {}

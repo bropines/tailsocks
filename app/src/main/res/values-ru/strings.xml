@@ -17,9 +17,7 @@
     <string name="tap_to_stop">Нажмите для остановки</string>
 
     <!-- Menu items -->
-    <string name="btn_logs">Системные логи</string>
     <string name="desc_logs">Просмотр вывода демона</string>
-    <string name="btn_settings">Настройки</string>
     <string name="desc_settings">Auth-ключ, выходные узлы, маршрутизация</string>
     <string name="about">О программе</string>
 
@@ -35,7 +33,6 @@
     <string name="socks5_addr">Адрес SOCKS5</string>
     <string name="ssh_addr">Адрес SSH-сервера</string>
     <string name="hostname">Имя устройства</string>
-    <string name="login_server">Сервер входа (Headscale)</string>
 
     <string name="sw_advertise_exit_node">Рекламировать выходной узел</string>
     <string name="sw_advertise_exit_node_desc">Разрешить другим устройствам использовать этот телефон как VPN-шлюз</string>
@@ -44,16 +41,13 @@
     <string name="sw_allow_lan">Разрешить доступ к LAN</string>
     <string name="sw_allow_lan_desc">Доступ к локальным устройствам при использовании выходного узла</string>
 
-    <string name="sw_accept_routes">Принимать маршруты</string>
     <string name="sw_accept_routes_desc">Принимать подсетевые маршруты, объявленные другими</string>
 
-    <string name="sw_accept_dns">Принимать DNS</string>
     <string name="sw_accept_dns_desc">Использовать настройки Magic DNS Tailscale</string>
 
     <string name="extra_args">Дополнительные аргументы (raw)</string>
     <string name="extra_args_desc">Пользовательские флаги для tailscale up</string>
 
-    <string name="force_bg_title">Принудительный фоновый запуск</string>
     <string name="force_bg_subtitle">Попытка перезапуска службы при завершении</string>
 
     <!-- Logs -->
@@ -436,8 +430,6 @@
     <!-- ======================== UI COMPONENTS ======================== -->
 
     <!-- PeerDetailsModal -->
-    <string name="peer_cd_previous">Предыдущий</string>
-    <string name="peer_cd_next">Следующий</string>
     <string name="peer_ping">Ping</string>
     <string name="peer_pinging">Пингую…</string>
     <string name="peer_ping_result">Ping: %1$s</string>
@@ -448,15 +440,10 @@
     <!-- FileCard -->
     <string name="file_action_delete">Удалить</string>
     <string name="file_action_save">Сохранить</string>
-    <string name="file_action_open">Открыть</string>
-    <string name="file_open_chooser">Открыть файл</string>
-    <string name="file_open_error">Не удалось открыть: %1$s</string>
 
     <!-- ======================== MainActivity ======================== -->
 
-    <string name="main_add_account">Добавить аккаунт</string>
     <string name="main_account_name_label">Название аккаунта</string>
-    <string name="main_rename_account">Переименовать аккаунт</string>
     <string name="main_new_name_label">Новое имя</string>
     <string name="main_switch_account_title">Переключить аккаунт?</string>
     <string name="main_switch_account_text">Переключение на \'%1$s\' перезапустит ядро. Вы уверены?</string>
@@ -492,16 +479,9 @@
 
     <string name="settings_logout_title">Выйти из Tailnet?</string>
     <string name="settings_logout_text">Это очистит текущую сессию и состояние узла через LocalAPI. Потребуется повторная аутентификация. Продолжить?</string>
-    <string name="settings_log_out">Выйти</string>
-    <string name="settings_interface_theme">Тема интерфейса</string>
-    <string name="settings_color_palette">Цветовая палитра</string>
-    <string name="settings_dynamic_colors">Динамические цвета</string>
-    <string name="settings_dynamic_colors_desc">Использовать системные цвета Material You</string>
-    <string name="settings_amoled_black">AMOLED Black</string>
     <string name="settings_amoled_black_desc">Чисто чёрный фон в тёмном режиме</string>
     <string name="settings_backup_zip">Создать бэкап</string>
     <string name="settings_restore_zip">Восстановить</string>
-    <string name="settings_copy_sagernet_link">Скопировать ссылку SagerNet</string>
     <string name="settings_backup_account">Резервная копия</string>
     <string name="settings_import_account">Импорт</string>
     <string name="settings_reset_node">Сбросить состояние узла</string>
@@ -510,15 +490,8 @@
     <string name="settings_restore_password_title">Пароль для расшифровки резервной копии</string>
     <string name="settings_restore_password_text">Введите пароль, который использовался для шифрования резервной копии.</string>
     <string name="settings_password_label">Пароль</string>
-    <string name="settings_proxy_title">Прокси управляющего канала</string>
-    <string name="settings_proxy_enable">Включить прокси</string>
-    <string name="settings_proxy_type">Тип прокси</string>
     <string name="settings_proxy_socks5">SOCKS5</string>
     <string name="settings_proxy_http">HTTP</string>
-    <string name="settings_proxy_host">Хост</string>
-    <string name="settings_proxy_port">Порт</string>
-    <string name="settings_proxy_user">Имя пользователя (необязательно)</string>
-    <string name="settings_proxy_pass">Пароль (необязательно)</string>
     <string name="settings_proxy_apply">Применить и сохранить</string>
     <string name="settings_field_example">Пример: %1$s</string>
     <string name="settings_suggested">Рекомендуется:</string>
@@ -570,7 +543,7 @@
     <string name="dns_device_name">DNS-имя устройства</string>
 
     <!-- ======================== Taildrop / Files ======================== -->
-    <string name="files_hub_title">Хаб Taildrop</string>
+    <string name="files_hub_title">Хаб TailFiles</string>
     <string name="files_cd_taildrive">Taildrive</string>
     <string name="files_tab_inbox">Входящие</string>
     <string name="files_tab_devices">Устройства</string>
@@ -952,7 +925,6 @@
     <string name="widget_exit_node_title">Выходной узел</string>
     <string name="widget_exit_node_format">Выход: %1$s</string>
     <string name="widget_peers_format">Узлы: %1$d / %2$d</string>
-    <string name="widget_serve_title">Serve &amp; Funnel</string>
     <string name="widget_service_stopped">Служба остановлена</string>
     <string name="widget_serve_no_rules">Нет активных правил</string>
     <string name="widget_serve_rules_format">TCP: %1$d  Web: %2$d  Funnel: %3$d</string>
@@ -1093,4 +1065,40 @@
     <string name="whats_new_full_changelog">Полный список изменений</string>
     <string name="whats_new_unavailable">Не удалось загрузить список изменений.</string>
     <string name="main_about_whats_new">Что нового</string>
+
+    <!-- Строки, ранее зашитые в Kotlin -->
+    <string name="settings_root_mode_enabled_toast">Root-режим включён</string>
+    <string name="settings_root_mode_disabled_toast">Root-режим выключен</string>
+    <string name="settings_root_access_unavailable">Root-доступ (su) не предоставлен или недоступен</string>
+    <string name="settings_root_service_script_installed">Скрипт службы установлен в service.d</string>
+    <string name="settings_root_service_script_removed">Скрипт службы удалён</string>
+    <string name="settings_root_service_script_failed">Не удалось изменить скрипт в service.d</string>
+    <string name="settings_root_cli_installed">CLI-обёртка установлена в /system/bin/tailscale</string>
+    <string name="settings_root_cli_removed">CLI-обёртка удалена</string>
+    <string name="settings_root_cli_failed">Не удалось изменить CLI-обёртку</string>
+    <string name="settings_root_daemon_status_label">Статус демона:</string>
+    <string name="settings_root_daemon_status_running">Работает (сокет отвечает)</string>
+    <string name="settings_root_daemon_status_stopped">Не работает / сокет не отвечает</string>
+    <string name="settings_proxy_parsed_success">Ссылка на прокси разобрана!</string>
+    <string name="settings_proxy_clipboard_empty">Буфер обмена и поле пусты</string>
+    <string name="settings_proxy_cd_paste_parse">Вставить и разобрать</string>
+    <string name="settings_proxy_preset_add_chip">+ Сохранить</string>
+    <string name="settings_copy_cd_format">Скопировать «%1$s»</string>
+    <string name="main_submit_key">Отправить ключ</string>
+    <string name="main_proxy_setup">Настройка прокси</string>
+    <string name="main_key_saved_restarting">Ключ сохранён. Перезапуск службы…</string>
+    <string name="main_installer_failed_format">Не удалось запустить установщик: %1$s</string>
+    <string name="taildrop_saved_to_downloads_format">Сохранено в «Загрузки»: %1$s</string>
+    <string name="taildrop_save_failed_format">Не удалось сохранить: %1$s</string>
+    <string name="taildrop_file_deleted">Файл удалён</string>
+    <string name="taildrive_add_choose">Выберите способ добавления папки:</string>
+    <string name="taildrive_add_picker_title">Системный выбор папки</string>
+    <string name="taildrive_add_picker_desc">Найти и выбрать папку визуально</string>
+    <string name="taildrive_add_manual_title">Ввести путь вручную</string>
+    <string name="taildrive_add_manual_desc">Укажите путь (например, /storage/emulated/0/Download)</string>
+    <string name="taildrive_share_full_storage">Поделиться всем хранилищем</string>
+    <string name="dns_cd_test_server">Проверить DNS-сервер</string>
+    <string name="dns_cd_copy_ip">Скопировать IP</string>
+    <string name="serve_badge_off">ВЫКЛ</string>
+    <string name="admin_error_loading_keys_format">Ошибка загрузки ключей: %1$s</string>
 </resources>

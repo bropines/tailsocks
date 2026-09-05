@@ -473,7 +473,18 @@ fun EmptyState(icon: ImageVector, text: String) {
 
 fun openTaildropFile(context: Context, file: TaildropFile) {
     try {
-        val f = File(file.Path)
+        var f = File(file.Path)
+        // The FileProvider only covers files/taildrop/. A Root Mode daemon
+        // started by the boot script keeps writing into the pre-4.0 directory
+        // until the app hands it the new one, so a path from outside is
+        // migrated and re-resolved instead of failing to open.
+        val root = File(context.filesDir, "taildrop").absolutePath + File.separator
+        if (!f.absolutePath.startsWith(root)) {
+            val accountId = AccountManager.getActiveAccount(context).id
+            TaildropPaths.migrate(context, accountId)
+            val moved = File(TaildropPaths.dir(context, accountId), f.name)
+            if (moved.exists()) f = moved
+        }
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", f)
         context.startActivity(Intent.createChooser(Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(uri, context.contentResolver.getType(uri) ?: "*/*")

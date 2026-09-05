@@ -1,9 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Roots for ${applicationId}.fileprovider. Only two things are ever handed to
+    another app through it, so only two directories are declared:
+
+      taildrop/ - files received over Taildrop, opened in a viewer app
+                  (ui/UIComponents.kt openTaildropFile). They live in
+                  files/taildrop/<account>, see core/TaildropPaths.kt.
+      Download/ - the APK the in-app updater downloads into
+                  getExternalFilesDir(DIRECTORY_DOWNLOADS) and hands to the
+                  package installer (ui/MainActivity.kt launchApkInstaller).
+
+    These used to be three roots with path="." covering the whole files/, cache/
+    and external-files directories, which meant a content:// URI could be minted
+    for states/<account>/tailscaled.state (the node private keys), the LocalAPI
+    socket and cache/tun.conf (the SOCKS credentials). Do not widen a root: add
+    a narrow one for the new consumer instead.
+-->
 <paths>
-    <files-path name="internal_files" path="." />
-    <cache-path name="cache" path="." />
-    <!-- The in-app updater saves the downloaded APK under
-         getExternalFilesDir(DIRECTORY_DOWNLOADS). Without this root
-         getUriForFile() threw and the package installer never opened. -->
-    <external-files-path name="external_files" path="." />
+    <files-path name="taildrop" path="taildrop/" />
+    <external-files-path name="updates" path="Download/" />
 </paths>

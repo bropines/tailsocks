@@ -306,9 +306,9 @@ fun SlideHowItWorks() {
                         if (io.github.bropines.tailscaled.core.RootUtils.isRootAvailable()) {
                             isRootMode = true
                             GlobalSettings.setRootModeEnabled(context, true)
-                            Toast.makeText(context, "Root Mode enabled", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.settings_root_mode_enabled_toast), Toast.LENGTH_SHORT).show()
                         } else {
-                            Toast.makeText(context, "Root access (su) not granted or unavailable", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, context.getString(R.string.settings_root_access_unavailable), Toast.LENGTH_LONG).show()
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
@@ -572,16 +572,16 @@ fun SlideBypassSetup() {
                                                 GlobalSettings.setCPField(context, "port", proxyPort)
                                                 GlobalSettings.setCPField(context, "user", proxyUser)
                                                 GlobalSettings.setCPField(context, "pass", proxyPass)
-                                                Toast.makeText(context, "Proxy parsed!", Toast.LENGTH_SHORT).show()
+                                                Toast.makeText(context, context.getString(R.string.settings_proxy_parsed_success), Toast.LENGTH_SHORT).show()
                                             } else {
-                                                Toast.makeText(context, "Failed to parse link", Toast.LENGTH_SHORT).show()
+                                                Toast.makeText(context, context.getString(R.string.settings_proxy_import_error), Toast.LENGTH_SHORT).show()
                                             }
                                         } else {
-                                            Toast.makeText(context, "Clipboard and field are empty", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, context.getString(R.string.settings_proxy_clipboard_empty), Toast.LENGTH_SHORT).show()
                                         }
                                     }
                                 ) {
-                                    Icon(Icons.Default.ContentPaste, contentDescription = "Paste and parse")
+                                    Icon(Icons.Default.ContentPaste, contentDescription = stringResource(R.string.settings_proxy_cd_paste_parse))
                                 }
                             }
                         )
@@ -604,7 +604,7 @@ fun SlideBypassSetup() {
                                         Toast.makeText(context, context.getString(R.string.settings_proxy_preset_fill_fields_error), Toast.LENGTH_SHORT).show()
                                     }
                                 },
-                                label = { Text("+ Save") },
+                                label = { Text(stringResource(R.string.settings_proxy_preset_add_chip)) },
                                 leadingIcon = { Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp)) }
                             )
 

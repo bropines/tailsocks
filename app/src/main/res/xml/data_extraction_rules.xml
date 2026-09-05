@@ -10,10 +10,12 @@
         <exclude domain="sharedpref" path="admin_api_keys.xml" />
         <exclude domain="sharedpref" path="tailsocks_global.xml" />
         <exclude domain="file" path="states" />
+        <exclude domain="file" path="taildrop" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="admin_api_keys.xml" />
         <exclude domain="sharedpref" path="tailsocks_global.xml" />
         <exclude domain="file" path="states" />
+        <exclude domain="file" path="taildrop" />
     </device-transfer>
 </data-extraction-rules>

@@ -7,7 +7,10 @@ import appctr.Appctr
 object ProxyState {
     private const val PREF = "proxy_state"
     private const val KEY_DESIRED = "desired_running"
-    private var appContext: Context? = null
+    /** Latched from whichever thread first calls in (Application.onCreate, a
+     *  Glance callback on a background thread, AppFunctions on Dispatchers.IO)
+     *  and read from others in [isActualRunning]. */
+    @Volatile private var appContext: Context? = null
 
     fun init(context: Context) {
         appContext = context.applicationContext

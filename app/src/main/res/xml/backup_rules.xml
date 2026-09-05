@@ -7,4 +7,7 @@
     <exclude domain="sharedpref" path="admin_api_keys.xml" />
     <exclude domain="sharedpref" path="tailsocks_global.xml" />
     <exclude domain="file" path="states" />
+    <!-- Received Taildrop files moved out of states/ in 4.0; they stay out of
+         backups, as they did when they were part of it. -->
+    <exclude domain="file" path="taildrop" />
 </full-backup-content>

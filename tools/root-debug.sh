@@ -49,6 +49,15 @@ else
     echo "  socket: missing ($SOCK)"
 fi
 
+hr "selinux"
+echo "  mode: $(getenforce 2>/dev/null || echo unknown)"
+echo "  this shell: $(tr -d '\0' < /proc/self/attr/current 2>/dev/null || echo unknown)"
+for p in $PIDS; do
+    echo "  daemon pid $p: $(tr -d '\0' < /proc/$p/attr/current 2>/dev/null || echo unknown)"
+done
+echo "  recent denials:"
+dmesg 2>/dev/null | grep -i 'avc: *denied' | tail -n 10 | sed 's/^/    /' || echo "    none in dmesg"
+
 hr "interface"
 ip -br addr show tailscale0 2>/dev/null || echo "  tailscale0 absent"
 echo "  other tunnels:"

@@ -17,9 +17,7 @@
     <string name="tap_to_stop">Tap to stop</string>
 
     <!-- Menu items -->
-    <string name="btn_logs">System Logs</string>
     <string name="desc_logs">View internal daemon output</string>
-    <string name="btn_settings">Settings</string>
     <string name="desc_settings">Auth key, Exit nodes, Routing</string>
     <string name="about">About</string>
 
@@ -35,7 +33,6 @@
     <string name="socks5_addr">Socks5 Address</string>
     <string name="ssh_addr">SSH Server Address</string>
     <string name="hostname">Device Hostname</string>
-    <string name="login_server">Login Server (Headscale)</string>
 
     <string name="sw_advertise_exit_node">Advertise Exit Node</string>
     <string name="sw_advertise_exit_node_desc">Allow other devices to use this phone as VPN gateway</string>
@@ -44,16 +41,13 @@
     <string name="sw_allow_lan">Allow LAN Access</string>
     <string name="sw_allow_lan_desc">Access local devices when using Exit Node</string>
 
-    <string name="sw_accept_routes">Accept Routes</string>
     <string name="sw_accept_routes_desc">Accept subnet routes advertised by others</string>
 
-    <string name="sw_accept_dns">Accept DNS</string>
     <string name="sw_accept_dns_desc">Use Tailscale magic DNS settings</string>
 
     <string name="extra_args">Extra Arguments (Raw)</string>
     <string name="extra_args_desc">Custom flags for tailscale up</string>
 
-    <string name="force_bg_title">Force Background Run</string>
     <string name="force_bg_subtitle">Try to restart service if killed</string>
 
     <!-- Logs -->
@@ -436,8 +430,6 @@
     <!-- ======================== UI COMPONENTS ======================== -->
 
     <!-- PeerDetailsModal -->
-    <string name="peer_cd_previous">Previous</string>
-    <string name="peer_cd_next">Next</string>
     <string name="peer_ping">Ping</string>
     <string name="peer_pinging">Pinging…</string>
     <string name="peer_ping_result">Ping: %1$s</string>
@@ -448,15 +440,10 @@
     <!-- FileCard -->
     <string name="file_action_delete">Delete</string>
     <string name="file_action_save">Save</string>
-    <string name="file_action_open">Open</string>
-    <string name="file_open_chooser">Open file</string>
-    <string name="file_open_error">Can\'t open: %1$s</string>
 
     <!-- ======================== MainActivity ======================== -->
 
-    <string name="main_add_account">Add Account</string>
     <string name="main_account_name_label">Account Name</string>
-    <string name="main_rename_account">Rename Account</string>
     <string name="main_new_name_label">New Name</string>
     <string name="main_switch_account_title">Switch Account?</string>
     <string name="main_switch_account_text">Switching to \'%1$s\' will restart the core. Are you sure?</string>
@@ -492,16 +479,9 @@
 
     <string name="settings_logout_title">Log out from Tailnet?</string>
     <string name="settings_logout_text">This will clear your current session and node state using native LocalAPI. You will need to re-authenticate. Continue?</string>
-    <string name="settings_log_out">Log Out</string>
-    <string name="settings_interface_theme">Interface Theme</string>
-    <string name="settings_color_palette">Color Palette</string>
-    <string name="settings_dynamic_colors">Dynamic Colors</string>
-    <string name="settings_dynamic_colors_desc">Use Material You system colors</string>
-    <string name="settings_amoled_black">AMOLED Black</string>
     <string name="settings_amoled_black_desc">Pure black background in dark mode</string>
     <string name="settings_backup_zip">Backup (ZIP)</string>
     <string name="settings_restore_zip">Restore ZIP</string>
-    <string name="settings_copy_sagernet_link">Copy SagerNet Link</string>
     <string name="settings_backup_account">Backup</string>
     <string name="settings_import_account">Import</string>
     <string name="settings_reset_node">Reset Node State</string>
@@ -510,15 +490,8 @@
     <string name="settings_restore_password_title">Backup Decryption Password</string>
     <string name="settings_restore_password_text">Enter the password that was used to encrypt this backup.</string>
     <string name="settings_password_label">Password</string>
-    <string name="settings_proxy_title">Control Plane Proxy</string>
-    <string name="settings_proxy_enable">Enable Proxy</string>
-    <string name="settings_proxy_type">Proxy Type</string>
     <string name="settings_proxy_socks5">SOCKS5</string>
     <string name="settings_proxy_http">HTTP</string>
-    <string name="settings_proxy_host">Host</string>
-    <string name="settings_proxy_port">Port</string>
-    <string name="settings_proxy_user">Username (Optional)</string>
-    <string name="settings_proxy_pass">Password (Optional)</string>
     <string name="settings_proxy_apply">Apply &amp; Save</string>
     <string name="settings_field_example">Example: %1$s</string>
     <string name="settings_suggested">Suggested:</string>
@@ -570,7 +543,7 @@
     <string name="dns_device_name">Device DNS name</string>
 
     <!-- ======================== Taildrop / Files ======================== -->
-    <string name="files_hub_title">Taildrop Hub</string>
+    <string name="files_hub_title">TailFiles Hub</string>
     <string name="files_cd_taildrive">Taildrive</string>
     <string name="files_tab_inbox">Inbox</string>
     <string name="files_tab_devices">Devices</string>
@@ -952,7 +925,6 @@
     <string name="widget_exit_node_title">Exit Node</string>
     <string name="widget_exit_node_format">Exit: %1$s</string>
     <string name="widget_peers_format">Peers: %1$d / %2$d</string>
-    <string name="widget_serve_title">Serve &amp; Funnel</string>
     <string name="widget_service_stopped">Service stopped</string>
     <string name="widget_serve_no_rules">No active rules</string>
     <string name="widget_serve_rules_format">TCP: %1$d  Web: %2$d  Funnel: %3$d</string>
@@ -1093,4 +1065,40 @@
     <string name="whats_new_full_changelog">Full changelog</string>
     <string name="whats_new_unavailable">The changelog could not be loaded.</string>
     <string name="main_about_whats_new">What\'s new</string>
+
+    <!-- Strings that used to be hard-coded in Kotlin -->
+    <string name="settings_root_mode_enabled_toast">Root Mode enabled</string>
+    <string name="settings_root_mode_disabled_toast">Root Mode disabled</string>
+    <string name="settings_root_access_unavailable">Root access (su) not granted or unavailable</string>
+    <string name="settings_root_service_script_installed">Service script installed to service.d</string>
+    <string name="settings_root_service_script_removed">Service script removed</string>
+    <string name="settings_root_service_script_failed">Failed to manage service.d script</string>
+    <string name="settings_root_cli_installed">CLI wrapper installed to /system/bin/tailscale</string>
+    <string name="settings_root_cli_removed">CLI wrapper removed</string>
+    <string name="settings_root_cli_failed">Failed to manage CLI wrapper</string>
+    <string name="settings_root_daemon_status_label">Daemon Status:</string>
+    <string name="settings_root_daemon_status_running">Running (socket responding)</string>
+    <string name="settings_root_daemon_status_stopped">Not running / socket not responding</string>
+    <string name="settings_proxy_parsed_success">Proxy link parsed!</string>
+    <string name="settings_proxy_clipboard_empty">Clipboard and field are empty</string>
+    <string name="settings_proxy_cd_paste_parse">Paste and parse</string>
+    <string name="settings_proxy_preset_add_chip">+ Save</string>
+    <string name="settings_copy_cd_format">Copy %1$s</string>
+    <string name="main_submit_key">Submit Key</string>
+    <string name="main_proxy_setup">Proxy Setup</string>
+    <string name="main_key_saved_restarting">Key saved. Restarting service…</string>
+    <string name="main_installer_failed_format">Installer failed: %1$s</string>
+    <string name="taildrop_saved_to_downloads_format">Saved to Downloads: %1$s</string>
+    <string name="taildrop_save_failed_format">Failed to save: %1$s</string>
+    <string name="taildrop_file_deleted">File deleted</string>
+    <string name="taildrive_add_choose">Choose how to add folder:</string>
+    <string name="taildrive_add_picker_title">System Folder Picker</string>
+    <string name="taildrive_add_picker_desc">Browse and select folder visually</string>
+    <string name="taildrive_add_manual_title">Enter Path Manually</string>
+    <string name="taildrive_add_manual_desc">Type path (e.g. /storage/emulated/0/Download)</string>
+    <string name="taildrive_share_full_storage">Share Full Storage</string>
+    <string name="dns_cd_test_server">Test DNS Server</string>
+    <string name="dns_cd_copy_ip">Copy IP</string>
+    <string name="serve_badge_off">OFF</string>
+    <string name="admin_error_loading_keys_format">Error loading keys: %1$s</string>
 </resources>

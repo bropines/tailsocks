@@ -241,7 +241,7 @@ fun AdminApiDashboardScreen(
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
                 }
             } finally {
                 withContext(Dispatchers.Main) { isRefreshing = false }
@@ -263,7 +263,7 @@ fun AdminApiDashboardScreen(
                     }
                 } catch (e: Exception) {
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "Error loading keys: ${e.message}", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.admin_error_loading_keys_format, e.message), Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -349,7 +349,7 @@ fun AdminApiDashboardScreen(
                                         }
                                     } catch (e: Exception) {
                                         withContext(Dispatchers.Main) {
-                                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
                                         }
                                     }
                                 }
@@ -365,7 +365,7 @@ fun AdminApiDashboardScreen(
                                         }
                                     } catch (e: Exception) {
                                         withContext(Dispatchers.Main) {
-                                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
                                         }
                                     }
                                 }
@@ -380,7 +380,7 @@ fun AdminApiDashboardScreen(
                                         }
                                     } catch (e: Exception) {
                                         withContext(Dispatchers.Main) {
-                                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
                                         }
                                     }
                                 }
@@ -396,7 +396,7 @@ fun AdminApiDashboardScreen(
                                         }
                                     } catch (e: Exception) {
                                         withContext(Dispatchers.Main) {
-                                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
                                         }
                                     }
                                 }
@@ -422,7 +422,7 @@ fun AdminApiDashboardScreen(
                                         }
                                     } catch (e: Exception) {
                                         withContext(Dispatchers.Main) {
-                                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
                                         }
                                     }
                                 }
@@ -437,7 +437,7 @@ fun AdminApiDashboardScreen(
                                         }
                                     } catch (e: Exception) {
                                         withContext(Dispatchers.Main) {
-                                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
                                         }
                                     }
                                 }
@@ -467,7 +467,7 @@ fun AdminApiDashboardScreen(
                                         }
                                     } catch (e: Exception) {
                                         withContext(Dispatchers.Main) {
-                                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
                                         }
                                     }
                                 }
@@ -587,7 +587,7 @@ fun AdminApiDashboardScreen(
                         }
                     } catch (e: Exception) {
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
                         }
                     }
                 }
@@ -603,7 +603,7 @@ fun AdminApiDashboardScreen(
                         }
                     } catch (e: Exception) {
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
                         }
                     }
                 }
@@ -619,7 +619,7 @@ fun AdminApiDashboardScreen(
                         }
                     } catch (e: Exception) {
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
                         }
                     }
                 }
@@ -635,7 +635,7 @@ fun AdminApiDashboardScreen(
                         }
                     } catch (e: Exception) {
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
                         }
                     }
                 }
@@ -651,7 +651,7 @@ fun AdminApiDashboardScreen(
                         }
                     } catch (e: Exception) {
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
                         }
                     }
                 }
@@ -667,7 +667,7 @@ fun AdminApiDashboardScreen(
                         }
                     } catch (e: Exception) {
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
                         }
                     }
                 }
@@ -690,7 +690,7 @@ fun AdminApiDashboardScreen(
                         }
                     } catch (e: Exception) {
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
                         }
                     }
                 }
@@ -706,7 +706,7 @@ fun AdminApiDashboardScreen(
                         }
                     } catch (e: Exception) {
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
                         }
                     }
                 }
@@ -722,7 +722,7 @@ fun AdminApiDashboardScreen(
                         }
                     } catch (e: Exception) {
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
                         }
                     }
                 }
@@ -738,7 +738,7 @@ fun AdminApiDashboardScreen(
                         }
                     } catch (e: Exception) {
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
                         }
                     }
                 }
@@ -754,7 +754,7 @@ fun AdminApiDashboardScreen(
                         }
                     } catch (e: Exception) {
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
                         }
                     }
                 }
@@ -775,7 +775,7 @@ fun AdminApiDashboardScreen(
                         }
                     } catch (e: Exception) {
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
                         }
                     }
                 }
@@ -806,7 +806,7 @@ fun AdminApiDashboardScreen(
                         }
                     } catch (e: Exception) {
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
                         }
                     }
                 }
@@ -846,7 +846,7 @@ fun AdminApiDashboardScreen(
                                     }
                                 } catch (e: Exception) {
                                     withContext(Dispatchers.Main) {
-                                        Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
                                     }
                                 }
                             }

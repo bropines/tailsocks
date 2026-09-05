@@ -121,6 +121,42 @@ fun generateRandomString(length: Int = 12): String {
     return (1..length).map { allowedChars.random() }.joinToString("")
 }
 
+/** Flattens a SharedPreferences snapshot into the JSON object an export carries. */
+private fun prefsToJson(values: Map<String, *>): JsonObject = buildJsonObject {
+    for ((k, v) in values) {
+        when (v) {
+            is String -> put(k, v)
+            is Boolean -> put(k, v)
+            is Int -> put(k, v)
+            is Long -> put(k, v)
+            is Float -> put(k, v)
+            is Set<*> -> putJsonArray(k) { v.forEach { add(it.toString()) } }
+            null -> {}
+            else -> put(k, v.toString())
+        }
+    }
+}
+
+/**
+ * Reads back the String/Boolean entries of an exported preference object.
+ *
+ * Everything else is skipped: the global preference file only ever holds those
+ * two types, and a value of any other shape in the file is not something this
+ * build wrote.
+ */
+private fun jsonToPrefValues(obj: JsonObject): Map<String, Any> {
+    val values = mutableMapOf<String, Any>()
+    obj.forEach { (key, element) ->
+        val prim = element as? JsonPrimitive ?: return@forEach
+        when {
+            // A quoted value is a string even if it reads like a bool.
+            prim.isString -> values[key] = prim.content
+            prim.booleanOrNull != null -> values[key] = prim.booleanOrNull!!
+        }
+    }
+    return values
+}
+
 /**
  * Cryptographically random token for the automation secret. URL-safe alphabet
  * without the look-alike characters (0/O, 1/l/I) so it survives being retyped.
@@ -282,25 +318,15 @@ fun SettingsScreen(
         if (uri != null) {
             scope.launch(Dispatchers.IO) {
                 try {
-                    val allPrefs = profilePrefs.all
-                    val settingsObj = kotlinx.serialization.json.buildJsonObject {
-                        for ((k, v) in allPrefs) {
-                            when (v) {
-                                is String -> put(k, v)
-                                is Boolean -> put(k, v)
-                                is Int -> put(k, v)
-                                is Long -> put(k, v)
-                                is Float -> put(k, v)
-                                is Set<*> -> putJsonArray(k) { v.forEach { add(it.toString()) } }
-                                null -> {}
-                                else -> put(k, v.toString())
-                            }
-                        }
-                    }
                     val backupObj = kotlinx.serialization.json.buildJsonObject {
                         put("manifest", AppJson.encodeToJsonElement(BackupFormat.current(context)))
                         put("account", AppJson.encodeToJsonElement(activeAccount))
-                        put("settings", settingsObj)
+                        put("settings", prefsToJson(profilePrefs.all))
+                        // The app-wide settings (proxies, DPI bypass, TUN, Root
+                        // Mode, recovery, appearance) used to survive only in the
+                        // encrypted full backup. Secrets and device-bound entries
+                        // stay out — see GlobalSettings.EXPORTED_KEYS.
+                        put("global", prefsToJson(GlobalSettings.exportable(context)))
                     }
                     context.contentResolver.openOutputStream(uri)?.use { it.write(backupObj.toString().toByteArray()) }
                     withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.settings_backup_saved), Toast.LENGTH_SHORT).show() }
@@ -360,6 +386,16 @@ fun SettingsScreen(
                                 }
                             }
                             editor.apply()
+
+                            // Optional section: files written before app-wide
+                            // settings were exported simply have no `global`, and
+                            // restore exactly as they did. Keys the file omits keep
+                            // their current value; keys outside the allow-list are
+                            // dropped by GlobalSettings.importValues.
+                            (backupData["global"] as? JsonObject)?.let { globals ->
+                                GlobalSettings.importValues(context, jsonToPrefValues(globals))
+                            }
+
                             withContext(Dispatchers.Main) {
                                 Toast.makeText(context, context.getString(R.string.settings_restored_success), Toast.LENGTH_LONG).show()
                             }
@@ -1353,13 +1389,13 @@ fun SettingsScreen(
                                                             GlobalSettings.setRootTunEnabled(context, true)
                                                             rootTunEnabled = true
                                                         }
-                                                        Toast.makeText(context, "Root Mode enabled", Toast.LENGTH_SHORT).show()
+                                                        Toast.makeText(context, context.getString(R.string.settings_root_mode_enabled_toast), Toast.LENGTH_SHORT).show()
                                                         if (Appctr.isRunning()) {
                                                             val intent = Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" }
                                                             context.startService(intent)
                                                         }
                                                     } else {
-                                                        Toast.makeText(context, "Root access (su) not granted or unavailable", Toast.LENGTH_LONG).show()
+                                                        Toast.makeText(context, context.getString(R.string.settings_root_access_unavailable), Toast.LENGTH_LONG).show()
                                                     }
                                                 }
                                             },
@@ -1416,7 +1452,7 @@ fun SettingsScreen(
                                         GlobalSettings.setRootModeEnabled(context, false)
                                         val hadScript = serviceScriptInstalled
                                         serviceScriptInstalled = false
-                                        Toast.makeText(context, "Root Mode disabled", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.settings_root_mode_disabled_toast), Toast.LENGTH_SHORT).show()
                                         scope.launch(Dispatchers.IO) {
                                             if (hadScript) RootUtils.setServiceScriptInstalled(context, false)
                                             // Take the system rules and the daemon down here rather
@@ -1485,9 +1521,9 @@ fun SettingsScreen(
                                             isRootBusy = false
                                             if (success) {
                                                 serviceScriptInstalled = install
-                                                Toast.makeText(context, if (install) "Service script installed to service.d" else "Service script removed", Toast.LENGTH_SHORT).show()
+                                                Toast.makeText(context, context.getString(if (install) R.string.settings_root_service_script_installed else R.string.settings_root_service_script_removed), Toast.LENGTH_SHORT).show()
                                             } else {
-                                                Toast.makeText(context, "Failed to manage service.d script", Toast.LENGTH_SHORT).show()
+                                                Toast.makeText(context, context.getString(R.string.settings_root_service_script_failed), Toast.LENGTH_SHORT).show()
                                             }
                                         }
                                     }
@@ -1551,9 +1587,9 @@ fun SettingsScreen(
                                             isRootBusy = false
                                             if (success) {
                                                 cliInstalled = install
-                                                Toast.makeText(context, if (install) "CLI wrapper installed to /system/bin/tailscale" else "CLI wrapper removed", Toast.LENGTH_SHORT).show()
+                                                Toast.makeText(context, context.getString(if (install) R.string.settings_root_cli_installed else R.string.settings_root_cli_removed), Toast.LENGTH_SHORT).show()
                                             } else {
-                                                Toast.makeText(context, "Failed to manage CLI wrapper", Toast.LENGTH_SHORT).show()
+                                                Toast.makeText(context, context.getString(R.string.settings_root_cli_failed), Toast.LENGTH_SHORT).show()
                                             }
                                         }
                                     }
@@ -1632,9 +1668,9 @@ fun SettingsScreen(
                                     )
 
                                     Spacer(Modifier.height(8.dp))
-                                    Text("Daemon Status:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                                    Text(stringResource(R.string.settings_root_daemon_status_label), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                                     Text(
-                                        if (daemonAlive) "Running (socket responding)" else "Not running / socket not responding",
+                                        stringResource(if (daemonAlive) R.string.settings_root_daemon_status_running else R.string.settings_root_daemon_status_stopped),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = if (daemonAlive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                                     )
@@ -2087,15 +2123,15 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
                                         user = parsed["user"] ?: ""
                                         pass = parsed["pass"] ?: ""
                                         importUri = ""
-                                        Toast.makeText(context, "Parsed successfully!", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.settings_proxy_parsed_success), Toast.LENGTH_SHORT).show()
                                     } else {
                                         Toast.makeText(context, context.getString(R.string.settings_proxy_import_error), Toast.LENGTH_SHORT).show()
                                     }
                                 } else {
-                                    Toast.makeText(context, "Clipboard and field are empty", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.getString(R.string.settings_proxy_clipboard_empty), Toast.LENGTH_SHORT).show()
                                 }
                             }) {
-                                Icon(Icons.Default.ContentPaste, contentDescription = "Paste and parse")
+                                Icon(Icons.Default.ContentPaste, contentDescription = stringResource(R.string.settings_proxy_cd_paste_parse))
                             }
                         }
                     )
@@ -2118,7 +2154,7 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
                                     Toast.makeText(context, context.getString(R.string.settings_proxy_preset_fill_fields_error), Toast.LENGTH_SHORT).show()
                                 }
                             },
-                            label = { Text("+ Save") },
+                            label = { Text(stringResource(R.string.settings_proxy_preset_add_chip)) },
                             leadingIcon = { Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp)) }
                         )
 
@@ -2729,7 +2765,7 @@ private fun CopyablePathItem(
             .fillMaxWidth()
             .clickable {
                 clipboard.setPrimaryClip(ClipData.newPlainText(label, path))
-                Toast.makeText(context, "$label copied to clipboard", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.copied_to_clipboard, label), Toast.LENGTH_SHORT).show()
             }
             .padding(vertical = 2.dp)
     ) {
@@ -2741,7 +2777,7 @@ private fun CopyablePathItem(
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             Icon(
                 Icons.Default.ContentCopy,
-                contentDescription = "Copy $label",
+                contentDescription = stringResource(R.string.settings_copy_cd_format, label),
                 tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
                 modifier = Modifier.size(14.dp)
             )

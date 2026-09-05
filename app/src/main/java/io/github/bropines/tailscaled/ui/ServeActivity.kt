@@ -670,7 +670,7 @@ fun ServeRuleCard(title: String, subtitle: String, fullUrl: String, protocol: St
                         if (isDisabled) {
                             Spacer(Modifier.width(8.dp))
                             Surface(color = Color.Gray, shape = MaterialTheme.shapes.extraSmall) {
-                                Text("OFF", color = Color.White, fontSize = 8.sp, modifier = Modifier.padding(horizontal = 4.dp))
+                                Text(stringResource(R.string.serve_badge_off), color = Color.White, fontSize = 8.sp, modifier = Modifier.padding(horizontal = 4.dp))
                             }
                         } else if (healthStatus != null) {
                             Spacer(Modifier.width(8.dp))

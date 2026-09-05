@@ -153,7 +153,37 @@ attempts it gives up and says so in the log.
   install) is logged under the **ROOT** category, which has its own tab in the
   **Logs** screen. Failures land there instead of being silently discarded.
 
-### 6. Stop behaviour: Terminate Root Daemon on Stop
+### 6. SELinux: the on-demand `connectto` rule
+
+The daemon is launched from a root shell, so it runs in the root solution's
+domain (`magisk`, `su`, whatever the installed manager uses), while the app
+connects to `tailscaled.sock` from its own app domain. Stock policy grants no
+`connectto` on the daemon's `unix_stream_socket` across that pair, and on an
+Enforcing device the connect fails with `EACCES` — which looks exactly like a
+dead daemon.
+
+Up to 3.6 the app and the boot script both ran a fixed
+`magiskpolicy --live "allow untrusted_app magisk unix_stream_socket connectto"`
+on every start and every boot. That granted the access to *every* untrusted app
+on the device, and named domains that are wrong on most of them (`untrusted_app`
+is not what an app with a modern `targetSdk` runs as; `magisk` is not KernelSU's
+or APatch's domain), so it often did nothing but widen the policy.
+
+Now: nothing is patched at boot, and `RootUtils.allowSocketConnect` runs when
+the app attaches to (or waits for) the daemon socket. It connects first; only if
+that connect is refused with a permission error does it read the two real
+domains — the app's from `/proc/self/attr/current`, the daemon's from
+`/proc/<pid>/attr/current` of the process matched by `--socket=` — and apply
+`allow <app domain> <daemon domain> unix_stream_socket connectto` through
+`magiskpolicy`, `ksud sepolicy patch` or `supolicy`. The rule is live-only and
+gone after a reboot. Both the injection and a failure to inject are written to
+the **ROOT** log tab; if no policy tool is available, Root Mode fails to reach
+the daemon exactly as it would have without the rule.
+
+`tools/root-debug.sh` prints `getenforce`, the shell and daemon contexts and the
+last AVC denials, which is what a bug report about this needs.
+
+### 7. Stop behaviour: Terminate Root Daemon on Stop
 
 **Terminate Root Daemon on Stop** (Root Mode tab, on by default) sends
 SIGTERM/SIGKILL to the root `libtailscale.so` process when you press Stop. Only

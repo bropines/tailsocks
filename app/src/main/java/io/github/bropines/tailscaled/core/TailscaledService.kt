@@ -93,9 +93,12 @@ class TailscaledService : Service() {
     private val TAG = "TailscaledService"
     private val notificationManager by lazy { getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager }
     private var wakeLock: PowerManager.WakeLock? = null
-    private var byedpiProxyAddress: Pair<String, Int>? = null
-    private var lastStartedFlags: String? = null
-    private var lastStartedIpv6Disabled: Boolean? = null
+    /** ByeDPI run state: written from buildStartOptions() on the start and the
+     *  APPLY_SETTINGS threads, from shutdownDaemon() on the teardown thread and
+     *  from onDestroy() on main, so every reader needs the latest value. */
+    @Volatile private var byedpiProxyAddress: Pair<String, Int>? = null
+    @Volatile private var lastStartedFlags: String? = null
+    @Volatile private var lastStartedIpv6Disabled: Boolean? = null
     @Volatile private var rootRoutingApplied = false
     /** Consecutive non-Running ticks; routing is only torn down after a couple of
      *  them so a brief state flap does not thrash iptables through `su`. */
@@ -250,9 +253,10 @@ class TailscaledService : Service() {
         }
     }
 
-    /** Ticks spent without reaching a connected state while the user wants one. */
-    private var unhealthyTicks = 0
-    private var autoRestartsDone = 0
+    /** Ticks spent without reaching a connected state while the user wants one.
+     *  Touched from a fresh refresh Thread per tick, like the sibling counters. */
+    @Volatile private var unhealthyTicks = 0
+    @Volatile private var autoRestartsDone = 0
     @Volatile private var autoRestartInFlight = false
 
     /**
@@ -638,7 +642,12 @@ class TailscaledService : Service() {
                     val socketFile = java.io.File(options.socketPath)
                     // A socket file left behind by a killed daemon still exists, so
                     // liveness is decided by an actual connect before we query it.
-                    val daemonAlive = RootUtils.isDaemonAlive(options.socketPath)
+                    // allowSocketConnect is isDaemonAlive plus one repair: if the
+                    // connect is refused by SELinux rather than by a missing
+                    // daemon, it adds the one allow rule and retries. Without it
+                    // a healthy daemon started by the boot script looks dead and
+                    // gets killed and restarted below.
+                    val daemonAlive = RootUtils.allowSocketConnect(options.socketPath)
                     val statusJson = if (daemonAlive) {
                         kotlinx.coroutines.runBlocking { LocalApiClient { options.socketPath }.getStatus().getOrNull() }
                     } else null
@@ -832,8 +841,10 @@ class TailscaledService : Service() {
             enableWebUI = profilePrefs.getBoolean("enable_webui", false)
             webUIAddr   = profilePrefs.getString("webui_addr", "127.0.0.1:8080")
             
-            taildropDir = "$stateDir/taildrop"
-            java.io.File(taildropDir).mkdirs()
+            // Not under stateDir: the FileProvider has to be able to hand a
+            // received file to another app, and that root must not also cover
+            // the node keys. See TaildropPaths / res/xml/file_paths.xml.
+            taildropDir = TaildropPaths.ensureDir(this@TailscaledService, activeAccount.id).absolutePath
             execPath     = "${applicationInfo.nativeLibraryDir}/libtailscale.so"
             socketPath   = "${filesDir.absolutePath}/tailscaled.sock"
             statePath    = stateDir

@@ -30,6 +30,10 @@ object ByeDpiProxy {
     @Volatile
     private var stopLogReader = false
 
+    /** Written under the monitor in start()/stop() and from the proxy thread when
+     *  it exits, but read without it from Compose composition on main
+     *  (GlobalSettings.getControlProxyUrl, SettingsActivity). */
+    @Volatile
     var activeAddress: Pair<String, Int>? = null
         private set
 

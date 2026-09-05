@@ -138,7 +138,7 @@ fun launchApkInstaller(context: Context, apkFile: java.io.File) {
             session.commit(pendingIntent.intentSender)
             session.close()
         } catch (fallbackEx: Exception) {
-            Toast.makeText(context, "Installer failed: ${fallbackEx.message}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.main_installer_failed_format, fallbackEx.message), Toast.LENGTH_SHORT).show()
         }
     }
 }
@@ -300,30 +300,37 @@ class MainActivity : ComponentActivity() {
                 val savedUpdateTime = prefs.getLong("last_update_time", 0)
 
                 if (savedUpdateTime != currentUpdateTime) {
-                    // In Root Mode the daemon is owned by su and is restarted through
-                    // RootUtils together with its routing; killing it from here would
-                    // strand the iptables rules it installed.
-                    if (!GlobalSettings.isRootModeEnabled(this@MainActivity)) {
+                    // Sweep a daemon the installer orphaned. Two exclusions:
+                    // in Root Mode the daemon is owned by su and is restarted
+                    // through RootUtils together with its routing (killing it
+                    // here would strand the iptables rules it installed), and a
+                    // daemon that belongs to a service which is already running
+                    // must be left alone — since the update-resume in
+                    // BootReceiver, opening the app right after an update would
+                    // otherwise kill the connection that had just come back.
+                    if (!GlobalSettings.isRootModeEnabled(this@MainActivity) &&
+                        !ProxyState.isActualRunning(this@MainActivity)
+                    ) {
                         Runtime.getRuntime().exec("killall tailscaled").waitFor()
                     }
                     prefs.edit().putLong("last_update_time", currentUpdateTime).apply()
                 }
             } catch (e: Exception) {}
 
-            val forceBg = GlobalSettings.getBoolean(this@MainActivity, "force_bg", false)
-
             if (ProxyState.isUserLetRunning(this@MainActivity) && !ProxyState.isActualRunning(this@MainActivity)) {
+                // The toggle is on but nothing is running: an update, an OEM task
+                // killer or a refused background start took it down, never the
+                // user — a manual stop clears desired_running before the teardown.
+                // Start it from here: this runs with the activity in the
+                // foreground, which is always an allowed foreground-service start,
+                // and the daemon resumes its saved session without an auth key.
+                // "Keep running in background" is not consulted; it decides only
+                // whether we also come back after a reboot (BootReceiver), and
+                // clearing the toggle instead used to leave the app claiming to be
+                // connected while silently giving up.
                 withContext(Dispatchers.Main) {
-                    if (forceBg) {
-                        // The user asked to keep running and the daemon is gone —
-                        // revive it. The daemon resumes its saved session, so no
-                        // auth key is needed here. The previous authkey gate read
-                        // from the wrong prefs file and so always gave up instead.
-                        val intent = Intent(this@MainActivity, TailscaledService::class.java).apply { action = "START_ACTION" }
-                        ContextCompat.startForegroundService(this@MainActivity, intent)
-                    } else {
-                        ProxyState.setUserState(this@MainActivity, false)
-                    }
+                    val intent = Intent(this@MainActivity, TailscaledService::class.java).apply { action = "START_ACTION" }
+                    ContextCompat.startForegroundService(this@MainActivity, intent)
                 }
             }
         }
@@ -628,7 +635,7 @@ fun MainScreen(
                         value = newAccountServer,
                         onValueChange = { newAccountServer = it },
                         label = { Text(stringResource(R.string.settings_login_server_title)) },
-                        placeholder = { Text("https://controlplane.tailscale.com") },
+                        placeholder = { Text(stringResource(R.string.settings_login_server_placeholder)) },
                         singleLine = true
                     )
                 }
@@ -2056,12 +2063,12 @@ fun LoggedOutCard(
                                 val startIntent = Intent(context, TailscaledService::class.java).apply { action = "START_ACTION" }
                                 ContextCompat.startForegroundService(context, startIntent)
                             }, 500)
-                            Toast.makeText(context, "Key saved. Restarting service...", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.main_key_saved_restarting), Toast.LENGTH_SHORT).show()
                         },
                         modifier = Modifier.fillMaxWidth().height(40.dp),
                         shape = RoundedCornerShape(10.dp)
                     ) {
-                        Text("Submit Key", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.main_submit_key), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -2078,7 +2085,7 @@ fun LoggedOutCard(
                 ) {
                     Icon(Icons.Default.Settings, null, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Proxy Setup", fontSize = 11.sp)
+                    Text(stringResource(R.string.main_proxy_setup), fontSize = 11.sp)
                 }
 
                 Button(

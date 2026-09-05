@@ -376,6 +376,74 @@ object GlobalSettings {
     /** Show the changelog dialog once after the app has been updated. */
     fun isShowChangelogAfterUpdate(context: Context): Boolean = getBoolean(context, "show_changelog_after_update", true)
     fun setShowChangelogAfterUpdate(context: Context, enabled: Boolean) = setBoolean(context, "show_changelog_after_update", enabled)
+
+    // -------------------------------------------------------------------------
+    // Settings export
+    // -------------------------------------------------------------------------
+
+    /**
+     * The app-wide settings a plain-text profile export may carry.
+     *
+     * An allow-list rather than a deny-list: a key added later is left out of
+     * backups until someone decides it belongs there, which is the safe default
+     * for a file the user hands around. Deliberately absent:
+     *
+     *  - `automation_secret` — a shared secret, and the reason the whole
+     *    `tailsocks_global` file is excluded from cloud backup and device
+     *    transfer (res/xml/data_extraction_rules.xml). The Admin API token
+     *    (`admin_api_keys`) and the node keys (`files/states`) live outside this
+     *    preference file and are likewise never exported.
+     *  - `root_routing_installed` — a marker for rules installed on *this*
+     *    device right now; restoring it elsewhere would strand the cleanup.
+     *  - `taildrop_root_uri` — a SAF grant bound to this device and install.
+     *  - `last_seen_changelog_version` — install-local bookkeeping.
+     *  - `app_locale` — applied at attachBaseContext, so a restored value only
+     *    takes effect after a restart and reads as a glitch until then.
+     */
+    val EXPORTED_KEYS: Set<String> = setOf(
+        // Local listeners
+        "socks5", "socks5_user", "socks5_pass", "httpproxy",
+        "dns_proxy", "dns_fallbacks", "doh_url", "lan_access_enabled",
+        // Daemon behaviour
+        "accept_routes", "accept_dns", "extra_args_raw", "detailed_logs", "auto_refresh",
+        // Control-plane proxy and DPI bypass
+        "cp_enabled", "cp_type", "cp_host", "cp_port", "cp_user", "cp_pass", "cp_presets",
+        "cp_byedpi_enabled", "cp_byedpi_flags", "cp_byedpi_ipv6_disabled",
+        // Lifecycle and recovery
+        "force_bg", "auto_start", "auto_reconnect", "auto_reconnect_attempts",
+        "service_watchdog", "automation_enabled",
+        // TUN mode
+        "tun_mode_enabled", "tun_full_tunnel", "tun_excluded_apps", "tun_excluded_cidrs",
+        "tun_address", "tun_ipv6_enabled",
+        // Root mode
+        "root_mode_enabled", "root_tun_enabled", "root_kill_daemon_on_stop", "root_dns_redirect",
+        // Appearance
+        "app_theme", "theme_preset", "dynamic_color", "amoled_mode", "show_changelog_after_update"
+    )
+
+    /** The exportable subset of the global preferences, as stored. */
+    fun exportable(context: Context): Map<String, Any?> =
+        getPrefs(context).all.filterKeys { it in EXPORTED_KEYS }
+
+    /**
+     * Applies global settings read back from an export.
+     *
+     * Only allow-listed keys are written, so a hand-edited file cannot inject an
+     * automation secret or fake the routing marker, and a key the file does not
+     * mention keeps its current value. This preference file only ever holds
+     * Strings and Booleans; anything else in the file is ignored.
+     */
+    fun importValues(context: Context, values: Map<String, Any>) {
+        val editor = getPrefs(context).edit()
+        for ((key, value) in values) {
+            if (key !in EXPORTED_KEYS) continue
+            when (value) {
+                is String -> editor.putString(key, value)
+                is Boolean -> editor.putBoolean(key, value)
+            }
+        }
+        editor.apply()
+    }
 }
 
 

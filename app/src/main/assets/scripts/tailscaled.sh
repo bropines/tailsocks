@@ -107,7 +107,13 @@ echo "TailSocks: daemon start" >> "$LOG_FILE"
 # Run daemon with resolved STATE_DIR (native safesocket patch forces 0666 on tailscaled.sock)
 nohup "$DAEMON_BIN" --statedir="$STATE_DIR" --socket="$SOCKET_PATH" --tun=tailscale0 >> "$LOG_FILE" 2>&1 &
 chmod 666 "$LOG_FILE" 2>/dev/null || true
-magiskpolicy --live "allow untrusted_app magisk unix_stream_socket connectto" 2>/dev/null || supolicy --live "allow untrusted_app magisk unix_stream_socket connectto" 2>/dev/null || true
+# No SELinux rule is patched in here. Nothing but root talks to the socket at
+# boot (the CLI wrapper runs in the same domain as the daemon), and the fixed
+# "allow untrusted_app magisk unix_stream_socket connectto" this line used to
+# apply changed the policy for every untrusted app on the device, at every boot,
+# while naming domains that are wrong on most of them. The app injects the rule
+# for the two real domains if — and only if — its own connect is denied
+# (RootUtils.allowSocketConnect).
 # Wait for daemon socket then apply table 1099 routing safely
 for i in $(seq 1 30); do
     if [ -S "$SOCKET_PATH" ] || [ -e "$SOCKET_PATH" ]; then

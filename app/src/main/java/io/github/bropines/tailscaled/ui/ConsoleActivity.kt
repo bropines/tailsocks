@@ -53,11 +53,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
-// The persisted scrollback is reloaded into a single String and re-appended
-// every session; without a cap the file (and the in-memory buffer read back
-// from it) grew without bound. Keep only the tail when persisting.
+// The scrollback lives in a single String that is appended to on every command
+// and re-loaded from disk on every open; without a cap it grew without bound
+// both on disk and in memory. Keep only the tail — on load, on every append and
+// when persisting.
 private const val MAX_HISTORY_LINES = 4000
 private const val MAX_HISTORY_BYTES = 200 * 1024
+
+/** How many entered commands the up/down history keeps. */
+private const val MAX_CMD_HISTORY = 200
 
 private fun capScrollback(text: String): String {
     var capped = text
@@ -132,7 +136,12 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
     var newPresetCmd by remember { mutableStateOf("") }
 
     fun saveCommandHistory() {
-        try { cmdHistoryFile.writeText(commandHistory.joinToString("\n")) } catch (e: Exception) {}
+        // Snapshot on the caller thread (the list is Compose state), write off it:
+        // this is called straight from the Run button and the IME Done action.
+        val snapshot = commandHistory.joinToString("\n")
+        coroutineScope.launch(Dispatchers.IO) {
+            try { cmdHistoryFile.writeText(snapshot) } catch (e: Exception) {}
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -144,10 +153,11 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
             out to cmds
         }
         if (savedOutput != null) {
-            outputText = savedOutput
+            // A file written by a build without the cap can be arbitrarily large.
+            outputText = capScrollback(savedOutput)
             verticalScrollState.animateScrollTo(verticalScrollState.maxValue)
         }
-        if (savedCmds != null) commandHistory.addAll(savedCmds)
+        if (savedCmds != null) commandHistory.addAll(savedCmds.takeLast(MAX_CMD_HISTORY))
         if (initialCmd.isNotEmpty()) currentCommand = initialCmd
         focusRequester.requestFocus()
     }
@@ -170,18 +180,17 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
         if (cmd.isBlank()) return
         if (commandHistory.isEmpty() || commandHistory.last() != cmd) {
             commandHistory.add(cmd)
+            while (commandHistory.size > MAX_CMD_HISTORY) commandHistory.removeAt(0)
             saveCommandHistory()
         }
         historyPointer = -1
         isExecuting = true
-        
+
         val isLocalAPI = cmd.startsWith("/")
-        if (isLocalAPI) {
-            outputText += "\n$ LocalAPI $cmd"
-        } else {
-            outputText += "\n$ tailscale $cmd"
-        }
-        
+        outputText = capScrollback(
+            outputText + if (isLocalAPI) "\n$ LocalAPI $cmd" else "\n$ tailscale $cmd"
+        )
+
         coroutineScope.launch(Dispatchers.IO) {
             val result = try { 
                 if (isLocalAPI) {
@@ -197,7 +206,7 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
             } catch (e: Exception) { "Error: ${e.message}" }
             
             withContext(Dispatchers.Main) {
-                outputText += "\n$result\n$ "
+                outputText = capScrollback(outputText + "\n$result\n$ ")
                 isExecuting = false
                 currentCommand = ""
                 verticalScrollState.animateScrollTo(verticalScrollState.maxValue)
@@ -231,7 +240,9 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
                         }
                         IconButton(onClick = {
                             outputText = "$ "
-                            if (historyFile.exists()) historyFile.delete()
+                            coroutineScope.launch(Dispatchers.IO) {
+                                try { if (historyFile.exists()) historyFile.delete() } catch (e: Exception) {}
+                            }
                         }) { Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.console_clear_desc), tint = MaterialTheme.colorScheme.error) }
                     }
                 )

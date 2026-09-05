@@ -84,7 +84,7 @@ fun FilesScreen(onBack: () -> Unit) {
     val taildropPagerState = rememberPagerState(pageCount = { 3 })
 
     val activeAccount = remember { AccountManager.getActiveAccount(context) }
-    val taildropDir = remember(activeAccount.id) { File(context.filesDir, "states/${activeAccount.id}/taildrop").apply { if (!exists()) mkdirs() } }
+    val taildropDir = remember(activeAccount.id) { TaildropPaths.ensureDir(context, activeAccount.id) }
 
     var files by remember { mutableStateOf<List<TaildropFile>>(emptyList()) }
     var sentFiles by remember { mutableStateOf<List<SentFileEntry>>(emptyList()) }
@@ -200,7 +200,7 @@ fun FilesScreen(onBack: () -> Unit) {
                     TopAppBar(
                         title = {
                             Column {
-                                Text("TailFiles Hub")
+                                Text(stringResource(R.string.files_hub_title))
                                 Text(activeAccount.name, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                             }
                         },

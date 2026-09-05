@@ -192,8 +192,7 @@ class TailsocksFileProvider : DocumentsProvider() {
         if (parentId == "root") {
             val accounts = AccountManager.getAccounts(context)
             for (account in accounts) {
-                val accountDir = File(context.filesDir, "states/${account.id}/taildrop")
-                if (!accountDir.exists()) accountDir.mkdirs()
+                val accountDir = TaildropPaths.ensureDir(context, account.id)
                 
                 result.newRow().apply {
                     add(DocumentsContract.Document.COLUMN_DOCUMENT_ID, "account:${account.id}")
@@ -206,7 +205,10 @@ class TailsocksFileProvider : DocumentsProvider() {
             }
         } else if (parentId.startsWith("account:")) {
             val accId = parentId.substring("account:".length)
-            val dir = File(context.filesDir, "states/$accId/taildrop")
+            // The id arrives from the SAF client, so it is checked before it
+            // becomes a path component.
+            if (!TaildropPaths.isSafeAccountId(accId)) return result
+            val dir = TaildropPaths.ensureDir(context, accId)
             dir.listFiles()?.forEach { file ->
                 if (!file.name.startsWith(".")) {
                     result.newRow().apply {
@@ -541,12 +543,10 @@ class TailsocksFileProvider : DocumentsProvider() {
         }
         if (docId.startsWith("account:")) {
             val accId = docId.substring("account:".length)
-            if (accId.contains("/") || accId.contains("..")) {
+            if (!TaildropPaths.isSafeAccountId(accId)) {
                 throw FileNotFoundException("Invalid account ID")
             }
-            val dir = File(context.filesDir, "states/$accId/taildrop")
-            if (!dir.exists()) dir.mkdirs()
-            return dir
+            return TaildropPaths.ensureDir(context, accId)
         }
         if (docId.startsWith("file:")) {
             val path = docId.substring("file:".length)
@@ -554,10 +554,11 @@ class TailsocksFileProvider : DocumentsProvider() {
             if (parts.size == 2) {
                 val accId = parts[0]
                 val fileName = parts[1]
-                if (accId.contains("/") || accId.contains("..") || fileName.contains("/") || fileName.contains("..")) {
+                if (!TaildropPaths.isSafeAccountId(accId) || fileName.contains("/") || fileName.contains("..")) {
                     throw FileNotFoundException("Invalid file path")
                 }
-                return File(context.filesDir, "states/$accId/taildrop/$fileName")
+                TaildropPaths.migrate(context, accId)
+                return File(TaildropPaths.dir(context, accId), fileName)
             }
         }
         throw FileNotFoundException("Document ID not found: $docId")
@@ -666,6 +667,12 @@ class TaildriveClient(private val context: Context, private val accountId: Strin
         return Proxy(Proxy.Type.SOCKS, InetSocketAddress(host, port))
     }
 
+    /**
+     * The only cleartext destination the app itself talks to; it is the single
+     * exception in res/xml/network_security_config.xml. Changing the host here
+     * without changing that file makes every request fail with
+     * "Cleartext HTTP traffic ... not permitted".
+     */
     private fun getUrl(path: String): URL {
         val cleanPath = if (path.startsWith("/")) path else "/$path"
         val encodedPath = cleanPath.split("/").joinToString("/") { 

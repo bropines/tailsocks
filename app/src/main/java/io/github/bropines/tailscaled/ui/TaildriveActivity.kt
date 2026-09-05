@@ -193,7 +193,7 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
             title = { Text(stringResource(R.string.taildrive_cd_add)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Choose how to add folder:", style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.taildrive_add_choose), style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(4.dp))
                     OutlinedCard(
                         onClick = {
@@ -209,8 +209,8 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
                         ) {
                             Icon(Icons.Default.FolderOpen, null, tint = MaterialTheme.colorScheme.primary)
                             Column {
-                                Text("System Folder Picker", fontWeight = FontWeight.Bold)
-                                Text("Browse and select folder visually", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(stringResource(R.string.taildrive_add_picker_title), fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.taildrive_add_picker_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -237,8 +237,8 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
                         ) {
                             Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.primary)
                             Column {
-                                Text("Enter Path Manually", fontWeight = FontWeight.Bold)
-                                Text("Type path (e.g. /storage/emulated/0/Download)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(stringResource(R.string.taildrive_add_manual_title), fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.taildrive_add_manual_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -349,7 +349,7 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
                         Column(modifier = Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Icon(Icons.Default.SdCard, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
-                                Text("Share Full Storage", fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.taildrive_share_full_storage), fontWeight = FontWeight.Bold)
                             }
                             Spacer(Modifier.height(4.dp))
                             Text(

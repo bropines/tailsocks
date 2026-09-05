@@ -74,7 +74,7 @@ Optionally, TailSocks supports a **transparent TUN VPN mode** powered by the nat
 | **Tailscale Admin API** | Full `api.tailscale.com/v2` integration — manage devices, DNS, users, services, webhooks, ACLs, and audit logs. |
 | **Biometric Lock** | Admin Console protected by fingerprint/face authentication. |
 | **Auth Keys** | Generate, view, and revoke authentication keys from inside the app. |
-| **Data Portability** | Full encrypted app state backups (ZIP) and individual account exports (JSON). Backups record the app version and format that produced them; an older app refuses to restore an archive made by a newer version instead of corrupting the profile (backups from older versions still restore). |
+| **Data Portability** | Full encrypted app state backups (ZIP) and individual account exports (JSON, including the app-wide settings but never the automation secret, the API token or the node keys). Backups record the app version and format that produced them; an older app refuses to restore an archive made by a newer version instead of corrupting the profile (backups from older versions still restore). |
 | **Automation** | Token-protected Broadcast Intents for Tasker/MacroDroid/ADB and 14 AppFunctions for on-device assistants (Gemini, Android 16+). See the [Automation guide](docs/AUTOMATION.md). |
 
 ### User Experience
