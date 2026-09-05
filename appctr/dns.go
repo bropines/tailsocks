@@ -1,7 +1,7 @@
 package appctr
 
 // dns.go — Pure DNS resolution: MagicDNS cache lookup, split-DNS forwarding,
-// SOCKS5/DoH fallbacks, and the TUN DNS proxy.
+// SOCKS5/DoH fallbacks, and the local UDP DNS proxy.
 // IPN Bus state (caches, listener) lives in bus.go.
 
 import (
@@ -68,6 +68,27 @@ func getSplitDNSServers(domain string) []string {
 		return true
 	})
 	return match
+}
+
+// socksDialContext returns a context-aware dial through the SOCKS5 proxy at
+// socks. x/net's SOCKS5 dialer implements proxy.ContextDialer, which lets an
+// http.Client deadline or a cancelled request abort the SOCKS handshake too;
+// the plain Dial is only the fallback for a dialer that does not.
+func socksDialContext(socks, user, pass string) (func(ctx context.Context, network, addr string) (net.Conn, error), error) {
+	var auth *proxy.Auth
+	if user != "" || pass != "" {
+		auth = &proxy.Auth{User: user, Password: pass}
+	}
+	dialer, err := proxy.SOCKS5("tcp", socks, auth, proxy.Direct)
+	if err != nil {
+		return nil, err
+	}
+	if cd, ok := dialer.(proxy.ContextDialer); ok {
+		return cd.DialContext, nil
+	}
+	return func(_ context.Context, network, addr string) (net.Conn, error) {
+		return dialer.Dial(network, addr)
+	}, nil
 }
 
 func forwardDNSviaSOCKS5(query []byte, socksAddr, user, pass, dnsServer string) ([]byte, error) {
@@ -338,30 +359,69 @@ func forwardDNSviaUDP(query []byte, server string) ([]byte, error) {
 	return buf[:n], nil
 }
 
+// dohClient is the cached DoH http.Client, keyed by the SOCKS configuration it
+// dials through. Building a transport per query parked every DoH connection in
+// a throwaway idle pool with no IdleConnTimeout — one fd, one TLS session and a
+// readLoop goroutine leaked per fallback query, precisely when connectivity
+// was already bad enough to reach the DoH step. One transport serves every DoH
+// URL: the pool inside it is keyed by host.
+var (
+	dohClientMu  sync.Mutex
+	dohClientKey string
+	dohClient    *http.Client
+)
+
+func dohHTTPClient(socks, user, pass string) *http.Client {
+	key := socks + "\x00" + user + "\x00" + pass
+	dohClientMu.Lock()
+	defer dohClientMu.Unlock()
+	if dohClient != nil && dohClientKey == key {
+		return dohClient
+	}
+	if dohClient != nil {
+		// The SOCKS settings changed; the old pool points at the old proxy.
+		dohClient.CloseIdleConnections()
+	}
+
+	tr := &http.Transport{
+		Proxy:               http.ProxyFromEnvironment,
+		DialContext:         (&net.Dialer{Timeout: 5 * time.Second}).DialContext,
+		ForceAttemptHTTP2:   true, // a custom DialContext otherwise disables h2 for direct DoH
+		MaxIdleConns:        4,
+		MaxIdleConnsPerHost: 4,
+		IdleConnTimeout:     60 * time.Second,
+		TLSHandshakeTimeout: 5 * time.Second,
+	}
+	if socks != "" {
+		// Route DoH through the SOCKS proxy (i.e. the tailnet / exit node) when
+		// one is configured; a dialer error leaves the direct transport, which is
+		// what the per-query code did as well.
+		if dial, err := socksDialContext(socks, user, pass); err == nil {
+			tr.Proxy = nil
+			tr.DialContext = dial
+		}
+	}
+	dohClient = &http.Client{Timeout: 5 * time.Second, Transport: tr}
+	dohClientKey = key
+	return dohClient
+}
+
+// closeDoHClient drops the cached DoH pool. Its connections tunnel through the
+// daemon's SOCKS port, so they must not outlive the daemon.
+func closeDoHClient() {
+	dohClientMu.Lock()
+	defer dohClientMu.Unlock()
+	if dohClient != nil {
+		dohClient.CloseIdleConnections()
+		dohClient = nil
+		dohClientKey = ""
+	}
+}
+
 func forwardDNSviaDoH(query []byte, dohUrl string) ([]byte, error) {
 	encoded := base64.RawURLEncoding.EncodeToString(query)
 	socks, user, pass, _ := GConfig.get()
-
-	var transport *http.Transport
-	if socks != "" {
-		var auth *proxy.Auth
-		if user != "" || pass != "" {
-			auth = &proxy.Auth{User: user, Password: pass}
-		}
-		dialer, err := proxy.SOCKS5("tcp", socks, auth, proxy.Direct)
-		if err == nil {
-			transport = &http.Transport{
-				DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-					return dialer.Dial(network, addr)
-				},
-			}
-		}
-	}
-
-	client := &http.Client{Timeout: 5 * time.Second}
-	if transport != nil {
-		client.Transport = transport
-	}
+	client := dohHTTPClient(socks, user, pass)
 
 	url := dohUrl
 	if strings.Contains(url, "?") {
@@ -383,53 +443,4 @@ func forwardDNSviaDoH(query []byte, dohUrl string) ([]byte, error) {
 		return nil, fmt.Errorf("doh status: %d", resp.StatusCode)
 	}
 	return io.ReadAll(resp.Body)
-}
-
-var tunDNSCancel context.CancelFunc
-var tunDNSMu sync.Mutex
-
-func StartTunDNS(listenAddr string) error {
-	tunDNSMu.Lock()
-	defer tunDNSMu.Unlock()
-	if tunDNSCancel != nil {
-		return nil
-	}
-
-	opt := lastOptions
-	fallbacks := []string{"8.8.8.8:53", "1.1.1.1:53"}
-	if opt != nil && opt.DnsFallbacks != "" {
-		fallbacks = strings.Split(opt.DnsFallbacks, ",")
-	}
-	doh := ""
-	if opt != nil {
-		doh = opt.DohFallback
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	tunDNSCancel = cancel
-
-	go func() {
-		slog.Info("Starting TUN DNS proxy", "addr", listenAddr)
-		if err := startDNSProxy(ctx, listenAddr, fallbacks, doh); err != nil {
-			slog.Error("TUN DNS proxy error", "err", err)
-			tunDNSMu.Lock()
-			if tunDNSCancel != nil {
-				tunDNSCancel()
-				tunDNSCancel = nil
-			}
-			tunDNSMu.Unlock()
-		}
-	}()
-
-	return nil
-}
-
-func StopTunDNS() {
-	tunDNSMu.Lock()
-	defer tunDNSMu.Unlock()
-	if tunDNSCancel != nil {
-		tunDNSCancel()
-		tunDNSCancel = nil
-		slog.Info("TUN DNS proxy stopped")
-	}
 }

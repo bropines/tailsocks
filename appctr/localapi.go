@@ -68,108 +68,164 @@ func socketAlive(path string) bool {
 	return probeSocket(path)
 }
 
-// waitForLocalAPI blocks until the daemon socket accepts connections or the
-// timeout expires. Every startup path funnels through this so no LocalAPI call
-// is issued before the daemon is able to answer it.
-func waitForLocalAPI(timeout time.Duration) bool {
+// waitForLocalAPI blocks until the daemon socket accepts connections, the
+// timeout expires, or ctx — the run this wait belongs to — is cancelled. Every
+// startup path funnels through this so no LocalAPI call is issued before the
+// daemon is able to answer it. Reporting false on cancellation matters: the
+// socket path is re-read every poll, so a wait that outlived its run would
+// otherwise latch onto the successor daemon's socket.
+func waitForLocalAPI(ctx context.Context, timeout time.Duration) bool {
 	deadline := time.Now().Add(timeout)
+	tick := time.NewTicker(250 * time.Millisecond)
+	defer tick.Stop()
 	for {
-		stateMu.Lock()
-		sock := PC.Socket()
-		stateMu.Unlock()
-
-		if probeSocket(sock) {
+		if ctx.Err() != nil {
+			return false
+		}
+		if probeSocket(getPC().Socket()) {
 			return true
 		}
 		if time.Now().After(deadline) {
 			return false
 		}
-		time.Sleep(250 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			return false
+		case <-tick.C:
+		}
 	}
 }
 
-// localClientMu guards the cached LocalAPI client below.
+// sleepCtx pauses for d unless ctx is cancelled first, and reports whether the
+// run is still alive. The polling loops use it instead of time.Sleep so a
+// released run stops within one interval instead of finishing its schedule.
+func sleepCtx(ctx context.Context, d time.Duration) bool {
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-t.C:
+		return true
+	}
+}
+
+// localClientMu guards the cached LocalAPI clients below.
 var (
 	localClientMu   sync.Mutex
 	localClientPath string
-	localClient     *http.Client
+	localClient     *http.Client // 30s deadline: status, prefs, login and other small exchanges
+	localXferClient *http.Client // no deadline: Taildrop file bodies and cert issuance
 )
 
-// newLocalClient returns an http.Client that dials the daemon's Unix socket.
+// localClients returns the http.Clients that dial the daemon's Unix socket.
 //
-// The client is cached per socket path and reused. Building a fresh
-// http.Transport per request leaked a connection every time: after the body is
-// closed the connection is parked in that throwaway transport's idle pool, and
-// a hand-built transport has no IdleConnTimeout, so neither side ever closed
-// it. With the UI polling status every couple of seconds that reached the
-// process file descriptor limit — and in Root Mode the descriptors piled up
-// inside the long-lived root daemon, which does not restart with the app.
-func newLocalClient(socketPath string) *http.Client {
+// Both share one transport, cached per socket path and reused. Building a
+// fresh http.Transport per request leaked a connection every time: after the
+// body is closed the connection is parked in that throwaway transport's idle
+// pool, and a hand-built transport has no IdleConnTimeout, so neither side
+// ever closed it. With the UI polling status every couple of seconds that
+// reached the process file descriptor limit — and in Root Mode the descriptors
+// piled up inside the long-lived root daemon, which does not restart with the
+// app.
+//
+// Two clients because http.Client.Timeout spans the whole exchange including
+// the body: a wedged daemon must not block a status call forever, but a
+// Taildrop transfer over DERP or an ACME certificate issuance legitimately
+// takes longer than 30s and used to be aborted mid-body.
+func localClients(socketPath string) (control, xfer *http.Client) {
 	localClientMu.Lock()
 	defer localClientMu.Unlock()
 
 	if localClient != nil && localClientPath == socketPath {
-		return localClient
+		return localClient, localXferClient
 	}
 	if localClient != nil {
 		localClient.CloseIdleConnections()
 	}
 
-	localClientPath = socketPath
-	localClient = &http.Client{
-		// A wedged daemon must not block the caller forever. Streaming
-		// endpoints (the IPN bus) build their own client and are unaffected.
-		Timeout: 30 * time.Second,
-		Transport: &http.Transport{
-			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-				var d net.Dialer
-				return d.DialContext(ctx, "unix", socketPath)
-			},
-			MaxIdleConns:        4,
-			MaxIdleConnsPerHost: 4,
-			IdleConnTimeout:     60 * time.Second,
+	tr := &http.Transport{
+		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+			var d net.Dialer
+			return d.DialContext(ctx, "unix", socketPath)
 		},
+		MaxIdleConns:        4,
+		MaxIdleConnsPerHost: 4,
+		IdleConnTimeout:     60 * time.Second,
 	}
-	return localClient
+	localClientPath = socketPath
+	localClient = &http.Client{Timeout: 30 * time.Second, Transport: tr}
+	localXferClient = &http.Client{Transport: tr}
+	return localClient, localXferClient
 }
 
-// closeLocalClient drops the cached client and its idle connections. Called
+// newLocalClient returns the 30s-deadline client for the daemon socket.
+func newLocalClient(socketPath string) *http.Client {
+	c, _ := localClients(socketPath)
+	return c
+}
+
+// newLocalXferClient returns the deadline-free client for bulk transfers.
+func newLocalXferClient(socketPath string) *http.Client {
+	_, x := localClients(socketPath)
+	return x
+}
+
+// closeLocalClient drops the cached clients and their idle connections. Called
 // when the bridge lets go of a daemon so nothing is left holding its socket.
+// One CloseIdleConnections suffices: both clients share the transport.
 func closeLocalClient() {
 	localClientMu.Lock()
 	defer localClientMu.Unlock()
 	if localClient != nil {
 		localClient.CloseIdleConnections()
 		localClient = nil
+		localXferClient = nil
 		localClientPath = ""
 	}
 }
 
-// doLocalRequest sends a request to the daemon's Unix socket.
-//
-// It is the single choke point for LocalAPI traffic: when no socket is
-// configured, or the socket file is gone, the request is rejected here instead
-// of producing a connection error for every caller.
+// localSocketReady returns the current socket path after the checks every
+// LocalAPI request shares: when no socket is configured, or the socket file is
+// gone, the request is rejected here instead of producing a connection error
+// for every caller.
+func localSocketReady() (string, error) {
+	sock := getPC().Socket()
+	if sock == "" {
+		return "", ErrSocketEmpty
+	}
+	if _, err := os.Stat(sock); err != nil {
+		return "", ErrDaemonNotRunning
+	}
+	return sock, nil
+}
+
+// doLocalRequest sends a request to the daemon's Unix socket and returns the
+// whole response body. It is the choke point for the small control-plane
+// exchanges and carries the 30s deadline.
 func doLocalRequest(method, path string, body io.Reader) ([]byte, error) {
-	stateMu.Lock()
-	pc := PC
-	stateMu.Unlock()
+	return doLocalRequestWith(newLocalClient, method, path, body)
+}
 
-	if pc.Socket() == "" {
-		return nil, ErrSocketEmpty
-	}
-	if _, err := os.Stat(pc.Socket()); err != nil {
-		return nil, ErrDaemonNotRunning
-	}
+// doLocalXferRequest is doLocalRequest without the 30s deadline, for exchanges
+// whose duration is set by the network or the control plane rather than by the
+// daemon: certificate issuance and Taildrop uploads.
+func doLocalXferRequest(method, path string, body io.Reader) ([]byte, error) {
+	return doLocalRequestWith(newLocalXferClient, method, path, body)
+}
 
-	client := newLocalClient(pc.Socket())
+func doLocalRequestWith(clientFor func(string) *http.Client, method, path string, body io.Reader) ([]byte, error) {
+	sock, err := localSocketReady()
+	if err != nil {
+		return nil, err
+	}
 
 	req, err := http.NewRequest(method, "http://local-tailscaled.sock"+path, body)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := client.Do(req)
+	resp, err := clientFor(sock).Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -180,11 +236,48 @@ func doLocalRequest(method, path string, body io.Reader) ([]byte, error) {
 		return nil, err
 	}
 
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusCreated {
+	if !localStatusOK(resp.StatusCode) {
 		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(data))
 	}
 
 	return data, nil
+}
+
+// doLocalStream sends a request on the deadline-free client and hands back the
+// response with its body unread, so a Taildrop file can be copied straight to
+// disk instead of being buffered in the heap — a phone cannot hold a received
+// video twice over. The caller must Close the body. ctx bounds the exchange (a
+// released run cancels its collector's downloads); contentLength >= 0 is sent
+// as the request's Content-Length so the daemon can forward the declared size.
+func doLocalStream(ctx context.Context, method, path string, body io.Reader, contentLength int64) (*http.Response, error) {
+	sock, err := localSocketReady()
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, "http://local-tailscaled.sock"+path, body)
+	if err != nil {
+		return nil, err
+	}
+	if contentLength >= 0 {
+		req.ContentLength = contentLength
+	}
+
+	resp, err := newLocalXferClient(sock).Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !localStatusOK(resp.StatusCode) {
+		// An error body is small; a success body may be gigabytes.
+		data, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		resp.Body.Close()
+		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(data))
+	}
+	return resp, nil
+}
+
+func localStatusOK(code int) bool {
+	return code == http.StatusOK || code == http.StatusNoContent || code == http.StatusCreated
 }
 
 // DoLocalAPIRequest executes an arbitrary LocalAPI request (used by the Console screen).
@@ -485,7 +578,9 @@ func GetCertificatePair(domain string) string {
 		return "Error: " + errNotRunning.Error()
 	}
 	slog.Info("LocalAPI: [GET] /localapi/v0/cert/" + domain + "?type=pair")
-	data, err := doLocalRequest("GET", "/localapi/v0/cert/"+domain+"?type=pair", nil)
+	// ACME issuance routinely takes 30-90s; the daemon only answers once the
+	// certificate exists, so this must not run under the 30s client deadline.
+	data, err := doLocalXferRequest("GET", "/localapi/v0/cert/"+domain+"?type=pair", nil)
 	if err != nil {
 		return "Error: " + err.Error()
 	}

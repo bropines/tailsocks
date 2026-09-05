@@ -144,7 +144,6 @@ type busStateSnapshot struct {
 	AuthURL        string
 	TailscaleIPs   []string
 	Self           *BusPeer
-	Peers          map[string]*BusPeer // StableID → BusPeer
 	Health         []BusHealthWarning
 	Prefs          *BusPrefs
 	ClientVersion  *BusClientVersion
@@ -168,6 +167,19 @@ func GetBusState() busStateSnapshot {
 	return busState
 }
 
+// resetBusState forgets everything learned from the previous daemon (or
+// profile). The snapshot short-circuits GetBackendState and GetLoginURL, so
+// left in place it answered for a daemon that no longer existed: "Running" for
+// a successor still in NoState, or a dead AuthURL that turned SetPrefs into a
+// silent no-op. With an empty snapshot those fall through to one live status
+// query and the bus listener repopulates it from there.
+func resetBusState() {
+	busStateMu.Lock()
+	busState = busStateSnapshot{}
+	lastHealthFingerprint = ""
+	busStateMu.Unlock()
+}
+
 // ─── Shared DNS state (written here, read in dns.go) ────────────────────────
 
 var splitDNSCache sync.Map // domain → []string resolverIPs
@@ -189,7 +201,8 @@ func setMagicDNSSuffix(s string) {
 
 // ─── Bus lifecycle ───────────────────────────────────────────────────────────
 
-// lastHealthFingerprint suppresses repeated identical health reports.
+// lastHealthFingerprint suppresses repeated identical health reports. Guarded
+// by busStateMu like the snapshot it describes.
 var lastHealthFingerprint string
 
 var busCancel context.CancelFunc
@@ -225,8 +238,10 @@ func EnsureIPNBusListener() {
 	busGen++
 	gen := busGen
 	go func() {
-		if !waitForLocalAPI(30 * time.Second) {
-			slog.Warn("IPN Bus: daemon socket never became ready, listener not started")
+		if !waitForLocalAPI(busCtx, 30*time.Second) {
+			if busCtx.Err() == nil {
+				slog.Warn("IPN Bus: daemon socket never became ready, listener not started")
+			}
 			busMu.Lock()
 			// Only clear if we still own the current listener; a Stop()->Start()
 			// may have installed a newer cancel that must not be dropped.
@@ -265,6 +280,23 @@ func startIPNBusListener(ctx context.Context, gen uint64) {
 		busMu.Unlock()
 	}()
 
+	// One transport for the listener's lifetime, closed when it exits. A fresh
+	// transport per reconnect attempt parked the finished stream's connection in
+	// an idle pool nothing could reach any more — the same fd leak the cached
+	// LocalAPI client fixed. The socket path is read at dial time under stateMu:
+	// every socket change goes through StopIPNBusListener, and a release that
+	// clears it turns the next dial into an error the loop already handles.
+	tr := &http.Transport{
+		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+			var d net.Dialer
+			return d.DialContext(ctx, "unix", getPC().Socket())
+		},
+		MaxIdleConns:        1,
+		MaxIdleConnsPerHost: 1,
+		IdleConnTimeout:     60 * time.Second,
+	}
+	defer tr.CloseIdleConnections()
+
 	delay := 2 * time.Second
 
 	for {
@@ -272,7 +304,7 @@ func startIPNBusListener(ctx context.Context, gen uint64) {
 		case <-ctx.Done():
 			return
 		default:
-			err := listenToBus(ctx)
+			err := listenToBus(ctx, tr)
 			if err == nil {
 				delay = 2 * time.Second
 				continue
@@ -312,16 +344,8 @@ func startIPNBusListener(ctx context.Context, gen uint64) {
 
 // listenToBus opens the streaming LocalAPI connection and processes all Notify
 // messages until context cancellation or a fatal error.
-func listenToBus(ctx context.Context) error {
-	pc := PC
-	client := http.Client{
-		Transport: &http.Transport{
-			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-				var d net.Dialer
-				return d.DialContext(ctx, "unix", pc.Socket())
-			},
-		},
-	}
+func listenToBus(ctx context.Context, tr *http.Transport) error {
+	client := http.Client{Transport: tr}
 
 	req, _ := http.NewRequestWithContext(ctx, "GET",
 		"http://local-tailscaled.sock/localapi/v0/watch-ipn-bus?mask=4095", nil)
@@ -336,6 +360,12 @@ func listenToBus(ctx context.Context) error {
 		var msg BusNotify
 		if err := dec.Decode(&msg); err != nil {
 			return err
+		}
+		// A message decoded just as the listener was stopped belongs to the
+		// daemon being released; applying it would repopulate the snapshot
+		// releaseGoResources has just reset.
+		if ctx.Err() != nil {
+			return ctx.Err()
 		}
 		applyNotify(&msg)
 	}
@@ -425,15 +455,11 @@ func applyNotify(msg *BusNotify) {
 		}
 	}
 
-	// Incremental peer upserts
+	// Incremental peer upserts feed the MagicDNS cache only. The snapshot used
+	// to keep its own StableID → peer map as well, but nothing read it and it
+	// was never pruned, so it grew with every peer of every profile ever seen.
 	if len(msg.PeersChanged) > 0 {
-		if busState.Peers == nil {
-			busState.Peers = make(map[string]*BusPeer)
-		}
 		for _, p := range msg.PeersChanged {
-			if p.StableID != "" {
-				busState.Peers[p.StableID] = p
-			}
 			updateNodeCacheFromPeer(p)
 		}
 		slog.Info("Bus: peers upserted", "count", len(msg.PeersChanged))

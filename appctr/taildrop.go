@@ -3,6 +3,7 @@ package appctr
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net/url"
 	"os"
@@ -58,12 +59,16 @@ func startTaildropCollector(ctx context.Context, taildropDir string) {
 			if !IsRunning() {
 				continue
 			}
-			processIncomingFiles(taildropDir)
+			processIncomingFiles(ctx, taildropDir)
 		}
 	}
 }
 
-func processIncomingFiles(taildropDir string) {
+// processIncomingFiles moves every file the daemon holds for us into
+// taildropDir. ctx is the collector's: cancelling it (Stop, Detach, restart)
+// aborts an in-flight download instead of letting it finish against a daemon
+// the bridge has let go of.
+func processIncomingFiles(ctx context.Context, taildropDir string) {
 	filesStr, err := GetWaitingFilesJSON()
 	if err != nil {
 		return
@@ -89,17 +94,14 @@ func processIncomingFiles(taildropDir string) {
 	}
 
 	for _, f := range files {
+		if ctx.Err() != nil {
+			return
+		}
 		destPath := filepath.Join(taildropDir, f.Name)
 		slog.Info("Taildrop: Downloading file", "name", f.Name, "dest", destPath)
 
-		content, err := doLocalRequest("GET", "/localapi/v0/files/"+url.PathEscape(f.Name), nil)
-		if err != nil {
+		if err := downloadTaildropFile(ctx, f.Name, destPath); err != nil {
 			slog.Error("Taildrop: Download failed", "name", f.Name, "err", err)
-			continue
-		}
-
-		if err := os.WriteFile(destPath, content, 0644); err != nil {
-			slog.Error("Taildrop: Save failed", "name", f.Name, "err", err)
 			continue
 		}
 
@@ -112,6 +114,48 @@ func processIncomingFiles(taildropDir string) {
 		}
 		slog.Info("Taildrop: Saved successfully", "name", f.Name)
 	}
+}
+
+// downloadTaildropFile streams one waiting file from the daemon to destPath.
+// The body goes straight from the socket to disk: reading it into memory first
+// held the whole file in the heap (twice, with the WriteFile copy), which OOM-
+// kills the process on a phone for a video-sized transfer — and because the
+// daemon keeps the file until it is deleted, the same download was retried
+// every 5s. The deadline-free client is used so a transfer slower than 30s is
+// not cut off; a partial file is removed so it is not listed as received.
+func downloadTaildropFile(ctx context.Context, name, destPath string) error {
+	resp, err := doLocalStream(ctx, "GET", "/localapi/v0/files/"+url.PathEscape(name), nil, -1)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	// Stream into a temporary name and rename on success: the transfer can now
+	// take minutes, and GetWaitingFiles lists the directory while it runs, so a
+	// half-written file must not be visible under its final name.
+	out, err := os.CreateTemp(filepath.Dir(destPath), ".taildrop-*.part")
+	if err != nil {
+		return err
+	}
+	tmpPath := out.Name()
+	if _, err := io.Copy(out, resp.Body); err != nil {
+		out.Close()
+		os.Remove(tmpPath)
+		return err
+	}
+	if err := out.Close(); err != nil {
+		os.Remove(tmpPath)
+		return err
+	}
+	if err := os.Chmod(tmpPath, 0644); err != nil {
+		os.Remove(tmpPath)
+		return err
+	}
+	if err := os.Rename(tmpPath, destPath); err != nil {
+		os.Remove(tmpPath)
+		return err
+	}
+	return nil
 }
 
 func GetTaildropFilesFromAPI() string {
@@ -139,12 +183,10 @@ func SaveTaildropFileToPath(name, destPath string) string {
 	if !IsRunning() {
 		return "Error: " + errNotRunning.Error()
 	}
-	data, err := doLocalRequest("GET", "/localapi/v0/files/"+url.PathEscape(name), nil)
-	if err != nil {
+	// User-initiated and synchronous on the caller's thread: it is not bound to
+	// a daemon run, the transfer itself decides when it ends.
+	if err := downloadTaildropFile(context.Background(), name, destPath); err != nil {
 		return "Download failed: " + err.Error()
-	}
-	if err := os.WriteFile(destPath, data, 0644); err != nil {
-		return "Save failed: " + err.Error()
 	}
 	return "OK"
 }
@@ -161,9 +203,23 @@ func SendFileFromAPI(peerID, filePath string) string {
 	}
 	defer f.Close()
 
+	fi, err := f.Stat()
+	if err != nil {
+		return "Error: " + err.Error()
+	}
+
 	name := url.PathEscape(filepath.Base(filePath))
-	// PUT /localapi/v0/file-put/<id>/<name>
-	data, err := doLocalRequest("PUT", "/localapi/v0/file-put/"+peerID+"/"+name, f)
+	// PUT /localapi/v0/file-put/<id>/<name>, on the deadline-free client: the
+	// upload takes as long as the tailnet path allows (a few hundred MB over
+	// DERP is well past 30s), and the 30s client aborted it half-way with an
+	// error to the user. The Content-Length lets the daemon announce the size
+	// to the peer, the way the CLI does.
+	resp, err := doLocalStream(context.Background(), "PUT", "/localapi/v0/file-put/"+peerID+"/"+name, f, fi.Size())
+	if err != nil {
+		return "Error: " + err.Error()
+	}
+	defer resp.Body.Close()
+	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "Error: " + err.Error()
 	}

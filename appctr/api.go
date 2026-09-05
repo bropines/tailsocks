@@ -29,33 +29,6 @@ var (
 	ErrBadRequest = errors.New("invalid or empty parameter supplied")
 )
 
-// LocalClient represents a strongly-typed client for Tailscale LocalAPI v0.
-type LocalClient struct {
-	// socketPath is the absolute filesystem path to tailscaled.sock
-	socketPath string
-}
-
-// NewLocalClient initializes a new LocalClient bound to the specified Unix socket path.
-func NewLocalClient(socketPath string) *LocalClient {
-	return &LocalClient{socketPath: socketPath}
-}
-
-// execute performs an HTTP request over the client's Unix socket connection.
-func (c *LocalClient) execute(method, path string, body io.Reader) ([]byte, error) {
-	if c.socketPath == "" {
-		stateMu.Lock()
-		pc := PC
-		stateMu.Unlock()
-		c.socketPath = pc.Socket()
-	}
-
-	if c.socketPath == "" {
-		return nil, ErrSocketEmpty
-	}
-
-	return doLocalRequest(method, path, body)
-}
-
 // --- 1. Status & Profiles ---
 
 // GetStatusJSON retrieves the current node status from /localapi/v0/status.
@@ -103,6 +76,9 @@ func SwitchProfile(profileID string) error {
 	// The DNS caches belong to the previous tailnet. Without this, MagicDNS keeps
 	// answering with the old profile's peers until the next FlushDNS.
 	FlushDNS()
+	// Same for the bus snapshot: the old profile's Self, Prefs, AuthURL and
+	// BackendState would be served until the bus delivers the new profile's.
+	resetBusState()
 	return nil
 }
 

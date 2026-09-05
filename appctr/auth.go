@@ -1,17 +1,25 @@
 package appctr
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"os/exec"
 	"strings"
-	"sync/atomic"
+	"sync"
 	"time"
 )
 
-var lastErrStr string
+// lastErrStr is written by the CLI thread (RunTailscaleArgs) and read-and-
+// cleared by the UI thread (GetLastError), so it needs its own lock.
+var (
+	lastErrMu  sync.Mutex
+	lastErrStr string
+)
 
 func GetLastError() string {
+	lastErrMu.Lock()
+	defer lastErrMu.Unlock()
 	e := lastErrStr
 	lastErrStr = "" // Clear after reading
 	return e
@@ -48,8 +56,9 @@ func RunTailscaleArgs(parts ...string) string {
 	if !IsRunning() {
 		return "Error: " + errNotRunning.Error()
 	}
-	args := append([]string{"--socket", PC.Socket()}, parts...)
-	c := exec.Command(PC.Tailscale(), args...)
+	pc := getPC()
+	args := append([]string{"--socket", pc.Socket()}, parts...)
+	c := exec.Command(pc.Tailscale(), args...)
 
 	isRoutineCheck := len(parts) > 0 && (parts[0] == "status" || parts[0] == "dns" || parts[0] == "netcheck" || parts[0] == "ping")
 
@@ -61,7 +70,9 @@ func RunTailscaleArgs(parts ...string) string {
 	outStr := string(output)
 
 	if strings.Contains(outStr, "http 410") {
+		lastErrMu.Lock()
 		lastErrStr = "410_GONE"
+		lastErrMu.Unlock()
 	}
 
 	if err != nil {
@@ -77,19 +88,44 @@ func RunTailscaleArgs(parts ...string) string {
 	return outStr
 }
 
+// registerRun/registerBusy keep a single registration attempt alive per daemon
+// run. Every app resume calls ForceRefresh → ReUp, which used to spawn another
+// polling loop; several of them then raced and flooded the log with the same
+// states. The slot is keyed by run rather than being a process-wide flag: an
+// attempt left over from a released run exits at its next ctx check, but until
+// then it must not make the new daemon's own registration report "already in
+// progress" and never happen.
+var (
+	registerMu   sync.Mutex
+	registerRun  uint64
+	registerBusy bool
+)
+
 // registerMachineWithAuthKey waits for the daemon socket to be ready, then
 // applies initial authentication and preferences via LocalAPI (CLI-free).
-// registerInFlight keeps a single registration attempt alive at a time. Every
-// app resume calls ForceRefresh → ReUp, which used to spawn another polling
-// loop; several of them then raced and flooded the log with the same states.
-var registerInFlight atomic.Bool
-
-func registerMachineWithAuthKey(opt *StartOptions) {
-	if !registerInFlight.CompareAndSwap(false, true) {
+// ctx is the run the options belong to; once it is cancelled no further
+// request is sent, because the socket may by then belong to a different daemon.
+func registerMachineWithAuthKey(ctx context.Context, opt *StartOptions) {
+	if ctx.Err() != nil {
+		return
+	}
+	gen := runGeneration(ctx)
+	registerMu.Lock()
+	if registerBusy && registerRun == gen {
+		registerMu.Unlock()
 		slog.Debug("Registration already in progress, skipping duplicate")
 		return
 	}
-	defer registerInFlight.Store(false)
+	registerBusy, registerRun = true, gen
+	registerMu.Unlock()
+	defer func() {
+		registerMu.Lock()
+		// A newer run may have taken the slot over; only release our own.
+		if registerRun == gen {
+			registerBusy = false
+		}
+		registerMu.Unlock()
+	}()
 
 	// Poll until the LocalAPI answers a real request, not just until the socket
 	// file appears — the daemon binds the socket before it can serve traffic.
@@ -99,18 +135,25 @@ func registerMachineWithAuthKey(opt *StartOptions) {
 			apiReady = true
 			break
 		}
-		time.Sleep(1 * time.Second)
+		if !sleepCtx(ctx, 1*time.Second) {
+			return
+		}
 	}
 
 	if !apiReady {
 		slog.Error("Tailscaled API timeout")
 		return
 	}
+	if ctx.Err() != nil {
+		return
+	}
 
 	if opt.DoReset {
 		slog.Info("LocalAPI: reset requested, logging out existing session")
 		Logout()
-		time.Sleep(500 * time.Millisecond)
+		if !sleepCtx(ctx, 500*time.Millisecond) {
+			return
+		}
 		slog.Info("LocalAPI: triggering interactive login for new session")
 		_ = LoginInteractive()
 		return
@@ -123,6 +166,9 @@ func registerMachineWithAuthKey(opt *StartOptions) {
 		// object and silently drop everything not listed here — exit node,
 		// advertised routes and tags among them.
 		applyStartupPrefs(opt)
+		if ctx.Err() != nil {
+			return
+		}
 		payload, _ := json.Marshal(map[string]interface{}{"AuthKey": opt.AuthKey})
 		_ = StartDaemon(string(payload))
 		return
@@ -154,6 +200,12 @@ func registerMachineWithAuthKey(opt *StartOptions) {
 
 	for time.Now().Before(deadline) {
 		stStr, err := GetStatusJSON(false)
+		// The status round-trip can outlive the run; decide nothing on a
+		// daemon this registration was not started for.
+		if ctx.Err() != nil {
+			slog.Info("Registration abandoned, its daemon run was released")
+			return
+		}
 		if err == nil && len(stStr) > 0 && json.Unmarshal([]byte(stStr), &statusResp) == nil {
 			// Log transitions, not every poll: this loop runs twice a second and
 			// used to bury the rest of the log while waiting for a login.
@@ -183,6 +235,9 @@ func registerMachineWithAuthKey(opt *StartOptions) {
 					startNudged = true
 					slog.Info("Backend has not been started yet, sending Start")
 					applyStartupPrefs(opt)
+					if ctx.Err() != nil {
+						return
+					}
 					_ = StartDaemon("{}")
 				}
 			}
@@ -193,7 +248,9 @@ func registerMachineWithAuthKey(opt *StartOptions) {
 				return
 			}
 		}
-		time.Sleep(500 * time.Millisecond)
+		if !sleepCtx(ctx, 500*time.Millisecond) {
+			return
+		}
 	}
 
 	if !needsLogin {
@@ -204,6 +261,9 @@ func registerMachineWithAuthKey(opt *StartOptions) {
 		return
 	}
 
+	if ctx.Err() != nil {
+		return
+	}
 	slog.Info("Account requires authentication (BackendState: " + statusResp.BackendState + "). Triggering interactive login.")
 	_ = LoginInteractive()
 }

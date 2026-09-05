@@ -3,6 +3,7 @@ package appctr
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -81,13 +82,26 @@ var currentLogLevel int32 = 1
 var dnsProxyCancel context.CancelFunc
 var taildropCancel context.CancelFunc
 var lastOptions *StartOptions
-var webServer *http.Server
+var webUI *webUIState
 var coreVersion string = "unknown"
 var daemonStartTime time.Time
 
 // daemonGeneration identifies the current daemon run so a supervisor goroutine
 // left over from a previous run cannot tear down its successor.
 var daemonGeneration uint64
+
+// daemonCtx is the lifetime of the current run: Start()/AttachExternal() create
+// it and every teardown cancels it. All post-start work (readiness wait,
+// registration, settings sync) is bound to it, so a goroutine that was parked
+// in waitForLocalAPI when the daemon was stopped cannot wake up on the NEXT
+// daemon's socket and configure it with the previous run's options. Both are
+// guarded by stateMu.
+var daemonCtx context.Context
+var daemonCancel context.CancelFunc
+
+// daemonRunKey carries the generation inside daemonCtx so work spawned for a
+// run can tell which run it belongs to without a second parameter.
+type daemonRunKey struct{}
 
 type Closer interface {
 	Close() error
@@ -118,8 +132,6 @@ type StartOptions struct {
 	AcceptDNS     bool
 	ExitNodeID    string
 }
-
-var nullOptions = &StartOptions{}
 
 func SetLogLevel(level int32) {
 	stateMu.Lock()
@@ -177,6 +189,66 @@ func IsRunning() bool {
 		return socketAlive(ext)
 	}
 	return embedded
+}
+
+// getPC snapshots the path set under stateMu. Start/AttachExternal/release
+// rewrite it concurrently with the goroutines that need it, and pathControl is
+// five strings, so an unlocked read can tear.
+func getPC() pathControl {
+	stateMu.Lock()
+	defer stateMu.Unlock()
+	return PC
+}
+
+// isCurrentGeneration reports whether gen still names the active daemon run.
+func isCurrentGeneration(gen uint64) bool {
+	stateMu.Lock()
+	defer stateMu.Unlock()
+	return gen == daemonGeneration
+}
+
+// newDaemonRunLocked bumps the generation, retires the previous run's context
+// and installs a fresh one. Caller holds stateMu.
+func newDaemonRunLocked() context.Context {
+	daemonGeneration++
+	if daemonCancel != nil {
+		daemonCancel()
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	daemonCtx = context.WithValue(ctx, daemonRunKey{}, daemonGeneration)
+	daemonCancel = cancel
+	return daemonCtx
+}
+
+// cancelDaemonRunLocked ends the current run's context. Caller holds stateMu.
+func cancelDaemonRunLocked() {
+	if daemonCancel != nil {
+		daemonCancel()
+		daemonCancel = nil
+		daemonCtx = nil
+	}
+}
+
+// currentDaemonCtx returns the context of the active run for work triggered
+// outside Start/AttachExternal (ApplySettings, ReUp). Without an active run —
+// only reachable through the exported SetExternalSocketPath — there is no
+// lifetime to bind to, and the work runs unbounded as it always did.
+func currentDaemonCtx() context.Context {
+	stateMu.Lock()
+	defer stateMu.Unlock()
+	if daemonCtx == nil {
+		return context.Background()
+	}
+	return daemonCtx
+}
+
+// runGeneration reports which daemon run a context was created for, 0 when it
+// is not a run context.
+func runGeneration(ctx context.Context) uint64 {
+	if g, ok := ctx.Value(daemonRunKey{}).(uint64); ok {
+		return g
+	}
+	return 0
 }
 
 // --- JNI Exported Functions (Static methods in Appctr class) ---
@@ -264,13 +336,18 @@ func ResetDNSMetadata() {
 	FlushDNS()
 }
 
-func syncSettings(opt *StartOptions) {
+// syncSettings pushes opt to the daemon once its LocalAPI answers. ctx is the
+// run the options belong to: when it is cancelled (Stop, Detach, restart) the
+// sync stops before it can PATCH the successor daemon with these options.
+func syncSettings(ctx context.Context, opt *StartOptions) {
 	if opt == nil {
 		return
 	}
 	go func() {
-		if !waitForLocalAPI(15 * time.Second) {
-			slog.Warn("syncSettings: LocalAPI never became ready, settings not applied")
+		if !waitForLocalAPI(ctx, 15*time.Second) {
+			if ctx.Err() == nil {
+				slog.Warn("syncSettings: LocalAPI never became ready, settings not applied")
+			}
 			return
 		}
 
@@ -343,10 +420,18 @@ func syncSettings(opt *StartOptions) {
 		prefs["WantRunning"] = true
 		prefs["WantRunningSet"] = true
 
+		// The status round-trip above may have outlived the run; do not hand
+		// these prefs to whichever daemon owns the socket now.
+		if ctx.Err() != nil {
+			return
+		}
 		jsonData, _ := json.Marshal(prefs)
 		slog.Info("Syncing settings via LocalAPI", "payload", string(jsonData))
 		SetPrefs(string(jsonData))
 
+		if ctx.Err() != nil {
+			return
+		}
 		if opt.EnableWebUI {
 			StartWebUI(opt.WebUIAddr)
 		} else {
@@ -376,7 +461,7 @@ func ApplySettings(opt *StartOptions) {
 		lastOptions = opt
 		stateMu.Unlock()
 		ReUp()
-		syncSettings(opt)
+		syncSettings(currentDaemonCtx(), opt)
 		return
 	}
 
@@ -416,7 +501,7 @@ func ApplySettings(opt *StartOptions) {
 		return
 	}
 
-	syncSettings(opt)
+	syncSettings(currentDaemonCtx(), opt)
 }
 
 func ReUp() {
@@ -432,7 +517,7 @@ func ReUp() {
 		if opt.AuthKey != "" {
 			Login(opt.AuthKey)
 		} else {
-			go registerMachineWithAuthKey(opt)
+			go registerMachineWithAuthKey(currentDaemonCtx(), opt)
 		}
 	}
 }
@@ -441,10 +526,23 @@ func Start(opt *StartOptions) {
 	Stop()
 	time.Sleep(1 * time.Second)
 
+	// Default the SOCKS address before opt is published: lastOptions readers,
+	// GConfig (DNS-over-SOCKS, DoH, Taildrive proxy) and the daemon command
+	// line must all see the same address. Defaulting it after GConfig.update
+	// left GConfig with "" for the whole run, silently disabling every
+	// SOCKS-routed consumer, and mutating opt after it was stored under
+	// stateMu raced with its readers.
+	if opt.Socks5Server == "" {
+		opt.Socks5Server = "127.0.0.1:1055"
+	}
+
 	stateMu.Lock()
 	PC = newPathControl(opt.ExecPath, opt.SocketPath, opt.StatePath)
+	pc := PC
 	lastOptions = opt
 	daemonStartTime = time.Now()
+	ctx := newDaemonRunLocked()
+	generation := daemonGeneration
 	stateMu.Unlock()
 
 	slog.Info("========================================")
@@ -452,23 +550,20 @@ func Start(opt *StartOptions) {
 	slog.Info("========================================")
 	GConfig.update(opt.Socks5Server, opt.Socks5User, opt.Socks5Pass, opt.DnsProxy)
 
-	killLeftoverDaemons(PC.Tailscaled())
+	killLeftoverDaemons()
 
 	if opt.SocketPath != "" {
 		_ = os.Remove(opt.SocketPath)
 	}
 
-	if opt.Socks5Server == "" {
-		opt.Socks5Server = "127.0.0.1:1055"
-	}
-
-	stateMu.Lock()
-	daemonGeneration++
-	generation := daemonGeneration
-	stateMu.Unlock()
-
 	go func() {
-		err := tailscaledCmd(PC, opt.DnsFallbacks, opt.Socks5Server, opt.HttpProxy, opt.Socks5User, opt.Socks5Pass, opt.TaildropDir, opt.ControlProxy)
+		err := tailscaledCmd(pc, generation, opt.DnsFallbacks, opt.Socks5Server, opt.HttpProxy, opt.Socks5User, opt.Socks5Pass, opt.TaildropDir, opt.ControlProxy)
+		if errors.Is(err, errLaunchSuperseded) {
+			// A Stop() or another Start() retired this run before its process
+			// existed; there is nothing to tear down and nothing to report.
+			slog.Info("Daemon launch abandoned, the run was stopped before the process started", "generation", generation)
+			return
+		}
 		if err != nil {
 			slog.Error("tailscaled cmd crashed", "err", err)
 		}
@@ -478,10 +573,7 @@ func Start(opt *StartOptions) {
 		// Wait(); when its daemon finally exits it used to call Stop(), which
 		// by then pointed at the freshly started process — killing the daemon
 		// the restart had just brought up and reporting the service as dead.
-		stateMu.Lock()
-		stale := generation != daemonGeneration
-		stateMu.Unlock()
-		if stale {
+		if !isCurrentGeneration(generation) {
 			slog.Info("Previous daemon exited after a restart, leaving the current one alone", "generation", generation)
 			return
 		}
@@ -492,39 +584,29 @@ func Start(opt *StartOptions) {
 		}
 	}()
 
-	go func() {
-		if !waitForLocalAPI(20 * time.Second) {
-			slog.Error("Daemon socket never became ready after start")
-			return
-		}
-		EnsureIPNBusListener()
-		if opt.AuthKey != "" {
-			Login(opt.AuthKey)
-		} else {
-			registerMachineWithAuthKey(opt)
-		}
-		syncSettings(opt)
-	}()
+	go runPostStart(ctx, opt, "Daemon socket never became ready after start")
 
 	if opt.DnsProxy != "" {
 		RestartDNS()
 	}
 
-	if opt.TaildropDir != "" {
-		stateMu.Lock()
-		ctx, cancel := context.WithCancel(context.Background())
-		taildropCancel = cancel
-		stateMu.Unlock()
-		go startTaildropCollector(ctx, opt.TaildropDir)
-	}
+	startTaildropCollectorFor(opt.TaildropDir)
 }
 
 func AttachExternal(opt *StartOptions) {
+	// A re-attach without an intervening DetachExternal (the root daemon died
+	// and a START intent relaunched it) must retire the previous run — its
+	// Taildrop collector, DNS proxy, bus listener and post-start goroutines —
+	// instead of running them alongside the new ones. On a first attach every
+	// step is a no-op, so this mirrors Start()'s Stop() prologue.
+	releaseGoResources()
+
 	stateMu.Lock()
 	externalSocketPath = opt.SocketPath
 	PC = newPathControl(opt.ExecPath, opt.SocketPath, opt.StatePath)
 	lastOptions = opt
 	daemonStartTime = time.Now()
+	ctx := newDaemonRunLocked()
 	stateMu.Unlock()
 
 	slog.Info("========================================")
@@ -532,31 +614,61 @@ func AttachExternal(opt *StartOptions) {
 	slog.Info("========================================")
 	GConfig.update(opt.Socks5Server, opt.Socks5User, opt.Socks5Pass, opt.DnsProxy)
 
-	go func() {
-		if !waitForLocalAPI(20 * time.Second) {
-			slog.Error("Root daemon socket never became ready, aborting attach")
-			return
-		}
-		EnsureIPNBusListener()
-		if opt.AuthKey != "" {
-			Login(opt.AuthKey)
-		} else {
-			registerMachineWithAuthKey(opt)
-		}
-		syncSettings(opt)
-	}()
+	go runPostStart(ctx, opt, "Root daemon socket never became ready, aborting attach")
 
 	if opt.DnsProxy != "" {
 		RestartDNS()
 	}
 
-	if opt.TaildropDir != "" {
-		stateMu.Lock()
-		ctx, cancel := context.WithCancel(context.Background())
-		taildropCancel = cancel
-		stateMu.Unlock()
-		go startTaildropCollector(ctx, opt.TaildropDir)
+	startTaildropCollectorFor(opt.TaildropDir)
+}
+
+// runPostStart waits for the daemon's LocalAPI and then performs the one-time
+// setup of a run: bus listener, authentication and settings sync. Every step
+// re-checks ctx: the readiness wait can outlive the run it was started for,
+// and waking up on the successor daemon's socket must not apply this run's
+// options to it.
+func runPostStart(ctx context.Context, opt *StartOptions, notReadyMsg string) {
+	if !waitForLocalAPI(ctx, 20*time.Second) {
+		if ctx.Err() == nil {
+			slog.Error(notReadyMsg)
+		}
+		return
 	}
+	if ctx.Err() != nil {
+		return
+	}
+	EnsureIPNBusListener()
+	if ctx.Err() != nil {
+		return
+	}
+	if opt.AuthKey != "" {
+		Login(opt.AuthKey)
+	} else {
+		registerMachineWithAuthKey(ctx, opt)
+	}
+	if ctx.Err() != nil {
+		return
+	}
+	syncSettings(ctx, opt)
+}
+
+// startTaildropCollectorFor replaces the Taildrop collector for dir (no-op for
+// an empty dir). Cancel-before-overwrite: a collector whose cancel was simply
+// overwritten kept polling the waiting-files endpoint every 5s for the life of
+// the process, with nothing left holding its cancel.
+func startTaildropCollectorFor(dir string) {
+	if dir == "" {
+		return
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	stateMu.Lock()
+	if taildropCancel != nil {
+		taildropCancel()
+	}
+	taildropCancel = cancel
+	stateMu.Unlock()
+	go startTaildropCollector(ctx, dir)
 }
 
 func RestartDNS() {
@@ -611,6 +723,16 @@ func Stop() {
 
 	stateMu.Lock()
 	defer stateMu.Unlock()
+	// Intentional stop: retire the supervisor parked in Wait() for this
+	// process. Otherwise it treats the exit as a crash and reports it through
+	// CloseCallBack, which tears the service down in the middle of a restart
+	// (RESTART_ACTION, auto-reconnect) and flips desired_running to false.
+	// The bump happens even when cmd is still nil: a launch that has not
+	// registered its process yet checks the generation before starting it, so
+	// a Stop() in that window abandons the launch instead of orphaning a
+	// daemon the app believes is already stopped. Start() bumps the generation
+	// again for the run it launches.
+	daemonGeneration++
 	if cmd != nil && cmd.Process != nil {
 		_ = cmd.Process.Signal(os.Interrupt)
 		go func(p *os.Process) {
@@ -630,16 +752,30 @@ func DetachExternal() {
 }
 
 // releaseGoResources tears down everything the bridge owns — bus listener, DNS
-// proxy, Taildrop collector, Taildrive server and Web UI — and clears the socket
-// path so no further LocalAPI request is attempted.
+// proxy, Taildrop collector, Taildrive server and proxy, Web UI, the run
+// context of the post-start goroutines — and clears the socket path so no
+// further LocalAPI request is attempted.
 func releaseGoResources() {
 	StopWebUI()
 	StopDriveServer()
+	// The Taildrive reverse proxy dials the SOCKS port of the daemon being
+	// released. Kotlin stops it on its own shutdown path only, not when the
+	// system destroys the service or the supervisor reports a crash, so the
+	// bridge has to be self-sufficient here.
+	_ = StopDriveProxy()
 	StopIPNBusListener()
 	FlushDNS()
+	// After the listener is gone, so a late notification from the old stream
+	// cannot repopulate the snapshot with the previous daemon's state. Without
+	// the reset GetBackendState/GetLoginURL kept answering from the old run
+	// ("Running" for a daemon still in NoState, a dead AuthURL that made
+	// SetPrefs a silent no-op) until the new bus stream happened to overwrite it.
+	resetBusState()
 	// Drop the pooled LocalAPI connection so nothing is left holding the
-	// daemon's socket after the bridge has let go of it.
+	// daemon's socket after the bridge has let go of it, and the DoH pool that
+	// tunnels through its SOCKS port.
 	closeLocalClient()
+	closeDoHClient()
 
 	stateMu.Lock()
 	defer stateMu.Unlock()
@@ -647,6 +783,7 @@ func releaseGoResources() {
 	daemonStartTime = time.Time{}
 	PC.SetSocket("")
 
+	cancelDaemonRunLocked()
 	if dnsProxyCancel != nil {
 		dnsProxyCancel()
 		dnsProxyCancel = nil
@@ -657,14 +794,26 @@ func releaseGoResources() {
 	}
 }
 
-func killLeftoverDaemons(daemonPath string) {
+// killLeftoverDaemons removes any tailscaled a previous process left behind.
+// Only the userspace (embedded) mode reaches this, where killing a stray
+// daemon is the intent.
+func killLeftoverDaemons() {
 	_ = exec.Command("/system/bin/killall", "tailscaled").Run()
+}
+
+// webUIState is everything StartWebUI creates, kept together so StopWebUI can
+// release all of it: the listener, the web.Server and the LocalAPI transport
+// its client uses.
+type webUIState struct {
+	srv *http.Server
+	ws  *web.Server
+	tr  *http.Transport
 }
 
 func StartWebUI(addr string) {
 	stateMu.Lock()
-	if webServer != nil {
-		if webServer.Addr == addr {
+	if webUI != nil {
+		if webUI.srv.Addr == addr {
 			stateMu.Unlock()
 			return
 		}
@@ -677,9 +826,24 @@ func StartWebUI(addr string) {
 	stateMu.Unlock()
 
 	slog.Info("Web UI start requested", "addr", addr)
+	// Own the LocalAPI transport instead of letting local.Client build one
+	// lazily: its default has no IdleConnTimeout and is unreachable from
+	// StopWebUI, so every WebUI restart (EnableWebUI toggled, address changed)
+	// left connections to the daemon socket idle forever.
+	sock := pc.Socket()
+	tr := &http.Transport{
+		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+			var d net.Dialer
+			return d.DialContext(ctx, "unix", sock)
+		},
+		MaxIdleConns:        2,
+		MaxIdleConnsPerHost: 2,
+		IdleConnTimeout:     60 * time.Second,
+	}
 	lc := &local.Client{
-		Socket:        pc.Socket(),
+		Socket:        sock,
 		UseSocketOnly: true,
+		Transport:     tr,
 	}
 	ws, err := web.NewServer(web.ServerOpts{
 		Mode:        web.LoginServerMode,
@@ -689,6 +853,7 @@ func StartWebUI(addr string) {
 		},
 	})
 	if err != nil {
+		tr.CloseIdleConnections()
 		slog.Error("Failed to create web server", "err", err)
 		return
 	}
@@ -696,8 +861,9 @@ func StartWebUI(addr string) {
 		Addr:    addr,
 		Handler: ws,
 	}
+	st := &webUIState{srv: srv, ws: ws, tr: tr}
 	stateMu.Lock()
-	webServer = srv
+	webUI = st
 	stateMu.Unlock()
 	go func() {
 		slog.Info("Web UI listening", "addr", addr)
@@ -707,22 +873,34 @@ func StartWebUI(addr string) {
 			slog.Error("Web UI listen error", "err", err)
 		}
 		stateMu.Lock()
-		if webServer == srv {
-			webServer = nil
+		mine := webUI == st
+		if mine {
+			webUI = nil
 		}
 		stateMu.Unlock()
+		if mine {
+			// Listen failed without a StopWebUI to clean up after us.
+			st.tr.CloseIdleConnections()
+		}
 	}()
 }
 
 func StopWebUI() {
 	stateMu.Lock()
-	ws := webServer
-	webServer = nil
+	st := webUI
+	webUI = nil
 	stateMu.Unlock()
-	if ws != nil {
+	if st != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
-		_ = ws.Shutdown(ctx)
+		if err := st.srv.Shutdown(ctx); err != nil {
+			// A handler parked in the web server's IPN-bus long-poll outlives
+			// the graceful window; force it, or its streaming LocalAPI
+			// connection survives the stop.
+			_ = st.srv.Close()
+		}
+		st.ws.Shutdown()
+		st.tr.CloseIdleConnections()
 		slog.Info("Web UI stopped")
 	}
 }
