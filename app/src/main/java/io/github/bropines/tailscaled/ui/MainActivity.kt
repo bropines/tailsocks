@@ -1723,8 +1723,27 @@ fun MainScreen(
                 if (isExitNodesLoading) {
                     Box(Modifier.fillMaxWidth().height(120.dp), Alignment.Center) { CircularProgressIndicator() }
                 } else if (exitNodes.isEmpty()) {
-                    Box(Modifier.fillMaxWidth().height(120.dp), Alignment.Center) { 
+                    // An exit node can be set while the list is empty — the peers
+                    // have not loaded, or the node stopped offering one. Without a
+                    // way out of that the traffic stays routed through a node the
+                    // picker cannot even show, so the clear action is offered here
+                    // too, not only alongside the list.
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
                         Text(context.getString(R.string.main_no_exit_nodes), color = MaterialTheme.colorScheme.outline)
+                        if (exitNodeIp.isNotEmpty()) {
+                            Button(
+                                onClick = { applyExitNode("", ""); showExitNodeSheet = false },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(context.getString(R.string.main_exit_node_none))
+                            }
+                        }
                     }
                 } else {
                     Box(
