@@ -245,6 +245,36 @@ val verifyReleaseNativeMethods by tasks.registering {
         logger.lifecycle("-> JNI check: ${externals.size} external funs (${externals.joinToString()}) all kept by R8")
     }
 }
+// The Go bridge (appctr/tmp/appctr.aar) and the daemon binaries in jniLibs are
+// prebuilt by appctr/build.sh; Gradle only packages them. Nothing used to notice
+// when they were older than the Go sources, and a whole day of Go fixes once
+// shipped in an APK that did not contain them. A release must not be built from
+// a stale bridge; a debug build warns.
+val verifyGoBridgeFresh by tasks.registering {
+    group = "verification"
+    description = "Fails a release if appctr/tmp/appctr.aar is older than appctr/*.go or the patches"
+    val appctrDir = layout.projectDirectory.dir("../appctr")
+    val failOnStale = gradle.startParameter.taskNames.any { it.contains("Release") }
+    doLast {
+        val aar = appctrDir.file("tmp/appctr.aar").asFile
+        if (!aar.exists()) {
+            logger.warn("-> Go bridge check: appctr/tmp/appctr.aar missing, falling back to appctr/appctr.aar")
+            return@doLast
+        }
+        val sources = (appctrDir.asFile.listFiles { f -> f.isFile && f.name.endsWith(".go") } ?: emptyArray()) +
+            (appctrDir.dir("patches").asFile.listFiles { f -> f.isFile } ?: emptyArray())
+        val newest = sources.maxByOrNull { it.lastModified() }
+        if (newest != null && newest.lastModified() > aar.lastModified()) {
+            val msg = "Go bridge is STALE: ${newest.relativeTo(appctrDir.asFile)} is newer than appctr/tmp/appctr.aar. " +
+                "Run appctr/build.sh (ANDROID_NDK_HOME set) before building; the APK would not contain the Go changes."
+            if (failOnStale) throw GradleException(msg) else logger.warn("-> WARNING: $msg")
+        } else {
+            logger.lifecycle("-> Go bridge check: appctr.aar is newer than every Go source and patch")
+        }
+    }
+}
+tasks.named("preBuild") { dependsOn(verifyGoBridgeFresh) }
+
 tasks.matching { it.name == "minifyReleaseWithR8" }.configureEach {
     finalizedBy(verifyReleaseNativeMethods)
 }

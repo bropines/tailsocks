@@ -464,6 +464,13 @@ fun MainScreen(
                 if (!wasLoggedIn) {
                     prefs.edit().putBoolean("was_logged_in", true).apply()
                 }
+                // A running backend means any start/login transition is over. If
+                // isProcessing was left set (no START broadcast reached this
+                // screen, e.g. a slow browser login), the sync below never ran and
+                // the "connection issue" card stayed up over a working tailnet.
+                if (isProcessing && (proxyState == "STARTING" || proxyState == "LOGGED_OUT" || proxyState == "CONNECTION_ISSUE")) {
+                    isProcessing = false
+                }
             }
 
             // Sync state if not explicitly in transition

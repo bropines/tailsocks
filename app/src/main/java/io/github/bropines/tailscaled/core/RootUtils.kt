@@ -113,7 +113,12 @@ object RootUtils {
             errThread.join(TimeUnit.SECONDS.toMillis(2))
 
             val text = synchronized(output) { output.toString().trim() }
-            if (exitCode != 0) {
+            if (exitCode != 0 && tag.endsWith("-check")) {
+                // Probes ([ -f script ] && echo exists) report "not installed" as a
+                // non-zero exit; that is an answer, not a failure, and logging it as
+                // ERROR made the ROOT tab look broken on every settings visit.
+                Log.d(TAG, "[$tag] exit=$exitCode (not present)")
+            } else if (exitCode != 0) {
                 Log.e(TAG, "[$tag] exit=$exitCode output=$text")
                 rootLog("ERROR", "$tag failed (exit $exitCode)${if (text.isEmpty()) "" else ": $text"}")
             } else {
@@ -241,7 +246,11 @@ object RootUtils {
 
             val sb = StringBuilder(env)
             sb.append("nohup $cmd >> ${shQuote(logFile)} 2>&1 &\n")
-            sb.append("chmod 600 ${shQuote(logFile)} 2>/dev/null || true\n")
+            // The daemon runs as root, so the file is root-owned; 0644 lets the
+            // app read it for the Logs screen. It sits in the app's private data
+            // directory (0700), so nothing else can. 0600 left the Logs screen
+            // empty in Root Mode.
+            sb.append("chmod 644 ${shQuote(logFile)} 2>/dev/null || true\n")
             sb.append("magiskpolicy --live \"allow untrusted_app magisk unix_stream_socket connectto\" 2>/dev/null || supolicy --live \"allow untrusted_app magisk unix_stream_socket connectto\" 2>/dev/null || true\n")
             sb.append("for i in \$(seq 1 30); do\n")
             sb.append("    if [ -S ${shQuote(socketPath)} ] || [ -e ${shQuote(socketPath)} ]; then\n")
