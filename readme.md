@@ -333,7 +333,7 @@ On Android 16 and newer TailSocks exposes **14 AppFunctions** to on-device assis
 ## 🔄 Background behaviour
 
 * **Auto-reconnect** (Settings → APP → System & Backup, off by default) restarts the daemon when the connection does not come up or drops, with a configurable attempt limit. Waiting for you to sign in is not treated as a failure.
-* **Revive service in background** (same place, on by default) checks every 15 minutes that the service is still alive and starts it again after a background kill. If your ROM refuses background starts, the log says so — grant the app autostart permission.
+* **Revive service in background** (same place, on by default) checks every 15 minutes that the service is still alive and starts it again after a background kill. Allowing "Alarms & reminders" (offered when you turn the switch on) lets the check start the service from the background; without it the check still runs, just later. If your ROM refuses the start anyway, you get a notification that reconnects in one tap, and the app tells you once where the autostart permission is.
 * **Force Background Run** (Settings → TS-Core → Flags & Logs, off by default) holds a wake lock for the whole session so the connection survives deep sleep. Costs battery.
 * **A manual Stop is final.** Stopping from the app, notification, Quick Settings tile, a `DISCONNECT` intent or the `disconnect` AppFunction clears the desired state first; neither the watchdog, auto-reconnect nor Android's sticky restart bring the service back until you start it again.
 * **Swiping the app away keeps the connection.** Removing the task from Recents does not stop the service.

@@ -213,6 +213,9 @@ object GlobalSettings {
     fun getBoolean(context: Context, key: String, default: Boolean): Boolean = getPrefs(context).getBoolean(key, default)
     fun setBoolean(context: Context, key: String, value: Boolean) = getPrefs(context).edit().putBoolean(key, value).apply()
 
+    fun getLong(context: Context, key: String, default: Long): Long = getPrefs(context).getLong(key, default)
+    fun setLong(context: Context, key: String, value: Long) = getPrefs(context).edit().putLong(key, value).apply()
+
     fun getCPField(context: Context, key: String, default: String = ""): String = getPrefs(context).getString("cp_$key", default) ?: default
     fun setCPField(context: Context, key: String, value: String) = getPrefs(context).edit().putString("cp_$key", value).apply()
 

@@ -936,7 +936,27 @@ fun SettingsScreen(
                                 ) {
                                     GlobalSettings.setServiceWatchdogEnabled(context, it)
                                     serviceWatchdog = it
-                                    if (it) ServiceWatchdog.schedule(context) else ServiceWatchdog.cancel(context)
+                                    if (it) {
+                                        ServiceWatchdog.schedule(context)
+                                        // Without "Alarms & reminders" the check still runs, only
+                                        // later and without the exemption that lets it start the
+                                        // service from the background. Ask exactly here, where the
+                                        // user just said they want the feature.
+                                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S &&
+                                            !ServiceWatchdog.canScheduleExact(context)
+                                        ) {
+                                            try {
+                                                context.startActivity(
+                                                    Intent(
+                                                        android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                                                        android.net.Uri.parse("package:${context.packageName}")
+                                                    )
+                                                )
+                                            } catch (e: Exception) {
+                                                Toast.makeText(context, context.getString(R.string.settings_watchdog_exact_error), Toast.LENGTH_LONG).show()
+                                            }
+                                        }
+                                    } else ServiceWatchdog.cancel(context)
                                 }
                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
                                 var showChangelogAfterUpdate by remember { mutableStateOf(GlobalSettings.isShowChangelogAfterUpdate(context)) }

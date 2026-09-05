@@ -789,7 +789,7 @@
     <string name="settings_auto_reconnect_desc">Перезапускать демон, если соединение не поднялось или отвалилось. Ожидание вашего входа сбоем не считается.</string>
     <string name="settings_auto_reconnect_attempts_title">Попыток перезапуска (0 — без лимита)</string>
     <string name="settings_watchdog_title">Восстанавливать службу в фоне</string>
-    <string name="settings_watchdog_desc">Раз в 15 минут проверяет, жива ли служба, и запускает её заново. Некоторые прошивки блокируют фоновый запуск — там нужно ещё выдать автозапуск.</string>
+    <string name="settings_watchdog_desc">Раз в 15 минут проверяет, жива ли служба, и запускает её заново. Разрешите «Будильники и напоминания», чтобы проверка могла поднять службу из фона; на прошивках, которые блокируют фоновый запуск, нужен ещё и автозапуск.</string>
     <string name="settings_root_dns_redirect_title">Системный DNS через MagicDNS</string>
     <string name="settings_root_dns_redirect_desc">Направляет весь DNS устройства в MagicDNS. Выключите, если системный резолвер должен остаться за другим VPN или DNS-фильтром.</string>
     <string name="settings_sect_socks5">SOCKS5-прокси (внутренний)</string>
@@ -1101,4 +1101,14 @@
     <string name="dns_cd_copy_ip">Скопировать IP</string>
     <string name="serve_badge_off">ВЫКЛ</string>
     <string name="admin_error_loading_keys_format">Ошибка загрузки ключей: %1$s</string>
+    <string name="notif_channel_alerts">Оповещения о соединении</string>
+    <string name="revive_refused_title">TailSocks отключён</string>
+    <string name="revive_refused_text">Система остановила службу и не дала запустить её снова. Нажмите, чтобы подключиться.</string>
+    <string name="autostart_hint_title">Соединение остановили в фоне</string>
+    <string name="autostart_hint_text">Система выгрузила TailSocks и не дала ему подняться самому. Разрешите приложению автозапуск в настройках системы — тогда обновление или чистка памяти больше не будут обрывать соединение.</string>
+    <string name="autostart_hint_reconnect">Подключить</string>
+    <string name="autostart_hint_open_settings">Автозапуск</string>
+    <string name="autostart_hint_dismiss">Понятно</string>
+    <string name="autostart_hint_no_settings">Не удалось открыть системные настройки на этом устройстве</string>
+    <string name="settings_watchdog_exact_error">Не удалось открыть настройки будильников и напоминаний</string>
 </resources>

@@ -789,7 +789,7 @@
     <string name="settings_auto_reconnect_desc">Restart the daemon when the connection does not come up or drops. Waiting for you to sign in is not treated as a failure.</string>
     <string name="settings_auto_reconnect_attempts_title">Restart attempts (0 = unlimited)</string>
     <string name="settings_watchdog_title">Revive service in background</string>
-    <string name="settings_watchdog_desc">Checks every 15 minutes that the service is still alive and starts it again. Some skins block background starts — grant the app autostart permission there as well.</string>
+    <string name="settings_watchdog_desc">Checks every 15 minutes that the service is still alive and starts it again. Allow "Alarms &amp; reminders" so the check may start it from the background; on skins that block background starts, grant autostart as well.</string>
     <string name="settings_root_dns_redirect_title">System-wide DNS via MagicDNS</string>
     <string name="settings_root_dns_redirect_desc">Sends DNS from the whole device to MagicDNS. Turn off when another VPN or DNS filtering app should keep the system resolver.</string>
     <string name="settings_sect_socks5">SOCKS5 Proxy (Internal)</string>
@@ -1101,4 +1101,14 @@
     <string name="dns_cd_copy_ip">Copy IP</string>
     <string name="serve_badge_off">OFF</string>
     <string name="admin_error_loading_keys_format">Error loading keys: %1$s</string>
+    <string name="notif_channel_alerts">Connection alerts</string>
+    <string name="revive_refused_title">TailSocks is disconnected</string>
+    <string name="revive_refused_text">The system stopped the service and would not let it start again. Tap to reconnect.</string>
+    <string name="autostart_hint_title">The connection was stopped in the background</string>
+    <string name="autostart_hint_text">The system stopped TailSocks and did not let it start again on its own. Allow autostart for TailSocks in the system settings, and an update or a memory cleanup will no longer disconnect you.</string>
+    <string name="autostart_hint_reconnect">Reconnect</string>
+    <string name="autostart_hint_open_settings">Autostart</string>
+    <string name="autostart_hint_dismiss">Got it</string>
+    <string name="autostart_hint_no_settings">Cannot open the system settings on this device</string>
+    <string name="settings_watchdog_exact_error">Cannot open the alarms and reminders settings</string>
 </resources>

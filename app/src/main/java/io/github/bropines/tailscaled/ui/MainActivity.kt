@@ -165,6 +165,16 @@ fun downloadAndCacheAvatar(context: Context, accountId: String, urlStr: String) 
     }
 }
 
+/** Install this hint was last dismissed for; see [MainActivity.maybeShowAutostartHint]. */
+private const val KEY_AUTOSTART_HINT_DISMISSED = "autostart_hint_dismissed_for"
+
+private fun autostartHintKey(context: Context): Long =
+    try {
+        context.packageManager.getPackageInfo(context.packageName, 0).lastUpdateTime
+    } catch (e: Exception) {
+        0L
+    }
+
 class MainActivity : ComponentActivity() {
 
     private val requestPermissionLauncher =
@@ -172,6 +182,7 @@ class MainActivity : ComponentActivity() {
 
     private val showAccountSwitcher = mutableStateOf(false)
     private val showChangelog = mutableStateOf(false)
+    private val showAutostartHint = mutableStateOf(false)
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(wrapContextWithLocale(newBase))
@@ -200,7 +211,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             TailSocksTheme {
-                MainScreen(showAccountSwitcher, showChangelog)
+                MainScreen(showAccountSwitcher, showChangelog, showAutostartHint)
             }
         }
     }
@@ -232,7 +243,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        handleIntent(intent)
+        handleIntent(intent, fromNewIntent = true)
     }
 
     override fun onResume() {
@@ -258,8 +269,26 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun handleIntent(intent: Intent?) {
+    private fun handleIntent(intent: Intent?, fromNewIntent: Boolean = false) {
         if (intent == null) return
+        // Tap on the "the system would not let it back" notification. A start
+        // made while an activity is coming to the foreground is never refused,
+        // which is the entire reason this path exists. On a cold start
+        // handleAppStartup() already does it — under the same condition — so
+        // only the already-open case starts anything here; the extra is removed
+        // either way so a later onNewIntent does not replay it (singleTask).
+        if (intent.getBooleanExtra(ServiceWatchdog.EXTRA_RESUME_SERVICE, false)) {
+            intent.removeExtra(ServiceWatchdog.EXTRA_RESUME_SERVICE)
+            if (fromNewIntent &&
+                ProxyState.isUserLetRunning(this) && !ProxyState.isActualRunning(this)
+            ) {
+                ContextCompat.startForegroundService(
+                    this,
+                    Intent(this, TailscaledService::class.java).apply { action = "START_ACTION" }
+                )
+            }
+            ServiceWatchdog.clearRevivalRefused(this)
+        }
         // Callback of the PackageInstaller-session fallback in launchApkInstaller().
         // A session cannot install silently: it reports STATUS_PENDING_USER_ACTION
         // and hands over the confirmation dialog as EXTRA_INTENT, which the app
@@ -292,6 +321,15 @@ class MainActivity : ComponentActivity() {
     private fun handleAppStartup() {
         ProxyState.init(this)
         val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+
+        // Snapshot the outage before the coroutine below starts the service and
+        // the service clears the flag: "the toggle is on but nothing is running"
+        // and "a revival was refused" are both signs that something outside the
+        // app took the connection down and could not put it back.
+        maybeShowAutostartHint(
+            GlobalSettings.getBoolean(this, ServiceWatchdog.KEY_REVIVAL_REFUSED, false) ||
+                (ProxyState.isUserLetRunning(this) && !ProxyState.isActualRunning(this))
+        )
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
@@ -336,6 +374,21 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * Shows the autostart hint at most once per installed build.
+     *
+     * Keyed on `lastUpdateTime` rather than a plain "shown" flag: an outage the
+     * user dismissed is settled, but the next update is a new occasion to point
+     * at the setting that would have prevented it.
+     */
+    private fun maybeShowAutostartHint(outage: Boolean) {
+        if (!outage) return
+        val installedAt = autostartHintKey(this)
+        if (GlobalSettings.getLong(this, KEY_AUTOSTART_HINT_DISMISSED, -1L) == installedAt) return
+        showAutostartHint.value = true
+        android.util.Log.i("MainActivity", "Autostart hint shown")
+    }
+
     private fun checkNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -371,7 +424,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainScreen(
     showAccountSwitcher: MutableState<Boolean>,
-    showChangelog: MutableState<Boolean> = remember { mutableStateOf(false) }
+    showChangelog: MutableState<Boolean> = remember { mutableStateOf(false) },
+    showAutostartHint: MutableState<Boolean> = remember { mutableStateOf(false) }
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -1144,6 +1198,58 @@ fun MainScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(12.dp))
+
+            if (showAutostartHint.value) {
+                val dismissHint = {
+                    GlobalSettings.setLong(context, KEY_AUTOSTART_HINT_DISMISSED, autostartHintKey(context))
+                    ServiceWatchdog.clearRevivalRefused(context)
+                    showAutostartHint.value = false
+                }
+                Surface(
+                    color = MaterialTheme.colorScheme.tertiaryContainer,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.PowerSettingsNew, contentDescription = null, tint = MaterialTheme.colorScheme.onTertiaryContainer)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                stringResource(R.string.autostart_hint_title),
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            stringResource(R.string.autostart_hint_text),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            TextButton(onClick = dismissHint) {
+                                Text(stringResource(R.string.autostart_hint_dismiss))
+                            }
+                            TextButton(onClick = { openAutostartSettings(context) }) {
+                                Text(stringResource(R.string.autostart_hint_open_settings))
+                            }
+                            if (proxyState != "ACTIVE" && proxyState != "STARTING") {
+                                TextButton(onClick = {
+                                    isProcessing = true
+                                    val intent = Intent(context, TailscaledService::class.java).apply { action = "START_ACTION" }
+                                    ContextCompat.startForegroundService(context, intent)
+                                    dismissHint()
+                                }) {
+                                    Text(stringResource(R.string.autostart_hint_reconnect))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
 
             if (!isBatteryOptimizationsIgnored) {
                 Surface(

@@ -47,6 +47,7 @@ class BootReceiver : BroadcastReceiver() {
                 // system happened to run this receiver in; the watchdog alarm
                 // and the next app launch both retry.
                 Log.e(TAG, "Service start refused: ${e.message}")
+                ServiceWatchdog.noteRevivalRefused(context)
             }
         } else if (action != Intent.ACTION_MY_PACKAGE_REPLACED) {
             ProxyState.setUserState(context, false)

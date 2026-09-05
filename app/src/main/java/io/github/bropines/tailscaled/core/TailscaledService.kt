@@ -587,6 +587,9 @@ class TailscaledService : Service() {
         // Supersede the deferred completion of any stop still in flight.
         lifecycleGeneration.incrementAndGet()
         ServiceWatchdog.schedule(this)
+        // Whatever the system refused earlier, it let us through now; take the
+        // "could not restart" notification down.
+        ServiceWatchdog.clearRevivalRefused(this)
         updateTile()
         val pendingStop = shutdownInFlight
         if (pendingStop != null && pendingStop.isAlive) {
@@ -927,6 +930,8 @@ class TailscaledService : Service() {
         // 15-minute watchdog bring the service back after a manual stop.
         ProxyState.setUserState(this, false)
         ServiceWatchdog.cancel(this)
+        // The user asked for this one, so there is no outage left to report.
+        ServiceWatchdog.clearRevivalRefused(this)
         refreshHandler.removeCallbacks(refreshRunnable)
 
         try {
