@@ -211,8 +211,39 @@ object BackupCrypto {
     }
 }
 
+/**
+ * Mirrors the in-app language choice into the platform's per-app locale.
+ *
+ * Called from every Activity's attachBaseContext, so it must be cheap and must
+ * not loop: setting the locale recreates the Activity, which calls back in
+ * here, so it only writes when the platform disagrees with the preference.
+ */
+private fun syncFrameworkLocale(lang: String) {
+    try {
+        val wanted = if (lang == "sys") {
+            androidx.core.os.LocaleListCompat.getEmptyLocaleList()
+        } else {
+            androidx.core.os.LocaleListCompat.forLanguageTags(lang)
+        }
+        val current = androidx.appcompat.app.AppCompatDelegate.getApplicationLocales()
+        if (current.toLanguageTags() != wanted.toLanguageTags()) {
+            androidx.appcompat.app.AppCompatDelegate.setApplicationLocales(wanted)
+        }
+    } catch (e: Exception) {
+        // A locale is not worth a crash at startup.
+        android.util.Log.w("Utils", "Could not apply the app locale: ${e.message}")
+    }
+}
+
 fun wrapContextWithLocale(context: Context): Context {
     val lang = GlobalSettings.getString(context, "app_locale", "sys")
+    // Hand the choice to the framework as well, once per process. The wrapper
+    // below only re-configures the Activity's own context; a dialog opens its
+    // own window, which the framework builds from the app's configuration, so
+    // wrapping alone leaves every dialog in the system language. Since Android
+    // 13 the per-app locale is a platform feature — set it there and every
+    // window agrees, this one included.
+    syncFrameworkLocale(lang)
     return if (lang == "sys") {
         context
     } else {
