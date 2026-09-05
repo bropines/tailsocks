@@ -813,6 +813,20 @@ fun SettingsScreen(
         var cliInstalled by remember { mutableStateOf(false) }
         var killDaemonOnStop by remember { mutableStateOf(GlobalSettings.shouldKillRootDaemonOnStop(context)) }
         var showRootWarningDialog by remember { mutableStateOf(false) }
+        var showTunWarningDialog by remember { mutableStateOf(false) }
+        // Android hands the VPN slot to one app at a time and revokes it from
+        // whoever held it, without asking that app. It does not say who that is,
+        // so we can only report that the slot is taken — by AdGuard, a private
+        // DNS app, another tunnel — and let the user decide.
+        // Read afresh each time the dialog is raised, not once per composition.
+        val foreignVpnActive = remember(showTunWarningDialog) {
+            runCatching {
+                val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+                cm.allNetworks.any { n ->
+                    cm.getNetworkCapabilities(n)?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) == true
+                } && !TunVpnService.isRunning
+            }.getOrDefault(false)
+        }
         var isRootBusy by remember { mutableStateOf(false) }
 
         // Root wins the display if an older install left both keys set; from the
@@ -860,6 +874,40 @@ fun SettingsScreen(
                     }
                 }
             }
+        }
+
+        if (showTunWarningDialog) {
+            AlertDialog(
+                onDismissRequest = { showTunWarningDialog = false },
+                icon = { Icon(Icons.Default.VpnLock, contentDescription = null) },
+                title = { Text(stringResource(R.string.settings_tun_warning_title)) },
+                text = {
+                    Text(
+                        text = if (foreignVpnActive) stringResource(R.string.settings_tun_warning_body_busy)
+                               else stringResource(R.string.settings_tun_warning_body),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        showTunWarningDialog = false
+                        // Same order the selector used: Root down first, then the
+                        // TUN key, so no APPLY_SETTINGS lands with both set.
+                        if (rootModeEnabled) disableRootMode()
+                        if (!tunModeEnabled) {
+                            tunModeEnabled = true
+                            saveGlobalPref("tun_mode_enabled", true)
+                        }
+                    }) {
+                        Text(stringResource(R.string.settings_tun_warning_confirm))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showTunWarningDialog = false }) {
+                        Text(stringResource(R.string.settings_root_warning_dialog_cancel))
+                    }
+                }
+            )
         }
 
         if (showRootWarningDialog) {
@@ -941,6 +989,12 @@ fun SettingsScreen(
                 // Root is never enabled straight from a tap: the warning dialog
                 // owns the su probe and the writes that follow it.
                 showRootWarningDialog = true
+                return
+            }
+            if (index == 1) {
+                // Nor is TUN: taking the VPN slot kicks out whatever holds it,
+                // and the user finds out when their ad blocker goes dark.
+                showTunWarningDialog = true
                 return
             }
             // Root goes down first, the TUN key is written second — the same

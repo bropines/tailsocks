@@ -1160,4 +1160,8 @@
     <string name="settings_sect_backup_files">Файлы резервных копий</string>
     <string name="settings_tun_uses_socks_title">Отдаёт трафик в локальный SOCKS5</string>
     <string name="settings_tun_uses_socks_desc">%1$s — общий с режимом прокси, Taildrive и админ-API. Нажмите, чтобы изменить.</string>
+    <string name="settings_tun_warning_title">Занять слот VPN?</string>
+    <string name="settings_tun_warning_body">Android держит только один VPN одновременно. Включение займёт слот, и любой VPN или блокировщик рекламы, который займёт его следующим, точно так же отключит TailSocks.</string>
+    <string name="settings_tun_warning_body_busy">Сейчас работает другой VPN — блокировщик рекламы, приложение приватного DNS или ещё один туннель. Включение заберёт слот у него, и он перестанет фильтровать, пока вы не вернётесь обратно.</string>
+    <string name="settings_tun_warning_confirm">Включить</string>
 </resources>

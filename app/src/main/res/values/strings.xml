@@ -1160,4 +1160,8 @@
     <string name="settings_sect_backup_files">Backup files</string>
     <string name="settings_tun_uses_socks_title">Forwards into the local SOCKS5 proxy</string>
     <string name="settings_tun_uses_socks_desc">%1$s — shared with proxy mode, Taildrive and the admin API. Tap to change it.</string>
+    <string name="settings_tun_warning_title">Take the VPN slot?</string>
+    <string name="settings_tun_warning_body">Android runs one VPN at a time. Turning this on takes the slot, and any VPN or ad blocker that takes it later will disconnect TailSocks in the same way.</string>
+    <string name="settings_tun_warning_body_busy">Another VPN is running right now — an ad blocker, a private DNS app, another tunnel. Turning this on takes the slot from it and it will stop filtering until you switch back.</string>
+    <string name="settings_tun_warning_confirm">Turn on</string>
 </resources>
