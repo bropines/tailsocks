@@ -436,6 +436,9 @@ fun MainScreen(
     val prefs = remember(activeAccount.id) { context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE) }
     val globalPrefs = remember { context.getSharedPreferences("tailsocks_global", Context.MODE_PRIVATE) }
     var isTunEnabled by remember { mutableStateOf(GlobalSettings.isTunModeEnabled(context)) }
+    // Root Mode routes through the kernel interface, not the VpnService, so the
+    // card has to name it: "Active" alone reads as plain proxy mode.
+    var isRootEnabled by remember { mutableStateOf(GlobalSettings.isRootModeEnabled(context)) }
 
     val globalPrefsListener = remember {
         android.content.SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
@@ -614,6 +617,7 @@ fun MainScreen(
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
                 isTunEnabled = GlobalSettings.isTunModeEnabled(context)
+                isRootEnabled = GlobalSettings.isRootModeEnabled(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -1313,7 +1317,8 @@ fun MainScreen(
                 state = if (proxyState == "CONNECTION_ISSUE" || (proxyState == "LOGGED_OUT" && ProxyState.isActualRunning())) "ACTIVE" else proxyState,
                 isProcessing = isProcessing,
                 isTunEnabled = isTunEnabled,
-                isFullTunnel = isFullTunnel
+                isFullTunnel = isFullTunnel,
+                isRootEnabled = isRootEnabled
             ) {
                 if (isProcessing) return@StatusCard
 
@@ -1910,7 +1915,7 @@ fun MainScreen(
 }
 
 @Composable
-fun StatusCard(state: String, isProcessing: Boolean, isTunEnabled: Boolean, isFullTunnel: Boolean, onToggle: () -> Unit) {
+fun StatusCard(state: String, isProcessing: Boolean, isTunEnabled: Boolean, isFullTunnel: Boolean, isRootEnabled: Boolean = false, onToggle: () -> Unit) {
     val backgroundColor = when (state) {
         "ACTIVE" -> MaterialTheme.colorScheme.primaryContainer
         "STARTING" -> MaterialTheme.colorScheme.tertiaryContainer
@@ -1973,7 +1978,11 @@ fun StatusCard(state: String, isProcessing: Boolean, isTunEnabled: Boolean, isFu
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = when(state) {
-                    "ACTIVE" -> if (isTunEnabled) "${stringResource(R.string.main_status_active)} + TUN" else stringResource(R.string.main_status_active)
+                    "ACTIVE" -> when {
+                        isRootEnabled -> "${stringResource(R.string.main_status_active)} + Root"
+                        isTunEnabled -> "${stringResource(R.string.main_status_active)} + TUN"
+                        else -> stringResource(R.string.main_status_active)
+                    }
                     "STARTING" -> stringResource(R.string.main_status_starting)
                     else -> stringResource(R.string.status_stopped)
                 },
@@ -1985,13 +1994,13 @@ fun StatusCard(state: String, isProcessing: Boolean, isTunEnabled: Boolean, isFu
             Text(
                 text = when {
                     isProcessing -> stringResource(R.string.main_status_please_wait)
-                    state == "ACTIVE" -> {
-                        if (isTunEnabled) {
-                            if (isFullTunnel) stringResource(R.string.main_tun_full_tunnel_desc)
-                            else stringResource(R.string.main_tun_split_tunnel_desc)
-                        } else {
-                            stringResource(R.string.main_status_active_desc)
-                        }
+                    state == "ACTIVE" -> when {
+                        // Root wins the label: with it on, the VpnService is not
+                        // what carries the traffic even if the TUN switch is set.
+                        isRootEnabled -> stringResource(R.string.main_status_active_root_desc)
+                        isTunEnabled -> if (isFullTunnel) stringResource(R.string.main_tun_full_tunnel_desc)
+                                        else stringResource(R.string.main_tun_split_tunnel_desc)
+                        else -> stringResource(R.string.main_status_active_desc)
                     }
                     state == "STARTING" -> stringResource(R.string.main_status_starting_desc)
                     else -> stringResource(R.string.tap_to_start)
