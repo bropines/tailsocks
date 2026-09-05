@@ -343,12 +343,20 @@ fun DnsScreen(onBack: () -> Unit) {
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
+                                // The title takes what is left after the button, and
+                                // the button never shrinks: with both sized by their
+                                // own text, the Russian strings collided and the
+                                // button was drawn over the title.
                                 Text(
                                     stringResource(R.string.dns_test_local_server_title),
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary,
-                                    style = MaterialTheme.typography.titleMedium
+                                    style = MaterialTheme.typography.titleMedium,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
                                 )
+                                Spacer(Modifier.width(12.dp))
                                 Button(
                                     onClick = { runLocalDnsTest() },
                                     enabled = !isTestingLocal,
@@ -361,7 +369,12 @@ fun DnsScreen(onBack: () -> Unit) {
                                     } else {
                                         Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
                                         Spacer(Modifier.width(4.dp))
-                                        Text(stringResource(R.string.dns_test_btn), fontSize = 12.sp)
+                                        Text(
+                                            stringResource(R.string.dns_test_btn),
+                                            fontSize = 12.sp,
+                                            maxLines = 1,
+                                            softWrap = false
+                                        )
                                     }
                                 }
                             }

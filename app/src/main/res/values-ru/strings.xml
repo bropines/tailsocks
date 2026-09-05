@@ -524,7 +524,7 @@
     <string name="dns_test_status_untested">Не проверен</string>
     <string name="dns_test_status_active">АКТИВЕН</string>
     <string name="dns_test_status_error">ОШИБКА</string>
-    <string name="dns_test_btn">Проверить работу DNS</string>
+    <string name="dns_test_btn">Проверить</string>
     <string name="dns_test_success_format">Успешно (Ответ: %1$d б, пинг: %2$d мс)</string>
     <string name="dns_test_failed_format">Ошибка: %1$s</string>
     <string name="dns_magic_status">Статус</string>
