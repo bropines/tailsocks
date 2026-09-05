@@ -19,10 +19,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -94,7 +99,10 @@ private enum class PermState { GRANTED, DENIED, UNKNOWN, NOT_APPLICABLE }
 @Composable
 fun AutostartAskDialog(onAnswered: () -> Unit) {
     val context = LocalContext.current
-    fun answer(neverAgain: Boolean = false) {
+    // Checked once, honoured for every answer: "Later" with it ticked is the
+    // permanent no, and so is granting, which needs no further asking anyway.
+    var neverAgain by remember { mutableStateOf(false) }
+    fun answer() {
         OptionalPermissions.answerAutostartAsk(context, neverAgain)
         onAnswered()
     }
@@ -103,35 +111,74 @@ fun AutostartAskDialog(onAnswered: () -> Unit) {
         icon = { Icon(Icons.Default.PowerSettingsNew, contentDescription = null) },
         title = { Text(stringResource(R.string.perm_ask_title)) },
         text = {
-            Column {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(stringResource(R.string.perm_ask_text), style = MaterialTheme.typography.bodyMedium)
-                TextButton(
-                    onClick = {
-                        answer()
-                        context.startActivity(Intent(context, PermissionsActivity::class.java))
-                    },
-                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 4.dp)
+                // The whole row toggles, so the label is a target too, not just
+                // the 20dp box.
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { neverAgain = !neverAgain }
+                        .padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(stringResource(R.string.perm_ask_all))
+                    Checkbox(checked = neverAgain, onCheckedChange = { neverAgain = it })
+                    Text(
+                        stringResource(R.string.perm_ask_never),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                // Leaves for another screen of ours, so a chevron rather than the
+                // outward arrow the system-settings action carries.
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            answer()
+                            context.startActivity(Intent(context, PermissionsActivity::class.java))
+                        }
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        stringResource(R.string.perm_ask_all),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Icon(
+                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = {
+            // Filled, because it is the answer we want, and marked as leaving the
+            // app: it lands in the system's own autostart screen.
+            Button(onClick = {
                 answer()
                 openAutostartSettings(context)
             }) {
                 Text(stringResource(R.string.perm_ask_grant))
+                Icon(
+                    Icons.AutoMirrored.Filled.OpenInNew,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .padding(start = 6.dp)
+                        .size(16.dp)
+                )
             }
         },
         dismissButton = {
-            Row {
-                TextButton(onClick = { answer(neverAgain = true) }) {
-                    Text(stringResource(R.string.perm_ask_never))
-                }
-                TextButton(onClick = { answer() }) {
-                    Text(stringResource(R.string.perm_ask_later))
-                }
+            TextButton(onClick = { answer() }) {
+                Text(stringResource(R.string.perm_ask_later))
             }
         }
     )
