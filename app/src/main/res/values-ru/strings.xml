@@ -597,6 +597,8 @@
     <string name="logs_dns_flushed">DNS-кэш очищен</string>
     <string name="logs_cd_flush_dns">Очистить DNS-кэш</string>
     <string name="logs_cleared">Очищено</string>
+    <string name="logs_copied_tail">Лог большой: скопирован только хвост. Полный лог — через «Сохранить»</string>
+    <string name="logs_root_clear_failed">Не удалось очистить лог демона (ошибка root-оболочки)</string>
     <string name="logs_search_placeholder">Поиск…</string>
 
     <!-- ======================== Main Screen ======================== -->

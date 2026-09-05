@@ -34,13 +34,18 @@ When **Native Linux TUN** is enabled, the daemon creates a real kernel interface
 routing around it once the daemon reaches the `Running` state:
 
 * **Table `1099`** carries `100.64.0.0/10` (and `fd7a:115c:a1e0::/48`) via `tailscale0`.
-  Traffic is steered into it by the `ip rule … fwmark 0x1000000/0x1000000 table 1099`
-  rule (priority 100).
+  Traffic is steered into it by two rules at priority 100: `ip rule … fwmark
+  0x1000000/0x1000000 table 1099` for marked packets, and `ip rule … to
+  100.64.0.0/10 table 1099` (and the IPv6 range) by destination. The second one
+  matters for the daemon's own sockets: the mark is applied in `mangle OUTPUT`,
+  *after* the kernel has already chosen a source address from the Wi-Fi table,
+  so without it the daemon's queries to a split-DNS resolver on a peer left
+  `tailscale0` with the Wi-Fi address as source and never got an answer.
 * **`TAILSOCKS_MARK`** (mangle, hooked from `OUTPUT` for the tailnet ranges) sets
   that mark with `--set-xmark 0x1000000/0x1000000`. Only a single high bit is
   touched through a mask: Android packs its own routing decision into fwmark (the
   netId in the low 16 bits, then the explicit/protect/permission flags), and the
-  bare `--set-mark 1099` used before 3.6.0 overwrote all of it, which broke
+  bare `--set-mark 1099` used before 4.0.0 overwrote all of it, which broke
   routing whenever another VPN owned the default network. The old mark and the
   old un-chained rules are removed automatically on the first start after an
   upgrade.

@@ -48,7 +48,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.io.OutputStreamWriter
+import java.io.RandomAccessFile
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 
 @Serializable
@@ -118,17 +120,207 @@ fun getDebugHeader(context: Context): String {
     """.trimIndent()
 }
 
+/**
+ * Tail reader for the Root Mode daemon log (`<dataDir>/logs/tailscaled.log`).
+ *
+ * The daemon appends as root and the file grows without bound; hundreds of KB
+ * of netmap dumps are normal. Reading and parsing the whole file on every
+ * 2-second refresh made the Logs screen crawl, so only the last [TAIL_BYTES]
+ * are read, and the parse is reused until the file's length or mtime changes.
+ */
+private object RootDaemonLog {
+    private const val TAIL_BYTES = 128 * 1024
+    private const val MAX_ENTRIES = 300
+
+    /** `2006/01/02 15:04:05 message`: what Go's log package writes with LstdFlags. */
+    private val lineRegex = Regex("""^(\d{4}/\d{2}/\d{2}) (\d{2}:\d{2}:\d{2}) (.*)$""")
+
+    private class Snapshot(val length: Long, val lastModified: Long, val entries: List<LogEntry>)
+
+    @Volatile
+    private var cached: Snapshot? = null
+
+    /** Drops the cached parse, e.g. after the file was truncated. */
+    fun invalidate() { cached = null }
+
+    /** Parsed entries from the end of the file; empty if it is missing or unreadable. */
+    fun tailEntries(file: File): List<LogEntry> {
+        if (!file.exists()) { cached = null; return emptyList() }
+        val length = file.length()
+        val lastModified = file.lastModified()
+        cached?.let { if (it.length == length && it.lastModified == lastModified) return it.entries }
+        val text = try {
+            readTail(file, TAIL_BYTES)
+        } catch (e: Exception) {
+            android.util.Log.e("LogsActivity", "Error reading root log file: ${e.message}")
+            return emptyList()
+        }
+        val entries = parse(text).takeLast(MAX_ENTRIES)
+        cached = Snapshot(length, lastModified, entries)
+        return entries
+    }
+
+    /**
+     * Returns at most the last [maxBytes] of [file] as text. When the read does
+     * not start at the beginning of the file the partial first line is dropped,
+     * so the result always begins on a line boundary.
+     */
+    fun readTail(file: File, maxBytes: Int): String {
+        RandomAccessFile(file, "r").use { raf ->
+            val length = raf.length()
+            val start = maxOf(0L, length - maxBytes.coerceAtLeast(0))
+            val buf = ByteArray((length - start).toInt())
+            raf.seek(start)
+            raf.readFully(buf)
+            val text = String(buf, Charsets.UTF_8)
+            if (start == 0L) return text
+            val nl = text.indexOf('\n')
+            return if (nl >= 0) text.substring(nl + 1) else ""
+        }
+    }
+
+    /**
+     * Splits daemon output into entries. A line that does not start with the
+     * Go log date and time is a continuation (multi-line netmap dumps, panics)
+     * and is appended to the previous entry. The old code took the first 19
+     * characters of every line as its timestamp, which rendered continuation
+     * lines as `netmap: self: [B06o [ROOT] netmap: self: [B06oh] ...`.
+     */
+    fun parse(text: String): List<LogEntry> {
+        val timestamps = ArrayList<String>()
+        val messages = ArrayList<StringBuilder>()
+        for (line in text.lineSequence()) {
+            if (line.isEmpty()) continue
+            val m = lineRegex.matchEntire(line)
+            when {
+                m != null -> {
+                    timestamps.add(m.groupValues[2])
+                    messages.add(StringBuilder(m.groupValues[3]))
+                }
+                messages.isNotEmpty() -> messages.last().append('\n').append(line)
+                else -> {
+                    timestamps.add("")
+                    messages.add(StringBuilder(line))
+                }
+            }
+        }
+        return List(timestamps.size) { i ->
+            val message = messages[i].toString()
+            LogEntry(timestamp = timestamps[i], level = levelOf(message), category = "ROOT", message = message)
+        }
+    }
+
+    private fun levelOf(message: String): String {
+        val lower = message.lowercase()
+        return when {
+            lower.contains("error") || lower.contains("failed") || lower.contains("panic") -> "ERROR"
+            lower.contains("warn") -> "WARN"
+            else -> "INFO"
+        }
+    }
+}
+
+/**
+ * Seconds since local midnight for an `HH:MM:SS` timestamp, or -1 when there is
+ * none. Both sources carry local wall-clock time (the Go buffer emits `15:04:05`,
+ * [RootDaemonLog.parse] reduces the daemon's `2006/01/02 15:04:05` to the time
+ * part), so this is the one key the merged list can be ordered by.
+ */
+private fun timestampSortKey(timestamp: String): Int {
+    if (timestamp.length < 8) return -1
+    val t = timestamp.takeLast(8)
+    if (t[2] != ':' || t[5] != ':') return -1
+    val h = t.substring(0, 2).toIntOrNull() ?: return -1
+    val m = t.substring(3, 5).toIntOrNull() ?: return -1
+    val s = t.substring(6, 8).toIntOrNull() ?: return -1
+    return h * 3600 + m * 60 + s
+}
+
+private const val ROOT_LOG_SECTION_HEADER = "\n--- ROOT DAEMON LOGS (tailscaled.log) ---\n"
+
+/**
+ * Upper bound on what Copy hands to the clipboard. A ClipData travels in a
+ * single Binder transaction (about 1 MB, strings as UTF-16), so a daemon log
+ * of a few hundred KB made setPrimaryClip fail and nothing was copied at all.
+ */
+private const val CLIPBOARD_LOG_LIMIT = 400 * 1024
+
+private const val CLIPBOARD_TRUNCATED_MARKER =
+    "[... log is large: only the tail is on the clipboard; Save exports the complete log ...]\n"
+
+/** Everything, for Save: the debug header, the Go buffer and the whole daemon log. */
 fun buildFullLogString(context: Context): String {
     val header = getDebugHeader(context)
     val goLogs = try { Appctr.getLogs() } catch (e: Exception) { "" }
-    val dataDir = context.filesDir.parentFile ?: context.filesDir
-    val logFile = java.io.File(dataDir, "logs/tailscaled.log")
+    val logFile = RootUtils.rootDaemonLogFile(context)
     val rootLogs = if (logFile.exists()) {
-        try {
-            "\n--- ROOT DAEMON LOGS (tailscaled.log) ---\n" + logFile.readText()
-        } catch (e: Exception) { "" }
+        try { ROOT_LOG_SECTION_HEADER + logFile.readText() } catch (e: Exception) { "" }
     } else ""
     return header + goLogs + rootLogs
+}
+
+/** Drops the beginning of [text] so that at most [maxChars] remain, cutting at a line boundary. */
+private fun cutToTail(text: String, maxChars: Int): String {
+    if (text.length <= maxChars) return text
+    val cut = text.length - maxChars.coerceAtLeast(0)
+    val nl = text.indexOf('\n', cut)
+    return if (nl >= 0) text.substring(nl + 1) else text.substring(cut)
+}
+
+/**
+ * Text for the clipboard: like [buildFullLogString] but capped at
+ * [CLIPBOARD_LOG_LIMIT] characters. The debug header is always kept; the Go
+ * buffer gets at most half of the remaining budget and the daemon log the
+ * rest, each cut from the front at a line boundary so only whole lines are
+ * pasted. The daemon file is read as a tail, never whole.
+ *
+ * @return the text and whether anything was left out.
+ */
+fun buildClipboardLogString(context: Context): Pair<String, Boolean> {
+    val header = getDebugHeader(context)
+    val budget = CLIPBOARD_LOG_LIMIT - header.length - ROOT_LOG_SECTION_HEADER.length - CLIPBOARD_TRUNCATED_MARKER.length
+    var truncated = false
+
+    var goLogs = try { Appctr.getLogs() } catch (e: Exception) { "" }
+    if (goLogs.length > budget / 2) {
+        goLogs = cutToTail(goLogs, budget / 2)
+        truncated = true
+    }
+
+    val logFile = RootUtils.rootDaemonLogFile(context)
+    val rootLogs = if (logFile.exists()) {
+        try {
+            val remaining = budget - goLogs.length
+            val tail = RootDaemonLog.readTail(logFile, remaining)
+            if (logFile.length() > remaining) truncated = true
+            ROOT_LOG_SECTION_HEADER + tail
+        } catch (e: Exception) { "" }
+    } else ""
+
+    val text = buildString {
+        append(header)
+        if (truncated) append(CLIPBOARD_TRUNCATED_MARKER)
+        append(goLogs)
+        append(rootLogs)
+    }
+    return text to truncated
+}
+
+/**
+ * Empties the daemon log. The app can only truncate the file itself when it is
+ * app-writable, which it never is in practice (the daemon creates it as root
+ * and `writeText("")` fails with EACCES), so it otherwise goes through su.
+ * Blocking; call from Dispatchers.IO.
+ */
+private fun clearRootDaemonLogFile(context: Context): Boolean {
+    val logFile = RootUtils.rootDaemonLogFile(context)
+    val ok = when {
+        !logFile.exists() -> true
+        logFile.canWrite() && runCatching { logFile.writeText("") }.isSuccess -> true
+        else -> RootUtils.clearRootDaemonLog(context)
+    }
+    RootDaemonLog.invalidate()
+    return ok
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -195,25 +387,11 @@ fun LogsScreen(onBack: () -> Unit) {
                 else runCatching { AppJson.decodeFromString<List<LogEntry>>(jsonString) }.getOrDefault(emptyList())
 
             if (GlobalSettings.isRootModeEnabled(context)) {
-                val dataDir = context.filesDir.parentFile ?: context.filesDir
-                val logFile = java.io.File(dataDir, "logs/tailscaled.log")
-                if (logFile.exists()) {
-                    try {
-                        val fileLines = logFile.readLines().takeLast(300)
-                        val parsed = fileLines.map { line ->
-                            LogEntry(
-                                timestamp = if (line.length >= 19) line.substring(0, 19) else "",
-                                level = if (line.contains("ERROR") || line.contains("error")) "ERROR" else "INFO",
-                                category = "ROOT",
-                                message = line
-                            )
-                        }
-                        if (parsed.isNotEmpty()) {
-                            logsList = (logsList + parsed).sortedBy { it.timestamp.takeLast(8) }
-                        }
-                    } catch (e: Exception) {
-                        android.util.Log.e("LogsActivity", "Error reading root log file: ${e.message}")
-                    }
+                val parsed = RootDaemonLog.tailEntries(RootUtils.rootDaemonLogFile(context))
+                if (parsed.isNotEmpty()) {
+                    // sortedBy is stable: entries from one source keep their
+                    // original order when they share a second.
+                    logsList = (logsList + parsed).sortedBy { timestampSortKey(it.timestamp) }
                 }
             }
 
@@ -229,6 +407,22 @@ fun LogsScreen(onBack: () -> Unit) {
             loadLogsData()
             delay(2000)
         }
+    }
+
+    // Follow the tail only while the reader is at the tail. isAutoScroll used to
+    // be set once and never cleared, so every refresh tick (2 s) yanked the list
+    // back to the bottom while the user was reading further up — "the log is
+    // stuck at the bottom". A manual scroll away from the end switches following
+    // off; scrolling back to the end switches it on again.
+    val isAtBottom by remember {
+        derivedStateOf {
+            val info = listState.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull()?.index ?: -1
+            info.totalItemsCount == 0 || last >= info.totalItemsCount - 2
+        }
+    }
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (!listState.isScrollInProgress) isAutoScroll = isAtBottom
     }
 
     LaunchedEffect(displayedLogs.size) {
@@ -261,14 +455,21 @@ fun LogsScreen(onBack: () -> Unit) {
                             }) { Icon(Icons.Default.CleaningServices, contentDescription = stringResource(R.string.logs_cd_flush_dns)) }
 
                             IconButton(onClick = {
-                                // buildFullLogString reads the whole root daemon log
-                                // and calls JNI — off the main thread.
+                                // Reads the root daemon log and calls JNI — off the main thread.
                                 coroutineScope.launch(Dispatchers.IO) {
-                                    val fullLog = buildFullLogString(context)
+                                    val (text, truncated) = buildClipboardLogString(context)
                                     withContext(Dispatchers.Main) {
-                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                        clipboard.setPrimaryClip(ClipData.newPlainText("TailSocks Logs", fullLog))
-                                        Toast.makeText(context, context.getString(R.string.logs_copied), Toast.LENGTH_SHORT).show()
+                                        try {
+                                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                            clipboard.setPrimaryClip(ClipData.newPlainText("TailSocks Logs", text))
+                                            if (truncated) {
+                                                Toast.makeText(context, context.getString(R.string.logs_copied_tail), Toast.LENGTH_LONG).show()
+                                            } else {
+                                                Toast.makeText(context, context.getString(R.string.logs_copied), Toast.LENGTH_SHORT).show()
+                                            }
+                                        } catch (e: Exception) {
+                                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
+                                        }
                                     }
                                 }
                             }) { Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.action_copy)) }
@@ -278,17 +479,13 @@ fun LogsScreen(onBack: () -> Unit) {
                             if (GlobalSettings.isRootModeEnabled(context)) {
                                 IconButton(onClick = {
                                     coroutineScope.launch(Dispatchers.IO) {
-                                        try {
-                                            val dataDir = context.filesDir.parentFile ?: context.filesDir
-                                            val logFile = java.io.File(dataDir, "logs/tailscaled.log")
-                                            if (logFile.exists()) logFile.writeText("")
-                                            withContext(Dispatchers.Main) {
-                                                allLogs = emptyList()
+                                        val ok = clearRootDaemonLogFile(context)
+                                        withContext(Dispatchers.Main) {
+                                            if (ok) {
+                                                allLogs = allLogs.filter { it.category != "ROOT" }
                                                 Toast.makeText(context, context.getString(R.string.logs_cleared), Toast.LENGTH_SHORT).show()
-                                            }
-                                        } catch (e: Exception) {
-                                            withContext(Dispatchers.Main) {
-                                                Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
+                                            } else {
+                                                Toast.makeText(context, context.getString(R.string.logs_root_clear_failed), Toast.LENGTH_LONG).show()
                                             }
                                         }
                                     }
@@ -323,9 +520,17 @@ fun LogsScreen(onBack: () -> Unit) {
             FloatingActionButton(onClick = {
                 coroutineScope.launch(Dispatchers.IO) {
                     Appctr.clearLogs()
+                    // The ROOT entries come from the daemon file; leaving it alone
+                    // made them reappear on the next refresh tick right after "Cleared".
+                    val rootOk = !GlobalSettings.isRootModeEnabled(context) || clearRootDaemonLogFile(context)
                     withContext(Dispatchers.Main) {
-                        allLogs = emptyList()
-                        Toast.makeText(context, context.getString(R.string.logs_cleared), Toast.LENGTH_SHORT).show()
+                        if (rootOk) {
+                            allLogs = emptyList()
+                            Toast.makeText(context, context.getString(R.string.logs_cleared), Toast.LENGTH_SHORT).show()
+                        } else {
+                            allLogs = allLogs.filter { it.category == "ROOT" }
+                            Toast.makeText(context, context.getString(R.string.logs_root_clear_failed), Toast.LENGTH_LONG).show()
+                        }
                     }
                 }
             }) { Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.action_clear)) }

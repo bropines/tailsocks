@@ -597,6 +597,8 @@
     <string name="logs_dns_flushed">DNS Cache Flushed</string>
     <string name="logs_cd_flush_dns">Flush DNS</string>
     <string name="logs_cleared">Cleared</string>
+    <string name="logs_copied_tail">Log is large: only the tail was copied. Use Save to export the complete log</string>
+    <string name="logs_root_clear_failed">Could not clear the daemon log (root shell failed)</string>
     <string name="logs_search_placeholder">Search…</string>
 
     <!-- ======================== Main Screen ======================== -->

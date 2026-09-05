@@ -299,7 +299,7 @@ TailSocks bundles a native JNI implementation of [ByeDPI](https://github.com/huf
 
 TailSocks supports background control via **Android Broadcast Intents**. You can automate connections using Tasker, MacroDroid, Automate, or `adb`.
 
-**A secret token is required.** Set one under **Settings → APP → Tasker & Automation** (there is a *Generate* button) and pass it with every intent as the string extra `secret` (`token` and `key` are accepted too). Since 3.6.0 the receiver ignores every intent until a token is configured, so no other app on the device can stop your VPN or reroute traffic.
+**A secret token is required.** Set one under **Settings → APP → Tasker & Automation** (there is a *Generate* button) and pass it with every intent as the string extra `secret` (`token` and `key` are accepted too). Since 4.0.0 the receiver ignores every intent until a token is configured, so no other app on the device can stop your VPN or reroute traffic.
 
 * **Target Receiver:** `io.github.bropines.tailscaled/.core.TaskerReceiver` (package `io.github.bropines.tailscaled`)
 * **Supported Actions** (each also has a short alias, e.g. `io.github.bropines.tailscaled.START`):

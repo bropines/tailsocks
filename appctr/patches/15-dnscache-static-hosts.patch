@@ -1,0 +1,71 @@
+--- orig/net/dnscache/dnscache.go
++++ tailscale_src/net/dnscache/dnscache.go
+@@ -13,8 +13,10 @@
+ 	"log"
+ 	"net"
+ 	"net/netip"
++	"os"
+ 	"runtime"
+ 	"strconv"
++	"strings"
+ 	"sync"
+ 	"sync/atomic"
+ 	"time"
+@@ -186,6 +188,43 @@
+ 	debugLogging.Store(v)
+ }
+ 
++// staticHosts parses TS_STATIC_HOSTS once: comma- or semicolon-separated
++// "host=ip" pairs (an IPv6 address may be wrapped in brackets). It lets the
++// pinned single-host resolver still answer for the proxy host set by the
++// TailSocks app when the control plane is reached through a proxy.
++var staticHosts = sync.OnceValue(func() map[string][]netip.Addr {
++	m := map[string][]netip.Addr{}
++	for _, pair := range strings.FieldsFunc(os.Getenv("TS_STATIC_HOSTS"), func(r rune) bool { return r == ',' || r == ';' }) {
++		host, ipStr, ok := strings.Cut(strings.TrimSpace(pair), "=")
++		if !ok {
++			continue
++		}
++		host = strings.ToLower(strings.TrimSuffix(strings.TrimSpace(host), "."))
++		ipStr = strings.Trim(strings.TrimSpace(ipStr), "[]")
++		ip, err := netip.ParseAddr(ipStr)
++		if host == "" || err != nil {
++			continue
++		}
++		m[host] = append(m[host], ip.Unmap())
++	}
++	return m
++})
++
++func pickStaticIPs(ips []netip.Addr) (ip, v6 netip.Addr, allIPs []netip.Addr, err error) {
++	for _, a := range ips {
++		if !ip.IsValid() && a.Is4() {
++			ip = a
++		}
++		if !v6.IsValid() && a.Is6() {
++			v6 = a
++		}
++	}
++	if !ip.IsValid() {
++		ip = v6
++	}
++	return ip, v6, ips, nil
++}
++
+ // LookupIP returns the host's primary IP address (either IPv4 or
+ // IPv6, but preferring IPv4) and optionally its IPv6 address, if
+ // there is both IPv4 and IPv6.
+@@ -195,6 +234,13 @@
+ func (r *Resolver) LookupIP(ctx context.Context, host string) (ip, v6 netip.Addr, allIPs []netip.Addr, err error) {
+ 	if r.SingleHostStaticResult != nil {
+ 		if r.SingleHost != host {
++			// TailSocks: a control connection through an HTTP(S) proxy has to
++			// resolve the PROXY's hostname with this resolver, which is pinned to
++			// the control host. TS_STATIC_HOSTS ("proxy.example=1.2.3.4,...")
++			// carries the app's own pre-resolution for exactly that case.
++			if ips := staticHosts()[strings.ToLower(strings.TrimSuffix(host, "."))]; len(ips) > 0 {
++				return pickStaticIPs(ips)
++			}
+ 			return zaddr, zaddr, nil, fmt.Errorf("dnscache: unexpected hostname %q doesn't match expected %q", host, r.SingleHost)
+ 		}
+ 		for _, naIP := range r.SingleHostStaticResult {

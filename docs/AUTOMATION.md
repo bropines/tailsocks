@@ -11,7 +11,7 @@ On Android 16+ the same operations are also exposed to on-device assistants thro
 Automation is configured in TailSocks under **Settings → APP tab → Tasker & Automation**:
 
 * **Allow External Automation:** Master switch. When off, every broadcast is ignored and every mutating AppFunction returns an error.
-* **Security Secret Token (required since 3.6.0):** The broadcast receiver is exported with no permission, so without a token any installed app could stop the VPN or reroute your traffic. Since 3.6.0 the receiver **refuses every intent until a token is set**. Use **Generate** to create one and **Copy** to move it into your automation app.
+* **Security Secret Token (required since 4.0.0):** The broadcast receiver is exported with no permission, so without a token any installed app could stop the VPN or reroute your traffic. Since 4.0.0 the receiver **refuses every intent until a token is set**. Use **Generate** to create one and **Copy** to move it into your automation app.
 
 Every intent must carry the token in one of the following string extras (checked in this order): **`secret`**, **`token`**, or **`key`**. The comparison is constant-time; a missing or wrong value is logged and dropped. The token also applies to read-only actions such as `GET_STATUS`.
 

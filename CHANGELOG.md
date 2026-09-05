@@ -2,7 +2,7 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
-## [3.6.0] - 2026-09-01
+## [4.0.0] - Unreleased
 
 ### Security
 - **Automation was open to any app.** The Tasker/broadcast receiver honoured commands with no token by default, so any installed app could disable the VPN or reroute traffic. It now requires a secret token before acting on anything.
@@ -20,6 +20,10 @@ All notable changes to the TailSocks project will be documented in this file. Th
 ### Fixed
 - **Connection stability**: closed a file-descriptor leak that built up until the proxy stopped working (worst in Root Mode), stopped a restart from killing the daemon it had just started, and stopped a background DNS proxy from being resurrected after the service was stopped.
 - **DNS correctness**: internal tailnet names are no longer leaked to public resolvers, AAAA lookups no longer return bogus addresses, and split-DNS servers with a port or a DoH URL are no longer mangled.
+- **Split DNS to a resolver on the tailnet works in TUN mode**: tailscaled's own forwarder reached a peer-hosted resolver through a plain OS socket, which has no route into the tailnet in userspace mode, so every such query timed out (`dns udp query: ... context deadline exceeded`). The daemon now dials tailnet resolvers through its own network stack (patch 14).
+- **Split DNS to a resolver on the tailnet works in Root Mode**: the policy-routing mark is applied after the kernel has chosen the source address, so the daemon's queries left `tailscale0` with the Wi-Fi address and never got an answer. A destination rule for the tailnet ranges now steers them into table 1099 with the tailnet address as source.
+- **Root Mode logs**: the daemon log was root-only, so the Logs screen showed nothing for the daemon; it is readable again, and "not installed" probes no longer log as errors. The Logs screen now reads only the tail of the daemon log instead of the whole file every two seconds, parses multi-line daemon entries correctly (no more glued lines and fake timestamps), clears the root-owned file through `su`, caps clipboard copies to what Android can hold (Save still exports everything), and stops yanking the list to the bottom while you are reading further up.
+- **Control proxy behind a hostname**: the daemon's pinned resolver refused to look up the proxy host (`dnscache: unexpected hostname`), so control-plane connections through an HTTP(S) proxy failed intermittently. The app has always pre-resolved the proxy host into `TS_STATIC_HOSTS`, but nothing in the daemon read it; it does now (patch 15).
 - **Crashes**: fixed a Web UI crash, a foreground-service crash when applying settings while stopped, and a use-after-close when stopping the TUN tunnel.
 - **Netstack routing fix restored**: a patch that keeps Taildrive/WebDAV working in userspace mode had been silently blanked during the v1.102.1 upgrade and is back.
 - **AppFunctions revived**: the Gemini on-device integration service had been left abstract since 3.3.0, so none of the 14 `@AppFunction` entry points could ever execute. The service now bridges execute requests to the generated invoker, runs functions off the main thread, and all mutating functions respect the automation kill-switch. The service also declares the metadata properties the system indexer requires, so the functions are actually registered with Android (verified with `dumpsys app_function`).

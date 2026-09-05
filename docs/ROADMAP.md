@@ -17,10 +17,10 @@ This document outlines the planned features, architectural improvements, and ref
 - [x] **Socks5 proxy to Control Panel:** Added SOCKS5/HTTP proxy support for control plane traffic with atomic patches and netns bypass fix.
 - [x] **Encrypted Backups:** Manual app state backups encrypted with a user-defined password (AES-GCM) to protect node keys.
 - [x] **Quick Settings Tiles:** Quick Settings Tiles for profile switching and connection state management.
-- [x] **R8 minification (3.6.0):** `isMinifyEnabled`/`isShrinkResources` are on for release builds. Gson was replaced by `kotlinx.serialization`, the AppFunctions service constructs the KSP-generated registries directly, and the `verifyReleaseNativeMethods` Gradle task fails the build if R8 drops a JNI method.
-- [x] **Root Mode hardening (3.6.0):** dedicated `TAILSOCKS_MARK`/`TAILSOCKS_DNS` chains, masked fwmark `0x1000000/0x1000000`, Check Routing diagnostics and the ROOT log tab.
-- [x] **Automation security (3.6.0):** broadcast receiver requires a secret token; AppFunctions (Gemini, Android 16+) actually execute and honour the automation switch.
-- [x] **LAN Access, auto-reconnect, background revival and versioned backups (3.6.0).**
+- [x] **R8 minification (4.0.0):** `isMinifyEnabled`/`isShrinkResources` are on for release builds. Gson was replaced by `kotlinx.serialization`, the AppFunctions service constructs the KSP-generated registries directly, and the `verifyReleaseNativeMethods` Gradle task fails the build if R8 drops a JNI method.
+- [x] **Root Mode hardening (4.0.0):** dedicated `TAILSOCKS_MARK`/`TAILSOCKS_DNS` chains, masked fwmark `0x1000000/0x1000000`, Check Routing diagnostics and the ROOT log tab.
+- [x] **Automation security (4.0.0):** broadcast receiver requires a secret token; AppFunctions (Gemini, Android 16+) actually execute and honour the automation switch.
+- [x] **LAN Access, auto-reconnect, background revival and versioned backups (4.0.0).**
 
 ## Plans
 - [ ] **AI Model Context Protocol (MCP) Server:** Expose an embedded MCP server endpoint (JSON-RPC over SSE / LocalSocket) wrapping `appctr/api.go` LocalAPI, enabling AI assistants (Claude, Cursor, local LLMs) to query status, switch exit nodes, and manage profiles natively.

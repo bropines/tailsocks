@@ -116,6 +116,11 @@ for i in $(seq 1 30); do
                 ip route replace 100.64.0.0/10 dev tailscale0 table 1099 metric 1
                 ip rule del fwmark 0x1000000/0x1000000 table 1099 2>/dev/null || true
                 ip rule add fwmark 0x1000000/0x1000000 table 1099 priority 100
+                # Destination rule too (same as RootUtils): the fwmark is applied
+                # after source selection, so root-owned sockets — the daemon's own
+                # DNS forwarder — otherwise leave tailscale0 with the Wi-Fi source.
+                ip rule del to 100.64.0.0/10 table 1099 2>/dev/null || true
+                ip rule add to 100.64.0.0/10 table 1099 priority 100
 
                 iptables -t mangle -N TAILSOCKS_MARK 2>/dev/null || iptables -t mangle -F TAILSOCKS_MARK
                 iptables -t mangle -A TAILSOCKS_MARK -j MARK --set-xmark 0x1000000/0x1000000
@@ -127,6 +132,8 @@ for i in $(seq 1 30); do
                 ip -6 route replace fd7a:115c:a1e0::/48 dev tailscale0 table 1099 metric 1 2>/dev/null || true
                 ip -6 rule del fwmark 0x1000000/0x1000000 table 1099 2>/dev/null || true
                 ip -6 rule add fwmark 0x1000000/0x1000000 table 1099 priority 100 2>/dev/null || true
+                ip -6 rule del to fd7a:115c:a1e0::/48 table 1099 2>/dev/null || true
+                ip -6 rule add to fd7a:115c:a1e0::/48 table 1099 priority 100 2>/dev/null || true
 
                 ip6tables -t mangle -N TAILSOCKS_MARK 2>/dev/null || ip6tables -t mangle -F TAILSOCKS_MARK
                 ip6tables -t mangle -A TAILSOCKS_MARK -j MARK --set-xmark 0x1000000/0x1000000 2>/dev/null || true

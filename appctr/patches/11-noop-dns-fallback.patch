@@ -1,6 +1,6 @@
---- orig/net/dns/noop.go	2026-07-31 19:22:18.000000000 +0300
-+++ tailscale_src/net/dns/noop.go	2026-08-13 18:37:15.818838518 +0300
-@@ -3,12 +3,36 @@
+--- orig/net/dns/noop.go
++++ tailscale_src/net/dns/noop.go
+@@ -3,12 +3,48 @@
  
  package dns
  
@@ -8,6 +8,8 @@
 +	"net/netip"
 +	"os"
 +	"strings"
++
++	"tailscale.com/net/tsaddr"
 +)
 +
  type noopManager struct{}
@@ -24,11 +26,21 @@
 +		var nameservers []netip.Addr
 +		for _, s := range strings.Split(ns, ",") {
 +			s = strings.TrimSpace(s)
++			var ip netip.Addr
 +			if ipp, err := netip.ParseAddrPort(s); err == nil {
-+				nameservers = append(nameservers, ipp.Addr())
-+			} else if ip, err := netip.ParseAddr(s); err == nil {
-+				nameservers = append(nameservers, ip)
++				ip = ipp.Addr()
++			} else if a, err := netip.ParseAddr(s); err == nil {
++				ip = a
++			} else {
++				continue
 +			}
++			// Never forward to our own MagicDNS service IPs: with netstack
++			// dialling of tailnet resolvers that would loop the resolver into
++			// itself. Mirrors the Linux direct manager's filter.
++			if ip == tsaddr.TailscaleServiceIP() || ip == tsaddr.TailscaleServiceIPv6() {
++				continue
++			}
++			nameservers = append(nameservers, ip)
 +		}
 +		if len(nameservers) > 0 {
 +			return OSConfig{Nameservers: nameservers}, nil

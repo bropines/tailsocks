@@ -33,7 +33,7 @@ cd ..
 ./gradlew app:assembleDebug
 ```
 
-*Release build* — **requires your own signing keystore**. Since 3.6.0 the build refuses to fall back to the debug key: a release APK signed with a throwaway key installs once and can then never be updated by a properly signed build (Android rejects any update whose certificate differs, so the only way out is uninstalling and losing the app state). Provide all four variables, otherwise `packageRelease` fails with an explanatory error:
+*Release build* — **requires your own signing keystore**. Since 4.0.0 the build refuses to fall back to the debug key: a release APK signed with a throwaway key installs once and can then never be updated by a properly signed build (Android rejects any update whose certificate differs, so the only way out is uninstalling and losing the app state). Provide all four variables, otherwise `packageRelease` fails with an explanatory error:
 ```bash
 KEYSTORE_FILE="$PWD/tailsocks.jks" KEYSTORE_PASSWORD=... \
 KEY_ALIAS=... KEY_PASSWORD=... ./gradlew app:assembleRelease

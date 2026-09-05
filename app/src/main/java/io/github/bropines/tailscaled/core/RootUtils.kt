@@ -373,6 +373,15 @@ object RootUtils {
         sb.append("ip route replace $CGNAT_V4 dev tailscale0 table $ROUTE_TABLE metric 1\n")
         sb.append("ip rule del fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE 2>/dev/null || true\n")
         sb.append("ip rule add fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE priority 100\n")
+        // A destination rule as well as the fwmark one: the mark is applied in
+        // mangle OUTPUT, AFTER the kernel has already picked the source address
+        // from the default (Wi-Fi/cellular) table. A root-owned socket — the
+        // daemon's own DNS forwarder talking to a split-DNS resolver on a peer —
+        // therefore left tailscale0 with the Wi-Fi address as source and never
+        // got an answer. Matching on destination makes the first lookup land in
+        // table 1099, so the source is the tailnet address.
+        sb.append("ip rule del to $CGNAT_V4 table $ROUTE_TABLE 2>/dev/null || true\n")
+        sb.append("ip rule add to $CGNAT_V4 table $ROUTE_TABLE priority 100\n")
 
         sb.append("iptables -t mangle -N $CHAIN_MARK 2>/dev/null || iptables -t mangle -F $CHAIN_MARK\n")
         sb.append("iptables -t mangle -A $CHAIN_MARK -j MARK --set-xmark $MARK_BIT/$MARK_MASK\n")
@@ -385,6 +394,8 @@ object RootUtils {
         sb.append("ip -6 route replace $TAILNET_V6 dev tailscale0 table $ROUTE_TABLE metric 1 2>/dev/null || true\n")
         sb.append("ip -6 rule del fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE 2>/dev/null || true\n")
         sb.append("ip -6 rule add fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE priority 100 2>/dev/null || true\n")
+        sb.append("ip -6 rule del to $TAILNET_V6 table $ROUTE_TABLE 2>/dev/null || true\n")
+        sb.append("ip -6 rule add to $TAILNET_V6 table $ROUTE_TABLE priority 100 2>/dev/null || true\n")
 
         sb.append("ip6tables -t mangle -N $CHAIN_MARK 2>/dev/null || ip6tables -t mangle -F $CHAIN_MARK\n")
         sb.append("ip6tables -t mangle -A $CHAIN_MARK -j MARK --set-xmark $MARK_BIT/$MARK_MASK 2>/dev/null || true\n")
@@ -449,6 +460,8 @@ object RootUtils {
 
         sb.append("while ip rule del fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE 2>/dev/null; do :; done\n")
         sb.append("while ip -6 rule del fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE 2>/dev/null; do :; done\n")
+        sb.append("while ip rule del to $CGNAT_V4 table $ROUTE_TABLE 2>/dev/null; do :; done\n")
+        sb.append("while ip -6 rule del to $TAILNET_V6 table $ROUTE_TABLE 2>/dev/null; do :; done\n")
         sb.append("while ip rule del fwmark $LEGACY_MARK table $ROUTE_TABLE 2>/dev/null; do :; done\n")
         sb.append("while ip rule del fwmark $LEGACY_MARK lookup $ROUTE_TABLE 2>/dev/null; do :; done\n")
         sb.append("while ip -6 rule del fwmark $LEGACY_MARK table $ROUTE_TABLE 2>/dev/null; do :; done\n")
@@ -509,6 +522,30 @@ object RootUtils {
             append("ip -br addr show tailscale0 2>/dev/null || echo '(interface missing)'\n")
         }
         return runSu("routing-dump", script, timeoutMs = 10_000L).output
+    }
+
+    /**
+     * The file the Root Mode daemon appends to. Must stay in sync with the path
+     * TailscaledService hands to [startRootDaemon] and with the default there.
+     */
+    fun rootDaemonLogFile(context: Context): File {
+        val dataDir = context.filesDir.parentFile ?: context.filesDir
+        return File(dataDir, "logs/tailscaled.log")
+    }
+
+    /**
+     * Truncates the Root Mode daemon log in place.
+     *
+     * The daemon writes the file as root, so the app uid can read it (0644) but
+     * cannot open it for writing, and `File.writeText("")` silently fails with
+     * EACCES. `: >` truncates through the root shell and keeps the inode: the
+     * daemon holds the file open with O_APPEND, so its next line lands at the
+     * new end of the file and no restart is needed.
+     */
+    fun clearRootDaemonLog(context: Context): Boolean {
+        val path = rootDaemonLogFile(context).absolutePath
+        val res = runSu("daemon-log-clear", ": > ${shQuote(path)}\n", timeoutMs = 10_000L)
+        return res.ok
     }
 
     fun stopRootDaemon(socketPath: String = ""): Boolean {

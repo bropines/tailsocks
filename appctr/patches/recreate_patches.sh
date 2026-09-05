@@ -92,6 +92,17 @@ diff -u orig/safesocket/unixsocket.go tailscale_src/safesocket/unixsocket.go > p
     diff -u orig/net/netmon/netmon_polling.go tailscale_src/net/netmon/netmon_polling.go || true
 } > patches/13-android-osrouter.patch || true
 
+# 14-dns-forwarder-netstack.patch (net/dns/resolver/forwarder.go)
+# Split-DNS resolvers on tailnet IPs are dialled through netstack in
+# userspace-networking mode instead of an OS socket the OS cannot route.
+diff -u orig/net/dns/resolver/forwarder.go tailscale_src/net/dns/resolver/forwarder.go > patches/14-dns-forwarder-netstack.patch || true
+
+# 15-dnscache-static-hosts.patch (net/dnscache/dnscache.go)
+# TS_STATIC_HOSTS lets the control host's pinned resolver answer for the
+# control-proxy hostname (the app pre-resolves it); it was set by the app for
+# years but nothing in the daemon ever read it.
+diff -u orig/net/dnscache/dnscache.go tailscale_src/net/dnscache/dnscache.go > patches/15-dnscache-static-hosts.patch || true
+
 # Guard: a zero-byte patch means a diff target moved or vanished and `|| true`
 # swallowed it — exactly how 08-netstack-cgnat was silently lost during the
 # v1.102.1 bump. Refuse to finish with any empty patch so it can never ship blank.
