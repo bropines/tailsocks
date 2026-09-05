@@ -873,7 +873,12 @@ fun SettingsScreen(
                 }
                 RootUtils.stopRootDaemon("${context.filesDir.absolutePath}/tailscaled.sock")
                 RootUtils.handStateBackToApp(context)
-                if (Appctr.isRunning()) {
+                // Whether the user wants a connection, not whether this process
+                // happens to own a daemon: in Root Mode the daemon is a separate
+                // root process the app only attaches to, so Appctr.isRunning()
+                // reported false here and switching modes quietly did nothing
+                // until the service was toggled by hand.
+                if (ProxyState.isUserLetRunning(context)) {
                     withContext(Dispatchers.Main) {
                         val intent = Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" }
                         context.startService(intent)
@@ -974,7 +979,7 @@ fun SettingsScreen(
                                         tunModeEnabled = false
                                     }
                                     Toast.makeText(context, context.getString(R.string.settings_root_mode_enabled_toast), Toast.LENGTH_SHORT).show()
-                                    if (Appctr.isRunning()) {
+                                    if (ProxyState.isUserLetRunning(context)) {
                                         val intent = Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" }
                                         context.startService(intent)
                                     }
@@ -1203,7 +1208,7 @@ fun SettingsScreen(
                             RootUtils.cleanupTailscale0Routing()
                             GlobalSettings.setRootRoutingInstalled(context, false)
                         }
-                        if (Appctr.isRunning()) {
+                        if (ProxyState.isUserLetRunning(context)) {
                             withContext(Dispatchers.Main) {
                                 val intent = Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" }
                                 context.startService(intent)
@@ -1402,7 +1407,7 @@ fun SettingsScreen(
             ) { enabled ->
                 lanAccessEnabled = enabled
                 GlobalSettings.setLanAccessEnabled(context, enabled)
-                if (Appctr.isRunning()) {
+                if (ProxyState.isUserLetRunning(context)) {
                     val intent = Intent(context, TailscaledService::class.java).apply {
                         action = "RESTART_ACTION"
                     }
@@ -1468,7 +1473,7 @@ fun SettingsScreen(
                 ) { enabled ->
                     rootDnsRedirect = enabled
                     GlobalSettings.setRootDnsRedirectEnabled(context, enabled)
-                    if (Appctr.isRunning()) {
+                    if (ProxyState.isUserLetRunning(context)) {
                         val intent = Intent(context, TailscaledService::class.java).apply {
                             action = "RESTART_ACTION"
                         }
