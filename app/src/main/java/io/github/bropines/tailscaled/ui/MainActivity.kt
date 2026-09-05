@@ -654,22 +654,29 @@ fun MainScreen(
 
     if (showAddAccountDialog) {
         var newAccountServer by remember { mutableStateOf("") }
+        // Dialog strings are resolved out here, in the parent composition — see wrapContextWithLocale().
+        val dlgTitle = stringResource(R.string.main_add_account_title)
+        val dlgNameLabel = stringResource(R.string.main_account_name_label)
+        val dlgServerLabel = stringResource(R.string.settings_login_server_title)
+        val dlgServerPlaceholder = stringResource(R.string.settings_login_server_placeholder)
+        val dlgAdd = stringResource(R.string.action_add)
+        val dlgCancel = stringResource(R.string.action_cancel)
         AlertDialog(
             onDismissRequest = { showAddAccountDialog = false },
-            title = { Text(stringResource(R.string.main_add_account_title)) },
+            title = { Text(dlgTitle) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = newAccountName,
                         onValueChange = { newAccountName = it },
-                        label = { Text(stringResource(R.string.main_account_name_label)) },
+                        label = { Text(dlgNameLabel) },
                         singleLine = true
                     )
                     OutlinedTextField(
                         value = newAccountServer,
                         onValueChange = { newAccountServer = it },
-                        label = { Text(stringResource(R.string.settings_login_server_title)) },
-                        placeholder = { Text(stringResource(R.string.settings_login_server_placeholder)) },
+                        label = { Text(dlgServerLabel) },
+                        placeholder = { Text(dlgServerPlaceholder) },
                         singleLine = true
                     )
                 }
@@ -693,26 +700,31 @@ fun MainScreen(
                             context.startService(Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" })
                         }
                     }
-                }) { Text(stringResource(R.string.action_add)) }
+                }) { Text(dlgAdd) }
             },
-            dismissButton = { TextButton(onClick = { showAddAccountDialog = false }) { Text(stringResource(R.string.action_cancel)) } }
+            dismissButton = { TextButton(onClick = { showAddAccountDialog = false }) { Text(dlgCancel) } }
         )
     }
 
     if (showRenameAccountDialog) {
         val targetAcc = accountToRename ?: activeAccount
         var renameText by remember(targetAcc.id) { mutableStateOf(targetAcc.name) }
+        // Dialog strings are resolved out here, in the parent composition — see wrapContextWithLocale().
+        val dlgTitle = stringResource(R.string.main_rename_account_title)
+        val dlgNameLabel = stringResource(R.string.main_new_name_label)
+        val dlgRename = stringResource(R.string.action_rename)
+        val dlgCancel = stringResource(R.string.action_cancel)
         AlertDialog(
             onDismissRequest = { 
                 showRenameAccountDialog = false
                 accountToRename = null
             },
-            title = { Text(stringResource(R.string.main_rename_account_title)) },
+            title = { Text(dlgTitle) },
             text = {
                 OutlinedTextField(
                     value = renameText,
                     onValueChange = { renameText = it },
-                    label = { Text(stringResource(R.string.main_new_name_label)) },
+                    label = { Text(dlgNameLabel) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -726,19 +738,25 @@ fun MainScreen(
                         showRenameAccountDialog = false
                         accountToRename = null
                     }
-                }) { Text(stringResource(R.string.action_rename)) }
+                }) { Text(dlgRename) }
             },
             dismissButton = { 
                 TextButton(onClick = { 
                     showRenameAccountDialog = false
                     accountToRename = null
-                }) { Text(stringResource(R.string.action_cancel)) } 
+                }) { Text(dlgCancel) } 
             }
         )
     }
 
     if (accountOptionsModal != null) {
         val targetAcc = accountOptionsModal!!
+        // Dialog strings are resolved out here, in the parent composition — see wrapContextWithLocale().
+        val dlgSubtitle = stringResource(R.string.main_account_options_subtitle, targetAcc.name)
+        val dlgSwitchTo = stringResource(R.string.main_switch_to_account)
+        val dlgRename = stringResource(R.string.action_rename)
+        val dlgDelete = stringResource(R.string.action_delete)
+        val dlgCancel = stringResource(R.string.action_cancel)
         AlertDialog(
             onDismissRequest = { accountOptionsModal = null },
             icon = { Icon(Icons.Default.ManageAccounts, null, tint = MaterialTheme.colorScheme.primary) },
@@ -749,7 +767,7 @@ fun MainScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        stringResource(R.string.main_account_options_subtitle, targetAcc.name),
+                        dlgSubtitle,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -772,7 +790,7 @@ fun MainScreen(
                         ) {
                             Icon(Icons.Default.SwapHoriz, null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text(stringResource(R.string.main_switch_to_account), fontWeight = FontWeight.SemiBold)
+                            Text(dlgSwitchTo, fontWeight = FontWeight.SemiBold)
                         }
                     }
                     
@@ -787,7 +805,7 @@ fun MainScreen(
                     ) {
                         Icon(Icons.Default.Edit, null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.action_rename), fontWeight = FontWeight.SemiBold)
+                        Text(dlgRename, fontWeight = FontWeight.SemiBold)
                     }
                     
                     if (targetAcc.id != "default") {
@@ -805,7 +823,7 @@ fun MainScreen(
                         ) {
                             Icon(Icons.Default.Delete, null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text(stringResource(R.string.action_delete), fontWeight = FontWeight.SemiBold)
+                            Text(dlgDelete, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
@@ -813,7 +831,7 @@ fun MainScreen(
             confirmButton = {},
             dismissButton = {
                 TextButton(onClick = { accountOptionsModal = null }) {
-                    Text(stringResource(R.string.action_cancel))
+                    Text(dlgCancel)
                 }
             }
         )
@@ -821,11 +839,16 @@ fun MainScreen(
 
     if (accountToDeleteConfirm != null) {
         val targetAcc = accountToDeleteConfirm!!
+        // Dialog strings are resolved out here, in the parent composition — see wrapContextWithLocale().
+        val dlgTitle = stringResource(R.string.main_delete_account_confirm_title, targetAcc.name)
+        val dlgText = stringResource(R.string.main_delete_account_confirm_text)
+        val dlgDelete = stringResource(R.string.action_delete)
+        val dlgCancel = stringResource(R.string.action_cancel)
         AlertDialog(
             onDismissRequest = { accountToDeleteConfirm = null },
             icon = { Icon(Icons.Default.Warning, null, tint = MaterialTheme.colorScheme.error) },
-            title = { Text(stringResource(R.string.main_delete_account_confirm_title, targetAcc.name)) },
-            text = { Text(stringResource(R.string.main_delete_account_confirm_text)) },
+            title = { Text(dlgTitle) },
+            text = { Text(dlgText) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -851,22 +874,27 @@ fun MainScreen(
                         contentColor = MaterialTheme.colorScheme.onError
                     )
                 ) {
-                    Text(stringResource(R.string.action_delete))
+                    Text(dlgDelete)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { accountToDeleteConfirm = null }) {
-                    Text(stringResource(R.string.action_cancel))
+                    Text(dlgCancel)
                 }
             }
         )
     }
 
     if (showSwitchConfirmDialog != null) {
+        // Dialog strings are resolved out here, in the parent composition — see wrapContextWithLocale().
+        val dlgTitle = stringResource(R.string.main_switch_account_title)
+        val dlgText = stringResource(R.string.main_switch_account_text, showSwitchConfirmDialog!!.name)
+        val dlgRestart = stringResource(R.string.main_restart_switch)
+        val dlgCancel = stringResource(R.string.action_cancel)
         AlertDialog(
             onDismissRequest = { showSwitchConfirmDialog = null },
-            title = { Text(stringResource(R.string.main_switch_account_title)) },
-            text = { Text(stringResource(R.string.main_switch_account_text, showSwitchConfirmDialog!!.name)) },
+            title = { Text(dlgTitle) },
+            text = { Text(dlgText) },
             confirmButton = {
                 Button(onClick = {
                     val target = showSwitchConfirmDialog!!
@@ -877,14 +905,15 @@ fun MainScreen(
                     AccountManager.setActiveAccount(context, target.id)
                     activeAccount = target
                     context.startService(Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" })
-                }) { Text(stringResource(R.string.main_restart_switch)) }
+                }) { Text(dlgRestart) }
             },
-            dismissButton = { TextButton(onClick = { showSwitchConfirmDialog = null }) { Text(stringResource(R.string.action_cancel)) } }
+            dismissButton = { TextButton(onClick = { showSwitchConfirmDialog = null }) { Text(dlgCancel) } }
         )
     }
 
     if (accountMenuExpanded) {
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        // Strings come from the parent context, not stringResource() — see wrapContextWithLocale().
         ModalBottomSheet(
             onDismissRequest = { accountMenuExpanded = false },
             sheetState = sheetState
@@ -934,7 +963,7 @@ fun MainScreen(
                     }
                 }
                 Text(
-                    stringResource(R.string.main_switch_account_header),
+                    context.getString(R.string.main_switch_account_header),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -1073,7 +1102,7 @@ fun MainScreen(
                                     ) {
                                         Icon(
                                             Icons.Default.Edit,
-                                            contentDescription = stringResource(R.string.action_rename),
+                                            contentDescription = context.getString(R.string.action_rename),
                                             modifier = Modifier.size(18.dp)
                                         )
                                     }
@@ -1093,7 +1122,7 @@ fun MainScreen(
                                         ) {
                                             Icon(
                                                 Icons.Default.Delete,
-                                                contentDescription = stringResource(R.string.action_delete),
+                                                contentDescription = context.getString(R.string.action_delete),
                                                 modifier = Modifier.size(18.dp)
                                             )
                                         }
@@ -1121,7 +1150,7 @@ fun MainScreen(
                     Icon(Icons.Default.Add, null, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        stringResource(R.string.action_add),
+                        context.getString(R.string.action_add),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -1406,13 +1435,14 @@ fun MainScreen(
         var isDownloading by remember { mutableStateOf(false) }
         var downloadProgress by remember { mutableIntStateOf(0) }
 
+        // Strings come from the parent context, not stringResource() — see wrapContextWithLocale().
         AlertDialog(
             onDismissRequest = { showAboutDialog = false },
             title = { 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.width(12.dp))
-                    Text(stringResource(R.string.main_about_title))
+                    Text(context.getString(R.string.main_about_title))
                 }
             },
             text = { 
@@ -1422,8 +1452,8 @@ fun MainScreen(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
-                            Text(stringResource(R.string.main_app_version, versionName), fontWeight = FontWeight.Bold)
-                            Text(stringResource(R.string.main_core_version, coreVer), style = MaterialTheme.typography.bodySmall)
+                            Text(context.getString(R.string.main_app_version, versionName), fontWeight = FontWeight.Bold)
+                            Text(context.getString(R.string.main_core_version, coreVer), style = MaterialTheme.typography.bodySmall)
                         }
                     }
                     
@@ -1444,7 +1474,7 @@ fun MainScreen(
                                 )
                                 Spacer(Modifier.width(8.dp))
                                 Text(
-                                    if (isNewer) stringResource(R.string.main_new_version, latestVersion!!) else stringResource(R.string.main_update_up_to_date),
+                                    if (isNewer) context.getString(R.string.main_new_version, latestVersion!!) else context.getString(R.string.main_update_up_to_date),
                                     color = if (isNewer) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -1453,7 +1483,7 @@ fun MainScreen(
                     }
 
                     Spacer(Modifier.height(16.dp))
-                    Text(stringResource(R.string.main_license_text))
+                    Text(context.getString(R.string.main_license_text))
 
                     TextButton(
                         onClick = { showAboutDialog = false; showChangelog.value = true },
@@ -1462,32 +1492,32 @@ fun MainScreen(
                     ) {
                         Icon(Icons.Default.NewReleases, null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text(stringResource(R.string.main_about_whats_new))
+                        Text(context.getString(R.string.main_about_whats_new))
                     }
 
                     TextButton(
                         onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/bropines"))) },
                         modifier = Modifier.height(32.dp),
                         contentPadding = PaddingValues(0.dp)
-                    ) { Text(stringResource(R.string.main_dev_app)) }
+                    ) { Text(context.getString(R.string.main_dev_app)) }
                     
                     TextButton(
                         onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/bropines/tailsocks"))) },
                         modifier = Modifier.height(32.dp),
                         contentPadding = PaddingValues(0.dp)
-                    ) { Text(stringResource(R.string.main_dev_patch)) }
+                    ) { Text(context.getString(R.string.main_dev_patch)) }
 
                     TextButton(
                         onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Asutorufa/tailscale"))) },
                         modifier = Modifier.height(32.dp),
                         contentPadding = PaddingValues(0.dp)
-                    ) { Text(stringResource(R.string.main_dev_anet_patch)) }
+                    ) { Text(context.getString(R.string.main_dev_anet_patch)) }
 
                     TextButton(
                         onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/tailscale/tailscale"))) },
                         modifier = Modifier.height(32.dp),
                         contentPadding = PaddingValues(0.dp)
-                    ) { Text(stringResource(R.string.main_dev_core)) }
+                    ) { Text(context.getString(R.string.main_dev_core)) }
 
                     Spacer(Modifier.height(12.dp))
 
@@ -1499,7 +1529,7 @@ fun MainScreen(
                             )
                             Spacer(Modifier.height(6.dp))
                             Text(
-                                stringResource(R.string.main_update_downloading, downloadProgress),
+                                context.getString(R.string.main_update_downloading, downloadProgress),
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.Bold
                             )
@@ -1597,7 +1627,7 @@ fun MainScreen(
                         ) {
                             Icon(if (isApkCached) Icons.Default.SystemUpdate else Icons.Default.Download, null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text(if (isApkCached) stringResource(R.string.main_update_install_cached) else stringResource(R.string.main_update_download))
+                            Text(if (isApkCached) context.getString(R.string.main_update_install_cached) else context.getString(R.string.main_update_download))
                         }
                     } else {
                         Button(
@@ -1651,7 +1681,7 @@ fun MainScreen(
                             if (isCheckingUpdate) {
                                 CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSecondary)
                             } else {
-                                Text(stringResource(R.string.main_check_updates))
+                                Text(context.getString(R.string.main_check_updates))
                             }
                         }
                     }
@@ -1663,9 +1693,9 @@ fun MainScreen(
                              else "https://github.com/bropines/tailsocks"
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                     showAboutDialog = false
-                }) { Text(stringResource(R.string.action_github)) }
+                }) { Text(context.getString(R.string.action_github)) }
             },
-            dismissButton = { TextButton(onClick = { showAboutDialog = false }) { Text(stringResource(R.string.action_close)) } }
+            dismissButton = { TextButton(onClick = { showAboutDialog = false }) { Text(context.getString(R.string.action_close)) } }
         )
     }
 
@@ -1673,6 +1703,7 @@ fun MainScreen(
         val configuration = androidx.compose.ui.platform.LocalConfiguration.current
         val maxHeight = (configuration.screenHeightDp * 0.85f).dp
 
+        // Strings come from the parent context, not stringResource() — see wrapContextWithLocale().
         ModalBottomSheet(
             onDismissRequest = { showExitNodeSheet = false }
         ) {
@@ -1683,7 +1714,7 @@ fun MainScreen(
                     .navigationBarsPadding()
             ) {
                 Text(
-                    stringResource(R.string.main_select_exit_node),
+                    context.getString(R.string.main_select_exit_node),
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
@@ -1693,7 +1724,7 @@ fun MainScreen(
                     Box(Modifier.fillMaxWidth().height(120.dp), Alignment.Center) { CircularProgressIndicator() }
                 } else if (exitNodes.isEmpty()) {
                     Box(Modifier.fillMaxWidth().height(120.dp), Alignment.Center) { 
-                        Text(stringResource(R.string.main_no_exit_nodes), color = MaterialTheme.colorScheme.outline)
+                        Text(context.getString(R.string.main_no_exit_nodes), color = MaterialTheme.colorScheme.outline)
                     }
                 } else {
                     Box(
@@ -1759,13 +1790,13 @@ fun MainScreen(
                                             Spacer(Modifier.width(16.dp))
                                             Column(Modifier.weight(1f)) {
                                                 Text(
-                                                    stringResource(R.string.main_exit_node_none),
+                                                    context.getString(R.string.main_exit_node_none),
                                                     fontWeight = FontWeight.Bold,
                                                     fontSize = 15.sp,
                                                     color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                                 )
                                                 Text(
-                                                    stringResource(R.string.main_route_traffic_directly),
+                                                    context.getString(R.string.main_route_traffic_directly),
                                                     style = MaterialTheme.typography.bodySmall,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )

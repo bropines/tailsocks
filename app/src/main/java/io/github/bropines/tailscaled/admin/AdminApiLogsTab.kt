@@ -45,6 +45,10 @@ fun AdminApiLogsTabContent(
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedActionFilter by remember { mutableStateOf("ALL") }
+    // A menu popup opens its own window whose LocalContext ignores the app
+    // locale, so its strings are resolved through this parent context instead —
+    // see wrapContextWithLocale().
+    val ctx = LocalContext.current
 
     val filteredLogs = remember(auditLogs, searchQuery, selectedActionFilter) {
         auditLogs.filter { log ->
@@ -93,7 +97,7 @@ fun AdminApiLogsTabContent(
                 ) {
                     listOf(1, 3, 7, 14, 30).forEach { days ->
                         DropdownMenuItem(
-                            text = { Text(stringResource(R.string.admin_logs_days_label, days)) },
+                            text = { Text(ctx.getString(R.string.admin_logs_days_label, days)) },
                             onClick = {
                                 onDaysRangeChange(days)
                                 expandedRangeDropdown = false

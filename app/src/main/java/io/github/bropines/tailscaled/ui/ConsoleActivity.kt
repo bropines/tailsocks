@@ -349,10 +349,15 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
     }
 
     if (showAddPresetDialog) {
+        // Strings resolved in the parent composition — see wrapContextWithLocale().
+        val strConsoleNewPresetTitle = stringResource(R.string.console_new_preset_title)
+        val strConsoleNewPresetLabel = stringResource(R.string.console_new_preset_label)
+        val strActionSave = stringResource(R.string.action_save)
+        val strActionCancel = stringResource(R.string.action_cancel)
         AlertDialog(
             onDismissRequest = { showAddPresetDialog = false },
-            title = { Text(stringResource(R.string.console_new_preset_title)) },
-            text = { OutlinedTextField(value = newPresetCmd, onValueChange = { newPresetCmd = it }, label = { Text(stringResource(R.string.console_new_preset_label)) }, singleLine = true) },
+            title = { Text(strConsoleNewPresetTitle) },
+            text = { OutlinedTextField(value = newPresetCmd, onValueChange = { newPresetCmd = it }, label = { Text(strConsoleNewPresetLabel) }, singleLine = true) },
             confirmButton = {
                 TextButton(onClick = {
                     if (newPresetCmd.isNotBlank()) {
@@ -363,9 +368,9 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
                         newPresetCmd = ""
                     }
                     showAddPresetDialog = false
-                }) { Text(stringResource(R.string.action_save)) }
+                }) { Text(strActionSave) }
             },
-            dismissButton = { TextButton(onClick = { showAddPresetDialog = false }) { Text(stringResource(R.string.action_cancel)) } }
+            dismissButton = { TextButton(onClick = { showAddPresetDialog = false }) { Text(strActionCancel) } }
         )
     }
 }

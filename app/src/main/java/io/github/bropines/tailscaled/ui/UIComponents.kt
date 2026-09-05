@@ -242,6 +242,11 @@ fun PeerDetailsModal(
         else -> stringResource(R.string.peer_ping_failed)
     }
 
+    // Strings resolved in the parent composition — see wrapContextWithLocale().
+    val strPeerDetailsPrev = stringResource(R.string.peer_details_prev)
+    val strPeerDetailsNext = stringResource(R.string.peer_details_next)
+    val strPeerSendFile = stringResource(R.string.peer_send_file)
+    val strActionCopy = stringResource(R.string.action_copy)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState
@@ -273,7 +278,7 @@ fun PeerDetailsModal(
             ) {
                 if (onPrevPeer != null) {
                     IconButton(onClick = onPrevPeer) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = stringResource(R.string.peer_details_prev))
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = strPeerDetailsPrev)
                     }
                 } else {
                     Spacer(Modifier.size(48.dp))
@@ -301,7 +306,7 @@ fun PeerDetailsModal(
                 
                 if (onNextPeer != null) {
                     IconButton(onClick = onNextPeer) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = stringResource(R.string.peer_details_next))
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = strPeerDetailsNext)
                     }
                 } else {
                     Spacer(Modifier.size(48.dp))
@@ -342,7 +347,7 @@ fun PeerDetailsModal(
                 ) {
                     Icon(Icons.AutoMirrored.Filled.Send, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.peer_send_file), fontWeight = FontWeight.SemiBold)
+                    Text(strPeerSendFile, fontWeight = FontWeight.SemiBold)
                 }
             }
             Box(
@@ -391,7 +396,7 @@ fun PeerDetailsModal(
                                 trailingContent = {
                                     Icon(
                                         imageVector = Icons.Default.ContentCopy,
-                                        contentDescription = stringResource(R.string.action_copy),
+                                        contentDescription = strActionCopy,
                                         modifier = Modifier.size(14.dp),
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                                     )

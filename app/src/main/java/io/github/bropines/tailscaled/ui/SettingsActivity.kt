@@ -648,10 +648,15 @@ fun SettingsScreen(
 
     var showResetDialog by remember { mutableStateOf(false) }
     if (showResetDialog) {
+        // Strings resolved in the parent composition — see wrapContextWithLocale().
+        val strSettingsLogoutTitle = stringResource(R.string.settings_logout_title)
+        val strSettingsLogoutText = stringResource(R.string.settings_logout_text)
+        val strSettingsLogoutConfirm = stringResource(R.string.settings_logout_confirm)
+        val strActionCancel = stringResource(R.string.action_cancel)
         AlertDialog(
             onDismissRequest = { showResetDialog = false },
-            title = { Text(stringResource(R.string.settings_logout_title)) },
-            text = { Text(stringResource(R.string.settings_logout_text)) },
+            title = { Text(strSettingsLogoutTitle) },
+            text = { Text(strSettingsLogoutText) },
             confirmButton = {
                 Button(onClick = { 
                     scope.launch(Dispatchers.IO) {
@@ -662,9 +667,9 @@ fun SettingsScreen(
                         }
                     }
                     showResetDialog = false 
-                }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text(stringResource(R.string.settings_logout_confirm)) }
+                }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text(strSettingsLogoutConfirm) }
             },
-            dismissButton = { TextButton(onClick = { showResetDialog = false }) { Text(stringResource(R.string.action_cancel)) } }
+            dismissButton = { TextButton(onClick = { showResetDialog = false }) { Text(strActionCancel) } }
         )
     }
 
@@ -877,14 +882,20 @@ fun SettingsScreen(
         }
 
         if (showTunWarningDialog) {
+            // Strings resolved in the parent composition — see wrapContextWithLocale().
+            val strSettingsTunWarningTitle = stringResource(R.string.settings_tun_warning_title)
+            val strSettingsTunWarningBodyBusy = stringResource(R.string.settings_tun_warning_body_busy)
+            val strSettingsTunWarningBody = stringResource(R.string.settings_tun_warning_body)
+            val strSettingsTunWarningConfirm = stringResource(R.string.settings_tun_warning_confirm)
+            val strSettingsRootWarningDialogCancel = stringResource(R.string.settings_root_warning_dialog_cancel)
             AlertDialog(
                 onDismissRequest = { showTunWarningDialog = false },
                 icon = { Icon(Icons.Default.VpnLock, contentDescription = null) },
-                title = { Text(stringResource(R.string.settings_tun_warning_title)) },
+                title = { Text(strSettingsTunWarningTitle) },
                 text = {
                     Text(
-                        text = if (foreignVpnActive) stringResource(R.string.settings_tun_warning_body_busy)
-                               else stringResource(R.string.settings_tun_warning_body),
+                        text = if (foreignVpnActive) strSettingsTunWarningBodyBusy
+                               else strSettingsTunWarningBody,
                         style = MaterialTheme.typography.bodyMedium
                     )
                 },
@@ -899,18 +910,23 @@ fun SettingsScreen(
                             saveGlobalPref("tun_mode_enabled", true)
                         }
                     }) {
-                        Text(stringResource(R.string.settings_tun_warning_confirm))
+                        Text(strSettingsTunWarningConfirm)
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { showTunWarningDialog = false }) {
-                        Text(stringResource(R.string.settings_root_warning_dialog_cancel))
+                        Text(strSettingsRootWarningDialogCancel)
                     }
                 }
             )
         }
 
         if (showRootWarningDialog) {
+            // Strings resolved in the parent composition — see wrapContextWithLocale().
+            val strSettingsRootWarningDialogTitle = stringResource(R.string.settings_root_warning_dialog_title)
+            val strSettingsRootWarningDialogBody = stringResource(R.string.settings_root_warning_dialog_body)
+            val strSettingsRootWarningDialogConfirm = stringResource(R.string.settings_root_warning_dialog_confirm)
+            val strSettingsRootWarningDialogCancel = stringResource(R.string.settings_root_warning_dialog_cancel)
             AlertDialog(
                 onDismissRequest = { showRootWarningDialog = false },
                 title = {
@@ -923,14 +939,14 @@ fun SettingsScreen(
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            text = stringResource(R.string.settings_root_warning_dialog_title),
+                            text = strSettingsRootWarningDialogTitle,
                             style = MaterialTheme.typography.titleMedium
                         )
                     }
                 },
                 text = {
                     Text(
-                        text = stringResource(R.string.settings_root_warning_dialog_body),
+                        text = strSettingsRootWarningDialogBody,
                         style = MaterialTheme.typography.bodyMedium
                     )
                 },
@@ -968,12 +984,12 @@ fun SettingsScreen(
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                     ) {
-                        Text(stringResource(R.string.settings_root_warning_dialog_confirm))
+                        Text(strSettingsRootWarningDialogConfirm)
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { showRootWarningDialog = false }) {
-                        Text(stringResource(R.string.settings_root_warning_dialog_cancel))
+                        Text(strSettingsRootWarningDialogCancel)
                     }
                 }
             )
@@ -2282,17 +2298,23 @@ fun SettingsScreen(
     if (showBackupPasswordDialog) {
         var tempPassword by remember { mutableStateOf("") }
         var isPasswordVisible by remember { mutableStateOf(false) }
+        // Strings resolved in the parent composition — see wrapContextWithLocale().
+        val strSettingsBackupPasswordTitle = stringResource(R.string.settings_backup_password_title)
+        val strSettingsBackupPasswordText = stringResource(R.string.settings_backup_password_text)
+        val strSettingsPasswordLabel = stringResource(R.string.settings_password_label)
+        val strSettingsBackupAction = stringResource(R.string.settings_backup_action)
+        val strActionCancel = stringResource(R.string.action_cancel)
         AlertDialog(
             onDismissRequest = { showBackupPasswordDialog = false },
-            title = { Text(stringResource(R.string.settings_backup_password_title)) },
+            title = { Text(strSettingsBackupPasswordTitle) },
             text = {
                 Column {
-                    Text(stringResource(R.string.settings_backup_password_text), style = MaterialTheme.typography.bodyMedium)
+                    Text(strSettingsBackupPasswordText, style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
                         value = tempPassword,
                         onValueChange = { tempPassword = it },
-                        label = { Text(stringResource(R.string.settings_password_label)) },
+                        label = { Text(strSettingsPasswordLabel) },
                         singleLine = true,
                         maxLines = 1,
                         shape = RoundedCornerShape(10.dp),
@@ -2317,10 +2339,10 @@ fun SettingsScreen(
                             Toast.makeText(context, context.getString(R.string.settings_password_empty), Toast.LENGTH_SHORT).show()
                         }
                     }
-                ) { Text(stringResource(R.string.settings_backup_action)) }
+                ) { Text(strSettingsBackupAction) }
             },
             dismissButton = {
-                TextButton(onClick = { showBackupPasswordDialog = false }) { Text(stringResource(R.string.action_cancel)) }
+                TextButton(onClick = { showBackupPasswordDialog = false }) { Text(strActionCancel) }
             }
         )
     }
@@ -2328,20 +2350,26 @@ fun SettingsScreen(
     if (showRestorePasswordDialog && pendingRestoreUri != null) {
         var tempPassword by remember { mutableStateOf("") }
         var isPasswordVisible by remember { mutableStateOf(false) }
+        // Strings resolved in the parent composition — see wrapContextWithLocale().
+        val strSettingsRestorePasswordTitle = stringResource(R.string.settings_restore_password_title)
+        val strSettingsRestorePasswordText = stringResource(R.string.settings_restore_password_text)
+        val strSettingsPasswordLabel = stringResource(R.string.settings_password_label)
+        val strSettingsRestoreAction = stringResource(R.string.settings_restore_action)
+        val strActionCancel = stringResource(R.string.action_cancel)
         AlertDialog(
             onDismissRequest = { 
                 showRestorePasswordDialog = false
                 pendingRestoreUri = null
             },
-            title = { Text(stringResource(R.string.settings_restore_password_title)) },
+            title = { Text(strSettingsRestorePasswordTitle) },
             text = {
                 Column {
-                    Text(stringResource(R.string.settings_restore_password_text), style = MaterialTheme.typography.bodyMedium)
+                    Text(strSettingsRestorePasswordText, style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
                         value = tempPassword,
                         onValueChange = { tempPassword = it },
-                        label = { Text(stringResource(R.string.settings_password_label)) },
+                        label = { Text(strSettingsPasswordLabel) },
                         singleLine = true,
                         maxLines = 1,
                         shape = RoundedCornerShape(10.dp),
@@ -2366,13 +2394,13 @@ fun SettingsScreen(
                             Toast.makeText(context, context.getString(R.string.settings_password_empty), Toast.LENGTH_SHORT).show()
                         }
                     }
-                ) { Text(stringResource(R.string.settings_restore_action)) }
+                ) { Text(strSettingsRestoreAction) }
             },
             dismissButton = {
                 TextButton(onClick = { 
                     showRestorePasswordDialog = false
                     pendingRestoreUri = null
-                }) { Text(stringResource(R.string.action_cancel)) }
+                }) { Text(strActionCancel) }
             }
         )
     }

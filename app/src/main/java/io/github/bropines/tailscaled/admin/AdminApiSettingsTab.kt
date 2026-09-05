@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 
 @Composable
@@ -38,6 +39,11 @@ fun TailnetSettingsTabContent(
         }
         return
     }
+
+    // A menu popup opens its own window whose LocalContext ignores the app
+    // locale, so its strings are resolved through this parent context instead —
+    // see wrapContextWithLocale().
+    val ctx = LocalContext.current
 
     var devicesApproval by remember(settings) { mutableStateOf(settings.devicesApprovalOn == true) }
     var usersApproval by remember(settings) { mutableStateOf(settings.usersApprovalOn == true) }
@@ -102,7 +108,7 @@ fun TailnetSettingsTabContent(
                         ) {
                             listOf(1, 7, 30, 90, 180).forEach { days ->
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.admin_settings_days_option, days)) },
+                                    text = { Text(ctx.getString(R.string.admin_settings_days_option, days)) },
                                     onClick = {
                                         keyDurationDays = days
                                         expandedDropdown = false

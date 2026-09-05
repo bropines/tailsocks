@@ -484,10 +484,11 @@ fun AdminApiDashboardScreen(
     }
 
     if (showDisconnectConfirm) {
+        // Strings come from the parent context, not stringResource() — see wrapContextWithLocale().
         AlertDialog(
             onDismissRequest = { showDisconnectConfirm = false },
-            title = { Text(stringResource(R.string.admin_disconnect_title)) },
-            text = { Text(stringResource(R.string.admin_disconnect_text, tailnet)) },
+            title = { Text(context.getString(R.string.admin_disconnect_title)) },
+            text = { Text(context.getString(R.string.admin_disconnect_text, tailnet)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -497,11 +498,11 @@ fun AdminApiDashboardScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text(stringResource(R.string.action_disconnect))
+                    Text(context.getString(R.string.action_disconnect))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDisconnectConfirm = false }) { Text(stringResource(R.string.action_cancel)) }
+                TextButton(onClick = { showDisconnectConfirm = false }) { Text(context.getString(R.string.action_cancel)) }
             }
         )
     }
@@ -524,12 +525,17 @@ fun AdminApiDashboardScreen(
     }
 
     if (generatedKeyToShow != null) {
+        // Strings resolved in the parent composition — see wrapContextWithLocale().
+        val strAdminKeyGeneratedTitle = stringResource(R.string.admin_key_generated_title)
+        val strAdminKeyGeneratedText = stringResource(R.string.admin_key_generated_text)
+        val strAdminKeyCopyClose = stringResource(R.string.admin_key_copy_close)
+        val strActionClose = stringResource(R.string.action_close)
         AlertDialog(
             onDismissRequest = { generatedKeyToShow = null },
-            title = { Text(stringResource(R.string.admin_key_generated_title)) },
+            title = { Text(strAdminKeyGeneratedTitle) },
             text = {
                 Column {
-                    Text(stringResource(R.string.admin_key_generated_text))
+                    Text(strAdminKeyGeneratedText)
                     Spacer(Modifier.height(12.dp))
                     Text(
                         text = generatedKeyToShow!!,
@@ -560,11 +566,11 @@ fun AdminApiDashboardScreen(
                         }
                     }
                 ) {
-                    Text(stringResource(R.string.admin_key_copy_close))
+                    Text(strAdminKeyCopyClose)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { generatedKeyToShow = null }) { Text(stringResource(R.string.action_close)) }
+                TextButton(onClick = { generatedKeyToShow = null }) { Text(strActionClose) }
             }
         )
     }
@@ -816,6 +822,9 @@ fun AdminApiDashboardScreen(
 
     if (showKeysManagement) {
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        // Strings resolved in the parent composition — see wrapContextWithLocale().
+        val strAdminSettingsAuthKeysTitle = stringResource(R.string.admin_settings_auth_keys_title)
+        val strActionClose = stringResource(R.string.action_close)
         ModalBottomSheet(
             onDismissRequest = { showKeysManagement = false },
             sheetState = sheetState
@@ -826,9 +835,9 @@ fun AdminApiDashboardScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(stringResource(R.string.admin_settings_auth_keys_title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text(strAdminSettingsAuthKeysTitle, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     IconButton(onClick = { showKeysManagement = false }) {
-                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.action_close))
+                        Icon(Icons.Default.Close, contentDescription = strActionClose)
                     }
                 }
                 HorizontalDivider()

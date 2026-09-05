@@ -189,12 +189,20 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
     var showChoiceDialog by remember { mutableStateOf(false) }
 
     if (showChoiceDialog) {
+        // Strings resolved in the parent composition — see wrapContextWithLocale().
+        val strTaildriveCdAdd = stringResource(R.string.taildrive_cd_add)
+        val strTaildriveAddChoose = stringResource(R.string.taildrive_add_choose)
+        val strTaildriveAddPickerTitle = stringResource(R.string.taildrive_add_picker_title)
+        val strTaildriveAddPickerDesc = stringResource(R.string.taildrive_add_picker_desc)
+        val strTaildriveAddManualTitle = stringResource(R.string.taildrive_add_manual_title)
+        val strTaildriveAddManualDesc = stringResource(R.string.taildrive_add_manual_desc)
+        val strActionCancel = stringResource(R.string.action_cancel)
         AlertDialog(
             onDismissRequest = { showChoiceDialog = false },
-            title = { Text(stringResource(R.string.taildrive_cd_add)) },
+            title = { Text(strTaildriveCdAdd) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(stringResource(R.string.taildrive_add_choose), style = MaterialTheme.typography.bodyMedium)
+                    Text(strTaildriveAddChoose, style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(4.dp))
                     OutlinedCard(
                         onClick = {
@@ -210,8 +218,8 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
                         ) {
                             Icon(Icons.Default.FolderOpen, null, tint = MaterialTheme.colorScheme.primary)
                             Column {
-                                Text(stringResource(R.string.taildrive_add_picker_title), fontWeight = FontWeight.Bold)
-                                Text(stringResource(R.string.taildrive_add_picker_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(strTaildriveAddPickerTitle, fontWeight = FontWeight.Bold)
+                                Text(strTaildriveAddPickerDesc, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -238,8 +246,8 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
                         ) {
                             Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.primary)
                             Column {
-                                Text(stringResource(R.string.taildrive_add_manual_title), fontWeight = FontWeight.Bold)
-                                Text(stringResource(R.string.taildrive_add_manual_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(strTaildriveAddManualTitle, fontWeight = FontWeight.Bold)
+                                Text(strTaildriveAddManualDesc, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -248,7 +256,7 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
             confirmButton = {},
             dismissButton = {
                 TextButton(onClick = { showChoiceDialog = false }) {
-                    Text(stringResource(R.string.action_cancel))
+                    Text(strActionCancel)
                 }
             }
         )
@@ -636,27 +644,37 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
 
         // Custom Add/Edit Share Dialog
         if (showAddDialog && onDialogSubmit != null) {
+            // Strings resolved in the parent composition — see wrapContextWithLocale().
+            val strTaildriveEditTitle = stringResource(R.string.taildrive_edit_title)
+            val strTaildriveAddTitle = stringResource(R.string.taildrive_add_title)
+            val strTaildriveShareName = stringResource(R.string.taildrive_share_name)
+            val strTaildriveShareNamePlaceholder = stringResource(R.string.taildrive_share_name_placeholder)
+            val strTaildrivePhysicalPath = stringResource(R.string.taildrive_physical_path)
+            val strTaildrivePhysicalPathPlaceholder = stringResource(R.string.taildrive_physical_path_placeholder)
+            val strActionSave = stringResource(R.string.action_save)
+            val strActionAdd = stringResource(R.string.action_add)
+            val strActionCancel = stringResource(R.string.action_cancel)
             AlertDialog(
                 onDismissRequest = { 
                     showAddDialog = false
                     editingShare = null
                 },
-                title = { Text(if (editingShare != null) stringResource(R.string.taildrive_edit_title) else stringResource(R.string.taildrive_add_title)) },
+                title = { Text(if (editingShare != null) strTaildriveEditTitle else strTaildriveAddTitle) },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
                             value = dialogNameInput,
                             onValueChange = { dialogNameInput = it.replace(Regex("[^a-zA-Z0-9_]"), "") },
-                            label = { Text(stringResource(R.string.taildrive_share_name)) },
-                            placeholder = { Text(stringResource(R.string.taildrive_share_name_placeholder)) },
+                            label = { Text(strTaildriveShareName) },
+                            placeholder = { Text(strTaildriveShareNamePlaceholder) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
                         OutlinedTextField(
                             value = dialogPathInput,
                             onValueChange = { dialogPathInput = it },
-                            label = { Text(stringResource(R.string.taildrive_physical_path)) },
-                            placeholder = { Text(stringResource(R.string.taildrive_physical_path_placeholder)) },
+                            label = { Text(strTaildrivePhysicalPath) },
+                            placeholder = { Text(strTaildrivePhysicalPathPlaceholder) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -679,7 +697,7 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
                             }
                         }
                     ) {
-                        Text(if (editingShare != null) stringResource(R.string.action_save) else stringResource(R.string.action_add))
+                        Text(if (editingShare != null) strActionSave else strActionAdd)
                     }
                 },
                 dismissButton = {
@@ -687,7 +705,7 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
                         showAddDialog = false
                         editingShare = null
                     }) {
-                        Text(stringResource(R.string.action_cancel))
+                        Text(strActionCancel)
                     }
                 }
             )

@@ -95,6 +95,7 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
     val maxHeight = (configuration.screenHeightDp * 0.85f).dp
 
+    // Strings come from the parent context, not stringResource() — see wrapContextWithLocale().
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState
@@ -107,11 +108,11 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
         ) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.share_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text(stringResource(R.string.share_files_count_format, fileUris.size), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(context.getString(R.string.share_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(context.getString(R.string.share_files_count_format, fileUris.size), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 IconButton(onClick = { loadPeers() }) {
-                    Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.action_refresh))
+                    Icon(Icons.Default.Refresh, contentDescription = context.getString(R.string.action_refresh))
                 }
                 Spacer(Modifier.width(8.dp))
                 Box {
@@ -196,7 +197,7 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
 
             if (isLoadingPeers) Box(Modifier.fillMaxWidth().height(200.dp), Alignment.Center) { CircularProgressIndicator() }
             else if (errorMsg != null) Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(errorMsg!!, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center); Button(onClick = { loadPeers() }) { Text(stringResource(R.string.action_retry)) }
+                Text(errorMsg!!, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center); Button(onClick = { loadPeers() }) { Text(context.getString(R.string.action_retry)) }
             } else Box(
                 modifier = Modifier
                     .fillMaxWidth()

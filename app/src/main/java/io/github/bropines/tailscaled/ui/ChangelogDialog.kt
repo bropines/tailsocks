@@ -43,6 +43,7 @@ fun ChangelogDialog(onDismiss: () -> Unit) {
     val configuration = LocalConfiguration.current
     val maxHeight = (configuration.screenHeightDp * 0.6f).dp
 
+    // Strings come from the parent context, not stringResource() — see wrapContextWithLocale().
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -52,8 +53,8 @@ fun ChangelogDialog(onDismiss: () -> Unit) {
                 Column {
                     val s = section
                     Text(
-                        if (s != null) stringResource(R.string.whats_new_title, s.version)
-                        else stringResource(R.string.main_about_whats_new)
+                        if (s != null) context.getString(R.string.whats_new_title, s.version)
+                        else context.getString(R.string.main_about_whats_new)
                     )
                     val date = section?.date.orEmpty()
                     if (date.isNotEmpty()) {
@@ -77,7 +78,7 @@ fun ChangelogDialog(onDismiss: () -> Unit) {
                         }
                     }
                     s == null -> {
-                        Text(stringResource(R.string.whats_new_unavailable), color = MaterialTheme.colorScheme.outline)
+                        Text(context.getString(R.string.whats_new_unavailable), color = MaterialTheme.colorScheme.outline)
                     }
                     else -> ChangelogSectionBody(s)
                 }
@@ -89,10 +90,10 @@ fun ChangelogDialog(onDismiss: () -> Unit) {
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Changelog.FULL_CHANGELOG_URL)))
                 } catch (_: Exception) {}
                 onDismiss()
-            }) { Text(stringResource(R.string.whats_new_full_changelog)) }
+            }) { Text(context.getString(R.string.whats_new_full_changelog)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
+            TextButton(onClick = onDismiss) { Text(context.getString(R.string.action_close)) }
         }
     )
 }

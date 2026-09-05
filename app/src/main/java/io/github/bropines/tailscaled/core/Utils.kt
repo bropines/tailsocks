@@ -243,6 +243,37 @@ private fun syncFrameworkLocale(lang: String) {
     }
 }
 
+/**
+ * Wraps an Activity's base context so the app renders in the language chosen in
+ * Settings (`app_locale`: "sys" / "en" / "ru").
+ *
+ * WHY EVERY DIALOG HOISTS ITS STRINGS — do not "clean this up".
+ *
+ * This wrapper fixes the Activity's own window only. A Compose AlertDialog,
+ * ModalBottomSheet, Dialog or DropdownMenu is a separate window with its own
+ * AbstractComposeView, and that view re-provides LocalContext/LocalResources
+ * from the window's context. On HyperOS (Android 16) that window does not
+ * inherit the Activity's overridden configuration, so a `stringResource(...)`
+ * called *inside* a dialog resolves against the SYSTEM language: the screen
+ * renders in one language and its dialogs in the other. Confirmed on device,
+ * both ways round.
+ *
+ * The platform per-app locale API would fix it at the source, and
+ * syncFrameworkLocale() above asks for it once per process — but that ROM
+ * accepts the call and stores nothing (`cmd locale get-app-locales` stays
+ * empty), so it cannot be relied on.
+ *
+ * So every dialog resolves its strings in the PARENT composition, which uses
+ * the Activity's wrapped context and therefore the right language, and passes
+ * plain Strings in. Two shapes are used, both fine:
+ *   - `val strFoo = stringResource(R.string.foo)` declared immediately before
+ *     the dialog call, referenced inside it;
+ *   - `val ctx = LocalContext.current` captured in the parent, then
+ *     `ctx.getString(R.string.foo, arg)` inside the dialog — used where the
+ *     format argument only exists inside the dialog's own content.
+ *
+ * Moving a `stringResource(...)` back inside a dialog slot reintroduces the bug.
+ */
 fun wrapContextWithLocale(context: Context): Context {
     val lang = GlobalSettings.getString(context, "app_locale", "sys")
     // Hand the choice to the framework as well, once per process. The wrapper

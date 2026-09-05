@@ -564,10 +564,15 @@ fun ServeScreen(onBack: () -> Unit) {
     }
 
     if (showClearDialog) {
+        // Strings resolved in the parent composition — see wrapContextWithLocale().
+        val strServeClearTitle = stringResource(R.string.serve_clear_title)
+        val strServeClearText = stringResource(R.string.serve_clear_text)
+        val strServeClearConfirm = stringResource(R.string.serve_clear_confirm)
+        val strActionCancel = stringResource(R.string.action_cancel)
         AlertDialog(
             onDismissRequest = { showClearDialog = false },
-            title = { Text(stringResource(R.string.serve_clear_title)) },
-            text = { Text(stringResource(R.string.serve_clear_text)) },
+            title = { Text(strServeClearTitle) },
+            text = { Text(strServeClearText) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -575,17 +580,18 @@ fun ServeScreen(onBack: () -> Unit) {
                         saveConfig(ServeConfig(etag = config?.etag))
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) { Text(stringResource(R.string.serve_clear_confirm)) }
+                ) { Text(strServeClearConfirm) }
             },
-            dismissButton = { TextButton(onClick = { showClearDialog = false }) { Text(stringResource(R.string.action_cancel)) } }
+            dismissButton = { TextButton(onClick = { showClearDialog = false }) { Text(strActionCancel) } }
         )
     }
 
     if (showCertExportDialog) {
+        // Strings come from the parent context, not stringResource() — see wrapContextWithLocale().
         AlertDialog(
             onDismissRequest = { showCertExportDialog = false },
-            title = { Text(stringResource(R.string.serve_export_title)) },
-            text = { Text(stringResource(R.string.serve_export_text_format, selfDns)) },
+            title = { Text(context.getString(R.string.serve_export_title)) },
+            text = { Text(context.getString(R.string.serve_export_text_format, selfDns)) },
             confirmButton = {
                 Button(onClick = {
                     scope.launch(Dispatchers.IO) {
@@ -603,7 +609,7 @@ fun ServeScreen(onBack: () -> Unit) {
                 }) { 
                     Icon(Icons.Default.Download, null)
                     Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.serve_export_save_file)) 
+                    Text(context.getString(R.string.serve_export_save_file)) 
                 }
             },
             dismissButton = {
@@ -623,7 +629,7 @@ fun ServeScreen(onBack: () -> Unit) {
                 }) { 
                     Icon(Icons.Default.ContentCopy, null)
                     Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.serve_export_copy_clipboard)) 
+                    Text(context.getString(R.string.serve_export_copy_clipboard)) 
                 }
             }
         )
@@ -728,6 +734,26 @@ fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm
         else -> stringResource(R.string.serve_dialog_add_serve_title)
     }
 
+    // Strings resolved in the parent composition — see wrapContextWithLocale().
+    val strServeFieldServiceName = stringResource(R.string.serve_field_service_name)
+    val strServeFieldServicePlaceholder = stringResource(R.string.serve_field_service_placeholder)
+    val strServeFieldServiceHint = stringResource(R.string.serve_field_service_hint)
+    val strServeFieldMode = stringResource(R.string.serve_field_mode)
+    val strServeFieldTransport = stringResource(R.string.serve_field_transport)
+    val strServeFieldHandler = stringResource(R.string.serve_field_handler)
+    val strServeFieldProxyProto = stringResource(R.string.serve_field_proxy_proto)
+    val strServeFieldDisable = stringResource(R.string.serve_field_disable)
+    val strServeFieldPort = stringResource(R.string.serve_field_port)
+    val strServeFieldPortHintFunnel = stringResource(R.string.serve_field_port_hint_funnel)
+    val strServeFieldPortHintServe = stringResource(R.string.serve_field_port_hint_serve)
+    val strServeFieldTargetTcp = stringResource(R.string.serve_field_target_tcp)
+    val strServeFieldTargetProxy = stringResource(R.string.serve_field_target_proxy)
+    val strServeFieldTargetText = stringResource(R.string.serve_field_target_text)
+    val strServeFieldTargetRedirect = stringResource(R.string.serve_field_target_redirect)
+    val strServeFieldTarget = stringResource(R.string.serve_field_target)
+    val strActionSave = stringResource(R.string.action_save)
+    val strActionAdd = stringResource(R.string.action_add)
+    val strActionCancel = stringResource(R.string.action_cancel)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(dialogTitle) },
@@ -737,9 +763,9 @@ fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm
                     OutlinedTextField(
                         value = serviceName,
                         onValueChange = { serviceName = it },
-                        label = { Text(stringResource(R.string.serve_field_service_name)) },
-                        placeholder = { Text(stringResource(R.string.serve_field_service_placeholder)) },
-                        supportingText = { Text(stringResource(R.string.serve_field_service_hint)) },
+                        label = { Text(strServeFieldServiceName) },
+                        placeholder = { Text(strServeFieldServicePlaceholder) },
+                        supportingText = { Text(strServeFieldServiceHint) },
                         enabled = !data.isEditing,
                         singleLine = true,
                         maxLines = 1,
@@ -749,7 +775,7 @@ fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm
                 }
                 
                 Column {
-                    Text(stringResource(R.string.serve_field_mode), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                    Text(strServeFieldMode, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.height(6.dp))
                     val modes = listOf("Web", "TCP")
                     val selectedModeIdx = modes.indexOf(mode).coerceAtLeast(0)
@@ -769,7 +795,7 @@ fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm
 
                 if (mode == "Web") {
                     Column {
-                        Text(stringResource(R.string.serve_field_transport), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                        Text(strServeFieldTransport, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.height(6.dp))
                         val transports = if (data.isFunnel) listOf("HTTPS") else listOf("HTTPS", "HTTP")
                         val selectedTransportIdx = transports.indexOf(transport).coerceAtLeast(0)
@@ -788,7 +814,7 @@ fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm
                     }
 
                     Column {
-                        Text(stringResource(R.string.serve_field_handler), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                        Text(strServeFieldHandler, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.height(6.dp))
                         val handlers = listOf("Proxy", "Text", "Redirect")
                         val selectedHandlerIdx = handlers.indexOf(handlerType).coerceAtLeast(0)
@@ -802,7 +828,7 @@ fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm
                     }
                 } else {
                     Column {
-                        Text(stringResource(R.string.serve_field_proxy_proto), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                        Text(strServeFieldProxyProto, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.height(6.dp))
                         val proxyProtos = listOf(0 to "None", 1 to "v1", 2 to "v2")
                         val selectedProtoIdx = proxyProtos.indexOfFirst { it.first == proxyProtocol }.coerceAtLeast(0)
@@ -818,11 +844,11 @@ fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = isDisabled, onCheckedChange = { isDisabled = it })
-                    Text(stringResource(R.string.serve_field_disable), modifier = Modifier.clickable { isDisabled = !isDisabled })
+                    Text(strServeFieldDisable, modifier = Modifier.clickable { isDisabled = !isDisabled })
                 }
                 
-                val portLabel = stringResource(R.string.serve_field_port)
-                val portSupportingText = if (data.isFunnel) stringResource(R.string.serve_field_port_hint_funnel) else stringResource(R.string.serve_field_port_hint_serve)
+                val portLabel = strServeFieldPort
+                val portSupportingText = if (data.isFunnel) strServeFieldPortHintFunnel else strServeFieldPortHintServe
                 OutlinedTextField(
                     value = port, 
                     onValueChange = { newValue ->
@@ -845,11 +871,11 @@ fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm
                 )
                 
                 val targetLabel = when {
-                    mode == "TCP" -> stringResource(R.string.serve_field_target_tcp)
-                    handlerType == "Proxy" -> stringResource(R.string.serve_field_target_proxy)
-                    handlerType == "Text" -> stringResource(R.string.serve_field_target_text)
-                    handlerType == "Redirect" -> stringResource(R.string.serve_field_target_redirect)
-                    else -> stringResource(R.string.serve_field_target)
+                    mode == "TCP" -> strServeFieldTargetTcp
+                    handlerType == "Proxy" -> strServeFieldTargetProxy
+                    handlerType == "Text" -> strServeFieldTargetText
+                    handlerType == "Redirect" -> strServeFieldTargetRedirect
+                    else -> strServeFieldTarget
                 }
                 // The TCP target is a host:port forward (e.g. 127.0.0.1:8080),
                 // not a port. The old digit-only filter dropped the dots and the
@@ -873,11 +899,11 @@ fun AddServeRuleDialog(data: ServeRuleEditData, onDismiss: () -> Unit, onConfirm
                 } else {
                     onConfirm(p, target, mode, transport, handlerType, serviceName, isDisabled, proxyProtocol)
                 }
-            }) { Text(if (data.isEditing) stringResource(R.string.action_save) else stringResource(R.string.action_add)) }
+            }) { Text(if (data.isEditing) strActionSave else strActionAdd) }
         },
 
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+            TextButton(onClick = onDismiss) { Text(strActionCancel) }
         }
     )
 }

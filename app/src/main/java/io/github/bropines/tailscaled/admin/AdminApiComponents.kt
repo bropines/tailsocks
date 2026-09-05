@@ -59,19 +59,35 @@ fun ProxySettingsDialog(
     var proxyUser by remember { mutableStateOf(initialProxyUser) }
     var proxyPass by remember { mutableStateOf(initialProxyPass) }
 
+    // Strings resolved in the parent composition — see wrapContextWithLocale().
+    val strAdminProxySettingsTitle = stringResource(R.string.admin_proxy_settings_title)
+    val strAdminProxyControlPlane = stringResource(R.string.admin_proxy_control_plane)
+    val strAdminProxyDirect = stringResource(R.string.admin_proxy_direct)
+    val strAdminProxyLocalSocks5 = stringResource(R.string.admin_proxy_local_socks5)
+    val strAdminProxyCustomSocks5 = stringResource(R.string.admin_proxy_custom_socks5)
+    val strAdminProxyControlPlaneDesc = stringResource(R.string.admin_proxy_control_plane_desc)
+    val strAdminProxySocks5Host = stringResource(R.string.admin_proxy_socks5_host)
+    val strAdminProxySocks5HostPlaceholder = stringResource(R.string.admin_proxy_socks5_host_placeholder)
+    val strAdminProxySocks5Port = stringResource(R.string.admin_proxy_socks5_port)
+    val strAdminProxySocks5PortPlaceholder = stringResource(R.string.admin_proxy_socks5_port_placeholder)
+    val strAdminProxyUsername = stringResource(R.string.admin_proxy_username)
+    val strAdminProxyPassword = stringResource(R.string.admin_proxy_password)
+    val strAdminProxyLocalDesc = stringResource(R.string.admin_proxy_local_desc)
+    val strActionSave = stringResource(R.string.action_save)
+    val strActionCancel = stringResource(R.string.action_cancel)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.admin_proxy_settings_title)) },
+        title = { Text(strAdminProxySettingsTitle) },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 val proxyOptions = listOf(
-                    "CONTROL_PLANE" to stringResource(R.string.admin_proxy_control_plane),
-                    "DIRECT" to stringResource(R.string.admin_proxy_direct),
-                    "LOCAL_SOCKS5" to stringResource(R.string.admin_proxy_local_socks5),
-                    "CUSTOM_SOCKS5" to stringResource(R.string.admin_proxy_custom_socks5)
+                    "CONTROL_PLANE" to strAdminProxyControlPlane,
+                    "DIRECT" to strAdminProxyDirect,
+                    "LOCAL_SOCKS5" to strAdminProxyLocalSocks5,
+                    "CUSTOM_SOCKS5" to strAdminProxyCustomSocks5
                 )
                 proxyOptions.forEach { (modeVal, labelText) ->
                     Row(
@@ -85,7 +101,7 @@ fun ProxySettingsDialog(
 
                 if (proxyMode == "CONTROL_PLANE") {
                     Text(
-                        stringResource(R.string.admin_proxy_control_plane_desc),
+                        strAdminProxyControlPlaneDesc,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.outline
                     )
@@ -94,8 +110,8 @@ fun ProxySettingsDialog(
                     OutlinedTextField(
                         value = proxyHost,
                         onValueChange = { proxyHost = it },
-                        label = { Text(stringResource(R.string.admin_proxy_socks5_host)) },
-                        placeholder = { Text(stringResource(R.string.admin_proxy_socks5_host_placeholder)) },
+                        label = { Text(strAdminProxySocks5Host) },
+                        placeholder = { Text(strAdminProxySocks5HostPlaceholder) },
                         singleLine = true,
                         maxLines = 1,
                         shape = RoundedCornerShape(10.dp),
@@ -112,8 +128,8 @@ fun ProxySettingsDialog(
                                 }
                             }
                         },
-                        label = { Text(stringResource(R.string.admin_proxy_socks5_port)) },
-                        placeholder = { Text(stringResource(R.string.admin_proxy_socks5_port_placeholder)) },
+                        label = { Text(strAdminProxySocks5Port) },
+                        placeholder = { Text(strAdminProxySocks5PortPlaceholder) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
                         maxLines = 1,
@@ -123,7 +139,7 @@ fun ProxySettingsDialog(
                     OutlinedTextField(
                         value = proxyUser,
                         onValueChange = { proxyUser = it },
-                        label = { Text(stringResource(R.string.admin_proxy_username)) },
+                        label = { Text(strAdminProxyUsername) },
                         singleLine = true,
                         maxLines = 1,
                         shape = RoundedCornerShape(10.dp),
@@ -132,7 +148,7 @@ fun ProxySettingsDialog(
                     OutlinedTextField(
                         value = proxyPass,
                         onValueChange = { proxyPass = it },
-                        label = { Text(stringResource(R.string.admin_proxy_password)) },
+                        label = { Text(strAdminProxyPassword) },
                         singleLine = true,
                         maxLines = 1,
                         shape = RoundedCornerShape(10.dp),
@@ -140,7 +156,7 @@ fun ProxySettingsDialog(
                     )
                 } else if (proxyMode == "LOCAL_SOCKS5") {
                     Text(
-                        stringResource(R.string.admin_proxy_local_desc),
+                        strAdminProxyLocalDesc,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.outline
                     )
@@ -158,11 +174,11 @@ fun ProxySettingsDialog(
                     }
                 }
             ) {
-                Text(stringResource(R.string.action_save))
+                Text(strActionSave)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+            TextButton(onClick = onDismiss) { Text(strActionCancel) }
         }
     )
 }

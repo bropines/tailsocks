@@ -319,14 +319,18 @@ fun FilesScreen(onBack: () -> Unit) {
         }
 
         if (showPeerPicker && selectedUriForSend != null) {
+            // Strings resolved in the parent composition — see wrapContextWithLocale().
+            val strFilesSelectDevice = stringResource(R.string.files_select_device)
+            val strFilesNoDevicesFound = stringResource(R.string.files_no_devices_found)
+            val strActionRefresh = stringResource(R.string.action_refresh)
             ModalBottomSheet(onDismissRequest = { showPeerPicker = false }, containerColor = MaterialTheme.colorScheme.surface) {
                 Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
-                    Text(stringResource(R.string.files_select_device), modifier = Modifier.padding(20.dp), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Text(strFilesSelectDevice, modifier = Modifier.padding(20.dp), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                     if (peers.isEmpty()) {
                         Box(Modifier.fillMaxWidth().height(100.dp), Alignment.Center) { 
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(stringResource(R.string.files_no_devices_found), color = MaterialTheme.colorScheme.outline)
-                                TextButton(onClick = { refreshData() }) { Text(stringResource(R.string.action_refresh)) }
+                                Text(strFilesNoDevicesFound, color = MaterialTheme.colorScheme.outline)
+                                TextButton(onClick = { refreshData() }) { Text(strActionRefresh) }
                             }
                         }
                     } else {

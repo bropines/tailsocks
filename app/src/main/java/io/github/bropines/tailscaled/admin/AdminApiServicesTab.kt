@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -129,6 +130,10 @@ fun ServiceDetailBottomSheet(
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    // A dialog/sheet opens its own window whose LocalContext ignores the app
+    // locale, so its strings are resolved through this parent context instead —
+    // see wrapContextWithLocale().
+    val ctx = LocalContext.current
     var hosts by remember { mutableStateOf<List<ServiceHostInfo>>(emptyList()) }
     var isLoadingHosts by remember { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
@@ -182,17 +187,17 @@ fun ServiceDetailBottomSheet(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    DetailRow(stringResource(R.string.admin_services_ip_addresses), service.addrs?.joinToString("\n") ?: "N/A")
-                    DetailRow(stringResource(R.string.admin_services_exposed_ports), service.ports?.joinToString(", ") ?: "N/A")
-                    DetailRow(stringResource(R.string.admin_services_comment), service.comment ?: stringResource(R.string.admin_services_no_comment))
+                    DetailRow(ctx.getString(R.string.admin_services_ip_addresses), service.addrs?.joinToString("\n") ?: "N/A")
+                    DetailRow(ctx.getString(R.string.admin_services_exposed_ports), service.ports?.joinToString(", ") ?: "N/A")
+                    DetailRow(ctx.getString(R.string.admin_services_comment), service.comment ?: ctx.getString(R.string.admin_services_no_comment))
                     if (!service.tags.isNullOrEmpty()) {
-                        DetailRow(stringResource(R.string.admin_services_tags), service.tags.joinToString(", "))
+                        DetailRow(ctx.getString(R.string.admin_services_tags), service.tags.joinToString(", "))
                     }
                 }
             }
 
             Text(
-                stringResource(R.string.admin_services_hosting_devices),
+                ctx.getString(R.string.admin_services_hosting_devices),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.align(Alignment.Start)
@@ -204,7 +209,7 @@ fun ServiceDetailBottomSheet(
                 }
             } else if (hosts.isEmpty()) {
                 Text(
-                    stringResource(R.string.admin_services_no_hosts),
+                    ctx.getString(R.string.admin_services_no_hosts),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.outline,
                     modifier = Modifier.padding(vertical = 12.dp)
@@ -232,7 +237,7 @@ fun ServiceDetailBottomSheet(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(deviceName, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                     Text(
-                                        stringResource(R.string.admin_services_host_level, host.approvalLevel ?: "unknown", host.configured ?: "unknown"),
+                                        ctx.getString(R.string.admin_services_host_level, host.approvalLevel ?: "unknown", host.configured ?: "unknown"),
                                         fontSize = 11.sp,
                                         color = MaterialTheme.colorScheme.outline
                                     )

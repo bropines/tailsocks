@@ -81,13 +81,27 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
     var showSavePresetDialog by remember { mutableStateOf(false) }
     var presetName by remember { mutableStateOf("") }
 
+    // Strings resolved in the parent composition — see wrapContextWithLocale().
+    val strSettingsControlProxyTitle = stringResource(R.string.settings_control_proxy_title)
+    val strSettingsControlProxyEnable = stringResource(R.string.settings_control_proxy_enable)
+    val strSettingsProxyImport = stringResource(R.string.settings_proxy_import)
+    val strSettingsProxyCdPasteParse = stringResource(R.string.settings_proxy_cd_paste_parse)
+    val strSettingsProxyPresetAddChip = stringResource(R.string.settings_proxy_preset_add_chip)
+    val strSettingsControlProxyType = stringResource(R.string.settings_control_proxy_type)
+    val strSettingsControlProxyHost = stringResource(R.string.settings_control_proxy_host)
+    val strSettingsControlProxyPort = stringResource(R.string.settings_control_proxy_port)
+    val strSettingsControlProxyUsername = stringResource(R.string.settings_control_proxy_username)
+    val strSettingsControlProxyPassword = stringResource(R.string.settings_control_proxy_password)
+    val strSettingsProxyCopyBtn = stringResource(R.string.settings_proxy_copy_btn)
+    val strSettingsProxyApply = stringResource(R.string.settings_proxy_apply)
+    val strActionCancel = stringResource(R.string.action_cancel)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.settings_control_proxy_title)) },
+        title = { Text(strSettingsControlProxyTitle) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.settings_control_proxy_enable), Modifier.weight(1f))
+                    Text(strSettingsControlProxyEnable, Modifier.weight(1f))
                     Switch(checked = enabled, onCheckedChange = { enabled = it })
                 }
                 Spacer(Modifier.height(16.dp))
@@ -97,7 +111,7 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
                     OutlinedTextField(
                         value = importUri,
                         onValueChange = { importUri = it },
-                        label = { Text(stringResource(R.string.settings_proxy_import)) },
+                        label = { Text(strSettingsProxyImport) },
                         placeholder = { Text("socks5://user:pass@host:port") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
@@ -135,7 +149,7 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
                                     Toast.makeText(context, context.getString(R.string.settings_proxy_clipboard_empty), Toast.LENGTH_SHORT).show()
                                 }
                             }) {
-                                Icon(Icons.Default.ContentPaste, contentDescription = stringResource(R.string.settings_proxy_cd_paste_parse))
+                                Icon(Icons.Default.ContentPaste, contentDescription = strSettingsProxyCdPasteParse)
                             }
                         }
                     )
@@ -158,7 +172,7 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
                                     Toast.makeText(context, context.getString(R.string.settings_proxy_preset_fill_fields_error), Toast.LENGTH_SHORT).show()
                                 }
                             },
-                            label = { Text(stringResource(R.string.settings_proxy_preset_add_chip)) },
+                            label = { Text(strSettingsProxyPresetAddChip) },
                             leadingIcon = { Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp)) }
                         )
 
@@ -192,7 +206,7 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
                     Spacer(Modifier.height(16.dp))
 
                     Column(modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(R.string.settings_control_proxy_type), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                        Text(strSettingsControlProxyType, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.height(8.dp))
                         val proxyTypes = listOf("SOCKS5", "HTTP", "HTTPS")
                         val selectedProxyTypeIdx = proxyTypes.indexOf(type).coerceAtLeast(0)
@@ -206,7 +220,7 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
                     }
                     Spacer(Modifier.height(16.dp))
 
-                    OutlinedTextField(value = host, onValueChange = { host = it }, label = { Text(stringResource(R.string.settings_control_proxy_host)) }, modifier = Modifier.fillMaxWidth(), singleLine = true, maxLines = 1, shape = RoundedCornerShape(10.dp))
+                    OutlinedTextField(value = host, onValueChange = { host = it }, label = { Text(strSettingsControlProxyHost) }, modifier = Modifier.fillMaxWidth(), singleLine = true, maxLines = 1, shape = RoundedCornerShape(10.dp))
                     OutlinedTextField(
                         value = port,
                         onValueChange = { newValue ->
@@ -218,7 +232,7 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
                                 }
                             }
                         },
-                        label = { Text(stringResource(R.string.settings_control_proxy_port)) },
+                        label = { Text(strSettingsControlProxyPort) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         maxLines = 1,
@@ -226,8 +240,8 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
                         placeholder = { Text(if (type == "SOCKS5") "1080" else "8080") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                     )
-                    OutlinedTextField(value = user, onValueChange = { user = it }, label = { Text(stringResource(R.string.settings_control_proxy_username)) }, modifier = Modifier.fillMaxWidth(), singleLine = true, maxLines = 1, shape = RoundedCornerShape(10.dp))
-                    OutlinedTextField(value = pass, onValueChange = { pass = it }, label = { Text(stringResource(R.string.settings_control_proxy_password)) }, modifier = Modifier.fillMaxWidth(), singleLine = true, maxLines = 1, shape = RoundedCornerShape(10.dp))
+                    OutlinedTextField(value = user, onValueChange = { user = it }, label = { Text(strSettingsControlProxyUsername) }, modifier = Modifier.fillMaxWidth(), singleLine = true, maxLines = 1, shape = RoundedCornerShape(10.dp))
+                    OutlinedTextField(value = pass, onValueChange = { pass = it }, label = { Text(strSettingsControlProxyPassword) }, modifier = Modifier.fillMaxWidth(), singleLine = true, maxLines = 1, shape = RoundedCornerShape(10.dp))
 
                     Spacer(Modifier.height(12.dp))
 
@@ -243,7 +257,7 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
                     ) {
                         Icon(Icons.Default.Share, null)
                         Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.settings_proxy_copy_btn))
+                        Text(strSettingsProxyCopyBtn)
                     }
                 }
             }
@@ -258,20 +272,24 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
                 GlobalSettings.setCPField(context, "pass", pass)
                 onApply()
                 onDismiss()
-            }) { Text(stringResource(R.string.settings_proxy_apply)) }
+            }) { Text(strSettingsProxyApply) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(strActionCancel) } }
     )
 
     if (showSavePresetDialog) {
+        // Strings resolved in the parent composition — see wrapContextWithLocale().
+        val strSettingsProxyPresetSaveTitle = stringResource(R.string.settings_proxy_preset_save_title)
+        val strSettingsProxyPresetNameLabel = stringResource(R.string.settings_proxy_preset_name_label)
+        val strSettingsProxyPresetSaveBtn = stringResource(R.string.settings_proxy_preset_save_btn)
         AlertDialog(
             onDismissRequest = { showSavePresetDialog = false },
-            title = { Text(stringResource(R.string.settings_proxy_preset_save_title)) },
+            title = { Text(strSettingsProxyPresetSaveTitle) },
             text = {
                 OutlinedTextField(
                     value = presetName,
                     onValueChange = { presetName = it },
-                    label = { Text(stringResource(R.string.settings_proxy_preset_name_label)) },
+                    label = { Text(strSettingsProxyPresetNameLabel) },
                     singleLine = true,
                     maxLines = 1,
                     shape = RoundedCornerShape(10.dp),
@@ -296,12 +314,12 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
                         showSavePresetDialog = false
                     }
                 ) {
-                    Text(stringResource(R.string.settings_proxy_preset_save_btn))
+                    Text(strSettingsProxyPresetSaveBtn)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showSavePresetDialog = false }) {
-                    Text(stringResource(R.string.action_cancel))
+                    Text(strActionCancel)
                 }
             }
         )
@@ -374,6 +392,10 @@ fun SettingsEditItem(
     var text by remember { mutableStateOf(value) }
     LaunchedEffect(showDialog) { if (showDialog) text = value }
     val notSet = stringResource(R.string.settings_not_set)
+    // A dialog/sheet opens its own window whose LocalContext ignores the app
+    // locale, so its strings are resolved through this parent context instead —
+    // see wrapContextWithLocale().
+    val ctx = LocalContext.current
     Surface(
         onClick = { if (enabled) showDialog = true },
         shape = RoundedCornerShape(12.dp),
@@ -410,7 +432,7 @@ fun SettingsEditItem(
                         singleLine = true,
                         maxLines = 1,
                         shape = RoundedCornerShape(10.dp),
-                        label = { if (placeholder.isNotEmpty()) Text(stringResource(R.string.settings_field_example, placeholder)) },
+                        label = { if (placeholder.isNotEmpty()) Text(ctx.getString(R.string.settings_field_example, placeholder)) },
                         placeholder = { if (placeholder.isNotEmpty()) Text(placeholder) },
                         trailingIcon = if (onAction != null && actionIcon != null) {
                             { IconButton(onClick = { text = onAction() }) { Icon(actionIcon, null) } }
@@ -418,7 +440,7 @@ fun SettingsEditItem(
                     )
                     if (suggestions.isNotEmpty()) {
                         Spacer(Modifier.height(8.dp))
-                        Text(stringResource(R.string.settings_suggested), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(ctx.getString(R.string.settings_suggested), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.height(4.dp))
                         Row(
                             modifier = Modifier
@@ -448,8 +470,8 @@ fun SettingsEditItem(
                     }
                 }
             },
-            confirmButton = { Button(onClick = { onSave(text); showDialog = false }) { Text(stringResource(R.string.action_save)) } },
-            dismissButton = { TextButton(onClick = { showDialog = false }) { Text(stringResource(R.string.action_cancel)) } }
+            confirmButton = { Button(onClick = { onSave(text); showDialog = false }) { Text(ctx.getString(R.string.action_save)) } },
+            dismissButton = { TextButton(onClick = { showDialog = false }) { Text(ctx.getString(R.string.action_cancel)) } }
         )
     }
 }
@@ -527,6 +549,11 @@ fun SettingsExitNodeItem(
         val configuration = androidx.compose.ui.platform.LocalConfiguration.current
         val maxHeight = (configuration.screenHeightDp * 0.85f).dp
 
+        // Strings resolved in the parent composition — see wrapContextWithLocale().
+        val strSettingsExitNodeSelect = stringResource(R.string.settings_exit_node_select)
+        val strSettingsExitNodeEmpty = stringResource(R.string.settings_exit_node_empty)
+        val strSettingsNone = stringResource(R.string.settings_none)
+        val strMainRouteTrafficDirectly = stringResource(R.string.main_route_traffic_directly)
         ModalBottomSheet(onDismissRequest = { showDialog = false }) {
             Column(
                 modifier = Modifier
@@ -535,7 +562,7 @@ fun SettingsExitNodeItem(
                     .navigationBarsPadding()
             ) {
                 Text(
-                    stringResource(R.string.settings_exit_node_select),
+                    strSettingsExitNodeSelect,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
@@ -545,7 +572,7 @@ fun SettingsExitNodeItem(
                     Box(Modifier.fillMaxWidth().height(120.dp), Alignment.Center) { CircularProgressIndicator() }
                 } else if (exitNodes.isEmpty()) {
                     Box(Modifier.fillMaxWidth().height(120.dp), Alignment.Center) {
-                        Text(stringResource(R.string.settings_exit_node_empty), color = MaterialTheme.colorScheme.outline)
+                        Text(strSettingsExitNodeEmpty, color = MaterialTheme.colorScheme.outline)
                     }
                 } else {
                     Box(
@@ -611,13 +638,13 @@ fun SettingsExitNodeItem(
                                             Spacer(Modifier.width(16.dp))
                                             Column(Modifier.weight(1f)) {
                                                 Text(
-                                                    stringResource(R.string.settings_none),
+                                                    strSettingsNone,
                                                     fontWeight = FontWeight.Bold,
                                                     fontSize = 15.sp,
                                                     color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                                 )
                                                 Text(
-                                                    stringResource(R.string.main_route_traffic_directly),
+                                                    strMainRouteTrafficDirectly,
                                                     style = MaterialTheme.typography.bodySmall,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )

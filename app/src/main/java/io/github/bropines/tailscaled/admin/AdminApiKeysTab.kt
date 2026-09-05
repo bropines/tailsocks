@@ -70,10 +70,15 @@ fun KeysTabContent(
     }
 
     if (keyToRevoke != null) {
+        // Strings resolved in the parent composition — see wrapContextWithLocale().
+        val strAdminKeysRevokeTitle = stringResource(R.string.admin_keys_revoke_title)
+        val strAdminKeysRevokeText = stringResource(R.string.admin_keys_revoke_text)
+        val strActionRevoke = stringResource(R.string.action_revoke)
+        val strActionCancel = stringResource(R.string.action_cancel)
         AlertDialog(
             onDismissRequest = { keyToRevoke = null },
-            title = { Text(stringResource(R.string.admin_keys_revoke_title)) },
-            text = { Text(stringResource(R.string.admin_keys_revoke_text)) },
+            title = { Text(strAdminKeysRevokeTitle) },
+            text = { Text(strAdminKeysRevokeText) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -82,11 +87,11 @@ fun KeysTabContent(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text(stringResource(R.string.action_revoke))
+                    Text(strActionRevoke)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { keyToRevoke = null }) { Text(stringResource(R.string.action_cancel)) }
+                TextButton(onClick = { keyToRevoke = null }) { Text(strActionCancel) }
             }
         )
     }
@@ -180,9 +185,23 @@ fun CreateKeyDialog(
     var preauth by remember { mutableStateOf(true) }
     var tagsInput by remember { mutableStateOf("") }
 
+    // Strings resolved in the parent composition — see wrapContextWithLocale().
+    val strAdminKeysGenerateTitle = stringResource(R.string.admin_keys_generate_title)
+    val strAdminKeysDescLabel = stringResource(R.string.admin_keys_desc_label)
+    val strAdminKeysDescPlaceholder = stringResource(R.string.admin_keys_desc_placeholder)
+    val strAdminKeysExpiryLabel = stringResource(R.string.admin_keys_expiry_label)
+    val strAdminKeysEphemeralTitle = stringResource(R.string.admin_keys_ephemeral_title)
+    val strAdminKeysEphemeralDesc = stringResource(R.string.admin_keys_ephemeral_desc)
+    val strAdminKeysPreauthTitle = stringResource(R.string.admin_keys_preauth_title)
+    val strAdminKeysPreauthDesc = stringResource(R.string.admin_keys_preauth_desc)
+    val strAdminKeysTagsLabel = stringResource(R.string.admin_keys_tags_label)
+    val strAdminKeysTagsPlaceholder = stringResource(R.string.admin_keys_tags_placeholder)
+    val strAdminKeysTagsSupporting = stringResource(R.string.admin_keys_tags_supporting)
+    val strActionGenerate = stringResource(R.string.action_generate)
+    val strActionCancel = stringResource(R.string.action_cancel)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.admin_keys_generate_title)) },
+        title = { Text(strAdminKeysGenerateTitle) },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
@@ -191,8 +210,8 @@ fun CreateKeyDialog(
                 OutlinedTextField(
                     value = desc,
                     onValueChange = { desc = it },
-                    label = { Text(stringResource(R.string.admin_keys_desc_label)) },
-                    placeholder = { Text(stringResource(R.string.admin_keys_desc_placeholder)) },
+                    label = { Text(strAdminKeysDescLabel) },
+                    placeholder = { Text(strAdminKeysDescPlaceholder) },
                     singleLine = true,
                     maxLines = 1,
                     shape = RoundedCornerShape(10.dp),
@@ -204,7 +223,7 @@ fun CreateKeyDialog(
                     onValueChange = { newValue ->
                         expiryDays = newValue.filter { it.isDigit() }
                     },
-                    label = { Text(stringResource(R.string.admin_keys_expiry_label)) },
+                    label = { Text(strAdminKeysExpiryLabel) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
                     maxLines = 1,
@@ -219,8 +238,8 @@ fun CreateKeyDialog(
                     Checkbox(checked = ephemeral, onCheckedChange = { ephemeral = it })
                     Spacer(Modifier.width(8.dp))
                     Column {
-                        Text(stringResource(R.string.admin_keys_ephemeral_title))
-                        Text(stringResource(R.string.admin_keys_ephemeral_desc), fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                        Text(strAdminKeysEphemeralTitle)
+                        Text(strAdminKeysEphemeralDesc, fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
                     }
                 }
 
@@ -231,17 +250,17 @@ fun CreateKeyDialog(
                     Checkbox(checked = preauth, onCheckedChange = { preauth = it })
                     Spacer(Modifier.width(8.dp))
                     Column {
-                        Text(stringResource(R.string.admin_keys_preauth_title))
-                        Text(stringResource(R.string.admin_keys_preauth_desc), fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                        Text(strAdminKeysPreauthTitle)
+                        Text(strAdminKeysPreauthDesc, fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
                     }
                 }
 
                 OutlinedTextField(
                     value = tagsInput,
                     onValueChange = { tagsInput = it },
-                    label = { Text(stringResource(R.string.admin_keys_tags_label)) },
-                    placeholder = { Text(stringResource(R.string.admin_keys_tags_placeholder)) },
-                    supportingText = { Text(stringResource(R.string.admin_keys_tags_supporting)) },
+                    label = { Text(strAdminKeysTagsLabel) },
+                    placeholder = { Text(strAdminKeysTagsPlaceholder) },
+                    supportingText = { Text(strAdminKeysTagsSupporting) },
                     singleLine = true,
                     maxLines = 1,
                     shape = RoundedCornerShape(10.dp),
@@ -262,11 +281,11 @@ fun CreateKeyDialog(
                     onGenerate(desc.trim(), expirySeconds, ephemeral, preauth, tagsList)
                 }
             ) {
-                Text(stringResource(R.string.action_generate))
+                Text(strActionGenerate)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+            TextButton(onClick = onDismiss) { Text(strActionCancel) }
         }
     )
 }

@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -180,6 +181,10 @@ fun UserDetailBottomSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val configuration = LocalConfiguration.current
     val maxHeight = (configuration.screenHeightDp * 0.85f).dp
+    // A dialog/sheet opens its own window whose LocalContext ignores the app
+    // locale, so its strings are resolved through this parent context instead —
+    // see wrapContextWithLocale().
+    val ctx = LocalContext.current
 
     var showRoleDialog by remember { mutableStateOf(false) }
     var showSuspendConfirm by remember { mutableStateOf(false) }
@@ -188,6 +193,19 @@ fun UserDetailBottomSheet(
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var pendingRoleChange by remember { mutableStateOf<String?>(null) }
 
+    // Strings resolved in the parent composition — see wrapContextWithLocale().
+    val strAdminUsersChangeRole = stringResource(R.string.admin_users_change_role)
+    val strAdminUsersLoginName = stringResource(R.string.admin_users_login_name)
+    val strAdminUsersDisplayName = stringResource(R.string.admin_users_display_name)
+    val strAdminUsersCreatedAt = stringResource(R.string.admin_users_created_at)
+    val strAdminUsersRole = stringResource(R.string.admin_users_role)
+    val strAdminUsersStatus = stringResource(R.string.admin_users_status)
+    val strAdminUsersType = stringResource(R.string.admin_users_type)
+    val strAdminUsersDevicesOwned = stringResource(R.string.admin_users_devices_owned)
+    val strAdminUsersApprove = stringResource(R.string.admin_users_approve)
+    val strAdminUsersRestore = stringResource(R.string.admin_users_restore)
+    val strAdminUsersSuspend = stringResource(R.string.admin_users_suspend)
+    val strAdminUsersDelete = stringResource(R.string.admin_users_delete)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState
@@ -218,7 +236,7 @@ fun UserDetailBottomSheet(
             ) {
                 Icon(Icons.Default.ManageAccounts, null)
                 Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.admin_users_change_role))
+                Text(strAdminUsersChangeRole)
             }
 
             Card(
@@ -226,13 +244,13 @@ fun UserDetailBottomSheet(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    DetailRow(stringResource(R.string.admin_users_login_name), user.loginName)
-                    DetailRow(stringResource(R.string.admin_users_display_name), user.displayName ?: "N/A")
-                    DetailRow(stringResource(R.string.admin_users_created_at), formatExpires(user.created))
-                    DetailRow(stringResource(R.string.admin_users_role), user.role ?: "member")
-                    DetailRow(stringResource(R.string.admin_users_status), user.status ?: "active")
-                    DetailRow(stringResource(R.string.admin_users_type), user.type ?: "N/A")
-                    DetailRow(stringResource(R.string.admin_users_devices_owned), user.deviceCount?.toString() ?: "0")
+                    DetailRow(strAdminUsersLoginName, user.loginName)
+                    DetailRow(strAdminUsersDisplayName, user.displayName ?: "N/A")
+                    DetailRow(strAdminUsersCreatedAt, formatExpires(user.created))
+                    DetailRow(strAdminUsersRole, user.role ?: "member")
+                    DetailRow(strAdminUsersStatus, user.status ?: "active")
+                    DetailRow(strAdminUsersType, user.type ?: "N/A")
+                    DetailRow(strAdminUsersDevicesOwned, user.deviceCount?.toString() ?: "0")
                 }
             }
 
@@ -249,7 +267,7 @@ fun UserDetailBottomSheet(
                     ) {
                         Icon(Icons.Default.CheckCircle, null)
                         Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.admin_users_approve))
+                        Text(strAdminUsersApprove)
                     }
                 }
 
@@ -261,7 +279,7 @@ fun UserDetailBottomSheet(
                     ) {
                         Icon(Icons.AutoMirrored.Filled.Undo, null)
                         Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.admin_users_restore))
+                        Text(strAdminUsersRestore)
                     }
                 } else {
                     OutlinedButton(
@@ -271,7 +289,7 @@ fun UserDetailBottomSheet(
                     ) {
                         Icon(Icons.Default.Block, null)
                         Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.admin_users_suspend))
+                        Text(strAdminUsersSuspend)
                     }
                 }
 
@@ -285,7 +303,7 @@ fun UserDetailBottomSheet(
                 ) {
                     Icon(Icons.Default.Delete, null)
                     Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.admin_users_delete))
+                    Text(strAdminUsersDelete)
                 }
             }
         }
@@ -293,9 +311,12 @@ fun UserDetailBottomSheet(
 
     if (showRoleDialog) {
         val roles = listOf("owner", "admin", "member", "itadmin", "billingadmin", "auditor")
+        // Strings resolved in the parent composition — see wrapContextWithLocale().
+        val strAdminUsersSelectRoleTitle = stringResource(R.string.admin_users_select_role_title)
+        val strActionCancel = stringResource(R.string.action_cancel)
         AlertDialog(
             onDismissRequest = { showRoleDialog = false },
-            title = { Text(stringResource(R.string.admin_users_select_role_title)) },
+            title = { Text(strAdminUsersSelectRoleTitle) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     val chunkedRoles = roles.chunked(2)
@@ -336,7 +357,7 @@ fun UserDetailBottomSheet(
             },
             confirmButton = {},
             dismissButton = {
-                TextButton(onClick = { showRoleDialog = false }) { Text(stringResource(R.string.action_cancel)) }
+                TextButton(onClick = { showRoleDialog = false }) { Text(strActionCancel) }
             }
         )
     }
@@ -344,8 +365,8 @@ fun UserDetailBottomSheet(
     if (pendingRoleChange != null) {
         AlertDialog(
             onDismissRequest = { pendingRoleChange = null },
-            title = { Text(stringResource(R.string.admin_users_confirm_role_title)) },
-            text = { Text(stringResource(R.string.admin_users_confirm_role_text, pendingRoleChange!!.uppercase())) },
+            title = { Text(ctx.getString(R.string.admin_users_confirm_role_title)) },
+            text = { Text(ctx.getString(R.string.admin_users_confirm_role_text, pendingRoleChange!!.uppercase())) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -353,72 +374,92 @@ fun UserDetailBottomSheet(
                         pendingRoleChange = null
                     }
                 ) {
-                    Text(stringResource(R.string.action_confirm))
+                    Text(ctx.getString(R.string.action_confirm))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { pendingRoleChange = null }) { Text(stringResource(R.string.action_cancel)) }
+                TextButton(onClick = { pendingRoleChange = null }) { Text(ctx.getString(R.string.action_cancel)) }
             }
         )
     }
 
     if (showApproveConfirm) {
+        // Strings resolved in the parent composition — see wrapContextWithLocale().
+        val strAdminUsersApproveTitle = stringResource(R.string.admin_users_approve_title)
+        val strAdminUsersApproveText = stringResource(R.string.admin_users_approve_text)
+        val strActionApprove = stringResource(R.string.action_approve)
+        val strActionCancel = stringResource(R.string.action_cancel)
         AlertDialog(
             onDismissRequest = { showApproveConfirm = false },
-            title = { Text(stringResource(R.string.admin_users_approve_title)) },
-            text = { Text(stringResource(R.string.admin_users_approve_text)) },
+            title = { Text(strAdminUsersApproveTitle) },
+            text = { Text(strAdminUsersApproveText) },
             confirmButton = {
-                Button(onClick = { showApproveConfirm = false; onApprove() }) { Text(stringResource(R.string.action_approve)) }
+                Button(onClick = { showApproveConfirm = false; onApprove() }) { Text(strActionApprove) }
             },
             dismissButton = {
-                TextButton(onClick = { showApproveConfirm = false }) { Text(stringResource(R.string.action_cancel)) }
+                TextButton(onClick = { showApproveConfirm = false }) { Text(strActionCancel) }
             }
         )
     }
 
     if (showSuspendConfirm) {
+        // Strings resolved in the parent composition — see wrapContextWithLocale().
+        val strAdminUsersSuspendTitle = stringResource(R.string.admin_users_suspend_title)
+        val strAdminUsersSuspendText = stringResource(R.string.admin_users_suspend_text)
+        val strActionSuspend = stringResource(R.string.action_suspend)
+        val strActionCancel = stringResource(R.string.action_cancel)
         AlertDialog(
             onDismissRequest = { showSuspendConfirm = false },
-            title = { Text(stringResource(R.string.admin_users_suspend_title)) },
-            text = { Text(stringResource(R.string.admin_users_suspend_text)) },
+            title = { Text(strAdminUsersSuspendTitle) },
+            text = { Text(strAdminUsersSuspendText) },
             confirmButton = {
-                Button(onClick = { showSuspendConfirm = false; onSuspend() }) { Text(stringResource(R.string.action_suspend)) }
+                Button(onClick = { showSuspendConfirm = false; onSuspend() }) { Text(strActionSuspend) }
             },
             dismissButton = {
-                TextButton(onClick = { showSuspendConfirm = false }) { Text(stringResource(R.string.action_cancel)) }
+                TextButton(onClick = { showSuspendConfirm = false }) { Text(strActionCancel) }
             }
         )
     }
 
     if (showRestoreConfirm) {
+        // Strings resolved in the parent composition — see wrapContextWithLocale().
+        val strAdminUsersRestoreTitle = stringResource(R.string.admin_users_restore_title)
+        val strAdminUsersRestoreText = stringResource(R.string.admin_users_restore_text)
+        val strActionRestore = stringResource(R.string.action_restore)
+        val strActionCancel = stringResource(R.string.action_cancel)
         AlertDialog(
             onDismissRequest = { showRestoreConfirm = false },
-            title = { Text(stringResource(R.string.admin_users_restore_title)) },
-            text = { Text(stringResource(R.string.admin_users_restore_text)) },
+            title = { Text(strAdminUsersRestoreTitle) },
+            text = { Text(strAdminUsersRestoreText) },
             confirmButton = {
-                Button(onClick = { showRestoreConfirm = false; onRestore() }) { Text(stringResource(R.string.action_restore)) }
+                Button(onClick = { showRestoreConfirm = false; onRestore() }) { Text(strActionRestore) }
             },
             dismissButton = {
-                TextButton(onClick = { showRestoreConfirm = false }) { Text(stringResource(R.string.action_cancel)) }
+                TextButton(onClick = { showRestoreConfirm = false }) { Text(strActionCancel) }
             }
         )
     }
 
     if (showDeleteConfirm) {
+        // Strings resolved in the parent composition — see wrapContextWithLocale().
+        val strAdminUsersDeleteTitle = stringResource(R.string.admin_users_delete_title)
+        val strAdminUsersDeleteText = stringResource(R.string.admin_users_delete_text)
+        val strActionDelete = stringResource(R.string.action_delete)
+        val strActionCancel = stringResource(R.string.action_cancel)
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text(stringResource(R.string.admin_users_delete_title)) },
-            text = { Text(stringResource(R.string.admin_users_delete_text)) },
+            title = { Text(strAdminUsersDeleteTitle) },
+            text = { Text(strAdminUsersDeleteText) },
             confirmButton = {
                 Button(
                     onClick = { showDeleteConfirm = false; onDelete() },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text(stringResource(R.string.action_delete))
+                    Text(strActionDelete)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) { Text(stringResource(R.string.action_cancel)) }
+                TextButton(onClick = { showDeleteConfirm = false }) { Text(strActionCancel) }
             }
         )
     }

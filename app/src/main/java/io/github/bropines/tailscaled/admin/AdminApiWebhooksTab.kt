@@ -158,10 +158,15 @@ fun WebhookRow(
     }
 
     if (showDeleteConfirm) {
+        // Strings resolved in the parent composition — see wrapContextWithLocale().
+        val strAdminWebhooksDeleteTitle = stringResource(R.string.admin_webhooks_delete_title)
+        val strAdminWebhooksDeleteText = stringResource(R.string.admin_webhooks_delete_text)
+        val strActionDelete = stringResource(R.string.action_delete)
+        val strActionCancel = stringResource(R.string.action_cancel)
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text(stringResource(R.string.admin_webhooks_delete_title)) },
-            text = { Text(stringResource(R.string.admin_webhooks_delete_text)) },
+            title = { Text(strAdminWebhooksDeleteTitle) },
+            text = { Text(strAdminWebhooksDeleteText) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -170,11 +175,11 @@ fun WebhookRow(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text(stringResource(R.string.action_delete))
+                    Text(strActionDelete)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) { Text(stringResource(R.string.action_cancel)) }
+                TextButton(onClick = { showDeleteConfirm = false }) { Text(strActionCancel) }
             }
         )
     }
@@ -199,9 +204,16 @@ fun CreateWebhookDialog(
     )
     val selectedEvents = remember { mutableStateListOf<String>().apply { addAll(availableEvents) } }
 
+    // Strings resolved in the parent composition — see wrapContextWithLocale().
+    val strAdminWebhooksAddTitle = stringResource(R.string.admin_webhooks_add_title)
+    val strAdminWebhooksUrlLabel = stringResource(R.string.admin_webhooks_url_label)
+    val strAdminWebhooksUrlPlaceholder = stringResource(R.string.admin_webhooks_url_placeholder)
+    val strAdminWebhooksSubscribeLabel = stringResource(R.string.admin_webhooks_subscribe_label)
+    val strActionSave = stringResource(R.string.action_save)
+    val strActionCancel = stringResource(R.string.action_cancel)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.admin_webhooks_add_title)) },
+        title = { Text(strAdminWebhooksAddTitle) },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
@@ -210,13 +222,13 @@ fun CreateWebhookDialog(
                 OutlinedTextField(
                     value = url,
                     onValueChange = { url = it },
-                    label = { Text(stringResource(R.string.admin_webhooks_url_label)) },
-                    placeholder = { Text(stringResource(R.string.admin_webhooks_url_placeholder)) },
+                    label = { Text(strAdminWebhooksUrlLabel) },
+                    placeholder = { Text(strAdminWebhooksUrlPlaceholder) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Text(stringResource(R.string.admin_webhooks_subscribe_label), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                Text(strAdminWebhooksSubscribeLabel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
 
                 availableEvents.forEach { event ->
                     val isChecked = selectedEvents.contains(event)
@@ -253,11 +265,11 @@ fun CreateWebhookDialog(
                     }
                 }
             ) {
-                Text(stringResource(R.string.action_save))
+                Text(strActionSave)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+            TextButton(onClick = onDismiss) { Text(strActionCancel) }
         }
     )
 }

@@ -295,10 +295,15 @@ fun SlideHowItWorks() {
     var showRootWarningDialog by remember { mutableStateOf(false) }
 
     if (showRootWarningDialog) {
+        // Strings resolved in the parent composition — see wrapContextWithLocale().
+        val strSettingsRootWarningDialogTitle = stringResource(R.string.settings_root_warning_dialog_title)
+        val strSettingsRootWarningDialogBody = stringResource(R.string.settings_root_warning_dialog_body)
+        val strSettingsRootWarningDialogConfirm = stringResource(R.string.settings_root_warning_dialog_confirm)
+        val strSettingsRootWarningDialogCancel = stringResource(R.string.settings_root_warning_dialog_cancel)
         AlertDialog(
             onDismissRequest = { showRootWarningDialog = false },
-            title = { Text(stringResource(R.string.settings_root_warning_dialog_title)) },
-            text = { Text(stringResource(R.string.settings_root_warning_dialog_body)) },
+            title = { Text(strSettingsRootWarningDialogTitle) },
+            text = { Text(strSettingsRootWarningDialogBody) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -313,12 +318,12 @@ fun SlideHowItWorks() {
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text(stringResource(R.string.settings_root_warning_dialog_confirm))
+                    Text(strSettingsRootWarningDialogConfirm)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showRootWarningDialog = false }) {
-                    Text(stringResource(R.string.settings_root_warning_dialog_cancel))
+                    Text(strSettingsRootWarningDialogCancel)
                 }
             }
         )
@@ -703,14 +708,19 @@ fun SlideBypassSetup() {
     }
 
     if (showSavePresetDialog) {
+        // Strings resolved in the parent composition — see wrapContextWithLocale().
+        val strSettingsProxyPresetSaveTitle = stringResource(R.string.settings_proxy_preset_save_title)
+        val strSettingsProxyPresetNameLabel = stringResource(R.string.settings_proxy_preset_name_label)
+        val strSettingsProxyPresetSaveBtn = stringResource(R.string.settings_proxy_preset_save_btn)
+        val strActionCancel = stringResource(R.string.action_cancel)
         AlertDialog(
             onDismissRequest = { showSavePresetDialog = false },
-            title = { Text(stringResource(R.string.settings_proxy_preset_save_title)) },
+            title = { Text(strSettingsProxyPresetSaveTitle) },
             text = {
                 OutlinedTextField(
                     value = presetName,
                     onValueChange = { presetName = it },
-                    label = { Text(stringResource(R.string.settings_proxy_preset_name_label)) },
+                    label = { Text(strSettingsProxyPresetNameLabel) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -733,12 +743,12 @@ fun SlideBypassSetup() {
                         showSavePresetDialog = false
                     }
                 ) {
-                    Text(stringResource(R.string.settings_proxy_preset_save_btn))
+                    Text(strSettingsProxyPresetSaveBtn)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showSavePresetDialog = false }) {
-                    Text(stringResource(R.string.action_cancel))
+                    Text(strActionCancel)
                 }
             }
         )

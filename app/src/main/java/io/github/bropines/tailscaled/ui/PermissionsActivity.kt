@@ -106,13 +106,20 @@ fun AutostartAskDialog(onAnswered: () -> Unit) {
         OptionalPermissions.answerAutostartAsk(context, neverAgain)
         onAnswered()
     }
+    // Strings resolved in the parent composition — see wrapContextWithLocale().
+    val strPermAskTitle = stringResource(R.string.perm_ask_title)
+    val strPermAskText = stringResource(R.string.perm_ask_text)
+    val strPermAskNever = stringResource(R.string.perm_ask_never)
+    val strPermAskAll = stringResource(R.string.perm_ask_all)
+    val strPermAskGrant = stringResource(R.string.perm_ask_grant)
+    val strPermAskLater = stringResource(R.string.perm_ask_later)
     AlertDialog(
         onDismissRequest = { answer() },
         icon = { Icon(Icons.Default.PowerSettingsNew, contentDescription = null) },
-        title = { Text(stringResource(R.string.perm_ask_title)) },
+        title = { Text(strPermAskTitle) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(stringResource(R.string.perm_ask_text), style = MaterialTheme.typography.bodyMedium)
+                Text(strPermAskText, style = MaterialTheme.typography.bodyMedium)
                 // The whole row toggles, so the label is a target too, not just
                 // the 20dp box.
                 Row(
@@ -125,7 +132,7 @@ fun AutostartAskDialog(onAnswered: () -> Unit) {
                 ) {
                     Checkbox(checked = neverAgain, onCheckedChange = { neverAgain = it })
                     Text(
-                        stringResource(R.string.perm_ask_never),
+                        strPermAskNever,
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(start = 4.dp)
                     )
@@ -145,7 +152,7 @@ fun AutostartAskDialog(onAnswered: () -> Unit) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        stringResource(R.string.perm_ask_all),
+                        strPermAskAll,
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.weight(1f)
@@ -166,7 +173,7 @@ fun AutostartAskDialog(onAnswered: () -> Unit) {
                 answer()
                 openAutostartSettings(context)
             }) {
-                Text(stringResource(R.string.perm_ask_grant))
+                Text(strPermAskGrant)
                 Icon(
                     Icons.AutoMirrored.Filled.OpenInNew,
                     contentDescription = null,
@@ -178,7 +185,7 @@ fun AutostartAskDialog(onAnswered: () -> Unit) {
         },
         dismissButton = {
             TextButton(onClick = { answer() }) {
-                Text(stringResource(R.string.perm_ask_later))
+                Text(strPermAskLater)
             }
         }
     )
