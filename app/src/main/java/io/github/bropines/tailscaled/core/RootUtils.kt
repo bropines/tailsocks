@@ -35,6 +35,89 @@ object RootUtils {
     /** Pre-3.6 mark, still removed on cleanup so upgrades do not leave it behind. */
     private const val LEGACY_MARK = "1099"
 
+    /**
+     * Policy routing table the daemon writes itself (patch 13, Android router):
+     * peer /32s, accepted subnet routes, 100.100.100.100/32, `default dev
+     * tailscale0` while an exit node is selected and `throw` routes for the LAN
+     * prefixes when LAN access is allowed. The app never adds to, flushes or
+     * verify-fails on this table — it only points a rule at it.
+     */
+    private const val DAEMON_TABLE = "52"
+
+    /**
+     * SO_MARK the root daemon sets on every socket it opens itself (patch 16,
+     * net/netns/netns_android.go TailsocksBypassMark — the two values must stay
+     * equal). Bit 25 sits outside Android's Fwmark layout (bits 0-20) and apart
+     * from [MARK_BIT] (bit 24); the low 16 bits stay zero, so netd's
+     * `fwmark 0x0/0xffff lookup <default network>` still matches marked packets.
+     */
+    private const val BYPASS_MARK = "0x2000000"
+
+    /**
+     * Mask of the pref-200 catch-all: [BYPASS_MARK] plus Android's
+     * protectedFromVpn bit (0x20000). A packet with either bit set skips the
+     * daemon's table: the daemon's own WireGuard/DERP/control traffic (which
+     * would otherwise loop the moment table 52 holds a default route) and the
+     * sockets Android deliberately keeps off VPNs (network validation probes,
+     * MMS/IMS, other VPN apps' protected sockets) — the same `fwmark 0x0/0x20000`
+     * idiom netd uses for its own VPN rules.
+     */
+    private const val CATCH_ALL_MASK = "0x2020000"
+    private const val CATCH_ALL_PRIO = "200"
+
+    /** Pre-fix rp_filter value of `all`, kept so cleanup can restore it. */
+    private const val RP_FILTER_ORIG = "$ROOT_ENV_DIR/rp_filter.orig"
+
+    /**
+     * Run boundaries in the daemon log. The daemon appends to one file across
+     * runs and prints no start banner in this build (`ts_omit_logtail` drops
+     * logpolicy and with it `Program starting:`), so "this run" is bounded by
+     * the later of two lines:
+     *  - [RUN_MARKER], which each launcher — the boot script (tailscaled.sh)
+     *    and [startRootDaemon] — appends right before starting the daemon;
+     *  - [DAEMON_START_LINE], which cmd/tailscaled logs unconditionally on every
+     *    start, immediately before it creates the engine — and the engine's
+     *    magicsock listener is what triggers the netns probe, so the probe's
+     *    line always follows it within a run. This one also bounds a daemon
+     *    that was started by hand (no [RUN_MARKER]), so an earlier run's line
+     *    can never vouch for it.
+     */
+    private const val RUN_MARKER = "TailSocks: daemon start"
+    private const val DAEMON_START_LINE = "wgengine.NewUserspaceEngine(tun"
+
+    /** Lines the app or the boot script write into the daemon log carry this tag; none of them is daemon output. */
+    private const val APP_LINE_TAG = "TailSocks:"
+
+    /**
+     * The netns probe (patch 16) logs exactly one line per run containing
+     * [SO_MARK_LINE]: [SO_MARK_OK] on success, `netns: SO_MARK unavailable (…)`
+     * otherwise. Daemon lines carry Go's `YYYY/MM/DD HH:MM:SS` prefix and a
+     * component prefix such as `magicsock:` in front, so both are matched as
+     * substrings — and the success match is the daemon's exact contiguous text,
+     * never two loose tokens (a message that merely mentions both would
+     * otherwise open the gate).
+     */
+    private const val SO_MARK_LINE = "netns: SO_MARK"
+    private const val SO_MARK_OK = "netns: SO_MARK $BYPASS_MARK set on tailscaled sockets"
+
+    /** Backward log scan in [soMarkVerdict]: bytes read per step, and how far back to look before giving up. */
+    private const val SCAN_CHUNK = 1 shl 20
+    private const val SCAN_LIMIT = 256L shl 20
+
+    /** Markers the apply script prints when a catch-all did not land; distinct so v4 → WARN, v6 → INFO. */
+    private const val V4_CATCH_ALL_MISSING = "verify: v4 exit-node catch-all NOT installed (ip dropped the fwmark mask)"
+    private const val V6_CATCH_ALL_MISSING = "verify: v6 exit-node catch-all not installed"
+
+    /**
+     * Log of the daemon launched by [startRootDaemon] and the file size just
+     * before the launch. Lets [daemonMarksSockets] ignore lines from earlier runs
+     * even when the caller has no Context; both stay unset when the app merely
+     * attached to a daemon that was already running (boot script), in which case
+     * the last [RUN_MARKER] line the script wrote bounds the current run instead.
+     */
+    @Volatile private var lastDaemonLogFile: File? = null
+    @Volatile private var daemonLogStartOffset: Long = -1L
+
     /** Dedicated iptables chains. Owning named chains makes every rule we install
      *  idempotent, inspectable and removable in one shot — unlike appending to
      *  the shared OUTPUT/FORWARD chains, which accumulates duplicates. */
@@ -174,6 +257,9 @@ object RootUtils {
             val dataDir = context.filesDir.parentFile?.absolutePath ?: context.filesDir.absolutePath
             val logsDir = File(dataDir, "logs").apply { mkdirs() }.absolutePath
             val logFile = if (logFilePath.isNotEmpty()) logFilePath else "$logsDir/tailscaled.log"
+            // Everything the daemon appends from here on belongs to this run.
+            lastDaemonLogFile = File(logFile)
+            daemonLogStartOffset = File(logFile).length()
 
             val socketFile = File(socketPath)
             socketFile.parentFile?.mkdirs()
@@ -245,6 +331,10 @@ object RootUtils {
             }.joinToString(" ")
 
             val sb = StringBuilder(env)
+            // Run marker first: everything the daemon prints in this run follows
+            // it, which is what daemonMarksSockets keys on (the boot script writes
+            // the same line). A missing marker means "unverified", never "marks".
+            sb.append("echo ${shQuote(RUN_MARKER)} >> ${shQuote(logFile)}\n")
             sb.append("nohup $cmd >> ${shQuote(logFile)} 2>&1 &\n")
             // The daemon runs as root, so the file is root-owned; 0644 lets the
             // app read it for the Logs screen. It sits in the app's private data
@@ -361,11 +451,29 @@ object RootUtils {
      *                          Without them the daemon's own upstream queries are
      *                          redirected back into MagicDNS, which resolves nothing
      *                          and loops.
+     * @param context           used to locate the daemon log, which decides whether
+     *                          the exit-node catch-all (pref 200 → table 52) may be
+     *                          installed: only a daemon that has logged that it marks
+     *                          its sockets gets it. Without a Context the log of the
+     *                          daemon [startRootDaemon] launched is used; if there is
+     *                          none either, the catch-all is skipped with a WARN.
      */
     fun applyTailscale0Routing(
         dnsRedirect: Boolean = true,
-        dnsBypassAddrs: List<String> = emptyList()
+        dnsBypassAddrs: List<String> = emptyList(),
+        context: Context? = null
     ): Boolean {
+        val logFile = context?.let { rootDaemonLogFile(it) } ?: lastDaemonLogFile
+        val verdict = logFile?.let { soMarkVerdict(it) } ?: SoMarkVerdict(false, "no daemon log to check")
+        val marks = verdict.marks
+        if (!marks) {
+            rootLog(
+                "WARN",
+                "exit node unavailable: daemon does not mark sockets (${verdict.reason}); " +
+                    "the pref-$CATCH_ALL_PRIO catch-all is not installed, tailnet routing is unaffected"
+            )
+        }
+
         val sb = StringBuilder()
         sb.append(legacyRuleCleanup())
 
@@ -390,6 +498,13 @@ object RootUtils {
         sb.append("iptables -C FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || iptables -I FORWARD -o tailscale0 -j ACCEPT\n")
         sb.append("iptables -C FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || iptables -I FORWARD -i tailscale0 -j ACCEPT\n")
 
+        // --- Exit-node catch-all (IPv4): unmarked local traffic → daemon's table 52 ---
+        sb.append(staleDaemonRulePurge("ip"))
+        if (marks) {
+            sb.append(catchAllInstall("ip", V4_CATCH_ALL_MISSING, bestEffort = false))
+            sb.append(rpFilterLoosen())
+        }
+
         // --- IPv6 policy routing ---
         sb.append("ip -6 route replace $TAILNET_V6 dev tailscale0 table $ROUTE_TABLE metric 1 2>/dev/null || true\n")
         sb.append("ip -6 rule del fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE 2>/dev/null || true\n")
@@ -403,6 +518,17 @@ object RootUtils {
 
         sb.append("ip6tables -C FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || ip6tables -I FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || true\n")
         sb.append("ip6tables -C FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || ip6tables -I FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || true\n")
+
+        // --- Exit-node catch-all (IPv6) ---
+        // The purge is harmless anywhere; the rule itself only where IPv6 exists
+        // and is enabled, otherwise `ip -6 rule add` fails on every apply and the
+        // marker would raise a false alarm each time.
+        sb.append(staleDaemonRulePurge("ip -6"))
+        if (marks) {
+            sb.append("if [ -d /proc/sys/net/ipv6 ] && [ \"\$(cat /proc/sys/net/ipv6/conf/all/disable_ipv6 2>/dev/null)\" = \"0\" ]; then\n")
+            sb.append(catchAllInstall("ip -6", V6_CATCH_ALL_MISSING, bestEffort = true))
+            sb.append("fi\n")
+        }
 
         // --- System-wide DNS redirect ---
         sb.append(dnsChainTeardown())
@@ -432,9 +558,30 @@ object RootUtils {
 
         val res = runSu("routing-apply", sb.toString())
         if (res.ok) {
+            // The catch-all verify is non-fatal (tailnet routing does not depend on
+            // it) but must not pass silently: a missing v4 rule means no exit node.
+            val v4Missing = res.output.contains(V4_CATCH_ALL_MISSING)
+            val v6Missing = res.output.contains(V6_CATCH_ALL_MISSING)
+            if (v4Missing) {
+                rootLog(
+                    "WARN",
+                    "exit-node catch-all (pref $CATCH_ALL_PRIO -> table $DAEMON_TABLE) NOT installed: this ip binary " +
+                        "dropped the fwmark mask and a maskless rule would loop the daemon's own traffic; exit nodes unavailable"
+                )
+            }
+            if (v6Missing) {
+                rootLog("INFO", "IPv6 exit-node catch-all not installed (ip -6 rule add refused); IPv6 traffic will not follow an exit node")
+            }
+            val catchAll = when {
+                !marks -> "skipped, daemon does not mark sockets"
+                v4Missing -> "not installed, mask dropped"
+                v6Missing -> "v4 only"
+                else -> "installed"
+            }
             rootLog(
                 "INFO",
-                "tailscale0 routing applied (table $ROUTE_TABLE, dns redirect=$dnsRedirect" +
+                "tailscale0 routing applied (table $ROUTE_TABLE, exit-node catch-all pref $CATCH_ALL_PRIO -> table $DAEMON_TABLE: $catchAll, " +
+                    "dns redirect=$dnsRedirect" +
                     if (dnsBypassAddrs.isEmpty()) ")" else ", bypass=${dnsBypassAddrs.joinToString(",")})"
             )
         }
@@ -466,6 +613,16 @@ object RootUtils {
         sb.append("while ip rule del fwmark $LEGACY_MARK lookup $ROUTE_TABLE 2>/dev/null; do :; done\n")
         sb.append("while ip -6 rule del fwmark $LEGACY_MARK table $ROUTE_TABLE 2>/dev/null; do :; done\n")
         sb.append("while ip -6 rule del fwmark $LEGACY_MARK lookup $ROUTE_TABLE 2>/dev/null; do :; done\n")
+
+        // Exit-node catch-all, stale desktop rules and the rp_filter change. Table
+        // 52 itself is left alone on purpose: it belongs to the daemon (which may
+        // keep running with "Terminate Root Daemon on Stop" off); router.Close()
+        // deletes its throw routes and the kernel drops the rest with tailscale0.
+        sb.append("while ip rule del priority $CATCH_ALL_PRIO lookup $DAEMON_TABLE 2>/dev/null; do :; done\n")
+        sb.append("while ip -6 rule del priority $CATCH_ALL_PRIO lookup $DAEMON_TABLE 2>/dev/null; do :; done\n")
+        sb.append(staleDaemonRulePurge("ip"))
+        sb.append(staleDaemonRulePurge("ip -6"))
+        sb.append(rpFilterRestore())
 
         sb.append("ip route flush table $ROUTE_TABLE 2>/dev/null || true\n")
         sb.append("ip -6 route flush table $ROUTE_TABLE 2>/dev/null || true\n")
@@ -504,22 +661,212 @@ object RootUtils {
         append("while iptables -t nat -D OUTPUT -d $CGNAT_V4 -p tcp --dport 53 -j ACCEPT 2>/dev/null; do :; done\n")
     }
 
-    /** Dumps the rules we own, for the Root Mode diagnostics screen. */
-    fun dumpRoutingState(): String {
+    /**
+     * Deletes the desktop-Linux rules a pre-4.0 core left behind (a killed
+     * daemon never ran Close(); a stale `5270: from all lookup 52` would swallow
+     * the new daemon's marked packets). Matched by content, not by priority
+     * alone, so a third-party rule that happens to sit at 52xx survives; a no-op
+     * when nothing is there. [ip] is `ip` or `ip -6`.
+     */
+    private fun staleDaemonRulePurge(ip: String): String = buildString {
+        append("while $ip rule del pref 5210 lookup main 2>/dev/null; do :; done\n")
+        append("while $ip rule del pref 5230 lookup default 2>/dev/null; do :; done\n")
+        append("while $ip rule del pref 5250 type unreachable 2>/dev/null; do :; done\n")
+        append("while $ip rule del pref 5270 lookup $DAEMON_TABLE 2>/dev/null; do :; done\n")
+    }
+
+    /**
+     * Installs the catch-all `fwmark 0x0/0x2020000 iif lo lookup 52 priority 200`:
+     * every locally generated packet without the daemon's bypass bit or Android's
+     * protectedFromVpn bit consults the daemon's table first (peer /32s, subnet
+     * routes, exit-node default, LAN throws) and falls through to netd when
+     * nothing matches. `iif lo` = output lookups only, so forwarded and tethered
+     * packets stay on netd's rules. The old rule is removed by content first
+     * (any pref-200 rule pointing at table 52, so an earlier mask variant goes
+     * too), and the result is read back: a rule that prints without the mask
+     * (bare `fwmark 0x0` / `fwmark 0`) has kernel mask 0 and matches EVERY
+     * packet, daemon included — that is a routing loop, so it is deleted again
+     * and [missingMarker] is printed for the caller to surface. iproute2 4.x
+     * prints the zero mark as `0x0`, 5.x and later (`%#llx`) as a bare `0`;
+     * the pattern accepts both.
+     */
+    private fun catchAllInstall(ip: String, missingMarker: String, bestEffort: Boolean): String = buildString {
+        val tolerate = if (bestEffort) " 2>/dev/null || true" else ""
+        append("while $ip rule del priority $CATCH_ALL_PRIO lookup $DAEMON_TABLE 2>/dev/null; do :; done\n")
+        append("$ip rule add fwmark 0x0/$CATCH_ALL_MASK iif lo lookup $DAEMON_TABLE priority $CATCH_ALL_PRIO$tolerate\n")
+        append(
+            "$ip rule show 2>/dev/null | grep -qE '^$CATCH_ALL_PRIO:.*fwmark (0x0|0)/$CATCH_ALL_MASK.*lookup $DAEMON_TABLE' || " +
+                "{ while $ip rule del priority $CATCH_ALL_PRIO lookup $DAEMON_TABLE 2>/dev/null; do :; done; echo '$missingMarker'; }\n"
+        )
+    }
+
+    /**
+     * Reverse-path filter must be loose once table 52 is consulted for unmarked
+     * lookups: replies to the daemon's marked sockets arrive on Wi-Fi/cellular,
+     * are rp_filter-checked with mark 0, resolve to tailscale0 through table 52
+     * and are dropped as martians under strict mode (1). The kernel uses
+     * max(all, <iface>), so raising `all` to 2 is sufficient. The previous value
+     * of `all` is saved once, through a temp file and mv so a partial write can
+     * never leave a bad value for [rpFilterRestore]; the directory is created
+     * here as well because the boot script reaches this without startRootDaemon.
+     */
+    private fun rpFilterLoosen(): String = buildString {
+        val dir = shQuote(ROOT_ENV_DIR)
+        val orig = shQuote(RP_FILTER_ORIG)
+        val tmp = shQuote("$RP_FILTER_ORIG.tmp")
+        append("mkdir -p $dir && chmod 700 $dir\n")
+        append("for f in /proc/sys/net/ipv4/conf/*/rp_filter; do\n")
+        append("    if [ \"\$(cat \"\$f\" 2>/dev/null)\" = \"1\" ]; then\n")
+        append("        [ -f $orig ] || { cat /proc/sys/net/ipv4/conf/all/rp_filter > $tmp && mv $tmp $orig; }\n")
+        append("        echo 2 > /proc/sys/net/ipv4/conf/all/rp_filter\n")
+        append("        break\n")
+        append("    fi\n")
+        append("done\n")
+    }
+
+    /** Puts `all/rp_filter` back to what [rpFilterLoosen] found, if it changed anything. */
+    private fun rpFilterRestore(): String = buildString {
+        val orig = shQuote(RP_FILTER_ORIG)
+        append("if [ -f $orig ]; then\n")
+        append("    case \"\$(cat $orig 2>/dev/null)\" in 0|1|2) cat $orig > /proc/sys/net/ipv4/conf/all/rp_filter 2>/dev/null || true;; esac\n")
+        append("    rm -f $orig\n")
+        append("fi\n")
+    }
+
+    /** Outcome of the daemon-log check: [marks] is the gate, [reason] is what the ROOT log and Check Routing show. */
+    class SoMarkVerdict(val marks: Boolean, val reason: String)
+
+    /**
+     * Whether the daemon currently running has shown that it marks its own
+     * sockets with [BYPASS_MARK]: its log carries [SO_MARK_OK] for THIS run.
+     *
+     * The daemon appends to one file across runs, so only the current run's
+     * part counts. The file is scanned backwards from its end, line by line:
+     *  - the last daemon line containing [SO_MARK_LINE] (the probe logs exactly
+     *    once per run, `set` or `unavailable`) is the candidate verdict — but it
+     *    counts only once a run start is found BELOW it;
+     *  - a run start is a [RUN_MARKER] or [DAEMON_START_LINE] line, or the byte
+     *    offset [startRootDaemon] recorded when it is this log and lies inside
+     *    the file. Meeting one before any probe line means this run has logged
+     *    no probe line (yet) → false;
+     *  - the start of the file, or [SCAN_LIMIT] bytes, without a run start →
+     *    the run cannot be bounded (log rewritten underneath, unknown core) →
+     *    false. Never "the last line anywhere in the file": an earlier run's
+     *    line must not vouch for this one.
+     * Lines tagged [APP_LINE_TAG] are the app's and the script's own and are
+     * never evidence. The scan reads [SCAN_CHUNK] at a time, so a daemon that
+     * has been running for days (adopted, "Terminate Root Daemon on Stop" off)
+     * is judged correctly however large its log has grown.
+     *
+     * Anything unreadable or absent counts as "does not mark": without the mark
+     * the pref-200 catch-all would route the daemon's own tunnel packets into
+     * tailscale0, so the safe failure mode is "no exit node", never a loop.
+     */
+    fun daemonMarksSockets(logFile: File): Boolean = soMarkVerdict(logFile).marks
+
+    private fun soMarkVerdict(logFile: File): SoMarkVerdict {
+        val recorded = if (lastDaemonLogFile == logFile) daemonLogStartOffset else -1L
+        val noProbe = "no '$SO_MARK_LINE' line since this run's start in ${logFile.path}"
+        try {
+            java.io.RandomAccessFile(logFile, "r").use { raf ->
+                val len = raf.length()
+                val bounded = recorded in 0..len
+                val floor = if (bounded) recorded else 0L
+                val buf = ByteArray(SCAN_CHUNK)
+                // Leading partial line of the chunk read before this one (later in the file).
+                var carry = ""
+                var pos = len
+                // Verdict of the last probe line met, pending a run start below it.
+                var probe: SoMarkVerdict? = null
+                while (pos > floor) {
+                    if (len - pos >= SCAN_LIMIT) {
+                        return SoMarkVerdict(false, "no run start within the last ${SCAN_LIMIT shr 20} MiB of ${logFile.path}; run unverified")
+                    }
+                    val start = maxOf(floor, pos - SCAN_CHUNK)
+                    val n = (pos - start).toInt()
+                    raf.seek(start)
+                    raf.readFully(buf, 0, n)
+                    // ISO-8859-1 decodes bytes 1:1, so no multi-byte sequence can straddle a chunk boundary.
+                    val lines = (String(buf, 0, n, Charsets.ISO_8859_1) + carry).split('\n')
+                    // Unless this chunk begins at the floor (a line start by
+                    // construction), its first segment continues a line from the
+                    // chunk below and is judged together with that one.
+                    val first = if (start > floor) 1 else 0
+                    carry = if (start > floor) lines[0] else ""
+                    for (i in lines.indices.reversed()) {
+                        if (i < first) break
+                        val line = lines[i]
+                        if (line.contains(RUN_MARKER) || line.contains(DAEMON_START_LINE)) {
+                            return probe ?: SoMarkVerdict(false, noProbe)
+                        }
+                        if (probe != null || line.contains(APP_LINE_TAG) || !line.contains(SO_MARK_LINE)) continue
+                        probe = if (line.contains(SO_MARK_OK)) SoMarkVerdict(true, "daemon logged '$SO_MARK_OK'")
+                        else SoMarkVerdict(false, "daemon logged: ${line.trim()}")
+                    }
+                    pos = start
+                }
+                if (bounded) {
+                    // The recorded launch offset is a run start by construction.
+                    return probe ?: SoMarkVerdict(false, "no '$SO_MARK_LINE' line yet for the run started at byte $recorded of ${logFile.path}")
+                }
+                return SoMarkVerdict(false, "no run start ('$RUN_MARKER' or '$DAEMON_START_LINE') in ${logFile.path}; run unverified")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "soMarkVerdict: cannot read ${logFile.path}: ${e.message}")
+            return SoMarkVerdict(false, "cannot read ${logFile.path} (${e.message})")
+        }
+    }
+
+    /**
+     * Dumps the live policy-routing state for the Root Mode diagnostics screen:
+     * the complete rule lists (the daemon's table 52 and any stale 52xx rules
+     * were invisible while this filtered on 1099), both tables, the route
+     * decision with and without the daemon's bypass mark, rp_filter, the
+     * daemon log's last run marker and SO_MARK probe line, and the verdict
+     * [soMarkVerdict] reaches from them (why pref 200 was or was not installed).
+     */
+    fun dumpRoutingState(context: Context? = null): String {
+        val logFile = context?.let { rootDaemonLogFile(it) } ?: lastDaemonLogFile
+        val orig = shQuote(RP_FILTER_ORIG)
         val script = buildString {
             append("echo '--- ip rule ---'\n")
-            append("ip rule list 2>/dev/null | grep -i '$ROUTE_TABLE' || echo '(no v4 rule)'\n")
-            append("ip -6 rule list 2>/dev/null | grep -i '$ROUTE_TABLE' || echo '(no v6 rule)'\n")
+            append("ip rule show 2>/dev/null || echo '(ip rule show failed)'\n")
+            append("echo '--- ip -6 rule ---'\n")
+            append("ip -6 rule show 2>/dev/null || echo '(ip -6 rule show failed)'\n")
             append("echo '--- other tunnels ---'\n")
             append("ip -o link show 2>/dev/null | grep -Eo '(tun[0-9]+|ppp[0-9]+|wg[0-9]+)' | grep -v tailscale0 | sort -u || echo '(none)'\n")
-            append("echo '--- table $ROUTE_TABLE ---'\n")
-            append("ip route show table $ROUTE_TABLE 2>/dev/null || echo '(empty)'\n")
+            append("echo '--- table $ROUTE_TABLE (app) ---'\n")
+            append("ip route show table $ROUTE_TABLE 2>/dev/null | grep . || echo '(empty)'\n")
+            append("echo '--- table $DAEMON_TABLE (daemon: peers, subnet routes, exit-node default, LAN throws) ---'\n")
+            append("ip route show table $DAEMON_TABLE 2>/dev/null | grep . || echo '(empty)'\n")
+            append("echo '--- ip -6 route table $DAEMON_TABLE ---'\n")
+            append("ip -6 route show table $DAEMON_TABLE 2>/dev/null | grep . || echo '(empty)'\n")
+            append("echo '--- tailscale0 routes, all tables ---'\n")
+            append("ip route show table all 2>/dev/null | grep tailscale0 || echo '(none)'\n")
+            append("echo '--- route get 8.8.8.8: unmarked, then with the daemon bypass mark $BYPASS_MARK ---'\n")
+            append("ip route get 8.8.8.8 2>&1\n")
+            append("ip route get 8.8.8.8 mark $BYPASS_MARK 2>&1\n")
+            append("echo '--- rp_filter ---'\n")
+            append("for f in /proc/sys/net/ipv4/conf/*/rp_filter; do printf '%s=%s\\n' \"\${f#/proc/sys/net/ipv4/conf/}\" \"\$(cat \"\$f\" 2>/dev/null)\"; done 2>/dev/null\n")
+            append("[ -f $orig ] && echo \"saved original all=\$(cat $orig)\"\n")
+            append("echo '--- daemon log: last run marker, last SO_MARK probe line (any run), gate verdict ---'\n")
+            if (logFile != null) {
+                val lf = shQuote(logFile.absolutePath)
+                append("grep -n '$RUN_MARKER' $lf 2>/dev/null | tail -n 1 | grep . || echo '(no \"$RUN_MARKER\" line: daemon not started by TailSocks)'\n")
+                append("grep '$SO_MARK_LINE' $lf 2>/dev/null | grep -v '$APP_LINE_TAG' | tail -n 1 | grep . || echo '(no SO_MARK line in daemon log)'\n")
+                val verdict = soMarkVerdict(logFile)
+                append("echo ${shQuote("gate: " + (if (verdict.marks) "daemon marks sockets" else "pref-$CATCH_ALL_PRIO withheld") + " (" + verdict.reason + ")")}\n")
+            } else {
+                append("echo '(daemon log path unknown)'\n")
+            }
             append("echo '--- mangle $CHAIN_MARK ---'\n")
             append("iptables -t mangle -S $CHAIN_MARK 2>/dev/null || echo '(absent)'\n")
             append("echo '--- nat $CHAIN_DNS ---'\n")
             append("iptables -t nat -S $CHAIN_DNS 2>/dev/null || echo '(absent)'\n")
             append("echo '--- tailscale0 ---'\n")
             append("ip -br addr show tailscale0 2>/dev/null || echo '(interface missing)'\n")
+            append("echo '--- ip binary ---'\n")
+            append("ip -V 2>&1 | head -n 1\n")
         }
         return runSu("routing-dump", script, timeoutMs = 10_000L).output
     }

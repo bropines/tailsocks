@@ -1,0 +1,149 @@
+--- orig/net/netns/netns_android.go
++++ tailscale_src/net/netns/netns_android.go
+@@ -7,9 +7,13 @@
+ 
+ import (
+ 	"fmt"
++	"log"
++	"net"
++	"os"
+ 	"sync"
+ 	"syscall"
+ 
++	"golang.org/x/sys/unix"
+ 	"tailscale.com/net/netmon"
+ 	"tailscale.com/types/logger"
+ )
+@@ -22,9 +26,102 @@
+ 	androidBindToNetworkFunc   func(fd int) error
+ )
+ 
+-// UseSocketMark reports whether SO_MARK is in use. Android does not use SO_MARK.
++// TailsocksBypassMark is the SO_MARK value tailscaled sets on every socket it
++// opens itself when it runs as root (TailSocks Root Mode, --tun=tailscale0).
++//
++// The TailSocks app installs the policy rule
++//
++//	ip rule add fwmark 0x0/0x2020000 iif lo lookup 52 priority 200
++//
++// (and the same with -6). Locally generated packets whose mark has neither
++// bit 25 (this constant) nor bit 17 (Android's protectedFromVpn) set consult
++// the daemon's route table 52 first: peer /32s, accepted subnet routes and,
++// with an exit node, "default dev tailscale0". tailscaled's own marked
++// WireGuard/DERP/control packets skip that rule and fall through to netd's
++// rules for the physical network, which is what keeps an exit node from
++// turning into a routing loop.
++//
++// Bit 25 is outside Android's Fwmark layout (netd uses bits 0-20) and distinct
++// from TailSocks' own MARK bit 24 (0x1000000); the low 16 bits are zero so
++// netd's "fwmark 0x0/0xffff lookup <default network>" rule still matches. It
++// is deliberately not tsconst.LinuxBypassMarkNum (0x80000), which is netd's
++// permission bit 19.
++//
++// This value MUST stay equal to BYPASS_MARK in the app's RootUtils.kt, and
++// the log lines in useBypassMark MUST stay stable: the app greps the root
++// daemon log for the success line before it installs the pref-200 rule.
++const TailsocksBypassMark = 0x2000000
++
++// bypassMarkOnce runs the root-only SO_MARK probe exactly once and caches
++// whether tailscaled sockets carry TailsocksBypassMark.
++var bypassMarkOnce struct {
++	sync.Once
++	ok bool
++}
++
++// useBypassMark reports whether SO_MARK TailsocksBypassMark can be set on this
++// process' sockets. The probe runs once and only as root (SO_MARK needs
++// CAP_NET_ADMIN; the non-root VpnService build relies on the JNI protect/bind
++// hooks below instead) and logs its outcome exactly once, through logf when the
++// first caller provides one and through the standard logger otherwise.
++func useBypassMark(logf logger.Logf) bool {
++	bypassMarkOnce.Do(func() {
++		if os.Getuid() != 0 {
++			return
++		}
++		if logf == nil {
++			logf = log.Printf
++		}
++		if err := probeBypassMark(); err != nil {
++			logf("netns: SO_MARK unavailable (%v); exit nodes will not be routed in Root Mode", err)
++			return
++		}
++		bypassMarkOnce.ok = true
++		logf("netns: SO_MARK %#x set on tailscaled sockets (root bypass)", TailsocksBypassMark)
++	})
++	return bypassMarkOnce.ok
++}
++
++// socketMarkWorks is useBypassMark with the standard logger. It keeps the
++// zero-argument name that the platform-shared TestSocketMarkWorks expects.
++func socketMarkWorks() bool {
++	return useBypassMark(nil)
++}
++
++// probeBypassMark opens a throwaway UDP socket and tries to set the bypass
++// mark on it.
++func probeBypassMark() error {
++	c, err := net.DialUDP("udp", nil, &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 1})
++	if err != nil {
++		return fmt.Errorf("probe socket: %w", err)
++	}
++	defer c.Close()
++	rc, err := c.SyscallConn()
++	if err != nil {
++		return fmt.Errorf("probe socket: %w", err)
++	}
++	var sockErr error
++	if err := rc.Control(func(fd uintptr) {
++		sockErr = setBypassMark(int(fd))
++	}); err != nil {
++		return fmt.Errorf("RawConn.Control: %w", err)
++	}
++	return sockErr
++}
++
++// setBypassMark sets TailsocksBypassMark as fd's SO_MARK.
++func setBypassMark(fd int) error {
++	if err := unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_MARK, TailsocksBypassMark); err != nil {
++		return fmt.Errorf("setting SO_MARK bypass: %w", err)
++	}
++	return nil
++}
++
++// UseSocketMark reports whether SO_MARK is in use. The VpnService (non-root)
++// build never uses it; in TailSocks Root Mode it is in use once the probe in
++// useBypassMark has succeeded.
+ func UseSocketMark() bool {
+-	return false
++	return socketMarkWorks()
+ }
+ 
+ // SetAndroidProtectFunc register a func that Android provides that JNI calls into
+@@ -61,7 +158,10 @@
+ 	androidBindToNetworkFunc = f
+ }
+ 
+-func control(logger.Logf, *netmon.Monitor) func(network, address string, c syscall.RawConn) error {
++func control(logf logger.Logf, _ *netmon.Monitor) func(network, address string, c syscall.RawConn) error {
++	// Probe (and log) once, with the first caller's logger, before any
++	// socket goes through controlC.
++	useBypassMark(logf)
+ 	return controlC
+ }
+ 
+@@ -75,6 +175,15 @@
+ 	err := c.Control(func(fd uintptr) {
+ 		fdInt := int(fd)
+ 
++		// TailSocks Root Mode: mark the socket so the app's pref-200 rule
++		// keeps it out of the daemon's table 52 (see TailsocksBypassMark).
++		if socketMarkWorks() {
++			if err := setBypassMark(fdInt); err != nil {
++				sockErr = err
++				return
++			}
++		}
++
+ 		// Protect from VPN loops
+ 		androidProtectFuncMu.Lock()
+ 		pf := androidProtectFunc

@@ -1,5 +1,5 @@
---- orig/wgengine/router/osrouter/router_linux.go	2026-07-31 19:22:18.000000000 +0300
-+++ tailscale_src/wgengine/router/osrouter/router_linux.go	2026-08-13 18:37:15.822491565 +0300
+--- orig/wgengine/router/osrouter/router_linux.go
++++ tailscale_src/wgengine/router/osrouter/router_linux.go
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause
@@ -9,8 +9,265 @@
  
  package osrouter
  
---- orig/net/netmon/netmon_linux.go	2026-07-31 19:22:18.000000000 +0300
-+++ tailscale_src/net/netmon/netmon_linux.go	2026-08-13 18:37:15.822710601 +0300
+@@ -16,6 +16,7 @@
+ 	"os"
+ 	"os/exec"
+ 	"path/filepath"
++	"runtime"
+ 	"slices"
+ 	"strconv"
+ 	"strings"
+@@ -55,6 +56,15 @@
+ 
+ var getDistroFunc = distro.Get
+ 
++// isAndroid reports whether this file is compiled for GOOS=android, where the
++// router runs only inside the TailSocks Root Mode daemon. The Android app owns
++// policy routing and netfilter there (netd's rules from pref 10000, TailSocks'
++// pref 100/200 rules and TAILSOCKS_* chains), so the router is reduced to what
++// only the daemon knows: bringing tailscale0 up, its addresses, and the netmap
++// derived routes written into table 52. It is a constant so every isAndroid
++// branch compiles away on other platforms, leaving their behaviour untouched.
++const isAndroid = runtime.GOOS == "android"
++
+ const (
+ 	netfilterOff      = preftype.NetfilterOff
+ 	netfilterNoDivert = preftype.NetfilterNoDivert
+@@ -93,6 +103,13 @@
+ 	// justAddIPRules; the unset value there means "read live". See #20447.
+ 	interfaceV6UsableMemo atomic.Int32
+ 
++	// androidV6 caches the global IPv6 probe on Android, where there is no
++	// netfilter runner to remember it. See androidV6Available.
++	androidV6 struct {
++		sync.Once
++		ok bool
++	}
++
+ 	// ipPolicyPrefBase is the base priority at which ip rules are installed.
+ 	ipPolicyPrefBase int
+ 
+@@ -165,6 +182,14 @@
+ 			r.ipRuleAvailable = true
+ 		}
+ 	}
++	if isAndroid && !r.ipRuleAvailable {
++		// Android kernels always have IP_MULTIPLE_TABLES (netd depends on
++		// it) and TailSocks owns the ip rule that consults table 52, so a
++		// failed probe must not demote the routes into the main table,
++		// which no Android rule ever looks at.
++		r.logf("android: policy-routing probe failed; using table %d anyway (TailSocks owns the ip rules)", tailscaleRouteTable.Num)
++		r.ipRuleAvailable = true
++	}
+ 
+ 	// A common installation of OpenWRT involves use of the 'mwan3' package.
+ 	// This package installs ip-tables rules like:
+@@ -343,6 +368,12 @@
+ // about the priority number. We could just do this in response to any netlink
+ // change. Filtering by known priority ranges cuts back on some logspam.
+ func (r *linuxRouter) onIPRuleDeleted(table uint8, priority uint32) {
++	if isAndroid {
++		// The router installs no ip rules on Android (see ipRules), so
++		// there is nothing to restore. The 52xx deletions seen here are
++		// the app or this router purging a previous core's desktop rules.
++		return
++	}
+ 	if int(priority) < r.ipPolicyPrefBase || int(priority) >= (r.ipPolicyPrefBase+100) {
+ 		// Not our rule.
+ 		return
+@@ -392,9 +423,12 @@
+ 	}
+ 	r.eventClient.Close()
+ 
+-	// Clean up connmark rules
+-	if err := r.nfr.DelConnmarkSaveRule(); err != nil {
+-		r.logf("warning: failed to delete connmark rules: %v", err)
++	// Clean up connmark rules. There is no netfilter runner on Android
++	// (see setupNetfilterLocked), so nothing to delete there.
++	if !isAndroid {
++		if err := r.nfr.DelConnmarkSaveRule(); err != nil {
++			r.logf("warning: failed to delete connmark rules: %v", err)
++		}
+ 	}
+ 
+ 	if err := r.downInterface(); err != nil {
+@@ -423,6 +457,19 @@
+ func (r *linuxRouter) setupNetfilterLocked(kind string) error {
+ 	r.netfilterKind = kind
+ 
++	if isAndroid {
++		// Never create a netfilter runner on Android. netd owns
++		// iptables/nftables there: Tailscale's marks 0x40000/0x80000 (mask
++		// 0xff0000) are netd's Fwmark permission bits, its chains would be
++		// spliced into netd's INPUT/FORWARD/POSTROUTING, and WSA kernels
++		// lack the nft "nat" chain type, so AddChains failed with ENOENT and
++		// every Set() raised the "router" health warning. TailSocks installs
++		// the few rules Root Mode needs itself. r.nfr stays nil; every use
++		// of it is gated on netfilterMode (always Off here, see
++		// platformCanNetfilter), on a nil check, or on isAndroid.
++		return nil
++	}
++
+ 	var err error
+ 	r.nfr, err = linuxfw.New(r.logf, r.netfilterKind)
+ 	if err != nil {
+@@ -920,6 +967,9 @@
+ // a single Set (which calls this once per address and route) the result is
+ // snapshotted by snapshotV6Usable rather than re-read each time. See #20447.
+ func (r *linuxRouter) getV6Available() bool {
++	if isAndroid {
++		return r.androidV6Available()
++	}
+ 	if r.nfr == nil {
+ 		return false
+ 	}
+@@ -933,6 +983,32 @@
+ 	}
+ }
+ 
++// androidV6Available is getV6Available for Android, where there is no
++// netfilter runner to ask. Global IPv6 support is probed once with
++// linuxfw.CheckIPv6 (the procfs knobs plus a netlink rule listing, the same
++// probe the runners memoize for HasIPV6; it touches no netfilter) and combined
++// with the per-interface snapshot exactly like the desktop path.
++func (r *linuxRouter) androidV6Available() bool {
++	r.androidV6.Do(func() {
++		if err := linuxfw.CheckIPv6(r.logf); err != nil {
++			r.logf("android: IPv6 unavailable, skipping IPv6 addresses and routes: %v", err)
++			return
++		}
++		r.androidV6.ok = true
++	})
++	if !r.androidV6.ok {
++		return false
++	}
++	switch memoV6(r.interfaceV6UsableMemo.Load()) {
++	case memoV6Usable:
++		return true
++	case memoV6Unusable:
++		return false
++	default: // memoV6Unset: no snapshot active, read live.
++		return r.interfaceV6Usable()
++	}
++}
++
+ // memoV6 is the state of a linuxRouter.interfaceV6UsableMemo snapshot.
+ type memoV6 int32
+ 
+@@ -1506,6 +1582,13 @@
+ 	if !r.ipRuleAvailable {
+ 		return nil
+ 	}
++	if isAndroid {
++		// TailSocks owns the rules on Android (pref 100/200). The router
++		// only sweeps the desktop rules a pre-fix core left behind, and
++		// never fatally: a failed purge must not abort router.Up.
++		r.purgeDesktopIPRulesAndroid()
++		return nil
++	}
+ 
+ 	// Clear out old rules. After that, any error adding a rule is fatal,
+ 	// because there should be no reason we add a duplicate.
+@@ -1649,6 +1732,15 @@
+ // ipRules returns the appropriate list of ip rules to be used by Tailscale. See
+ // comments on baseIPRules and ubntIPRules for more details.
+ func ipRules() []netlink.Rule {
++	if isAndroid {
++		// No rules on Android. main/default are empty there (netd keeps the
++		// physical routes in per-network tables), so 5210-5250 would make
++		// the daemon's marked packets unreachable, and 5270 "from all
++		// lookup 52" would route its unmarked ones into tailscale0, a loop.
++		// The TailSocks app installs "fwmark 0x0/0x2020000 iif lo lookup
++		// 52" at pref 200 instead, paired with netns.TailsocksBypassMark.
++		return nil
++	}
+ 	if getDistroFunc() == distro.UBNT {
+ 		return ubntIPRules
+ 	}
+@@ -1803,6 +1895,70 @@
+ 	return rg.ErrAcc
+ }
+ 
++// purgeDesktopIPRulesAndroid removes the desktop-Linux policy rules that a
++// previous TailSocks core, which ran this router unmodified, may have left
++// behind: "5210 lookup main", "5230 lookup default", "5250 unreachable" and
++// "5270 lookup 52". A stale 5270 would send the new daemon's marked packets
++// into tailscale0 as soon as table 52 holds an exit-node default route. Rules
++// are matched by priority plus table/type, never blindly by priority, so a
++// third-party rule at the same pref is left alone. Both families are swept
++// regardless of IPv6 availability, and errors are only logged.
++func (r *linuxRouter) purgeDesktopIPRulesAndroid() {
++	families := []addrFamily{v4, v6}
++	if r.useIPCommand() {
++		// 'ip rule del' exits 2 (or 254 on old iproute2) for a missing rule.
++		rg := newRunGroup([]int{2, 254}, r.cmd)
++		for _, family := range families {
++			for _, rule := range baseIPRules {
++				args := []string{
++					"ip", family.dashArg(),
++					"rule", "del",
++					"pref", strconv.Itoa(rule.Priority + r.ipPolicyPrefBase),
++				}
++				if rule.Table != 0 {
++					args = append(args, "table", mustRouteTable(rule.Table).ipCmdArg())
++				} else {
++					args = append(args, "type", "unreachable")
++				}
++				rg.Run(args...)
++			}
++		}
++		if rg.ErrAcc != nil {
++			r.logf("android: purging stale desktop ip rules: %v", rg.ErrAcc)
++		}
++		return
++	}
++	for _, family := range families {
++	rules:
++		for _, ru := range baseIPRules {
++			// Note: ru is a value type here; safe to mutate it. Mark/Mask -1
++			// match any mark, as delIPRules does.
++			ru.Family = family.netlinkInt()
++			ru.Mark = -1
++			ru.Mask = -1
++			ru.Goto = -1
++			ru.SuppressIfgroup = -1
++			ru.SuppressPrefixlen = -1
++			ru.Priority += r.ipPolicyPrefBase
++			// RTM_DELRULE removes one matching rule per call; loop in case
++			// several identical rules accumulated.
++			for range 8 {
++				err := netlink.RuleDel(&ru)
++				if errors.Is(err, errENOENT) {
++					continue rules
++				}
++				if err != nil {
++					// E.g. EAFNOSUPPORT without IPv6; nothing else of this
++					// family will work either.
++					r.logf("android: purging stale desktop ip rules (%s): %v", family.dashArg(), err)
++					break rules
++				}
++				r.logf("android: removed stale desktop ip rule pref %d (%s) left by a previous core", ru.Priority, family.dashArg())
++			}
++		}
++	}
++}
++
+ // addSNATRule adds a netfilter rule to SNAT traffic destined for
+ // local subnets.
+ func (r *linuxRouter) addSNATRule() error {
+@@ -1922,6 +2078,10 @@
+ // platformCanNetfilter reports whether the current distro/environment supports
+ // running iptables/nftables commands.
+ func platformCanNetfilter() bool {
++	if isAndroid {
++		// netd owns netfilter on Android; see setupNetfilterLocked.
++		return false
++	}
+ 	switch getDistroFunc() {
+ 	case distro.Synology:
+ 		// Synology doesn't support iptables or nftables. Attempting to run it
+--- orig/net/netmon/netmon_linux.go
++++ tailscale_src/net/netmon/netmon_linux.go
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause
@@ -20,8 +277,8 @@
  
  package netmon
  
---- orig/net/netmon/netmon_polling.go	2026-07-31 19:22:18.000000000 +0300
-+++ tailscale_src/net/netmon/netmon_polling.go	2026-08-13 18:37:28.260198420 +0300
+--- orig/net/netmon/netmon_polling.go
++++ tailscale_src/net/netmon/netmon_polling.go
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause

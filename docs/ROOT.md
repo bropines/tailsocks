@@ -63,6 +63,74 @@ routing around it once the daemon reaches the `Running` state:
   and can be turned off independently with **System-wide DNS via MagicDNS**
   (Root Mode tab), which is the escape hatch when another VPN or a DNS filtering
   app should keep the system resolver.
+* **Exit nodes, subnet routes and table `52`.** Everything only the daemon knows
+  goes into its own table `52`: peer `/32`s, accepted subnet routes,
+  `100.100.100.100/32`, `default dev tailscale0` while an exit node is
+  selected, and `throw` routes for the LAN prefixes when *allow LAN access* is
+  on. The app never writes to, flushes or checks that table; it adds one
+  permanent rule next to the priority-100 ones:
+
+  ```
+  200: from all fwmark 0x0/0x2020000 iif lo lookup 52
+  ```
+
+  Every unmarked, locally generated packet consults table 52 first and falls
+  through to Android's own rules (10000 and up) when nothing matches, so
+  switching an exit node on or off is handled entirely by the daemon's
+  `router.Set()`, as on desktop Linux — no exit-node state in the app, nothing
+  to redo on a Wi-Fi/cellular handover. Two things make that rule safe:
+
+  * **The daemon marks its own sockets.** Every socket tailscaled opens itself
+    (WireGuard/disco UDP, DERP, control plane, STUN, DNS fallbacks) carries
+    `SO_MARK 0x2000000` (bit 25, patch 16 — outside Android's own fwmark bits
+    0-20 and apart from the app's bit 24). Those packets skip pref 200 and reach
+    the physical network through netd's rules. Without the mark, table 52's
+    default route would swallow the tunnel's own packets and loop the whole
+    device — so TailSocks installs pref 200 **only after** the current daemon
+    run has logged `netns: SO_MARK 0x2000000 set on tailscaled sockets` (as one
+    contiguous string; the line carries Go's `YYYY/MM/DD HH:MM:SS` prefix and a
+    component prefix such as `magicsock:` in front). The daemon appends to one
+    log file across runs and prints no start banner of its own in this build
+    (`ts_omit_logtail`), so "current run" means everything after the later of
+    two lines: `TailSocks: daemon start`, which both launchers — the boot script
+    and the app — write right before starting the daemon, and the daemon's own
+    `wgengine.NewUserspaceEngine(tun "tailscale0") ...`, which every core logs
+    on every start just before the engine (and with it the probe) is created.
+    The log is scanned backwards to that run start, however long the daemon
+    has been running, and the probe line counts only if a run start lies below
+    it — so neither an earlier run's line nor a daemon restarted by hand can
+    borrow a verdict; a log with no run start at all is treated as unverified
+    and gets no pref 200. In every negative case the ROOT log says
+    `exit node unavailable: daemon does not mark sockets (<reason>)` and nothing
+    is installed at pref 200; tailnet routing through table 1099 is unaffected.
+    The boot script waits up to 20 s for the same line in its own run's part of
+    the log before adding the rule; lines tagged `TailSocks:` are the app's and
+    the script's own and never count.
+  * **The mask honours Android's `protectedFromVpn` bit** (`0x20000`), the idiom
+    netd itself uses for its VPN rules: sockets Android deliberately keeps off
+    VPNs (network validation probes, MMS/IMS, other VPN apps' protected
+    sockets) bypass the exit node as well. `iif lo` limits the rule to output
+    lookups, so tethered clients stay on netd's rules.
+
+  Replies to the daemon's marked sockets arrive on Wi-Fi/cellular and are
+  reverse-path checked with mark 0, which now resolves to `tailscale0` through
+  table 52, so a strict `rp_filter` (1) would drop them: if any interface is
+  strict, `all` is set to loose (2), the previous value is kept in
+  `/data/adb/tailsocks/rp_filter.orig` and restored on cleanup. The rule is
+  read back after installing (an `ip` binary that dropped the mask would leave
+  a match-everything rule, which is removed again and reported), and the
+  desktop-Linux rules a pre-4.0 core left behind (`5210 lookup main`, `5230
+  lookup default`, `5250 unreachable`, `5270 lookup 52`) are purged by content
+  on every apply and on cleanup.
+
+  On Android the daemon's router does only what only it can do: link up,
+  addresses, routes into table 52. It installs no `52xx` ip rules (Android's
+  `main`/`default` tables are empty, so the desktop rules either loop or
+  blackhole) and no netfilter at all — Tailscale's `0x40000`/`0x80000` marks
+  are netd's permission bits, and the nft `nat` chain type is missing on some
+  kernels, which is where the old `router config failed` health warning came
+  from. Root Mode is client-only: this device cannot act as an exit node or
+  subnet router while in Root Mode.
 
 Everything lives in named chains, so the rules are idempotent, can be inspected
 with `iptables -t nat -S TAILSOCKS_DNS` / `iptables -t mangle -S TAILSOCKS_MARK`,
@@ -74,8 +142,13 @@ attempts it gives up and says so in the log.
 ### 5. Diagnostics: Check Routing and the ROOT log tab
 
 * **Settings → Root Mode → Check Routing** dumps the live state of everything
-  above: `ip rule` entries for table 1099, other tunnels present on the device,
-  the contents of table 1099, both chains, and the `tailscale0` address.
+  above: the complete `ip rule` / `ip -6 rule` lists (the app's pref-100 rules,
+  the pref-200 catch-all, and any stale `52xx` rules), other tunnels present on
+  the device, tables 1099 and 52, every `tailscale0` route, the route decision
+  for `8.8.8.8` with and without the daemon's bypass mark, `rp_filter`, the
+  daemon log's last run marker and `SO_MARK` line together with the verdict
+  the app drew from them (why pref 200 was or was not installed), both chains,
+  the `tailscale0` address and the `ip` version.
 * Every root shell invocation (routing apply/cleanup, daemon stop, script
   install) is logged under the **ROOT** category, which has its own tab in the
   **Logs** screen. Failures land there instead of being silently discarded.
@@ -149,11 +222,18 @@ su -c ps -ef | grep tailscaled
 # Verify socket permissions
 su -c ls -la /data/data/io.github.bropines.tailscaled/files/tailscaled.sock
 
-# Inspect the rules TailSocks owns
-su -c ip rule list | grep 1099
+# Inspect the rules TailSocks owns (100: tailnet, 200: exit-node catch-all; no 52xx expected)
+su -c ip rule show
 su -c ip route show table 1099
 su -c iptables -t mangle -S TAILSOCKS_MARK
 su -c iptables -t nat -S TAILSOCKS_DNS
+
+# The daemon's table and the exit-node decision
+su -c ip route show table 52                 # peers, subnet routes, 'default dev tailscale0' with an exit node
+su -c ip route get 8.8.8.8                   # tailscale0 with an exit node, Wi-Fi/cellular without
+su -c ip route get 8.8.8.8 mark 0x2000000    # the daemon's own path: always the physical network
+su -c grep -n 'TailSocks: daemon start' /data/data/io.github.bropines.tailscaled/logs/tailscaled.log | tail -n 1   # where the current run begins
+su -c grep 'netns: SO_MARK' /data/data/io.github.bropines.tailscaled/logs/tailscaled.log   # expected after that line: '... set on tailscaled sockets (root bypass)'
 ```
 
 ### Diagnostic scripts (`tools/`)

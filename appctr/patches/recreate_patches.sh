@@ -86,11 +86,21 @@ diff -u orig/net/dns/noop.go tailscale_src/net/dns/noop.go > patches/11-noop-dns
 diff -u orig/safesocket/unixsocket.go tailscale_src/safesocket/unixsocket.go > patches/12-socket-permissions.patch || true
 
 # 13-android-osrouter.patch (wgengine/router/osrouter/router_linux.go, net/netmon/netmon_linux.go, and net/netmon/netmon_polling.go)
+# router_linux.go: build tag flip plus the Root Mode gates (isAndroid): no
+# netfilter runner, no 52xx ip rules (stale ones purged at Up), routes always
+# into table 52. The app supplies the pref-200 rule that consults table 52.
 {
     diff -u orig/wgengine/router/osrouter/router_linux.go tailscale_src/wgengine/router/osrouter/router_linux.go || true
     diff -u orig/net/netmon/netmon_linux.go tailscale_src/net/netmon/netmon_linux.go || true
     diff -u orig/net/netmon/netmon_polling.go tailscale_src/net/netmon/netmon_polling.go || true
 } > patches/13-android-osrouter.patch || true
+
+# 16-android-somark.patch (net/netns/netns_android.go) — companion of 13.
+# Root Mode: tailscaled marks its own sockets with SO_MARK 0x2000000
+# (netns.TailsocksBypassMark, must equal RootUtils.kt BYPASS_MARK) so the app's
+# 'fwmark 0x0/0x2020000 iif lo lookup 52' rule at pref 200 exempts the tunnel's
+# own WireGuard/DERP/control traffic from the exit-node default route.
+diff -u orig/net/netns/netns_android.go tailscale_src/net/netns/netns_android.go > patches/16-android-somark.patch || true
 
 # 14-dns-forwarder-netstack.patch (net/dns/resolver/forwarder.go)
 # Split-DNS resolvers on tailnet IPs are dialled through netstack in
