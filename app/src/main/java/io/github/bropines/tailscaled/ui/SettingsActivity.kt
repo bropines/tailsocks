@@ -20,15 +20,18 @@ import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -49,6 +52,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -927,89 +931,94 @@ fun SettingsScreen(
             )
         }
 
-        SlidingSegmentedChips(
-            items = listOf(
-                SegmentedChipItem(
-                    title = stringResource(R.string.settings_tunnel_mode_proxy),
-                    icon = Icons.Default.SwapHoriz
-                ),
-                SegmentedChipItem(
-                    title = stringResource(R.string.settings_tunnel_mode_vpn),
-                    icon = Icons.Default.VpnLock
-                ),
-                SegmentedChipItem(
-                    title = stringResource(R.string.settings_tunnel_mode_root),
-                    icon = Icons.Default.Security,
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer
-                )
-            ),
-            selectedIndex = selectedMode,
-            onOptionSelected = { index ->
-                if (index != selectedMode) {
-                    if (index == 2) {
-                        // Root is never enabled straight from a tap: the warning
-                        // dialog owns the su probe and the writes that follow it.
-                        showRootWarningDialog = true
-                    } else {
-                        // Root goes down first, the TUN key is written second —
-                        // the same order the two old switches produced, so no
-                        // APPLY_SETTINGS ever lands with Root Mode still on and a
-                        // TUN start pending.
-                        if (rootModeEnabled) disableRootMode()
-                        val wantTun = index == 1
-                        if (tunModeEnabled != wantTun) {
-                            tunModeEnabled = wantTun
-                            saveGlobalPref("tun_mode_enabled", wantTun)
-                        }
-                    }
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-            height = 44.dp
-        )
-
-        Spacer(Modifier.height(12.dp))
-
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-            ),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = when (selectedMode) {
-                        1 -> Icons.Default.VpnLock
-                        2 -> Icons.Default.Security
-                        else -> Icons.Default.SwapHoriz
-                    },
-                    contentDescription = null,
-                    tint = if (selectedMode == 2) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(Modifier.width(12.dp))
-                Text(
-                    text = when (selectedMode) {
-                        1 -> stringResource(R.string.settings_tunnel_mode_vpn_desc)
-                        2 -> stringResource(R.string.settings_tunnel_mode_root_desc)
-                        else -> stringResource(R.string.settings_tunnel_mode_proxy_desc)
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+        // A mode is a commitment — it decides how every packet leaves the phone —
+        // so it is picked from a list that states what each one does, not from a
+        // tab strip that looks like a view switcher. The chosen one expands with
+        // its own settings underneath.
+        fun selectMode(index: Int) {
+            if (index == selectedMode) return
+            if (index == 2) {
+                // Root is never enabled straight from a tap: the warning dialog
+                // owns the su probe and the writes that follow it.
+                showRootWarningDialog = true
+                return
+            }
+            // Root goes down first, the TUN key is written second — the same
+            // order the two old switches produced, so no APPLY_SETTINGS ever
+            // lands with Root Mode still on and a TUN start pending.
+            if (rootModeEnabled) disableRootMode()
+            val wantTun = index == 1
+            if (tunModeEnabled != wantTun) {
+                tunModeEnabled = wantTun
+                saveGlobalPref("tun_mode_enabled", wantTun)
             }
         }
 
-        if (selectedMode == 1) {
-            Spacer(Modifier.height(12.dp))
-            SettingsCard(title = stringResource(R.string.settings_sect_tun_mode)) {
+        @Composable
+        fun ModeOption(index: Int, icon: ImageVector, title: String, desc: String, danger: Boolean = false) {
+            val selected = index == selectedMode
+            val accent = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (selected) accent.copy(alpha = 0.10f)
+                                     else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+                ),
+                border = if (selected) BorderStroke(1.dp, accent.copy(alpha = 0.45f)) else null,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp)
+                    .clickable { selectMode(index) }
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = if (selected) accent else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                        )
+                        Text(
+                            text = desc,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    RadioButton(
+                        selected = selected,
+                        onClick = { selectMode(index) },
+                        colors = RadioButtonDefaults.colors(selectedColor = accent)
+                    )
+                }
+            }
+        }
+
+        ModeOption(
+            index = 0,
+            icon = Icons.Default.SwapHoriz,
+            title = stringResource(R.string.settings_tunnel_mode_proxy),
+            desc = stringResource(R.string.settings_tunnel_mode_proxy_desc)
+        )
+        ModeOption(
+            index = 1,
+            icon = Icons.Default.VpnLock,
+            title = stringResource(R.string.settings_tunnel_mode_vpn),
+            desc = stringResource(R.string.settings_tunnel_mode_vpn_desc)
+        )
+
+        AnimatedVisibility(visible = selectedMode == 1) {
+          SettingsCard(title = stringResource(R.string.settings_sect_tun_mode)) {
                 SettingsSwitchItem(
                     title = stringResource(R.string.settings_tun_ipv6_title),
                     subtitle = stringResource(R.string.settings_tun_ipv6_desc),
@@ -1054,8 +1063,15 @@ fun SettingsScreen(
             }
         }
 
+        ModeOption(
+            index = 2,
+            icon = Icons.Default.Security,
+            title = stringResource(R.string.settings_tunnel_mode_root),
+            desc = stringResource(R.string.settings_tunnel_mode_root_desc),
+            danger = true
+        )
+
         if (selectedMode == 2) {
-            Spacer(Modifier.height(12.dp))
 
             Row(
                 modifier = Modifier
@@ -2110,12 +2126,13 @@ fun SettingsScreen(
         }
     }
 
-    PredictiveBackContainer(
-        onBack = goBack,
-        targetTitle = if (openCategory != null) stringResource(R.string.settings_title)
-                      else stringResource(R.string.predictive_back_target_dashboard),
-        targetIcon = if (openCategory != null) Icons.Default.Settings else Icons.Default.Home
-    ) {
+    // No custom back animation here. Inside a section back is a plain handler, so
+    // the list comes back instantly; on the list itself nothing is intercepted,
+    // which leaves the gesture to the system and its real cross-activity
+    // animation. The hand-rolled one looked crude next to it.
+    BackHandler(enabled = openSection != null) { openSection = null }
+
+    run {
         Scaffold(
             topBar = {
                 TopAppBar(
