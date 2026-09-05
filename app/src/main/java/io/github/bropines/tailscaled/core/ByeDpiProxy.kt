@@ -63,11 +63,22 @@ object ByeDpiProxy {
             baseArgs.add("-X")
         }
         
+        // Sensible defaults: 1-byte splitting + disorder
+        val defaultArgs = listOf("-s", "1", "-d", "split", "-r")
         if (customFlags.isNotEmpty()) {
-            baseArgs.addAll(customFlags.split("\\s+".toRegex()).filter { it.isNotEmpty() })
+            // Only desync/tuning options may come from the user string; anything
+            // that binds, forks, or touches files is dropped (see ByeDpiFlags).
+            val checked = ByeDpiFlags.sanitize(customFlags)
+            if (checked.rejected.isNotEmpty()) {
+                Log.w(TAG, "Ignoring ByeDPI flags outside the DPI allow-list: ${checked.rejected}")
+                appctr.Appctr.logAndroid(
+                    "WARN", "CORE",
+                    "DPI Bypass: ignored flags ${checked.rejected.joinToString(" ")} — only desync/tuning options are accepted"
+                )
+            }
+            if (checked.accepted.isNotEmpty()) baseArgs.addAll(checked.accepted) else baseArgs.addAll(defaultArgs)
         } else {
-            // Sensible defaults: 1-byte splitting + disorder
-            baseArgs.addAll(listOf("-s", "1", "-d", "split", "-r"))
+            baseArgs.addAll(defaultArgs)
         }
 
         val logFile = java.io.File(context.cacheDir, "byedpi_temp.log")

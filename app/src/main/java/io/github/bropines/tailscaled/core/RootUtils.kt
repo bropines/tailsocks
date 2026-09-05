@@ -12,6 +12,10 @@ object RootUtils {
     const val SERVICE_D_DIR = "/data/adb/service.d"
     const val SERVICE_SCRIPT_PATH = "$SERVICE_D_DIR/tailscaled.sh"
 
+    /** Root-owned home of everything the boot script consumes; the app uid cannot write here. */
+    const val ROOT_ENV_DIR = "/data/adb/tailsocks"
+    const val ROOT_ENV_FILE = "$ROOT_ENV_DIR/control_proxy.env"
+
     /** Policy routing table reserved for the tailscale0 interface. */
     private const val ROUTE_TABLE = "1099"
 
@@ -177,7 +181,7 @@ object RootUtils {
             // applyTailscale0Routing, otherwise the daemon's bootstrap queries are
             // redirected into MagicDNS before MagicDNS can answer anything.
             val fallbacks = dnsFallbacks.ifEmpty { listOf("1.1.1.1", "8.8.8.8") }
-            env.append("export TS_DNS_FALLBACK=\"${fallbacks.joinToString(",")}\"\n")
+            env.append("export TS_DNS_FALLBACK=${shQuote(fallbacks.joinToString(","))}\n")
 
             if (taildropDir.isNotEmpty()) {
                 env.append("export TS_TAILDROP_DIR=${shQuote(taildropDir)}\n")
@@ -200,13 +204,20 @@ object RootUtils {
                 }
             }
 
-            try {
-                val envFile = File(dataDir, "files/control_proxy.env")
-                envFile.parentFile?.mkdirs()
-                envFile.writeText(env.toString())
-                Log.d(TAG, "Wrote control_proxy.env for service.d autostart")
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to write control_proxy.env: ${e.message}")
+            // The boot script sources this file as root on every boot, so it must
+            // not live anywhere the app uid can write: a restored backup used to
+            // be able to drop an attacker's files/control_proxy.env there. It is
+            // written through su into a root-owned directory, 0600, via a quoted
+            // heredoc (no expansion), and the old app-writable copy is removed.
+            val envScript = StringBuilder()
+                .append("mkdir -p ").append(ROOT_ENV_DIR).append(" && chmod 700 ").append(ROOT_ENV_DIR).append('\n')
+                .append("cat > ").append(ROOT_ENV_FILE).append(" <<'TAILSOCKS_ENV_EOF'\n")
+                .append(env)
+                .append("TAILSOCKS_ENV_EOF\n")
+                .append("chmod 600 ").append(ROOT_ENV_FILE).append('\n')
+                .append("rm -f ").append(shQuote("$dataDir/files/control_proxy.env")).append('\n')
+            if (!runSu("control-proxy-env", envScript.toString()).ok) {
+                Log.w(TAG, "Failed to write the root-owned control_proxy.env; the boot script will start without proxy settings")
             }
 
             // Every argument is quoted: the listen addresses come from free-text
@@ -268,8 +279,13 @@ object RootUtils {
         }
     }
 
-    /** Quotes a value for safe use inside a single-quoted shell word. */
-    private fun shQuote(value: String): String = "'" + value.replace("'", "'\\''") + "'"
+    /**
+     * Quotes a value for safe use inside a single-quoted shell word. Line breaks
+     * are dropped: no root command argument legitimately contains one, and a
+     * newline would end the line inside the env file the boot script reads.
+     */
+    private fun shQuote(value: String): String =
+        "'" + value.replace("\r", "").replace("\n", "").replace("'", "'\\''") + "'"
 
     /** A hosts entry may only contain characters valid in a DNS name. */
     private val hostLabel = Regex("^[A-Za-z0-9._-]{1,253}$")
@@ -516,7 +532,15 @@ object RootUtils {
     fun setServiceScriptInstalled(context: Context, install: Boolean): Boolean {
         return try {
             if (install) {
+                // The daemon path is baked in, like the CLI wrapper's: the script
+                // used to fall back to `find /data/app -name libtailscale.so`, which
+                // would exec a same-named library from any other app as root.
+                // BootReceiver re-installs the script on every app update, so the
+                // path follows the install directory.
+                val daemonBin = File(context.applicationInfo.nativeLibraryDir, "libtailscale.so").absolutePath
                 val scriptContent = context.assets.open("scripts/tailscaled.sh").bufferedReader().use { it.readText() }
+                    .replace("%PKG_NAME%", context.packageName)
+                    .replace("%DAEMON_BIN%", daemonBin)
                 val tempFile = File(context.cacheDir, "tailscaled.sh").apply { writeText(scriptContent) }
 
                 val cmd = """

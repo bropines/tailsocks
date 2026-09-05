@@ -73,10 +73,52 @@ object GlobalSettings {
         val user = getPrefs(context).getString("cp_user", "") ?: ""
         val pass = getPrefs(context).getString("cp_pass", "") ?: ""
         if (host.isEmpty()) return ""
-        val auth = if (user.isNotEmpty()) "$user:$pass@" else ""
+        val auth = if (user.isNotEmpty()) "${pctEncodeUserInfo(user)}:${pctEncodeUserInfo(pass)}@" else ""
         val scheme = type.lowercase()
         val p = port.ifEmpty { if (scheme == "http" || scheme == "https") "8080" else "1080" }
         return "$scheme://$auth$host:$p"
+    }
+
+    /**
+     * Percent-encodes a URL userinfo component (RFC 3986 unreserved characters
+     * are kept, everything else becomes %XX of its UTF-8 bytes).
+     *
+     * The proxy URL is handed to tailscaled as ALL_PROXY/HTTPS_PROXY, and Go's
+     * proxy.FromEnvironment falls back to a DIRECT connection whenever the URL
+     * does not parse. A `/`, `?`, `#`, `@` or stray `%` in a password used to
+     * turn the proxy off silently. java.net.URI is no help here: it leaves
+     * those characters alone in userinfo because they are legal URI characters.
+     */
+    fun pctEncodeUserInfo(value: String): String {
+        val sb = StringBuilder(value.length + 8)
+        for (b in value.toByteArray(Charsets.UTF_8)) {
+            val c = b.toInt() and 0xFF
+            val ch = c.toChar()
+            if (ch in 'A'..'Z' || ch in 'a'..'z' || ch in '0'..'9' || ch == '-' || ch == '.' || ch == '_' || ch == '~') {
+                sb.append(ch)
+            } else {
+                sb.append('%').append(Character.forDigit(c shr 4, 16).uppercaseChar()).append(Character.forDigit(c and 0xF, 16).uppercaseChar())
+            }
+        }
+        return sb.toString()
+    }
+
+    /** Inverse of [pctEncodeUserInfo]; tolerant of plain (unencoded) input. */
+    fun pctDecodeUserInfo(value: String): String {
+        if (!value.contains('%')) return value
+        val out = java.io.ByteArrayOutputStream(value.length)
+        var i = 0
+        while (i < value.length) {
+            val ch = value[i]
+            if (ch == '%' && i + 2 < value.length + 0 && i + 2 <= value.length - 1) {
+                val hex = value.substring(i + 1, i + 3)
+                val byte = hex.toIntOrNull(16)
+                if (byte != null) { out.write(byte); i += 3; continue }
+            }
+            out.write(ch.toString().toByteArray(Charsets.UTF_8))
+            i++
+        }
+        return out.toString(Charsets.UTF_8.name())
     }
 
     // -------------------------------------------------------------------------
@@ -125,8 +167,8 @@ object GlobalSettings {
             val matchResult = regex.matchEntire(trimmed)
             if (matchResult != null) {
                 val scheme = matchResult.groups[1]?.value?.uppercase() ?: "SOCKS5"
-                val user = matchResult.groups[2]?.value ?: ""
-                val pass = matchResult.groups[3]?.value ?: ""
+                val user = pctDecodeUserInfo(matchResult.groups[2]?.value ?: "")
+                val pass = pctDecodeUserInfo(matchResult.groups[3]?.value ?: "")
                 val host = matchResult.groups[4]?.value ?: ""
                 val port = matchResult.groups[5]?.value ?: ""
                 return mapOf(
@@ -160,7 +202,7 @@ object GlobalSettings {
 
     fun buildProxyUri(type: String, host: String, port: String, user: String, pass: String): String {
         val scheme = type.lowercase()
-        val auth = if (user.isNotEmpty()) "$user:$pass@" else ""
+        val auth = if (user.isNotEmpty()) "${pctEncodeUserInfo(user)}:${pctEncodeUserInfo(pass)}@" else ""
         return "$scheme://$auth$host:$port"
     }
 
@@ -318,6 +360,22 @@ object GlobalSettings {
      */
     fun isServiceWatchdogEnabled(context: Context): Boolean = getBoolean(context, "service_watchdog", true)
     fun setServiceWatchdogEnabled(context: Context, enabled: Boolean) = setBoolean(context, "service_watchdog", enabled)
+
+    // -------------------------------------------------------------------------
+    // In-app changelog ("What's new")
+    // -------------------------------------------------------------------------
+
+    /**
+     * The BuildConfig.VERSION_NAME whose changelog the user has already seen.
+     * Empty means the app has never been launched before (fresh install), so
+     * the current version is recorded silently and nothing is shown.
+     */
+    fun getLastSeenChangelogVersion(context: Context): String = getString(context, "last_seen_changelog_version", "")
+    fun setLastSeenChangelogVersion(context: Context, version: String) = setString(context, "last_seen_changelog_version", version)
+
+    /** Show the changelog dialog once after the app has been updated. */
+    fun isShowChangelogAfterUpdate(context: Context): Boolean = getBoolean(context, "show_changelog_after_update", true)
+    fun setShowChangelogAfterUpdate(context: Context, enabled: Boolean) = setBoolean(context, "show_changelog_after_update", enabled)
 }
 
 

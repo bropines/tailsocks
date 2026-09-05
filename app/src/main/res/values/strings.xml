@@ -1073,4 +1073,22 @@
     <string name="settings_root_warning_dialog_confirm">Got it, Enable</string>
     <string name="settings_root_warning_dialog_cancel">Cancel</string>
     <string name="settings_root_banner_warning">EXPERIMENTAL MODE\nRoot Mode is under active development. Project author (bropines) is still actively testing and debugging this mode.</string>
+
+    <string name="settings_automation_title">Tasker &amp; Automation</string>
+    <string name="settings_automation_enable_title">Allow External Automation</string>
+    <string name="settings_automation_enable_desc">Enable background control via Broadcast Intents (Tasker, MacroDroid, ADB)</string>
+    <string name="settings_automation_token_label">Security Secret Token (required)</string>
+    <string name="settings_automation_token_placeholder">Intents are rejected until a token is set — use Generate</string>
+    <string name="settings_automation_no_token">No secret token set — every automation intent is rejected until one is configured.</string>
+    <string name="settings_automation_token_active">Token active. Intents must include extra: secret=\"%1$s\"</string>
+    <string name="settings_automation_generate_token">Generate</string>
+    <string name="settings_automation_copy_token">Copy</string>
+    <string name="settings_automation_token_copied">Token copied to clipboard</string>
+
+    <string name="settings_show_changelog_title">Show what\'s new after updates</string>
+    <string name="settings_show_changelog_desc">Show the list of changes once after the app is updated</string>
+    <string name="whats_new_title">What\'s new in %1$s</string>
+    <string name="whats_new_full_changelog">Full changelog</string>
+    <string name="whats_new_unavailable">The changelog could not be loaded.</string>
+    <string name="main_about_whats_new">What\'s new</string>
 </resources>

@@ -51,8 +51,17 @@ class TunVpnService : VpnService() {
         const val TUN_MTU      = 1500
 
         private const val NOTIF_CHANNEL = "tailsocks_tun"
-        private const val NOTIF_ID      = 2
+        internal const val NOTIF_ID     = 2
         private const val TAG           = "TunVpnService"
+
+        /**
+         * True while the hev tunnel is up. Lets TailscaledService skip
+         * ACTION_STOP when there is nothing to stop: starting this VpnService
+         * just to stop it again posted a foreground notification that stayed
+         * behind, and did that on every stop for users who never use TUN.
+         */
+        @Volatile var isRunning = false
+            private set
 
         // JNI interface (hev-socks5-tunnel)
         @JvmStatic external fun TProxyStartService(configPath: String, fd: Int)
@@ -66,8 +75,13 @@ class TunVpnService : VpnService() {
             try {
                 System.loadLibrary("hev-socks5-tunnel")
                 nativeLoaded = true
-            } catch (e: UnsatisfiedLinkError) {
-                Log.e(TAG, "libhev-socks5-tunnel.so not found, TUN mode unavailable: ${e.message}")
+            } catch (e: LinkageError) {
+                // UnsatisfiedLinkError when the .so is missing, but also
+                // NoSuchMethodError when RegisterNatives in JNI_OnLoad cannot
+                // find one of the Kotlin externals (an R8 keep-rule mismatch).
+                // Either way TUN mode is unavailable; the whole app must not
+                // die just because this class was touched during a stop.
+                Log.e(TAG, "libhev-socks5-tunnel failed to load, TUN mode unavailable: $e")
             }
         }
     }
@@ -264,11 +278,13 @@ class TunVpnService : VpnService() {
         // Start hev tunnel (JNI).
         Log.i(TAG, "Calling TProxyStartService JNI...")
         TProxyStartService(configFile.absolutePath, fd.fd)
+        isRunning = true
         Log.i(TAG, "TUN started: socks=$socksAddr mtu=$mtu full=$fullTunnel")
     }
 
     private fun stopTunInternal() {
         Log.i(TAG, "Stopping TUN...")
+        isRunning = false
 
         // Stop the native tunnel first, then close the fd. The lwip task keeps
         // read()/write()ing the raw fd number until TProxyStopService joins its

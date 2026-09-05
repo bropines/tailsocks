@@ -172,8 +172,84 @@ ksp {
     arg("appfunctions:aggregateAppFunctions", "true")
 }
 
+// Bundle the repository's CHANGELOG.md into the APK as assets/CHANGELOG.md so the
+// app can show "What's new" after an update. The file is copied at build time
+// into a generated assets directory; nothing is committed under src/. Assets are
+// not touched by resource shrinking, so R8/shrinkResources cannot drop it.
+val changelogAssetsDir = layout.buildDirectory.dir("generated/changelog/assets")
+// Sync, not Copy: if CHANGELOG.md is ever renamed, a stale copy must not keep shipping.
+val copyChangelogAsset by tasks.registering(Sync::class) {
+    group = "build"
+    description = "Copies ../CHANGELOG.md into the generated assets directory"
+    from(layout.projectDirectory.file("../CHANGELOG.md"))
+    into(changelogAssetsDir)
+}
+android.sourceSets["main"].assets.srcDir(changelogAssetsDir)
+tasks.named("preBuild") {
+    dependsOn(copyChangelogAsset)
+}
+// The asset merger reads the directory directly; declare the producer so Gradle
+// never sees an undeclared task-output dependency (and every variant gets it).
+tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Assets") }.configureEach {
+    dependsOn(copyChangelogAsset)
+}
+
 tasks.matching { it.name.contains("AarMetadata") }.configureEach {
     enabled = false
+}
+
+// R8 cannot see JNI. hev-socks5-tunnel registers its whole method table with
+// RegisterNatives inside JNI_OnLoad, so if even one `external fun` is shrunk
+// away, System.loadLibrary throws NoSuchMethodError and the process dies — this
+// happened once (TProxyGetStats was unused from Kotlin, R8 dropped it, and every
+// stop crashed the app). Cross-check R8's own reports right after minification
+// and fail the build instead of shipping it:
+//  - seeds.txt lists everything matched by a keep rule; each external fun must be
+//    there, or nothing guarantees its name and body survive;
+//  - usage.txt lists everything removed; no native member may appear in it.
+val verifyReleaseNativeMethods by tasks.registering {
+    group = "verification"
+    description = "Fails if R8 removed or did not keep any JNI (external) method"
+    val srcDir = layout.projectDirectory.dir("src/main/java")
+    val mappingDir = layout.buildDirectory.dir("outputs/mapping/release")
+    // No inputs/outputs declared on purpose: the task must always run, and
+    // declaring the mapping dir as an input made Gradle fail with a generic
+    // "directory does not exist" before the explanatory check below could.
+    doLast {
+        val seeds = mappingDir.get().file("seeds.txt").asFile
+        val usage = mappingDir.get().file("usage.txt").asFile
+        if (!seeds.exists() || !usage.exists()) {
+            throw GradleException("R8 reports not found in ${mappingDir.get()}; run minifyReleaseWithR8 first.")
+        }
+        val externals = srcDir.asFileTree.matching { include("**/*.kt") }.files
+            .flatMap { f -> Regex("""\bexternal\s+fun\s+(\w+)\s*\(""").findAll(f.readText()).map { it.groupValues[1] }.toList() }
+            .toSortedSet()
+        val seedText = seeds.readText()
+        val notKept = externals.filterNot { name -> Regex("""^[\w.$]+: .*\b$name\(""", RegexOption.MULTILINE).containsMatchIn(seedText) }
+        val removedNative = mutableListOf<String>()
+        var cls = ""
+        usage.forEachLine { line ->
+            if (line.isNotEmpty() && !line[0].isWhitespace()) cls = line.removeSuffix(":")
+            else if (" native " in line) removedNative += "$cls: ${line.trim()}"
+        }
+        if (notKept.isNotEmpty() || removedNative.isNotEmpty()) {
+            throw GradleException(
+                buildString {
+                    appendLine("R8 broke the JNI surface; the release would crash at System.loadLibrary.")
+                    if (notKept.isNotEmpty()) appendLine("  external funs not matched by any keep rule (missing from seeds.txt): $notKept")
+                    if (removedNative.isNotEmpty()) appendLine("  native members removed by shrinking (usage.txt):\n    " + removedNative.joinToString("\n    "))
+                    appendLine("Fix app/proguard-rules.pro (plain -keep, not -keepclasseswithmembernames, for native <methods>).")
+                }
+            )
+        }
+        logger.lifecycle("-> JNI check: ${externals.size} external funs (${externals.joinToString()}) all kept by R8")
+    }
+}
+tasks.matching { it.name == "minifyReleaseWithR8" }.configureEach {
+    finalizedBy(verifyReleaseNativeMethods)
+}
+tasks.matching { it.name == "assembleRelease" || it.name == "bundleRelease" }.configureEach {
+    dependsOn(verifyReleaseNativeMethods)
 }
 
 // Refuse to package a release that nothing can sign, instead of emitting an

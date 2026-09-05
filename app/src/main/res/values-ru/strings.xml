@@ -1073,4 +1073,22 @@
     <string name="settings_root_warning_dialog_confirm">Понятно, включить</string>
     <string name="settings_root_warning_dialog_cancel">Отмена</string>
     <string name="settings_root_banner_warning">ЭКСПЕРИМЕНТАЛЬНЫЙ РЕЖИМ\nRoot-режим находится в стадии разработки. Автор bropines еще не все проверил и отлаживает этот режим.</string>
+
+    <string name="settings_automation_title">Tasker и автоматизация</string>
+    <string name="settings_automation_enable_title">Разрешить внешнюю автоматизацию</string>
+    <string name="settings_automation_enable_desc">Фоновое управление через Broadcast Intents (Tasker, MacroDroid, ADB)</string>
+    <string name="settings_automation_token_label">Секретный токен (обязателен)</string>
+    <string name="settings_automation_token_placeholder">Intents отклоняются, пока токен не задан — нажмите «Сгенерировать»</string>
+    <string name="settings_automation_no_token">Секретный токен не задан — все intents автоматизации отклоняются, пока он не настроен.</string>
+    <string name="settings_automation_token_active">Токен активен. Intents должны содержать extra: secret=\"%1$s\"</string>
+    <string name="settings_automation_generate_token">Сгенерировать</string>
+    <string name="settings_automation_copy_token">Копировать</string>
+    <string name="settings_automation_token_copied">Токен скопирован в буфер обмена</string>
+
+    <string name="settings_show_changelog_title">Показывать «Что нового» после обновления</string>
+    <string name="settings_show_changelog_desc">Показывать список изменений один раз после обновления приложения</string>
+    <string name="whats_new_title">Что нового в %1$s</string>
+    <string name="whats_new_full_changelog">Полный список изменений</string>
+    <string name="whats_new_unavailable">Не удалось загрузить список изменений.</string>
+    <string name="main_about_whats_new">Что нового</string>
 </resources>

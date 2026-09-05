@@ -121,6 +121,18 @@ fun generateRandomString(length: Int = 12): String {
     return (1..length).map { allowedChars.random() }.joinToString("")
 }
 
+/**
+ * Cryptographically random token for the automation secret. URL-safe alphabet
+ * without the look-alike characters (0/O, 1/l/I) so it survives being retyped.
+ */
+fun generateSecureToken(length: Int = 32): String {
+    val alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
+    val random = java.security.SecureRandom()
+    return buildString(length) {
+        repeat(length) { append(alphabet[random.nextInt(alphabet.length)]) }
+    }
+}
+
 /** Reduces a device name to what a DNS label may contain. */
 fun sanitizeHostnameInput(raw: String): String =
     raw.trim()
@@ -495,24 +507,50 @@ fun SettingsScreen(
                     }
                 }
 
+                // A backup may only restore what a backup contains: preference files,
+                // daemon state directories and the sent-files history. Every other
+                // entry is refused — before anything is written. The old prefix match
+                // accepted any `files/...` path, including `control_proxy.env`, which
+                // the Root Mode boot script sourced as root, and `files/../x` escapes.
+                val prefsDir = File(context.applicationInfo.dataDir, "shared_prefs").canonicalFile
+                val statesDir = File(context.filesDir, "states").canonicalFile
+                val filesDir = context.filesDir.canonicalFile
+                fun restoreTarget(name: String): File? {
+                    if (name.startsWith("/") || name.split('/').any { it == ".." || it.isEmpty() }) return null
+                    val (base, target) = when {
+                        name == "files/sent_history.json" -> filesDir to File(filesDir, "sent_history.json")
+                        name.startsWith("shared_prefs/") && name.endsWith(".xml") && name.count { it == '/' } == 1 ->
+                            prefsDir to File(prefsDir, name.removePrefix("shared_prefs/"))
+                        name.startsWith("files/states/") ->
+                            statesDir to File(statesDir, name.removePrefix("files/states/"))
+                        else -> return null
+                    }
+                    val canonical = target.canonicalFile
+                    return canonical.takeIf { it.path.startsWith(base.path + File.separator) }
+                }
+
+                val entries = mutableListOf<Pair<String, File>>()
                 java.util.zip.ZipInputStream(java.io.ByteArrayInputStream(decryptedBytes)).use { zis ->
                     var entry = zis.nextEntry
                     while (entry != null) {
-                        if (!entry.isDirectory) {
-                            val targetFile: File? = when {
-                                entry.name.startsWith("shared_prefs/") -> {
-                                    File(context.applicationInfo.dataDir, entry.name)
-                                }
-                                entry.name.startsWith("files/") -> {
-                                    val subPath = entry.name.substring("files/".length)
-                                    File(context.filesDir, subPath)
-                                }
-                                else -> null
-                            }
-                            if (targetFile != null) {
-                                targetFile.parentFile?.mkdirs()
-                                targetFile.outputStream().use { fos -> zis.copyTo(fos) }
-                            }
+                        if (!entry.isDirectory && entry.name != BackupFormat.MANIFEST_ENTRY) {
+                            val target = restoreTarget(entry.name)
+                                ?: throw SecurityException("Backup contains a file outside the restorable set: ${entry.name}")
+                            entries.add(entry.name to target)
+                        }
+                        zis.closeEntry()
+                        entry = zis.nextEntry
+                    }
+                }
+
+                val targets = entries.toMap()
+                java.util.zip.ZipInputStream(java.io.ByteArrayInputStream(decryptedBytes)).use { zis ->
+                    var entry = zis.nextEntry
+                    while (entry != null) {
+                        val targetFile = targets[entry.name]
+                        if (targetFile != null) {
+                            targetFile.parentFile?.mkdirs()
+                            targetFile.outputStream().use { fos -> zis.copyTo(fos) }
                         }
                         zis.closeEntry()
                         entry = zis.nextEntry
@@ -865,6 +903,17 @@ fun SettingsScreen(
                                     if (it) ServiceWatchdog.schedule(context) else ServiceWatchdog.cancel(context)
                                 }
                                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                                var showChangelogAfterUpdate by remember { mutableStateOf(GlobalSettings.isShowChangelogAfterUpdate(context)) }
+                                SettingsSwitchItem(
+                                    stringResource(R.string.settings_show_changelog_title),
+                                    stringResource(R.string.settings_show_changelog_desc),
+                                    Icons.Default.NewReleases,
+                                    showChangelogAfterUpdate
+                                ) {
+                                    GlobalSettings.setShowChangelogAfterUpdate(context, it)
+                                    showChangelogAfterUpdate = it
+                                }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
                                 SettingsClickableItem(
                                      stringResource(R.string.settings_show_onboarding),
                                      stringResource(R.string.settings_show_onboarding_desc),
@@ -884,10 +933,10 @@ fun SettingsScreen(
                             var automationEnabled by remember { mutableStateOf(GlobalSettings.isAutomationEnabled(context)) }
                             var automationSecret by remember { mutableStateOf(GlobalSettings.getAutomationSecret(context)) }
 
-                            SettingsCard(title = "Tasker & Automation") {
+                            SettingsCard(title = stringResource(R.string.settings_automation_title)) {
                                 SettingsSwitchItem(
-                                    title = "Allow External Automation",
-                                    subtitle = "Enable background control via Broadcast Intents (Tasker, MacroDroid, ADB)",
+                                    title = stringResource(R.string.settings_automation_enable_title),
+                                    subtitle = stringResource(R.string.settings_automation_enable_desc),
                                     icon = Icons.Default.SmartButton,
                                     checked = automationEnabled
                                 ) {
@@ -903,8 +952,8 @@ fun SettingsScreen(
                                              automationSecret = it
                                              GlobalSettings.setAutomationSecret(context, it)
                                          },
-                                         label = "Security Secret Token (Optional)",
-                                         placeholder = "Leave empty to disable token authentication",
+                                         label = stringResource(R.string.settings_automation_token_label),
+                                         placeholder = stringResource(R.string.settings_automation_token_placeholder),
                                          leadingIcon = { Icon(Icons.Default.Key, null) },
                                          trailingIcon = {
                                              if (automationSecret.isNotEmpty()) {
@@ -917,11 +966,57 @@ fun SettingsScreen(
                                              }
                                          }
                                      )
+                                    Spacer(Modifier.height(8.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        OutlinedButton(
+                                            onClick = {
+                                                val token = generateSecureToken(32)
+                                                automationSecret = token
+                                                GlobalSettings.setAutomationSecret(context, token)
+                                            },
+                                            modifier = Modifier.weight(1f),
+                                            shape = RoundedCornerShape(12.dp)
+                                        ) {
+                                            Icon(Icons.Default.Casino, null, modifier = Modifier.size(18.dp))
+                                            Spacer(Modifier.width(6.dp))
+                                            Text(
+                                                stringResource(R.string.settings_automation_generate_token),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                style = MaterialTheme.typography.labelMedium
+                                            )
+                                        }
+                                        OutlinedButton(
+                                            onClick = {
+                                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                                clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.settings_automation_copy_token), automationSecret))
+                                                // Android 13+ shows its own "Copied" overlay; a Toast would double it.
+                                                if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) {
+                                                    Toast.makeText(context, context.getString(R.string.settings_automation_token_copied), Toast.LENGTH_SHORT).show()
+                                                }
+                                            },
+                                            enabled = automationSecret.isNotEmpty(),
+                                            modifier = Modifier.weight(1f),
+                                            shape = RoundedCornerShape(12.dp)
+                                        ) {
+                                            Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(18.dp))
+                                            Spacer(Modifier.width(6.dp))
+                                            Text(
+                                                stringResource(R.string.settings_automation_copy_token),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                style = MaterialTheme.typography.labelMedium
+                                            )
+                                        }
+                                    }
                                     Spacer(Modifier.height(4.dp))
                                     Text(
-                                        text = if (automationSecret.isEmpty()) "No secret token set. Any automation app can send intents." else "Token active. Intents must include extra: secret=\"$automationSecret\"",
+                                        text = if (automationSecret.isEmpty()) stringResource(R.string.settings_automation_no_token) else stringResource(R.string.settings_automation_token_active, automationSecret),
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = if (automationSecret.isEmpty()) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary
+                                        color = if (automationSecret.isEmpty()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                                     )
                                 }
                             }

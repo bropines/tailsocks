@@ -2,4 +2,8 @@
 <paths>
     <files-path name="internal_files" path="." />
     <cache-path name="cache" path="." />
+    <!-- The in-app updater saves the downloaded APK under
+         getExternalFilesDir(DIRECTORY_DOWNLOADS). Without this root
+         getUriForFile() threw and the package installer never opened. -->
+    <external-files-path name="external_files" path="." />
 </paths>

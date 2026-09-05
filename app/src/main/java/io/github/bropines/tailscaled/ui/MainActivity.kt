@@ -1,5 +1,8 @@
 package io.github.bropines.tailscaled.ui
 import io.github.bropines.tailscaled.R
+import io.github.bropines.tailscaled.BuildConfig
+import android.content.pm.PackageInstaller
+import androidx.core.content.IntentCompat
 import androidx.compose.ui.res.stringResource
 
 import io.github.bropines.tailscaled.admin.*
@@ -168,6 +171,7 @@ class MainActivity : ComponentActivity() {
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ -> }
 
     private val showAccountSwitcher = mutableStateOf(false)
+    private val showChangelog = mutableStateOf(false)
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(wrapContextWithLocale(newBase))
@@ -184,14 +188,45 @@ class MainActivity : ComponentActivity() {
         }
 
         checkNotificationPermission()
+        // Runs only past the onboarding gate above, so the wizard is never
+        // interrupted; a fresh install records its version and shows nothing.
+        // Must run before handleAppStartup(): that launches an IO coroutine which
+        // writes last_update_time, and checkWhatsNew() reads it to tell a fresh
+        // install from an upgrade.
+        if (savedInstanceState == null) checkWhatsNew()
         handleAppStartup()
         checkForUpdatesSilent()
         handleIntent(intent)
 
         setContent {
             TailSocksTheme {
-                MainScreen(showAccountSwitcher)
+                MainScreen(showAccountSwitcher, showChangelog)
             }
+        }
+    }
+
+    /**
+     * Decides whether to show the "What's new" dialog for this launch.
+     *
+     * Deliberately keyed on its own preference rather than `last_update_time`
+     * from [handleAppStartup]: that one is a daemon-restart trigger and flips on
+     * every reinstall, including same-version debug builds.
+     */
+    private fun checkWhatsNew() {
+        // Base version only (v3.6.0-abc123.release -> 3.6.0): the git hash changes
+        // with every commit and would re-show the dialog on each dev rebuild.
+        val current = Changelog.currentVersion()
+        val seen = GlobalSettings.getLastSeenChangelogVersion(this)
+        // Users who already had the app before this feature existed have no
+        // stored value but are upgrading, not installing fresh; the update
+        // detector's timestamp tells the two apart.
+        val upgradedFromOlderBuild = seen.isEmpty() &&
+            getSharedPreferences("app_prefs", Context.MODE_PRIVATE).getLong("last_update_time", 0L) != 0L
+        when {
+            seen.isEmpty() && !upgradedFromOlderBuild -> GlobalSettings.setLastSeenChangelogVersion(this, current)
+            seen == current -> Unit
+            GlobalSettings.isShowChangelogAfterUpdate(this) -> showChangelog.value = true
+            else -> GlobalSettings.setLastSeenChangelogVersion(this, current)
         }
     }
 
@@ -224,6 +259,33 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleIntent(intent: Intent?) {
+        if (intent == null) return
+        // Callback of the PackageInstaller-session fallback in launchApkInstaller().
+        // A session cannot install silently: it reports STATUS_PENDING_USER_ACTION
+        // and hands over the confirmation dialog as EXTRA_INTENT, which the app
+        // has to launch itself. Nothing did, so whenever the FileProvider path
+        // failed the update simply went nowhere.
+        if (intent.action == "ACTION_INSTALL_COMPLETE") {
+            val status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, Int.MIN_VALUE)
+            when (status) {
+                PackageInstaller.STATUS_PENDING_USER_ACTION -> {
+                    val confirm = IntentCompat.getParcelableExtra(intent, Intent.EXTRA_INTENT, Intent::class.java)
+                    if (confirm != null) {
+                        try {
+                            startActivity(confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                        } catch (e: Exception) {
+                            Toast.makeText(this, getString(R.string.main_check_failed_format, e.message), Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+                PackageInstaller.STATUS_SUCCESS -> Unit // this process already is the new build
+                Int.MIN_VALUE -> Unit
+                else -> {
+                    val msg = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: "installer status $status"
+                    Toast.makeText(this, getString(R.string.main_check_failed_format, msg), Toast.LENGTH_LONG).show()
+                }
+            }
+        }
         // QS tile long press / preferences simply opens the app main screen without showing account switcher
     }
 
@@ -300,7 +362,10 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
+fun MainScreen(
+    showAccountSwitcher: MutableState<Boolean>,
+    showChangelog: MutableState<Boolean> = remember { mutableStateOf(false) }
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     
@@ -1267,6 +1332,13 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
         }
     }
 
+    if (showChangelog.value) {
+        ChangelogDialog(onDismiss = {
+            GlobalSettings.setLastSeenChangelogVersion(context, Changelog.currentVersion())
+            showChangelog.value = false
+        })
+    }
+
     if (showAboutDialog) {
         val versionName = remember {
             try { context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?" }
@@ -1329,7 +1401,17 @@ fun MainScreen(showAccountSwitcher: MutableState<Boolean>) {
 
                     Spacer(Modifier.height(16.dp))
                     Text(stringResource(R.string.main_license_text))
-                    
+
+                    TextButton(
+                        onClick = { showAboutDialog = false; showChangelog.value = true },
+                        modifier = Modifier.height(32.dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Icon(Icons.Default.NewReleases, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(R.string.main_about_whats_new))
+                    }
+
                     TextButton(
                         onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/bropines"))) },
                         modifier = Modifier.height(32.dp),

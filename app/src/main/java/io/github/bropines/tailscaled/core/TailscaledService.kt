@@ -296,17 +296,27 @@ class TailscaledService : Service() {
         )
         updateNotification("Reconnecting...")
 
-        Thread {
+        val gen = lifecycleGeneration.get()
+        // Published as the in-flight teardown so a START arriving meanwhile joins
+        // it and starts afterwards (see the START path) instead of doing nothing
+        // because the daemon still looked alive.
+        shutdownInFlight = Thread {
             try {
                 stopTunMode()
                 shutdownDaemon()
                 Thread.sleep(1500)
+                if (gen != lifecycleGeneration.get() || !ProxyState.isUserLetRunning(this)) {
+                    // A manual stop, restart or start landed during the pause; a stop
+                    // must not be undone, and a start owns the service now.
+                    Log.i(TAG, "Auto-reconnect abandoned: superseded by a stop, restart or start")
+                    return@Thread
+                }
                 teardownStarted = false
                 startTailscale()
             } finally {
                 autoRestartInFlight = false
             }
-        }.start()
+        }.also { it.start() }
         return true
     }
 
@@ -482,6 +492,16 @@ class TailscaledService : Service() {
                 return START_NOT_STICKY
             }
             if (!Appctr.isRunning()) {
+                if (!ProxyState.isUserLetRunning(this)) {
+                    // The root daemon was deliberately left alive by a manual
+                    // Stop (root_kill_daemon_on_stop=false). A settings change
+                    // is not a start request: do not attach and, above all, do
+                    // not flip desired_running back on.
+                    Log.i(TAG, "Apply requested while detached and not wanted; standing down")
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
+                    return START_NOT_STICKY
+                }
                 // The daemon is alive but this process is not attached to it —
                 // Root Mode after the app was killed. Attach through the normal
                 // start path, which applies the settings on the way.
@@ -512,18 +532,34 @@ class TailscaledService : Service() {
             // the daemon was then started again on a service the system was already
             // tearing down. Shut the daemon down in place and bring it back up.
             ProxyState.setUserState(this, true)
+            // The restart owns the service now. A stop whose teardown is still
+            // running must not stop the service this restart brings back up, and
+            // a Stop that lands during the restart's own teardown must not be
+            // swallowed by stopMe()'s teardownStarted guard.
+            val gen = lifecycleGeneration.incrementAndGet()
+            teardownStarted = false
+            ServiceWatchdog.schedule(this)
             refreshHandler.removeCallbacks(refreshRunnable)
-            Thread {
+            // Published as the in-flight teardown so a START arriving meanwhile
+            // joins it and starts afterwards instead of seeing a daemon that is
+            // about to be killed and doing nothing.
+            shutdownInFlight = Thread {
                 stopTunMode()
                 shutdownDaemon()
                 Thread.sleep(1000)
+                if (gen != lifecycleGeneration.get()) {
+                    // A stop or a fresh START landed during the teardown; the
+                    // START path joins this thread and starts itself, a stop wins.
+                    Log.i(TAG, "Restart abandoned: superseded by a stop or start")
+                    return@Thread
+                }
                 teardownStarted = false
                 startTailscale()
                 refreshHandler.post {
                     refreshHandler.removeCallbacks(refreshRunnable)
                     refreshHandler.postDelayed(refreshRunnable, 1000)
                 }
-            }.start()
+            }.also { it.start() }
             return START_STICKY
         }
 
@@ -531,9 +567,23 @@ class TailscaledService : Service() {
         // A previous stop may have marked this instance as torn down; a fresh start
         // command revives it, so the guard has to be cleared.
         teardownStarted = false
+        // Supersede the deferred completion of any stop still in flight.
+        lifecycleGeneration.incrementAndGet()
         ServiceWatchdog.schedule(this)
         updateTile()
-        if (!Appctr.isRunning()) {
+        val pendingStop = shutdownInFlight
+        if (pendingStop != null && pendingStop.isAlive) {
+            // The previous stop is still tearing the daemon down. Appctr.isRunning()
+            // is still true at this point, so the old code just showed "Active" and
+            // started nothing — and the teardown then killed the daemon under it.
+            // Let the teardown finish (it no longer stops the service, see stopMe)
+            // and start fresh afterwards.
+            enterForeground("Restarting...")
+            Thread {
+                try { pendingStop.join(15_000) } catch (_: InterruptedException) {}
+                startTailscale()
+            }.start()
+        } else if (!Appctr.isRunning()) {
             enterForeground("Starting...")
             startTailscale()
         } else {
@@ -548,12 +598,27 @@ class TailscaledService : Service() {
 
     private fun startTailscale() {
         acquireKeepAliveLock()
+        // Only a stop may abandon a start. teardownStarted is set by stopMe() and
+        // cleared synchronously by START/RESTART/auto-reconnect before they start,
+        // so it means "the most recent lifecycle command was a stop". The
+        // generation counter is bumped by START as well and must not be used
+        // here: a second START_ACTION during an in-flight start (tile double-tap,
+        // swipe from Recents, watchdog, Tasker) would make the first start kill
+        // the daemon it had just launched while the service kept showing Active.
+        fun stale() = teardownStarted
 
         Thread {
             // buildStartOptions does file IO, preference writes, a ServerSocket
             // bind (ByeDPI) and a JNI call — all off the main thread.
             val options = buildStartOptions()
             try {
+                if (stale()) {
+                    // buildStartOptions may already have started ByeDPI; the stop
+                    // that superseded us ran before that, so clean up here.
+                    Log.i(TAG, "Start abandoned: stopped before the daemon was launched")
+                    shutdownDaemon()
+                    return@Thread
+                }
                 applicationContext.sendBroadcast(Intent("STARTING").setPackage(packageName))
                 if (GlobalSettings.isRootModeEnabled(this@TailscaledService)) {
                     val socketFile = java.io.File(options.socketPath)
@@ -567,6 +632,10 @@ class TailscaledService : Service() {
                     val isRunningValid = statusJson != null && !statusJson.contains("\"BackendState\":\"NoState\"")
 
                     if (isRunningValid) {
+                        if (stale()) {
+                            Log.i(TAG, "Start abandoned before attaching to the root daemon")
+                            return@Thread
+                        }
                         Log.i(TAG, "Root daemon is already running. Attaching to existing socket with full options.")
                         Appctr.attachExternal(options)
                     } else {
@@ -596,6 +665,13 @@ class TailscaledService : Service() {
                             stopMe()
                             return@Thread
                         }
+                        if (stale()) {
+                            // A stop landed while su was bringing the daemon up; its
+                            // teardown ran before the daemon existed, so take it down here.
+                            Log.i(TAG, "Start abandoned after the root daemon launched, shutting it down again")
+                            shutdownDaemon()
+                            return@Thread
+                        }
                         Appctr.attachExternal(options)
                     }
                 } else {
@@ -606,13 +682,34 @@ class TailscaledService : Service() {
                         Log.i(TAG, "Removing leftover Root Mode routing before userspace start")
                         removeRootArtifacts(killDaemon = true)
                     }
+                    if (stale()) {
+                        Log.i(TAG, "Start abandoned before launching the daemon")
+                        shutdownDaemon()
+                        return@Thread
+                    }
                     Appctr.setExternalSocketPath("")
                     Appctr.start(options)
+                }
+                if (stale()) {
+                    // A stop landed while the daemon was starting; its teardown may
+                    // have run before the daemon existed. The Go side spawns the
+                    // process asynchronously, so give it a moment to appear before
+                    // taking it down, or it would be left running under no service.
+                    Log.i(TAG, "Start abandoned after the daemon launched, shutting it down again")
+                    var waited = 0
+                    while (!Appctr.isRunning() && waited < 3000) { Thread.sleep(100); waited += 100 }
+                    shutdownDaemon()
+                    return@Thread
                 }
                 updateNotification("Active")
                 applicationContext.sendBroadcast(Intent("START").setPackage(packageName))
                 forceAppWidgetUpdate(this@TailscaledService)
                 if (waitForDaemonReady()) {
+                    if (stale()) {
+                        Log.i(TAG, "Start abandoned after the daemon became ready, shutting it down again")
+                        shutdownDaemon()
+                        return@Thread
+                    }
                     Log.d(TAG, "Daemon readiness checkpoint reached. Launching auxiliary modules...")
                     applyTagsAndRoutes(this@TailscaledService)
                     applyTaildrive(this@TailscaledService)
@@ -623,9 +720,10 @@ class TailscaledService : Service() {
                 } else {
                     Log.w(TAG, "Daemon readiness checkpoint timed out.")
                 }
-            } catch (e: Exception) { 
+            } catch (e: Exception) {
                 Log.e(TAG, "Start failed", e)
-                stopMe() 
+                // A failure of a superseded start must not stop whatever superseded it.
+                if (!stale()) stopMe()
             }
         }.start()
     }
@@ -758,25 +856,66 @@ class TailscaledService : Service() {
     /** Guards against running the daemon teardown twice (stopMe then onDestroy). */
     @Volatile private var teardownStarted = false
 
+    /**
+     * Bumped by every stop and every start. The deferred completion of a stop
+     * (stopSelf and friends) only runs if no start superseded it meanwhile,
+     * and a start thread abandons its work once a stop superseded it. Without
+     * this, STOP followed by a quick START left the service dead with
+     * desired_running=true (so the watchdog "revived it by itself" later), and
+     * STOP during a slow start left a daemon running under no service.
+     */
+    private val lifecycleGeneration = java.util.concurrent.atomic.AtomicInteger()
+
+    /** Teardown thread of the most recent stop, while it is still running. */
+    @Volatile private var shutdownInFlight: Thread? = null
+
+    /**
+     * Set when a TUN start was requested, cleared once ACTION_STOP has been sent.
+     * TunVpnService.isRunning only turns true at the end of its own start
+     * sequence (VPN permission dialog, establish(), JNI), so without this a stop
+     * landing in that window skipped the TUN stop and left the tunnel — routing
+     * the whole device when an exit node is set — up under a stopped service.
+     */
+    @Volatile private var tunRequested = false
+
     private fun stopMe() {
         if (teardownStarted) return
         teardownStarted = true
 
-        stopTunMode()
+        // Record the user's decision before anything that can fail. If the
+        // teardown below crashes the process, desired_running must already be
+        // false and the watchdog alarm gone, otherwise the sticky restart and the
+        // 15-minute watchdog bring the service back after a manual stop.
         ProxyState.setUserState(this, false)
         ServiceWatchdog.cancel(this)
         refreshHandler.removeCallbacks(refreshRunnable)
+
+        try {
+            stopTunMode()
+        } catch (t: Throwable) {
+            // stopTunMode() catches Exceptions; this covers LinkageErrors from
+            // touching TunVpnService when its native library cannot be loaded.
+            Log.e(TAG, "stopTunMode failed during stop, continuing teardown", t)
+        }
         updateNotification("Stopping...")
 
         // Root teardown talks to `su` and can take seconds; doing that on the
         // caller's thread froze the UI whenever the tile or the notification
         // triggered a stop. The service stays in the foreground until it is done
         // so the process is not killed mid-cleanup.
-        Thread {
+        val gen = lifecycleGeneration.incrementAndGet()
+        shutdownInFlight = Thread {
             try {
                 shutdownDaemon()
             } finally {
                 refreshHandler.post {
+                    if (gen != lifecycleGeneration.get()) {
+                        // A START arrived while the daemon was shutting down. That
+                        // start owns the service now; stopping it here would leave
+                        // desired_running=true with no service behind it.
+                        Log.i(TAG, "Stop completion superseded by a newer start")
+                        return@post
+                    }
                     if (wakeLock?.isHeld == true) wakeLock?.release()
                     stopForeground(STOP_FOREGROUND_REMOVE)
                     stopSelf()
@@ -785,7 +924,7 @@ class TailscaledService : Service() {
                     sendStatusBroadcast(this, "STOPPED")
                 }
             }
-        }.start()
+        }.also { it.start() }
     }
 
     /** Blocking teardown of the daemon and everything attached to it. */
@@ -955,6 +1094,7 @@ class TailscaledService : Service() {
     private fun startTunMode() {
         try {
             val prepareIntent = android.net.VpnService.prepare(this)
+            tunRequested = true
             if (prepareIntent == null) {
                 Log.d(TAG, "VPN permission already granted, starting TunVpnService directly")
                 val tunIntent = Intent(this, TunVpnService::class.java).apply {
@@ -979,6 +1119,15 @@ class TailscaledService : Service() {
                 Log.d(TAG, "TUN native library not loaded, skipping stop")
                 return
             }
+            if (!TunVpnService.isRunning && !tunRequested) {
+                // Nothing to stop. Starting the VpnService only to stop it again
+                // used to leave its foreground notification behind; also drop any
+                // such leftover from earlier builds.
+                (getSystemService(NOTIFICATION_SERVICE) as? android.app.NotificationManager)
+                    ?.cancel(TunVpnService.NOTIF_ID)
+                return
+            }
+            tunRequested = false
             startService(Intent(this, TunVpnService::class.java).apply {
                 action = TunVpnService.ACTION_STOP
             })
@@ -1012,38 +1161,39 @@ class TailscaledService : Service() {
                 val status = runCatching { AppJson.decodeFromString<StatusResponse>(statusJson) }.getOrNull() ?: return@Thread
                 val peers = status.peers ?: emptyMap()
 
+                // Every name published here resolves device-wide for every app, so
+                // the tailnet zone is the only namespace a node may claim. The
+                // control-assigned DNSName must sit inside the MagicDNS suffix, and
+                // the self-reported HostName is accepted only as a bare label: a peer
+                // calling itself "accounts.google.com" used to hijack that domain.
+                val zone = status.magicDnsSuffix?.trim()?.removeSuffix(".")?.lowercase()
+                if (zone.isNullOrEmpty()) {
+                    Log.w(TAG, "hosts-sync: MagicDNS suffix unknown, not publishing tailnet names")
+                    return@Thread
+                }
+                val bareLabel = Regex("^[A-Za-z0-9-]{1,63}$")
+                val claimed = mutableSetOf<String>()
                 val hostsMap = mutableMapOf<String, String>()
 
-                // Add self
-                val self = status.self
-                if (self != null) {
-                    val dnsName = self.dnsName?.removeSuffix(".")
-                    val hostName = self.hostName?.trim()
-                    val ips = self.tailscaleIPs
-                    if (!dnsName.isNullOrEmpty() && ips != null) {
-                        val shortName = dnsName.substringBefore('.')
-                        val aliases = listOfNotNull(dnsName, shortName.takeIf { it != dnsName }, hostName.takeIf { it != dnsName && it != shortName }).joinToString(" ")
-                        for (ip in ips) {
-                            if (ip.isEmpty()) continue
-                            hostsMap[ip] = aliases
-                        }
+                fun addNode(dnsRaw: String?, hostRaw: String?, ips: List<String>?) {
+                    val dnsName = dnsRaw?.removeSuffix(".")?.lowercase() ?: return
+                    if (ips == null || dnsName.isEmpty() || !dnsName.endsWith(".$zone")) return
+                    val shortName = dnsName.substringBefore('.')
+                    val hostName = hostRaw?.trim()?.lowercase()
+                        ?.takeIf { bareLabel.matches(it) && it != dnsName && it != shortName }
+                    // First claim wins (self is added first), so no peer can shadow
+                    // another node's name or this device's own.
+                    val aliases = listOfNotNull(dnsName, shortName.takeIf { it != dnsName }, hostName)
+                        .filter { claimed.add(it) }
+                    if (aliases.isEmpty()) return
+                    for (ip in ips) {
+                        if (ip.isEmpty()) continue
+                        hostsMap[ip] = aliases.joinToString(" ")
                     }
                 }
 
-                // Add peers
-                for ((_, p) in peers) {
-                    val dnsName = p.dnsName?.removeSuffix(".")
-                    val hostName = p.hostName?.trim()
-                    val ips = p.tailscaleIPs
-                    if (!dnsName.isNullOrEmpty() && ips != null) {
-                        val shortName = dnsName.substringBefore('.')
-                        val aliases = listOfNotNull(dnsName, shortName.takeIf { it != dnsName }, hostName.takeIf { it != dnsName && it != shortName }).joinToString(" ")
-                        for (ip in ips) {
-                            if (ip.isEmpty()) continue
-                            hostsMap[ip] = aliases
-                        }
-                    }
-                }
+                status.self?.let { addNode(it.dnsName, it.hostName, it.tailscaleIPs) }
+                for ((_, p) in peers) addNode(p.dnsName, p.hostName, p.tailscaleIPs)
                 
                 val currentHash = hostsMap.hashCode()
                 if (currentHash != lastHostsHash && hostsMap.isNotEmpty()) {

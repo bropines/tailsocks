@@ -17,9 +17,9 @@ fi
 if [ ! -x "$CLI_BIN" ]; then
     CLI_BIN="$(pm path $PKG 2>/dev/null | head -n1 | cut -d: -f2 | sed 's|base.apk|lib/x86/libtailscale_cli.so|')"
 fi
-if [ ! -x "$CLI_BIN" ]; then
-    CLI_BIN="$(find /data/app -name "libtailscale_cli.so" 2>/dev/null | head -n1)"
-fi
+# No filesystem-wide search: `find /data/app -name libtailscale_cli.so | head -n1`
+# would happily exec a same-named library shipped by any other installed app
+# from a root shell. The binary must come from this package's own install.
 
 SOCKET_PATH="/data/data/$PKG/files/tailscaled.sock"
 
