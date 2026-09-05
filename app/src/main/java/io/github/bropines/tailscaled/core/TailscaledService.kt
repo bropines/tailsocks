@@ -171,7 +171,13 @@ class TailscaledService : Service() {
                         GlobalSettings.isRootDnsRedirectEnabled(this@TailscaledService)
                     val bypass = upstreamDnsAddresses()
                     Thread {
-                        if (RootUtils.applyTailscale0Routing(dnsRedirect, bypass)) {
+                        // Pass the Context so the SO_MARK check reads the daemon log
+                        // by its canonical path. Without it the check falls back to
+                        // the log of a daemon this process launched, which is unset
+                        // when the app attached to one the boot script had already
+                        // started — and the exit-node catch-all would then never be
+                        // installed after a reboot.
+                        if (RootUtils.applyTailscale0Routing(dnsRedirect, bypass, this@TailscaledService)) {
                             rootRoutingFailures = 0
                             // Persist the fact that system rules now exist, so they
                             // can be removed even if the app is killed or Root Mode

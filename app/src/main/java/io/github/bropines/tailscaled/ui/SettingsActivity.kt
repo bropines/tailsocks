@@ -1648,7 +1648,7 @@ fun SettingsScreen(
                                             onClick = {
                                                 isDumping = true
                                                 scope.launch {
-                                                    val dump = withContext(Dispatchers.IO) { RootUtils.dumpRoutingState() }
+                                                    val dump = withContext(Dispatchers.IO) { RootUtils.dumpRoutingState(context) }
                                                     routingDump = dump.ifBlank { "(no output)" }
                                                     isDumping = false
                                                 }
