@@ -103,8 +103,13 @@ diff -u orig/safesocket/unixsocket.go tailscale_src/safesocket/unixsocket.go > p
 diff -u orig/net/netns/netns_android.go tailscale_src/net/netns/netns_android.go > patches/16-android-somark.patch || true
 
 # 14-dns-forwarder-netstack.patch (net/dns/resolver/forwarder.go)
-# Split-DNS resolvers on tailnet IPs are dialled through netstack in
-# userspace-networking mode instead of an OS socket the OS cannot route.
+# Two fixes in the same file:
+#  - Split-DNS resolvers on tailnet IPs are dialled through netstack in
+#    userspace-networking mode instead of an OS socket the OS cannot route.
+#  - The DNS rescue (TS_DNS_RESCUE, on by default): when every upstream for a
+#    query that took the default route fails, retry it once against the OS base
+#    config (TS_DNS_FALLBACK) instead of handing the device SERVFAIL. Keeps the
+#    phone resolving while an exit node's peerapi DoH endpoint answers 403.
 diff -u orig/net/dns/resolver/forwarder.go tailscale_src/net/dns/resolver/forwarder.go > patches/14-dns-forwarder-netstack.patch || true
 
 # 15-dnscache-static-hosts.patch (net/dnscache/dnscache.go)

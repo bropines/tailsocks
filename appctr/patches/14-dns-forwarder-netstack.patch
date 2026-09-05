@@ -1,6 +1,6 @@
 --- orig/net/dns/resolver/forwarder.go
 +++ tailscale_src/net/dns/resolver/forwarder.go
-@@ -37,6 +37,7 @@
+@@ -37,12 +37,14 @@
  	"tailscale.com/net/netmon"
  	"tailscale.com/net/netx"
  	"tailscale.com/net/sockstats"
@@ -8,7 +8,25 @@
  	"tailscale.com/net/tsdial"
  	"tailscale.com/syncs"
  	"tailscale.com/types/dnstype"
-@@ -803,6 +804,16 @@
+ 	"tailscale.com/types/logger"
+ 	"tailscale.com/types/nettype"
+ 	"tailscale.com/types/views"
++	"tailscale.com/util/clientmetric"
+ 	"tailscale.com/util/cloudenv"
+ 	"tailscale.com/util/dnsname"
+ 	"tailscale.com/util/mak"
+@@ -345,6 +347,10 @@
+ 	// queries directly - but we didn't configure it with any upstream resolvers.
+ 	// That's an error, but not a health error if the user has disabled CorpDNS.
+ 	acceptDNS bool
++
++	// rescueLogLast is the time.Now().UnixNano() of the last DNS-rescue log
++	// line, used to rate limit it. See dnsRescue.
++	rescueLogLast atomic.Int64
+ }
+ 
+ func (f *forwarder) probeLocks() {
+@@ -803,6 +809,16 @@
  	if ipp.Addr().Is6() {
  		udpFam = "udp6"
  	}
@@ -25,7 +43,7 @@
  	conn, err := ln.ListenPacket(ctx, udpFam, ":0")
  	if err != nil {
  		f.logf("ListenPacket failed: %v", err)
-@@ -836,6 +847,64 @@
+@@ -836,6 +852,64 @@
  			return nil, err
  		}
  	}
@@ -90,7 +108,7 @@
  	truncated := n > maxResponseBytes
  	if truncated {
  		n = maxResponseBytes
-@@ -943,7 +1012,14 @@
+@@ -943,7 +1017,14 @@
  	ctx, cancel := context.WithTimeout(ctx, tcpQueryTimeout)
  	defer cancel()
  
@@ -106,3 +124,324 @@
  	if err != nil {
  		return nil, err
  	}
+@@ -1061,6 +1142,19 @@
+ 
+ // resolvers returns the resolvers to use for domain.
+ func (f *forwarder) resolvers(domain dnsname.FQDN) []resolverAndDelay {
++	rrs, _ := f.resolversAndRoute(domain)
++	return rrs
++}
++
++// resolversAndRoute is resolvers, additionally reporting the suffix of the
++// route that selected them: "." for the default/global route, some other
++// suffix for a split-DNS route, and the empty FQDN when no route matched and
++// the cloud host fallback (or nothing) is being returned.
++//
++// TailSocks uses the suffix to tell a query the user deliberately pointed at a
++// particular resolver (a split-DNS route) apart from one that merely took the
++// default route; only the latter may be rescued. See dnsRescue.
++func (f *forwarder) resolversAndRoute(domain dnsname.FQDN) ([]resolverAndDelay, dnsname.FQDN) {
+ 	f.mu.Lock()
+ 	routes := f.routes
+ 	cloudHostFallback := f.cloudHostFallback
+@@ -1076,10 +1170,10 @@
+ 		// route, fall through to the next matching route. If the resolvers
+ 		// were configured to be empty allow resolved to be empty.
+ 		if len(resolved) > 0 || len(route.Resolvers) == 0 {
+-			return resolved
++			return resolved, route.Suffix
+ 		}
+ 	}
+-	return cloudHostFallback // or nil if no fallback
++	return cloudHostFallback, "" // or nil if no fallback
+ }
+ 
+ // GetUpstreamResolvers returns the resolvers that would be used to resolve
+@@ -1152,6 +1246,238 @@
+ 	// ...
+ }
+ 
++// TailSocks: last-resort DNS rescue.
++//
++// While an exit node is selected, tailscaled forwards every query that no
++// split-DNS route claims to that peer's peerapi DoH endpoint
++// (http://<peer>:<port>/dns-query). The peer answers HTTP 403 whenever the
++// requester is not (or is no longer) its exit-node client, which is exactly
++// what happens for a few seconds around an exit-node switch. The forwarder
++// then returns SERVFAIL and the device has no working DNS at all, even though
++// the OS base config names perfectly good resolvers (on Android those are the
++// app's fallbacks, TS_DNS_FALLBACK; see net/dns/noop.go).
++//
++// dnsRescue retries such a query once against those base-config resolvers.
++// It is deliberately narrow: only the default/global route qualifies, because
++// a split-DNS route is a resolver the user chose on purpose and must never
++// silently leak to a public one.
++const (
++	// dnsRescueTimeout bounds a single rescue. It is applied on top of the
++	// caller's context, so a rescue can never outlive the query that
++	// triggered it.
++	dnsRescueTimeout = 4 * time.Second
++
++	// dnsRescueLogPeriod is the minimum gap between two rescue log lines.
++	dnsRescueLogPeriod = 30 * time.Second
++
++	// dnsRescueMaxResolvers caps how many base-config resolvers one rescue
++	// races, so a long TS_DNS_FALLBACK list can't turn a failure into a
++	// burst of queries.
++	dnsRescueMaxResolvers = 4
++)
++
++var (
++	// TS_DNS_RESCUE turns the rescue off ("0"/"false"/"off"/"no"). It
++	// defaults to on when unset: the failure it prevents is total loss of
++	// DNS, and the retry only ever happens after the configured resolvers
++	// have already failed. Parsed leniently on purpose — envknob's boolean
++	// helpers log.Fatalf on a malformed value, and losing the daemon over a
++	// typo in an optional switch would be worse than ignoring it.
++	dnsRescueEnv = envknob.RegisterString("TS_DNS_RESCUE")
++
++	// TS_DNS_FALLBACK is the app's OS base config, read here in the same
++	// format net/dns/noop.go accepts. The forwarder can't ask net/dns for
++	// the base config (that package imports this one), and this is the same
++	// list GetBaseConfig would return.
++	dnsRescueFallbackEnv = envknob.RegisterString("TS_DNS_FALLBACK")
++
++	dnsRescueResolversOnce sync.Once
++	dnsRescueResolversLazy []*dnstype.Resolver
++)
++
++// dnsRescueEnabled reports whether the rescue is switched on.
++func dnsRescueEnabled() bool {
++	switch strings.ToLower(strings.TrimSpace(dnsRescueEnv())) {
++	case "0", "false", "off", "no":
++		return false
++	}
++	return true
++}
++
++// dnsRescueBaseResolvers returns the OS base-config resolvers, parsed once.
++func dnsRescueBaseResolvers() []*dnstype.Resolver {
++	dnsRescueResolversOnce.Do(func() {
++		for _, s := range strings.Split(dnsRescueFallbackEnv(), ",") {
++			s = strings.TrimSpace(s)
++			if s == "" {
++				continue
++			}
++			var ipp netip.AddrPort
++			if v, err := netip.ParseAddrPort(s); err == nil {
++				ipp = v
++			} else if a, err := netip.ParseAddr(s); err == nil {
++				ipp = netip.AddrPortFrom(a, 53)
++			} else {
++				continue
++			}
++			// Never rescue through our own MagicDNS service IPs: the query
++			// would come straight back into this resolver.
++			if ipp.Addr() == tsaddr.TailscaleServiceIP() || ipp.Addr() == tsaddr.TailscaleServiceIPv6() {
++				continue
++			}
++			dnsRescueResolversLazy = append(dnsRescueResolversLazy, &dnstype.Resolver{Addr: ipp.String()})
++			if len(dnsRescueResolversLazy) == dnsRescueMaxResolvers {
++				break
++			}
++		}
++	})
++	return dnsRescueResolversLazy
++}
++
++// dnsRescueEligibleName reports whether domain may be retried against a public
++// base-config resolver. Tailnet names and reverse lookups of Tailscale
++// addresses (the MagicDNS service IPs among them) never may: a public resolver
++// cannot answer them, and asking would leak them.
++func dnsRescueEligibleName(domain dnsname.FQDN) bool {
++	name := string(domain)
++	if name == "" {
++		return false
++	}
++	if name == "ts.net." || strings.HasSuffix(name, ".ts.net.") {
++		return false
++	}
++	if ipStr, ok := unARPA(name); ok {
++		ip, err := netip.ParseAddr(ipStr)
++		if err != nil {
++			return false
++		}
++		if tsaddr.IsTailscaleIP(ip) ||
++			ip == tsaddr.TailscaleServiceIP() || ip == tsaddr.TailscaleServiceIPv6() {
++			return false
++		}
++	}
++	return true
++}
++
++// dnsRescueCandidates returns the base-config resolvers worth retrying,
++// dropping any that just failed — without an exit node the default route's
++// resolvers are these same addresses, and asking them twice would only cost
++// time.
++func dnsRescueCandidates(failed []resolverAndDelay) []resolverAndDelay {
++	base := dnsRescueBaseResolvers()
++	if len(base) == 0 {
++		return nil
++	}
++	failedAddrs := make(map[netip.AddrPort]bool, len(failed))
++	for _, rr := range failed {
++		if ipp, ok := rr.name.IPPort(); ok {
++			failedAddrs[ipp] = true
++		}
++	}
++	var out []resolverAndDelay
++	for _, r := range base {
++		ipp, ok := r.IPPort()
++		if !ok || failedAddrs[ipp] {
++			continue
++		}
++		out = append(out, resolverAndDelay{name: r})
++	}
++	return out
++}
++
++// dnsRescue retries fq against the OS base-config resolvers and returns the
++// response, or nil if the rescue does not apply or did not produce one.
++//
++// res is the response the client would otherwise get; the rescue only runs
++// when it is SERVFAIL or REFUSED. That single test covers every failure mode
++// this exists for: a transport error and a non-200 DoH status both arrive here
++// as a synthesized SERVFAIL, an upstream SERVFAIL/REFUSED rcode over UDP or
++// TCP arrives as the upstream's own bytes, and a DoH endpoint that answers 200
++// with a SERVFAIL body reaches us as a "successful" response.
++//
++// eligible must be true only for the default/global route; see
++// resolversAndRoute.
++func (f *forwarder) dnsRescue(ctx context.Context, fq *forwardQuery, domain dnsname.FQDN, res []byte, failed []resolverAndDelay, eligible bool) []byte {
++	// Cheapest checks first: this runs on the success path of every query.
++	if !eligible {
++		return nil
++	}
++	switch getRCode(res) {
++	case dns.RCodeServerFailure, dns.RCodeRefused:
++	default:
++		return nil
++	}
++	if !dnsRescueEnabled() || !dnsRescueEligibleName(domain) {
++		return nil
++	}
++	rrs := dnsRescueCandidates(failed)
++	if len(rrs) == 0 {
++		return nil
++	}
++	if err := ctx.Err(); err != nil {
++		return nil
++	}
++	metricDNSFwdRescue.Add(1)
++
++	// Bounded by the caller's context as well as our own deadline, so the
++	// rescue cannot outlive the query it is rescuing.
++	ctx, cancel := context.WithTimeout(ctx, dnsRescueTimeout)
++	defer cancel()
++
++	type rescueResult struct {
++		res  []byte
++		addr string
++		err  error
++	}
++	// Buffered for every sender so none of them can outlive this function
++	// blocked on a send.
++	resc := make(chan rescueResult, len(rrs))
++	for i := range rrs {
++		go func(rr resolverAndDelay) {
++			out, err := f.send(ctx, fq, rr)
++			resc <- rescueResult{out, rr.name.Addr, err}
++		}(rrs[i])
++	}
++	for range rrs {
++		select {
++		case r := <-resc:
++			if r.err != nil {
++				continue
++			}
++			metricDNSFwdRescueSuccess.Add(1)
++			f.logRescue(domain, failed, r.addr)
++			return r.res
++		case <-ctx.Done():
++			f.logf("[v1] dns rescue for %q: %v", domain, ctx.Err())
++			return nil
++		}
++	}
++	f.logf("[v1] dns rescue for %q: no base resolver answered", domain)
++	return nil
++}
++
++// logRescue logs a successful rescue, at most once per dnsRescueLogPeriod, so
++// the Logs screen shows why DNS suddenly started working through a different
++// path without a line per query.
++func (f *forwarder) logRescue(domain dnsname.FQDN, failed []resolverAndDelay, answered string) {
++	now := time.Now().UnixNano()
++	last := f.rescueLogLast.Load()
++	if now-last < int64(dnsRescueLogPeriod) || !f.rescueLogLast.CompareAndSwap(last, now) {
++		return
++	}
++	addrs := make([]string, 0, len(failed))
++	for _, rr := range failed {
++		addrs = append(addrs, rr.name.Addr)
++	}
++	f.logf("dns rescue: %q failed via %s, answered by %s (set TS_DNS_RESCUE=0 to disable)",
++		domain, strings.Join(addrs, ","), answered)
++}
++
++var (
++	metricDNSFwdRescue        = clientmetric.NewCounter("dns_query_fwd_rescue")
++	metricDNSFwdRescueSuccess = clientmetric.NewCounter("dns_query_fwd_rescue_success")
++)
++
+ // forwardWithDestChan forwards the query to all upstream nameservers
+ // and waits for the first response.
+ //
+@@ -1196,8 +1522,15 @@
+ 
+ 	clampEDNSSize(query.bs, maxResponseBytes)
+ 
++	// TailSocks: only a query that took the default/global route may be
++	// rescued. Explicit resolvers (the exit-node DNS proxy answering for
++	// another peer) and split-DNS routes are deliberate choices and stay
++	// where they were pointed.
++	var rescueEligible bool
+ 	if len(resolvers) == 0 {
+-		resolvers = f.resolvers(domain)
++		var suffix dnsname.FQDN
++		resolvers, suffix = f.resolversAndRoute(domain)
++		rescueEligible = suffix == "."
+ 		if len(resolvers) == 0 {
+ 			// No upstream resolver for this name isn't a forwarder failure:
+ 			// it's split DNS / a name we weren't asked to handle. Count it
+@@ -1271,6 +1604,12 @@
+ 	for {
+ 		select {
+ 		case v := <-resc:
++			// TailSocks: a DoH upstream that answers 200 with a SERVFAIL or
++			// REFUSED body reaches us as a success. Try the rescue before
++			// handing the client a failure.
++			if rescued := f.dnsRescue(ctx, fq, domain, v, resolvers, rescueEligible); rescued != nil {
++				v = rescued
++			}
+ 			select {
+ 			case <-ctx.Done():
+ 				metricDNSFwdErrorContext.Add(1)
+@@ -1321,6 +1660,18 @@
+ 					}
+ 					res = packet{rcodeErr.res, query.family, query.addr}
+ 				}
++				// TailSocks: every upstream for this query failed — a
++				// transport error, a non-200 DoH status, or a
++				// SERVFAIL/REFUSED rcode, all of which are res by now. Retry
++				// once against the OS base config rather than leaving the
++				// device with no DNS at all.
++				// firstErr is deliberately left alone: it is only returned
++				// on the ctx.Done() path below, where nothing was delivered
++				// to the client and the caller still needs an error.
++				if rescued := f.dnsRescue(ctx, fq, domain, res.bs, resolvers, rescueEligible); rescued != nil {
++					res.bs = rescued
++				}
++
+ 				select {
+ 				case <-ctx.Done():
+ 					metricDNSFwdErrorContext.Add(1)
