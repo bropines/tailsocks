@@ -275,7 +275,8 @@ object GlobalSettings {
     fun setTunAddress(context: Context, address: String) = setString(context, "tun_address", address)
 
     /** Whether to enable IPv6 routing in TUN mode. */
-    fun isTunIpv6Enabled(context: Context): Boolean = getBoolean(context, "tun_ipv6_enabled", true)
+    /** Whether ALL IPv6 is routed through the tunnel. Off by default: see TunVpnService. */
+    fun isTunIpv6Enabled(context: Context): Boolean = getBoolean(context, "tun_ipv6_enabled", false)
     fun setTunIpv6Enabled(context: Context, enabled: Boolean) = setBoolean(context, "tun_ipv6_enabled", enabled)
 
     @Serializable

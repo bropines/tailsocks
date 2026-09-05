@@ -921,8 +921,8 @@
     <string name="tun_apps_filter_excluded">Bypassed</string>
     <string name="settings_tun_address_title">TUN Address</string>
     <string name="settings_tun_address_desc">IPv4 address with prefix length (e.g. 10.0.0.1/8)</string>
-    <string name="settings_tun_ipv6_title">Enable IPv6 Routing</string>
-    <string name="settings_tun_ipv6_desc">Route IPv6 traffic through the VPN tunnel</string>
+    <string name="settings_tun_ipv6_title">Route all IPv6 through the tunnel</string>
+    <string name="settings_tun_ipv6_desc">Tailnet addresses always use the tunnel. Turn this on only if your exit node really carries IPv6 — otherwise sites with an IPv6 address hang instead of falling back to IPv4.</string>
 
     <string name="main_tun_active_title">TUN Mode Active</string>
     <string name="main_tun_full_tunnel_desc">All traffic is routed through the VPN</string>

@@ -197,7 +197,14 @@ class TunVpnService : VpnService() {
             Log.e(TAG, "Failed to parse custom TUN address: $tunAddrRaw, using default", e)
         }
 
-        val ipv6Enabled = GlobalSettings.isTunIpv6Enabled(this)
+        // The tailnet's own IPv6 always rides the tunnel: the daemon carries it to
+        // peers and it works. The world's IPv6 is a different promise — handing
+        // Android a global route we cannot serve makes every AAAA-capable site
+        // hang until it times out instead of quietly falling back to IPv4, which
+        // is what happened on WSA behind an exit node. So ::/0 goes in only when
+        // the user asks for it.
+        val ipv6Enabled = true
+        val ipv6DefaultRoute = GlobalSettings.isTunIpv6Enabled(this)
 
         // Build VPN interface.
         val builder = Builder()
@@ -215,9 +222,11 @@ class TunVpnService : VpnService() {
         // Routing mode.
         if (fullTunnel) {
             builder.addRoute("0.0.0.0", 0)
-            if (ipv6Enabled) {
+            if (ipv6DefaultRoute) {
                 builder.addRoute("::", 0)
             }
+            // Tailnet IPv6 still goes through us even when the world's does not.
+            builder.addRoute("fd7a:115c:a1e0::", 48)
         } else {
             // Tailscale IPv4 space
             builder.addRoute("100.64.0.0", 10)
