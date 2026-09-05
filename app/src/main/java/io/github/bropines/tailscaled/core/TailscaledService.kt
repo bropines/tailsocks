@@ -154,6 +154,13 @@ class TailscaledService : Service() {
             try { Appctr.getBackendState() } catch (e: Exception) { "" }
         } else ""
 
+        // First Running state of this run: the netmap (and with it drive:share)
+        // is in, so register Taildrive shares now if the start deferred it.
+        if (isRunning && backendState == "Running" && !taildriveAppliedWhileRunning) {
+            taildriveAppliedWhileRunning = true
+            applyTaildrive(this@TailscaledService)
+        }
+
         if (GlobalSettings.isRootModeEnabled(this@TailscaledService) && GlobalSettings.isRootTunEnabled(this@TailscaledService)) {
             if (isRunning && backendState == "Running") {
                 rootNotRunningTicks = 0
@@ -598,6 +605,7 @@ class TailscaledService : Service() {
 
     private fun startTailscale() {
         acquireKeepAliveLock()
+        taildriveAppliedWhileRunning = false
         // Only a stop may abandon a start. teardownStarted is set by stopMe() and
         // cleared synchronously by START/RESTART/auto-reconnect before they start,
         // so it means "the most recent lifecycle command was a stop". The
@@ -712,8 +720,19 @@ class TailscaledService : Service() {
                     }
                     Log.d(TAG, "Daemon readiness checkpoint reached. Launching auxiliary modules...")
                     applyTagsAndRoutes(this@TailscaledService)
-                    applyTaildrive(this@TailscaledService)
-                    
+                    // Share registration needs the node's capabilities (drive:share),
+                    // which arrive with the netmap. Right after the socket appears the
+                    // backend is still Starting and the daemon answers 403 "sharing not
+                    // enabled" — a race, not a policy problem. Apply now only if already
+                    // Running (re-attach); otherwise the refresh tick does it once the
+                    // state flips, see taildriveAppliedWhileRunning.
+                    if (runCatching { Appctr.getBackendState() }.getOrDefault("") == "Running") {
+                        taildriveAppliedWhileRunning = true
+                        applyTaildrive(this@TailscaledService)
+                    } else {
+                        Log.i(TAG, "Taildrive: deferring share registration until the backend is Running")
+                    }
+
                     if (GlobalSettings.isTunModeEnabled(this@TailscaledService) && !GlobalSettings.isRootModeEnabled(this@TailscaledService)) {
                         startTunMode()
                     }
@@ -868,6 +887,9 @@ class TailscaledService : Service() {
 
     /** Teardown thread of the most recent stop, while it is still running. */
     @Volatile private var shutdownInFlight: Thread? = null
+
+    /** Taildrive shares were registered after this run's backend reached Running. */
+    @Volatile private var taildriveAppliedWhileRunning = false
 
     /**
      * Set when a TUN start was requested, cleared once ACTION_STOP has been sent.
