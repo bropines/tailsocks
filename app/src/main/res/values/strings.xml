@@ -916,7 +916,7 @@
     <string name="settings_tun_excluded_cidrs_desc">Comma-separated subnets bypassed by VPN</string>
     <string name="settings_tun_excluded_apps_title">Excluded Apps</string>
     <string name="settings_tun_excluded_apps_desc">%1$d apps kept outside the tunnel (VPN and Root)</string>
-    <string name="title_activity_tun_excluded_apps">Excluded Apps</string>
+    <string name="title_activity_tun_excluded_apps">Excluded apps</string>
     <string name="tun_apps_filter_all">All</string>
     <string name="tun_apps_filter_excluded">Bypassed</string>
     <string name="settings_tun_address_title">TUN Address</string>
@@ -1167,4 +1167,5 @@
     <string name="main_status_active_root_desc">Routed by the system through tailscale0 • Tap to stop</string>
     <string name="settings_root_vpn_bypass_title">Ignore other VPNs</string>
     <string name="settings_root_vpn_bypass_desc">The daemon marks its own connections the way a VPN app protects its own, so another VPN client on the phone cannot swallow them. Turn it off only if you want this tunnel to run inside that other client.</string>
+    <string name="tun_excluded_apps_count">Bypassing the tunnel: %1$d</string>
 </resources>

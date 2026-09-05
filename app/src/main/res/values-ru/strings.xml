@@ -916,7 +916,7 @@
     <string name="settings_tun_excluded_cidrs_desc">Подсети через запятую, идущие в обход VPN</string>
     <string name="settings_tun_excluded_apps_title">Исключенные приложения</string>
     <string name="settings_tun_excluded_apps_desc">Приложений в обход туннеля (VPN и Root): %1$d</string>
-    <string name="title_activity_tun_excluded_apps">Исключенные приложения</string>
+    <string name="title_activity_tun_excluded_apps">Исключения</string>
     <string name="tun_apps_filter_all">Все</string>
     <string name="tun_apps_filter_excluded">В обход VPN</string>
     <string name="settings_tun_address_title">Адрес TUN-интерфейса</string>
@@ -1167,4 +1167,5 @@
     <string name="main_status_active_root_desc">Система идёт через tailscale0 • Нажмите для остановки</string>
     <string name="settings_root_vpn_bypass_title">Игнорировать чужие VPN</string>
     <string name="settings_root_vpn_bypass_desc">Демон помечает свои соединения так же, как VPN-приложения защищают свои, чтобы другой клиент на телефоне их не перехватывал. Выключайте, только если хотите, чтобы наш туннель шёл внутри того клиента.</string>
+    <string name="tun_excluded_apps_count">В обход туннеля: %1$d</string>
 </resources>

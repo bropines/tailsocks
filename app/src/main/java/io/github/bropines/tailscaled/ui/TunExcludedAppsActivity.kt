@@ -147,17 +147,24 @@ fun TunExcludedAppsScreen(onBack: () -> Unit) {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { 
+                    // A single-line bar has room for two short lines and no more:
+                    // the settings row's full description wrapped the title onto a
+                    // second line and pushed itself out of the bar entirely.
+                    title = {
                         Column {
                             Text(
                                 text = stringResource(R.string.title_activity_tun_excluded_apps),
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 18.sp
+                                fontSize = 18.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = stringResource(R.string.settings_tun_excluded_apps_desc, excluded.value.size),
+                                text = stringResource(R.string.tun_excluded_apps_count, excluded.value.size),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     },
