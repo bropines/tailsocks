@@ -647,10 +647,17 @@ class TaildriveClient(private val context: Context, private val accountId: Strin
             // Scoped to this proxy endpoint only. An unscoped default Authenticator
             // handed the SOCKS credentials to any host in the process that returned
             // a 401/407 — the admin API, DoH, the GitHub update check.
+            //
+            // The scope must be the SOCKS5 protocol plus host/port, NOT
+            // RequestorType.PROXY: java.net.SocksSocketImpl asks through the
+            // overload without a RequestorType, which always reports SERVER, so a
+            // PROXY check refused every SOCKS request and the Files app saw
+            // "SOCKS : authentication failed" whenever the proxy had a password.
             java.net.Authenticator.setDefault(object : java.net.Authenticator() {
                 override fun getPasswordAuthentication(): java.net.PasswordAuthentication? {
-                    if (requestorType != RequestorType.PROXY) return null
-                    if (requestingHost != host || requestingPort != port) return null
+                    if (!requestingProtocol.equals("SOCKS5", ignoreCase = true)) return null
+                    val site = requestingSite?.hostAddress
+                    if ((requestingHost != host && site != host) || requestingPort != port) return null
                     return java.net.PasswordAuthentication(user, pass.toCharArray())
                 }
             })
