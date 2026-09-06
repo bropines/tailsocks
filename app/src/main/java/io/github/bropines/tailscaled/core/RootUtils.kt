@@ -82,6 +82,9 @@ object RootUtils {
     /** Android's protectedFromVpn bit; a socket carrying it is routed by the physical network. */
     private const val PROTECT_MARK = "0x20000"
 
+    /** Priority where netd's own rules begin; the jump target for an exclusion. */
+    private const val ANDROID_RULE_BASE = "16000"
+
     /**
      * Destinations kept out of the exit node, as `throw` routes in the daemon's
      * table: the lookup falls through to Android's own rules, which send them
@@ -985,11 +988,21 @@ object RootUtils {
      * runs on. [ipt] is `iptables` or `ip6tables`.
      */
     /**
-     * Sends every excluded uid to the physical network's own table, resolved at
-     * apply time from the route a VPN-protected socket takes (that is what the
-     * protect bit means, so it is the physical network by definition). The name
-     * changes with the network — wlan0, rmnet_data0 — so this is re-resolved on
-     * every apply rather than assumed.
+     * Hands every excluded uid back to Android's own routing instead of forcing
+     * it onto one interface.
+     *
+     * `goto 16000` jumps over the pref-[CATCH_ALL_PRIO] catch-all and lands on
+     * netd's rules, so the app ends up wherever the platform says it belongs —
+     * inside another VPN client's tunnel when one is up, on the physical
+     * network when none is. Forcing `lookup <physical table>` instead took the
+     * app out of that VPN as well, which is why Chrome went dark with a
+     * "bad config" DNS error while its tunnel client saw no requests at all:
+     * we had already claimed its packets.
+     *
+     * The pref-100 rules stay above this, so an excluded app still reaches
+     * tailnet addresses. Being priority-based and network-agnostic, the rule
+     * needs no refresh when Wi-Fi gives way to mobile data. A device whose netd
+     * does not use 16000 falls back to the physical table.
      */
     private fun excludeRulesInstall(uids: List<Int>): String {
         if (uids.isEmpty()) return ""
@@ -999,8 +1012,14 @@ object RootUtils {
             for (uid in uids) {
                 append("while ip rule del uidrange $uid-$uid priority $EXCLUDE_PRIO 2>/dev/null; do :; done\n")
                 append("while ip -6 rule del uidrange $uid-$uid priority $EXCLUDE_PRIO 2>/dev/null; do :; done\n")
-                append("[ -n \"\$PHYS\" ] && ip rule add uidrange $uid-$uid iif lo lookup \"\$PHYS\" priority $EXCLUDE_PRIO 2>/dev/null || true\n")
-                append("[ -n \"\$PHYS6\" ] && ip -6 rule add uidrange $uid-$uid iif lo lookup \"\$PHYS6\" priority $EXCLUDE_PRIO 2>/dev/null || true\n")
+                append(
+                    "ip rule add uidrange $uid-$uid goto $ANDROID_RULE_BASE priority $EXCLUDE_PRIO 2>/dev/null || " +
+                        "{ [ -n \"\$PHYS\" ] && ip rule add uidrange $uid-$uid iif lo lookup \"\$PHYS\" priority $EXCLUDE_PRIO 2>/dev/null; } || true\n"
+                )
+                append(
+                    "ip -6 rule add uidrange $uid-$uid goto $ANDROID_RULE_BASE priority $EXCLUDE_PRIO 2>/dev/null || " +
+                        "{ [ -n \"\$PHYS6\" ] && ip -6 rule add uidrange $uid-$uid iif lo lookup \"\$PHYS6\" priority $EXCLUDE_PRIO 2>/dev/null; } || true\n"
+                )
             }
         }
     }
