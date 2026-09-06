@@ -596,6 +596,9 @@ class TailscaledService : Service() {
     private var interfaceWatch: FileObserver? = null
     /** Last answer of the cheap tunnel-interface check; a change re-arms the ruleset. */
     @Volatile private var foreignVpnProbeSeen = false
+    /** Last known shape of the other tunnel's membership; null until first read. */
+    @Volatile private var lastForeignShape: String? = null
+    @Volatile private var foreignShapeRunning = false
 
     /**
      * A subscription of its own, because registerDefaultNetworkCallback only
@@ -625,11 +628,13 @@ class TailscaledService : Service() {
             if (changed) {
                 publishForeignVpnState(if (foreign) "a VPN came up" else "a VPN went away")
             } else if (foreign) {
-                // Its membership is part of its capabilities, so editing which
-                // apps it carries lands here and nowhere else — the interface
-                // does not necessarily come and go for that. Which apps it
-                // bypasses is exactly what our scoped rules are built from, so
-                // re-read; the apply's signature drops the pass if nothing moved.
+                // Kept as the fast path, not relied on: membership is part of the
+                // network's capabilities, but those are redacted for an app that
+                // is not a member — and a client that excludes us is exactly the
+                // one whose membership we care about. Measured on the device: an
+                // app moving out of another tunnel's bypass list produced no
+                // callback at all. The tick's probe below is what actually
+                // guarantees we notice.
                 scheduleRootRoutingReapply("another VPN changed which apps it carries")
             }
         }
@@ -688,11 +693,37 @@ class TailscaledService : Service() {
     private fun pollForeignVpnProbe() {
         if (teardownStarted) return
         val seen = foreignTunnelInterfacePresent() ?: return
-        if (seen == foreignVpnProbeSeen) return
-        foreignVpnProbeSeen = seen
-        scheduleRootRoutingReapply(
-            if (seen) "a tunnel interface appeared" else "the tunnel interface went away"
-        )
+        if (seen != foreignVpnProbeSeen) {
+            foreignVpnProbeSeen = seen
+            lastForeignShape = null
+            scheduleRootRoutingReapply(
+                if (seen) "a tunnel interface appeared" else "the tunnel interface went away"
+            )
+            return
+        }
+        // While another tunnel is up, watch WHAT it carries, not just that it is
+        // there: its owner can move an app in or out of its bypass list without
+        // the interface ever going away, and our rules are built from that list.
+        // A stale list is not merely out of date — it strands the app between the
+        // two tunnels, routed by us and handed the other one's resolver.
+        //
+        // This is the one thing here that costs a root shell, so it is spent as
+        // narrowly as possible: only while a foreign tunnel actually exists, and
+        // only on the refresh tick that already runs. No foreign VPN, no cost.
+        if (!seen || foreignShapeRunning) return
+        foreignShapeRunning = true
+        Thread {
+            try {
+                val shape = RootUtils.foreignRoutingShape(runCatching { RootUtils.detectForeignVpn() }.getOrNull())
+                if (shape != lastForeignShape) {
+                    val first = lastForeignShape == null
+                    lastForeignShape = shape
+                    if (!first) scheduleRootRoutingReapply("another VPN changed which apps it carries")
+                }
+            } finally {
+                foreignShapeRunning = false
+            }
+        }.start()
     }
 
     /**
