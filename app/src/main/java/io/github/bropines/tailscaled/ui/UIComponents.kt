@@ -12,13 +12,24 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitTouchSlopOrCancellation
+import androidx.compose.foundation.gestures.horizontalDrag
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -35,9 +46,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -59,8 +72,22 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.math.abs
 
 // --- PEERS ---
+
+/** How far the finger has to travel before the details sheet turns to the next peer. In dp:
+ *  in raw pixels the same flick would turn the page on one device and not on another. */
+private val PEER_SWIPE_THRESHOLD = 100.dp
+/** A flick faster than this turns the page whatever distance it covered. */
+private val PEER_SWIPE_FLING_VELOCITY = 400.dp
+/** How much more horizontal than vertical the finger has to be before the page-turn claims
+ *  the gesture. A diagonal drag is left to the sheet's own drag-to-dismiss. */
+private const val PEER_SWIPE_DIRECTION_RATIO = 2f
+/** How much of the drag survives when there is no peer in that direction. */
+private const val PEER_SWIPE_RESISTANCE = 0.25f
+private const val PEER_SWIPE_OUT_MS = 200
+private const val PEER_SWIPE_IN_MS = 260
 
 @Serializable
 private data class PingResult(
@@ -87,6 +114,105 @@ fun getOsVisuals(os: String?): Pair<ImageVector, Color> {
         else -> Color(0xFF9E9E9E)
     }
     return icon to color
+}
+
+/** The two exit-node states the status API reports for a peer. */
+private enum class ExitNodeState { NONE, OFFERED, SELECTED }
+
+private fun PeerData.exitNodeState(): ExitNodeState = when {
+    // ExitNode wins over ExitNodeOption: the selected node has both flags set,
+    // ipnlocal/local.go sets ExitNode only for the one whose StableID matches the pref.
+    exitNode == true -> ExitNodeState.SELECTED
+    exitNodeOption == true -> ExitNodeState.OFFERED
+    else -> ExitNodeState.NONE
+}
+
+/**
+ * The exit-node marker of a peer.
+ *
+ * SELECTED is the peer this device has *chosen* as its exit node — ipnstate.go documents
+ * ExitNode as "the currently selected exit node", a daemon pref, not proof that traffic is
+ * flowing through it: with another VPN holding the device the home screen says
+ * main_exit_node_inert_label about this very peer. Hence "selected", not "in use". OFFERED
+ * is a peer merely advertising exit routes, and NONE draws nothing at all, so the marker
+ * takes no width on an ordinary peer.
+ *
+ * [showLabel] is false in the list row, where the words would eat the name column: there the
+ * state is carried by the filled chip against the bare icon (fill and shape, not colour
+ * alone) and the wording lives in the content description. The details sheet has a full row
+ * to itself and spells both states out.
+ *
+ * The labels are passed in rather than resolved here: this also renders inside
+ * PeerDetailsModal, where a stringResource would follow the system locale.
+ */
+@Composable
+fun ExitNodeBadge(
+    peer: PeerData,
+    selectedLabel: String,
+    offeredLabel: String,
+    modifier: Modifier = Modifier,
+    showLabel: Boolean = false
+) {
+    when (peer.exitNodeState()) {
+        ExitNodeState.SELECTED -> Row(
+            modifier = modifier
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.primary)
+                .padding(horizontal = if (showLabel) 8.dp else 5.dp, vertical = 3.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Default.VpnKey,
+                contentDescription = if (showLabel) null else selectedLabel,
+                modifier = Modifier.size(12.dp),
+                tint = MaterialTheme.colorScheme.onPrimary
+            )
+            if (showLabel) {
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    selectedLabel,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
+            }
+        }
+        ExitNodeState.OFFERED -> if (showLabel) {
+            Row(
+                modifier = modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.VpnKey,
+                    contentDescription = null,
+                    modifier = Modifier.size(12.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    offeredLabel,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        } else {
+            Icon(
+                Icons.Default.VpnKey,
+                contentDescription = offeredLabel,
+                modifier = modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+            )
+        }
+        ExitNodeState.NONE -> Unit
+    }
 }
 
 @Composable
@@ -116,21 +242,40 @@ fun PeerItem(peer: PeerData, isSelf: Boolean, onClick: () -> Unit) {
             Column(Modifier.weight(1f)) {
                 val displayName = peer.getDisplayName()
                 val primaryIp = peer.getPrimaryIp()
-                Text(displayName, fontWeight = FontWeight.Bold)
+                Text(displayName, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (displayName != primaryIp) {
-                    Text(primaryIp, fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    // One line each, like the name above them: the tag list of an exit node
+                    // is long enough to wrap and make this row taller than its neighbours.
+                    Text(
+                        primaryIp,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
                 if (!peer.tags.isNullOrEmpty()) {
                     Text(
                         text = peer.tags.joinToString(", "),
                         fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Medium
                     )
                 }
             }
+            // Icon-only here: the label is unweighted, so at a large font scale the words
+            // would win the width contest against the name column and squeeze it to nothing.
+            ExitNodeBadge(
+                peer = peer,
+                selectedLabel = stringResource(R.string.peer_exit_node_selected),
+                offeredLabel = stringResource(R.string.peer_exit_node_offered),
+                modifier = Modifier.padding(start = 8.dp)
+            )
             if (peer.online == true || isSelf) {
-                Box(Modifier.size(10.dp).clip(CircleShape).background(Color(0xFF4CAF50)))
+                Box(Modifier.padding(start = 8.dp).size(10.dp).clip(CircleShape).background(Color(0xFF4CAF50)))
             }
         }
     }
@@ -214,11 +359,63 @@ fun PeerDetailsModal(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var pingResult by remember { mutableStateOf<String?>(null) }
-    var dragAmount by remember { mutableFloatStateOf(0f) }
+    // Keyed on the peer: the sheet deliberately stays composed across a peer change (see
+    // swipeOffset below), so an unkeyed pingResult would show peer A's latency on peer B.
+    var pingResult by remember(peer.id) { mutableStateOf<String?>(null) }
 
     val configuration = LocalConfiguration.current
     val maxHeight = (configuration.screenHeightDp * 0.85f).dp
+
+    // Page-turn state for the horizontal peer swipe. Remembered across the peer change:
+    // the outgoing peer leaves in the drag direction, then the incoming one is snapped to
+    // the far side and slides in from there.
+    val density = LocalDensity.current
+    val swipeThresholdPx = with(density) { PEER_SWIPE_THRESHOLD.toPx() }
+    val flingVelocityPx = with(density) { PEER_SWIPE_FLING_VELOCITY.toPx() }
+    val maxOverscrollPx = with(density) { 56.dp.toPx() }
+    val swipeOffset = remember { Animatable(0f) }
+    // Compose exposes no reduced-motion flag here; the system animator duration scale is
+    // the closest thing, and 0 is how "remove animations" reaches an app. ValueAnimator
+    // keeps that scale in a process-local field, so this is a plain read that also stays
+    // current; only the pre-O fallback pays for a binder call, once.
+    val animateSwipe = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+        android.animation.ValueAnimator.areAnimatorsEnabled()
+    } else {
+        remember {
+            android.provider.Settings.Global.getFloat(
+                context.contentResolver,
+                android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
+                1f
+            ) > 0f
+        }
+    }
+    // The gesture node below is keyed on nothing at all, so the lambda it runs is the one
+    // captured at the first composition: everything it needs from a later one has to reach
+    // it through state that outlives the recomposition.
+    val currentOnPrev by rememberUpdatedState(onPrevPeer)
+    val currentOnNext by rememberUpdatedState(onNextPeer)
+    // A peer change that has been decided but whose exit animation has not reached the swap
+    // yet. The drag and the settle both mutate swipeOffset, and a new mutation cancels the
+    // running one, so a touch inside the turn kills the settle coroutine mid-animateTo —
+    // the turn is finished here instead of being dropped on the floor.
+    var pendingTurn by remember { mutableStateOf<(() -> Unit)?>(null) }
+    // True between the moment a drag is claimed and the moment it settles: a turn that
+    // finishes its exit animation just as a new drag begins must not snap the content
+    // out from under the finger.
+    var swipeDragging by remember { mutableStateOf(false) }
+    fun finishPendingTurn(): Boolean {
+        val turn = pendingTurn ?: return false
+        pendingTurn = null
+        turn()
+        return true
+    }
+    // At the ends of the list the drag rubber-bands and springs back instead of doing
+    // nothing at all, so "there is no next peer" is something you can feel.
+    fun resistedOffset(travelled: Float): Float {
+        val canMove = (travelled > 0f && currentOnPrev != null) || (travelled < 0f && currentOnNext != null)
+        return if (canMove) travelled
+        else (travelled * PEER_SWIPE_RESISTANCE).coerceIn(-maxOverscrollPx, maxOverscrollPx)
+    }
 
     val pingText = when {
         pingResult == null -> stringResource(R.string.peer_ping)
@@ -252,6 +449,8 @@ fun PeerDetailsModal(
     val strPeerSendFile = stringResource(R.string.peer_send_file)
     val strPeerPingSelf = stringResource(R.string.peer_ping_self)
     val strActionCopy = stringResource(R.string.action_copy)
+    val strExitNodeSelected = stringResource(R.string.peer_exit_node_selected)
+    val strExitNodeOffered = stringResource(R.string.peer_exit_node_offered)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState
@@ -261,20 +460,104 @@ fun PeerDetailsModal(
                 .fillMaxWidth()
                 .heightIn(max = maxHeight)
                 .padding(top = 4.dp, bottom = 16.dp)
-                .pointerInput(peer.id) {
-                    detectHorizontalDragGestures(
-                        onDragEnd = {
-                            if (dragAmount > 100f) {
-                                onPrevPeer?.invoke()
-                            } else if (dragAmount < -100f) {
-                                onNextPeer?.invoke()
+                // Keyed on nothing: a peer change, or a refresh that flips whether there is
+                // a peer on either side, must not restart this node — a restart in the middle
+                // of a drag leaves horizontalDrag hanging and the content stuck off-centre.
+                // The callbacks are read through rememberUpdatedState instead.
+                .pointerInput(Unit) {
+                    // The sheet content, not the window: ModalBottomSheet caps its width at
+                    // SheetMaxWidth, so on a tablet the window is much the wider of the two.
+                    fun pageWidth(): Float = size.width.toFloat().takeIf { it > 0f } ?: 1f
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        var overSlop = 0f
+                        // The gesture is claimed only once the finger is clearly moving
+                        // sideways — twice as much horizontally as vertically. A diagonal
+                        // drag is left unconsumed, so the ModalBottomSheet keeps its own
+                        // drag-to-dismiss; the detector keeps asking, so a drag that
+                        // straightens out later is still picked up.
+                        val drag = awaitTouchSlopOrCancellation(down.id) { change, over ->
+                            if (abs(over.x) > abs(over.y) * PEER_SWIPE_DIRECTION_RATIO) {
+                                change.consume()
+                                overSlop = over.x
                             }
-                            dragAmount = 0f
-                        },
-                        onHorizontalDrag = { _, dragAmountDelta ->
-                            dragAmount += dragAmountDelta
                         }
-                    )
+                        if (drag != null) {
+                            // Landing on a turn that is still flying completes it right away
+                            // — this drag is about to cancel its animation anyway — and the
+                            // peer it was heading for starts centred under the finger.
+                            swipeDragging = true
+                            val resumed = finishPendingTurn()
+                            // Otherwise seeded from where the content actually is: the sheet
+                            // may be mid spring-back or mid slide-in when the finger lands.
+                            var travelled = (if (resumed) 0f else swipeOffset.value) + overSlop
+                            val tracker = VelocityTracker()
+                            tracker.addPosition(drag.uptimeMillis, drag.position)
+                            scope.launch { swipeOffset.snapTo(resistedOffset(travelled)) }
+                            val finished = horizontalDrag(drag.id) { change ->
+                                travelled += change.positionChange().x
+                                tracker.addPosition(change.uptimeMillis, change.position)
+                                change.consume()
+                                scope.launch { swipeOffset.snapTo(resistedOffset(travelled)) }
+                            }
+                            swipeDragging = false
+                            // Distance or velocity: a fast flick that never covers the
+                            // threshold is the natural way to page through a list, and a
+                            // slow deliberate crawl past it is the other one.
+                            val velocity = tracker.calculateVelocity().x
+                            val direction = when {
+                                abs(velocity) > flingVelocityPx -> if (velocity > 0f) 1 else -1
+                                travelled > swipeThresholdPx -> 1
+                                travelled < -swipeThresholdPx -> -1
+                                else -> 0
+                            }
+                            val turn = when {
+                                !finished -> null
+                                direction > 0 -> currentOnPrev
+                                direction < 0 -> currentOnNext
+                                else -> null
+                            }
+                            val exitTo = if (direction > 0) pageWidth() else -pageWidth()
+                            // Settled from the composition scope, not this one: mutating the
+                            // Animatable from here would make this gesture the mutator, and
+                            // the settle would then cancel the gesture loop itself.
+                            scope.launch {
+                                if (turn != null) {
+                                    pendingTurn = turn
+                                    if (animateSwipe) {
+                                        swipeOffset.animateTo(exitTo, tween(PEER_SWIPE_OUT_MS, easing = FastOutLinearInEasing))
+                                    }
+                                    finishPendingTurn()
+                                    // Unless a new drag already took the offset over.
+                                    if (!swipeDragging) {
+                                        swipeOffset.snapTo(-exitTo)
+                                        if (animateSwipe) {
+                                            swipeOffset.animateTo(0f, tween(PEER_SWIPE_IN_MS, easing = LinearOutSlowInEasing))
+                                        } else {
+                                            swipeOffset.snapTo(0f)
+                                        }
+                                    }
+                                } else if (animateSwipe) {
+                                    swipeOffset.animateTo(
+                                        0f,
+                                        spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMedium)
+                                    )
+                                } else {
+                                    swipeOffset.snapTo(0f)
+                                }
+                            }
+                        }
+                    }
+                }
+                // After the gesture node, so the content moving under the finger cannot
+                // feed back into the drag deltas.
+                .graphicsLayer {
+                    translationX = swipeOffset.value
+                    val halfPage = size.width * 0.5f
+                    val progress = if (halfPage > 0f) (abs(swipeOffset.value) / halfPage).coerceIn(0f, 1f) else 0f
+                    alpha = 1f - 0.45f * progress
+                    scaleX = 1f - 0.05f * progress
+                    scaleY = scaleX
                 }
         ) {
             Row(
@@ -315,6 +598,16 @@ fun PeerDetailsModal(
                         Spacer(Modifier.width(8.dp))
                         Box(Modifier.size(8.dp).clip(CircleShape).background(statusColor))
                     }
+                    // Under the chip rather than inside it: here there is room for the words,
+                    // and "selected as exit node" vs "available as exit node" is a difference
+                    // no one should have to read out of two shades of the same icon.
+                    ExitNodeBadge(
+                        peer = peer,
+                        selectedLabel = strExitNodeSelected,
+                        offeredLabel = strExitNodeOffered,
+                        modifier = Modifier.padding(top = 6.dp),
+                        showLabel = true
+                    )
                 }
                 
                 if (onNextPeer != null) {

@@ -166,15 +166,25 @@ fun PeersScreen(onBack: () -> Unit) {
 
         selectedPeer?.let { p ->
             val allSelectablePeers = listOfNotNull(selfPeer) + filteredPeers
-            val currentIndex = allSelectablePeers.indexOf(p)
+            // By node id, not by the object: PeerData is a data class whose equality covers
+            // the traffic counters and the last-seen stamps, so every refresh replaces the
+            // selected peer with an equal-looking but unequal instance. indexOf would then
+            // return -1, the left arrow would vanish and a swipe right would jump to the top
+            // of the list. The same reason self is compared by id below.
+            val currentIndex =
+                if (p.id != null) allSelectablePeers.indexOfFirst { it.id == p.id }
+                else allSelectablePeers.indexOf(p)
             val prevPeer = if (currentIndex > 0) allSelectablePeers[currentIndex - 1] else null
-            val nextPeer = if (currentIndex < allSelectablePeers.size - 1) allSelectablePeers[currentIndex + 1] else null
+            val nextPeer = if (currentIndex in 0 until allSelectablePeers.size - 1) allSelectablePeers[currentIndex + 1] else null
+            // The refreshed instance, so the sheet stops rendering the snapshot it was
+            // opened on.
+            val shownPeer = allSelectablePeers.getOrNull(currentIndex) ?: p
 
             PeerDetailsModal(
-                peer = p,
-                isSelf = p === selfPeer,
+                peer = shownPeer,
+                isSelf = shownPeer.id?.let { it == selfPeer?.id } ?: (shownPeer === selfPeer),
                 onDismiss = { selectedPeer = null },
-                onSendFileClick = { peerForFileDrop = p; filePickerLauncher.launch("*/*") },
+                onSendFileClick = { peerForFileDrop = shownPeer; filePickerLauncher.launch("*/*") },
                 onPrevPeer = if (prevPeer != null) { { selectedPeer = prevPeer } } else null,
                 onNextPeer = if (nextPeer != null) { { selectedPeer = nextPeer } } else null
             )
