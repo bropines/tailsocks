@@ -1,39 +1,16 @@
-# Handoff: TailSocks 4.0 — native TUN (tailscaled owns the VpnService fd)
+# Native TUN — the design for 4.1 (tailscaled owns the VpnService fd)
 
-This document is written for whoever picks up the work next — a person or an
-AI coding agent starting with an empty context. Everything needed to begin is
-either in this file or reachable from it. Read it top to bottom before touching
-code.
+**Status: not implemented.** Nothing described here is in the app. TUN mode
+still runs on hev-socks5-tunnel: it owns the VpnService tunnel and pushes every
+packet into the daemon's SOCKS5 port. This document is the design that replaces
+that, planned for 4.1 — it records what was decided, why the alternatives were
+rejected, and in what order the work can land while keeping the app shippable
+after every step.
 
-## 0. Ground rules (non-negotiable)
-
-- **Never `git push`.** Commit locally as much as you like; the author publishes
-  himself. Do not rebase or rewrite history.
-- **Every Go change needs `appctr/build.sh` before an APK is meaningful.**
-  Gradle only packages the prebuilt `appctr/tmp/appctr.aar` and the daemon
-  binaries in `app/src/main/jniLibs/`; `verifyGoBridgeFresh` fails a release
-  build when the AAR is older than any `appctr/*.go` or patch. Build command:
-  ```bash
-  cd appctr && ANDROID_HOME=$HOME/android-sdk ANDROID_NDK_HOME=$HOME/android-sdk/ndk/28.2.13676358 \
-    GOTOOLCHAIN=auto PATH="$PATH:$HOME/go/bin" ./build.sh
-  ```
-- **Daemon changes are patches, not edits.** `appctr/tailscale_src/` is upstream
-  Tailscale v1.102.1 plus `appctr/patches/*.patch`. Edit the file under
-  `tailscale_src/`, then regenerate the patch from a pristine copy of the same
-  upstream file (`patches/recreate_patches.sh` shows the diff targets; add new
-  ones there). A patch must apply to pristine sources with
-  `patch -p1 --batch --forward -F0`. New Go files carry `//go:build android`.
-- **Release builds** need `KEYSTORE_FILE`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`,
-  `KEY_PASSWORD`; the build refuses the debug key. For local testing
-  `assembleDebug` is enough.
-- **Proxy mode and Root mode must stay byte-for-byte unchanged.** Engine
-  behaviour is keyed on the `--tun=` name, never on `GOOS`.
-- Keep the app shippable after every step below; steps 1–2 are "dark" (code
-  present, nothing selects it).
-- Test devices and how to drive them: see `docs/ROOT.md`, `docs/BUILDING.md`;
-  the author provides devices over `adb connect`. UI components are not
-  exported in release builds — drive the UI with `uiautomator dump` +
-  `input tap`, or use a root shell on a rooted device / WSA.
+Two constraints hold throughout, and neither is negotiable: **Proxy mode and
+Root mode stay byte-for-byte unchanged** — engine behaviour is keyed on the
+`--tun=` name, never on `GOOS` — and steps 1-2 are "dark": the code is present
+and nothing selects it.
 
 ## 1. Goal
 
@@ -125,7 +102,7 @@ clients).
 
 | # | Step | Where | Done when |
 |---|------|-------|-----------|
-| 0 | Patch hygiene | `appctr/patches/07-…` (drop the stray `drive_test.go.orig` hunk), `recreate_patches.sh` (diff targets for `android_vpn.go`, `multitun_android.go`; decide: extend 08 or add patch 16 for the `tailscaled.go` hunks) | `build.sh` from a clean `orig/` reproduces all patches; `-F0` apply clean |
+| 0 | Patch hygiene | `recreate_patches.sh`: add diff targets for `android_vpn.go` and `multitun_android.go`, then decide whether the `tailscaled.go` hunks extend `08` or get a patch of their own. **Numbers up to `16-android-somark` are taken** (it ships in 4.0 and sets the root daemon's `SO_MARK 0x2000000`), so the next free one is `17`. The stray `drive_test.go.orig` hunk is already gone — `recreate_patches.sh` deletes leftover `*.orig`/`*.rej` and diffs with `-x`, so there is nothing to clean up here. | `build.sh` from a clean `orig/` reproduces all patches; `-F0` apply clean |
 | 1 | Daemon `android-vpn` mode (dark) | `cmd/tailscaled/android_vpn.go`, `multitun_android.go`, hunks in `tailscaled.go` | `go build`/`go vet` for `GOOS=android`; daemon launched by hand from a root adb shell with `--tun=android-vpn` and a socketpair test harness accepts a tun fd created by a test VpnService and passes traffic; existing `userspace-networking` and `tailscale0` runs unchanged |
 | 2 | Bridge: TunMode spawn path, fd channel, VpnController (dark) | `appctr/daemon.go`, `appctr/appctr.go`, new `appctr/vpn.go` | unit-level: config→Builder-input translation covered by Go tests (masking, loopback skip, CIDR subtraction); gomobile exports compile; nothing selects the mode yet |
 | 3 | Kotlin native `TunVpnService` behind hidden `tun_engine_native` | `core/TunVpnService.kt`, `core/TailscaledService.kt` (`startTunMode`/`stopTunMode`), `core/GlobalSettings.kt` | opt-in beta works on the author's devices: MagicDNS, split DNS (bropines.ru → peer resolver), exit node on/off, network change, revoke, Always-on; hev still default |
@@ -178,4 +155,4 @@ MagicDNS names, split-DNS domains served by tailnet peers, exit node with and
 without LAN access, subnet routes, Taildrive via 100.100.100.100:8080, network
 switch Wi-Fi ↔ cellular, VPN revoke and re-grant — all without hev in the APK,
 with Proxy and Root modes behaving exactly as before, and `CHANGELOG.md`
-describing the change under 4.0.0.
+describing the change under 4.1.0.

@@ -139,8 +139,16 @@ the whole reason this tier is yielded when someone else owns the slot (section
     The log is scanned backwards to that run start, however long the daemon
     has been running, and the probe line counts only if a run start lies below
     it — so neither an earlier run's line nor a daemon restarted by hand can
-    borrow a verdict; a log with no run start at all is treated as unverified
-    and gets no priority 200. In every negative case the ROOT log says
+    borrow a verdict. A log that is merely *silent* — no run start at all, or a
+    run start with no probe line under it — is not a "no": the log rotates, and
+    a daemon that has been up for days has long since scrolled its start away,
+    which on a real device withheld the exit node for a reason that had nothing
+    to do with routing. In that case TailSocks asks the running process instead,
+    and accepts it when `/proc/<pid>/exe` resolves into the app's own
+    `nativeLibraryDir` — the binary we ship marks its sockets unconditionally.
+    An explicit negative logged *by the daemon* is left standing and is never
+    overridden this way, and when neither witness can be had, priority 200 stays
+    out. In every negative case the ROOT log says
     `exit node unavailable: daemon does not mark sockets (<reason>)` and nothing
     is installed at priority 200; tailnet routing through table 53 is
     unaffected. Lines tagged `TailSocks:` are the app's and the boot script's own
@@ -296,6 +304,13 @@ populated, DNS chain present when it should be) instead of trusting the shell's
 exit code, and after three failed attempts it gives up and says so in the log.
 
 ### 5. Living next to another VPN client
+
+Every number in this section was read off a device, not inferred. The raw
+capture — netd's own rules, uids, netIds, interfaces and DNS servers, with the
+commands that produced them — is
+[`docs/research/foreign-vpn-measurements.md`](research/foreign-vpn-measurements.md);
+the design decisions taken from it, and the open items still on the roadmap, are
+in `docs/research/root-exit-node-design.json`.
 
 Android hands its VPN slot to one app at a time, and it does not arbitrate what
 a rooted device does below that. `ip rule` is evaluated in ascending priority,

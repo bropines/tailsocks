@@ -49,10 +49,10 @@ Optionally, TailSocks supports a **transparent TUN VPN mode** powered by the nat
 |---------|-------------|
 | **Native LocalAPI** | 100% CLI-less daemon management via Unix socket (`tailscaled.sock`) using LocalAPI v0. No shell commands. |
 | **SOCKS5 Proxy** | Built-in local SOCKS5 proxy server with optional authentication for per-app routing. |
-| **LAN Access** | One switch (Settings → Network → LAN Access) binds the SOCKS5 proxy, HTTP proxy and local DNS to `0.0.0.0` so other devices on your Wi-Fi can route through your tailnet. The app shows the address to connect to and warns when the SOCKS5 proxy has no password — without one, anyone on the LAN can use it. |
-| **Root Mode (experimental)** | On rooted devices the daemon runs as root with a real `tailscale0` kernel interface, policy routing in table `53` via dedicated `TAILSOCKS_MARK`/`TAILSOCKS_DNS` iptables chains, optional system-wide DNS redirect, a *Check Routing* diagnostics button and a ROOT log tab. See the [Root guide](docs/ROOT.md). |
+| **LAN Access** | One switch (Settings → Local proxies → **Expose proxies to local network**) binds the SOCKS5 proxy, HTTP proxy and local DNS to `0.0.0.0` so other devices on your Wi-Fi can route through your tailnet. The app shows the address to connect to and warns when the SOCKS5 proxy has no password — without one, anyone on the LAN can use it. |
+| **Root Mode (experimental)** | On rooted devices the daemon runs as root with a real `tailscale0` kernel interface, policy routing in table `53` via dedicated `TAILSOCKS_MARK`/`TAILSOCKS_DNS` iptables chains, per-app exclusions, an optional system-wide DNS redirect that is armed only while MagicDNS answers, a *Check Routing* diagnostics button and a ROOT log tab. When another VPN app holds Android's VPN slot, Root Mode steps aside — keeping the tailnet reachable while leaving that client its apps and its resolver — or carries only the apps that client bypasses; an override takes the device anyway. After a reboot the boot script installs tailnet reachability alone: the exit node and device-wide MagicDNS arrive when the app next runs. See the [Root guide](docs/ROOT.md). |
 | **Control Plane Proxy** | Route coordination server traffic through a custom SOCKS5/HTTP proxy for restricted regions. |
-| **TUN VPN Mode** | Transparent system-wide VPN via native `hev-socks5-tunnel` — full tunnel & split tunnel, per-app exclusions, custom gateway IP. |
+| **TUN VPN Mode** | Transparent system-wide VPN via native `hev-socks5-tunnel` — full tunnel & split tunnel, per-app exclusions, custom gateway IP. Tailnet IPv6 always rides the tunnel; routing the public IPv6 internet through it is opt-in, since an exit node that cannot carry v6 leaves those sites hanging. Enabling TUN asks first, because Android gives the VPN slot to one app at a time. |
 | **[Exit Nodes](https://tailscale.com/kb/1103/exit-nodes) ©** | Route all internet traffic through any authorized Tailscale peer with auto-healing and LAN access. |
 | **[MagicDNS](https://tailscale.com/kb/1081/magicdns) ©** | In-memory peer resolution (0ms), Split DNS over SOCKS5 TCP, smart upstream fallback with DoH support. |
 | **NAT Traversal** | Real-time `InMagicSock` connectivity monitoring. STUN/DERP diagnostics via native netcheck. |
@@ -87,7 +87,7 @@ Optionally, TailSocks supports a **transparent TUN VPN mode** powered by the nat
 | **Home Screen Widgets** | Jetpack Glance widgets — Service Toggle, Exit Node, Stats Dashboard, Serve status. |
 | **Quick Settings Tile** | System Quick Settings tile with active profile display and account switching. |
 | **Network Diagnostics** | Native netcheck with DERP latency visualization, NAT type detection, and public IP reporting. |
-| **Background Reliability** | Optional auto-reconnect with an attempt limit, a 15-minute watchdog that revives a service killed in the background, and a session-long wake lock (*Force Background Run*). A manual Stop is always final. See [Background behaviour](#-background-behaviour). |
+| **Background Reliability** | Optional auto-reconnect with an attempt limit, a 15-minute watchdog that revives a service killed in the background, and a session-long wake lock (*Keep the connection awake*, which also decides whether the service starts after a reboot). A manual Stop is always final. See [Background behaviour](#-background-behaviour). |
 
 ---
 
@@ -201,7 +201,7 @@ TailSocks is built as a hybrid multi-layer system:
 
 ### Upstream Patches
 
-TailSocks maintains 11 minimal atomic patches in [`appctr/patches/`](appctr/patches/) to inject capabilities not exposed via LocalAPI:
+TailSocks maintains 16 minimal atomic patches in [`appctr/patches/`](appctr/patches/) to inject capabilities not exposed via LocalAPI:
 
 | Patch | Purpose |
 |-------|---------|
@@ -216,6 +216,11 @@ TailSocks maintains 11 minimal atomic patches in [`appctr/patches/`](appctr/patc
 | `09-netstack-loopback` | Loopback routing for self-addressed packets in netstack |
 | `10-taildrive-userspace-dial` | Route remote peer WebDAV via `tsdial.Dialer` |
 | `11-noop-dns-fallback` | DNS fallback env var injection for SERVFAIL prevention |
+| `12-socket-permissions` | `tailscaled` creates its socket world-readable, without an external `chmod` loop |
+| `13-android-osrouter` | Android kernel-TUN router: manage addresses and routes only, leave iptables to the app |
+| `14-dns-forwarder-netstack` | Dial tailnet resolvers through netstack, and rescue a query the exit node refuses |
+| `15-dnscache-static-hosts` | Honour `TS_STATIC_HOSTS` so a control proxy behind a hostname resolves |
+| `16-android-somark` | Mark the root daemon's own sockets so another VPN client cannot swallow them |
 
 ---
 
@@ -279,9 +284,10 @@ KEY_ALIAS=... KEY_PASSWORD=... ./gradlew app:assembleRelease
 | [Project Retrospective](docs/RETROSPECTIVE.md) | Evolution from PoC to the current architecture |
 | [AdGuard Setup](docs/ADGUARD.md) | Coexistence with system-wide ad blockers |
 | [Serve & Funnel Guide](docs/SERVE_FUNNEL_GUIDE.md) | Exposing local ports and virtual services |
-| [Root Integration & Service Guide](docs/ROOT.md) | System-wide root autostart daemon, service.d, and CLI wrapper |
+| [Root Integration & Service Guide](docs/ROOT.md) | System-wide root autostart daemon, the routing and DNS rules it installs, living next to another VPN client, service.d, and the CLI wrapper |
 | [Tasker & Automation Guide](docs/AUTOMATION.md) | Intent automation setup for Tasker, MacroDroid, Automate, and ADB |
 | [Roadmap](docs/ROADMAP.md) | Planned features and short-term goals |
+| [Contributing](CONTRIBUTING.md) | Build, patch and commit rules for your first pull request |
 | [Changelog](CHANGELOG.md) | Full version history |
 
 ## 🌐 Restricted Regions & DPI Bypass
@@ -291,7 +297,7 @@ For users in restricted regions (e.g., where `controlplane.tailscale.com` is blo
 ### 1. Control Plane DPI Bypass (ByeDPI JNI)
 TailSocks bundles a native JNI implementation of [ByeDPI](https://github.com/hufyhang/byedpi) directly inside the app process. This allows bypassing SNI-based deep packet inspection (DPI) without spawning external binary processes.
 * **Security:** ByeDPI binds strictly to a randomized loopback IP (e.g., `127.182.201.43`) and a randomized port in the `127.0.0.0/8` subnet upon every startup. This prevents other applications on the device from discovering or connecting to the proxy via simple port scanning.
-* **Usage:** Enable **DPI Bypass (ByeDPI)** in Settings -> Network Tab -> Control Proxy settings and configure custom ByeDPI flags (default: `-s 1 -d split -r`).
+* **Usage:** Enable **DPI Bypass (ByeDPI)** in Settings → Censorship bypass and configure custom ByeDPI flags (default: `-s 1 -d split -r`).
 
 ---
 
@@ -299,7 +305,7 @@ TailSocks bundles a native JNI implementation of [ByeDPI](https://github.com/huf
 
 TailSocks supports background control via **Android Broadcast Intents**. You can automate connections using Tasker, MacroDroid, Automate, or `adb`.
 
-**A secret token is required.** Set one under **Settings → APP → Tasker & Automation** (there is a *Generate* button) and pass it with every intent as the string extra `secret` (`token` and `key` are accepted too). Since 4.0.0 the receiver ignores every intent until a token is configured, so no other app on the device can stop your VPN or reroute traffic.
+**A secret token is required.** Set one under **Settings → Automation & API** (there is a *Generate* button) and pass it with every intent as the string extra `secret` (`token` and `key` are accepted too). Since 4.0.0 the receiver ignores every intent until a token is configured, so no other app on the device can stop your VPN or reroute traffic.
 
 * **Target Receiver:** `io.github.bropines.tailscaled/.core.TaskerReceiver` (package `io.github.bropines.tailscaled`)
 * **Supported Actions** (each also has a short alias, e.g. `io.github.bropines.tailscaled.START`):
@@ -332,9 +338,9 @@ On Android 16 and newer TailSocks exposes **14 AppFunctions** to on-device assis
 
 ## 🔄 Background behaviour
 
-* **Auto-reconnect** (Settings → APP → System & Backup, off by default) restarts the daemon when the connection does not come up or drops, with a configurable attempt limit. Waiting for you to sign in is not treated as a failure.
+* **Auto-reconnect** (Settings → Background & permissions, off by default) restarts the daemon when the connection does not come up or drops, with a configurable attempt limit. Waiting for you to sign in is not treated as a failure.
 * **Revive service in background** (same place, on by default) checks every 15 minutes that the service is still alive and starts it again after a background kill. Allowing "Alarms & reminders" (offered when you turn the switch on) lets the check start the service from the background; without it the check still runs, just later. If your ROM refuses the start anyway, you get a notification that reconnects in one tap, and the app tells you once where the autostart permission is.
-* **Force Background Run** (Settings → TS-Core → Flags & Logs, off by default) holds a wake lock for the whole session so the connection survives deep sleep. Costs battery.
+* **Keep the connection awake** (Settings → Background & permissions, off by default) holds a wake lock for the whole session so the connection survives deep sleep, and is also what starts the service again after a reboot. Costs battery. In Root Mode it decides how long the device waits for its exit node and system-wide MagicDNS after a restart: with it off, they arrive only when you next open the app.
 * **A manual Stop is final.** Stopping from the app, notification, Quick Settings tile, a `DISCONNECT` intent or the `disconnect` AppFunction clears the desired state first; neither the watchdog, auto-reconnect nor Android's sticky restart bring the service back until you start it again.
 * **Swiping the app away keeps the connection.** Removing the task from Recents does not stop the service.
 

@@ -1,30 +1,19 @@
 # TailSocks — instructions for Claude Code sessions
 
-This file is loaded automatically at the start of every Claude Code session in
-this repository. It is deliberately short; the substance lives in the files it
-points to.
+Loaded automatically at the start of every session in this repository. It is a
+pointer, nothing more; the substance lives in the files it names.
 
-1. Read [`agents.md`](agents.md) first — architecture mandate, networking and
-   root-mode rules, build pipeline, UI standards, and the **working
-   agreements** (no `git push` without the author's explicit «пушь»; run
-   `appctr/build.sh` after any Go change before building an APK; daemon changes
-   are patches regenerated from pristine upstream files).
-2. Unreleased work is described at the top of [`CHANGELOG.md`](CHANGELOG.md)
-   (section `[4.0.0] - Unreleased`). Extend it in the same style when you change
-   behaviour.
-3. Open handoffs — self-contained briefs meant to be picked up by a fresh
-   session or another model — live in `docs/HANDOFF_*.md`. Current:
-   [`docs/HANDOFF_4.0_NATIVE_TUN.md`](docs/HANDOFF_4.0_NATIVE_TUN.md) (the
-   4.0 TUN rebuild, one large effort) and
-   [`docs/HANDOFF_BACKLOG.md`](docs/HANDOFF_BACKLOG.md) (what is left of the
-   backlog: Root Mode device verification, and the optional CLI binary, which
-   needs the author's decision first). Update or delete a handoff when you
-   finish or abandon it.
-4. Build: `docs/BUILDING.md`. Release builds need `KEYSTORE_FILE`,
-   `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD` (keystore `tailsocks.jks`
-   at the repo root); the build refuses the debug key and refuses a stale
-   `appctr/tmp/appctr.aar`.
-5. Devices arrive over `adb connect` from the author (Russian-speaking; answer
-   in Russian). Non-exported components cannot be started from `adb shell` on
-   release builds — drive the UI with `uiautomator dump` + `input tap`, or use a
-   root shell on a rooted device / WSA. Never `adb uninstall` without asking.
+1. **Read [`agents.md`](agents.md) first.** It is the project mandate:
+   architecture, networking and Root Mode rules, the build and patch pipeline,
+   UI standards, and the working agreements — including *never* `git push`
+   without the author's explicit «пушь».
+2. Unreleased work is at the top of [`CHANGELOG.md`](CHANGELOG.md). Extend that
+   section in its own style whenever you change behaviour.
+3. Plans and leftovers: [`docs/ROADMAP.md`](docs/ROADMAP.md). The one large
+   effort ahead is [`docs/NATIVE_TUN_PLAN.md`](docs/NATIVE_TUN_PLAN.md) — TUN
+   rebuilt around a tailscaled-owned `VpnService` fd, targeted at 4.1. It is a
+   plan; shipped TUN mode still runs on `hev-socks5-tunnel`.
+4. Building: [`docs/BUILDING.md`](docs/BUILDING.md). Run `appctr/build.sh` after
+   any Go or patch change, or the APK will not contain it.
+5. Devices arrive over `adb connect` from the author, who writes in Russian —
+   answer in Russian. Never `adb uninstall` without asking.

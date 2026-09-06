@@ -63,7 +63,7 @@ appctr/libtailscale_cli.so
 tmp/
 appctr/tmp/
 appctr/tailscale_src/tmp/
-.gemini/skills/
+.gemini/
 
 *.txt
 *.Zone.Identifier
@@ -74,3 +74,6 @@ status.json
 
 # Tailscale pristine source copy
 appctr/orig/
+
+# Lock file for an external skill set that is not part of this repo
+skills-lock.json
