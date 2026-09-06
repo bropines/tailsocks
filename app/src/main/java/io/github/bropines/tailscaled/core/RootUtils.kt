@@ -1,6 +1,8 @@
 package io.github.bropines.tailscaled.core
 
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.LocalSocket
 import android.net.LocalSocketAddress
 import android.util.Log
@@ -705,7 +707,7 @@ object RootUtils {
         // process itself before withholding the exit node. An explicit negative
         // from the daemon ("daemon logged: ...") is left alone.
         if (!verdict.marks && !verdict.reason.startsWith("daemon logged")) {
-            daemonMarksByEnviron()?.let { verdict = it }
+            daemonMarksByEnviron(context)?.let { verdict = it }
         }
         val marks = verdict.marks
         if (!marks) {
@@ -737,7 +739,7 @@ object RootUtils {
         // them costs that tunnel nothing — and it is the whole point of sharing
         // a device rather than taking turns on it.
         val selfUid = context?.applicationInfo?.uid?.toLong()
-        val gaps = if (ownDevice) emptyList() else foreignBypassGaps(probe.memberRanges, selfUid)
+        val gaps = if (ownDevice) emptyList() else carryableGaps(probe.memberRanges, selfUid, context)
         val shared = !ownDevice && gaps.isNotEmpty()
         val installCatchAll = marks && (ownDevice || shared)
         val installDns = dnsRedirect && (ownDevice || shared)
@@ -1059,6 +1061,63 @@ object RootUtils {
      * Our own uid is dropped: the other tunnel excludes us so we always show up
      * in a gap, and routing the app's own traffic into our table buys nothing.
      */
+    /**
+     * uids of apps that provide a `VpnService` of their own.
+     *
+     * A VPN client is always outside its own tunnel — it would loop its relay
+     * traffic through itself otherwise — so its uid is always a gap, every time,
+     * whether or not its owner bypassed anything. Carrying it would route the
+     * other client's relay out through our exit node, which nobody asked for,
+     * and would keep [foreignBypassGaps] from ever returning empty, so the full
+     * yield could never be reached. Android knows who these apps are; we ask it.
+     */
+    private fun vpnClientUids(context: Context?): Set<Long> {
+        if (context == null) return emptySet()
+        return runCatching {
+            context.packageManager
+                .queryIntentServices(Intent("android.net.VpnService"), PackageManager.MATCH_ALL)
+                .mapNotNull { it.serviceInfo?.applicationInfo?.uid?.toLong() }
+                .toSet()
+        }.getOrDefault(emptySet())
+    }
+
+    /** Every uid in [range] that has no package at all, or whose package is a VPN client. */
+    private fun uncarryableIn(context: Context?, range: LongRange, vpnUids: Set<Long>): Set<Long> {
+        val pm = context?.packageManager ?: return vpnUids.filter { it in range }.toSet()
+        val out = mutableSetOf<Long>()
+        for (uid in range) {
+            if (uid in vpnUids) { out.add(uid); continue }
+            val packages = runCatching { pm.getPackagesForUid(uid.toInt()) }.getOrNull()
+            // A uid nothing is installed under captures nothing; a clone of a VPN
+            // client carries a different uid but the same package name, which is
+            // how a work-profile or dual-app mirror is caught here.
+            if (packages.isNullOrEmpty()) { out.add(uid); continue }
+            val isVpn = runCatching {
+                pm.queryIntentServices(Intent("android.net.VpnService"), PackageManager.MATCH_ALL)
+                    .any { it.serviceInfo?.packageName in packages }
+            }.getOrDefault(false)
+            if (isVpn) out.add(uid)
+        }
+        return out
+    }
+
+    /** Splits [range] around [holes], dropping the holes themselves. */
+    private fun splitAround(range: LongRange, holes: Collection<Long>): List<LongRange> {
+        val sorted = holes.filter { it in range }.sorted()
+        if (sorted.isEmpty()) return listOf(range)
+        val out = mutableListOf<LongRange>()
+        var start = range.first
+        for (h in sorted) {
+            if (start <= h - 1) out.add(start..(h - 1))
+            start = h + 1
+        }
+        if (start <= range.last) out.add(start..range.last)
+        return out
+    }
+
+    /** Beyond this many uids a gap is kept whole rather than resolved app by app. */
+    private const val GAP_RESOLVE_LIMIT = 64
+
     private fun foreignBypassGaps(ranges: List<LongRange>, selfUid: Long?): List<LongRange> {
         if (ranges.isEmpty()) return emptyList()
         val sorted = ranges.sortedBy { it.first }
@@ -1069,13 +1128,26 @@ object RootUtils {
             if (r.last + 1 > next) next = r.last + 1
         }
         if (next <= MAX_ANDROID_UID) gaps.add(next..MAX_ANDROID_UID)
-        if (selfUid == null) return gaps
-        // Split around our own uid rather than dropping the whole gap it sits in.
-        return gaps.flatMap { g ->
-            if (selfUid !in g) listOf(g) else buildList {
-                if (g.first <= selfUid - 1) add(g.first..(selfUid - 1))
-                if (selfUid + 1 <= g.last) add((selfUid + 1)..g.last)
-            }
+        return gaps
+    }
+
+    /**
+     * The gaps we may actually carry: everything the other tunnel bypassed, minus
+     * ourselves and minus every uid that is a VPN client or nothing at all.
+     *
+     * A small gap is resolved uid by uid, which is the common case — a handful of
+     * apps the user picked. A large one is kept whole and only known VPN uids are
+     * cut out of it, so a client running in "tunnel only these apps" mode cannot
+     * make us walk thousands of uids or install a rule per app.
+     */
+    private fun carryableGaps(ranges: List<LongRange>, selfUid: Long?, context: Context?): List<LongRange> {
+        val raw = foreignBypassGaps(ranges, selfUid)
+        if (raw.isEmpty()) return raw
+        val vpnUids = vpnClientUids(context) + listOfNotNull(selfUid)
+        return raw.flatMap { g ->
+            val span = g.last - g.first + 1
+            val holes = if (span <= GAP_RESOLVE_LIMIT) uncarryableIn(context, g, vpnUids) else vpnUids
+            splitAround(g, holes)
         }
     }
 
@@ -1605,26 +1677,26 @@ object RootUtils {
      * Returns null when nothing can be read, which leaves the log's verdict
      * standing — the gate's failure mode is "no exit node", never a loop.
      */
-    private fun daemonMarksByEnviron(): SoMarkVerdict? {
+    private fun daemonMarksByEnviron(context: Context?): SoMarkVerdict? {
+        val libDir = context?.applicationInfo?.nativeLibraryDir ?: return null
         val script = buildString {
             append("for p in \$(pidof libtailscale.so 2>/dev/null); do\n")
-            append("    [ -r /proc/\$p/environ ] || continue\n")
-            append("    if tr '\\0' '\\n' < /proc/\$p/environ | grep -qx 'TS_VPN_BYPASS=0'; then\n")
-            append("        echo SOMARK_ENV_DISABLED\n")
-            append("    else\n")
-            append("        echo SOMARK_ENV_ENABLED\n")
-            append("    fi\n")
-            append("    break\n")
+            append("    exe=\$(readlink /proc/\$p/exe 2>/dev/null)\n")
+            append("    case \"\$exe\" in ${shQuote(libDir)}*) echo SOMARK_ENV_OURS; break;; esac\n")
             append("done\n")
         }
         val res = runSu("somark-environ", script, timeoutMs = 8_000L)
         if (!res.ok) return null
-        return when {
-            res.output.contains("SOMARK_ENV_ENABLED") ->
-                SoMarkVerdict(true, "the running daemon is ours and socket marking is not disabled")
-            res.output.contains("SOMARK_ENV_DISABLED") ->
-                SoMarkVerdict(false, "the running daemon was started with TS_VPN_BYPASS=0")
-            else -> null
+        // Note what is NOT checked: TS_VPN_BYPASS. Patch 16's socketMark() returns
+        // the bypass bit unconditionally and only adds Android's protect bit when
+        // that setting is on, so a daemon started with TS_VPN_BYPASS=0 still skips
+        // our table — which is the only thing the catch-all's mask asks about.
+        // Reading that variable as "does not mark" withheld the exit node for a
+        // reason that does not exist.
+        return if (res.output.contains("SOMARK_ENV_OURS")) {
+            SoMarkVerdict(true, "the running daemon is the binary we ship, which marks its own sockets")
+        } else {
+            null
         }
     }
 
