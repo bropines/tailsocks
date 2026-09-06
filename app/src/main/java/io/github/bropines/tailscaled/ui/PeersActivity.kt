@@ -76,6 +76,16 @@ fun PeersScreen(onBack: () -> Unit) {
             it.os?.contains(searchQuery, ignoreCase = true) == true
         }
     }
+    // This device, but only while the search leaves it on screen. The row below and the
+    // sheet's page turn both read this one value: built separately they disagreed — the
+    // list dropped self on a search that does not match its name while the sheet still
+    // paged onto it, so a swipe right from the first result landed on a device that was
+    // not in the list behind the sheet.
+    val visibleSelfPeer = remember(selfPeer, searchQuery) {
+        selfPeer?.takeIf {
+            searchQuery.isBlank() || it.getDisplayName().contains(searchQuery, ignoreCase = true)
+        }
+    }
 
     val filePickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri != null && peerForFileDrop != null) { sendFileToPeer(context, uri, peerForFileDrop!!, coroutineScope) }
@@ -154,8 +164,8 @@ fun PeersScreen(onBack: () -> Unit) {
                 }
             } else {
                 LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
-                    if (selfPeer != null && (searchQuery.isBlank() || selfPeer!!.getDisplayName().contains(searchQuery, ignoreCase = true))) {
-                        item { PeerItem(selfPeer!!, true) { selectedPeer = selfPeer } }
+                    if (visibleSelfPeer != null) {
+                        item { PeerItem(visibleSelfPeer, true) { selectedPeer = visibleSelfPeer } }
                     }
                     items(filteredPeers) { p -> 
                         PeerItem(p, false) { selectedPeer = p } 
@@ -165,7 +175,7 @@ fun PeersScreen(onBack: () -> Unit) {
         }
 
         selectedPeer?.let { p ->
-            val allSelectablePeers = listOfNotNull(selfPeer) + filteredPeers
+            val allSelectablePeers = listOfNotNull(visibleSelfPeer) + filteredPeers
             // By node id, not by the object: PeerData is a data class whose equality covers
             // the traffic counters and the last-seen stamps, so every refresh replaces the
             // selected peer with an equal-looking but unequal instance. indexOf would then
@@ -174,19 +184,29 @@ fun PeersScreen(onBack: () -> Unit) {
             val currentIndex =
                 if (p.id != null) allSelectablePeers.indexOfFirst { it.id == p.id }
                 else allSelectablePeers.indexOf(p)
-            val prevPeer = if (currentIndex > 0) allSelectablePeers[currentIndex - 1] else null
-            val nextPeer = if (currentIndex in 0 until allSelectablePeers.size - 1) allSelectablePeers[currentIndex + 1] else null
-            // The refreshed instance, so the sheet stops rendering the snapshot it was
-            // opened on.
-            val shownPeer = allSelectablePeers.getOrNull(currentIndex) ?: p
+            // The list is what the sheet pages through, so the list stays here and the sheet
+            // borrows a window onto it: the peer at 0 (the refreshed instance, so the sheet
+            // stops rendering the snapshot it was opened on), the two it can slide in under
+            // the finger, and the two beyond those, which only decide whether the arriving
+            // page draws an arrow of its own. Handing over the neighbouring PeerData rather
+            // than bare prev/next callbacks is what lets the sheet draw the next peer while
+            // the finger is still down; a callback can only be fired once it is up.
+            val peerAt: (Int) -> PeerPage? = { offset ->
+                // currentIndex is -1 when a refresh or a search has filtered the selected
+                // peer out from under the sheet: then it is the only page there is.
+                val target =
+                    if (currentIndex < 0) p.takeIf { offset == 0 }
+                    else allSelectablePeers.getOrNull(currentIndex + offset)
+                target?.let { peer ->
+                    PeerPage(peer, isSelf = peer.id?.let { it == selfPeer?.id } ?: (peer === selfPeer))
+                }
+            }
 
             PeerDetailsModal(
-                peer = shownPeer,
-                isSelf = shownPeer.id?.let { it == selfPeer?.id } ?: (shownPeer === selfPeer),
+                peerAt = peerAt,
                 onDismiss = { selectedPeer = null },
-                onSendFileClick = { peerForFileDrop = shownPeer; filePickerLauncher.launch("*/*") },
-                onPrevPeer = if (prevPeer != null) { { selectedPeer = prevPeer } } else null,
-                onNextPeer = if (nextPeer != null) { { selectedPeer = nextPeer } } else null
+                onSendFileClick = { peer -> peerForFileDrop = peer; filePickerLauncher.launch("*/*") },
+                onSelectPeer = { peer -> selectedPeer = peer }
             )
         }
     }

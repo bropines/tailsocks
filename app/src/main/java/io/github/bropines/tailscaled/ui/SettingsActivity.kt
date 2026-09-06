@@ -20,12 +20,15 @@ import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -55,6 +58,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
@@ -94,6 +98,19 @@ private val settingsCategories = listOf(
     SettingsCategory("automation", R.string.settings_cat_automation, R.string.settings_cat_automation_desc, Icons.Default.SmartButton),
     SettingsCategory("diagnostics", R.string.settings_cat_diagnostics, R.string.settings_cat_diagnostics_desc, Icons.Default.BugReport)
 )
+
+/**
+ * The crossfade between the category hub and a section: Material 3's own standard
+ * *default effects* spring, by its numbers rather than by its object.
+ * `MaterialTheme.motionScheme` and the `MotionScheme` interface are both *internal*
+ * in material3 1.4.0 — the compiler refuses them to an app — and `transitionSpec` is
+ * not a composable lambda anyway, so this is transcribed from the scheme
+ * MaterialTheme() installs: StandardMotionTokens SpringDefaultEffects, damping 1.0
+ * and stiffness 1600. Replace it with motionScheme.defaultEffectsSpec() the day that
+ * goes public.
+ */
+private val SECTION_FADE_SPEC: FiniteAnimationSpec<Float> =
+    spring(dampingRatio = 1f, stiffness = 1600f)
 
 class SettingsActivity : ComponentActivity() {
     override fun attachBaseContext(newBase: Context) {
@@ -215,6 +232,16 @@ fun generateRandomLoopbackAddress(): String {
 
 data class PresetItem(val id: String, val color: Color, val name: String)
 
+/**
+ * Where a settings list was left. Deliberately not snapshot state: it is read once, when a
+ * list is composed, and written on every scrolled frame — as state it would recompose the
+ * very list that is scrolling. The settings surface is composed more than once at a time
+ * (the open section, the hub the back gesture uncovers underneath it, and for an instant
+ * both hubs as the pop lands), so each instance restores the position from here rather than
+ * sharing one LazyListState between two live LazyColumns.
+ */
+private class ScrollAnchor(var index: Int = 0, var offset: Int = 0)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -238,7 +265,12 @@ fun SettingsScreen(
     // Language row calls recreate() and a plain remember would drop the user
     // back to the hub mid-edit.
     var openSection by rememberSaveable { mutableStateOf<String?>(null) }
-    val openCategory = settingsCategories.firstOrNull { it.id == openSection }
+    // Scroll positions of the two levels, kept outside the surfaces that draw them —
+    // see ScrollAnchor. Without this the hub the finger uncovers during a back gesture is
+    // a fresh LazyColumn at the top, and so is the one the pop lands on: a category low in
+    // the list came back to a screen scrolled somewhere the user had never been.
+    val hubAnchor = remember { ScrollAnchor() }
+    val sectionAnchors = remember { mutableMapOf<String, Int>() }
 
     // Global Settings
     var taildropRootUri by remember { mutableStateOf(GlobalSettings.getTaildropRootUri(context)) }
@@ -2392,24 +2424,30 @@ fun SettingsScreen(
         }
     }
 
-    // Back means "up one level": out of an open section to the hub, and only
-    // from the hub out of the Activity.
-    val goBack: () -> Unit = {
-        if (openSection != null) {
-            openSection = null
-        } else {
-            onBack()
-        }
+    // Back means "up one level": out of an open section to the hub, and only from
+    // the hub out of the Activity. The toolbar arrow keeps the crossfade below;
+    // the gesture draws its own transition and sets [poppedByGesture] so the
+    // crossfade stands down instead of replaying a pop the finger already showed.
+    var poppedByGesture by remember { mutableStateOf(false) }
+    val popSection: () -> Unit = { openSection = null }
+    val popSectionByGesture: () -> Unit = {
+        poppedByGesture = true
+        openSection = null
     }
+    // Armed for exactly one transition. The reset runs after the composition that
+    // consumed it, and transitionSpec is only consulted when the target changes,
+    // so it cannot cancel the transition it just configured.
+    LaunchedEffect(openSection) { poppedByGesture = false }
 
-    // No custom back animation here. Inside a section back is a plain handler, so
-    // the list comes back instantly; on the list itself nothing is intercepted,
-    // which leaves the gesture to the system and its real cross-activity
-    // animation. The hand-rolled one looked crude next to it.
-    BackHandler(enabled = openSection != null) { openSection = null }
-
-    run {
+    // One whole rendering of the screen at a given level: the category hub when
+    // [section] is null, that category's page otherwise. It takes the level as a
+    // parameter instead of reading `openSection` because the back gesture needs
+    // two levels on screen at once — the section being dragged away, and the hub
+    // coming back underneath it.
+    val settingsSurface: @Composable (String?) -> Unit = { section ->
+        val openCategory = settingsCategories.firstOrNull { it.id == section }
         Scaffold(
+            modifier = Modifier.fillMaxSize(),
             topBar = {
                 TopAppBar(
                     title = {
@@ -2419,57 +2457,121 @@ fun SettingsScreen(
                             fontWeight = FontWeight.Bold
                         )
                     },
-                    navigationIcon = { IconButton(onClick = goBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back)) } }
+                    navigationIcon = {
+                        IconButton(onClick = { if (section != null) popSection() else onBack() }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back))
+                        }
+                    }
                 )
             }
         ) { padding ->
-            AnimatedContent(
-                targetState = openSection,
-                transitionSpec = { fadeIn() togetherWith fadeOut() },
-                label = "settings_section",
-                modifier = Modifier
-                    .padding(padding)
-                    .fillMaxSize()
-            ) { section ->
-                if (section == null) {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp)
-                    ) {
-                        items(settingsCategories, key = { it.id }) { category ->
-                            SettingsClickableItem(
-                                title = stringResource(category.titleRes),
-                                subtitle = stringResource(category.descRes),
-                                icon = category.icon,
-                                onClick = { openSection = category.id }
-                            )
+            if (section == null) {
+                val hubState = rememberLazyListState(hubAnchor.index, hubAnchor.offset)
+                // Every hub instance starts where the last one was left and writes back
+                // where it is now, so the copy under the finger, the copy on top of it and
+                // the copy that lands are all at the same place in the list.
+                LaunchedEffect(hubState) {
+                    snapshotFlow { hubState.firstVisibleItemIndex to hubState.firstVisibleItemScrollOffset }
+                        .collect { (index, offset) ->
+                            hubAnchor.index = index
+                            hubAnchor.offset = offset
                         }
-                        item { Spacer(Modifier.height(32.dp)) }
+                }
+                LazyColumn(
+                    state = hubState,
+                    modifier = Modifier
+                        .padding(padding)
+                        .fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp)
+                ) {
+                    items(settingsCategories, key = { it.id }) { category ->
+                        SettingsClickableItem(
+                            title = stringResource(category.titleRes),
+                            subtitle = stringResource(category.descRes),
+                            icon = category.icon,
+                            onClick = { openSection = category.id }
+                        )
                     }
-                } else {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState())
-                            .padding(16.dp)
-                    ) {
-                        when (section) {
-                            "account" -> sectionAccount()
-                            "tunnel" -> sectionTunnel()
-                            "proxies" -> sectionProxies()
-                            "dns" -> sectionDns()
-                            "bypass" -> sectionBypass()
-                            "sharing" -> sectionSharing()
-                            "background" -> sectionBackground()
-                            "appearance" -> sectionAppearance()
-                            "backup" -> sectionBackup()
-                            "automation" -> sectionAutomation()
-                            "diagnostics" -> sectionDiagnostics()
-                        }
-                        Spacer(Modifier.height(32.dp))
+                    item { Spacer(Modifier.height(32.dp)) }
+                }
+            } else {
+                // Hoisted for the same reason as the hub's: the back container swaps its own
+                // structure the moment a pop lands, and a section that jumps back to the top
+                // while it is still fading out is worse than the pop it is showing.
+                val sectionScroll = rememberScrollState(sectionAnchors[section] ?: 0)
+                LaunchedEffect(sectionScroll, section) {
+                    snapshotFlow { sectionScroll.value }.collect { sectionAnchors[section] = it }
+                }
+                Column(
+                    modifier = Modifier
+                        .padding(padding)
+                        .fillMaxSize()
+                        .verticalScroll(sectionScroll)
+                        .padding(16.dp)
+                ) {
+                    when (section) {
+                        "account" -> sectionAccount()
+                        "tunnel" -> sectionTunnel()
+                        "proxies" -> sectionProxies()
+                        "dns" -> sectionDns()
+                        "bypass" -> sectionBypass()
+                        "sharing" -> sectionSharing()
+                        "background" -> sectionBackground()
+                        "appearance" -> sectionAppearance()
+                        "backup" -> sectionBackup()
+                        "automation" -> sectionAutomation()
+                        "diagnostics" -> sectionDiagnostics()
                     }
+                    Spacer(Modifier.height(32.dp))
                 }
             }
+        }
+    }
+
+    // The crossfade sits outside the back container, so that opening a section
+    // still fades and each level keeps its own container: the one drawn for a
+    // section installs the gesture, the one drawn for the hub does not.
+    AnimatedContent(
+        targetState = openSection,
+        transitionSpec = {
+            if (poppedByGesture) {
+                // The finger already played this one: the section shrank away and
+                // the hub came back up underneath it. Fading them into each other
+                // on top of that would show the section again, full size.
+                EnterTransition.None togetherWith ExitTransition.None
+            } else {
+                fadeIn(SECTION_FADE_SPEC) togetherWith fadeOut(SECTION_FADE_SPEC)
+            }
+        },
+        label = "settings_section",
+        // The two levels overlap while they crossfade, and half-transparent over
+        // half-transparent would let the window background show through between
+        // them; this is the ground they fade over.
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) { section ->
+        PredictiveBackContainer(
+            // Only the section pop is ours to draw. On the hub back leaves the
+            // Activity, so nothing is intercepted there and the platform keeps the
+            // gesture and its real cross-activity animation.
+            // openSection as well as this slot's own section: AnimatedContent keeps the
+            // outgoing slot alive for the whole exit fade, and that slot was invoked with a
+            // section, so a handler keyed on it alone stayed armed on a screen that is
+            // already leaving — a back gesture in that window was swallowed instead of
+            // closing the Activity, and it re-ran the pop with nothing left to pop, which
+            // latched poppedByGesture and cost the next section its fade.
+            onBack = if (section != null && openSection != null) popSectionByGesture else null,
+            modifier = Modifier.fillMaxSize(),
+            // What the finger uncovers is the real hub, not a hint of it — for the eye
+            // only: it is a second live copy of every category row, and a screen reader
+            // reaches the hub through the one that lands.
+            previousContent = {
+                Box(Modifier.fillMaxSize().clearAndSetSemantics { }) { settingsSurface(null) }
+            }
+        ) {
+            settingsSurface(section)
+        }
     }
 
     if (showProxyDialog) {
@@ -2590,6 +2692,5 @@ fun SettingsScreen(
                 }) { Text(strActionCancel) }
             }
         )
-    }
     }
 }

@@ -461,7 +461,9 @@
     <string name="main_dev_patch">Разработчик патчей: Bropines</string>
     <string name="main_dev_anet_patch">Anet Патч: Asutorufa</string>
     <string name="main_dev_core">Разработчик ядра: Tailscale</string>
+    <string name="main_about_credits">Авторы</string>
     <string name="main_check_updates">Проверить обновления</string>
+    <string name="main_update_checking">Проверка…</string>
     <string name="main_update_download">Скачать и установить обновление</string>
     <string name="main_update_install_cached">Установить обновление</string>
     <string name="main_update_downloading">Загрузка обновления… %d%%</string>

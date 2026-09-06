@@ -461,7 +461,9 @@
     <string name="main_dev_patch">Patch Developer: Bropines</string>
     <string name="main_dev_anet_patch">Anet Patch: Asutorufa</string>
     <string name="main_dev_core">Core Developer: Tailscale</string>
+    <string name="main_about_credits">Credits</string>
     <string name="main_check_updates">Check for App Updates</string>
+    <string name="main_update_checking">Checking…</string>
     <string name="main_update_download">Download &amp; Install Update</string>
     <string name="main_update_install_cached">Install Update</string>
     <string name="main_update_downloading">Downloading update… %d%%</string>

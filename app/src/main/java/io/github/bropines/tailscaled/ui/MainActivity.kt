@@ -1519,267 +1519,358 @@ fun MainScreen(
         var isDownloading by remember { mutableStateOf(false) }
         var downloadProgress by remember { mutableIntStateOf(0) }
 
-        // Strings come from the parent context, not stringResource() — see wrapContextWithLocale().
+        // The one question the dialog answers first: is an update waiting?
+        val updateReady = latestVersion?.let { isVersionNewer(versionName, it) } == true
+
+        // Dialog strings are resolved out here, in the parent composition — see wrapContextWithLocale().
+        val dlgTitle = stringResource(R.string.main_about_title)
+        val dlgAppName = stringResource(R.string.app_name)
+        val dlgAppVersion = stringResource(R.string.main_app_version, versionName)
+        val dlgCoreVersion = stringResource(R.string.main_core_version, coreVer)
+        val dlgUpToDate = stringResource(R.string.main_update_up_to_date)
+        val dlgChecking = stringResource(R.string.main_update_checking)
+        val dlgCheckUpdates = stringResource(R.string.main_check_updates)
+        val dlgUpdateDownload = stringResource(R.string.main_update_download)
+        val dlgUpdateInstall = stringResource(R.string.main_update_install_cached)
+        val dlgWhatsNew = stringResource(R.string.main_about_whats_new)
+        val dlgGithub = stringResource(R.string.action_github)
+        val dlgCreditsHeader = stringResource(R.string.main_about_credits)
+        val dlgLicense = stringResource(R.string.main_license_text).trim()
+        val dlgClose = stringResource(R.string.action_close)
+        // Every person this build stands on, each next to where their work lives.
+        val credits = listOf(
+            Triple(stringResource(R.string.main_dev_app), "https://github.com/bropines", Icons.Default.Person),
+            Triple(stringResource(R.string.main_dev_patch), "https://github.com/bropines/tailsocks", Icons.Default.Build),
+            Triple(stringResource(R.string.main_dev_anet_patch), "https://github.com/Asutorufa/tailscale", Icons.Default.Extension),
+            Triple(stringResource(R.string.main_dev_core), "https://github.com/tailscale/tailscale", Icons.Default.Hub)
+        )
+        val openLink: (String) -> Unit = { url ->
+            try {
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+            } catch (e: Exception) {
+                android.util.Log.w("MainActivity", "No handler for $url", e)
+            }
+        }
+
         AlertDialog(
             onDismissRequest = { showAboutDialog = false },
-            title = { 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.width(12.dp))
-                    Text(context.getString(R.string.main_about_title))
-                }
-            },
-            text = { 
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            icon = { Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.primary) },
+            title = { Text(dlgTitle) },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // Identity and update state — one block, read before anything else.
+                    // A step above the dialog itself: AlertDialogDefaults.containerColor is
+                    // surfaceContainerHigh, so a card of that colour is the dialog's own
+                    // ground and nothing is drawn at all. The credits below sit a step under
+                    // it, so the block that carries the versions and the update button is
+                    // the one that reads first.
+                    Surface(
+                        shape = MaterialTheme.shapes.large,
+                        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text(context.getString(R.string.main_app_version, versionName), fontWeight = FontWeight.Bold)
-                            Text(context.getString(R.string.main_core_version, coreVer), style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                    
-                    if (latestVersion != null) {
-                        val isNewer = isVersionNewer(versionName, latestVersion!!)
-                        Spacer(Modifier.height(8.dp))
-                        Surface(
-                            color = if (isNewer) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    if (isNewer) Icons.Default.Download else Icons.Default.CheckCircle,
-                                    null,
-                                    tint = if (isNewer) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(16.dp)
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(dlgAppName, style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                dlgAppVersion,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                dlgCoreVersion,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            Spacer(Modifier.height(12.dp))
+
+                            // Which version this is about stays on screen while it downloads:
+                            // that is the moment the user most wants to see what is being
+                            // installed, and the progress line only says how far it has got.
+                            if (latestVersion != null) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        if (updateReady) Icons.Default.Download else Icons.Default.CheckCircle,
+                                        null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        if (updateReady) context.getString(R.string.main_new_version, latestVersion!!) else dlgUpToDate,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+
+                            if (isDownloading) {
+                                LinearProgressIndicator(
+                                    progress = { if (downloadProgress > 0) downloadProgress / 100f else 0f },
+                                    modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp))
                                 )
-                                Spacer(Modifier.width(8.dp))
+                                Spacer(Modifier.height(6.dp))
                                 Text(
-                                    if (isNewer) context.getString(R.string.main_new_version, latestVersion!!) else context.getString(R.string.main_update_up_to_date),
-                                    color = if (isNewer) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    context.getString(R.string.main_update_downloading, downloadProgress),
+                                    style = MaterialTheme.typography.bodySmall,
                                     fontWeight = FontWeight.Bold
                                 )
-                            }
-                        }
-                    }
+                            } else {
+                                if (updateReady) {
+                                    // An update is waiting: the action is a real button, not a line of text.
+                                    val destDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: context.cacheDir
+                                    val cleanVer = latestVersion!!.removePrefix("v")
+                                    val destFile = java.io.File(destDir, "tailsocks-update-$cleanVer.apk")
 
-                    Spacer(Modifier.height(16.dp))
-                    Text(context.getString(R.string.main_license_text))
-
-                    TextButton(
-                        onClick = { showAboutDialog = false; showChangelog.value = true },
-                        modifier = Modifier.height(32.dp),
-                        contentPadding = PaddingValues(0.dp)
-                    ) {
-                        Icon(Icons.Default.NewReleases, null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(context.getString(R.string.main_about_whats_new))
-                    }
-
-                    TextButton(
-                        onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/bropines"))) },
-                        modifier = Modifier.height(32.dp),
-                        contentPadding = PaddingValues(0.dp)
-                    ) { Text(context.getString(R.string.main_dev_app)) }
-                    
-                    TextButton(
-                        onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/bropines/tailsocks"))) },
-                        modifier = Modifier.height(32.dp),
-                        contentPadding = PaddingValues(0.dp)
-                    ) { Text(context.getString(R.string.main_dev_patch)) }
-
-                    TextButton(
-                        onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Asutorufa/tailscale"))) },
-                        modifier = Modifier.height(32.dp),
-                        contentPadding = PaddingValues(0.dp)
-                    ) { Text(context.getString(R.string.main_dev_anet_patch)) }
-
-                    TextButton(
-                        onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/tailscale/tailscale"))) },
-                        modifier = Modifier.height(32.dp),
-                        contentPadding = PaddingValues(0.dp)
-                    ) { Text(context.getString(R.string.main_dev_core)) }
-
-                    Spacer(Modifier.height(12.dp))
-
-                    if (isDownloading) {
-                        Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                            LinearProgressIndicator(
-                                progress = { if (downloadProgress > 0) downloadProgress / 100f else 0f },
-                                modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp))
-                            )
-                            Spacer(Modifier.height(6.dp))
-                            Text(
-                                context.getString(R.string.main_update_downloading, downloadProgress),
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    } else if (latestVersion != null && isVersionNewer(versionName, latestVersion!!)) {
-                        val destDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: context.cacheDir
-                        val cleanVer = latestVersion!!.removePrefix("v")
-                        val destFile = java.io.File(destDir, "tailsocks-update-$cleanVer.apk")
-
-                        var isApkCached by remember(destFile.absolutePath) {
-                            mutableStateOf(
-                                if (destFile.exists() && destFile.length() > 0) {
-                                    try {
-                                        val pInfo = context.packageManager.getPackageArchiveInfo(destFile.absolutePath, 0)
-                                        pInfo != null && pInfo.packageName == context.packageName
-                                    } catch (e: Exception) {
-                                        false
-                                    }
-                                } else false
-                            )
-                        }
-
-                        Button(
-                            onClick = {
-                                if (isApkCached) {
-                                    Toast.makeText(context, context.getString(R.string.main_update_installing), Toast.LENGTH_SHORT).show()
-                                    launchApkInstaller(context, destFile)
-                                    return@Button
-                                }
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) {
-                                    Toast.makeText(context, context.getString(R.string.main_update_grant_perm), Toast.LENGTH_LONG).show()
-                                    try {
-                                        context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}")))
-                                    } catch (e: Exception) {
-                                        context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES))
-                                    }
-                                    return@Button
-                                }
-                                val targetUrl = downloadUrl ?: "https://github.com/bropines/tailsocks/releases/latest/download/app-release.apk"
-                                isDownloading = true
-                                downloadProgress = 0
-                                scope.launch(Dispatchers.IO) {
-                                    val tempFile = java.io.File(destDir, "tailsocks-update-$cleanVer.tmp")
-                                    try {
-                                        val url = java.net.URL(targetUrl)
-                                        val conn = url.openConnection() as java.net.HttpURLConnection
-                                        conn.instanceFollowRedirects = true
-                                        conn.connect()
-                                        val totalLength = conn.contentLength
-                                        
-                                        conn.inputStream.use { input ->
-                                            tempFile.outputStream().use { output ->
-                                                val buffer = ByteArray(8192)
-                                                var read: Int
-                                                var totalRead = 0L
-                                                while (input.read(buffer).also { read = it } != -1) {
-                                                    output.write(buffer, 0, read)
-                                                    totalRead += read
-                                                    if (totalLength > 0) {
-                                                        val pct = (totalRead * 100 / totalLength).toInt()
-                                                        withContext(Dispatchers.Main) { downloadProgress = pct }
-                                                    }
+                                    var isApkCached by remember(destFile.absolutePath) {
+                                        mutableStateOf(
+                                            if (destFile.exists() && destFile.length() > 0) {
+                                                try {
+                                                    val pInfo = context.packageManager.getPackageArchiveInfo(destFile.absolutePath, 0)
+                                                    pInfo != null && pInfo.packageName == context.packageName
+                                                } catch (e: Exception) {
+                                                    false
                                                 }
-                                            }
-                                        }
+                                            } else false
+                                        )
+                                    }
 
-                                        val pInfo = context.packageManager.getPackageArchiveInfo(tempFile.absolutePath, 0)
-                                        if (pInfo != null && pInfo.packageName == context.packageName) {
-                                            if (destFile.exists()) destFile.delete()
-                                            tempFile.renameTo(destFile)
-                                            withContext(Dispatchers.Main) {
-                                                isDownloading = false
-                                                isApkCached = true
+                                    Button(
+                                        onClick = {
+                                            if (isApkCached) {
                                                 Toast.makeText(context, context.getString(R.string.main_update_installing), Toast.LENGTH_SHORT).show()
                                                 launchApkInstaller(context, destFile)
+                                                return@Button
                                             }
-                                        } else {
-                                            if (tempFile.exists()) tempFile.delete()
-                                            withContext(Dispatchers.Main) {
-                                                isDownloading = false
-                                                Toast.makeText(context, context.getString(R.string.main_check_failed_format, "Corrupted APK downloaded"), Toast.LENGTH_SHORT).show()
+                                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) {
+                                                Toast.makeText(context, context.getString(R.string.main_update_grant_perm), Toast.LENGTH_LONG).show()
+                                                try {
+                                                    context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}")))
+                                                } catch (e: Exception) {
+                                                    context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES))
+                                                }
+                                                return@Button
                                             }
-                                        }
-                                    } catch (e: Exception) {
-                                        if (tempFile.exists()) tempFile.delete()
-                                        withContext(Dispatchers.Main) {
-                                            isDownloading = false
-                                            Toast.makeText(context, context.getString(R.string.main_check_failed_format, e.message), Toast.LENGTH_SHORT).show()
-                                        }
-                                    }
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                        ) {
-                            Icon(if (isApkCached) Icons.Default.SystemUpdate else Icons.Default.Download, null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text(if (isApkCached) context.getString(R.string.main_update_install_cached) else context.getString(R.string.main_update_download))
-                        }
-                    } else {
-                        Button(
-                            onClick = {
-                                isCheckingUpdate = true
-                                scope.launch(Dispatchers.IO) {
-                                    try {
-                                        val connection = java.net.URL("https://api.github.com/repos/bropines/tailsocks/releases/latest").openConnection() as java.net.HttpURLConnection
-                                        connection.requestMethod = "GET"
-                                        connection.setRequestProperty("Accept", "application/vnd.github.v3+json")
-                                        if (connection.responseCode == 200) {
-                                            val response = connection.inputStream.bufferedReader().use { it.readText() }
-                                            val json = AppJson.parseToJsonElement(response).jsonObject
-                                            val tag = json["tag_name"]!!.jsonPrimitive.content
-                                            var foundApkUrl: String? = null
-                                            var anyApkUrl: String? = null
-                                            val primaryAbi = if (Build.SUPPORTED_ABIS.isNotEmpty()) Build.SUPPORTED_ABIS[0] else ""
-                                            val assets = json["assets"]?.jsonArray
-                                            if (assets != null) {
-                                                for (asset in assets) {
-                                                    val obj = asset.jsonObject
-                                                    val name = (obj["name"]?.jsonPrimitive?.content ?: "").lowercase()
-                                                    val url = obj["browser_download_url"]?.jsonPrimitive?.content ?: ""
-                                                    if (name.endsWith(".apk")) {
-                                                        if (anyApkUrl == null) anyApkUrl = url
-                                                        if (primaryAbi.isNotEmpty() && name.contains(primaryAbi.lowercase())) {
-                                                            foundApkUrl = url
-                                                            break
+                                            val targetUrl = downloadUrl ?: "https://github.com/bropines/tailsocks/releases/latest/download/app-release.apk"
+                                            isDownloading = true
+                                            downloadProgress = 0
+                                            scope.launch(Dispatchers.IO) {
+                                                val tempFile = java.io.File(destDir, "tailsocks-update-$cleanVer.tmp")
+                                                try {
+                                                    val url = java.net.URL(targetUrl)
+                                                    val conn = url.openConnection() as java.net.HttpURLConnection
+                                                    conn.instanceFollowRedirects = true
+                                                    conn.connect()
+                                                    val totalLength = conn.contentLength
+
+                                                    conn.inputStream.use { input ->
+                                                        tempFile.outputStream().use { output ->
+                                                            val buffer = ByteArray(8192)
+                                                            var read: Int
+                                                            var totalRead = 0L
+                                                            while (input.read(buffer).also { read = it } != -1) {
+                                                                output.write(buffer, 0, read)
+                                                                totalRead += read
+                                                                if (totalLength > 0) {
+                                                                    val pct = (totalRead * 100 / totalLength).toInt()
+                                                                    withContext(Dispatchers.Main) { downloadProgress = pct }
+                                                                }
+                                                            }
                                                         }
+                                                    }
+
+                                                    val pInfo = context.packageManager.getPackageArchiveInfo(tempFile.absolutePath, 0)
+                                                    if (pInfo != null && pInfo.packageName == context.packageName) {
+                                                        if (destFile.exists()) destFile.delete()
+                                                        tempFile.renameTo(destFile)
+                                                        withContext(Dispatchers.Main) {
+                                                            isDownloading = false
+                                                            isApkCached = true
+                                                            Toast.makeText(context, context.getString(R.string.main_update_installing), Toast.LENGTH_SHORT).show()
+                                                            launchApkInstaller(context, destFile)
+                                                        }
+                                                    } else {
+                                                        if (tempFile.exists()) tempFile.delete()
+                                                        withContext(Dispatchers.Main) {
+                                                            isDownloading = false
+                                                            Toast.makeText(context, context.getString(R.string.main_check_failed_format, "Corrupted APK downloaded"), Toast.LENGTH_SHORT).show()
+                                                        }
+                                                    }
+                                                } catch (e: Exception) {
+                                                    if (tempFile.exists()) tempFile.delete()
+                                                    withContext(Dispatchers.Main) {
+                                                        isDownloading = false
+                                                        Toast.makeText(context, context.getString(R.string.main_check_failed_format, e.message), Toast.LENGTH_SHORT).show()
                                                     }
                                                 }
                                             }
-                                            withContext(Dispatchers.Main) {
-                                                latestVersion = tag
-                                                downloadUrl = foundApkUrl ?: anyApkUrl
-                                                isCheckingUpdate = false
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Icon(if (isApkCached) Icons.Default.SystemUpdate else Icons.Default.Download, null, modifier = Modifier.size(18.dp))
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(if (isApkCached) dlgUpdateInstall else dlgUpdateDownload)
+                                    }
+                                } else {
+                                    // Nothing to install: the button asks, and asks again after an answer.
+                                    FilledTonalButton(
+                                        onClick = {
+                                            isCheckingUpdate = true
+                                            scope.launch(Dispatchers.IO) {
+                                                try {
+                                                    val connection = java.net.URL("https://api.github.com/repos/bropines/tailsocks/releases/latest").openConnection() as java.net.HttpURLConnection
+                                                    connection.requestMethod = "GET"
+                                                    connection.setRequestProperty("Accept", "application/vnd.github.v3+json")
+                                                    if (connection.responseCode == 200) {
+                                                        val response = connection.inputStream.bufferedReader().use { it.readText() }
+                                                        val json = AppJson.parseToJsonElement(response).jsonObject
+                                                        val tag = json["tag_name"]!!.jsonPrimitive.content
+                                                        var foundApkUrl: String? = null
+                                                        var anyApkUrl: String? = null
+                                                        val primaryAbi = if (Build.SUPPORTED_ABIS.isNotEmpty()) Build.SUPPORTED_ABIS[0] else ""
+                                                        val assets = json["assets"]?.jsonArray
+                                                        if (assets != null) {
+                                                            for (asset in assets) {
+                                                                val obj = asset.jsonObject
+                                                                val name = (obj["name"]?.jsonPrimitive?.content ?: "").lowercase()
+                                                                val url = obj["browser_download_url"]?.jsonPrimitive?.content ?: ""
+                                                                if (name.endsWith(".apk")) {
+                                                                    if (anyApkUrl == null) anyApkUrl = url
+                                                                    if (primaryAbi.isNotEmpty() && name.contains(primaryAbi.lowercase())) {
+                                                                        foundApkUrl = url
+                                                                        break
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                        withContext(Dispatchers.Main) {
+                                                            latestVersion = tag
+                                                            downloadUrl = foundApkUrl ?: anyApkUrl
+                                                            isCheckingUpdate = false
+                                                        }
+                                                    } else { throw Exception("HTTP ${connection.responseCode}") }
+                                                } catch (e: Exception) {
+                                                    withContext(Dispatchers.Main) {
+                                                        Toast.makeText(context, context.getString(R.string.main_check_failed_format, e.message), Toast.LENGTH_SHORT).show()
+                                                        isCheckingUpdate = false
+                                                    }
+                                                }
                                             }
-                                        } else { throw Exception("HTTP ${connection.responseCode}") }
-                                    } catch (e: Exception) {
-                                        withContext(Dispatchers.Main) {
-                                            Toast.makeText(context, context.getString(R.string.main_check_failed_format, e.message), Toast.LENGTH_SHORT).show()
-                                            isCheckingUpdate = false
+                                        },
+                                        enabled = !isCheckingUpdate,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        if (isCheckingUpdate) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(18.dp),
+                                                strokeWidth = 2.dp,
+                                                color = LocalContentColor.current
+                                            )
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(dlgChecking)
+                                        } else {
+                                            Text(dlgCheckUpdates)
                                         }
                                     }
                                 }
-                            },
-                            enabled = !isCheckingUpdate,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
-                        ) {
-                            if (isCheckingUpdate) {
-                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSecondary)
-                            } else {
-                                Text(context.getString(R.string.main_check_updates))
                             }
                         }
                     }
-                } 
+
+                    // The project's own pages, as one pair of buttons rather than two more
+                    // lines of text. Equal halves, and a label too long for its half wraps
+                    // rather than truncating — "Что нового" runs out of room at the larger
+                    // font scales, and half a word is worse than two lines. IntrinsicSize.Min
+                    // gives both buttons the height of the taller one so the pair stays even.
+                    Row(
+                        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { showAboutDialog = false; showChangelog.value = true },
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Icon(Icons.Default.NewReleases, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(dlgWhatsNew, textAlign = TextAlign.Center)
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                openLink(
+                                    if (latestVersion != null) "https://github.com/bropines/tailsocks/releases/latest"
+                                    else "https://github.com/bropines/tailsocks"
+                                )
+                                showAboutDialog = false
+                            },
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.OpenInNew, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(dlgGithub, textAlign = TextAlign.Center)
+                        }
+                    }
+
+                    // The people, kept together and out of the way of the state above.
+                    Column {
+                        Text(
+                            dlgCreditsHeader,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(start = 4.dp, bottom = 6.dp)
+                        )
+                        Surface(
+                            shape = MaterialTheme.shapes.large,
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                                credits.forEach { (label, url, icon) ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            // These rows are the only way to the contributors'
+                                            // pages, and a one-line credit measures 36dp —
+                                            // under the 48dp a finger is entitled to.
+                                            .heightIn(min = 48.dp)
+                                            .clickable { openLink(url) }
+                                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            icon,
+                                            null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(Modifier.width(10.dp))
+                                        // No maxLines: a narrow screen wraps a credit, it never truncates one.
+                                        Text(label, style = MaterialTheme.typography.bodyMedium)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Text(
+                        dlgLicense,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             },
             confirmButton = {
-                TextButton(onClick = {
-                    val url = if (latestVersion != null) "https://github.com/bropines/tailsocks/releases/latest" 
-                             else "https://github.com/bropines/tailsocks"
-                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-                    showAboutDialog = false
-                }) { Text(context.getString(R.string.action_github)) }
-            },
-            dismissButton = { TextButton(onClick = { showAboutDialog = false }) { Text(context.getString(R.string.action_close)) } }
+                TextButton(onClick = { showAboutDialog = false }) { Text(dlgClose) }
+            }
         )
     }
 

@@ -130,7 +130,10 @@ func registerMachineWithAuthKey(ctx context.Context, opt *StartOptions) {
 	// Poll until the LocalAPI answers a real request, not just until the socket
 	// file appears — the daemon binds the socket before it can serve traffic.
 	apiReady := false
-	for i := 1; i <= 20; i++ {
+	// Forty seconds, not twenty: this waits for the daemon's LocalAPI to answer,
+	// and on a slow or throttled link the first round-trip can take a while. The
+	// loop exits the moment it gets an answer, so a fast network pays nothing.
+	for i := 1; i <= 40; i++ {
 		if stStr, err := GetStatusJSON(false); err == nil && len(stStr) > 0 {
 			apiReady = true
 			break
@@ -192,7 +195,11 @@ func registerMachineWithAuthKey(ctx context.Context, opt *StartOptions) {
 		AuthURL      string `json:"AuthURL"`
 	}
 
-	const stateSettleTimeout = 45 * time.Second
+	// The deadline is for the control plane to hand back an auth URL, which on a
+	// throttled network is exactly what takes long — the author hit it, and a
+	// second attempt succeeded because the path was warm. An upper bound, not a
+	// delay: the loop leaves as soon as the daemon decides.
+	const stateSettleTimeout = 120 * time.Second
 	deadline := time.Now().Add(stateSettleTimeout)
 	needsLogin := false
 	startNudged := false

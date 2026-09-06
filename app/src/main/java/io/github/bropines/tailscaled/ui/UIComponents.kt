@@ -12,12 +12,9 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutLinearInEasing
-import androidx.compose.animation.core.LinearOutSlowInEasing
-import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -41,11 +38,15 @@ import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.GraphicsLayerScope
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -67,6 +68,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.decodeFromString
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -86,8 +88,22 @@ private val PEER_SWIPE_FLING_VELOCITY = 400.dp
 private const val PEER_SWIPE_DIRECTION_RATIO = 2f
 /** How much of the drag survives when there is no peer in that direction. */
 private const val PEER_SWIPE_RESISTANCE = 0.25f
-private const val PEER_SWIPE_OUT_MS = 200
-private const val PEER_SWIPE_IN_MS = 260
+/**
+ * The springs the page turn settles on: Material 3's own spatial motion, by its numbers
+ * rather than by its objects. `MaterialTheme.motionScheme` and the `MotionScheme` interface
+ * are both *internal* in material3 1.4.0 — the compiler refuses them to an app — so these
+ * are transcribed from the standard scheme MaterialTheme() installs: StandardMotionTokens
+ * SpringDefaultSpatial (0.9 / 700) for a turn that is going through, SpringFastSpatial
+ * (0.9 / 1400) for one that is being taken back. Replace both with
+ * motionScheme.defaultSpatialSpec()/fastSpatialSpec() the day those go public.
+ *
+ * The threshold is half a pixel instead of the default hundredth of one: nobody can see the
+ * last of that tail, and the turn is only committed when the spring reports it is done.
+ */
+private val PEER_TURN_SPEC: FiniteAnimationSpec<Float> =
+    spring(dampingRatio = 0.9f, stiffness = 700f, visibilityThreshold = 0.5f)
+private val PEER_RETURN_SPEC: FiniteAnimationSpec<Float> =
+    spring(dampingRatio = 0.9f, stiffness = 1400f, visibilityThreshold = 0.5f)
 
 @Serializable
 private data class PingResult(
@@ -343,19 +359,63 @@ fun PeerShareItem(peer: PeerData, enabled: Boolean, onClick: () -> Unit) {
     }
 }
 
+/**
+ * One page of the peer details sheet: a peer, plus the one thing about it the sheet cannot
+ * work out for itself — whether it is this device.
+ */
+data class PeerPage(val peer: PeerData, val isSelf: Boolean)
+
+/** Every word the details sheet shows, resolved in the parent composition — see
+ *  wrapContextWithLocale(): inside the sheet's own window a stringResource follows the
+ *  system locale, not the app's. */
+private data class PeerDetailsStrings(
+    val prevPeer: String,
+    val nextPeer: String,
+    val sendFile: String,
+    val pingSelf: String,
+    val copy: String,
+    val exitNodeSelected: String,
+    val exitNodeOffered: String
+)
+
+/** How a page sits while the sheet is turning: shifted by [dx], and — from half a page out
+ *  — faded and shrunk a little, so the eye follows the page arriving at the centre rather
+ *  than the one leaving. Both pages get it, so the incoming one fades up as it lands. */
+private fun GraphicsLayerScope.peerPageTransform(dx: Float) {
+    translationX = dx
+    val halfPage = size.width * 0.5f
+    val progress = if (halfPage > 0f) (abs(dx) / halfPage).coerceIn(0f, 1f) else 0f
+    alpha = 1f - 0.45f * progress
+    scaleX = 1f - 0.05f * progress
+    scaleY = scaleX
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PeerDetailsModal(
-    peer: PeerData,
-    /** This device. Pinging yourself has no peer to answer, so the button offered
-     *  an action whose only possible outcome was "Ping: Failed" — an error where
-     *  nothing had gone wrong. */
-    isSelf: Boolean = false,
+    /**
+     * The peer [offset] steps along the list from the one on screen: 0 is the page being
+     * shown, -1 the page a swipe to the right brings in, +1 the page a swipe to the left
+     * brings in, and null where the list ends. The sheet asks for at most two steps either
+     * way — the two pages a turn has on screen at once, plus whether the arriving page
+     * should carry its own arrows — and it draws nothing it was not handed.
+     *
+     * It takes the peers rather than bare prev/next callbacks because the neighbour has to
+     * be *visible* under the finger: a callback can only be fired once the gesture is over,
+     * which is exactly the blind drag this replaced.
+     */
+    peerAt: (offset: Int) -> PeerPage?,
     onDismiss: () -> Unit,
-    onSendFileClick: () -> Unit = {},
-    onPrevPeer: (() -> Unit)? = null,
-    onNextPeer: (() -> Unit)? = null
+    onSendFileClick: (PeerData) -> Unit = {},
+    /** Turn to a peer this sheet was handed. By the time this is called the page-turn has
+     *  already carried that peer's content to the centre of the sheet. */
+    onSelectPeer: (PeerData) -> Unit = {}
 ) {
+    val page = peerAt(0) ?: return
+    val peer = page.peer
+    val prevPage = peerAt(-1)
+    val nextPage = peerAt(1)
+
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -366,14 +426,24 @@ fun PeerDetailsModal(
     val configuration = LocalConfiguration.current
     val maxHeight = (configuration.screenHeightDp * 0.85f).dp
 
-    // Page-turn state for the horizontal peer swipe. Remembered across the peer change:
-    // the outgoing peer leaves in the drag direction, then the incoming one is snapped to
-    // the far side and slides in from there.
+    // Page-turn state for the horizontal peer swipe. Both pages are on screen for the whole
+    // gesture — the current one at swipeOffset, the arriving one a page width further along
+    // in the drag direction — so the turn is one continuous motion with nothing to swap in
+    // at the end: when the current page has finished leaving, the page that was sliding in
+    // is already centred, and the swap below is a rename, not a movement.
     val density = LocalDensity.current
     val swipeThresholdPx = with(density) { PEER_SWIPE_THRESHOLD.toPx() }
     val flingVelocityPx = with(density) { PEER_SWIPE_FLING_VELOCITY.toPx() }
     val maxOverscrollPx = with(density) { 56.dp.toPx() }
-    val swipeOffset = remember { Animatable(0f) }
+    /** Where the current page sits, in pixels from the centre. Read in the draw phase only
+     *  (inside graphicsLayer), so a drag moves the pages without recomposing them. */
+    var swipeOffset by remember { mutableFloatStateOf(0f) }
+    /** Which page is sliding in alongside the current one: -1 the previous peer, +1 the
+     *  next, 0 nothing (the sheet is at rest, or the list ends that way). This one *is* read
+     *  in composition — it decides whether the neighbour is composed at all — so it changes
+     *  a couple of times per gesture rather than every frame. */
+    var incomingStep by remember { mutableIntStateOf(0) }
+    var settleJob by remember { mutableStateOf<Job?>(null) }
     // Compose exposes no reduced-motion flag here; the system animator duration scale is
     // the closest thing, and 0 is how "remove animations" reaches an app. ValueAnimator
     // keeps that scale in a process-local field, so this is a plain read that also stays
@@ -389,30 +459,18 @@ fun PeerDetailsModal(
             ) > 0f
         }
     }
+    // Material's own spatial springs (see PEER_TURN_SPEC): the default one finishes a turn,
+    // the fast one snaps back a drag that decided nothing.
     // The gesture node below is keyed on nothing at all, so the lambda it runs is the one
     // captured at the first composition: everything it needs from a later one has to reach
     // it through state that outlives the recomposition.
-    val currentOnPrev by rememberUpdatedState(onPrevPeer)
-    val currentOnNext by rememberUpdatedState(onNextPeer)
-    // A peer change that has been decided but whose exit animation has not reached the swap
-    // yet. The drag and the settle both mutate swipeOffset, and a new mutation cancels the
-    // running one, so a touch inside the turn kills the settle coroutine mid-animateTo —
-    // the turn is finished here instead of being dropped on the floor.
-    var pendingTurn by remember { mutableStateOf<(() -> Unit)?>(null) }
-    // True between the moment a drag is claimed and the moment it settles: a turn that
-    // finishes its exit animation just as a new drag begins must not snap the content
-    // out from under the finger.
-    var swipeDragging by remember { mutableStateOf(false) }
-    fun finishPendingTurn(): Boolean {
-        val turn = pendingTurn ?: return false
-        pendingTurn = null
-        turn()
-        return true
-    }
+    val currentPrev by rememberUpdatedState(prevPage)
+    val currentNext by rememberUpdatedState(nextPage)
+    val currentOnSelect by rememberUpdatedState(onSelectPeer)
     // At the ends of the list the drag rubber-bands and springs back instead of doing
     // nothing at all, so "there is no next peer" is something you can feel.
     fun resistedOffset(travelled: Float): Float {
-        val canMove = (travelled > 0f && currentOnPrev != null) || (travelled < 0f && currentOnNext != null)
+        val canMove = (travelled > 0f && currentPrev != null) || (travelled < 0f && currentNext != null)
         return if (canMove) travelled
         else (travelled * PEER_SWIPE_RESISTANCE).coerceIn(-maxOverscrollPx, maxOverscrollPx)
     }
@@ -444,30 +502,61 @@ fun PeerDetailsModal(
     }
 
     // Strings resolved in the parent composition — see wrapContextWithLocale().
-    val strPeerDetailsPrev = stringResource(R.string.peer_details_prev)
-    val strPeerDetailsNext = stringResource(R.string.peer_details_next)
-    val strPeerSendFile = stringResource(R.string.peer_send_file)
-    val strPeerPingSelf = stringResource(R.string.peer_ping_self)
-    val strActionCopy = stringResource(R.string.action_copy)
-    val strExitNodeSelected = stringResource(R.string.peer_exit_node_selected)
-    val strExitNodeOffered = stringResource(R.string.peer_exit_node_offered)
+    val strPeerPingIdle = stringResource(R.string.peer_ping)
+    val strings = PeerDetailsStrings(
+        prevPeer = stringResource(R.string.peer_details_prev),
+        nextPeer = stringResource(R.string.peer_details_next),
+        sendFile = stringResource(R.string.peer_send_file),
+        pingSelf = stringResource(R.string.peer_ping_self),
+        copy = stringResource(R.string.action_copy),
+        exitNodeSelected = stringResource(R.string.peer_exit_node_selected),
+        exitNodeOffered = stringResource(R.string.peer_exit_node_offered)
+    )
+    // Also the parent's: the sheet's own context would put the toast in the system locale.
+    val onCopyDetail: (String, String) -> Unit = { label, value ->
+        (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
+            .setPrimaryClip(ClipData.newPlainText(label, value))
+        Toast.makeText(context, context.getString(R.string.copied_to_clipboard, label), Toast.LENGTH_SHORT).show()
+    }
+    /** An arrow exists exactly when there is a page to turn to, and turns to that page. */
+    fun turnTo(target: PeerPage?): (() -> Unit)? = target?.let { { onSelectPeer(it.peer) } }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState
     ) {
-        Column(
+        Box(
             Modifier
                 .fillMaxWidth()
                 .heightIn(max = maxHeight)
-                .padding(top = 4.dp, bottom = 16.dp)
+                // The page leaving stops at the edge of the sheet, which on a tablet is
+                // narrower than the window it sits in.
+                .clipToBounds()
                 // Keyed on nothing: a peer change, or a refresh that flips whether there is
                 // a peer on either side, must not restart this node — a restart in the middle
                 // of a drag leaves horizontalDrag hanging and the content stuck off-centre.
-                // The callbacks are read through rememberUpdatedState instead.
+                // The neighbours are read through rememberUpdatedState instead.
                 .pointerInput(Unit) {
                     // The sheet content, not the window: ModalBottomSheet caps its width at
                     // SheetMaxWidth, so on a tablet the window is much the wider of the two.
                     fun pageWidth(): Float = size.width.toFloat().takeIf { it > 0f } ?: 1f
+                    // A page and a bit is all there is to show, so the finger cannot drag
+                    // the current page past the arriving one and leave the sheet empty.
+                    // Which neighbour belongs on screen at a given offset: the current page
+                    // moving right uncovers the sheet's left half, which is where the
+                    // previous peer lives, and the other way round. At rest the step stands
+                    // as it is — there is no side to fill.
+                    fun stepFor(offset: Float): Int = when {
+                        offset > 0f -> -1
+                        offset < 0f -> 1
+                        else -> incomingStep
+                    }
+                    fun place(travelled: Float) {
+                        val offset = resistedOffset(travelled).coerceIn(-pageWidth(), pageWidth())
+                        swipeOffset = offset
+                        val step = stepFor(offset)
+                        if (step != incomingStep) incomingStep = step
+                    }
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
                         var overSlop = 0f
@@ -483,24 +572,21 @@ fun PeerDetailsModal(
                             }
                         }
                         if (drag != null) {
-                            // Landing on a turn that is still flying completes it right away
-                            // — this drag is about to cancel its animation anyway — and the
-                            // peer it was heading for starts centred under the finger.
-                            swipeDragging = true
-                            val resumed = finishPendingTurn()
-                            // Otherwise seeded from where the content actually is: the sheet
-                            // may be mid spring-back or mid slide-in when the finger lands.
-                            var travelled = (if (resumed) 0f else swipeOffset.value) + overSlop
+                            // A settle still in flight is abandoned where it stands. Both
+                            // pages are on screen either way, so there is nothing to finish
+                            // or unwind: the finger picks the motion up from there.
+                            settleJob?.cancel()
+                            var travelled = swipeOffset + overSlop
                             val tracker = VelocityTracker()
                             tracker.addPosition(drag.uptimeMillis, drag.position)
-                            scope.launch { swipeOffset.snapTo(resistedOffset(travelled)) }
+                            place(travelled)
                             val finished = horizontalDrag(drag.id) { change ->
-                                travelled += change.positionChange().x
+                                travelled = (travelled + change.positionChange().x)
+                                    .coerceIn(-pageWidth(), pageWidth())
                                 tracker.addPosition(change.uptimeMillis, change.position)
                                 change.consume()
-                                scope.launch { swipeOffset.snapTo(resistedOffset(travelled)) }
+                                place(travelled)
                             }
-                            swipeDragging = false
                             // Distance or velocity: a fast flick that never covers the
                             // threshold is the natural way to page through a list, and a
                             // slow deliberate crawl past it is the other one.
@@ -511,217 +597,291 @@ fun PeerDetailsModal(
                                 travelled < -swipeThresholdPx -> -1
                                 else -> 0
                             }
-                            val turn = when {
+                            val target = when {
                                 !finished -> null
-                                direction > 0 -> currentOnPrev
-                                direction < 0 -> currentOnNext
+                                direction > 0 -> currentPrev
+                                direction < 0 -> currentNext
                                 else -> null
                             }
                             val exitTo = if (direction > 0) pageWidth() else -pageWidth()
-                            // Settled from the composition scope, not this one: mutating the
-                            // Animatable from here would make this gesture the mutator, and
-                            // the settle would then cancel the gesture loop itself.
-                            scope.launch {
-                                if (turn != null) {
-                                    pendingTurn = turn
+                            // A rubber-banded page moved at a quarter of the finger's speed,
+                            // so it must not be handed the whole of it on release.
+                            val resisted = (swipeOffset > 0f && currentPrev == null) ||
+                                (swipeOffset < 0f && currentNext == null)
+                            val settleVelocity = if (resisted) velocity * PEER_SWIPE_RESISTANCE else velocity
+                            // The page drawn alongside now follows the direction that was
+                            // committed, not whatever the last place() wrote. A drag one way
+                            // ended by a fast flick back the other decides on the velocity
+                            // before it has crossed zero, so the two disagree exactly there:
+                            // without this the neighbour leaves by the same edge as the page
+                            // it is replacing and the sheet turns blank for the whole settle.
+                            if (target != null) incomingStep = -direction
+                            // Settled from the composition scope, not this one: this scope
+                            // dies with the gesture, and the settle outlives the finger.
+                            settleJob = scope.launch {
+                                if (target != null) {
                                     if (animateSwipe) {
-                                        swipeOffset.animateTo(exitTo, tween(PEER_SWIPE_OUT_MS, easing = FastOutLinearInEasing))
-                                    }
-                                    finishPendingTurn()
-                                    // Unless a new drag already took the offset over.
-                                    if (!swipeDragging) {
-                                        swipeOffset.snapTo(-exitTo)
-                                        if (animateSwipe) {
-                                            swipeOffset.animateTo(0f, tween(PEER_SWIPE_IN_MS, easing = LinearOutSlowInEasing))
-                                        } else {
-                                            swipeOffset.snapTo(0f)
+                                        // Carried on from where the finger left the page, at
+                                        // the speed it left it — one motion, not a new one.
+                                        // The step is re-derived every frame, not frozen at
+                                        // release: these springs are underdamped and carry
+                                        // the finger's velocity, so the page regularly swings
+                                        // back across zero on its way out. Whichever half of
+                                        // the sheet it uncovers has the matching neighbour in
+                                        // it, all the way to the end.
+                                        animate(swipeOffset, exitTo, settleVelocity, PEER_TURN_SPEC) { value, _ ->
+                                            swipeOffset = value
+                                            val step = stepFor(value)
+                                            if (step != incomingStep) incomingStep = step
                                         }
                                     }
-                                } else if (animateSwipe) {
-                                    swipeOffset.animateTo(
-                                        0f,
-                                        spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMedium)
-                                    )
+                                    // The arriving page is already centred, so this moves
+                                    // nothing: it makes that page the current one and zeroes
+                                    // the offset it is drawn at. One snapshot, so no frame
+                                    // can fall between the two and show the old page back at
+                                    // the centre.
+                                    Snapshot.withMutableSnapshot {
+                                        swipeOffset = 0f
+                                        incomingStep = 0
+                                        currentOnSelect(target.peer)
+                                    }
                                 } else {
-                                    swipeOffset.snapTo(0f)
+                                    if (animateSwipe) {
+                                        animate(swipeOffset, 0f, settleVelocity, PEER_RETURN_SPEC) { value, _ ->
+                                            swipeOffset = value
+                                            val step = stepFor(value)
+                                            if (step != incomingStep) incomingStep = step
+                                        }
+                                    }
+                                    swipeOffset = 0f
+                                    incomingStep = 0
                                 }
                             }
                         }
                     }
                 }
-                // After the gesture node, so the content moving under the finger cannot
-                // feed back into the drag deltas.
-                .graphicsLayer {
-                    translationX = swipeOffset.value
-                    val halfPage = size.width * 0.5f
-                    val progress = if (halfPage > 0f) (abs(swipeOffset.value) / halfPage).coerceIn(0f, 1f) else 0f
-                    alpha = 1f - 0.45f * progress
-                    scaleX = 1f - 0.05f * progress
-                    scaleY = scaleX
-                }
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (onPrevPeer != null) {
-                    IconButton(onClick = onPrevPeer) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = strPeerDetailsPrev)
-                    }
-                } else {
-                    Spacer(Modifier.size(48.dp))
-                }
-                
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    val (osIcon, osColor) = getOsVisuals(peer.os)
-                    val statusColor = if (peer.online == true) Color(0xFF4CAF50) else Color(0xFF9E9E9E)
-                    
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Icon(osIcon, null, modifier = Modifier.size(16.dp), tint = osColor)
-                        Spacer(Modifier.width(8.dp))
-                        // Weighted, or a long node name pushes the status dot out of the chip.
-                        Text(
-                            peer.getDisplayName(),
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Box(Modifier.size(8.dp).clip(CircleShape).background(statusColor))
-                    }
-                    // Under the chip rather than inside it: here there is room for the words,
-                    // and "selected as exit node" vs "available as exit node" is a difference
-                    // no one should have to read out of two shades of the same icon.
-                    ExitNodeBadge(
-                        peer = peer,
-                        selectedLabel = strExitNodeSelected,
-                        offeredLabel = strExitNodeOffered,
-                        modifier = Modifier.padding(top = 6.dp),
-                        showLabel = true
-                    )
-                }
-                
-                if (onNextPeer != null) {
-                    IconButton(onClick = onNextPeer) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = strPeerDetailsNext)
-                    }
-                } else {
-                    Spacer(Modifier.size(48.dp))
-                }
+            // The neighbour, drawn a page width away in the drag direction and moving with
+            // the current one: what is coming next is on screen from the first millimetre of
+            // the drag, which is the whole point. It is measured against the sheet rather
+            // than with the sheet, so a longer details list on the next peer cannot resize
+            // the sheet under the finger.
+            val step = incomingStep
+            val incoming = if (step != 0) peerAt(step) else null
+            if (incoming != null) {
+                PeerDetailsPage(
+                    page = incoming,
+                    strings = strings,
+                    // No ping of its own can be in flight on a page nobody has landed on yet.
+                    pingLabel = strPeerPingIdle,
+                    onPing = {},
+                    onSendFileClick = { onSendFileClick(incoming.peer) },
+                    // The arriving page's own neighbours, so its arrows are already right
+                    // when it lands and nothing pops in after the motion ends.
+                    onPrevPeer = turnTo(peerAt(step - 1)),
+                    onNextPeer = turnTo(peerAt(step + 1)),
+                    onCopyDetail = onCopyDetail,
+                    modifier = Modifier
+                        .matchParentSize()
+                        // Off screen, and a second copy of a peer's whole details list: it
+                        // is there for the eye during the turn, not for a screen reader,
+                        // which reaches the same peer through the page that lands.
+                        .clearAndSetSemantics { }
+                        .graphicsLayer { peerPageTransform(swipeOffset + step * size.width) }
+                )
             }
-
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                OutlinedButton(
-                    onClick = {
-                        pingResult = "Pinging..."
-                        scope.launch(Dispatchers.IO) {
-                            val targetIp = peer.getPrimaryIp()
-                            val out = try {
-                                val res = Appctr.pingTarget(targetIp, "disco")
-                                if (res.isNotBlank() && !res.startsWith("Error")) res
-                                else Appctr.runTailscaleCmd("ping $targetIp")
-                            } catch (e: Exception) { "Error" }
-                            val pong = out.split("\n").find { it.contains("pong from") || it.contains("LatencyMs") } ?: out.ifBlank { "Failed" }
-                            withContext(Dispatchers.Main) { pingResult = pong.trim() }
-                        }
-                    },
-                    modifier = Modifier.weight(1f).height(46.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    enabled = !isSelf,
-                    contentPadding = PaddingValues(horizontal = 8.dp)
-                ) {
-                    Icon(Icons.Default.Bolt, null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        if (isSelf) strPeerPingSelf else pingText,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                Button(
-                    onClick = onSendFileClick,
-                    modifier = Modifier.weight(1f).height(46.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp)
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.Send, null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(strPeerSendFile, fontWeight = FontWeight.SemiBold)
-                }
-            }
-            Box(
+            PeerDetailsPage(
+                page = page,
+                strings = strings,
+                pingLabel = pingText,
+                onPing = {
+                    pingResult = "Pinging..."
+                    scope.launch(Dispatchers.IO) {
+                        val targetIp = peer.getPrimaryIp()
+                        val out = try {
+                            val res = Appctr.pingTarget(targetIp, "disco")
+                            if (res.isNotBlank() && !res.startsWith("Error")) res
+                            else Appctr.runTailscaleCmd("ping $targetIp")
+                        } catch (e: Exception) { "Error" }
+                        val pong = out.split("\n").find { it.contains("pong from") || it.contains("LatencyMs") } ?: out.ifBlank { "Failed" }
+                        withContext(Dispatchers.Main) { pingResult = pong.trim() }
+                    }
+                },
+                onSendFileClick = { onSendFileClick(peer) },
+                onPrevPeer = turnTo(prevPage),
+                onNextPeer = turnTo(nextPage),
+                onCopyDetail = onCopyDetail,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f, fill = false)
-                    .padding(horizontal = 16.dp, vertical = 6.dp)
-            ) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    border = androidx.compose.foundation.BorderStroke(
-                        1.dp,
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
-                    ),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                    )
+                    .graphicsLayer { peerPageTransform(swipeOffset) }
+            )
+        }
+    }
+}
+
+/** One peer's worth of sheet content. Two of these are alive during a page turn, so it owns
+ *  no state of its own and resolves no strings of its own: everything it shows is handed to
+ *  it by [PeerDetailsModal], which composes outside the sheet's window. */
+@Composable
+private fun PeerDetailsPage(
+    page: PeerPage,
+    strings: PeerDetailsStrings,
+    pingLabel: String,
+    onPing: () -> Unit,
+    onSendFileClick: () -> Unit,
+    onPrevPeer: (() -> Unit)?,
+    onNextPeer: (() -> Unit)?,
+    onCopyDetail: (label: String, value: String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val peer = page.peer
+    Column(modifier.padding(top = 4.dp, bottom = 16.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (onPrevPeer != null) {
+                IconButton(onClick = onPrevPeer) {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = strings.prevPeer)
+                }
+            } else {
+                Spacer(Modifier.size(48.dp))
+            }
+
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                val (osIcon, osColor) = getOsVisuals(peer.os)
+                val statusColor = if (peer.online == true) Color(0xFF4CAF50) else Color(0xFF9E9E9E)
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
                 ) {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        contentPadding = PaddingValues(bottom = 8.dp)
-                    ) {
-                        items(peer.getDetailsList()) { (l, v) ->
-                            val isTechnical = l in listOf("IPv4", "IPv6", "Allowed IPs", "Node ID", "Tailscale Version", "Current Addr", "Peer API")
-                            
-                            ListItem(
-                                headlineContent = { 
-                                    Text(
-                                        l, 
-                                        style = MaterialTheme.typography.bodySmall, 
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-                                    ) 
-                                },
-                                supportingContent = { 
-                                    Text(
-                                        v, 
-                                        fontFamily = if (isTechnical) FontFamily.Monospace else FontFamily.Default,
-                                        fontSize = if (isTechnical) 13.sp else 14.sp,
-                                        fontWeight = if (isTechnical) FontWeight.Normal else FontWeight.Medium,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        modifier = Modifier.padding(top = 2.dp)
-                                    ) 
-                                },
-                                trailingContent = {
-                                    Icon(
-                                        imageVector = Icons.Default.ContentCopy,
-                                        contentDescription = strActionCopy,
-                                        modifier = Modifier.size(14.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                                    )
-                                },
-                                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText(l, v))
-                                        Toast.makeText(context, context.getString(R.string.copied_to_clipboard, l), Toast.LENGTH_SHORT).show()
-                                    }
-                            )
-                        }
+                    Icon(osIcon, null, modifier = Modifier.size(16.dp), tint = osColor)
+                    Spacer(Modifier.width(8.dp))
+                    // Weighted, or a long node name pushes the status dot out of the chip.
+                    Text(
+                        peer.getDisplayName(),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Box(Modifier.size(8.dp).clip(CircleShape).background(statusColor))
+                }
+                // Under the chip rather than inside it: here there is room for the words,
+                // and "selected as exit node" vs "available as exit node" is a difference
+                // no one should have to read out of two shades of the same icon.
+                ExitNodeBadge(
+                    peer = peer,
+                    selectedLabel = strings.exitNodeSelected,
+                    offeredLabel = strings.exitNodeOffered,
+                    modifier = Modifier.padding(top = 6.dp),
+                    showLabel = true
+                )
+            }
+
+            if (onNextPeer != null) {
+                IconButton(onClick = onNextPeer) {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = strings.nextPeer)
+                }
+            } else {
+                Spacer(Modifier.size(48.dp))
+            }
+        }
+
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            OutlinedButton(
+                onClick = onPing,
+                modifier = Modifier.weight(1f).height(46.dp),
+                shape = RoundedCornerShape(14.dp),
+                enabled = !page.isSelf,
+                contentPadding = PaddingValues(horizontal = 8.dp)
+            ) {
+                Icon(Icons.Default.Bolt, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    if (page.isSelf) strings.pingSelf else pingLabel,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Button(
+                onClick = onSendFileClick,
+                modifier = Modifier.weight(1f).height(46.dp),
+                shape = RoundedCornerShape(14.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp)
+            ) {
+                Icon(Icons.AutoMirrored.Filled.Send, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(strings.sendFile, fontWeight = FontWeight.SemiBold)
+            }
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f, fill = false)
+                .padding(horizontal = 16.dp, vertical = 6.dp)
+        ) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                ),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                )
+            ) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    contentPadding = PaddingValues(bottom = 8.dp)
+                ) {
+                    items(peer.getDetailsList()) { (l, v) ->
+                        val isTechnical = l in listOf("IPv4", "IPv6", "Allowed IPs", "Node ID", "Tailscale Version", "Current Addr", "Peer API")
+
+                        ListItem(
+                            headlineContent = {
+                                Text(
+                                    l,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                                )
+                            },
+                            supportingContent = {
+                                Text(
+                                    v,
+                                    fontFamily = if (isTechnical) FontFamily.Monospace else FontFamily.Default,
+                                    fontSize = if (isTechnical) 13.sp else 14.sp,
+                                    fontWeight = if (isTechnical) FontWeight.Normal else FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.padding(top = 2.dp)
+                                )
+                            },
+                            trailingContent = {
+                                Icon(
+                                    imageVector = Icons.Default.ContentCopy,
+                                    contentDescription = strings.copy,
+                                    modifier = Modifier.size(14.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                )
+                            },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onCopyDetail(l, v) }
+                        )
                     }
                 }
             }
