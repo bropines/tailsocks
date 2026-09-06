@@ -1081,24 +1081,31 @@ object RootUtils {
         }.getOrDefault(emptySet())
     }
 
-    /** Every uid in [range] that has no package at all, or whose package is a VPN client. */
-    private fun uncarryableIn(context: Context?, range: LongRange, vpnUids: Set<Long>): Set<Long> {
-        val pm = context?.packageManager ?: return vpnUids.filter { it in range }.toSet()
-        val out = mutableSetOf<Long>()
-        for (uid in range) {
-            if (uid in vpnUids) { out.add(uid); continue }
-            val packages = runCatching { pm.getPackagesForUid(uid.toInt()) }.getOrNull()
-            // A uid nothing is installed under captures nothing; a clone of a VPN
-            // client carries a different uid but the same package name, which is
-            // how a work-profile or dual-app mirror is caught here.
-            if (packages.isNullOrEmpty()) { out.add(uid); continue }
-            val isVpn = runCatching {
-                pm.queryIntentServices(Intent("android.net.VpnService"), PackageManager.MATCH_ALL)
-                    .any { it.serviceInfo?.packageName in packages }
-            }.getOrDefault(false)
-            if (isVpn) out.add(uid)
-        }
-        return out
+    /**
+     * uids we are willing to carry: installed applications that are not VPN
+     * clients and not us.
+     *
+     * Built as a positive set on purpose. Subtracting the bad uids instead meant
+     * trusting what the framework reports for an arbitrary uid, and a gap can
+     * contain uids no application owns at all — Android reserves an SDK sandbox
+     * uid beside every app (appId + 10000), so netd's membership list has a hole
+     * there too. Measured on the device: uid 20354 sat in a gap with no package
+     * behind it, and carrying it wrote a rule that could never match anything.
+     */
+    private fun carryableUids(context: Context?): Set<Long>? {
+        val pm = context?.packageManager ?: return null
+        return runCatching {
+            val vpnPackages = pm
+                .queryIntentServices(Intent("android.net.VpnService"), PackageManager.MATCH_ALL)
+                .mapNotNull { it.serviceInfo?.packageName }
+                .toSet()
+            val selfUid = context.applicationInfo?.uid?.toLong()
+            pm.getInstalledApplications(0)
+                .filter { it.packageName !in vpnPackages }
+                .map { it.uid.toLong() }
+                .filterNot { it == selfUid }
+                .toSet()
+        }.getOrNull()
     }
 
     /** Splits [range] around [holes], dropping the holes themselves. */
@@ -1144,10 +1151,20 @@ object RootUtils {
         val raw = foreignBypassGaps(ranges, selfUid)
         if (raw.isEmpty()) return raw
         val vpnUids = vpnClientUids(context) + listOfNotNull(selfUid)
+        val carryable = carryableUids(context)
         return raw.flatMap { g ->
             val span = g.last - g.first + 1
-            val holes = if (span <= GAP_RESOLVE_LIMIT) uncarryableIn(context, g, vpnUids) else vpnUids
-            splitAround(g, holes)
+            when {
+                // The ordinary case: a handful of apps the user picked. Name them
+                // one by one, so nothing is captured that no app owns.
+                carryable != null && span <= GAP_RESOLVE_LIMIT ->
+                    (g.first..g.last).filter { it in carryable }.map { it..it }
+                // A client tunnelling only a few apps leaves most of the device in
+                // the gaps. Keep those whole rather than writing a rule per app;
+                // the uids that own nothing cost a rule that never matches, which
+                // is cheaper than hundreds of rules that do.
+                else -> splitAround(g, vpnUids)
+            }
         }
     }
 
