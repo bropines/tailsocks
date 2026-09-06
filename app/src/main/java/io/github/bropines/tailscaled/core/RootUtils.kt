@@ -223,10 +223,14 @@ object RootUtils {
     }
 
     private fun rootLog(level: String, message: String) {
+        // Both, deliberately. The in-app ROOT tab is what a user reads; logcat is
+        // the only copy reachable while debugging on a device, and the routing
+        // decisions are exactly what one needs to see there.
+        Log.i(TAG, "[$level] $message")
         try {
             appctr.Appctr.logAndroid(level, "ROOT", message)
         } catch (e: Exception) {
-            // The Go bridge may not be loaded yet; the logcat entry below still applies.
+            // The Go bridge may not be loaded yet; the logcat line above stands.
         }
     }
 
@@ -737,6 +741,17 @@ object RootUtils {
         // an app's getaddrinfo is sent by the platform resolver, not by the app —
         // but netd stamps the network id into the mark, and that survives.
         val dnsExemptNetIds = if (ownDevice) emptyList() else probe.netIds
+        // The inputs behind the decision, named. Without this the difference
+        // between "nobody else is here", "they took everything" and "we could
+        // not read what they took" is invisible from a device log, and the
+        // three call for very different fixes.
+        rootLog(
+            "INFO",
+            "coexistence inputs: marks=$marks, foreign=$foreignPresent, override=$takeDeviceAnyway, " +
+                "ranges=${probe.memberRanges.size}, gaps=${gaps.size}" +
+                (if (gaps.isEmpty()) "" else " (" + gaps.joinToString(", ") { "${it.first}-${it.last}" } + ")") +
+                ", netIds=" + (if (probe.netIds.isEmpty()) "none" else probe.netIds.joinToString(", ") { "0x%x".format(it) })
+        )
         if (!foreignPresent) {
             rootLog("INFO", "coexistence: this device is ours ($foreignReason); installing every tier")
         } else if (takeDeviceAnyway) {
@@ -1082,8 +1097,8 @@ object RootUtils {
                 append("    [ \"\$t\" = \"\$PHYS6\" ] && continue\n")
                 append("    u=\"\"; case \"\$rest\" in *'uidrange '*) u=\${rest#*uidrange }; u=\${u%% *};; esac\n")
                 append("    m=\"\"; case \"\$rest\" in *'fwmark '*) m=\${rest#*fwmark }; m=\${m%% *};; esac\n")
-                append("    [ -n \"\$u\" ] && echo \"FOREIGN_UIDS \$u\"\n")
-                append("    [ -n \"\$m\" ] && echo \"FOREIGN_MARK \$m\"\n")
+                append("    [ -n \"\$u\" ] && echo \"FOREIGN_UIDS \$t \$u\"\n")
+                append("    [ -n \"\$m\" ] && echo \"FOREIGN_MARK \$t \$m\"\n")
                 append("    echo \"FOREIGN_RULE \$p \$t\"\n")
                 append("done\n")
             }
@@ -1102,18 +1117,29 @@ object RootUtils {
             .distinct()
             .toList()
         val ifaces = values("FOREIGN_IF")
+        // Membership counts only when it points at the tunnel itself. netd names
+        // a network's table after its interface, so "lookup tun0" is the other
+        // client's and "lookup wlan0_local" is not — and that distinction is
+        // load-bearing: the physical *local* table carries a uidrange spanning
+        // every uid on the device, and folding it in leaves no gaps at all,
+        // which silently turns the partial yield back into a full one.
+        fun forTunnel(tag: String) = values(tag).mapNotNull { line ->
+            val table = line.substringBefore(' ').trim()
+            val rest = line.substringAfter(' ', "").trim()
+            if (table.isEmpty() || rest.isEmpty() || table !in ifaces) null else rest
+        }
         // "10355-10374" as netd printed it. A malformed line is dropped rather
         // than guessed at: a wrong range would hand the other tunnel's apps to us.
-        val memberRanges = values("FOREIGN_UIDS").mapNotNull { spec ->
+        val memberRanges = forTunnel("FOREIGN_UIDS").mapNotNull { spec ->
             val parts = spec.split("-")
             if (parts.size != 2) return@mapNotNull null
             val lo = parts[0].trim().toLongOrNull() ?: return@mapNotNull null
             val hi = parts[1].trim().toLongOrNull() ?: return@mapNotNull null
             if (lo > hi) null else lo..hi
-        }
+        }.distinct()
         // "0x10084/0x1ffff" -> netId 0x84. The low 16 bits are netd's network id;
         // the bits above it (explicitly-selected, permission) vary per rule.
-        val netIds = values("FOREIGN_MARK").mapNotNull { spec ->
+        val netIds = forTunnel("FOREIGN_MARK").mapNotNull { spec ->
             val value = spec.substringBefore('/').trim().removePrefix("0x").removePrefix("0X")
             value.toIntOrNull(16)?.and(0xffff)
         }.filter { it != 0 }.distinct()
