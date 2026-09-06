@@ -910,9 +910,12 @@ object RootUtils {
                         .format(netId)
                 )
             }
-            // The apps the user carved out of Root Mode, first of all: their
-            // queries leave the chain before anything is rewritten, so they
-            // keep the system resolver even while MagicDNS is unhealthy.
+            // The apps the user carved out of Root Mode. This covers only the
+            // ones that resolve for themselves — Chrome's async resolver, DoH
+            // and DoT clients, curl. An ordinary app's getaddrinfo is sent by
+            // the platform resolver under its own uid, so a uid match cannot
+            // see it, and those names still go to MagicDNS. Measured: this
+            // RETURN's counter stays at zero while the DNAT's climbs.
             for (uid in bypassUids) {
                 sb.append("iptables -t nat -A $CHAIN_DNS -m owner --uid-owner $uid -j RETURN 2>/dev/null || echo '$OWNER_MATCH_MISSING'\n")
             }
@@ -961,9 +964,8 @@ object RootUtils {
         }
         if (bypassUids.isNotEmpty()) {
             val what = when {
-                installCatchAll && installDns -> "keep the system resolver and skip the exit node"
-                installCatchAll -> "skip the exit node"
-                installDns -> "keep the system resolver"
+                installCatchAll -> "skip the exit node (their DNS still goes to MagicDNS unless they resolve for themselves)"
+                installDns -> "are carved out of the DNS redirect, as far as a uid match can reach"
                 else -> "need no rules of their own: nothing on this device is captured"
             }
             rootLog("INFO", "per-app exclusions: uid ${bypassUids.joinToString(",")} $what")
@@ -984,6 +986,7 @@ object RootUtils {
                 rootLog("INFO", "IPv6 exit-node catch-all not installed (ip -6 rule add refused); IPv6 traffic will not follow an exit node")
             }
             val catchAll = when {
+                shared -> "scoped to the ${gaps.size} uid range(s) the other tunnel bypasses"
                 !ownDevice -> "yielded, another tunnel holds the device"
                 !marks -> "skipped, daemon does not mark sockets"
                 v4Missing -> "not installed, mask dropped"
@@ -991,11 +994,16 @@ object RootUtils {
                 else -> "installed"
             }
             val dnsState = when {
+                installDns && shared -> "on, minus the other tunnel's own network"
                 installDns -> "on"
                 !dnsRedirect -> "off"
                 else -> "yielded, another tunnel holds the device"
             }
-            val tiers = if (ownDevice) "tailnet + default route + device-wide DNS" else "tailnet only"
+            val tiers = when {
+                ownDevice -> "tailnet + default route + device-wide DNS"
+                shared -> "tailnet + the apps the other tunnel bypasses"
+                else -> "tailnet only"
+            }
             rootLog(
                 "INFO",
                 "tailscale0 routing applied, $tiers (table $ROUTE_TABLE, exit-node catch-all pref $CATCH_ALL_PRIO -> table $DAEMON_TABLE: $catchAll, " +

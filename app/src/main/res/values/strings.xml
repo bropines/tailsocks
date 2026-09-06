@@ -1143,7 +1143,7 @@
     <string name="settings_tunnel_mode_root">Root</string>
     <string name="settings_tunnel_mode_proxy_desc">Runs in the background without the VPN permission. Other apps have to be pointed at the local SOCKS5 or HTTP proxy themselves.</string>
     <string name="settings_tunnel_mode_vpn_desc">Routes the whole device through Tailscale over the Android VPN interface. Asks for the system VPN permission.</string>
-    <string name="settings_tunnel_mode_root_desc">Runs the daemon through su as a system service on the native kernel interface tailscale0. The Android VPN slot stays free for another app. It changes routing and DNS for the whole device: every app’s DNS goes through MagicDNS, and with an exit node selected every app’s traffic follows it. Put an app on the Excluded apps list below to leave it on the system resolver and off the exit node.</string>
+    <string name="settings_tunnel_mode_root_desc">Runs the daemon through su as a system service on the native kernel interface tailscale0. The Android VPN slot stays free for another app. It changes routing and DNS for the whole device: every app’s DNS goes through MagicDNS, and with an exit node selected every app’s traffic follows it. Put an app on the Excluded apps list below to take it off the exit node. Its name resolution still goes through MagicDNS: Android sends an ordinary app’s DNS from the system resolver, under that resolver’s own identity, so a per-app carve-out cannot see it.</string>
     <!-- 4.0 settings restructure: stage 5 link rows -->
     <string name="settings_sect_share_links">Share with your tailnet</string>
     <string name="settings_link_taildrive_desc">Folders this device serves to your other devices over Taildrive</string>
