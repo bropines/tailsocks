@@ -17,6 +17,7 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.os.Build
+import android.os.FileObserver
 import android.os.IBinder
 import android.os.PowerManager
 import android.service.quicksettings.TileService
@@ -140,7 +141,7 @@ class TailscaledService : Service() {
     }
 
     /** Coalescing window for routing re-checks; see scheduleRootRoutingReapply. */
-    private val rootRoutingReapplyDelayMs = 3000L
+    private val rootRoutingReapplyDelayMs = 800L
 
     /** Deferred routing re-check. Posted on refreshHandler like its sibling
      *  above, so onDestroy cancels it, and it does its work on a thread of its
@@ -368,7 +369,13 @@ class TailscaledService : Service() {
         // The signature guard in the apply keeps the extra pass cheap.
         rootRoutingApplied = false
         rootRoutingFailures = 0
-        Log.i(TAG, "Root routing latch re-armed; the next tick re-applies")
+        Log.i(TAG, "Root routing latch re-armed; running a refresh pass now")
+        // Run a pass right away rather than waiting out the refresh interval,
+        // which is 15 s by default: the user is watching the main screen when
+        // the other tunnel goes up or down, and a routing change that lands
+        // half a minute later reads as "it did not work".
+        refreshHandler.removeCallbacks(refreshRunnable)
+        refreshHandler.post(refreshRunnable)
     }
 
     /**
@@ -579,6 +586,7 @@ class TailscaledService : Service() {
     /** Written from binder callback threads and read from the refresh tick. */
     private val foreignVpnNetworks = java.util.Collections.synchronizedSet(HashSet<Network>())
     @Volatile private var vpnCallbackRegistered = false
+    private var interfaceWatch: FileObserver? = null
     /** Last answer of the cheap tunnel-interface check; a change re-arms the ruleset. */
     @Volatile private var foreignVpnProbeSeen = false
 
@@ -685,10 +693,45 @@ class TailscaledService : Service() {
             if (name == "tailscale0") continue
             val looksLikeTunnel = name.startsWith("tun") || name.startsWith("ppp") ||
                 name.startsWith("wg") || name.startsWith("ipsec")
-            if (looksLikeTunnel && runCatching { ni.isUp }.getOrDefault(true)) return@runCatching true
+            // Deliberately not gated on isUp(): Java reports an interface as up
+            // only with IFF_RUNNING too, which a tunnel briefly lacks, and this
+            // check is a change signal — the root probe is what decides. A
+            // leftover interface at worst costs one probe that says "no".
+            if (looksLikeTunnel) return@runCatching true
         }
         false
     }.getOrNull()
+
+    /**
+     * Watches the kernel's own list of network interfaces, so another tunnel
+     * coming up or going down is noticed at once instead of on the next tick.
+     *
+     * This is inotify on a sysfs directory: it costs nothing while nothing
+     * happens, and it is an accelerator, not a dependency — the tick still
+     * checks, so a kernel that declines to report sysfs directory events only
+     * costs latency, never correctness.
+     */
+    private fun startInterfaceWatch() {
+        if (interfaceWatch != null) return
+        val watch = object : FileObserver(
+            "/sys/class/net",
+            FileObserver.CREATE or FileObserver.DELETE or
+                FileObserver.MOVED_TO or FileObserver.MOVED_FROM
+        ) {
+            override fun onEvent(event: Int, path: String?) {
+                val name = path ?: return
+                if (name == "tailscale0") return
+                val looksLikeTunnel = name.startsWith("tun") || name.startsWith("ppp") ||
+                    name.startsWith("wg") || name.startsWith("ipsec")
+                if (!looksLikeTunnel) return
+                refreshHandler.post { pollForeignVpnProbe() }
+            }
+        }
+        if (runCatching { watch.startWatching() }.isSuccess) {
+            interfaceWatch = watch
+            Log.i(TAG, "Watching /sys/class/net for other tunnels")
+        }
+    }
 
     private fun refreshForeignVpnFromScan() {
         val present = runCatching {
@@ -742,6 +785,7 @@ class TailscaledService : Service() {
         } catch (e: Exception) {
             Log.w(TAG, "Failed to watch the VPN slot: ${e.message}")
         }
+        startInterfaceWatch()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             try {
                 ContextCompat.registerReceiver(
@@ -1604,6 +1648,8 @@ class TailscaledService : Service() {
         try { connectivityManager.unregisterNetworkCallback(networkCallback) } catch (e: Exception) {}
         try { connectivityManager.unregisterNetworkCallback(vpnNetworkCallback) } catch (e: Exception) {}
         vpnCallbackRegistered = false
+        runCatching { interfaceWatch?.stopWatching() }
+        interfaceWatch = null
         try { unregisterReceiver(idleModeReceiver) } catch (e: Exception) {}
         if (wakeLock?.isHeld == true) wakeLock?.release()
         super.onDestroy()
