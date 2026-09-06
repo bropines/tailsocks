@@ -695,7 +695,13 @@ object RootUtils {
         takeDeviceAnyway: Boolean = false
     ): Boolean {
         val logFile = context?.let { rootDaemonLogFile(it) } ?: lastDaemonLogFile
-        val verdict = logFile?.let { soMarkVerdict(it) } ?: SoMarkVerdict(false, "no daemon log to check")
+        var verdict = logFile?.let { soMarkVerdict(it) } ?: SoMarkVerdict(false, "no daemon log to check")
+        // A log that never carried the probe line is silence, not a "no". Ask the
+        // process itself before withholding the exit node. An explicit negative
+        // from the daemon ("daemon logged: ...") is left alone.
+        if (!verdict.marks && !verdict.reason.startsWith("daemon logged")) {
+            daemonMarksByEnviron()?.let { verdict = it }
+        }
         val marks = verdict.marks
         if (!marks) {
             rootLog(
@@ -718,8 +724,19 @@ object RootUtils {
         }
         // Owning the device means owning the default route and port 53 on it.
         val ownDevice = !foreignPresent || takeDeviceAnyway
-        val installCatchAll = marks && ownDevice
-        val installDns = dnsRedirect && ownDevice
+        // What the other tunnel leaves on the table: the apps its owner told it
+        // to bypass. Android hands those to the physical network, so carrying
+        // them costs that tunnel nothing — and it is the whole point of sharing
+        // a device rather than taking turns on it.
+        val selfUid = context?.applicationInfo?.uid?.toLong()
+        val gaps = if (ownDevice) emptyList() else foreignBypassGaps(probe.memberRanges, selfUid)
+        val shared = !ownDevice && gaps.isNotEmpty()
+        val installCatchAll = marks && (ownDevice || shared)
+        val installDns = dnsRedirect && (ownDevice || shared)
+        // Its own resolution must stay its own. Matching by uid cannot do this —
+        // an app's getaddrinfo is sent by the platform resolver, not by the app —
+        // but netd stamps the network id into the mark, and that survives.
+        val dnsExemptNetIds = if (ownDevice) emptyList() else probe.netIds
         if (!foreignPresent) {
             rootLog("INFO", "coexistence: this device is ours ($foreignReason); installing every tier")
         } else if (takeDeviceAnyway) {
@@ -728,6 +745,15 @@ object RootUtils {
                 "another tunnel holds this device ($foreignReason), but \"take the device anyway\" is on: " +
                     "installing the exit-node catch-all and the device-wide DNS redirect regardless — " +
                     "the other tunnel's apps lose their traffic and their name resolution while TailSocks runs"
+            )
+        } else if (shared) {
+            rootLog(
+                "INFO",
+                "another tunnel holds this device ($foreignReason), and it does not claim every app: " +
+                    "carrying the ${gaps.size} uid range(s) it bypasses (${gaps.joinToString(", ") { "${it.first}-${it.last}" }}) " +
+                    "through the exit node, leaving its own apps and its DNS" +
+                    (if (dnsExemptNetIds.isEmpty()) "" else " (netId " + dnsExemptNetIds.joinToString(", ") { "0x%x".format(it) } + ")") +
+                    " to it"
             )
         } else {
             rootLog(
@@ -793,7 +819,7 @@ object RootUtils {
         // --- Exit-node catch-all (IPv4): unmarked local traffic → daemon's table 52 ---
         sb.append(staleDaemonRulePurge("ip"))
         if (installCatchAll) {
-            sb.append(catchAllInstall("ip", V4_CATCH_ALL_MISSING, bestEffort = false))
+            sb.append(catchAllInstall("ip", V4_CATCH_ALL_MISSING, bestEffort = false, scope = gaps))
             sb.append(localBypassRoutes("ip", localV4))
             sb.append(rpFilterLoosen())
         } else {
@@ -836,7 +862,7 @@ object RootUtils {
         sb.append(staleDaemonRulePurge("ip -6"))
         if (installCatchAll) {
             sb.append("if [ -d /proc/sys/net/ipv6 ] && [ \"\$(cat /proc/sys/net/ipv6/conf/all/disable_ipv6 2>/dev/null)\" = \"0\" ]; then\n")
-            sb.append(catchAllInstall("ip -6", V6_CATCH_ALL_MISSING, bestEffort = true))
+            sb.append(catchAllInstall("ip -6", V6_CATCH_ALL_MISSING, bestEffort = true, scope = gaps))
             sb.append(localBypassRoutes("ip -6", localV6))
             sb.append("fi\n")
         } else {
@@ -853,6 +879,18 @@ object RootUtils {
         sb.append(dnsChainTeardown())
         if (installDns) {
             sb.append("iptables -t nat -N $CHAIN_DNS 2>/dev/null || iptables -t nat -F $CHAIN_DNS\n")
+            // First, before anything else in the chain: whatever the other
+            // tunnel resolves for its own apps goes through untouched. netd
+            // stamps its network id into the low 16 bits of the mark, and it is
+            // still there when the platform resolver sends the query on an
+            // app's behalf — which is the only reason this can work at all,
+            // since the uid on that packet is the resolver's, not the app's.
+            for (netId in dnsExemptNetIds) {
+                sb.append(
+                    "iptables -t nat -A $CHAIN_DNS -m mark --mark 0x%x/0xffff -j RETURN 2>/dev/null || true\n"
+                        .format(netId)
+                )
+            }
             // The apps the user carved out of Root Mode, first of all: their
             // queries leave the chain before anything is rewritten, so they
             // keep the system resolver even while MagicDNS is unhealthy.
@@ -950,7 +988,54 @@ object RootUtils {
     }
 
     /** Outcome of the root-side coexistence probe: [present] is the gate, [reason] is what the ROOT log and Check Routing show. */
-    class ForeignVpnVerdict(val present: Boolean, val reason: String)
+    /**
+     * @param memberRanges uid ranges the other tunnel claims, exactly as netd
+     *                     published them. The gaps between them are the apps it
+     *                     bypasses — the ones we may still carry.
+     * @param netIds       network ids of the other tunnel, from the fwmark on
+     *                     its own rules. Used to leave its DNS alone.
+     */
+    class ForeignVpnVerdict(
+        val present: Boolean,
+        val reason: String,
+        val memberRanges: List<LongRange> = emptyList(),
+        val netIds: List<Int> = emptyList()
+    )
+
+    /** Highest uid netd writes rules for; the ranges are dense below it. */
+    private const val MAX_ANDROID_UID = 99_999L
+
+    /**
+     * The uids the other tunnel does *not* claim.
+     *
+     * netd publishes VPN membership as uid ranges; everything between them is an
+     * app its owner put in the bypass list, which Android then routes over the
+     * physical network. Those are the apps we can still carry without touching
+     * anything that belongs to the other tunnel — which is what makes coexisting
+     * something better than "we switch off".
+     *
+     * Our own uid is dropped: the other tunnel excludes us so we always show up
+     * in a gap, and routing the app's own traffic into our table buys nothing.
+     */
+    private fun foreignBypassGaps(ranges: List<LongRange>, selfUid: Long?): List<LongRange> {
+        if (ranges.isEmpty()) return emptyList()
+        val sorted = ranges.sortedBy { it.first }
+        val gaps = mutableListOf<LongRange>()
+        var next = 0L
+        for (r in sorted) {
+            if (r.first > next) gaps.add(next..(r.first - 1))
+            if (r.last + 1 > next) next = r.last + 1
+        }
+        if (next <= MAX_ANDROID_UID) gaps.add(next..MAX_ANDROID_UID)
+        if (selfUid == null) return gaps
+        // Split around our own uid rather than dropping the whole gap it sits in.
+        return gaps.flatMap { g ->
+            if (selfUid !in g) listOf(g) else buildList {
+                if (g.first <= selfUid - 1) add(g.first..(selfUid - 1))
+                if (selfUid + 1 <= g.last) add((selfUid + 1)..g.last)
+            }
+        }
+    }
 
     /**
      * Looks for another VPN client that owns this device, from a root shell and
@@ -995,6 +1080,10 @@ object RootUtils {
                 append("    case \"\$t\" in $ROUTE_TABLE|$DAEMON_TABLE|main|local|default|tailscale0|'') continue;; esac\n")
                 append("    [ \"\$t\" = \"\$PHYS\" ] && continue\n")
                 append("    [ \"\$t\" = \"\$PHYS6\" ] && continue\n")
+                append("    u=\"\"; case \"\$rest\" in *'uidrange '*) u=\${rest#*uidrange }; u=\${u%% *};; esac\n")
+                append("    m=\"\"; case \"\$rest\" in *'fwmark '*) m=\${rest#*fwmark }; m=\${m%% *};; esac\n")
+                append("    [ -n \"\$u\" ] && echo \"FOREIGN_UIDS \$u\"\n")
+                append("    [ -n \"\$m\" ] && echo \"FOREIGN_MARK \$m\"\n")
                 append("    echo \"FOREIGN_RULE \$p \$t\"\n")
                 append("done\n")
             }
@@ -1013,13 +1102,30 @@ object RootUtils {
             .distinct()
             .toList()
         val ifaces = values("FOREIGN_IF")
+        // "10355-10374" as netd printed it. A malformed line is dropped rather
+        // than guessed at: a wrong range would hand the other tunnel's apps to us.
+        val memberRanges = values("FOREIGN_UIDS").mapNotNull { spec ->
+            val parts = spec.split("-")
+            if (parts.size != 2) return@mapNotNull null
+            val lo = parts[0].trim().toLongOrNull() ?: return@mapNotNull null
+            val hi = parts[1].trim().toLongOrNull() ?: return@mapNotNull null
+            if (lo > hi) null else lo..hi
+        }
+        // "0x10084/0x1ffff" -> netId 0x84. The low 16 bits are netd's network id;
+        // the bits above it (explicitly-selected, permission) vary per rule.
+        val netIds = values("FOREIGN_MARK").mapNotNull { spec ->
+            val value = spec.substringBefore('/').trim().removePrefix("0x").removePrefix("0X")
+            value.toIntOrNull(16)?.and(0xffff)
+        }.filter { it != 0 }.distinct()
         // One rule per uid range, so a tunnel with many member apps prints many
         // identical pref/table pairs; the log only needs to name the tunnel.
         val rules = values("FOREIGN_RULE").take(4)
         return when {
             ifaces.isNotEmpty() && rules.isNotEmpty() -> ForeignVpnVerdict(
                 true,
-                "${ifaces.joinToString(", ")} is up and this device's routing sends apps to it (${rules.joinToString("; ")})"
+                "${ifaces.joinToString(", ")} is up and this device's routing sends apps to it (${rules.joinToString("; ")})",
+                memberRanges,
+                netIds
             )
             ifaces.isNotEmpty() -> ForeignVpnVerdict(
                 false,
@@ -1329,10 +1435,37 @@ object RootUtils {
     private fun catchAllTeardown(ip: String): String =
         "while $ip rule del priority $CATCH_ALL_PRIO lookup $DAEMON_TABLE 2>/dev/null; do :; done\n"
 
-    private fun catchAllInstall(ip: String, missingMarker: String, bestEffort: Boolean): String = buildString {
+    /**
+     * @param scope uid ranges to capture. Empty means the whole device, which is
+     *              the only correct answer when nothing else owns it.
+     *
+     * Scoping is what lets us share a phone with another tunnel instead of
+     * switching off next to it: netd routes that tunnel's members from priority
+     * 13000, we sit at [CATCH_ALL_PRIO] and would outvote it for every uid, so we
+     * ask only for the uids it does not claim. One rule per range, same selector
+     * as the device-wide form — `ip rule` has no "not these uids", and a rule per
+     * gap is exactly as many as the other tunnel itself installs.
+     */
+    private fun catchAllInstall(
+        ip: String,
+        missingMarker: String,
+        bestEffort: Boolean,
+        scope: List<LongRange> = emptyList()
+    ): String = buildString {
         val tolerate = if (bestEffort) " 2>/dev/null || true" else ""
         append("while $ip rule del priority $CATCH_ALL_PRIO lookup $DAEMON_TABLE 2>/dev/null; do :; done\n")
-        append("$ip rule add fwmark 0x0/$CATCH_ALL_MASK iif lo lookup $DAEMON_TABLE priority $CATCH_ALL_PRIO$tolerate\n")
+        if (scope.isEmpty()) {
+            append("$ip rule add fwmark 0x0/$CATCH_ALL_MASK iif lo lookup $DAEMON_TABLE priority $CATCH_ALL_PRIO$tolerate\n")
+        } else {
+            // Best-effort per range even on IPv4: one range failing must not cost
+            // the others, and the read-back below still catches "none landed".
+            for (r in scope) {
+                append(
+                    "$ip rule add fwmark 0x0/$CATCH_ALL_MASK iif lo uidrange ${r.first}-${r.last} " +
+                        "lookup $DAEMON_TABLE priority $CATCH_ALL_PRIO 2>/dev/null || true\n"
+                )
+            }
+        }
         append(
             "$ip rule show 2>/dev/null | grep -qE '^$CATCH_ALL_PRIO:.*fwmark (0x0|0)/$CATCH_ALL_MASK.*lookup $DAEMON_TABLE' || " +
                 "{ while $ip rule del priority $CATCH_ALL_PRIO lookup $DAEMON_TABLE 2>/dev/null; do :; done; echo '$missingMarker'; }\n"
@@ -1402,6 +1535,45 @@ object RootUtils {
      * tailscale0, so the safe failure mode is "no exit node", never a loop.
      */
     fun daemonMarksSockets(logFile: File): Boolean = soMarkVerdict(logFile).marks
+
+    /**
+     * Second opinion for the socket-marking gate, taken from the running daemon
+     * instead of from its log.
+     *
+     * The log is not a reliable witness: it is truncated, it outlives the app
+     * across an update, and a daemon that has been up for a while has long since
+     * scrolled its startup lines away — on a device checked tonight it held no
+     * probe line at all, so the gate could never open and the exit node was
+     * withheld for a reason that had nothing to do with routing.
+     *
+     * The binary is ours and marks its sockets unconditionally; the only way to
+     * turn that off is TS_VPN_BYPASS=0, which we put in the daemon's environment
+     * ourselves. So reading that environment answers the question directly.
+     * Returns null when nothing can be read, which leaves the log's verdict
+     * standing — the gate's failure mode is "no exit node", never a loop.
+     */
+    private fun daemonMarksByEnviron(): SoMarkVerdict? {
+        val script = buildString {
+            append("for p in \$(pidof libtailscale.so 2>/dev/null); do\n")
+            append("    [ -r /proc/\$p/environ ] || continue\n")
+            append("    if tr '\\0' '\\n' < /proc/\$p/environ | grep -qx 'TS_VPN_BYPASS=0'; then\n")
+            append("        echo SOMARK_ENV_DISABLED\n")
+            append("    else\n")
+            append("        echo SOMARK_ENV_ENABLED\n")
+            append("    fi\n")
+            append("    break\n")
+            append("done\n")
+        }
+        val res = runSu("somark-environ", script, timeoutMs = 8_000L)
+        if (!res.ok) return null
+        return when {
+            res.output.contains("SOMARK_ENV_ENABLED") ->
+                SoMarkVerdict(true, "the running daemon is ours and socket marking is not disabled")
+            res.output.contains("SOMARK_ENV_DISABLED") ->
+                SoMarkVerdict(false, "the running daemon was started with TS_VPN_BYPASS=0")
+            else -> null
+        }
+    }
 
     private fun soMarkVerdict(logFile: File): SoMarkVerdict {
         val recorded = if (lastDaemonLogFile == logFile) daemonLogStartOffset else -1L
