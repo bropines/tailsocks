@@ -172,6 +172,7 @@ fun PeersScreen(onBack: () -> Unit) {
 
             PeerDetailsModal(
                 peer = p,
+                isSelf = p === selfPeer,
                 onDismiss = { selectedPeer = null },
                 onSendFileClick = { peerForFileDrop = p; filePickerLauncher.launch("*/*") },
                 onPrevPeer = if (prevPeer != null) { { selectedPeer = prevPeer } } else null,

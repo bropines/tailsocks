@@ -434,6 +434,7 @@
     <string name="peer_pinging">Pinging…</string>
     <string name="peer_ping_result">Ping: %1$s</string>
     <string name="peer_ping_failed">Ping: Failed</string>
+    <string name="peer_ping_self">This device</string>
     <string name="peer_send_file">Send File</string>
     <string name="peer_cd_copy">Copy</string>
 

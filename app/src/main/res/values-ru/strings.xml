@@ -434,6 +434,7 @@
     <string name="peer_pinging">Пингую…</string>
     <string name="peer_ping_result">Ping: %1$s</string>
     <string name="peer_ping_failed">Ping: Неудача</string>
+    <string name="peer_ping_self">Это устройство</string>
     <string name="peer_send_file">Отправить файл</string>
     <string name="peer_cd_copy">Скопировать</string>
 

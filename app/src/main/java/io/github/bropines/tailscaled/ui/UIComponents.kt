@@ -202,6 +202,10 @@ fun PeerShareItem(peer: PeerData, enabled: Boolean, onClick: () -> Unit) {
 @Composable
 fun PeerDetailsModal(
     peer: PeerData,
+    /** This device. Pinging yourself has no peer to answer, so the button offered
+     *  an action whose only possible outcome was "Ping: Failed" — an error where
+     *  nothing had gone wrong. */
+    isSelf: Boolean = false,
     onDismiss: () -> Unit,
     onSendFileClick: () -> Unit = {},
     onPrevPeer: (() -> Unit)? = null,
@@ -246,6 +250,7 @@ fun PeerDetailsModal(
     val strPeerDetailsPrev = stringResource(R.string.peer_details_prev)
     val strPeerDetailsNext = stringResource(R.string.peer_details_next)
     val strPeerSendFile = stringResource(R.string.peer_send_file)
+    val strPeerPingSelf = stringResource(R.string.peer_ping_self)
     val strActionCopy = stringResource(R.string.action_copy)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -341,11 +346,17 @@ fun PeerDetailsModal(
                     },
                     modifier = Modifier.weight(1f).height(46.dp),
                     shape = RoundedCornerShape(14.dp),
+                    enabled = !isSelf,
                     contentPadding = PaddingValues(horizontal = 8.dp)
                 ) {
                     Icon(Icons.Default.Bolt, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text(pingText, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        if (isSelf) strPeerPingSelf else pingText,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
                 Button(
                     onClick = onSendFileClick,
