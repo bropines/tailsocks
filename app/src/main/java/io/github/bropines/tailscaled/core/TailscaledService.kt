@@ -200,6 +200,7 @@ class TailscaledService : Service() {
             // The VPN-slot callback is registered in onCreate and may have been
             // refused; the tick is the backstop that keeps the answer current.
             if (!vpnCallbackRegistered) refreshForeignVpnFromScan()
+            pollForeignVpnProbe()
             if (isRunning && backendState == "Running") {
                 rootNotRunningTicks = 0
                 applyRootRoutingIfNeeded("daemon is Running")
@@ -360,12 +361,14 @@ class TailscaledService : Service() {
     private fun reevaluateRootRouting() {
         if (teardownStarted) return
         if (!GlobalSettings.isRootModeEnabled(this) || !GlobalSettings.isRootTunEnabled(this)) return
-        if (!Appctr.isRunning()) return
-        val backendState = try { Appctr.getBackendState() } catch (e: Exception) { "" }
-        if (backendState != "Running") return
+        // Only re-arm the latch. Whether the daemon is up is the refresh tick's
+        // question, and the tick is the one place that answers it correctly for
+        // a daemon this process did not launch; asking Appctr here left the
+        // re-check silently dead in exactly the Root Mode case it exists for.
+        // The signature guard in the apply keeps the extra pass cheap.
         rootRoutingApplied = false
         rootRoutingFailures = 0
-        applyRootRoutingIfNeeded("re-check")
+        Log.i(TAG, "Root routing latch re-armed; the next tick re-applies")
     }
 
     /**
@@ -576,6 +579,8 @@ class TailscaledService : Service() {
     /** Written from binder callback threads and read from the refresh tick. */
     private val foreignVpnNetworks = java.util.Collections.synchronizedSet(HashSet<Network>())
     @Volatile private var vpnCallbackRegistered = false
+    /** Last answer of the cheap tunnel-interface check; a change re-arms the ruleset. */
+    @Volatile private var foreignVpnProbeSeen = false
 
     /**
      * A subscription of its own, because registerDefaultNetworkCallback only
@@ -641,6 +646,50 @@ class TailscaledService : Service() {
      * notice. One cheap ConnectivityManager scan per refresh tick.
      */
     @Suppress("DEPRECATION")
+    /**
+     * Notices another tunnel coming or going, without polling anything expensive.
+     *
+     * Two reasons this exists rather than leaning on the ConnectivityManager
+     * callback alone: a VPN that excludes TailSocks from its tunnel is not
+     * reported to us at all, so the slot can be taken and handed back without a
+     * single callback firing; and the callback is the only other thing that
+     * would re-arm the ruleset, which left the device yielded for the rest of
+     * the session after the other tunnel had already gone.
+     *
+     * The check is a plain interface enumeration — no root shell, no wakeup of
+     * its own. It rides the refresh tick that already runs, costs microseconds,
+     * and only a *change* in its answer spends anything: the expensive root
+     * probe runs inside the apply, and only then.
+     */
+    private fun pollForeignVpnProbe() {
+        if (teardownStarted) return
+        val seen = foreignTunnelInterfacePresent() ?: return
+        if (seen == foreignVpnProbeSeen) return
+        foreignVpnProbeSeen = seen
+        scheduleRootRoutingReapply(
+            if (seen) "a tunnel interface appeared" else "the tunnel interface went away"
+        )
+    }
+
+    /**
+     * True when an interface that belongs to somebody else's tunnel is up.
+     *
+     * Only `tun`/`ppp`/`wg`/`ipsec` names count and `tailscale0` is ours, so we
+     * can never see ourselves here. Returns null when the enumeration fails, so
+     * a transient error is not read as "the tunnel went away".
+     */
+    private fun foreignTunnelInterfacePresent(): Boolean? = runCatching {
+        val ifaces = java.net.NetworkInterface.getNetworkInterfaces() ?: return@runCatching false
+        for (ni in java.util.Collections.list(ifaces)) {
+            val name = ni.name ?: continue
+            if (name == "tailscale0") continue
+            val looksLikeTunnel = name.startsWith("tun") || name.startsWith("ppp") ||
+                name.startsWith("wg") || name.startsWith("ipsec")
+            if (looksLikeTunnel && runCatching { ni.isUp }.getOrDefault(true)) return@runCatching true
+        }
+        false
+    }.getOrNull()
+
     private fun refreshForeignVpnFromScan() {
         val present = runCatching {
             connectivityManager.allNetworks.any { network ->
