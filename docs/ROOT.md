@@ -12,7 +12,7 @@ TailSocks supports advanced **Root Mode** for Android devices running root solut
 * **State Directory Auto-Resolution:** Automatically detects existing account state directories inside `/data/data/io.github.bropines.tailscaled/files/states/` (defaults to `default` or `root`).
 * **Socket & Log Management:** Uses `/data/data/io.github.bropines.tailscaled/files/tailscaled.sock` with native `0666` socket permissions (via TailSocks atomic safesocket patches) and handles log rotation (`tailscaled.log`) automatically when size exceeds 2 MB.
 * **Proxy & Control Plane Propagation:** Reads control proxy environment settings from the root-owned file `/data/adb/tailsocks/control_proxy.env` (including `ALL_PROXY`, `HTTP_PROXY`, `HTTPS_PROXY`, and pre-resolved `TS_STATIC_HOSTS` overrides). The app writes it through `su` whenever the root daemon starts; the script only accepts `export NAME='value'` lines and never executes anything from the app's own data directory, which the app (or a restored backup) could write to.
-* **Boot-time routing:** Once `tailscale0` appears, the script installs the tiers it can put in without an app process (section 4 below): the tailnet rules — masked fwmark `0x1000000/0x1000000` → table `1099` and the `TAILSOCKS_MARK` chain, IPv4 and IPv6 — and, once the daemon has confirmed that it marks its own sockets, the exit-node catch-all and the `TAILSOCKS_DNS` redirect. The redirect is installed only if neither `accept_dns` nor `root_dns_redirect` is set to `false` in `shared_prefs/tailsocks_global.xml`; leftover rules from 3.5.x (bare mark `1099`, direct `OUTPUT` entries) are removed first. What the script cannot do is anything that needs a package resolved to a uid or a look at the live network: there are no per-app exclusions and no LAN `throw` routes at boot, and no other VPN client has started yet at `late_start`, so the device-wide tiers go in unconditionally. The app re-evaluates all of it when it attaches to the daemon and takes down what should not be there (section 5). The `service.d` copy of the script is refreshed automatically on app update (section 3).
+* **Boot-time routing:** Once `tailscale0` appears, the script installs tier T1 and nothing else (section 4): the tailnet rules — masked fwmark `0x1000000/0x1000000` → table `53`, the destination rules for the tailnet ranges, the `TAILSOCKS_MARK` chain and the `tailscale0` FORWARD pair, IPv4 and IPv6 — plus the removal of leftovers from 3.5.x (bare mark `1099`, direct `OUTPUT` entries). It installs **no** exit-node catch-all and **no** system-wide DNS redirect, because it cannot install what makes those two safe: the LAN `throw` routes and the per-app exclusions need packages resolved to uids, there is no `PackageManager` at `late_start`, and no other VPN client has started yet either, so a coexistence check made here would answer "the device is free" every time. A claim without its exemptions is worse than no claim — that is how a reboot with an exit node selected used to take the local network and the user's excluded apps with it. The app installs both device-wide tiers, with their exemptions and after the coexistence check, on its first `Running` tick (sections 4 and 5). **The cost:** with **Keep running in background** off, the app is not started at boot at all, so after a reboot there is no exit node and no system-wide MagicDNS until you open TailSocks — the node is up and the tailnet is reachable, but nothing else on the device is routed through it. The `service.d` copy of the script is refreshed automatically on app update (section 3).
 
 ### 2. Tailscale CLI Integration (`tailscale_cli.sh`)
 * **Installed Wrapper Paths:**
@@ -38,20 +38,28 @@ each one claims:
 
 | Tier | What it is | What it claims |
 |---|---|---|
-| **T1 — tailnet reachability** | table `1099`, the two priority-100 rules, the `TAILSOCKS_MARK` chain, the `tailscale0` FORWARD pair, the `/etc/hosts` publication and the loopback SOCKS5/HTTP proxies | only packets this device sends to a tailnet address |
+| **T1 — tailnet reachability** | table `53`, the two priority-100 rules, the `TAILSOCKS_MARK` chain, the `tailscale0` FORWARD pair, the `/etc/hosts` publication and the loopback SOCKS5/HTTP proxies | only packets this device sends to a tailnet address |
 | **T2 — default-route capture** | the priority-200 catch-all into the daemon's table `52`, the LAN `throw` routes, the `rp_filter` loosening, and the priority-190 per-app exclusions that punch holes in it | everything this device sends, whenever an exit node is selected |
 | **T3 — device-wide DNS** | the `TAILSOCKS_DNS` chain and its two `nat OUTPUT` hooks | every port-53 packet on the device |
 
 T1 coexists with anything, by construction. T2 and T3 claim the whole device and
 therefore have exactly one owner: when another VPN client already holds
-Android's VPN slot, both are yielded to it — see section 5.
+Android's VPN slot, they are yielded to it — entirely, or down to the apps that
+client bypasses. Section 5 has the three states and how the line between them is
+drawn.
+
+All three tiers are installed by the app, on its first `Running` tick. The boot
+script installs T1 only: the softeners that make T2 and T3 safe — the LAN
+`throw` routes, the per-app exclusions, the per-uid DNS carve-outs — all need
+packages resolved to uids, and there is no `PackageManager` at `late_start`
+(section 1).
 
 #### T1 — tailnet reachability
 
-* **Table `1099`** carries `100.64.0.0/10` (and `fd7a:115c:a1e0::/48`) via
+* **Table `53`** carries `100.64.0.0/10` (and `fd7a:115c:a1e0::/48`) via
   `tailscale0`. Traffic is steered into it by two rules at priority 100:
-  `ip rule … fwmark 0x1000000/0x1000000 table 1099` for marked packets, and
-  `ip rule … to 100.64.0.0/10 iif lo table 1099` by destination. The second one
+  `ip rule … fwmark 0x1000000/0x1000000 table 53` for marked packets, and
+  `ip rule … to 100.64.0.0/10 iif lo table 53` by destination. The second one
   matters for the daemon's own sockets: the mark is applied in `mangle OUTPUT`,
   *after* the kernel has already chosen a source address from the Wi-Fi table,
   so without it the daemon's queries to a split-DNS resolver on a peer left
@@ -62,6 +70,14 @@ Android's VPN slot, both are yielded to it — see section 5.
   being claimed by us and answered with our source address. The mark rule needs
   no such guard, because the mark is only ever set in `mangle OUTPUT`, which
   forwarded packets never traverse.
+
+  Every build up to 4.0.0 used table `1099` instead. netd names its per-network
+  tables after the interface index plus 1000, so on a phone that has cycled
+  enough interfaces for an index to reach 99 that table belongs to a live
+  network — and the cleanup used to flush it. Nothing is written there any more;
+  every apply and every stop still removes what an older install left in it, by
+  content and never with a flush. If you are looking at a device that has not
+  run 4.0.0 yet, look in `1099`.
 * **`TAILSOCKS_MARK`** (mangle, hooked from `OUTPUT` for the tailnet ranges) sets
   that mark with `--set-xmark 0x1000000/0x1000000`. Only a single high bit is
   touched through a mask: Android packs its own routing decision into fwmark (the
@@ -126,10 +142,10 @@ the whole reason this tier is yielded when someone else owns the slot (section
     borrow a verdict; a log with no run start at all is treated as unverified
     and gets no priority 200. In every negative case the ROOT log says
     `exit node unavailable: daemon does not mark sockets (<reason>)` and nothing
-    is installed at priority 200; tailnet routing through table 1099 is
-    unaffected. The boot script waits up to 20 s for the same line in its own
-    run's part of the log before adding the rule; lines tagged `TailSocks:` are
-    the app's and the script's own and never count.
+    is installed at priority 200; tailnet routing through table 53 is
+    unaffected. Lines tagged `TailSocks:` are the app's and the boot script's own
+    and never count as the daemon's. The boot script does not read this gate at
+    all — it installs no priority-200 rule, so it has nothing to gate.
   * **The mask honours Android's `protectedFromVpn` bit** (`0x20000`), the idiom
     netd itself uses for its VPN rules: sockets Android deliberately keeps off
     VPNs — network validation probes, MMS/IMS, and another VPN client's *own*
@@ -181,15 +197,21 @@ the chain before the redirect, in this order:
 The redirect is installed **only** when `accept-dns` is on — redirecting the
 whole device to a resolver that is not answering would break DNS entirely — and
 can be turned off by hand with **System-wide DNS via MagicDNS** (Settings →
-DNS). It is also yielded automatically whenever another VPN client holds the
-device, so that switch is no longer the only way out of that conflict.
+DNS). It is also given up automatically when another VPN client holds the
+device: entirely in the full yield, and in the partial one only for that
+client's own network, which leaves the chain with a `RETURN` at its head matched
+on the other tunnel's netId (section 5). Either way that switch is no longer the
+only way out of the conflict.
 
 The hook sits at position 1 of `nat OUTPUT`, which means the destination is
 rewritten *after* the kernel has already chosen a source address. That is why
-this tier cannot be shared: while another tunnel owned the device, its members'
-queries entered ours carrying **that tunnel's** address as source — measured as
-a stream of `netstack inject ts-service: src=100.100.100.100 dst=<the other
-tunnel's address>` fast enough to trip the daemon's own log rate limiter.
+another tunnel's queries must leave this chain before the DNAT rather than be
+redirected and sorted out later: while another tunnel owned the device, its
+members' queries entered ours carrying **that tunnel's** address as source —
+measured as a stream of `netstack inject ts-service: src=100.100.100.100
+dst=<the other tunnel's address>` fast enough to trip the daemon's own log rate
+limiter. The `RETURN` that keeps them out is matched on the netId in the fwmark,
+not on a uid, for a reason section 5 spells out.
 
 #### Per-app exclusions, and what they actually cover
 
@@ -224,9 +246,10 @@ The priority-100 rules sit above all of this, so an excluded app still reaches
 tailnet addresses through `tailscale0`. Only its default route goes back to the
 system.
 
-These rules go in **only** together with the catch-all they are a hole in. While
-another VPN client holds the device nothing is captured in the first place, so
-no exclusion rule is installed either — one would jump the app over that
+These rules go in **only** together with the catch-all they are a hole in, which
+includes the partial yield: whatever the catch-all captures, an exclusion can
+take back out. In the full yield nothing is captured in the first place, so no
+exclusion rule is installed either — one would jump the app over the other
 client's rules as well and take it out of the tunnel it is supposed to be in.
 
 **DNS — read this before relying on it.** `-m owner --uid-owner` matches the uid
@@ -291,33 +314,138 @@ What claiming too much costs, measured with a real client up (Exclave,
   queries the platform resolver made on behalf of that tunnel's apps — and, per
   T3 above, carrying the other tunnel's source address when they arrived.
 
-So T2 and T3 have one owner per device, and from 4.0.0 TailSocks yields them.
+So T2 and T3 have one owner per device, and from 4.0.0 TailSocks gives them up —
+either whole, or down to the part of the device the other client did not take.
 
-#### The three states
+#### The three states, and the override
 
 | Situation | Installed | What works |
 |---|---|---|
-| **TailSocks alone** — nothing else holds the VPN slot | T1 + T2 + T3 | Everything, exactly as before: exit nodes, accepted subnet routes, system-wide MagicDNS, per-app exclusions. |
-| **Another client holds the device** | T1 only | The node stays connected. Tailnet addresses are reachable from every app, MagicDNS names resolve through the `/etc/hosts` publication, and the loopback SOCKS5/HTTP proxies keep working — with exit-node egress for whatever is pointed at them. *Not*: the exit node or accepted subnet routes for apps that are not pointed at those proxies, and not system-wide DNS. The other client keeps its apps and its resolver, unharmed. |
-| **Both, with the override on** | T1 + T2 + T3 | Our side is complete; the other client's apps lose their traffic and their name resolution for as long as TailSocks runs. |
+| **TailSocks alone** — nothing else holds the VPN slot | T1 + T2 + T3, device-wide | Everything, exactly as before: exit nodes, accepted subnet routes, system-wide MagicDNS, per-app exclusions. |
+| **Another client holds the device, and claims every app** | T1 only | The node stays connected. Tailnet addresses are reachable from every app, MagicDNS names resolve through the `/etc/hosts` publication, and the loopback SOCKS5/HTTP proxies keep working — with exit-node egress for whatever is pointed at them. *Not*: the exit node or accepted subnet routes for apps that are not pointed at those proxies, and not system-wide DNS. The other client keeps its apps and its resolver, unharmed. |
+| **Another client holds the device, but bypasses some apps** | T1 + T2 scoped to the bypassed uids + T3 minus that client's own network | The apps that client leaves to the physical network follow our exit node and our subnet routes instead, and MagicDNS answers for the device — except for the queries that client's own tunnel makes, which are left alone. Its members are untouched: their traffic stays in its tunnel and their names are resolved by whoever it points them at. |
+| *(not a state, but the way out of both)* **the override on** | T1 + T2 + T3, device-wide | Our side is complete; the other client's apps lose their traffic and their name resolution for as long as TailSocks runs. |
 
-The middle row is what happens by default, and it is not a failure state, so
-the app says as much rather than reporting a fault: the dashboard reads **Tailnet only**
-instead of the usual Root line, a selected exit node is shown as not in use
-rather than pretending to carry traffic, and both **Tunnel mode** and **DNS** in
-Settings carry a note explaining what is switched off and until when. The Logs
-screen (ROOT tab) records which tiers went in and why, and **Check Routing**
-shows the same verdict. An empty priority 200 is healthy there.
+The middle two rows are what happens by default, and neither is a failure state,
+so the app says as much rather than reporting a fault — and it says which of the
+two it is, because they are not the same offer. In the **full yield** the
+dashboard reads **Tailnet only** instead of the usual Root line, a selected exit
+node is shown as **not in use** rather than pretending to carry traffic, and both
+**Tunnel mode** and **DNS** in Settings say what is switched off and until when.
+In the **partial yield** nothing is switched off, so nothing claims it is: the
+dashboard reads **Shared with another VPN**, the exit node stays an active row
+labelled **Exit node: partial**, and Settings says which apps the tiers went in
+for rather than what was given up. The Logs screen (ROOT tab) records which tiers
+went in and why, and **Check Routing** shows the same verdict. An empty priority
+200 is healthy in the full yield; a priority 200 that carries one rule per
+bypassed uid range, rather than one rule for the whole device, is healthy in the
+partial one.
+
+#### The partial yield: carrying what the other tunnel bypasses
+
+A VpnService that tunnels only some apps hands the rest to the physical network.
+Those apps are nobody's: the other client asked not to have them, and Android
+routes them exactly as it would with no VPN at all. Taking them costs that
+client nothing, and it is the difference between a phone where one tunnel works
+and a phone where both do.
+
+**The gaps are read from netd's own rules, not guessed.** Android expresses VPN
+membership as uid ranges, in the clear, and a root shell can read them:
+
+```
+13000:	from all fwmark 0x0/0x20000 iif lo uidrange 0-10353 lookup tun0
+13000:	from all fwmark 0x0/0x20000 iif lo uidrange 10355-10374 lookup tun0
+13000:	from all fwmark 0x0/0x20000 iif lo uidrange 10376-99999 lookup tun0
+```
+
+The ranges are the members; the **gaps between them** are the apps that client
+bypasses — above, uid 10354 (the client itself) and 10375 (TailSocks). Only
+rules whose table is the foreign tunnel's own interface are counted. That last
+part is load-bearing: a physical network's *local* table (`wlan0_local`) carries
+a `uidrange` spanning every uid on the device, and folding it in leaves no gaps
+at all, which silently turns the partial yield back into a full one.
+
+For every gap that survives, one catch-all rule is installed instead of the
+device-wide one:
+
+```
+200: from all fwmark 0x0/0x2020000 iif lo uidrange 10380-10380 lookup 52
+```
+
+Same selector as the device-wide form, restricted to uids the other tunnel does
+not want. `ip rule` has no "not these uids", so this is one rule per range —
+which is exactly as many as the other client itself installs.
+
+**Two kinds of uid are never carried**, and both had to be excluded by hand:
+
+* **A VPN client's own uid.** A VpnService's owner is always outside its own
+  tunnel — it would loop its relay traffic through itself otherwise — so its uid
+  is *always* a gap, whether or not its owner bypassed anything. Carrying it
+  would send that client's connection to its own relay out through our exit
+  node, which nobody asked for, and it would also mean the gap list is never
+  empty, so the full yield could never be reached at all. Android knows which
+  apps these are and answers without root and without a permission
+  (`PackageManager.queryIntentServices(Intent("android.net.VpnService"))`), so
+  we ask it rather than guess.
+* **uids no application owns.** Android reserves an SDK sandbox uid next to
+  every app (`appId + 10000`), so netd's membership list has a hole there too.
+  Measured on the device: uid 20354 sat in a gap with no package behind it, and
+  carrying it wrote a rule that could never match anything. The carried set is
+  therefore built positively — *installed* applications, minus VPN clients,
+  minus ourselves — rather than by subtracting what looks wrong. A gap small
+  enough to walk (up to 64 uids, the ordinary case of a handful of bypassed
+  apps) is resolved app by app; a large one — a client running in "tunnel only
+  these apps" mode leaves most of the device outside — is kept whole with the
+  known VPN uids cut out of it, because hundreds of one-uid rules cost more than
+  a few rules that occasionally match nothing.
+
+If nothing survives this, there is no partial yield: the gap list is empty and
+the full yield is reached honestly, which is the second row of the table.
+
+**DNS is split by netId, not by uid.** The other client's own resolution has to
+stay its own, and a `-m owner --uid-owner` match provably cannot do that: on
+Android an ordinary app does not send its own DNS queries — it calls
+`getaddrinfo` and the platform resolver emits the query under *its* uid, not the
+app's. What does survive is netd's network id, which it stamps into the low 16
+bits of the fwmark on the resolver's packet. Measured over 18 s of browsing
+inside a foreign tunnel, on `mangle OUTPUT`, `udp --dport 53`:
+
+| mark (mask `0x1ffff`) | packets | meaning |
+|---|---|---|
+| `0x10084` | 6 | the resolver working on behalf of an app **inside** the other tunnel |
+| `0x73` | 18 | physical-network resolution |
+
+So the head of `TAILSOCKS_DNS` gets one rule per foreign netId, before
+everything else in the chain:
+
+```
+iptables -t nat -A TAILSOCKS_DNS -m mark --mark 0x84/0xffff -j RETURN
+```
+
+and the rest of the device keeps MagicDNS. The netIds are read from the same
+`ip rule` probe as the uid ranges (`fwmark 0x10084/0x1ffff` → netId `0x84`), and
+they are part of what the app compares between ticks, so a foreign tunnel that
+restarts with a new netId is noticed and the carve-out is rewritten.
+
+**What the partial yield does not attempt.** Nothing tries to widen the
+catch-all's mask so that a foreign tunnel's mark would escape it: ordinary app
+traffic carries netId 0 in the mark, and it was measured directly —
+`ip route get 1.1.1.1 mark 0x84 uid <member app>` still answers
+`dev tailscale0 table 52`. No mark can outrank a rule that is consulted first,
+which is why the scope has to be expressed as uids.
 
 What is *not* installed is also actively **removed**: an earlier apply's
-catch-all, the LAN `throw` routes we wrote into table 52, the `rp_filter` change
-and both DNS hooks are taken down when the tier is yielded. Skipping an install
-would remove nothing, and the boot script installs these before any app process
-exists (below).
+catch-all — device-wide or scoped — the LAN `throw` routes we wrote into table
+52, the `rp_filter` change, the per-app exclusion rules and both DNS hooks are
+taken down when the tier is yielded, and the scoped rules are likewise replaced
+as a unit whenever the other tunnel changes which apps it bypasses. Skipping an
+install would remove nothing, and these rules can be there from an earlier apply
+of this run.
 
 The decision is re-made whenever the situation changes — another client starting
-or stopping, or a setting that feeds the choice — not once per daemon run, so
-neither yielding nor taking the device back waits for a restart.
+or stopping, that client changing which apps it carries, or a setting that feeds
+the choice — not once per daemon run, so neither yielding, nor narrowing the
+scope, nor taking the device back waits for a restart.
 
 #### How another client is recognised
 
@@ -335,13 +463,23 @@ Two independent signals, because neither is sufficient alone:
   interface behind, and a hand-routed WireGuard interface holds no VPN slot.
 
 Either signal is enough to yield; the safe direction is "someone else owns the
-device", never the reverse. The verdict and the reason behind it are written to
-the ROOT log on every apply.
+device", never the reverse. The root-side probe is also where the shape of the
+other tunnel comes from — its member uid ranges and its netIds, i.e. everything
+the partial yield is built out of — so the same read answers both "is anyone
+here" and "what did they leave". A malformed range is dropped rather than
+guessed at: a wrong one would hand that tunnel's own apps to us. The app keeps
+that shape and compares it on every refresh tick, because membership can change
+without the tunnel going down and Android's capability callback cannot report it
+(membership is redacted for a non-member, and a client that excludes us is
+exactly the one that matters). The verdict, the inputs behind it — marks,
+foreign, override, ranges, gaps, netIds — and the reason are written to the ROOT
+log on every apply.
 
 #### The override
 
 **Take the device anyway** (Settings → Tunnel mode, with the rest of the Root
-Mode switches) installs all three tiers regardless. It is off by default,
+Mode switches) installs all three tiers device-wide regardless — no scoping, no
+DNS carve-out for anyone else. It is off by default,
 sticky, and deliberately not carried by a profile backup — it is consent about
 *this* phone's other client, not a preference worth restoring elsewhere. The
 confirmation dialog names the cost, and the ROOT log repeats it on every apply
@@ -356,12 +494,22 @@ loopback proxies without taking the device from anybody; see below.
 
 The `service.d` script runs at `late_start`, long before any other VPN client's
 service has started, so a check made there would answer "the device is free"
-almost every time. It does not try: the script installs what it can, and the app
-makes the real decision at its first apply and removes what should not be there.
-This is why the removal is explicit rather than a skipped install.
+almost every time — and it has no `PackageManager`, so it could not install the
+LAN `throw` routes, the per-app exclusions or the per-uid DNS carve-outs even if
+the answer were right. It therefore installs T1 and stops there (section 1). The
+app makes the whole decision on its first `Running` tick, where the yield, the
+scope and the softeners are all decided in the same breath.
 
-With **Keep running in background** off, the app is not started at boot at all,
-and the boot script's rules stand until you open TailSocks.
+**The cost of that, plainly.** With **Keep running in background** off the app is
+not started at boot, so after a reboot the device has tailnet reachability and
+nothing else: no exit node, no accepted subnet routes for other apps, and no
+system-wide MagicDNS, until you open TailSocks. With it on, the window is the
+few seconds between the daemon reaching `Running` and the app's first apply.
+Before 4.0.0 the boot script installed the device-wide tiers itself and the
+window was smaller, but what it installed had no LAN exemptions and no app
+exclusions — a reboot with an exit node selected took the router, the NAS and
+adb-over-Wi-Fi with it, and the excluded apps were not excluded — and it could
+not see another VPN client at all.
 
 #### What to configure in the other client
 
@@ -406,7 +554,7 @@ exit-node egress — while it keeps the device and everything else keeps working
   way this document does not describe. It prints: the complete `ip rule` /
   `ip -6 rule` lists (our priority-100 rules, the priority-200 catch-all when it
   is installed, the priority-190 exclusions, and any stale `52xx` rules); other
-  tunnel interfaces present on the device; tables 1099 and 52 and every
+  tunnel interfaces present on the device; tables 53, 1099 and 52 and every
   `tailscale0` route; the route decision for `8.8.8.8` with and without the
   daemon's bypass mark, **per excluded uid** (a `tailscale0` answer there means
   that app is not excluded after all) and for the first excluded local prefix (a
@@ -416,8 +564,9 @@ exit-node egress — while it keeps the device and everything else keeps working
   app fighting over the fwmark is visible; `rp_filter` and the saved original;
   the daemon log's last run marker and `SO_MARK` line together with the verdict
   the app drew from them (why priority 200 was or was not installed); the
-  **coexistence verdict** — whether another tunnel owns this device and what it
-  was recognised by; the chains, with packet counters on the DNS chain, which
+  **coexistence verdict** — whether another tunnel owns this device, what it was
+  recognised by, and, when it bypasses apps, which uid ranges and which netId are
+  being carried; the chains, with packet counters on the DNS chain, which
   tells "the rule is missing" apart from "the rule is there and never hit"; the
   `tailscale0` address and the `ip` version.
 * Every root shell invocation (routing apply/cleanup, daemon stop, script
@@ -526,9 +675,10 @@ su -c ps -ef | grep tailscaled
 su -c ls -la /data/data/io.github.bropines.tailscaled/files/tailscaled.sock
 
 # Inspect the rules TailSocks owns (100: tailnet; 190: excluded apps; 200: exit-node
-# catch-all, absent while another VPN holds the device; no 52xx expected)
+# catch-all — device-wide when nothing else holds the VPN slot, one rule per carried
+# uid range in a partial yield, absent in a full one; no 52xx expected)
 su -c ip rule show
-su -c ip route show table 1099
+su -c ip route show table 53
 su -c iptables -t mangle -S TAILSOCKS_MARK
 su -c iptables -t nat -S TAILSOCKS_DNS
 
@@ -548,7 +698,7 @@ Two scripts in the repository automate the above for bug reports:
 * **`tools/root-debug.sh`** — a read-only snapshot to run on the device as root.
   It prints the app version, the relevant global settings, the daemon process
   and socket, the `tailscale0` interface and other tunnels, policy rules, table
-  1099, route decisions with and without the mark, both chains **with packet
+  53 and 1099, route decisions with and without the mark, both chains **with packet
   counters** (which tells "the rule is missing" apart from "the rule is there
   but never hit"), leftover legacy rules, the `/system/etc/hosts` bind mount, a
   DNS resolution probe and the last 40 daemon log lines. Nothing is modified.

@@ -365,6 +365,21 @@ object GlobalSettings {
         getPrefs(context).edit().putBoolean("root_routing_yielded", yielded).apply()
 
     /**
+     * Records that the last routing apply was the scoped one: another VPN holds
+     * the device, and the default route and the DNS redirect were taken only for
+     * the apps that client leaves outside its own tunnel.
+     *
+     * This refines [isRootRoutingYielded] instead of replacing it. The yield flag
+     * answers "did another VPN change what we installed", which is true here too;
+     * this one answers "is the exit node carrying anything at all", and only the
+     * two together tell the three cases apart. Like the other two markers it
+     * describes *this* device right now, so it is cleared with the rules.
+     */
+    fun isRootRoutingShared(context: Context): Boolean = getPrefs(context).getBoolean("root_routing_shared", false)
+    fun setRootRoutingShared(context: Context, shared: Boolean) =
+        getPrefs(context).edit().putBoolean("root_routing_shared", shared).apply()
+
+    /**
      * Records that firewall and policy-routing rules are currently installed on
      * the system.
      *
@@ -430,14 +445,15 @@ object GlobalSettings {
      *    transfer (res/xml/data_extraction_rules.xml). The Admin API token
      *    (`admin_api_keys`) and the node keys (`files/states`) live outside this
      *    preference file and are likewise never exported.
-     *  - `root_routing_installed`, `root_routing_yielded` — markers for the
-     *    rules installed on *this* device right now; restoring them elsewhere
-     *    would strand the cleanup and make the dashboard describe another
-     *    phone's tunnels.
+     *  - `root_routing_installed`, `root_routing_yielded`, `root_routing_shared`
+     *    — markers for the rules installed on *this* device right now; restoring
+     *    them elsewhere would strand the cleanup and make the dashboard describe
+     *    another phone's tunnels.
      *  - `root_take_device_anyway` — per-device consent to break whatever other
      *    VPN happens to run on *this* phone. A second device may have no other
      *    VPN, or one the user does not want disconnected, so the consent is
-     *    given again there or not at all.
+     *    given again there or not at all. `root_vpn_bypass` next to it is
+     *    exported: it changes only whether our own daemon marks its sockets.
      *  - `taildrop_root_uri` — a SAF grant bound to this device and install.
      *  - `last_seen_changelog_version` — install-local bookkeeping.
      *  - `app_locale` — applied at attachBaseContext, so a restored value only
@@ -458,8 +474,13 @@ object GlobalSettings {
         // TUN mode
         "tun_mode_enabled", "tun_full_tunnel", "tun_excluded_apps", "tun_excluded_cidrs",
         "tun_address", "tun_ipv6_enabled",
-        // Root mode
+        // Root mode. "Ignore other VPNs" belongs here as much as the rest: it
+        // decides how our own daemon marks its sockets, and dropping it silently
+        // restored a device that yields where the exported one did not. The
+        // take-the-device override is the one coexistence switch that stays
+        // behind — see above.
         "root_mode_enabled", "root_tun_enabled", "root_kill_daemon_on_stop", "root_dns_redirect",
+        "root_vpn_bypass",
         // Appearance
         "app_theme", "theme_preset", "dynamic_color", "amoled_mode", "show_changelog_after_update"
     )

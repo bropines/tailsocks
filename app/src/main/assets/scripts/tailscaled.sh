@@ -84,20 +84,6 @@ if [ -f "$LOG_FILE" ]; then
     fi
 fi
 
-# Everything the daemon appends after this offset belongs to this run; the
-# exit-node catch-all below is gated on a line from THIS run, not an older one.
-# An unknown size leaves no safe window to search, so the gate then stays shut
-# rather than falling back to the whole file (an older run's line must never
-# vouch for this one).
-LOG_START=""
-if [ -f "$LOG_FILE" ]; then
-    LOG_START="$(stat -c %s "$LOG_FILE" 2>/dev/null)"
-    [ -n "$LOG_START" ] || LOG_START="$(wc -c < "$LOG_FILE" 2>/dev/null | tr -d ' ')"
-else
-    LOG_START=0
-fi
-case "$LOG_START" in ''|*[!0-9]*) LOG_START="";; esac
-
 # Run marker for the app: RootUtils.daemonMarksSockets bounds "this run" by the
 # last such line when TailSocks adopts a daemon this script started (this core
 # prints no start banner of its own). Same text as RootUtils.RUN_MARKER; lines
@@ -114,16 +100,28 @@ chmod 666 "$LOG_FILE" 2>/dev/null || true
 # while naming domains that are wrong on most of them. The app injects the rule
 # for the two real domains if — and only if — its own connect is denied
 # (RootUtils.allowSocketConnect).
-# Wait for daemon socket then apply table 1099 routing safely
+# Wait for daemon socket then apply table 53 routing safely
 for i in $(seq 1 30); do
     if [ -S "$SOCKET_PATH" ] || [ -e "$SOCKET_PATH" ]; then
         chmod 777 "$SOCKET_PATH"
         chcon u:object_r:app_data_file:s0 "$SOCKET_PATH" 2>/dev/null || true
         chmod 777 "$STATE_DIR" 2>/dev/null || true
 
-        # Wait for tailscale0 and apply table 1099 policy routing.
+        # Wait for tailscale0 and apply table 53 policy routing.
         # Rules live in dedicated chains so they stay idempotent across reboots
         # and can be removed in one shot; TailSocks uses the same layout.
+        #
+        # Tailnet reachability only (docs/ROOT.md §4, tier T1). The two
+        # device-wide tiers — the pref-200 catch-all into the daemon's table 52
+        # and the TAILSOCKS_DNS redirect — are deliberately NOT installed here,
+        # because every softener they need is out of reach at late_start: the
+        # LAN throw routes and the per-app exclusions need packages resolved to
+        # uids (no PackageManager this early), and the decision whether this
+        # device is even ours needs another VPN client that has not started yet.
+        # Installing the claim without its exemptions is what took the LAN and
+        # the user's excluded apps into the exit node after every reboot. The
+        # app installs both tiers, with their exemptions, on its first Running
+        # tick; until then this device has tailnet reachability and nothing else.
         for j in $(seq 1 30); do
             if ip link show tailscale0 >/dev/null 2>&1; then
                 # Drop rules left by TailSocks 3.5.x, which appended to OUTPUT directly
@@ -137,16 +135,35 @@ for i in $(seq 1 30); do
                 while iptables -t nat -D OUTPUT -d 100.64.0.0/10 -p udp --dport 53 -j ACCEPT 2>/dev/null; do :; done
                 while iptables -t nat -D OUTPUT -d 100.64.0.0/10 -p tcp --dport 53 -j ACCEPT 2>/dev/null; do :; done
 
-                # Same layout as RootUtils.applyTailscale0Routing: a single high
-                # fwmark bit set through a mask so Android's netId/flag bits survive.
-                ip route replace 100.64.0.0/10 dev tailscale0 table 1099 metric 1
-                ip rule del fwmark 0x1000000/0x1000000 table 1099 2>/dev/null || true
-                ip rule add fwmark 0x1000000/0x1000000 table 1099 priority 100
+                # And the tier every build up to 4.0 wrote into table 1099, by
+                # content and never with a flush: netd names its per-network
+                # tables after the interface index plus 1000, so on a phone that
+                # has cycled enough netdevs table 1099 belongs to a live network.
+                # Left behind, the pref-100 rules keep pointing the whole CGNAT
+                # range at whatever netd puts there next.
+                while ip rule del fwmark 0x1000000/0x1000000 table 1099 2>/dev/null; do :; done
+                while ip rule del to 100.64.0.0/10 iif lo table 1099 2>/dev/null; do :; done
+                while ip rule del to 100.64.0.0/10 table 1099 2>/dev/null; do :; done
+                while ip -6 rule del fwmark 0x1000000/0x1000000 table 1099 2>/dev/null; do :; done
+                while ip -6 rule del to fd7a:115c:a1e0::/48 iif lo table 1099 2>/dev/null; do :; done
+                while ip -6 rule del to fd7a:115c:a1e0::/48 table 1099 2>/dev/null; do :; done
+                ip route del 100.64.0.0/10 dev tailscale0 table 1099 2>/dev/null || true
+                ip -6 route del fd7a:115c:a1e0::/48 dev tailscale0 table 1099 2>/dev/null || true
+
+                # Same layout as RootUtils.applyTailscale0Routing, table included:
+                # a single high fwmark bit set through a mask so Android's
+                # netId/flag bits survive, steering into table 53.
+                ip route replace 100.64.0.0/10 dev tailscale0 table 53 metric 1
+                ip rule del fwmark 0x1000000/0x1000000 table 53 2>/dev/null || true
+                ip rule add fwmark 0x1000000/0x1000000 table 53 priority 100
                 # Destination rule too (same as RootUtils): the fwmark is applied
                 # after source selection, so root-owned sockets — the daemon's own
                 # DNS forwarder — otherwise leave tailscale0 with the Wi-Fi source.
-                ip rule del to 100.64.0.0/10 table 1099 2>/dev/null || true
-                ip rule add to 100.64.0.0/10 table 1099 priority 100
+                # `iif lo` for the same reason RootUtils uses it: without it this
+                # also claims packets merely passing through the device.
+                while ip rule del to 100.64.0.0/10 iif lo table 53 2>/dev/null; do :; done
+                while ip rule del to 100.64.0.0/10 table 53 2>/dev/null; do :; done
+                ip rule add to 100.64.0.0/10 iif lo table 53 priority 100
 
                 iptables -t mangle -N TAILSOCKS_MARK 2>/dev/null || iptables -t mangle -F TAILSOCKS_MARK
                 iptables -t mangle -A TAILSOCKS_MARK -j MARK --set-xmark 0x1000000/0x1000000
@@ -155,11 +172,12 @@ for i in $(seq 1 30); do
                 iptables -C FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || iptables -I FORWARD -o tailscale0 -j ACCEPT
                 iptables -C FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || iptables -I FORWARD -i tailscale0 -j ACCEPT
 
-                ip -6 route replace fd7a:115c:a1e0::/48 dev tailscale0 table 1099 metric 1 2>/dev/null || true
-                ip -6 rule del fwmark 0x1000000/0x1000000 table 1099 2>/dev/null || true
-                ip -6 rule add fwmark 0x1000000/0x1000000 table 1099 priority 100 2>/dev/null || true
-                ip -6 rule del to fd7a:115c:a1e0::/48 table 1099 2>/dev/null || true
-                ip -6 rule add to fd7a:115c:a1e0::/48 table 1099 priority 100 2>/dev/null || true
+                ip -6 route replace fd7a:115c:a1e0::/48 dev tailscale0 table 53 metric 1 2>/dev/null || true
+                ip -6 rule del fwmark 0x1000000/0x1000000 table 53 2>/dev/null || true
+                ip -6 rule add fwmark 0x1000000/0x1000000 table 53 priority 100 2>/dev/null || true
+                while ip -6 rule del to fd7a:115c:a1e0::/48 iif lo table 53 2>/dev/null; do :; done
+                while ip -6 rule del to fd7a:115c:a1e0::/48 table 53 2>/dev/null; do :; done
+                ip -6 rule add to fd7a:115c:a1e0::/48 iif lo table 53 priority 100 2>/dev/null || true
 
                 ip6tables -t mangle -N TAILSOCKS_MARK 2>/dev/null || ip6tables -t mangle -F TAILSOCKS_MARK
                 ip6tables -t mangle -A TAILSOCKS_MARK -j MARK --set-xmark 0x1000000/0x1000000 2>/dev/null || true
@@ -168,125 +186,6 @@ for i in $(seq 1 30); do
                 ip6tables -C FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || ip6tables -I FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || true
                 ip6tables -C FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || ip6tables -I FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || true
 
-                # System-wide DNS redirect to MagicDNS, installed only when both
-                # "accept_dns" (MagicDNS) and "root_dns_redirect" are on — the same
-                # gate the app applies. Both default to true and are written to the
-                # global prefs only once the user flips them. It sits before the
-                # exit-node section on purpose: that one may wait up to 20 s and the
-                # redirect does not depend on it.
-                PREFS_XML="$DATA_DIR/shared_prefs/tailsocks_global.xml"
-                DNS_REDIRECT=1
-                if [ -f "$PREFS_XML" ]; then
-                    grep -q 'name="accept_dns" value="false"' "$PREFS_XML" 2>/dev/null && DNS_REDIRECT=0
-                    grep -q 'name="root_dns_redirect" value="false"' "$PREFS_XML" 2>/dev/null && DNS_REDIRECT=0
-                fi
-
-                # Remove any previous DNS chain first so a disabled redirect does not
-                # linger from an earlier boot.
-                while iptables -t nat -D OUTPUT -p udp --dport 53 -j TAILSOCKS_DNS 2>/dev/null; do :; done
-                while iptables -t nat -D OUTPUT -p tcp --dport 53 -j TAILSOCKS_DNS 2>/dev/null; do :; done
-                iptables -t nat -F TAILSOCKS_DNS 2>/dev/null || true
-                iptables -t nat -X TAILSOCKS_DNS 2>/dev/null || true
-
-                if [ "$DNS_REDIRECT" = "1" ]; then
-                    # The tailnet range and the daemon's own upstream resolvers
-                    # (TS_DNS_FALLBACK) are excluded: without that, the resolver's own
-                    # queries are redirected back into itself and no external name
-                    # ever resolves.
-                    iptables -t nat -N TAILSOCKS_DNS 2>/dev/null || iptables -t nat -F TAILSOCKS_DNS
-                    iptables -t nat -A TAILSOCKS_DNS -d 100.64.0.0/10 -j RETURN
-                    OLD_IFS="$IFS"; IFS=","
-                    for resolver in $TS_DNS_FALLBACK; do
-                        [ -n "$resolver" ] && iptables -t nat -A TAILSOCKS_DNS -d "$resolver" -j RETURN
-                    done
-                    IFS="$OLD_IFS"
-                    iptables -t nat -A TAILSOCKS_DNS -p udp --dport 53 -j DNAT --to-destination 100.100.100.100:53
-                    iptables -t nat -A TAILSOCKS_DNS -p tcp --dport 53 -j DNAT --to-destination 100.100.100.100:53
-                    iptables -t nat -C OUTPUT -p udp --dport 53 -j TAILSOCKS_DNS 2>/dev/null || iptables -t nat -I OUTPUT 1 -p udp --dport 53 -j TAILSOCKS_DNS
-                    iptables -t nat -C OUTPUT -p tcp --dport 53 -j TAILSOCKS_DNS 2>/dev/null || iptables -t nat -I OUTPUT 1 -p tcp --dport 53 -j TAILSOCKS_DNS
-                fi
-
-                # --- Exit-node catch-all (same layout as RootUtils; see docs/ROOT.md §4) ---
-                # Desktop-Linux rules a pre-4.0 core left behind (a killed daemon never
-                # ran Close()). Matched by content so a third-party rule at 52xx survives.
-                # Both families are purged here, before the gate: the purge is harmless
-                # anywhere and must not wait for it.
-                while ip rule del pref 5210 lookup main 2>/dev/null; do :; done
-                while ip rule del pref 5230 lookup default 2>/dev/null; do :; done
-                while ip rule del pref 5250 type unreachable 2>/dev/null; do :; done
-                while ip rule del pref 5270 lookup 52 2>/dev/null; do :; done
-                while ip -6 rule del pref 5210 lookup main 2>/dev/null; do :; done
-                while ip -6 rule del pref 5230 lookup default 2>/dev/null; do :; done
-                while ip -6 rule del pref 5250 type unreachable 2>/dev/null; do :; done
-                while ip -6 rule del pref 5270 lookup 52 2>/dev/null; do :; done
-
-                # pref 200 sends every unmarked, locally generated packet through the
-                # daemon's table 52 (peer routes, subnet routes, 'default dev tailscale0'
-                # while an exit node is selected, LAN throws). That is only safe when
-                # THIS daemon marks its own sockets with 0x2000000: an unmarked daemon
-                # would route its own WireGuard/DERP packets into tailscale0 the moment
-                # table 52 holds a default route. The netns probe logs once per start
-                # (with Go's date/time prefix and a component prefix such as
-                # 'magicsock:' in front); wait for that exact line in this run's part
-                # of the log, else install nothing at pref 200 (tailnet routing via
-                # table 1099 does not depend on it). 'TailSocks:' lines are the
-                # script's and the app's own and never count.
-                DAEMON_MARKS=0
-                k=0
-                while [ -n "$LOG_START" ] && [ $k -lt 20 ]; do
-                    if tail -c +$((LOG_START + 1)) "$LOG_FILE" 2>/dev/null | grep -v 'TailSocks:' | grep -q 'netns: SO_MARK 0x2000000 set on tailscaled sockets'; then
-                        DAEMON_MARKS=1
-                        break
-                    fi
-                    sleep 1
-                    k=$((k + 1))
-                done
-                if [ "$DAEMON_MARKS" = "1" ]; then
-                    # Mask 0x2020000 = the daemon's bypass bit 25 + Android's
-                    # protectedFromVpn bit 17, so sockets Android keeps off VPNs skip
-                    # the exit node too (netd's own idiom). 'iif lo' = output lookups
-                    # only; tethered clients stay on netd's rules.
-                    while ip rule del priority 200 lookup 52 2>/dev/null; do :; done
-                    ip rule add fwmark 0x0/0x2020000 iif lo lookup 52 priority 200
-                    # A rule that reads back without the mask (bare 'fwmark 0x0' / 'fwmark 0')
-                    # has kernel mask 0 and matches everything, the daemon included: remove
-                    # it rather than loop. iproute2 4.x prints the zero mark as 0x0, 5.x+ as 0.
-                    if ! ip rule show 2>/dev/null | grep -qE '^200:.*fwmark (0x0|0)/0x2020000.*lookup 52'; then
-                        while ip rule del priority 200 lookup 52 2>/dev/null; do :; done
-                        echo "TailSocks: ip dropped the fwmark mask; exit-node catch-all NOT installed" >> "$LOG_FILE"
-                    fi
-                    # Replies to the daemon's marked sockets arrive on Wi-Fi/cellular and
-                    # are reverse-path checked with mark 0, which now resolves to
-                    # tailscale0 through table 52: strict rp_filter (1) would drop them.
-                    # The kernel uses max(all, iface), so all=2 is enough. The original
-                    # is saved once (temp+mv) for RootUtils.cleanupTailscale0Routing.
-                    mkdir -p /data/adb/tailsocks && chmod 700 /data/adb/tailsocks
-                    for f in /proc/sys/net/ipv4/conf/*/rp_filter; do
-                        if [ "$(cat "$f" 2>/dev/null)" = "1" ]; then
-                            [ -f /data/adb/tailsocks/rp_filter.orig ] || { cat /proc/sys/net/ipv4/conf/all/rp_filter > /data/adb/tailsocks/rp_filter.orig.tmp && mv /data/adb/tailsocks/rp_filter.orig.tmp /data/adb/tailsocks/rp_filter.orig; }
-                            echo 2 > /proc/sys/net/ipv4/conf/all/rp_filter
-                            break
-                        fi
-                    done
-                elif [ -z "$LOG_START" ]; then
-                    # Neither token of the gate may appear in these lines: the app
-                    # (and this script on a later boot) greps the log for them.
-                    echo "TailSocks: exit node unavailable: daemon log size unknown, this run cannot be verified; pref-200 catch-all not installed" >> "$LOG_FILE"
-                else
-                    echo "TailSocks: exit node unavailable: daemon did not report SO_MARK support within 20s; pref-200 catch-all not installed" >> "$LOG_FILE"
-                fi
-
-                # IPv6 exit-node catch-all: only where IPv6 exists and is enabled
-                # (else 'ip -6 rule add' fails on every boot and the log line below
-                # would be a false alarm). The stale-rule purge already ran above.
-                if [ "$DAEMON_MARKS" = "1" ] && [ -d /proc/sys/net/ipv6 ] && [ "$(cat /proc/sys/net/ipv6/conf/all/disable_ipv6 2>/dev/null)" = "0" ]; then
-                    while ip -6 rule del priority 200 lookup 52 2>/dev/null; do :; done
-                    ip -6 rule add fwmark 0x0/0x2020000 iif lo lookup 52 priority 200 2>/dev/null || true
-                    if ! ip -6 rule show 2>/dev/null | grep -qE '^200:.*fwmark (0x0|0)/0x2020000.*lookup 52'; then
-                        while ip -6 rule del priority 200 lookup 52 2>/dev/null; do :; done
-                        echo "TailSocks: IPv6 exit-node catch-all not installed" >> "$LOG_FILE"
-                    fi
-                fi
                 break
             fi
             sleep 1

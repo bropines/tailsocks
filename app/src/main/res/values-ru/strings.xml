@@ -1170,7 +1170,7 @@
     <string name="tun_excluded_apps_count">В обход туннеля: %1$d</string>
     <!-- Root Mode next to another VPN: the sticky override and what a yield looks like -->
     <string name="settings_root_take_device_title">Всё равно занять устройство</string>
-    <string name="settings_root_take_device_desc">Пока телефон держит другой VPN, TailSocks ведёт только адреса тейлнета, а маршрут по умолчанию и DNS оставляет ему. Включите, чтобы забрать их себе — приложения того VPN останутся без туннеля.</string>
+    <string name="settings_root_take_device_desc">Пока телефон держит другой VPN, TailSocks оставляет ему маршрут по умолчанию и DNS и забирает их только для приложений, которые тот держит вне своего туннеля. Включите, чтобы забрать всё себе — приложения того VPN останутся без туннеля.</string>
     <string name="settings_root_take_device_dialog_title">Забрать устройство у другого VPN?</string>
     <string name="settings_root_take_device_dialog_body">Маршрут по умолчанию и DNS телефона сейчас держит другой VPN. Если забрать их, весь трафик и все запросы имён пойдут через TailSocks: приложения, которые тот VPN защищал, останутся без туннеля, а его фильтрация перестанет работать — и он об этом не узнает. Выключите переключатель, чтобы вернуть устройство.</string>
     <string name="settings_root_take_device_confirm">Занять устройство</string>
@@ -1180,4 +1180,12 @@
     <string name="main_status_active_root_yielded_desc">Только тейлнет — устройство держит другой VPN • Нажмите для остановки</string>
     <string name="main_exit_node_inert_label">Выходной узел не используется</string>
     <string name="main_exit_node_inert_desc">Выбран %1$s, но устройство держит другой VPN</string>
+    <!-- Root Mode sharing the device: the other VPN bypasses some apps, we carry those -->
+    <string name="settings_root_shared_banner">Устройство держит другой VPN, но часть приложений оставил вне своего туннеля. Они идут через TailSocks — с выходным узлом и MagicDNS; остальные остаются у него.</string>
+    <string name="settings_root_dns_shared_desc">Включён для приложений, которые не забрал другой VPN. Его собственные запросы оставлены ему.</string>
+    <string name="main_root_shared_title">Делим с другим VPN</string>
+    <string name="main_root_shared_desc">Устройство держит он, а приложения, которые он не забрал, идут через нас — с выходным узлом и MagicDNS.</string>
+    <string name="main_status_active_root_shared_desc">Ведём приложения вне чужого VPN • Нажмите для остановки</string>
+    <string name="main_exit_node_partial_label">Выходной узел: частично</string>
+    <string name="main_exit_node_partial_desc">%1$s — только для приложений, которые не забрал другой VPN</string>
 </resources>

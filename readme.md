@@ -50,7 +50,7 @@ Optionally, TailSocks supports a **transparent TUN VPN mode** powered by the nat
 | **Native LocalAPI** | 100% CLI-less daemon management via Unix socket (`tailscaled.sock`) using LocalAPI v0. No shell commands. |
 | **SOCKS5 Proxy** | Built-in local SOCKS5 proxy server with optional authentication for per-app routing. |
 | **LAN Access** | One switch (Settings → Network → LAN Access) binds the SOCKS5 proxy, HTTP proxy and local DNS to `0.0.0.0` so other devices on your Wi-Fi can route through your tailnet. The app shows the address to connect to and warns when the SOCKS5 proxy has no password — without one, anyone on the LAN can use it. |
-| **Root Mode (experimental)** | On rooted devices the daemon runs as root with a real `tailscale0` kernel interface, policy routing in table `1099` via dedicated `TAILSOCKS_MARK`/`TAILSOCKS_DNS` iptables chains, optional system-wide DNS redirect, a *Check Routing* diagnostics button and a ROOT log tab. See the [Root guide](docs/ROOT.md). |
+| **Root Mode (experimental)** | On rooted devices the daemon runs as root with a real `tailscale0` kernel interface, policy routing in table `53` via dedicated `TAILSOCKS_MARK`/`TAILSOCKS_DNS` iptables chains, optional system-wide DNS redirect, a *Check Routing* diagnostics button and a ROOT log tab. See the [Root guide](docs/ROOT.md). |
 | **Control Plane Proxy** | Route coordination server traffic through a custom SOCKS5/HTTP proxy for restricted regions. |
 | **TUN VPN Mode** | Transparent system-wide VPN via native `hev-socks5-tunnel` — full tunnel & split tunnel, per-app exclusions, custom gateway IP. |
 | **[Exit Nodes](https://tailscale.com/kb/1103/exit-nodes) ©** | Route all internet traffic through any authorized Tailscale peer with auto-healing and LAN access. |

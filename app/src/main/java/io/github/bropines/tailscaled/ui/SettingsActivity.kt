@@ -821,8 +821,10 @@ fun SettingsScreen(
         var rootTakeDevice by remember { mutableStateOf(GlobalSettings.isRootTakeDeviceAnyway(context)) }
         // What the service actually installed last time. It changes while this
         // screen is open — another VPN starts, ours yields — so it is watched
-        // rather than read once.
+        // rather than read once. Shared is the middle case: the other client
+        // bypasses some apps and we took the default route for those alone.
         var rootRoutingYielded by remember { mutableStateOf(GlobalSettings.isRootRoutingYielded(context)) }
+        var rootRoutingShared by remember { mutableStateOf(GlobalSettings.isRootRoutingShared(context)) }
         var showRootWarningDialog by remember { mutableStateOf(false) }
         var showTunWarningDialog by remember { mutableStateOf(false) }
         var showTakeDeviceDialog by remember { mutableStateOf(false) }
@@ -847,9 +849,13 @@ fun SettingsScreen(
                 if (key == "root_routing_yielded") {
                     rootRoutingYielded = store.getBoolean("root_routing_yielded", false)
                 }
+                if (key == "root_routing_shared") {
+                    rootRoutingShared = store.getBoolean("root_routing_shared", false)
+                }
             }
             prefs.registerOnSharedPreferenceChangeListener(listener)
             rootRoutingYielded = prefs.getBoolean("root_routing_yielded", false)
+            rootRoutingShared = prefs.getBoolean("root_routing_shared", false)
             onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
         }
 
@@ -890,6 +896,7 @@ fun SettingsScreen(
                     RootUtils.cleanupTailscale0Routing()
                     GlobalSettings.setRootRoutingInstalled(context, false)
                     GlobalSettings.setRootRoutingYielded(context, false)
+                    GlobalSettings.setRootRoutingShared(context, false)
                 }
                 RootUtils.stopRootDaemon("${context.filesDir.absolutePath}/tailscaled.sock")
                 RootUtils.handStateBackToApp(context)
@@ -1284,6 +1291,7 @@ fun SettingsScreen(
                             RootUtils.cleanupTailscale0Routing()
                             GlobalSettings.setRootRoutingInstalled(context, false)
                             GlobalSettings.setRootRoutingYielded(context, false)
+                            GlobalSettings.setRootRoutingShared(context, false)
                         }
                         if (ProxyState.isUserLetRunning(context)) {
                             withContext(Dispatchers.Main) {
@@ -1444,7 +1452,10 @@ fun SettingsScreen(
                     }
                 }
 
-                if (rootRoutingYielded && !rootTakeDevice) {
+                // Three outcomes, and the override only silences the two that
+                // say we stepped aside. Shared answers first: it is the one the
+                // yield flag also claims, and it claims less than the truth.
+                if ((rootRoutingYielded || rootRoutingShared) && !rootTakeDevice) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1459,7 +1470,8 @@ fun SettingsScreen(
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            text = stringResource(R.string.settings_root_yielded_banner),
+                            text = if (rootRoutingShared) stringResource(R.string.settings_root_shared_banner)
+                                   else stringResource(R.string.settings_root_yielded_banner),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1612,8 +1624,10 @@ fun SettingsScreen(
         var rootDnsRedirect by remember { mutableStateOf(GlobalSettings.isRootDnsRedirectEnabled(context)) }
         // The switch can be on while the redirect is not installed: another VPN
         // owns the resolver and Root Mode yielded it. Say so instead of letting
-        // the row claim something that is not on the device.
-        val rootDnsYielded = GlobalSettings.isRootRoutingYielded(context)
+        // the row claim something that is not on the device. Shared is the third
+        // case — the redirect is installed, minus that client's own queries.
+        val rootDnsShared = GlobalSettings.isRootRoutingShared(context)
+        val rootDnsYielded = GlobalSettings.isRootRoutingYielded(context) && !rootDnsShared
 
         SettingsCard(title = stringResource(R.string.settings_sect_resolver)) {
             SettingsSwitchItem(stringResource(R.string.settings_magicdns_title), stringResource(R.string.settings_accept_dns_desc), Icons.Default.Dns, acceptDns) { acceptDns = it; saveGlobalPref("accept_dns", it) }
@@ -1630,9 +1644,11 @@ fun SettingsScreen(
                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
                 SettingsSwitchItem(
                     title = stringResource(R.string.settings_root_dns_redirect_title),
-                    subtitle = if (rootDnsRedirect && rootDnsYielded)
-                        stringResource(R.string.settings_root_yielded_banner)
-                        else stringResource(R.string.settings_root_dns_redirect_desc),
+                    subtitle = when {
+                        rootDnsRedirect && rootDnsYielded -> stringResource(R.string.settings_root_yielded_banner)
+                        rootDnsRedirect && rootDnsShared -> stringResource(R.string.settings_root_dns_shared_desc)
+                        else -> stringResource(R.string.settings_root_dns_redirect_desc)
+                    },
                     icon = Icons.Default.Dns,
                     checked = rootDnsRedirect
                 ) { enabled ->

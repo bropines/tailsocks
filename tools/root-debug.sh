@@ -15,7 +15,15 @@ PKG="io.github.bropines.tailscaled"
 DATA="/data/data/$PKG"
 SOCK="$DATA/files/tailscaled.sock"
 LOG="$DATA/logs/tailscaled.log"
-TABLE=1099
+# Our policy-routing table since 4.0, and the one every build before it used.
+# Both are printed: the legacy table is where an older install's rules are, and
+# it belongs to netd on a phone whose interface index ever reached 99, so what
+# is in it is only ours if it names tailscale0.
+TABLE=53
+LEGACY_TABLE=1099
+# The pre-3.6 bare mark, which happened to be the old table's number and is a
+# different thing entirely — it is what the "legacy rules" section looks for.
+LEGACY_MARK=1099
 MARK=0x1000000
 
 hr() { echo; echo "=== $1 ==="; }
@@ -64,12 +72,23 @@ echo "  other tunnels:"
 ip -o link show 2>/dev/null | grep -Eo '(tun[0-9]+|ppp[0-9]+|wg[0-9]+)' | grep -v tailscale0 | sort -u | sed 's/^/    /' || echo "    none"
 
 hr "policy rules"
-ip rule list 2>/dev/null | grep -iE "$TABLE|$MARK" || echo "  no v4 rule for table $TABLE"
-ip -6 rule list 2>/dev/null | grep -iE "$TABLE|$MARK" || echo "  no v6 rule for table $TABLE"
+# Both the fwmark rule and the destination one: the second is what carries the
+# daemon's own unmarked DNS-forwarder socket, so a mark-only grep would call a
+# half-installed tier healthy.
+ip rule list 2>/dev/null | grep -iE "lookup $TABLE|lookup $LEGACY_TABLE|$MARK" \
+    || echo "  no v4 rule for table $TABLE"
+ip -6 rule list 2>/dev/null | grep -iE "lookup $TABLE|lookup $LEGACY_TABLE|$MARK" \
+    || echo "  no v6 rule for table $TABLE"
 
 hr "routing table $TABLE"
-ip route show table $TABLE 2>/dev/null || echo "  empty"
+ip route show table $TABLE 2>/dev/null | grep . || echo "  empty"
 ip -6 route show table $TABLE 2>/dev/null | head -5
+
+hr "routing table $LEGACY_TABLE"
+# Expected empty on 4.0: every apply and every cleanup collects what an older
+# build left here. Anything naming tailscale0 is a leftover; anything else is
+# the live network netd numbered 1099, and is not ours to touch.
+ip route show table $LEGACY_TABLE 2>/dev/null | grep . || echo "  empty"
 
 hr "route decisions"
 echo "  100.100.100.100 (MagicDNS):"
@@ -82,7 +101,7 @@ ip route get 8.8.8.8 2>&1 | head -2 | sed 's/^/    /'
 hr "mangle chain (packet counters)"
 iptables -t mangle -L TAILSOCKS_MARK -v -n 2>/dev/null || echo "  TAILSOCKS_MARK absent"
 echo "  hook in OUTPUT:"
-iptables -t mangle -L OUTPUT -v -n 2>/dev/null | grep -E "TAILSOCKS_MARK|1099" | sed 's/^/    /' || echo "    not hooked"
+iptables -t mangle -L OUTPUT -v -n 2>/dev/null | grep -E "TAILSOCKS_MARK|$LEGACY_MARK" | sed 's/^/    /' || echo "    not hooked"
 
 hr "nat chain (packet counters)"
 iptables -t nat -L TAILSOCKS_DNS -v -n 2>/dev/null || echo "  TAILSOCKS_DNS absent"
@@ -90,7 +109,7 @@ echo "  hook in OUTPUT:"
 iptables -t nat -L OUTPUT -v -n 2>/dev/null | grep -E "TAILSOCKS_DNS|100.100.100.100" | sed 's/^/    /' || echo "    not hooked"
 
 hr "legacy rules (should be empty)"
-iptables -t mangle -S OUTPUT 2>/dev/null | grep -- "--set-mark $TABLE" | sed 's/^/  /' || echo "  none"
+iptables -t mangle -S OUTPUT 2>/dev/null | grep -- "--set-mark $LEGACY_MARK" | sed 's/^/  /' || echo "  none"
 iptables -t nat -S OUTPUT 2>/dev/null | grep -- "100.100.100.100" | sed 's/^/  /' || echo "  none"
 
 hr "forward"

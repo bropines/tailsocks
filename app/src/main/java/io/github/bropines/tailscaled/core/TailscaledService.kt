@@ -112,15 +112,50 @@ class TailscaledService : Service() {
     @Volatile private var byedpiProxyAddress: Pair<String, Int>? = null
     @Volatile private var lastStartedFlags: String? = null
     @Volatile private var lastStartedIpv6Disabled: Boolean? = null
-    @Volatile private var rootRoutingApplied = false
+    /**
+     * An apply pass has already run since the last re-arm.
+     *
+     * A latch and nothing else: it answers "is there anything left to try this
+     * cycle?", never "are there rules on the device". Those two used to share one
+     * field, so re-arming the latch also told the not-Running branch there was
+     * nothing to clean up. What is actually installed is recorded by
+     * `root_routing_installed`, which survives the app being killed with the
+     * ruleset up — the one thing an in-memory flag cannot do.
+     */
+    @Volatile private var rootRoutingPassDone = false
     /** Consecutive non-Running ticks; routing is only torn down after a couple of
      *  them so a brief state flap does not thrash iptables through `su`. */
     @Volatile private var rootNotRunningTicks = 0
-    /** Consecutive failed routing attempts; retrying forever through `su` is noise. */
+    /**
+     * Consecutive failed routing attempts for one set of inputs; retrying forever
+     * through `su` is noise.
+     *
+     * The bound is per ruleset, not per session. [failedRootRoutingInputs] records
+     * what the attempts were spent on and the apply starts the count over as soon
+     * as those inputs differ, so a device where this ruleset genuinely cannot be
+     * installed is not asked again on every network flap, while a real change is
+     * never held back by an earlier failure. Every re-check used to clear the
+     * counter instead, which meant the bound never bound anything.
+     */
     @Volatile private var rootRoutingFailures = 0
+    /** The root-shell-free inputs the failures above were counted against. */
+    @Volatile private var failedRootRoutingInputs: String? = null
     private val maxRootRoutingAttempts = 3
     /** An apply is on a `su` thread right now; a second one must not overlap it. */
     @Volatile private var rootRoutingInFlight = false
+    /** A teardown is on a `su` thread right now; an apply must not overlap it
+     *  either, and a second teardown must not queue up behind it. */
+    @Volatile private var rootCleanupInFlight = false
+    /**
+     * Bumped by every teardown of the Root Mode ruleset.
+     *
+     * An apply carries the value it started with and discards its result once it
+     * no longer matches. Without that, a teardown landing while an apply sits in
+     * its `su` shell leaves the rules that apply installed live on the device
+     * while the service believes they are gone — and the signature it recorded on
+     * its way out makes the next apply a no-op, so nothing ever removes them.
+     */
+    private val rootRoutingGeneration = java.util.concurrent.atomic.AtomicInteger()
     /**
      * The inputs the currently installed ruleset was built from.
      *
@@ -129,6 +164,22 @@ class TailscaledService : Service() {
      * nothing. Cleared whenever the rules are removed.
      */
     @Volatile private var lastRootRoutingSignature: String? = null
+
+    /**
+     * The last apply put the device-wide DNS redirect (T3) on the device.
+     * The health gate below has nothing to unhook while this is false.
+     */
+    @Volatile private var rootDnsTierInstalled = false
+    /** The two nat OUTPUT jumps are off: the gate took them, or the apply never
+     *  armed them because MagicDNS was not answering when it ran. The chain
+     *  itself stays populated either way, so re-arming is those two lines and
+     *  nothing more. */
+    @Volatile private var dnsRedirectUnhooked = false
+    /** Consecutive refresh ticks in which MagicDNS did not answer. */
+    @Volatile private var magicDnsFailures = 0
+    /** Misses before the redirect comes off, for the same reason the reconnect
+     *  check waits three ticks: one unanswered probe is not an outage. */
+    private val maxMagicDnsFailures = 3
 
     private val refreshHandler = android.os.Handler(android.os.Looper.getMainLooper())
     @Volatile private var refreshTickRunning = false
@@ -204,27 +255,66 @@ class TailscaledService : Service() {
             pollForeignVpnProbe()
             if (isRunning && backendState == "Running") {
                 rootNotRunningTicks = 0
+                // The markers can be cleared from outside this service — Settings'
+                // "remove the rules" button does exactly that while the daemon keeps
+                // running. The latch would then hold back an apply that has nothing
+                // on the device behind it, so act on the disagreement rather than
+                // wait for an event that may never come.
+                if (rootRoutingPassDone && !rootRoutingInFlight && !rootCleanupInFlight &&
+                    !GlobalSettings.isRootRoutingInstalled(this@TailscaledService)
+                ) {
+                    Log.i(TAG, "Root routing rules are gone but the latch is set; re-arming")
+                    rootRoutingPassDone = false
+                    lastRootRoutingSignature = null
+                    rootDnsTierInstalled = false
+                }
                 applyRootRoutingIfNeeded("daemon is Running")
                 syncTailnetHosts()
             } else {
-                if (rootRoutingApplied) {
+                // Asked of the device, not of the latch. Re-arming the latch for a
+                // fresh apply must not read as "nothing to clean up", and an apply
+                // that installed nothing has nothing to remove.
+                if (GlobalSettings.isRootRoutingInstalled(this@TailscaledService)) {
                     rootNotRunningTicks++
                     if (rootNotRunningTicks >= 2) {
-                        Log.i(TAG, "Daemon is not Running ($backendState). Cleaning up tailscale0 routing.")
-                        rootRoutingApplied = false
-                        rootNotRunningTicks = 0
-                        lastRootRoutingSignature = null
-                        Thread {
-                            RootUtils.cleanupTailscale0Routing()
-                            GlobalSettings.setRootRoutingInstalled(this@TailscaledService, false)
-                            GlobalSettings.setRootRoutingYielded(this@TailscaledService, false)
-                        }.start()
+                        if (rootRoutingInFlight || rootCleanupInFlight) {
+                            // An apply is in its `su` shell right now. Tearing down
+                            // under it would remove rules it is still installing, and
+                            // it would then record a signature for a ruleset the
+                            // device does not have — which makes the next apply a
+                            // no-op. The counter is left where it is, so the next
+                            // tick acts the moment the shell is done.
+                            Log.i(TAG, "Daemon is not Running ($backendState), but root work is in flight; deferring cleanup")
+                        } else {
+                            Log.i(TAG, "Daemon is not Running ($backendState). Cleaning up tailscale0 routing.")
+                            rootRoutingPassDone = false
+                            rootNotRunningTicks = 0
+                            lastRootRoutingSignature = null
+                            rootDnsTierInstalled = false
+                            dnsRedirectUnhooked = false
+                            magicDnsFailures = 0
+                            // Bumped before the teardown starts, so an apply that
+                            // slipped past the guard above discards its own result.
+                            rootRoutingGeneration.incrementAndGet()
+                            rootCleanupInFlight = true
+                            Thread {
+                                try {
+                                    RootUtils.cleanupTailscale0Routing()
+                                    GlobalSettings.setRootRoutingInstalled(this@TailscaledService, false)
+                                    GlobalSettings.setRootRoutingYielded(this@TailscaledService, false)
+                                    GlobalSettings.setRootRoutingShared(this@TailscaledService, false)
+                                } finally {
+                                    rootCleanupInFlight = false
+                                }
+                            }.start()
+                        }
                     }
                 }
                 if (isRunning && (backendState == "NeedsLogin" || backendState == "Starting" || backendState == "NoState")) {
                     interval = 2000L
                 }
             }
+            checkMagicDnsHealth()
         }
 
         if (checkConnectionHealth(isRunning, backendState)) {
@@ -256,10 +346,11 @@ class TailscaledService : Service() {
      * go in could never be found and removed again.
      */
     private fun applyRootRoutingIfNeeded(reason: String) {
-        if (rootRoutingApplied || rootRoutingInFlight) return
-        if (rootRoutingFailures >= maxRootRoutingAttempts) return
-        rootRoutingApplied = true
-        rootRoutingInFlight = true
+        // A stop can begin between the tick's Root Mode check and this call.
+        // Installing a ruleset behind the teardown that was meant to remove it
+        // leaves it on the device with nothing recording it.
+        if (teardownStarted) return
+        if (rootRoutingPassDone || rootRoutingInFlight || rootCleanupInFlight) return
 
         val dnsRedirect = GlobalSettings.getBoolean(this, "accept_dns", true) &&
             GlobalSettings.isRootDnsRedirectEnabled(this)
@@ -267,9 +358,51 @@ class TailscaledService : Service() {
         val takeDeviceAnyway = GlobalSettings.isRootTakeDeviceAnyway(this)
         // Read here rather than inside the signature so the values that decide
         // the ruleset and the values it is built from are the same ones.
-        val excludedApps = GlobalSettings.getTunExcludedApps(this).sorted().joinToString(",")
+        //
+        // Uids rather than package names, because a rule names a uid: an app
+        // installed, removed or restored under a different uid changes the whole
+        // ruleset without changing a single name in the list, and keying on names
+        // left exactly that case unnoticed.
+        val excludedUids = excludedAppUids().joinToString(",")
         val excludedCidrs = GlobalSettings.getTunExcludedCIDRs(this)
         val vpnSlotTaken = foreignVpnPresent
+        // The one input that is a property of the device rather than of a
+        // setting: the interfaces holding an address inside 100.64.0.0/10 that
+        // is not the tailnet. A carrier hands one out on the walk out of the
+        // house, and nothing else in this list moves when it does — so without
+        // it the apply would decide the ruleset is unchanged and leave that
+        // carrier's own subnet inside the tunnel until something unrelated
+        // happened to change.
+        val cgnatGuard = RootUtils.cgnatGuardSignature()
+
+        // Everything the apply reads without a root shell. The failure budget is
+        // spent against this: a budget spent on one ruleset says nothing about a
+        // different one, so a change here starts the three attempts over. That is
+        // what lets the bound hold, instead of being cleared by every re-check.
+        // The foreign tunnel's shape is in it as the tick last read it — the
+        // authoritative copy comes from the probe below, but this is free.
+        val inputs = listOf(
+            dnsRedirect.toString(),
+            bypass.joinToString(","),
+            excludedUids,
+            excludedCidrs,
+            takeDeviceAnyway.toString(),
+            vpnSlotTaken.toString(),
+            cgnatGuard,
+            lastForeignShape ?: ""
+        ).joinToString("|")
+        if (inputs != failedRootRoutingInputs) {
+            rootRoutingFailures = 0
+            failedRootRoutingInputs = null
+        }
+        if (rootRoutingFailures >= maxRootRoutingAttempts) return
+
+        rootRoutingPassDone = true
+        rootRoutingInFlight = true
+        // The teardown counter as it stands now. Anything that removes the ruleset
+        // while the `su` shell below runs bumps it, and this apply then drops what
+        // it did instead of recording it.
+        val generation = rootRoutingGeneration.get()
 
         Thread {
             try {
@@ -282,15 +415,7 @@ class TailscaledService : Service() {
                 // present" is unchanged when its owner moves an app in or out of
                 // its bypass list, but the ruleset we build from it is not.
                 val foreignShape = RootUtils.foreignRoutingShape(probeResult)
-                val signature = listOf(
-                    dnsRedirect.toString(),
-                    bypass.joinToString(","),
-                    excludedApps,
-                    excludedCidrs,
-                    takeDeviceAnyway.toString(),
-                    foreignVpn.toString(),
-                    foreignShape
-                ).joinToString("|")
+                val signature = listOf(inputs, foreignVpn.toString(), foreignShape).joinToString("|")
 
                 if (signature == lastRootRoutingSignature) {
                     Log.i(TAG, "Root routing re-check ($reason): inputs unchanged, leaving the rules alone")
@@ -304,7 +429,7 @@ class TailscaledService : Service() {
                 // when the app attached to one the boot script had already
                 // started — and the exit-node catch-all would then never be
                 // installed after a reboot.
-                val ok = RootUtils.applyTailscale0Routing(
+                val result = RootUtils.applyTailscale0Routing(
                     dnsRedirect,
                     bypass,
                     this@TailscaledService,
@@ -312,9 +437,37 @@ class TailscaledService : Service() {
                     takeDeviceAnyway,
                     probeResult
                 )
-                if (ok) {
+                if (generation != rootRoutingGeneration.get()) {
+                    // A teardown ran while this apply was in its `su` shell. Its
+                    // rules may well have landed after the teardown's did, so they
+                    // are on the device with nothing recording them. Remove them
+                    // here rather than record a ruleset the service was told to
+                    // drop — recording it would also make the next apply a no-op.
+                    Log.i(TAG, "Root routing apply superseded by a teardown; removing what it installed")
+                    rootRoutingPassDone = false
+                    lastRootRoutingSignature = null
+                    rootDnsTierInstalled = false
+                    RootUtils.cleanupTailscale0Routing()
+                    GlobalSettings.setRootRoutingInstalled(this@TailscaledService, false)
+                    GlobalSettings.setRootRoutingYielded(this@TailscaledService, false)
+                    GlobalSettings.setRootRoutingShared(this@TailscaledService, false)
+                    return@Thread
+                }
+                if (result.ok) {
                     rootRoutingFailures = 0
+                    failedRootRoutingInputs = null
                     lastRootRoutingSignature = signature
+                    // A fresh chain went on the device, and the apply says whether
+                    // its two nat OUTPUT jumps went in with it: the health gate
+                    // withholds them while MagicDNS is not answering, and the gate
+                    // only ever arms them again for a redirect it knows is off.
+                    // Asserting "hooked" here, as this used to, left a chain that
+                    // was deliberately built inert with nothing that would arm it —
+                    // the redirect stayed off for the session while Settings and
+                    // the ROOT log both said it was on.
+                    rootDnsTierInstalled = result.dnsChainInstalled
+                    dnsRedirectUnhooked = rootDnsTierInstalled && !result.dnsHooked
+                    magicDnsFailures = 0
                     // Persist the fact that system rules now exist, so they
                     // can be removed even if the app is killed or Root Mode
                     // is switched off before the next stop.
@@ -325,16 +478,33 @@ class TailscaledService : Service() {
                         this@TailscaledService,
                         foreignVpn && !takeDeviceAnyway
                     )
+                    // And whether that yield was the partial one: the tiers went in
+                    // scoped to the uid ranges the other tunnel bypasses. Yielded
+                    // alone cannot tell that from a full yield, and the dashboard
+                    // was announcing "the exit node is off" while it was in fact
+                    // carrying those apps.
+                    GlobalSettings.setRootRoutingShared(this@TailscaledService, result.shared)
                 } else {
-                    rootRoutingApplied = false
+                    rootRoutingPassDone = false
                     lastRootRoutingSignature = null
+                    // Read from what the script wrote, not cleared. Both verify
+                    // lines run after the DNS section and the script does not stop
+                    // at the first error, so a failed apply can leave the redirect
+                    // live — and the health gate, the only thing that can take it
+                    // back off, is disarmed while this is false. Clearing it here
+                    // meant a device that failed its three attempts kept port 53
+                    // pointed at a MagicDNS that might later stop answering, with
+                    // nothing left to notice.
+                    rootDnsTierInstalled = result.dnsChainInstalled
+                    dnsRedirectUnhooked = rootDnsTierInstalled && !result.dnsHooked
+                    failedRootRoutingInputs = inputs
                     rootRoutingFailures++
                     if (rootRoutingFailures >= maxRootRoutingAttempts) {
                         Log.e(TAG, "Giving up on tailscale0 routing after $rootRoutingFailures attempts")
                         Appctr.logAndroid(
                             "ERROR", "ROOT",
-                            "Routing setup failed $rootRoutingFailures times — giving up. " +
-                                "Use Settings → Root Mode → Check Routing for details."
+                            "Routing setup failed $rootRoutingFailures times — giving up until something " +
+                                "about the setup changes. Use Settings → Root Mode → Check Routing for details."
                         )
                     }
                 }
@@ -342,6 +512,81 @@ class TailscaledService : Service() {
                 rootRoutingInFlight = false
             }
         }.start()
+    }
+
+    /**
+     * The excluded apps as the uids the rules are actually built from.
+     *
+     * The list is stored as package names, but every rule the apply writes names
+     * a uid, and a package can appear, disappear or come back under a different
+     * one while the service runs. Resolving here is what makes the routing
+     * signature answer "would the ruleset differ?" instead of "did the user edit
+     * the list?". Packages that are not installed simply have no uid and drop
+     * out; RootUtils names them in the ROOT log when it builds the rules, so
+     * there is nothing to report from here.
+     */
+    private fun excludedAppUids(): List<Int> = runCatching {
+        val pm = packageManager
+        GlobalSettings.getTunExcludedApps(this)
+            .mapNotNull { pkg ->
+                runCatching { pm.getApplicationInfo(pkg.trim(), 0).uid }.getOrNull()
+            }
+            .distinct()
+            .sorted()
+    }.getOrDefault(emptyList())
+
+    /**
+     * Takes the device-wide DNS redirect off its hook while MagicDNS is not
+     * answering, and puts it back the moment it does.
+     *
+     * The redirect sends every port-53 packet on the device to 100.100.100.100.
+     * When the daemon stops answering there — netstack wedged, `accept-dns`
+     * turned off on the control plane, the daemon killed under us — the whole
+     * phone loses name resolution and nothing on it can say why. Unhooking gives
+     * the device its resolver back within a tick, and the chain is left populated
+     * so re-arming is the two `nat OUTPUT` jumps and nothing else.
+     *
+     * The apply's own gate feeds the same flag: a chain it built while MagicDNS
+     * was silent arrives here already marked unhooked, so the first answering
+     * tick arms it without a second apply.
+     *
+     * This rides the refresh tick that already runs. A clock of its own would
+     * wake the device for nothing, and the whole point is that the redirect is
+     * only ever a problem while the device is awake and resolving.
+     */
+    private fun checkMagicDnsHealth() {
+        if (!rootDnsTierInstalled) {
+            // Nothing of ours is on port 53. Forget the count, so a later install
+            // starts from zero rather than acting on a stale one.
+            magicDnsFailures = 0
+            dnsRedirectUnhooked = false
+            return
+        }
+        if (RootUtils.magicDnsAnswers(this)) {
+            magicDnsFailures = 0
+            if (dnsRedirectUnhooked && RootUtils.setDnsRedirectHooked(true)) {
+                dnsRedirectUnhooked = false
+                Log.i(TAG, "MagicDNS is answering again; device-wide DNS redirect re-armed")
+                Appctr.logAndroid(
+                    "INFO", "ROOT",
+                    "MagicDNS is answering again — the device-wide DNS redirect is back on"
+                )
+            }
+            return
+        }
+        if (dnsRedirectUnhooked) return
+        magicDnsFailures++
+        if (magicDnsFailures < maxMagicDnsFailures) return
+        if (RootUtils.setDnsRedirectHooked(false)) {
+            dnsRedirectUnhooked = true
+            Log.w(TAG, "MagicDNS has not answered for $magicDnsFailures ticks; unhooking the DNS redirect")
+            Appctr.logAndroid(
+                "WARN", "ROOT",
+                "MagicDNS did not answer $magicDnsFailures times in a row — the device-wide DNS redirect " +
+                    "was taken off so the phone keeps resolving names. It goes back on by itself as soon " +
+                    "as MagicDNS answers again."
+            )
+        }
     }
 
     /**
@@ -362,9 +607,12 @@ class TailscaledService : Service() {
     /**
      * Re-arms the one-shot apply latch and re-applies.
      *
-     * The failure counter has to be cleared with it: a run that already spent
-     * its three attempts would otherwise ignore every re-apply for the rest of
-     * the session. The apply itself decides whether anything actually changed.
+     * The latch only. The failure budget is deliberately left where it is: it is
+     * spent per set of inputs, and the apply clears it itself as soon as those
+     * differ, so a device where this ruleset genuinely cannot be installed is not
+     * asked again on every network flap — while a real change is never held back
+     * by an earlier failure. Clearing the counter here, as this used to, made the
+     * three-attempt bound the field documents unreachable.
      */
     private fun reevaluateRootRouting() {
         if (teardownStarted) return
@@ -374,8 +622,11 @@ class TailscaledService : Service() {
         // a daemon this process did not launch; asking Appctr here left the
         // re-check silently dead in exactly the Root Mode case it exists for.
         // The signature guard in the apply keeps the extra pass cheap.
-        rootRoutingApplied = false
-        rootRoutingFailures = 0
+        //
+        // The latch and nothing else. What is installed describes the device and
+        // this function changes nothing on it; clearing that too, as re-arming
+        // used to, told the not-Running branch there was no ruleset to remove.
+        rootRoutingPassDone = false
         Log.i(TAG, "Root routing latch re-armed; running a refresh pass now")
         // Run a pass right away rather than waiting out the refresh interval,
         // which is 15 s by default: the user is watching the main screen when
@@ -811,6 +1062,56 @@ class TailscaledService : Service() {
         }
     }
 
+    /**
+     * Preference keys the Root Mode ruleset is built from.
+     *
+     * Every one of them can be written without the service ever hearing about
+     * it: the excluded-apps picker is its own activity and writes the list
+     * directly, a settings import rewrites the lot, and automation can flip the
+     * coexistence override. Watching the store covers all three at once.
+     */
+    private val rootRulePrefKeys = setOf(
+        "tun_excluded_apps",
+        "tun_excluded_cidrs",
+        "root_dns_redirect",
+        "root_take_device_anyway",
+        "accept_dns",
+        "dns_fallbacks"
+    )
+
+    /** Held as a field because SharedPreferences keeps only a weak reference to
+     *  the listener; a local would be collected and the watch would stop. */
+    private val globalPrefs by lazy {
+        getSharedPreferences("tailsocks_global", Context.MODE_PRIVATE)
+    }
+
+    private val rootRulePrefsListener =
+        SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key != null && key in rootRulePrefKeys) {
+                scheduleRootRoutingReapply("a setting the rules are built from changed ($key)")
+            }
+        }
+
+    /**
+     * A package appearing or disappearing changes the uids the rules are built
+     * from, and the excluded-apps list is stored as names — so an app installed
+     * mid-run had no rule of its own until something asked again, and one removed
+     * left a rule pointing at a uid that had moved on.
+     *
+     * An update fires a remove and an add within milliseconds; the re-check is
+     * coalesced by [scheduleRootRoutingReapply], and the routing signature is
+     * built from the resolved uids, so a package nobody excluded costs one probe
+     * and changes nothing.
+     */
+    private val packageChangeReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_PACKAGE_ADDED, Intent.ACTION_PACKAGE_REMOVED ->
+                    scheduleRootRoutingReapply("a package was installed or removed")
+            }
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         try { android.system.Os.setenv("TZ", java.util.TimeZone.getDefault().id, true) } catch (e: Exception) {}
@@ -833,6 +1134,25 @@ class TailscaledService : Service() {
             Log.w(TAG, "Failed to watch the VPN slot: ${e.message}")
         }
         startInterfaceWatch()
+        try {
+            globalPrefs.registerOnSharedPreferenceChangeListener(rootRulePrefsListener)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to watch the Root Mode settings: ${e.message}")
+        }
+        try {
+            ContextCompat.registerReceiver(
+                this,
+                packageChangeReceiver,
+                android.content.IntentFilter().apply {
+                    addAction(Intent.ACTION_PACKAGE_ADDED)
+                    addAction(Intent.ACTION_PACKAGE_REMOVED)
+                    addDataScheme("package")
+                },
+                ContextCompat.RECEIVER_NOT_EXPORTED
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to watch package changes: ${e.message}")
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             try {
                 ContextCompat.registerReceiver(
@@ -1384,16 +1704,30 @@ class TailscaledService : Service() {
         val rootMode = GlobalSettings.isRootModeEnabled(this)
         if (!installed && !rootMode) return
 
-        rootRoutingApplied = false
+        rootRoutingPassDone = false
         rootRoutingFailures = 0
+        failedRootRoutingInputs = null
         rootNotRunningTicks = 0
         lastRootRoutingSignature = null
+        rootDnsTierInstalled = false
+        dnsRedirectUnhooked = false
+        magicDnsFailures = 0
         refreshHandler.removeCallbacks(rootRoutingReapplyRunnable)
         GlobalSettings.setRootRoutingYielded(this, false)
+        GlobalSettings.setRootRoutingShared(this, false)
+        // An apply may be inside its `su` shell right now — the tick's guard does
+        // not cover a stop. The bump makes it discard its result and remove what
+        // it installed, instead of recording rules this teardown is deleting.
+        rootRoutingGeneration.incrementAndGet()
 
         if (installed) {
-            RootUtils.cleanupTailscale0Routing()
-            GlobalSettings.setRootRoutingInstalled(this, false)
+            rootCleanupInFlight = true
+            try {
+                RootUtils.cleanupTailscale0Routing()
+                GlobalSettings.setRootRoutingInstalled(this, false)
+            } finally {
+                rootCleanupInFlight = false
+            }
         }
         if (killDaemon) {
             RootUtils.stopRootDaemon("${filesDir.absolutePath}/tailscaled.sock")
@@ -1698,6 +2032,8 @@ class TailscaledService : Service() {
         runCatching { interfaceWatch?.stopWatching() }
         interfaceWatch = null
         try { unregisterReceiver(idleModeReceiver) } catch (e: Exception) {}
+        try { unregisterReceiver(packageChangeReceiver) } catch (e: Exception) {}
+        try { globalPrefs.unregisterOnSharedPreferenceChangeListener(rootRulePrefsListener) } catch (e: Exception) {}
         if (wakeLock?.isHeld == true) wakeLock?.release()
         super.onDestroy()
     }

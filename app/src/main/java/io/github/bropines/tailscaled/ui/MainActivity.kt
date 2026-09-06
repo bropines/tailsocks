@@ -443,6 +443,11 @@ fun MainScreen(
     // when one holds the phone. The service records that; the card and the exit
     // node row read it here, so neither promises a tunnel that is not installed.
     var isRootYielded by remember { mutableStateOf(GlobalSettings.isRootRoutingYielded(context)) }
+    // The yield has two shapes and they mean opposite things to the user. When
+    // the other client bypasses some apps we take the default route for exactly
+    // those, so the exit node is carrying traffic — for them alone. Read as a
+    // pair: this flag decides, and the yield flag only speaks when it is off.
+    var isRootShared by remember { mutableStateOf(GlobalSettings.isRootRoutingShared(context)) }
 
     val globalPrefsListener = remember {
         android.content.SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
@@ -451,6 +456,9 @@ fun MainScreen(
             }
             if (key == "root_routing_yielded") {
                 isRootYielded = sharedPreferences.getBoolean("root_routing_yielded", false)
+            }
+            if (key == "root_routing_shared") {
+                isRootShared = sharedPreferences.getBoolean("root_routing_shared", false)
             }
         }
     }
@@ -615,6 +623,7 @@ fun MainScreen(
         globalPrefs.registerOnSharedPreferenceChangeListener(globalPrefsListener)
         isTunEnabled = globalPrefs.getBoolean("tun_mode_enabled", false)
         isRootYielded = globalPrefs.getBoolean("root_routing_yielded", false)
+        isRootShared = globalPrefs.getBoolean("root_routing_shared", false)
         onDispose {
             globalPrefs.unregisterOnSharedPreferenceChangeListener(globalPrefsListener)
         }
@@ -627,6 +636,7 @@ fun MainScreen(
                 isTunEnabled = GlobalSettings.isTunModeEnabled(context)
                 isRootEnabled = GlobalSettings.isRootModeEnabled(context)
                 isRootYielded = GlobalSettings.isRootRoutingYielded(context)
+                isRootShared = GlobalSettings.isRootRoutingShared(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -1274,10 +1284,13 @@ fun MainScreen(
                 }
             }
 
-            // Not an error: the tunnel is up and the tailnet is reachable, we
-            // simply left the default route and port 53 to whoever had them.
-            val yieldedToForeignVpn = isRootEnabled && isRootYielded
-            if (proxyState == "ACTIVE" && yieldedToForeignVpn) {
+            // Neither of these is an error: the tunnel is up and the tailnet is
+            // reachable either way. Sharing means the other client bypasses some
+            // apps and we took the default route for exactly those, so it is the
+            // narrower claim of the two and has to be tested first.
+            val sharedWithForeignVpn = isRootEnabled && isRootShared
+            val yieldedToForeignVpn = isRootEnabled && isRootYielded && !sharedWithForeignVpn
+            if (proxyState == "ACTIVE" && (yieldedToForeignVpn || sharedWithForeignVpn)) {
                 Surface(
                     color = MaterialTheme.colorScheme.secondaryContainer,
                     shape = RoundedCornerShape(16.dp),
@@ -1289,9 +1302,17 @@ fun MainScreen(
                     ) {
                         Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
                         Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(stringResource(R.string.main_root_yielded_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                            Text(stringResource(R.string.main_root_yielded_desc),
+                        // The weight keeps the two-line Russian description off the
+                        // icon instead of pushing the row wider than the screen.
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                if (sharedWithForeignVpn) stringResource(R.string.main_root_shared_title)
+                                else stringResource(R.string.main_root_yielded_title),
+                                fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                            Text(
+                                if (sharedWithForeignVpn) stringResource(R.string.main_root_shared_desc)
+                                else stringResource(R.string.main_root_yielded_desc),
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
                         }
                     }
@@ -1300,8 +1321,11 @@ fun MainScreen(
 
             if (proxyState == "ACTIVE") {
                 // A selected exit node carries no traffic while we are yielded,
-                // so the row must not read as "traffic is routed".
+                // so the row must not read as "traffic is routed". Shared is the
+                // opposite case: it does carry traffic, for the apps the other
+                // VPN left out, so it stays an active row with a narrower label.
                 val exitNodeInert = exitNodeIp.isNotEmpty() && yieldedToForeignVpn
+                val exitNodePartial = exitNodeIp.isNotEmpty() && sharedWithForeignVpn
                 val exitNodeActive = exitNodeIp.isNotEmpty() && !exitNodeInert
                 Surface(
                     color = if (exitNodeActive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -1338,6 +1362,7 @@ fun MainScreen(
                             Text(
                                 when {
                                     exitNodeInert -> stringResource(R.string.main_exit_node_inert_label)
+                                    exitNodePartial -> stringResource(R.string.main_exit_node_partial_label)
                                     exitNodeActive -> stringResource(R.string.main_traffic_routed)
                                     else -> stringResource(R.string.main_exit_node_none_label)
                                 },
@@ -1347,6 +1372,7 @@ fun MainScreen(
                             Text(
                                 when {
                                     exitNodeInert -> stringResource(R.string.main_exit_node_inert_desc, exitNodeIp)
+                                    exitNodePartial -> stringResource(R.string.main_exit_node_partial_desc, exitNodeIp)
                                     exitNodeActive -> stringResource(R.string.main_exit_node_routed_desc, exitNodeIp)
                                     else -> stringResource(R.string.main_exit_node_none_desc)
                                 },
@@ -1370,7 +1396,8 @@ fun MainScreen(
                 isTunEnabled = isTunEnabled,
                 isFullTunnel = isFullTunnel,
                 isRootEnabled = isRootEnabled,
-                isYieldedToForeignVpn = yieldedToForeignVpn
+                isYieldedToForeignVpn = yieldedToForeignVpn,
+                isSharedWithForeignVpn = sharedWithForeignVpn
             ) {
                 if (isProcessing) return@StatusCard
 
@@ -1967,7 +1994,7 @@ fun MainScreen(
 }
 
 @Composable
-fun StatusCard(state: String, isProcessing: Boolean, isTunEnabled: Boolean, isFullTunnel: Boolean, isRootEnabled: Boolean = false, isYieldedToForeignVpn: Boolean = false, onToggle: () -> Unit) {
+fun StatusCard(state: String, isProcessing: Boolean, isTunEnabled: Boolean, isFullTunnel: Boolean, isRootEnabled: Boolean = false, isYieldedToForeignVpn: Boolean = false, isSharedWithForeignVpn: Boolean = false, onToggle: () -> Unit) {
     val backgroundColor = when (state) {
         "ACTIVE" -> MaterialTheme.colorScheme.primaryContainer
         "STARTING" -> MaterialTheme.colorScheme.tertiaryContainer
@@ -2049,7 +2076,9 @@ fun StatusCard(state: String, isProcessing: Boolean, isTunEnabled: Boolean, isFu
                     state == "ACTIVE" -> when {
                         // Root wins the label: with it on, the VpnService is not
                         // what carries the traffic even if the TUN switch is set.
-                        // Yielded, it carries the tailnet and nothing else.
+                        // Yielded, it carries the tailnet and nothing else; shared,
+                        // it carries the whole tunnel for a part of the phone.
+                        isRootEnabled && isSharedWithForeignVpn -> stringResource(R.string.main_status_active_root_shared_desc)
                         isRootEnabled && isYieldedToForeignVpn -> stringResource(R.string.main_status_active_root_yielded_desc)
                         isRootEnabled -> stringResource(R.string.main_status_active_root_desc)
                         isTunEnabled -> if (isFullTunnel) stringResource(R.string.main_tun_full_tunnel_desc)

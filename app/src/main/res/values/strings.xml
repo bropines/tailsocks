@@ -1170,7 +1170,7 @@
     <string name="tun_excluded_apps_count">Bypassing the tunnel: %1$d</string>
     <!-- Root Mode next to another VPN: the sticky override and what a yield looks like -->
     <string name="settings_root_take_device_title">Take the device anyway</string>
-    <string name="settings_root_take_device_desc">While another VPN holds this phone, TailSocks routes tailnet addresses only and leaves the default route and DNS to it. Turn this on to take both back — that VPN\'s apps lose their tunnel.</string>
+    <string name="settings_root_take_device_desc">While another VPN holds this phone, TailSocks leaves it the default route and DNS, taking them only for the apps it keeps outside its own tunnel. Turn this on to take both back — that VPN\'s apps lose their tunnel.</string>
     <string name="settings_root_take_device_dialog_title">Take the device from the other VPN?</string>
     <string name="settings_root_take_device_dialog_body">Another VPN is holding this phone\'s default route and DNS. Taking them back sends every app\'s traffic and every name lookup through TailSocks, so the apps that VPN protects lose their tunnel and its filtering stops — and it is never told. Turn this off to give the device back.</string>
     <string name="settings_root_take_device_confirm">Take the device</string>
@@ -1180,4 +1180,12 @@
     <string name="main_status_active_root_yielded_desc">Tailnet only — another VPN holds the device • Tap to stop</string>
     <string name="main_exit_node_inert_label">Exit node not in use</string>
     <string name="main_exit_node_inert_desc">%1$s is selected, but another VPN holds the device</string>
+    <!-- Root Mode sharing the device: the other VPN bypasses some apps, we carry those -->
+    <string name="settings_root_shared_banner">Another VPN holds this device but leaves some apps outside its tunnel. Those apps go through TailSocks, exit node and MagicDNS included; the rest stay with it.</string>
+    <string name="settings_root_dns_shared_desc">On for the apps the other VPN leaves out. Its own lookups are left to it.</string>
+    <string name="main_root_shared_title">Shared with another VPN</string>
+    <string name="main_root_shared_desc">It holds the device; the apps it leaves out go through us, with the exit node and MagicDNS.</string>
+    <string name="main_status_active_root_shared_desc">Carrying the apps another VPN leaves out • Tap to stop</string>
+    <string name="main_exit_node_partial_label">Exit node: partial</string>
+    <string name="main_exit_node_partial_desc">%1$s — only for the apps another VPN leaves out</string>
 </resources>
