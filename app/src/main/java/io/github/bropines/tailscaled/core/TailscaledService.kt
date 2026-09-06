@@ -276,14 +276,20 @@ class TailscaledService : Service() {
                 // ConnectivityManager only reports a tunnel this app is a member
                 // of, so the root-side probe still has to run when it says no.
                 // That probe is the expensive half, hence the short circuit.
-                val foreignVpn = vpnSlotTaken || RootUtils.detectForeignVpn().present
+                val probeResult = RootUtils.detectForeignVpn()
+                val foreignVpn = vpnSlotTaken || probeResult.present
+                // The foreign tunnel's membership belongs in here: "a VPN is
+                // present" is unchanged when its owner moves an app in or out of
+                // its bypass list, but the ruleset we build from it is not.
+                val foreignShape = RootUtils.foreignRoutingShape(probeResult)
                 val signature = listOf(
                     dnsRedirect.toString(),
                     bypass.joinToString(","),
                     excludedApps,
                     excludedCidrs,
                     takeDeviceAnyway.toString(),
-                    foreignVpn.toString()
+                    foreignVpn.toString(),
+                    foreignShape
                 ).joinToString("|")
 
                 if (signature == lastRootRoutingSignature) {
@@ -303,7 +309,8 @@ class TailscaledService : Service() {
                     bypass,
                     this@TailscaledService,
                     foreignVpn,
-                    takeDeviceAnyway
+                    takeDeviceAnyway,
+                    probeResult
                 )
                 if (ok) {
                     rootRoutingFailures = 0
@@ -615,7 +622,16 @@ class TailscaledService : Service() {
                 caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN) &&
                 !isOwnVpnNetwork(caps)
             val changed = if (foreign) foreignVpnNetworks.add(network) else foreignVpnNetworks.remove(network)
-            if (changed) publishForeignVpnState(if (foreign) "a VPN came up" else "a VPN went away")
+            if (changed) {
+                publishForeignVpnState(if (foreign) "a VPN came up" else "a VPN went away")
+            } else if (foreign) {
+                // Its membership is part of its capabilities, so editing which
+                // apps it carries lands here and nowhere else — the interface
+                // does not necessarily come and go for that. Which apps it
+                // bypasses is exactly what our scoped rules are built from, so
+                // re-read; the apply's signature drops the pass if nothing moved.
+                scheduleRootRoutingReapply("another VPN changed which apps it carries")
+            }
         }
     }
 

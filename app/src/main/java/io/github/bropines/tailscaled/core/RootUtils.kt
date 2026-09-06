@@ -696,7 +696,8 @@ object RootUtils {
         dnsBypassAddrs: List<String> = emptyList(),
         context: Context? = null,
         foreignVpn: Boolean? = null,
-        takeDeviceAnyway: Boolean = false
+        takeDeviceAnyway: Boolean = false,
+        probeResult: ForeignVpnVerdict? = null
     ): Boolean {
         val logFile = context?.let { rootDaemonLogFile(it) } ?: lastDaemonLogFile
         var verdict = logFile?.let { soMarkVerdict(it) } ?: SoMarkVerdict(false, "no daemon log to check")
@@ -719,7 +720,10 @@ object RootUtils {
         // read only sees a tunnel this app is a member of, the root-side probe
         // only one that left rules behind. Either is enough to yield — the safe
         // direction is "someone else owns the device", never the reverse.
-        val probe = detectForeignVpn()
+        // The caller may have run the probe already to decide whether anything
+        // changed; running it twice would answer the same question with a second
+        // root shell, and could answer it differently mid-flight.
+        val probe = probeResult ?: detectForeignVpn()
         val foreignPresent = foreignVpn == true || probe.present
         val foreignReason = when {
             foreignVpn == true && probe.present -> "${probe.reason}; the system also reports a VPN transport"
@@ -1016,6 +1020,21 @@ object RootUtils {
         val memberRanges: List<LongRange> = emptyList(),
         val netIds: List<Int> = emptyList()
     )
+
+    /**
+     * A stable description of what the other tunnel is currently claiming.
+     *
+     * Folded into the apply's signature: "some VPN is present" does not change
+     * when its owner moves an app in or out of its bypass list, but the rules we
+     * build from it do, and without this the re-read would be discarded as a
+     * repeat of the last apply.
+     */
+    fun foreignRoutingShape(verdict: ForeignVpnVerdict?): String {
+        if (verdict == null || !verdict.present) return "none"
+        val ranges = verdict.memberRanges.sortedBy { it.first }.joinToString(",") { "${it.first}-${it.last}" }
+        val ids = verdict.netIds.sorted().joinToString(",")
+        return "$ranges;$ids"
+    }
 
     /** Highest uid netd writes rules for; the ranges are dense below it. */
     private const val MAX_ANDROID_UID = 99_999L
