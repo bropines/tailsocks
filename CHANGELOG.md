@@ -2,7 +2,7 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
-## [4.0.0] - Unreleased
+## [4.0.0] - 2026-09-06
 
 Root Mode was rebuilt. Two changes alter how a device behaves and are worth reading first:
 
