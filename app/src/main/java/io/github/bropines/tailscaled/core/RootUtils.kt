@@ -82,8 +82,20 @@ object RootUtils {
     /** Android's protectedFromVpn bit; a socket carrying it is routed by the physical network. */
     private const val PROTECT_MARK = "0x20000"
 
-    /** Priority where netd's own rules begin; the jump target for an exclusion. */
-    private const val ANDROID_RULE_BASE = "16000"
+    /**
+     * The band netd keeps its own rules in: per-network rules, the VPN
+     * membership rules (measured at 13000 and 16000-17000 on the APatch phone)
+     * and the fallthrough rules above them. Nothing of ours lives here.
+     *
+     * Two things read this band. The exclusion rules jump to the lowest
+     * priority found inside it rather than to a hardcoded 16000 — the number
+     * differs between Android versions, and `goto` to a priority that holds no
+     * rule is accepted by the kernel and then silently skipped. And the
+     * coexistence probe looks here for another tunnel's per-uid rules, which is
+     * the only trace a foreign VPN client leaves that a root shell can read.
+     */
+    private const val NETD_RULE_MIN = "10000"
+    private const val NETD_RULE_MAX = "32000"
 
     /**
      * Destinations kept out of the exit node, as `throw` routes in the daemon's
@@ -151,10 +163,25 @@ object RootUtils {
     /**
      * Printed by the apply script when an `-m owner` rule was refused — the
      * match is a kernel module (`xt_owner`) and some ROM kernels ship without
-     * it. Only the per-app exclusions are lost; every other rule is unaffected,
-     * so the script carries on and the caller turns this into a WARN.
+     * it. Only the DNS half of the per-app exclusions is lost: the uid RETURN
+     * rules at the top of [CHAIN_DNS] never land, so an excluded app's port 53
+     * is redirected into MagicDNS like everyone else's. Its routing exclusion
+     * is unaffected — that is a policy rule, not an iptables match — so the app
+     * ends up outside the tunnel with its DNS inside it. Every other rule is
+     * unaffected, so the script carries on and the caller turns this into a WARN.
      */
-    private const val OWNER_MATCH_MISSING = "verify: -m owner unavailable, per-app exclusions not installed"
+    private const val OWNER_MATCH_MISSING = "verify: -m owner unavailable, per-app DNS exclusions not installed"
+
+    /**
+     * Printed by the apply script when an exclusion rule was accepted with a
+     * `goto` target the kernel could not resolve. `ip rule add ... goto <pref>`
+     * never fails for a priority that holds no rule: the rule is installed,
+     * printed with `[detached]` or `unresolved`, and skipped at lookup time —
+     * so the excluded uid silently falls back into the catch-all. The script
+     * deletes such a rule, installs the physical-table form instead and prints
+     * this for the caller to surface.
+     */
+    private const val GOTO_UNRESOLVED = "verify: exclusion goto target unresolved, physical table used instead"
 
     /**
      * Log of the daemon launched by [startRootDaemon] and the file size just
@@ -173,12 +200,16 @@ object RootUtils {
     private const val CHAIN_DNS = "TAILSOCKS_DNS"
 
     /**
-     * Per-app exclusions from Root Mode (mangle, hooked from OUTPUT with no
-     * match of its own): every uid on the user's excluded list is given
-     * [BYPASS_MARK] — the very bit the daemon sets on its own sockets — so the
-     * pref-[CATCH_ALL_PRIO] catch-all skips it and its traffic keeps leaving
-     * through the physical interface instead of the exit node. Separate from
-     * [CHAIN_MARK], which OUTPUT jumps to only for tailnet destinations.
+     * Legacy per-app exclusion chain, no longer installed — kept only so that
+     * upgrades remove it.
+     *
+     * It gave every excluded uid [BYPASS_MARK] in mangle OUTPUT, hooked from
+     * OUTPUT with no match of its own: the one rule we ever installed that
+     * inspected every locally generated packet on the device. It was also
+     * redundant — a mark set in mangle OUTPUT comes too late for TCP (the route
+     * and the source address are chosen at connect()), which is why the pref-
+     * [EXCLUDE_PRIO] uid rules were added in the first place, and those do the
+     * whole job on their own.
      */
     private const val CHAIN_BYPASS = "TAILSOCKS_BYPASS"
 
@@ -634,11 +665,34 @@ object RootUtils {
      *                          its sockets gets it. Without a Context the log of the
      *                          daemon [startRootDaemon] launched is used; if there is
      *                          none either, the catch-all is skipped with a WARN.
+     * @param foreignVpn        the caller's ConnectivityManager answer to "does another
+     *                          app hold Android's VPN slot?", or null when it has none.
+     *                          It is OR-ed with [detectForeignVpn], which sees a tunnel
+     *                          this app is not a member of — the case ConnectivityManager
+     *                          cannot report.
+     * @param takeDeviceAnyway  the user's sticky override. Installs the full ruleset even
+     *                          while another tunnel holds the device, which breaks that
+     *                          tunnel's apps; named in the log every time it is used.
+     *
+     * The install is tiered. Tailnet reachability (the pref-100 rules, the
+     * mangle mark chain, the tailscale0 FORWARD pair) is installed
+     * unconditionally: it is scoped to tailnet destinations and sits below
+     * netd's rules, so it coexists with any other tunnel by construction.
+     * Default-route capture (the pref-[CATCH_ALL_PRIO] catch-all, the LAN throw
+     * routes, the rp_filter loosening) and the device-wide DNS redirect claim
+     * the whole device and have exactly one owner: when another VPN holds the
+     * slot both are yielded whole, and anything an earlier apply or the boot
+     * script left behind is actively removed rather than merely not installed.
+     * The per-app exclusion rules go with them — they exist only to carve uids
+     * out of the catch-all, and jumping a uid over netd's rules while we route
+     * nothing takes it out of the foreign tunnel too.
      */
     fun applyTailscale0Routing(
         dnsRedirect: Boolean = true,
         dnsBypassAddrs: List<String> = emptyList(),
-        context: Context? = null
+        context: Context? = null,
+        foreignVpn: Boolean? = null,
+        takeDeviceAnyway: Boolean = false
     ): Boolean {
         val logFile = context?.let { rootDaemonLogFile(it) } ?: lastDaemonLogFile
         val verdict = logFile?.let { soMarkVerdict(it) } ?: SoMarkVerdict(false, "no daemon log to check")
@@ -651,10 +705,49 @@ object RootUtils {
             )
         }
 
+        // Two independent detectors, OR-ed: the caller's ConnectivityManager
+        // read only sees a tunnel this app is a member of, the root-side probe
+        // only one that left rules behind. Either is enough to yield — the safe
+        // direction is "someone else owns the device", never the reverse.
+        val probe = detectForeignVpn()
+        val foreignPresent = foreignVpn == true || probe.present
+        val foreignReason = when {
+            foreignVpn == true && probe.present -> "${probe.reason}; the system also reports a VPN transport"
+            foreignVpn == true -> "the system reports a VPN transport, ${probe.reason}"
+            else -> probe.reason
+        }
+        // Owning the device means owning the default route and port 53 on it.
+        val ownDevice = !foreignPresent || takeDeviceAnyway
+        val installCatchAll = marks && ownDevice
+        val installDns = dnsRedirect && ownDevice
+        if (!foreignPresent) {
+            rootLog("INFO", "coexistence: this device is ours ($foreignReason); installing every tier")
+        } else if (takeDeviceAnyway) {
+            rootLog(
+                "WARN",
+                "another tunnel holds this device ($foreignReason), but \"take the device anyway\" is on: " +
+                    "installing the exit-node catch-all and the device-wide DNS redirect regardless — " +
+                    "the other tunnel's apps lose their traffic and their name resolution while TailSocks runs"
+            )
+        } else {
+            rootLog(
+                "WARN",
+                "another tunnel holds this device ($foreignReason): installing tailnet reachability only. " +
+                    "No exit-node catch-all, no device-wide DNS redirect, no per-app exclusion rules, and " +
+                    "rp_filter is put back. Tailnet addresses, MagicDNS names and the loopback proxies keep " +
+                    "working; exit nodes and system-wide MagicDNS do not. Turn on \"take the device anyway\" " +
+                    "to override, at that tunnel's expense"
+            )
+        }
+
         // Root Mode is device-wide by construction; these uids are the user's
         // opt-out and are resolved fresh on every apply (an app can be
         // installed, removed or reinstalled with another uid between runs).
         val bypassUids = excludedUids(context)
+        // Resolved once: the same list installs the throw routes and, when we
+        // yield, removes exactly the ones we wrote — never the daemon's own.
+        val localV4 = localExclusions(context, v6 = false)
+        val localV6 = localExclusions(context, v6 = true)
 
         val sb = StringBuilder()
         sb.append(legacyRuleCleanup())
@@ -670,8 +763,16 @@ object RootUtils {
         // therefore left tailscale0 with the Wi-Fi address as source and never
         // got an answer. Matching on destination makes the first lookup land in
         // table 1099, so the source is the tailnet address.
-        sb.append("ip rule del to $CGNAT_V4 table $ROUTE_TABLE 2>/dev/null || true\n")
-        sb.append("ip rule add to $CGNAT_V4 table $ROUTE_TABLE priority 100\n")
+        //
+        // `iif lo` scopes it to locally generated packets: without it we also
+        // claimed packets being forwarded through this device (a subnet router,
+        // a tethered client) and answered them with our own source address.
+        // No fwmark selector here on purpose — that very DNS forwarder socket is
+        // unmarked, and a marked-only rule would send it back to the physical
+        // table, which is the bug this rule exists to fix.
+        sb.append("while ip rule del to $CGNAT_V4 iif lo table $ROUTE_TABLE 2>/dev/null; do :; done\n")
+        sb.append("while ip rule del to $CGNAT_V4 table $ROUTE_TABLE 2>/dev/null; do :; done\n")
+        sb.append("ip rule add to $CGNAT_V4 iif lo table $ROUTE_TABLE priority 100\n")
 
         sb.append("iptables -t mangle -N $CHAIN_MARK 2>/dev/null || iptables -t mangle -F $CHAIN_MARK\n")
         sb.append("iptables -t mangle -A $CHAIN_MARK -j MARK --set-xmark $MARK_BIT/$MARK_MASK\n")
@@ -680,26 +781,43 @@ object RootUtils {
         sb.append("iptables -C FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || iptables -I FORWARD -o tailscale0 -j ACCEPT\n")
         sb.append("iptables -C FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || iptables -I FORWARD -i tailscale0 -j ACCEPT\n")
 
-        // --- Per-app exclusions (IPv4): excluded uids carry the bypass bit ---
+        // --- Per-app exclusions: uid rules, both families in one call ---
+        // The teardown runs whatever we install: it clears the rules of an
+        // earlier apply and the mangle chain of an earlier version. The install
+        // only follows the catch-all — an exclusion is a hole in the catch-all,
+        // and without one it would just take the uid out of the foreign tunnel.
         sb.append(bypassChainTeardown("iptables"))
-        sb.append(bypassChainInstall("iptables", bypassUids, bestEffort = false))
         sb.append(excludeRulesTeardown())
-        sb.append(excludeRulesInstall(bypassUids))
+        if (installCatchAll) sb.append(excludeRulesInstall(bypassUids))
 
         // --- Exit-node catch-all (IPv4): unmarked local traffic → daemon's table 52 ---
         sb.append(staleDaemonRulePurge("ip"))
-        if (marks) {
+        if (installCatchAll) {
             sb.append(catchAllInstall("ip", V4_CATCH_ALL_MISSING, bestEffort = false))
-            sb.append(localBypassRoutes("ip", localExclusions(context, v6 = false)))
+            sb.append(localBypassRoutes("ip", localV4))
             sb.append(rpFilterLoosen())
+        } else {
+            // Skipping the install removes nothing: the delete loop lives inside
+            // catchAllInstall, so a rule from an earlier apply or from the boot
+            // script (which has no VPN check at all) would survive untouched and
+            // keep capturing the other tunnel's apps.
+            sb.append(catchAllTeardown("ip"))
+            sb.append(localBypassRoutesRemove("ip", localV4))
+            // Loose reverse-path filtering exists only because table 52 is
+            // consulted for unmarked lookups. With the catch-all gone it is a
+            // gratuitous system-wide change, so it goes back.
+            sb.append(rpFilterRestore())
         }
 
         // --- IPv6 policy routing ---
         sb.append("ip -6 route replace $TAILNET_V6 dev tailscale0 table $ROUTE_TABLE metric 1 2>/dev/null || true\n")
         sb.append("ip -6 rule del fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE 2>/dev/null || true\n")
         sb.append("ip -6 rule add fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE priority 100 2>/dev/null || true\n")
-        sb.append("ip -6 rule del to $TAILNET_V6 table $ROUTE_TABLE 2>/dev/null || true\n")
-        sb.append("ip -6 rule add to $TAILNET_V6 table $ROUTE_TABLE priority 100 2>/dev/null || true\n")
+        // `iif lo` for the same reason as the v4 twin above, and no fwmark
+        // selector for the same reason either.
+        sb.append("while ip -6 rule del to $TAILNET_V6 iif lo table $ROUTE_TABLE 2>/dev/null; do :; done\n")
+        sb.append("while ip -6 rule del to $TAILNET_V6 table $ROUTE_TABLE 2>/dev/null; do :; done\n")
+        sb.append("ip -6 rule add to $TAILNET_V6 iif lo table $ROUTE_TABLE priority 100 2>/dev/null || true\n")
 
         sb.append("ip6tables -t mangle -N $CHAIN_MARK 2>/dev/null || ip6tables -t mangle -F $CHAIN_MARK\n")
         sb.append("ip6tables -t mangle -A $CHAIN_MARK -j MARK --set-xmark $MARK_BIT/$MARK_MASK 2>/dev/null || true\n")
@@ -708,25 +826,32 @@ object RootUtils {
         sb.append("ip6tables -C FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || ip6tables -I FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || true\n")
         sb.append("ip6tables -C FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || ip6tables -I FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || true\n")
 
-        // --- Per-app exclusions (IPv6) ---
+        // --- Per-app exclusions (IPv6): the v6 uid rules are emitted above ---
         sb.append(bypassChainTeardown("ip6tables"))
-        sb.append(bypassChainInstall("ip6tables", bypassUids, bestEffort = true))
 
         // --- Exit-node catch-all (IPv6) ---
         // The purge is harmless anywhere; the rule itself only where IPv6 exists
         // and is enabled, otherwise `ip -6 rule add` fails on every apply and the
         // marker would raise a false alarm each time.
         sb.append(staleDaemonRulePurge("ip -6"))
-        if (marks) {
+        if (installCatchAll) {
             sb.append("if [ -d /proc/sys/net/ipv6 ] && [ \"\$(cat /proc/sys/net/ipv6/conf/all/disable_ipv6 2>/dev/null)\" = \"0\" ]; then\n")
             sb.append(catchAllInstall("ip -6", V6_CATCH_ALL_MISSING, bestEffort = true))
-            sb.append(localBypassRoutes("ip -6", localExclusions(context, v6 = true)))
+            sb.append(localBypassRoutes("ip -6", localV6))
             sb.append("fi\n")
+        } else {
+            // No IPv6 guard on the removal: a rule can only be there if IPv6 was
+            // up when it was installed, and deleting what is not there is free.
+            sb.append(catchAllTeardown("ip -6"))
+            sb.append(localBypassRoutesRemove("ip -6", localV6))
         }
 
         // --- System-wide DNS redirect ---
+        // The teardown is unconditional, so yielding this tier is expressed by
+        // not installing it: the chain and both nat OUTPUT jumps are gone by the
+        // time the script reaches here, whoever put them there.
         sb.append(dnsChainTeardown())
-        if (dnsRedirect) {
+        if (installDns) {
             sb.append("iptables -t nat -N $CHAIN_DNS 2>/dev/null || iptables -t nat -F $CHAIN_DNS\n")
             // The apps the user carved out of Root Mode, first of all: their
             // queries leave the chain before anything is rewritten, so they
@@ -751,7 +876,7 @@ object RootUtils {
         // the last command, and a failed route on a missing tailscale0 would be
         // reported as success.
         sb.append("ip route show table $ROUTE_TABLE 2>/dev/null | grep -q . || { echo 'verify: table $ROUTE_TABLE is empty'; exit 1; }\n")
-        if (dnsRedirect) {
+        if (installDns) {
             sb.append("iptables -t nat -S $CHAIN_DNS >/dev/null 2>&1 || { echo 'verify: $CHAIN_DNS chain missing'; exit 1; }\n")
         }
         sb.append("echo 'verify: ok'\n")
@@ -762,14 +887,29 @@ object RootUtils {
         if (res.output.contains(OWNER_MATCH_MISSING)) {
             rootLog(
                 "WARN",
-                "per-app exclusions NOT applied: this kernel has no iptables `-m owner` match; " +
-                    "Root Mode stays device-wide (DNS and the exit node still cover every app)"
+                "per-app DNS exclusions NOT applied: this kernel has no iptables `-m owner` match, so the " +
+                    "excluded apps' DNS is redirected into MagicDNS like every other app's" +
+                    (if (installCatchAll) ", while their traffic is routed out of the tunnel — an app outside " +
+                        "the tunnel resolving inside it" else "") +
+                    ". Turn the system-wide DNS redirect off to give them the system resolver back"
             )
-        } else if (bypassUids.isNotEmpty()) {
+        }
+        if (res.output.contains(GOTO_UNRESOLVED)) {
             rootLog(
-                "INFO",
-                "per-app exclusions: uid ${bypassUids.joinToString(",")} keep the system resolver and skip the exit node"
+                "WARN",
+                "per-app exclusions: this device's routing rules could not be jumped over, so the excluded " +
+                    "apps are pinned to the physical network instead; while another VPN is up they will not " +
+                    "ride it either"
             )
+        }
+        if (bypassUids.isNotEmpty()) {
+            val what = when {
+                installCatchAll && installDns -> "keep the system resolver and skip the exit node"
+                installCatchAll -> "skip the exit node"
+                installDns -> "keep the system resolver"
+                else -> "need no rules of their own: nothing on this device is captured"
+            }
+            rootLog("INFO", "per-app exclusions: uid ${bypassUids.joinToString(",")} $what")
         }
         if (res.ok) {
             // The catch-all verify is non-fatal (tailnet routing does not depend on
@@ -787,19 +927,110 @@ object RootUtils {
                 rootLog("INFO", "IPv6 exit-node catch-all not installed (ip -6 rule add refused); IPv6 traffic will not follow an exit node")
             }
             val catchAll = when {
+                !ownDevice -> "yielded, another tunnel holds the device"
                 !marks -> "skipped, daemon does not mark sockets"
                 v4Missing -> "not installed, mask dropped"
                 v6Missing -> "v4 only"
                 else -> "installed"
             }
+            val dnsState = when {
+                installDns -> "on"
+                !dnsRedirect -> "off"
+                else -> "yielded, another tunnel holds the device"
+            }
+            val tiers = if (ownDevice) "tailnet + default route + device-wide DNS" else "tailnet only"
             rootLog(
                 "INFO",
-                "tailscale0 routing applied (table $ROUTE_TABLE, exit-node catch-all pref $CATCH_ALL_PRIO -> table $DAEMON_TABLE: $catchAll, " +
-                    "dns redirect=$dnsRedirect" +
+                "tailscale0 routing applied, $tiers (table $ROUTE_TABLE, exit-node catch-all pref $CATCH_ALL_PRIO -> table $DAEMON_TABLE: $catchAll, " +
+                    "dns redirect=$dnsState" +
                     if (dnsBypassAddrs.isEmpty()) ")" else ", bypass=${dnsBypassAddrs.joinToString(",")})"
             )
         }
         return res.ok
+    }
+
+    /** Outcome of the root-side coexistence probe: [present] is the gate, [reason] is what the ROOT log and Check Routing show. */
+    class ForeignVpnVerdict(val present: Boolean, val reason: String)
+
+    /**
+     * Looks for another VPN client that owns this device, from a root shell and
+     * without a Context.
+     *
+     * ConnectivityManager can only report a VPN transport the calling app is a
+     * member of, so a tunnel that excludes TailSocks is invisible to it — and
+     * that is exactly the tunnel we would break. Two independent traces are
+     * cross-checked instead, and both must be there:
+     *  - a tunnel interface that is not ours. Only `tun`/`ppp`/`wg`/`ipsec`
+     *    names count, so our own `tailscale0` can never match; a name is never
+     *    proof on its own either (a stopped client leaves its interface behind,
+     *    and a kernel WireGuard tunnel may be routed by hand).
+     *  - a per-uid rule inside netd's own band pointing at a table that is
+     *    neither ours nor a physical one. That is how netd expresses "these apps
+     *    are members of a VPN", and nothing else on the device writes it.
+     *
+     * The physical tables are read back through Android's protectedFromVpn mark,
+     * the same way [excludeRulesInstall] finds them, so the Wi-Fi and mobile
+     * tables are never mistaken for a tunnel's.
+     */
+    fun detectForeignVpn(): ForeignVpnVerdict {
+        val script = buildString {
+            append("PHYS=$(ip route get 1.1.1.1 mark $PROTECT_MARK 2>/dev/null | sed -n 's/.*table \\([A-Za-z0-9_]*\\).*/\\1/p' | head -n1)\n")
+            append("PHYS6=$(ip -6 route get 2001:4860:4860::8888 mark $PROTECT_MARK 2>/dev/null | sed -n 's/.*table \\([A-Za-z0-9_]*\\).*/\\1/p' | head -n1)\n")
+            append("ip -o link show 2>/dev/null | grep -Eo '(tun[0-9]+|ppp[0-9]+|wg[0-9]+|ipsec[0-9]+)' | sort -u | while read -r n; do\n")
+            append("    echo \"FOREIGN_IF \$n\"\n")
+            append("done\n")
+            // `ip rule show` prints one rule per line, priority first; the table
+            // is the word after `lookup`. Parsed with shell builtins only —
+            // awk is not on every Android image.
+            for (ip in listOf("ip", "ip -6")) {
+                append("$ip rule show 2>/dev/null | while read -r p rest; do\n")
+                append("    p=\${p%:}\n")
+                append("    case \"\$p\" in ''|*[!0-9]*) continue;; esac\n")
+                append("    [ \"\$p\" -ge $NETD_RULE_MIN ] || continue\n")
+                append("    [ \"\$p\" -le $NETD_RULE_MAX ] || continue\n")
+                append("    case \"\$rest\" in *uidrange*) ;; *) continue;; esac\n")
+                append("    case \"\$rest\" in *'lookup '*) ;; *) continue;; esac\n")
+                append("    t=\${rest##*lookup }\n")
+                append("    t=\${t%% *}\n")
+                append("    case \"\$t\" in $ROUTE_TABLE|$DAEMON_TABLE|main|local|default|tailscale0|'') continue;; esac\n")
+                append("    [ \"\$t\" = \"\$PHYS\" ] && continue\n")
+                append("    [ \"\$t\" = \"\$PHYS6\" ] && continue\n")
+                append("    echo \"FOREIGN_RULE \$p \$t\"\n")
+                append("done\n")
+            }
+        }
+        val res = runSu("coexist-probe", script, timeoutMs = 10_000L)
+        if (!res.ok) {
+            // A probe we could not run is not evidence of a free device, but
+            // refusing to install anything on it would be worse: the same root
+            // shell failure would already have broken the apply itself.
+            return ForeignVpnVerdict(false, "the coexistence probe could not be run")
+        }
+        fun values(tag: String) = res.output.lineSequence()
+            .filter { it.startsWith("$tag ") }
+            .map { it.removePrefix("$tag ").trim() }
+            .filter { it.isNotEmpty() }
+            .distinct()
+            .toList()
+        val ifaces = values("FOREIGN_IF")
+        // One rule per uid range, so a tunnel with many member apps prints many
+        // identical pref/table pairs; the log only needs to name the tunnel.
+        val rules = values("FOREIGN_RULE").take(4)
+        return when {
+            ifaces.isNotEmpty() && rules.isNotEmpty() -> ForeignVpnVerdict(
+                true,
+                "${ifaces.joinToString(", ")} is up and this device's routing sends apps to it (${rules.joinToString("; ")})"
+            )
+            ifaces.isNotEmpty() -> ForeignVpnVerdict(
+                false,
+                "${ifaces.joinToString(", ")} exists but no app is routed into it"
+            )
+            rules.isNotEmpty() -> ForeignVpnVerdict(
+                false,
+                "apps are routed to ${rules.joinToString("; ")} but no tunnel interface is up"
+            )
+            else -> ForeignVpnVerdict(false, "no other tunnel interface and no foreign per-app routing rules")
+        }
     }
 
     /** Removes every rule this app installs, including those from older versions. */
@@ -824,6 +1055,11 @@ object RootUtils {
 
         sb.append("while ip rule del fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE 2>/dev/null; do :; done\n")
         sb.append("while ip -6 rule del fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE 2>/dev/null; do :; done\n")
+        // Both spellings of the destination rule: the selector-less delete
+        // matches the `iif lo` form too on every kernel we ship against, but an
+        // orphaned pref-100 rule is not worth trusting that to.
+        sb.append("while ip rule del to $CGNAT_V4 iif lo table $ROUTE_TABLE 2>/dev/null; do :; done\n")
+        sb.append("while ip -6 rule del to $TAILNET_V6 iif lo table $ROUTE_TABLE 2>/dev/null; do :; done\n")
         sb.append("while ip rule del to $CGNAT_V4 table $ROUTE_TABLE 2>/dev/null; do :; done\n")
         sb.append("while ip -6 rule del to $TAILNET_V6 table $ROUTE_TABLE 2>/dev/null; do :; done\n")
         sb.append("while ip rule del fwmark $LEGACY_MARK table $ROUTE_TABLE 2>/dev/null; do :; done\n")
@@ -835,8 +1071,8 @@ object RootUtils {
         // 52 itself is left alone on purpose: it belongs to the daemon (which may
         // keep running with "Terminate Root Daemon on Stop" off); router.Close()
         // deletes its throw routes and the kernel drops the rest with tailscale0.
-        sb.append("while ip rule del priority $CATCH_ALL_PRIO lookup $DAEMON_TABLE 2>/dev/null; do :; done\n")
-        sb.append("while ip -6 rule del priority $CATCH_ALL_PRIO lookup $DAEMON_TABLE 2>/dev/null; do :; done\n")
+        sb.append(catchAllTeardown("ip"))
+        sb.append(catchAllTeardown("ip -6"))
         // The local-network bypass we wrote into the daemon's table. Everything
         // except the daemon's own loopback throw goes; a range the daemon threw
         // for its own reasons would be re-added at its next Reconfig, and with
@@ -974,52 +1210,70 @@ object RootUtils {
     }
 
     /**
-     * Gives every excluded uid [BYPASS_MARK] in mangle OUTPUT: the same bit the
-     * daemon sets on its own sockets, and one the pref-[CATCH_ALL_PRIO]
-     * catch-all's mask already exempts, so those packets never consult the
-     * daemon's table 52 and keep leaving through the physical interface.
-     * Nothing else is touched — the pref-100 rules ignore this bit, so an
-     * excluded app can still reach tailnet addresses.
-     *
-     * Empty list: nothing at all is emitted, so the installed ruleset is the
-     * one every earlier version produced. `-m owner` is an optional kernel
-     * module; where it is missing the rule is refused, [OWNER_MATCH_MISSING] is
-     * printed for the caller to turn into a WARN and the rest of the script
-     * runs on. [ipt] is `iptables` or `ip6tables`.
-     */
-    /**
      * Hands every excluded uid back to Android's own routing instead of forcing
      * it onto one interface.
      *
-     * `goto 16000` jumps over the pref-[CATCH_ALL_PRIO] catch-all and lands on
-     * netd's rules, so the app ends up wherever the platform says it belongs —
-     * inside another VPN client's tunnel when one is up, on the physical
-     * network when none is. Forcing `lookup <physical table>` instead took the
-     * app out of that VPN as well, which is why Chrome went dark with a
-     * "bad config" DNS error while its tunnel client saw no requests at all:
+     * A `goto` into netd's band jumps over the pref-[CATCH_ALL_PRIO] catch-all
+     * and lands on netd's rules, so the app ends up wherever the platform says
+     * it belongs — inside another VPN client's tunnel when one is up, on the
+     * physical network when none is. Forcing `lookup <physical table>` instead
+     * took the app out of that VPN as well, which is why Chrome went dark with
+     * a "bad config" DNS error while its tunnel client saw no requests at all:
      * we had already claimed its packets.
+     *
+     * The target is discovered, not assumed: the lowest priority at or above
+     * [NETD_RULE_MIN] that this device actually has a rule at. 16000 used to be
+     * hardcoded, and a `goto` to a priority holding no rule is a rule the
+     * kernel accepts, prints as `[detached]` or `unresolved`, and then skips at
+     * lookup time — so the exclusion looked installed and did nothing. Every
+     * rule is therefore read back, and a detached one is deleted and replaced
+     * by the physical-table form with [GOTO_UNRESOLVED] printed for the caller.
      *
      * The pref-100 rules stay above this, so an excluded app still reaches
      * tailnet addresses. Being priority-based and network-agnostic, the rule
-     * needs no refresh when Wi-Fi gives way to mobile data. A device whose netd
-     * does not use 16000 falls back to the physical table.
+     * needs no refresh when Wi-Fi gives way to mobile data.
      */
     private fun excludeRulesInstall(uids: List<Int>): String {
         if (uids.isEmpty()) return ""
         return buildString {
             append("PHYS=$(ip route get 1.1.1.1 mark $PROTECT_MARK 2>/dev/null | sed -n 's/.*table \\([A-Za-z0-9_]*\\).*/\\1/p' | head -n1)\n")
             append("PHYS6=$(ip -6 route get 2001:4860:4860::8888 mark $PROTECT_MARK 2>/dev/null | sed -n 's/.*table \\([A-Za-z0-9_]*\\).*/\\1/p' | head -n1)\n")
+            // `ip rule show` prints in ascending priority order, so the first
+            // line at or above the band's floor carries the jump target. Read
+            // with shell builtins: a sed substitution over the whole list emits
+            // a line per rule and the first one would not be the lowest match.
+            for ((v, ip) in listOf("" to "ip", "6" to "ip -6")) {
+                append("GOTO$v=$($ip rule show 2>/dev/null | while read -r p rest; do\n")
+                append("    p=\${p%:}\n")
+                append("    case \"\$p\" in ''|*[!0-9]*) continue;; esac\n")
+                append("    [ \"\$p\" -ge $NETD_RULE_MIN ] && { echo \"\$p\"; break; }\n")
+                append("done)\n")
+            }
             for (uid in uids) {
-                append("while ip rule del uidrange $uid-$uid priority $EXCLUDE_PRIO 2>/dev/null; do :; done\n")
-                append("while ip -6 rule del uidrange $uid-$uid priority $EXCLUDE_PRIO 2>/dev/null; do :; done\n")
-                append(
-                    "ip rule add uidrange $uid-$uid goto $ANDROID_RULE_BASE priority $EXCLUDE_PRIO 2>/dev/null || " +
-                        "{ [ -n \"\$PHYS\" ] && ip rule add uidrange $uid-$uid iif lo lookup \"\$PHYS\" priority $EXCLUDE_PRIO 2>/dev/null; } || true\n"
-                )
-                append(
-                    "ip -6 rule add uidrange $uid-$uid goto $ANDROID_RULE_BASE priority $EXCLUDE_PRIO 2>/dev/null || " +
-                        "{ [ -n \"\$PHYS6\" ] && ip -6 rule add uidrange $uid-$uid iif lo lookup \"\$PHYS6\" priority $EXCLUDE_PRIO 2>/dev/null; } || true\n"
-                )
+                for ((ip, goto, phys) in listOf(
+                    Triple("ip", "\$GOTO", "\$PHYS"),
+                    Triple("ip -6", "\$GOTO6", "\$PHYS6")
+                )) {
+                    append("while $ip rule del uidrange $uid-$uid priority $EXCLUDE_PRIO 2>/dev/null; do :; done\n")
+                    append(
+                        "{ [ -n \"$goto\" ] && $ip rule add uidrange $uid-$uid goto \"$goto\" priority $EXCLUDE_PRIO 2>/dev/null; } || true\n"
+                    )
+                    // A goto the kernel could not resolve: the rule exists but is
+                    // never evaluated, which is worse than no rule at all.
+                    append(
+                        "if $ip rule show 2>/dev/null | grep '^$EXCLUDE_PRIO:' | grep -F 'uidrange $uid-$uid' | " +
+                            "grep -qE '\\[detached\\]| unresolved'; then\n"
+                    )
+                    append("    while $ip rule del uidrange $uid-$uid priority $EXCLUDE_PRIO 2>/dev/null; do :; done\n")
+                    append("    echo '$GOTO_UNRESOLVED'\n")
+                    append("fi\n")
+                    // Fallback, also taken when no rule exists in netd's band at
+                    // all: pin the uid to the physical table by hand.
+                    append(
+                        "$ip rule show 2>/dev/null | grep -q '^$EXCLUDE_PRIO:.*uidrange $uid-$uid' || " +
+                            "{ [ -n \"$phys\" ] && $ip rule add uidrange $uid-$uid iif lo lookup \"$phys\" priority $EXCLUDE_PRIO 2>/dev/null; } || true\n"
+                    )
+                }
             }
         }
     }
@@ -1030,22 +1284,12 @@ object RootUtils {
         append("ip -6 rule show 2>/dev/null | sed -n 's/^$EXCLUDE_PRIO:[^u]*uidrange \\([0-9]*\\)-\\([0-9]*\\).*/\\1 \\2/p' | while read a b; do ip -6 rule del uidrange \"\$a\"-\"\$b\" priority $EXCLUDE_PRIO 2>/dev/null || true; done\n")
     }
 
-    private fun bypassChainInstall(ipt: String, uids: List<Int>, bestEffort: Boolean): String {
-        if (uids.isEmpty()) return ""
-        val tolerate = if (bestEffort) " 2>/dev/null || true" else ""
-        return buildString {
-            append("$ipt -t mangle -N $CHAIN_BYPASS 2>/dev/null || $ipt -t mangle -F $CHAIN_BYPASS$tolerate\n")
-            for (uid in uids) {
-                append(
-                    "$ipt -t mangle -A $CHAIN_BYPASS -m owner --uid-owner $uid -j MARK --set-xmark $BYPASS_MARK/$BYPASS_MARK " +
-                        "2>/dev/null || echo '$OWNER_MATCH_MISSING'\n"
-                )
-            }
-            append("$ipt -t mangle -C OUTPUT -j $CHAIN_BYPASS 2>/dev/null || $ipt -t mangle -A OUTPUT -j $CHAIN_BYPASS$tolerate\n")
-        }
-    }
-
-    /** Detaches and drops the per-app chain; safe to run when it does not exist. */
+    /**
+     * Detaches and drops the legacy per-app chain; safe to run when it does not
+     * exist. Nothing installs [CHAIN_BYPASS] any more, but an upgrade from a
+     * build that did must not leave its OUTPUT hook behind, so this keeps
+     * running on every apply and every cleanup.
+     */
     private fun bypassChainTeardown(ipt: String): String = buildString {
         append("$ipt -t mangle -D OUTPUT -j $CHAIN_BYPASS 2>/dev/null || true\n")
         append("$ipt -t mangle -F $CHAIN_BYPASS 2>/dev/null || true\n")
@@ -1062,6 +1306,28 @@ object RootUtils {
             append("$ip route replace throw ${shQuote(c)} table $DAEMON_TABLE 2>/dev/null || true\n")
         }
     }
+
+    /**
+     * Removes exactly the throws [localBypassRoutes] writes, by prefix.
+     *
+     * The cleanup path sweeps every throw out of table 52 instead, which is
+     * fine at teardown (the daemon is going away, and it re-adds its own at the
+     * next Reconfig) but far too blunt while the daemon keeps running: it would
+     * churn the LAN throws the daemon wrote for its own reasons on every apply.
+     */
+    private fun localBypassRoutesRemove(ip: String, cidrs: List<String>): String = buildString {
+        for (c in cidrs) {
+            append("$ip route del throw ${shQuote(c)} table $DAEMON_TABLE 2>/dev/null || true\n")
+        }
+    }
+
+    /**
+     * Drains the catch-all by priority and table rather than by mark, so an
+     * earlier mask variant — or the one the boot script installs before any app
+     * process exists — goes as well.
+     */
+    private fun catchAllTeardown(ip: String): String =
+        "while $ip rule del priority $CATCH_ALL_PRIO lookup $DAEMON_TABLE 2>/dev/null; do :; done\n"
 
     private fun catchAllInstall(ip: String, missingMarker: String, bestEffort: Boolean): String = buildString {
         val tolerate = if (bestEffort) " 2>/dev/null || true" else ""
@@ -1197,10 +1463,23 @@ object RootUtils {
      * decision with and without the daemon's bypass mark, rp_filter, the
      * daemon log's last run marker and SO_MARK probe line, and the verdict
      * [soMarkVerdict] reaches from them (why pref 200 was or was not installed).
+     *
+     * It also answers the questions a broken device actually raises: where an
+     * excluded uid's packets go, where the LAN goes, whether any rule is
+     * installed but detached, whether anything but us claims an fwmark, how
+     * busy the DNS chain is, and whether another tunnel owns the device — the
+     * decision [applyTailscale0Routing] made, with its reason.
      */
     fun dumpRoutingState(context: Context? = null): String {
         val logFile = context?.let { rootDaemonLogFile(it) } ?: lastDaemonLogFile
         val orig = shQuote(RP_FILTER_ORIG)
+        val uids = excludedUids(context)
+        // A route lookup needs an address, not a prefix; the network address of
+        // the first exclusion is enough to show which way the LAN goes.
+        val lanProbe = localExclusions(context, v6 = false).firstOrNull()?.substringBefore('/')
+        // Its own root shell, so it runs before the dump script is assembled and
+        // its verdict is printed as part of the dump rather than out of band.
+        val coexist = detectForeignVpn()
         val script = buildString {
             append("echo '--- ip rule ---'\n")
             append("ip rule show 2>/dev/null || echo '(ip rule show failed)'\n")
@@ -1216,9 +1495,26 @@ object RootUtils {
             append("ip -6 route show table $DAEMON_TABLE 2>/dev/null | grep . || echo '(empty)'\n")
             append("echo '--- tailscale0 routes, all tables ---'\n")
             append("ip route show table all 2>/dev/null | grep tailscale0 || echo '(none)'\n")
+            append("echo '--- default routes in table $ROUTE_TABLE (expected 0; one means we captured the device) ---'\n")
+            append("ip route show table $ROUTE_TABLE 2>/dev/null | grep -c '^default'\n")
             append("echo '--- route get 8.8.8.8: unmarked, then with the daemon bypass mark $BYPASS_MARK ---'\n")
             append("ip route get 8.8.8.8 2>&1\n")
             append("ip route get 8.8.8.8 mark $BYPASS_MARK 2>&1\n")
+            if (uids.isNotEmpty()) {
+                append("echo '--- route get per excluded uid (must not be tailscale0 while an exit node is up) ---'\n")
+                for (uid in uids) {
+                    append("printf 'uid %s v4: ' $uid; ip route get 8.8.8.8 uid $uid 2>&1 | head -n 1\n")
+                    append("printf 'uid %s v6: ' $uid; ip -6 route get 2001:4860:4860::8888 uid $uid 2>&1 | head -n 1\n")
+                }
+            }
+            if (lanProbe != null) {
+                append("echo '--- route get $lanProbe (first excluded local prefix; tailscale0 means the LAN is inside the exit node) ---'\n")
+                append("ip route get ${shQuote(lanProbe)} 2>&1 | head -n 1\n")
+            }
+            append("echo '--- rules installed but never evaluated ([detached] / unresolved goto targets) ---'\n")
+            append("{ ip rule show 2>/dev/null; ip -6 rule show 2>/dev/null; } | grep -E '\\[detached\\]| unresolved' || echo '(none)'\n")
+            append("echo '--- every fwmark claim in mangle, ours and anyone else's ---'\n")
+            append("iptables -t mangle -S 2>/dev/null | grep -- '--set-xmark' || echo '(none)'\n")
             append("echo '--- rp_filter ---'\n")
             append("for f in /proc/sys/net/ipv4/conf/*/rp_filter; do printf '%s=%s\\n' \"\${f#/proc/sys/net/ipv4/conf/}\" \"\$(cat \"\$f\" 2>/dev/null)\"; done 2>/dev/null\n")
             append("[ -f $orig ] && echo \"saved original all=\$(cat $orig)\"\n")
@@ -1232,12 +1528,21 @@ object RootUtils {
             } else {
                 append("echo '(daemon log path unknown)'\n")
             }
+            append("echo '--- coexistence (which tiers the last apply installed, and why) ---'\n")
+            append(
+                "echo " + shQuote(
+                    (if (coexist.present) "another tunnel owns this device" else "this device is ours") +
+                        " (" + coexist.reason + ")"
+                ) + "\n"
+            )
             append("echo '--- mangle $CHAIN_MARK ---'\n")
             append("iptables -t mangle -S $CHAIN_MARK 2>/dev/null || echo '(absent)'\n")
-            append("echo '--- mangle $CHAIN_BYPASS (per-app exclusions) ---'\n")
+            append("echo '--- mangle $CHAIN_BYPASS (removed in 4.0; anything here is upgrade residue) ---'\n")
             append("iptables -t mangle -S $CHAIN_BYPASS 2>/dev/null || echo '(absent)'\n")
             append("echo '--- nat $CHAIN_DNS ---'\n")
             append("iptables -t nat -S $CHAIN_DNS 2>/dev/null || echo '(absent)'\n")
+            append("echo '--- nat $CHAIN_DNS counters ---'\n")
+            append("iptables -t nat -L $CHAIN_DNS -n -v -x 2>/dev/null || echo '(absent)'\n")
             append("echo '--- tailscale0 ---'\n")
             append("ip -br addr show tailscale0 2>/dev/null || echo '(interface missing)'\n")
             append("echo '--- ip binary ---'\n")

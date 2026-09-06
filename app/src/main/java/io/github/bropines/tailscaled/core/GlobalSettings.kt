@@ -336,6 +336,35 @@ object GlobalSettings {
     fun setRootDnsRedirectEnabled(context: Context, enabled: Boolean) = getPrefs(context).edit().putBoolean("root_dns_redirect", enabled).apply()
 
     /**
+     * Whether Root Mode takes the default route and the device's port 53 even
+     * while another VPN client holds the phone.
+     *
+     * Off by default, and deliberately so: Android's own per-app VPN rules sit
+     * below ours, so the exit-node catch-all and the DNS redirect capture the
+     * other tunnel's apps as well and it never finds out. With this off, that
+     * situation installs tailnet reachability only — tailnet addresses,
+     * MagicDNS names and the loopback proxies keep working, exit nodes and
+     * system-wide MagicDNS do not. Turning it on is the user accepting that
+     * cost on behalf of the other app.
+     */
+    fun isRootTakeDeviceAnyway(context: Context): Boolean = getPrefs(context).getBoolean("root_take_device_anyway", false)
+    fun setRootTakeDeviceAnyway(context: Context, enabled: Boolean) = getPrefs(context).edit().putBoolean("root_take_device_anyway", enabled).apply()
+
+    /**
+     * Records that the last routing apply yielded the default route and the
+     * device-wide DNS redirect to another VPN.
+     *
+     * Written by the service, which is the only place that knows what actually
+     * went onto the system, and read by the dashboard so the card and the exit
+     * node row do not claim a tunnel that is not there. Like
+     * `root_routing_installed` it describes *this* device right now, so it is
+     * cleared whenever the rules are removed.
+     */
+    fun isRootRoutingYielded(context: Context): Boolean = getPrefs(context).getBoolean("root_routing_yielded", false)
+    fun setRootRoutingYielded(context: Context, yielded: Boolean) =
+        getPrefs(context).edit().putBoolean("root_routing_yielded", yielded).apply()
+
+    /**
      * Records that firewall and policy-routing rules are currently installed on
      * the system.
      *
@@ -401,8 +430,14 @@ object GlobalSettings {
      *    transfer (res/xml/data_extraction_rules.xml). The Admin API token
      *    (`admin_api_keys`) and the node keys (`files/states`) live outside this
      *    preference file and are likewise never exported.
-     *  - `root_routing_installed` — a marker for rules installed on *this*
-     *    device right now; restoring it elsewhere would strand the cleanup.
+     *  - `root_routing_installed`, `root_routing_yielded` — markers for the
+     *    rules installed on *this* device right now; restoring them elsewhere
+     *    would strand the cleanup and make the dashboard describe another
+     *    phone's tunnels.
+     *  - `root_take_device_anyway` — per-device consent to break whatever other
+     *    VPN happens to run on *this* phone. A second device may have no other
+     *    VPN, or one the user does not want disconnected, so the consent is
+     *    given again there or not at all.
      *  - `taildrop_root_uri` — a SAF grant bound to this device and install.
      *  - `last_seen_changelog_version` — install-local bookkeeping.
      *  - `app_locale` — applied at attachBaseContext, so a restored value only

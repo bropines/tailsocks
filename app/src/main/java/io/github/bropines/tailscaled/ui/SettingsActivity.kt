@@ -818,8 +818,14 @@ fun SettingsScreen(
         var cliInstalled by remember { mutableStateOf(false) }
         var killDaemonOnStop by remember { mutableStateOf(GlobalSettings.shouldKillRootDaemonOnStop(context)) }
         var rootVpnBypass by remember { mutableStateOf(GlobalSettings.isRootVpnBypassEnabled(context)) }
+        var rootTakeDevice by remember { mutableStateOf(GlobalSettings.isRootTakeDeviceAnyway(context)) }
+        // What the service actually installed last time. It changes while this
+        // screen is open — another VPN starts, ours yields — so it is watched
+        // rather than read once.
+        var rootRoutingYielded by remember { mutableStateOf(GlobalSettings.isRootRoutingYielded(context)) }
         var showRootWarningDialog by remember { mutableStateOf(false) }
         var showTunWarningDialog by remember { mutableStateOf(false) }
+        var showTakeDeviceDialog by remember { mutableStateOf(false) }
         // Android hands the VPN slot to one app at a time and revokes it from
         // whoever held it, without asking that app. It does not say who that is,
         // so we can only report that the slot is taken — by AdGuard, a private
@@ -834,6 +840,18 @@ fun SettingsScreen(
             }.getOrDefault(false)
         }
         var isRootBusy by remember { mutableStateOf(false) }
+
+        DisposableEffect(Unit) {
+            val prefs = context.getSharedPreferences("tailsocks_global", Context.MODE_PRIVATE)
+            val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { store, key ->
+                if (key == "root_routing_yielded") {
+                    rootRoutingYielded = store.getBoolean("root_routing_yielded", false)
+                }
+            }
+            prefs.registerOnSharedPreferenceChangeListener(listener)
+            rootRoutingYielded = prefs.getBoolean("root_routing_yielded", false)
+            onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+        }
 
         // Root wins the display if an older install left both keys set; from the
         // first tap on, the selector keeps them exclusive.
@@ -871,6 +889,7 @@ fun SettingsScreen(
                 if (hadRouting) {
                     RootUtils.cleanupTailscale0Routing()
                     GlobalSettings.setRootRoutingInstalled(context, false)
+                    GlobalSettings.setRootRoutingYielded(context, false)
                 }
                 RootUtils.stopRootDaemon("${context.filesDir.absolutePath}/tailscaled.sock")
                 RootUtils.handStateBackToApp(context)
@@ -997,6 +1016,62 @@ fun SettingsScreen(
                 dismissButton = {
                     TextButton(onClick = { showRootWarningDialog = false }) {
                         Text(strSettingsRootWarningDialogCancel)
+                    }
+                }
+            )
+        }
+
+        if (showTakeDeviceDialog) {
+            // Strings resolved in the parent composition — see wrapContextWithLocale().
+            val strTakeDeviceTitle = stringResource(R.string.settings_root_take_device_dialog_title)
+            val strTakeDeviceBody = stringResource(R.string.settings_root_take_device_dialog_body)
+            val strTakeDeviceConfirm = stringResource(R.string.settings_root_take_device_confirm)
+            val strTakeDeviceCancel = stringResource(R.string.settings_root_warning_dialog_cancel)
+            AlertDialog(
+                onDismissRequest = { showTakeDeviceDialog = false },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = strTakeDeviceTitle,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
+                },
+                text = {
+                    Text(
+                        text = strTakeDeviceBody,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showTakeDeviceDialog = false
+                            rootTakeDevice = true
+                            GlobalSettings.setRootTakeDeviceAnyway(context, true)
+                            // The decision is read when routing is applied, and
+                            // that only happens on a fresh run — APPLY_SETTINGS
+                            // never reinstalls the rules.
+                            if (ProxyState.isUserLetRunning(context)) {
+                                val intent = Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" }
+                                context.startService(intent)
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text(strTakeDeviceConfirm)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showTakeDeviceDialog = false }) {
+                        Text(strTakeDeviceCancel)
                     }
                 }
             )
@@ -1208,6 +1283,7 @@ fun SettingsScreen(
                         if (!enabled && hadRouting) {
                             RootUtils.cleanupTailscale0Routing()
                             GlobalSettings.setRootRoutingInstalled(context, false)
+                            GlobalSettings.setRootRoutingYielded(context, false)
                         }
                         if (ProxyState.isUserLetRunning(context)) {
                             withContext(Dispatchers.Main) {
@@ -1346,6 +1422,50 @@ fun SettingsScreen(
                         context.startService(intent)
                     }
                 }
+                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+
+                // Taking the device breaks another app's tunnel, so switching it
+                // on asks first; giving the device back needs no confirmation.
+                SettingsSwitchItem(
+                    title = stringResource(R.string.settings_root_take_device_title),
+                    subtitle = stringResource(R.string.settings_root_take_device_desc),
+                    icon = Icons.Default.PriorityHigh,
+                    checked = rootTakeDevice
+                ) { enabled ->
+                    if (enabled) {
+                        showTakeDeviceDialog = true
+                    } else {
+                        rootTakeDevice = false
+                        GlobalSettings.setRootTakeDeviceAnyway(context, false)
+                        if (ProxyState.isUserLetRunning(context)) {
+                            val intent = Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" }
+                            context.startService(intent)
+                        }
+                    }
+                }
+
+                if (rootRoutingYielded && !rootTakeDevice) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 16.dp, end = 16.dp, top = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(R.string.settings_root_yielded_banner),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
 
                 SettingsSwitchItem(
@@ -1490,6 +1610,10 @@ fun SettingsScreen(
         val isRootModeActive = GlobalSettings.isRootModeEnabled(context)
         val isRootTunActive = GlobalSettings.isRootTunEnabled(context)
         var rootDnsRedirect by remember { mutableStateOf(GlobalSettings.isRootDnsRedirectEnabled(context)) }
+        // The switch can be on while the redirect is not installed: another VPN
+        // owns the resolver and Root Mode yielded it. Say so instead of letting
+        // the row claim something that is not on the device.
+        val rootDnsYielded = GlobalSettings.isRootRoutingYielded(context)
 
         SettingsCard(title = stringResource(R.string.settings_sect_resolver)) {
             SettingsSwitchItem(stringResource(R.string.settings_magicdns_title), stringResource(R.string.settings_accept_dns_desc), Icons.Default.Dns, acceptDns) { acceptDns = it; saveGlobalPref("accept_dns", it) }
@@ -1506,7 +1630,9 @@ fun SettingsScreen(
                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
                 SettingsSwitchItem(
                     title = stringResource(R.string.settings_root_dns_redirect_title),
-                    subtitle = stringResource(R.string.settings_root_dns_redirect_desc),
+                    subtitle = if (rootDnsRedirect && rootDnsYielded)
+                        stringResource(R.string.settings_root_yielded_banner)
+                        else stringResource(R.string.settings_root_dns_redirect_desc),
                     icon = Icons.Default.Dns,
                     checked = rootDnsRedirect
                 ) { enabled ->

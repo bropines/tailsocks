@@ -1168,4 +1168,16 @@
     <string name="settings_root_vpn_bypass_title">Игнорировать чужие VPN</string>
     <string name="settings_root_vpn_bypass_desc">Демон помечает свои соединения так же, как VPN-приложения защищают свои, чтобы другой клиент на телефоне их не перехватывал. Выключайте, только если хотите, чтобы наш туннель шёл внутри того клиента.</string>
     <string name="tun_excluded_apps_count">В обход туннеля: %1$d</string>
+    <!-- Root Mode next to another VPN: the sticky override and what a yield looks like -->
+    <string name="settings_root_take_device_title">Всё равно занять устройство</string>
+    <string name="settings_root_take_device_desc">Пока телефон держит другой VPN, TailSocks ведёт только адреса тейлнета, а маршрут по умолчанию и DNS оставляет ему. Включите, чтобы забрать их себе — приложения того VPN останутся без туннеля.</string>
+    <string name="settings_root_take_device_dialog_title">Забрать устройство у другого VPN?</string>
+    <string name="settings_root_take_device_dialog_body">Маршрут по умолчанию и DNS телефона сейчас держит другой VPN. Если забрать их, весь трафик и все запросы имён пойдут через TailSocks: приложения, которые тот VPN защищал, останутся без туннеля, а его фильтрация перестанет работать — и он об этом не узнает. Выключите переключатель, чтобы вернуть устройство.</string>
+    <string name="settings_root_take_device_confirm">Занять устройство</string>
+    <string name="settings_root_yielded_banner">Устройство держит другой VPN, поэтому маршрутизируются только адреса тейлнета и имена MagicDNS. Выходной узел и системный DNS выключены, пока он работает.</string>
+    <string name="main_root_yielded_title">Только тейлнет</string>
+    <string name="main_root_yielded_desc">Устройство держит другой VPN: выходной узел и системный DNS выключены. Адреса тейлнета и имена MagicDNS работают.</string>
+    <string name="main_status_active_root_yielded_desc">Только тейлнет — устройство держит другой VPN • Нажмите для остановки</string>
+    <string name="main_exit_node_inert_label">Выходной узел не используется</string>
+    <string name="main_exit_node_inert_desc">Выбран %1$s, но устройство держит другой VPN</string>
 </resources>

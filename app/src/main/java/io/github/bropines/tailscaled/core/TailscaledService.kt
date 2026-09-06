@@ -14,6 +14,8 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.net.ConnectivityManager
 import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
@@ -35,6 +37,13 @@ class TailscaledService : Service() {
 
         /** What `tailscale up --advertise-exit-node` puts into AdvertiseRoutes. */
         private val EXIT_NODE_ROUTES = listOf("0.0.0.0/0", "::/0")
+
+        /**
+         * Upstream resolvers used when the preference holds nothing usable.
+         * Must stay the same list the daemon falls back to, or its own bootstrap
+         * queries are redirected back into MagicDNS.
+         */
+        private val DEFAULT_DNS_FALLBACKS = listOf("1.1.1.1", "8.8.8.8")
 
         /**
          * Asks the service to push current preferences to the daemon.
@@ -109,6 +118,16 @@ class TailscaledService : Service() {
     /** Consecutive failed routing attempts; retrying forever through `su` is noise. */
     @Volatile private var rootRoutingFailures = 0
     private val maxRootRoutingAttempts = 3
+    /** An apply is on a `su` thread right now; a second one must not overlap it. */
+    @Volatile private var rootRoutingInFlight = false
+    /**
+     * The inputs the currently installed ruleset was built from.
+     *
+     * An apply tears the system-wide DNS chain down before rebuilding it, so
+     * re-running it for an unchanged ruleset is a device-wide DNS gap for
+     * nothing. Cleared whenever the rules are removed.
+     */
+    @Volatile private var lastRootRoutingSignature: String? = null
 
     private val refreshHandler = android.os.Handler(android.os.Looper.getMainLooper())
     @Volatile private var refreshTickRunning = false
@@ -118,6 +137,16 @@ class TailscaledService : Service() {
      *  callback could otherwise fire after the service was torn down. */
     private val networkNotifyRunnable = Runnable {
         if (Appctr.isRunning()) updateNotification("Active")
+    }
+
+    /** Coalescing window for routing re-checks; see scheduleRootRoutingReapply. */
+    private val rootRoutingReapplyDelayMs = 3000L
+
+    /** Deferred routing re-check. Posted on refreshHandler like its sibling
+     *  above, so onDestroy cancels it, and it does its work on a thread of its
+     *  own — the check talks to the daemon over its socket. */
+    private val rootRoutingReapplyRunnable = Runnable {
+        Thread { reevaluateRootRouting() }.start()
     }
 
     /**
@@ -168,41 +197,12 @@ class TailscaledService : Service() {
         }
 
         if (GlobalSettings.isRootModeEnabled(this@TailscaledService) && GlobalSettings.isRootTunEnabled(this@TailscaledService)) {
+            // The VPN-slot callback is registered in onCreate and may have been
+            // refused; the tick is the backstop that keeps the answer current.
+            if (!vpnCallbackRegistered) refreshForeignVpnFromScan()
             if (isRunning && backendState == "Running") {
                 rootNotRunningTicks = 0
-                if (!rootRoutingApplied && rootRoutingFailures < maxRootRoutingAttempts) {
-                    rootRoutingApplied = true
-                    Log.i(TAG, "Daemon is Running. Applying Root tailscale0 routing.")
-                    val dnsRedirect = GlobalSettings.getBoolean(this@TailscaledService, "accept_dns", true) &&
-                        GlobalSettings.isRootDnsRedirectEnabled(this@TailscaledService)
-                    val bypass = upstreamDnsAddresses()
-                    Thread {
-                        // Pass the Context so the SO_MARK check reads the daemon log
-                        // by its canonical path. Without it the check falls back to
-                        // the log of a daemon this process launched, which is unset
-                        // when the app attached to one the boot script had already
-                        // started — and the exit-node catch-all would then never be
-                        // installed after a reboot.
-                        if (RootUtils.applyTailscale0Routing(dnsRedirect, bypass, this@TailscaledService)) {
-                            rootRoutingFailures = 0
-                            // Persist the fact that system rules now exist, so they
-                            // can be removed even if the app is killed or Root Mode
-                            // is switched off before the next stop.
-                            GlobalSettings.setRootRoutingInstalled(this@TailscaledService, true)
-                        } else {
-                            rootRoutingApplied = false
-                            rootRoutingFailures++
-                            if (rootRoutingFailures >= maxRootRoutingAttempts) {
-                                Log.e(TAG, "Giving up on tailscale0 routing after $rootRoutingFailures attempts")
-                                Appctr.logAndroid(
-                                    "ERROR", "ROOT",
-                                    "Routing setup failed $rootRoutingFailures times — giving up. " +
-                                        "Use Settings → Root Mode → Check Routing for details."
-                                )
-                            }
-                        }
-                    }.start()
-                }
+                applyRootRoutingIfNeeded("daemon is Running")
                 syncTailnetHosts()
             } else {
                 if (rootRoutingApplied) {
@@ -211,9 +211,11 @@ class TailscaledService : Service() {
                         Log.i(TAG, "Daemon is not Running ($backendState). Cleaning up tailscale0 routing.")
                         rootRoutingApplied = false
                         rootNotRunningTicks = 0
+                        lastRootRoutingSignature = null
                         Thread {
                             RootUtils.cleanupTailscale0Routing()
                             GlobalSettings.setRootRoutingInstalled(this@TailscaledService, false)
+                            GlobalSettings.setRootRoutingYielded(this@TailscaledService, false)
                         }.start()
                     }
                 }
@@ -233,6 +235,137 @@ class TailscaledService : Service() {
         }
 
         return interval
+    }
+
+    /**
+     * Installs the Root Mode ruleset, unless what is already on the device was
+     * built from the same inputs.
+     *
+     * An apply tears the system-wide DNS chain down before it rebuilds it, so
+     * repeating one that would produce an identical ruleset is a device-wide DNS
+     * gap for nothing. Every input the script depends on is folded into a
+     * signature and the `su` work is skipped while it is unchanged, which is
+     * what lets the re-apply triggers (another VPN coming or going, a settings
+     * apply, a network change) fire freely.
+     *
+     * Yielding the device-wide tiers to another VPN is not a failure: the
+     * tailnet tier is installed either way, so the attempt budget is untouched
+     * and the installed marker is still written — without it the rules that did
+     * go in could never be found and removed again.
+     */
+    private fun applyRootRoutingIfNeeded(reason: String) {
+        if (rootRoutingApplied || rootRoutingInFlight) return
+        if (rootRoutingFailures >= maxRootRoutingAttempts) return
+        rootRoutingApplied = true
+        rootRoutingInFlight = true
+
+        val dnsRedirect = GlobalSettings.getBoolean(this, "accept_dns", true) &&
+            GlobalSettings.isRootDnsRedirectEnabled(this)
+        val bypass = upstreamDnsAddresses()
+        val takeDeviceAnyway = GlobalSettings.isRootTakeDeviceAnyway(this)
+        // Read here rather than inside the signature so the values that decide
+        // the ruleset and the values it is built from are the same ones.
+        val excludedApps = GlobalSettings.getTunExcludedApps(this).sorted().joinToString(",")
+        val excludedCidrs = GlobalSettings.getTunExcludedCIDRs(this)
+        val vpnSlotTaken = foreignVpnPresent
+
+        Thread {
+            try {
+                // ConnectivityManager only reports a tunnel this app is a member
+                // of, so the root-side probe still has to run when it says no.
+                // That probe is the expensive half, hence the short circuit.
+                val foreignVpn = vpnSlotTaken || RootUtils.detectForeignVpn().present
+                val signature = listOf(
+                    dnsRedirect.toString(),
+                    bypass.joinToString(","),
+                    excludedApps,
+                    excludedCidrs,
+                    takeDeviceAnyway.toString(),
+                    foreignVpn.toString()
+                ).joinToString("|")
+
+                if (signature == lastRootRoutingSignature) {
+                    Log.i(TAG, "Root routing re-check ($reason): inputs unchanged, leaving the rules alone")
+                    return@Thread
+                }
+
+                Log.i(TAG, "Applying Root tailscale0 routing ($reason)")
+                // Pass the Context so the SO_MARK check reads the daemon log
+                // by its canonical path. Without it the check falls back to
+                // the log of a daemon this process launched, which is unset
+                // when the app attached to one the boot script had already
+                // started — and the exit-node catch-all would then never be
+                // installed after a reboot.
+                val ok = RootUtils.applyTailscale0Routing(
+                    dnsRedirect,
+                    bypass,
+                    this@TailscaledService,
+                    foreignVpn,
+                    takeDeviceAnyway
+                )
+                if (ok) {
+                    rootRoutingFailures = 0
+                    lastRootRoutingSignature = signature
+                    // Persist the fact that system rules now exist, so they
+                    // can be removed even if the app is killed or Root Mode
+                    // is switched off before the next stop.
+                    GlobalSettings.setRootRoutingInstalled(this@TailscaledService, true)
+                    // Says only whether the device-wide tiers were left to the
+                    // other tunnel; tailnet reachability is installed regardless.
+                    GlobalSettings.setRootRoutingYielded(
+                        this@TailscaledService,
+                        foreignVpn && !takeDeviceAnyway
+                    )
+                } else {
+                    rootRoutingApplied = false
+                    lastRootRoutingSignature = null
+                    rootRoutingFailures++
+                    if (rootRoutingFailures >= maxRootRoutingAttempts) {
+                        Log.e(TAG, "Giving up on tailscale0 routing after $rootRoutingFailures attempts")
+                        Appctr.logAndroid(
+                            "ERROR", "ROOT",
+                            "Routing setup failed $rootRoutingFailures times — giving up. " +
+                                "Use Settings → Root Mode → Check Routing for details."
+                        )
+                    }
+                }
+            } finally {
+                rootRoutingInFlight = false
+            }
+        }.start()
+    }
+
+    /**
+     * Queues a re-evaluation of the Root Mode ruleset.
+     *
+     * Every apply spawns a `su` shell and re-scans the daemon log, and the
+     * events that call for one arrive in bursts (a tunnel coming up moves the
+     * default network too), so they are coalesced into a single deferred check.
+     */
+    private fun scheduleRootRoutingReapply(reason: String) {
+        if (teardownStarted) return
+        if (!GlobalSettings.isRootModeEnabled(this) || !GlobalSettings.isRootTunEnabled(this)) return
+        Log.i(TAG, "Root routing re-check queued: $reason")
+        refreshHandler.removeCallbacks(rootRoutingReapplyRunnable)
+        refreshHandler.postDelayed(rootRoutingReapplyRunnable, rootRoutingReapplyDelayMs)
+    }
+
+    /**
+     * Re-arms the one-shot apply latch and re-applies.
+     *
+     * The failure counter has to be cleared with it: a run that already spent
+     * its three attempts would otherwise ignore every re-apply for the rest of
+     * the session. The apply itself decides whether anything actually changed.
+     */
+    private fun reevaluateRootRouting() {
+        if (teardownStarted) return
+        if (!GlobalSettings.isRootModeEnabled(this) || !GlobalSettings.isRootTunEnabled(this)) return
+        if (!Appctr.isRunning()) return
+        val backendState = try { Appctr.getBackendState() } catch (e: Exception) { "" }
+        if (backendState != "Running") return
+        rootRoutingApplied = false
+        rootRoutingFailures = 0
+        applyRootRoutingIfNeeded("re-check")
     }
 
     /**
@@ -368,6 +501,11 @@ class TailscaledService : Service() {
             .map { it.trim().substringBefore(":") }
             .filter { ipv4.matches(it) }
             .distinct()
+            // The daemon substitutes its own defaults when this list is empty, so
+            // an empty list here means no exclusion is written for the servers it
+            // then queries — and its bootstrap lookups are redirected back into
+            // MagicDNS, which is not answering yet.
+            .ifEmpty { DEFAULT_DNS_FALLBACKS }
     }
 
     private lateinit var connectivityManager: ConnectivityManager
@@ -385,11 +523,13 @@ class TailscaledService : Service() {
             // any pending one first so rapid onAvailable events do not stack.
             refreshHandler.removeCallbacks(networkNotifyRunnable)
             refreshHandler.postDelayed(networkNotifyRunnable, 1500)
+            scheduleRootRoutingReapply("the default network changed")
         }
         override fun onLost(network: Network) {
             Log.d(TAG, "Network Lost")
             injectIfNeeded()
             if (Appctr.isRunning()) updateNotification("Waiting for network...")
+            scheduleRootRoutingReapply("the default network went away")
         }
 
         private fun injectIfNeeded() {
@@ -424,6 +564,96 @@ class TailscaledService : Service() {
     }
 
     /**
+     * Whether another app holds Android's VPN slot right now.
+     *
+     * Android hands the slot to one app at a time and does not name the holder,
+     * so this only answers whether it is taken. Root Mode's device-wide tiers
+     * (the default-route capture and the system-wide DNS redirect) are yielded
+     * while it is: their rules sit below netd's own VPN rules and would take the
+     * other tunnel's apps away from it.
+     */
+    @Volatile private var foreignVpnPresent = false
+    /** Written from binder callback threads and read from the refresh tick. */
+    private val foreignVpnNetworks = java.util.Collections.synchronizedSet(HashSet<Network>())
+    @Volatile private var vpnCallbackRegistered = false
+
+    /**
+     * A subscription of its own, because registerDefaultNetworkCallback only
+     * reports the network *this app* routes over: a VPN that excludes TailSocks
+     * from its tunnel never touches our default network while it captures every
+     * other app. The default request also implicitly demands NET_CAPABILITY_NOT_VPN
+     * and would never match a VPN at all.
+     */
+    private val vpnNetworkCallback = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) {
+            note(network, runCatching { connectivityManager.getNetworkCapabilities(network) }.getOrNull())
+        }
+
+        override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+            note(network, caps)
+        }
+
+        override fun onLost(network: Network) {
+            if (foreignVpnNetworks.remove(network)) publishForeignVpnState("a VPN went away")
+        }
+
+        private fun note(network: Network, caps: NetworkCapabilities?) {
+            val foreign = caps != null &&
+                caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN) &&
+                !isOwnVpnNetwork(caps)
+            val changed = if (foreign) foreignVpnNetworks.add(network) else foreignVpnNetworks.remove(network)
+            if (changed) publishForeignVpnState(if (foreign) "a VPN came up" else "a VPN went away")
+        }
+    }
+
+    /**
+     * Our own TUN mode is a VpnService like any other and must not make the app
+     * yield to itself. The owner uid is only readable by the app that owns the
+     * network, so it identifies ours exactly where the platform exposes it;
+     * below that, and where it is withheld, the TUN service's own run flag
+     * answers the same question. In Root Mode that service never runs, so
+     * nothing is filtered out there.
+     */
+    private fun isOwnVpnNetwork(caps: NetworkCapabilities): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val owner = caps.ownerUid
+            if (owner != android.os.Process.INVALID_UID) return owner == android.os.Process.myUid()
+        }
+        return TunVpnService.isRunning
+    }
+
+    private fun publishForeignVpnState(reason: String) {
+        setForeignVpnPresent(foreignVpnNetworks.isNotEmpty(), reason)
+    }
+
+    private fun setForeignVpnPresent(present: Boolean, reason: String) {
+        if (present == foreignVpnPresent) return
+        foreignVpnPresent = present
+        Log.i(TAG, "VPN slot is ${if (present) "held by another app" else "free"} ($reason)")
+        scheduleRootRoutingReapply(
+            if (present) "another VPN took the slot" else "the other VPN released the slot"
+        )
+    }
+
+    /**
+     * Backstop for a callback registration the system refused — both of ours are
+     * registered inside a catch that swallows the failure, so nothing else would
+     * notice. One cheap ConnectivityManager scan per refresh tick.
+     */
+    @Suppress("DEPRECATION")
+    private fun refreshForeignVpnFromScan() {
+        val present = runCatching {
+            connectivityManager.allNetworks.any { network ->
+                val caps = connectivityManager.getNetworkCapabilities(network)
+                caps != null &&
+                    caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN) &&
+                    !isOwnVpnNetwork(caps)
+            }
+        }.getOrDefault(foreignVpnPresent)
+        setForeignVpnPresent(present, "network scan")
+    }
+
+    /**
      * Doze suspends the CPU and defers work; a connection that died while the
      * device was idle is only noticed on the next refresh tick, which can be
      * minutes later. Leaving idle is the moment to check and recover.
@@ -451,6 +681,18 @@ class TailscaledService : Service() {
             setReferenceCounted(false)
         }
         try { connectivityManager.registerDefaultNetworkCallback(networkCallback) } catch (e: Exception) {}
+        try {
+            connectivityManager.registerNetworkCallback(
+                NetworkRequest.Builder()
+                    .addTransportType(NetworkCapabilities.TRANSPORT_VPN)
+                    .removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+                    .build(),
+                vpnNetworkCallback
+            )
+            vpnCallbackRegistered = true
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to watch the VPN slot: ${e.message}")
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             try {
                 ContextCompat.registerReceiver(
@@ -542,6 +784,11 @@ class TailscaledService : Service() {
                 } else {
                     stopTunMode()
                 }
+                // The DNS, per-app and coexistence settings all change what the
+                // Root Mode ruleset should look like, and this path never used to
+                // touch it. The re-check compares the inputs and does nothing when
+                // the change was not one of them.
+                scheduleRootRoutingReapply("settings were applied")
             }.start()
             return START_STICKY
         }
@@ -1000,6 +1247,9 @@ class TailscaledService : Service() {
         rootRoutingApplied = false
         rootRoutingFailures = 0
         rootNotRunningTicks = 0
+        lastRootRoutingSignature = null
+        refreshHandler.removeCallbacks(rootRoutingReapplyRunnable)
+        GlobalSettings.setRootRoutingYielded(this, false)
 
         if (installed) {
             RootUtils.cleanupTailscale0Routing()
@@ -1277,6 +1527,7 @@ class TailscaledService : Service() {
     override fun onDestroy() {
         refreshHandler.removeCallbacks(refreshRunnable)
         refreshHandler.removeCallbacks(networkNotifyRunnable)
+        refreshHandler.removeCallbacks(rootRoutingReapplyRunnable)
         // stopMe() already ran the teardown (or is running it); only handle the
         // case where the system tore the service down without going through it.
         if (!teardownStarted) {
@@ -1302,6 +1553,8 @@ class TailscaledService : Service() {
             lastStartedIpv6Disabled = null
         }
         try { connectivityManager.unregisterNetworkCallback(networkCallback) } catch (e: Exception) {}
+        try { connectivityManager.unregisterNetworkCallback(vpnNetworkCallback) } catch (e: Exception) {}
+        vpnCallbackRegistered = false
         try { unregisterReceiver(idleModeReceiver) } catch (e: Exception) {}
         if (wakeLock?.isHeld == true) wakeLock?.release()
         super.onDestroy()

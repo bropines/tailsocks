@@ -1168,4 +1168,16 @@
     <string name="settings_root_vpn_bypass_title">Ignore other VPNs</string>
     <string name="settings_root_vpn_bypass_desc">The daemon marks its own connections the way a VPN app protects its own, so another VPN client on the phone cannot swallow them. Turn it off only if you want this tunnel to run inside that other client.</string>
     <string name="tun_excluded_apps_count">Bypassing the tunnel: %1$d</string>
+    <!-- Root Mode next to another VPN: the sticky override and what a yield looks like -->
+    <string name="settings_root_take_device_title">Take the device anyway</string>
+    <string name="settings_root_take_device_desc">While another VPN holds this phone, TailSocks routes tailnet addresses only and leaves the default route and DNS to it. Turn this on to take both back — that VPN\'s apps lose their tunnel.</string>
+    <string name="settings_root_take_device_dialog_title">Take the device from the other VPN?</string>
+    <string name="settings_root_take_device_dialog_body">Another VPN is holding this phone\'s default route and DNS. Taking them back sends every app\'s traffic and every name lookup through TailSocks, so the apps that VPN protects lose their tunnel and its filtering stops — and it is never told. Turn this off to give the device back.</string>
+    <string name="settings_root_take_device_confirm">Take the device</string>
+    <string name="settings_root_yielded_banner">Another VPN holds this device, so only tailnet addresses and MagicDNS names are routed. Exit nodes and system-wide DNS are off until it stops.</string>
+    <string name="main_root_yielded_title">Tailnet only</string>
+    <string name="main_root_yielded_desc">Another VPN holds the device: exit node and system-wide DNS are off. Tailnet addresses and MagicDNS names still work.</string>
+    <string name="main_status_active_root_yielded_desc">Tailnet only — another VPN holds the device • Tap to stop</string>
+    <string name="main_exit_node_inert_label">Exit node not in use</string>
+    <string name="main_exit_node_inert_desc">%1$s is selected, but another VPN holds the device</string>
 </resources>

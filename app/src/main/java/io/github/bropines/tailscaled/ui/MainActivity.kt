@@ -439,11 +439,18 @@ fun MainScreen(
     // Root Mode routes through the kernel interface, not the VpnService, so the
     // card has to name it: "Active" alone reads as plain proxy mode.
     var isRootEnabled by remember { mutableStateOf(GlobalSettings.isRootModeEnabled(context)) }
+    // Root Mode leaves the default route and the device's DNS to another VPN
+    // when one holds the phone. The service records that; the card and the exit
+    // node row read it here, so neither promises a tunnel that is not installed.
+    var isRootYielded by remember { mutableStateOf(GlobalSettings.isRootRoutingYielded(context)) }
 
     val globalPrefsListener = remember {
         android.content.SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
             if (key == "tun_mode_enabled") {
                 isTunEnabled = sharedPreferences.getBoolean("tun_mode_enabled", false)
+            }
+            if (key == "root_routing_yielded") {
+                isRootYielded = sharedPreferences.getBoolean("root_routing_yielded", false)
             }
         }
     }
@@ -607,6 +614,7 @@ fun MainScreen(
     DisposableEffect(globalPrefs) {
         globalPrefs.registerOnSharedPreferenceChangeListener(globalPrefsListener)
         isTunEnabled = globalPrefs.getBoolean("tun_mode_enabled", false)
+        isRootYielded = globalPrefs.getBoolean("root_routing_yielded", false)
         onDispose {
             globalPrefs.unregisterOnSharedPreferenceChangeListener(globalPrefsListener)
         }
@@ -618,6 +626,7 @@ fun MainScreen(
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
                 isTunEnabled = GlobalSettings.isTunModeEnabled(context)
                 isRootEnabled = GlobalSettings.isRootModeEnabled(context)
+                isRootYielded = GlobalSettings.isRootRoutingYielded(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -1265,9 +1274,37 @@ fun MainScreen(
                 }
             }
 
-            if (proxyState == "ACTIVE") {
+            // Not an error: the tunnel is up and the tailnet is reachable, we
+            // simply left the default route and port 53 to whoever had them.
+            val yieldedToForeignVpn = isRootEnabled && isRootYielded
+            if (proxyState == "ACTIVE" && yieldedToForeignVpn) {
                 Surface(
-                    color = if (exitNodeIp.isNotEmpty()) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(stringResource(R.string.main_root_yielded_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                            Text(stringResource(R.string.main_root_yielded_desc),
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                        }
+                    }
+                }
+            }
+
+            if (proxyState == "ACTIVE") {
+                // A selected exit node carries no traffic while we are yielded,
+                // so the row must not read as "traffic is routed".
+                val exitNodeInert = exitNodeIp.isNotEmpty() && yieldedToForeignVpn
+                val exitNodeActive = exitNodeIp.isNotEmpty() && !exitNodeInert
+                Surface(
+                    color = if (exitNodeActive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp).clickable {
                         showExitNodeSheet = true
@@ -1290,30 +1327,38 @@ fun MainScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            if (exitNodeIp.isNotEmpty()) Icons.Default.Lock else Icons.Default.Public, 
-                            contentDescription = null, 
-                            tint = if (exitNodeIp.isNotEmpty()) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.primary
+                            if (exitNodeActive) Icons.Default.Lock else Icons.Default.Public,
+                            contentDescription = null,
+                            tint = if (exitNodeActive) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         // The weight belongs on the text, not on a trailing spacer:
                         // the description carries an IP and used to squeeze the chevron out.
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                if (exitNodeIp.isNotEmpty()) stringResource(R.string.main_traffic_routed) else stringResource(R.string.main_exit_node_none_label), 
-                                fontWeight = FontWeight.Bold, 
-                                color = if (exitNodeIp.isNotEmpty()) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                when {
+                                    exitNodeInert -> stringResource(R.string.main_exit_node_inert_label)
+                                    exitNodeActive -> stringResource(R.string.main_traffic_routed)
+                                    else -> stringResource(R.string.main_exit_node_none_label)
+                                },
+                                fontWeight = FontWeight.Bold,
+                                color = if (exitNodeActive) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
-                                if (exitNodeIp.isNotEmpty()) stringResource(R.string.main_exit_node_routed_desc, exitNodeIp) else stringResource(R.string.main_exit_node_none_desc), 
-                                style = MaterialTheme.typography.bodySmall, 
-                                color = if (exitNodeIp.isNotEmpty()) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                when {
+                                    exitNodeInert -> stringResource(R.string.main_exit_node_inert_desc, exitNodeIp)
+                                    exitNodeActive -> stringResource(R.string.main_exit_node_routed_desc, exitNodeIp)
+                                    else -> stringResource(R.string.main_exit_node_none_desc)
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (exitNodeActive) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Icon(
-                            Icons.AutoMirrored.Filled.KeyboardArrowRight, 
-                            null, 
-                            tint = if (exitNodeIp.isNotEmpty()) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                            Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            null,
+                            tint = if (exitNodeActive) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -1324,7 +1369,8 @@ fun MainScreen(
                 isProcessing = isProcessing,
                 isTunEnabled = isTunEnabled,
                 isFullTunnel = isFullTunnel,
-                isRootEnabled = isRootEnabled
+                isRootEnabled = isRootEnabled,
+                isYieldedToForeignVpn = yieldedToForeignVpn
             ) {
                 if (isProcessing) return@StatusCard
 
@@ -1921,7 +1967,7 @@ fun MainScreen(
 }
 
 @Composable
-fun StatusCard(state: String, isProcessing: Boolean, isTunEnabled: Boolean, isFullTunnel: Boolean, isRootEnabled: Boolean = false, onToggle: () -> Unit) {
+fun StatusCard(state: String, isProcessing: Boolean, isTunEnabled: Boolean, isFullTunnel: Boolean, isRootEnabled: Boolean = false, isYieldedToForeignVpn: Boolean = false, onToggle: () -> Unit) {
     val backgroundColor = when (state) {
         "ACTIVE" -> MaterialTheme.colorScheme.primaryContainer
         "STARTING" -> MaterialTheme.colorScheme.tertiaryContainer
@@ -2003,6 +2049,8 @@ fun StatusCard(state: String, isProcessing: Boolean, isTunEnabled: Boolean, isFu
                     state == "ACTIVE" -> when {
                         // Root wins the label: with it on, the VpnService is not
                         // what carries the traffic even if the TUN switch is set.
+                        // Yielded, it carries the tailnet and nothing else.
+                        isRootEnabled && isYieldedToForeignVpn -> stringResource(R.string.main_status_active_root_yielded_desc)
                         isRootEnabled -> stringResource(R.string.main_status_active_root_desc)
                         isTunEnabled -> if (isFullTunnel) stringResource(R.string.main_tun_full_tunnel_desc)
                                         else stringResource(R.string.main_tun_split_tunnel_desc)
