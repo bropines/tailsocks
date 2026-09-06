@@ -66,6 +66,23 @@ object RootUtils {
     private const val CATCH_ALL_PRIO = "200"
 
     /**
+     * Priority of the per-app exclusion rules, above the catch-all so an
+     * excluded uid never consults the daemon's table at all.
+     *
+     * A mark set in mangle OUTPUT is too late for TCP: the route and with it
+     * the source address are chosen at connect(), so a marked packet left with
+     * the tailnet address on the physical interface and no reply ever came
+     * back. A uid rule is evaluated at connect() and fixes both — measured on
+     * the APatch phone: `ip route get 1.1.1.1 uid <excluded>` went from
+     * "dev tailscale0 table 52 src 100.92.68.28" to "via 192.168.1.254 dev
+     * wlan0 src 192.168.1.94" while other uids kept using the tunnel.
+     */
+    private const val EXCLUDE_PRIO = "190"
+
+    /** Android's protectedFromVpn bit; a socket carrying it is routed by the physical network. */
+    private const val PROTECT_MARK = "0x20000"
+
+    /**
      * Destinations kept out of the exit node, as `throw` routes in the daemon's
      * table: the lookup falls through to Android's own rules, which send them
      * out of the physical interface.
@@ -663,6 +680,8 @@ object RootUtils {
         // --- Per-app exclusions (IPv4): excluded uids carry the bypass bit ---
         sb.append(bypassChainTeardown("iptables"))
         sb.append(bypassChainInstall("iptables", bypassUids, bestEffort = false))
+        sb.append(excludeRulesTeardown())
+        sb.append(excludeRulesInstall(bypassUids))
 
         // --- Exit-node catch-all (IPv4): unmarked local traffic → daemon's table 52 ---
         sb.append(staleDaemonRulePurge("ip"))
@@ -786,6 +805,7 @@ object RootUtils {
         sb.append(dnsChainTeardown())
         sb.append(bypassChainTeardown("iptables"))
         sb.append(bypassChainTeardown("ip6tables"))
+        sb.append(excludeRulesTeardown())
 
         sb.append("iptables -t mangle -D OUTPUT -d $CGNAT_V4 -j $CHAIN_MARK 2>/dev/null || true\n")
         sb.append("iptables -t mangle -F $CHAIN_MARK 2>/dev/null || true\n")
@@ -964,6 +984,33 @@ object RootUtils {
      * printed for the caller to turn into a WARN and the rest of the script
      * runs on. [ipt] is `iptables` or `ip6tables`.
      */
+    /**
+     * Sends every excluded uid to the physical network's own table, resolved at
+     * apply time from the route a VPN-protected socket takes (that is what the
+     * protect bit means, so it is the physical network by definition). The name
+     * changes with the network — wlan0, rmnet_data0 — so this is re-resolved on
+     * every apply rather than assumed.
+     */
+    private fun excludeRulesInstall(uids: List<Int>): String {
+        if (uids.isEmpty()) return ""
+        return buildString {
+            append("PHYS=$(ip route get 1.1.1.1 mark $PROTECT_MARK 2>/dev/null | sed -n 's/.*table \\([A-Za-z0-9_]*\\).*/\\1/p' | head -n1)\n")
+            append("PHYS6=$(ip -6 route get 2001:4860:4860::8888 mark $PROTECT_MARK 2>/dev/null | sed -n 's/.*table \\([A-Za-z0-9_]*\\).*/\\1/p' | head -n1)\n")
+            for (uid in uids) {
+                append("while ip rule del uidrange $uid-$uid priority $EXCLUDE_PRIO 2>/dev/null; do :; done\n")
+                append("while ip -6 rule del uidrange $uid-$uid priority $EXCLUDE_PRIO 2>/dev/null; do :; done\n")
+                append("[ -n \"\$PHYS\" ] && ip rule add uidrange $uid-$uid iif lo lookup \"\$PHYS\" priority $EXCLUDE_PRIO 2>/dev/null || true\n")
+                append("[ -n \"\$PHYS6\" ] && ip -6 rule add uidrange $uid-$uid iif lo lookup \"\$PHYS6\" priority $EXCLUDE_PRIO 2>/dev/null || true\n")
+            }
+        }
+    }
+
+    /** Removes the pref-[EXCLUDE_PRIO] rules whatever uids they carry. */
+    private fun excludeRulesTeardown(): String = buildString {
+        append("ip rule show 2>/dev/null | sed -n 's/^$EXCLUDE_PRIO:[^u]*uidrange \\([0-9]*\\)-\\([0-9]*\\).*/\\1 \\2/p' | while read a b; do ip rule del uidrange \"\$a\"-\"\$b\" priority $EXCLUDE_PRIO 2>/dev/null || true; done\n")
+        append("ip -6 rule show 2>/dev/null | sed -n 's/^$EXCLUDE_PRIO:[^u]*uidrange \\([0-9]*\\)-\\([0-9]*\\).*/\\1 \\2/p' | while read a b; do ip -6 rule del uidrange \"\$a\"-\"\$b\" priority $EXCLUDE_PRIO 2>/dev/null || true; done\n")
+    }
+
     private fun bypassChainInstall(ipt: String, uids: List<Int>, bestEffort: Boolean): String {
         if (uids.isEmpty()) return ""
         val tolerate = if (bestEffort) " 2>/dev/null || true" else ""
