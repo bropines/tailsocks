@@ -57,6 +57,14 @@ android {
             ndkBuild {
                 arguments("APP_CFLAGS+=-DPKGNAME=io/github/bropines/tailscaled/core -DCLSNAME=TunVpnService -ffile-prefix-map=${rootDir}=.")
                 arguments("APP_LDFLAGS+=-Wl,--build-id=none")
+                // Build only what the app loads. hev-socks5-tunnel/Android.mk also
+                // declares hev-socks5-tunnel-bin, a standalone program from
+                // upstream's own packaging: it compiles the same sources a second
+                // time for every ABI and nothing here runs it — TunVpnService
+                // loads the shared library. Named here rather than edited out of
+                // the makefile, because that file belongs to a submodule where the
+                // change would live on one disk and nowhere else.
+                targets("byedpi", "hev-socks5-tunnel")
             }
         }
         
@@ -194,6 +202,13 @@ tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Assets") }.con
     dependsOn(copyChangelogAsset)
 }
 
+// AGP's AAR-metadata check is disabled, and here is the reason it was missing:
+// androidx.appfunctions:appfunctions:1.0.0-alpha10 declares it requires Android
+// Gradle plugin 9.1.0 while this project builds on 8.13.2, so the check fails the
+// release even though the library works — the app ships fourteen AppFunctions
+// built against it. Re-enable this the moment AGP moves to 9.1.0 or the library
+// relaxes the requirement; until then, know that nothing is verifying the
+// metadata of any other dependency either.
 tasks.matching { it.name.contains("AarMetadata") }.configureEach {
     enabled = false
 }
@@ -227,17 +242,35 @@ val verifyReleaseNativeMethods by tasks.registering {
         val seedText = seeds.readText()
         val notKept = externals.filterNot { name -> Regex("""^[\w.$]+: .*\b$name\(""", RegexOption.MULTILINE).containsMatchIn(seedText) }
         val removedNative = mutableListOf<String>()
+        // R8 writes a wholesale-removed class as a bare name on its own line and
+        // lists indented members only for classes that survived. Scanning for
+        // " native " alone therefore missed the heaviest case — the class holding
+        // the native methods removed entirely — so removed classes are collected
+        // too and matched against the ones our sources declare externals in.
+        val removedClasses = mutableListOf<String>()
+        val externalOwners = srcDir.asFileTree.matching { include("**/*.kt") }.files
+            .filter { it.readText().contains(Regex("""\bexternal\s+fun\s""")) }
+            .flatMap { f ->
+                val text = f.readText()
+                val pkg = Regex("""^package\s+([\w.]+)""", RegexOption.MULTILINE).find(text)?.groupValues?.get(1)
+                Regex("""^\s*(?:internal\s+|private\s+|public\s+)?(?:object|class)\s+(\w+)""", RegexOption.MULTILINE)
+                    .findAll(text).map { m -> if (pkg != null) "$pkg.${m.groupValues[1]}" else m.groupValues[1] }.toList()
+            }.toSet()
         var cls = ""
         usage.forEachLine { line ->
-            if (line.isNotEmpty() && !line[0].isWhitespace()) cls = line.removeSuffix(":")
+            if (line.isNotEmpty() && !line[0].isWhitespace()) {
+                cls = line.removeSuffix(":")
+                if (!line.endsWith(":") && cls in externalOwners) removedClasses += cls
+            }
             else if (" native " in line) removedNative += "$cls: ${line.trim()}"
         }
-        if (notKept.isNotEmpty() || removedNative.isNotEmpty()) {
+        if (notKept.isNotEmpty() || removedNative.isNotEmpty() || removedClasses.isNotEmpty()) {
             throw GradleException(
                 buildString {
                     appendLine("R8 broke the JNI surface; the release would crash at System.loadLibrary.")
                     if (notKept.isNotEmpty()) appendLine("  external funs not matched by any keep rule (missing from seeds.txt): $notKept")
                     if (removedNative.isNotEmpty()) appendLine("  native members removed by shrinking (usage.txt):\n    " + removedNative.joinToString("\n    "))
+                    if (removedClasses.isNotEmpty()) appendLine("  whole classes holding native methods removed (usage.txt):\n    " + removedClasses.joinToString("\n    "))
                     appendLine("Fix app/proguard-rules.pro (plain -keep, not -keepclasseswithmembernames, for native <methods>).")
                 }
             )
@@ -254,7 +287,12 @@ val verifyGoBridgeFresh by tasks.registering {
     group = "verification"
     description = "Fails a release if appctr/tmp/appctr.aar is older than appctr/*.go or the patches"
     val appctrDir = layout.projectDirectory.dir("../appctr")
-    val failOnStale = gradle.startParameter.taskNames.any { it.contains("Release") }
+    // Keyed on the task graph, not on the text of the command. Reading
+    // startParameter.taskNames only saw what the user typed, so `./gradlew build`
+    // and Android Studio's Run button — which resolve to release tasks by other
+    // names — walked past the check that exists to stop exactly that.
+    val releaseInGraph = objects.property(Boolean::class.java).convention(false)
+    gradle.taskGraph.whenReady { releaseInGraph.set(allTasks.any { t -> t.name.contains("Release", ignoreCase = true) }) }
     doLast {
         val aar = appctrDir.file("tmp/appctr.aar").asFile
         if (!aar.exists()) {
@@ -267,7 +305,7 @@ val verifyGoBridgeFresh by tasks.registering {
         if (newest != null && newest.lastModified() > aar.lastModified()) {
             val msg = "Go bridge is STALE: ${newest.relativeTo(appctrDir.asFile)} is newer than appctr/tmp/appctr.aar. " +
                 "Run appctr/build.sh (ANDROID_NDK_HOME set) before building; the APK would not contain the Go changes."
-            if (failOnStale) throw GradleException(msg) else logger.warn("-> WARNING: $msg")
+            if (releaseInGraph.get()) throw GradleException(msg) else logger.warn("-> WARNING: $msg")
         } else {
             logger.lifecycle("-> Go bridge check: appctr.aar is newer than every Go source and patch")
         }

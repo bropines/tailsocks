@@ -1,6 +1,6 @@
 module appctr
 
-go 1.26.3
+go 1.26.5
 
 require (
 	github.com/wlynxg/anet v0.0.5

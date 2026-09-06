@@ -48,6 +48,17 @@ if [ "$FORCE_REBUILD" -eq 1 ]; then
 fi
 
 echo "[1/4] Preparing and Patching Tailscale sources (${TS_VERSION})..."
+# A tree patched by an older patch set is not the tree the patches describe, and
+# nothing noticed: the download-and-patch block below is skipped whenever
+# tailscale_src exists, so weeks of edits could accumulate locally while CI —
+# which always starts clean — built something else. That is how the 4.0.0 tag
+# failed. Stamp the patch set and force a clean re-patch when it moves.
+PATCH_STAMP=$(cat patches/*.patch TAILSCALE_VERSION 2>/dev/null | sha256sum | cut -d" " -f1)
+if [ -d "tailscale_src" ] && [ "$(cat tailscale_src/.patch_stamp 2>/dev/null)" != "$PATCH_STAMP" ]; then
+    echo "-> Patch set changed since tailscale_src was built. Forcing a clean re-patch."
+    rm -rf tailscale_src
+fi
+
 if [ ! -d "tailscale_src" ]; then
     echo "-> Downloading sources for ${TS_VERSION}..."
     curl -sL "https://github.com/tailscale/tailscale/archive/refs/tags/${TS_VERSION}.tar.gz" | tar -xz
@@ -71,6 +82,7 @@ if [ ! -d "tailscale_src" ]; then
         fi
     done
 
+    echo "$PATCH_STAMP" > tailscale_src/.patch_stamp
     echo "✅ Sources patched successfully for ${TS_VERSION}."
 else
     echo "-> Sources already exist and patched for ${TS_VERSION}. Skipping download."
@@ -96,7 +108,7 @@ export GOTOOLCHAIN=auto
 # compile with "no required module provides package".
 go mod tidy
 
-TAGS="ts_omit_systray,ts_omit_kube,ts_omit_aws,ts_omit_bird,ts_omit_qrcodes,ts_omit_desktop_sessions,ts_omit_dbus,ts_omit_networkmanager,ts_omit_resolved,ts_omit_sdnotify,ts_omit_tpm,ts_omit_logtail,ts_omit_synology,ts_omit_syspolicy,ts_omit_ssh,ts_omit_iptables,ts_omit_tap,ts_omit_linuxdnsfight,ts_omit_captiveportal,ts_omit_appconnectors,ts_omit_completion,ts_omit_completion_scripts,ts_omit_oauthkey"
+TAGS="ts_omit_systray,ts_omit_kube,ts_omit_aws,ts_omit_bird,ts_omit_qrcodes,ts_omit_desktop_sessions,ts_omit_dbus,ts_omit_networkmanager,ts_omit_resolved,ts_omit_sdnotify,ts_omit_tpm,ts_omit_logtail,ts_omit_synology,ts_omit_syspolicy,ts_omit_ssh,ts_omit_iptables,ts_omit_tap,ts_omit_linuxdnsfight,ts_omit_captiveportal,ts_omit_appconnectors,ts_omit_completion,ts_omit_completion_scripts,ts_omit_oauthkey,ts_omit_syslog,ts_omit_clientupdate,ts_omit_portlist,ts_omit_capture,ts_omit_debugportmapper,ts_omit_doctor,ts_omit_wakeonlan,ts_omit_relayserver,ts_omit_serviceclientprefs"
 
 echo "-> Compiling Daemon (Core) [ARM64]..."
 export CC="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang"
