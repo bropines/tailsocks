@@ -87,6 +87,15 @@ mkdir -p tmp
 # module graph, changing transitive versions from what upstream pinned.
 export GOTOOLCHAIN=auto
 
+# The patches add files that import modules upstream does not require — the
+# android netmon fix pulls in github.com/wlynxg/anet — so the module graph has
+# to be settled before anything is compiled. This used to happen as a side
+# effect of the `go mod edit -go=1.23` block that was removed for downgrading
+# the module below what v1.102.1 needs; only the downgrade was wrong, tidying
+# was load-bearing. Without it a clean build fails at the first daemon
+# compile with "no required module provides package".
+go mod tidy
+
 TAGS="ts_omit_systray,ts_omit_kube,ts_omit_aws,ts_omit_bird,ts_omit_qrcodes,ts_omit_desktop_sessions,ts_omit_dbus,ts_omit_networkmanager,ts_omit_resolved,ts_omit_sdnotify,ts_omit_tpm,ts_omit_logtail,ts_omit_synology,ts_omit_syspolicy,ts_omit_ssh,ts_omit_iptables,ts_omit_tap,ts_omit_linuxdnsfight,ts_omit_captiveportal,ts_omit_appconnectors,ts_omit_completion,ts_omit_completion_scripts,ts_omit_oauthkey"
 
 echo "-> Compiling Daemon (Core) [ARM64]..."
