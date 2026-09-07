@@ -39,7 +39,12 @@ data class PeerData(
     @SerialName("LastSeen") val lastSeen: String? = null,
     @SerialName("LastHandshake") val lastHandshake: String? = null,
     @SerialName("KeyExpiry") val keyExpiry: String? = null,
-    @SerialName("Version") val version: String? = null,
+    /** The node key ("nodekey:…"), which is what the Admin API also calls the device by
+     *  (ApiDevice.nodeKey): the one field the two sides can be matched on without a name.
+     *  There is deliberately no Version field: ipnstate.PeerStatus has none, and the control
+     *  plane strips a peer's version from the Hostinfo it distributes, so the daemon cannot
+     *  say what a peer runs — only the Admin API can (see PeerVersionSource). */
+    @SerialName("PublicKey") val publicKey: String? = null,
     @SerialName("ExitNode") val exitNode: Boolean? = null,
     @SerialName("ExitNodeOption") val exitNodeOption: Boolean? = null,
     @SerialName("RxBytes") val rxBytes: Long? = null,
@@ -63,7 +68,13 @@ data class PeerData(
         return getPrimaryIp()
     }
 
-    fun getDetailsList(): List<PeerDetail> {
+    /**
+     * The peer's properties as rows. [tailscaleVersion] is the one row this status did not
+     * supply: it comes from the Admin API when the user has set that up (PeerVersionSource),
+     * and when it is null the row is simply not there — not "Unknown", not a dash. The label
+     * lives here with its siblings and the row keeps its old place in the order.
+     */
+    fun getDetailsList(tailscaleVersion: String? = null): List<PeerDetail> {
         fun formatTime(t: String?): String {
             if (t.isNullOrEmpty() || t.startsWith("0001-01-01")) return "Never"
             return t.replace("T", " ").substringBefore(".").removeSuffix("Z")
@@ -77,10 +88,12 @@ data class PeerData(
             PeerDetail(PeerDetailId.OS, "OS", os ?: "Unknown"),
             PeerDetail(PeerDetailId.IPV4, "IPv4", getPrimaryIp()),
             PeerDetail(PeerDetailId.IPV6, "IPv6", tailscaleIPs?.getOrNull(1) ?: "N/A"),
-            PeerDetail(PeerDetailId.ALLOWED_IPS, "Allowed IPs", allowedIPs?.joinToString(", ") ?: "N/A"),
-            PeerDetail(PeerDetailId.VERSION, "Tailscale Version", version ?: "Unknown"),
-            PeerDetail(PeerDetailId.NODE_ID, "Node ID", id ?: "N/A")
+            PeerDetail(PeerDetailId.ALLOWED_IPS, "Allowed IPs", allowedIPs?.joinToString(", ") ?: "N/A")
         )
+        if (tailscaleVersion != null) {
+            list.add(PeerDetail(PeerDetailId.VERSION, "Tailscale Version", tailscaleVersion))
+        }
+        list.add(PeerDetail(PeerDetailId.NODE_ID, "Node ID", id ?: "N/A"))
 
         // Relay is shown only while there is no direct endpoint. The daemon keeps Relay
         // populated with the home DERP region even when CurAddr is set and the traffic is

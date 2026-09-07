@@ -464,7 +464,7 @@
     <string name="peer_taildrop_no_peer_info">Сведений об этом устройстве пока нет</string>
     <string name="peer_taildrop_unsupported_os">ОС устройства не поддерживает Taildrop</string>
     <string name="peer_taildrop_no_peer_api">Устройство не предоставляет peer API</string>
-    <string name="peer_taildrop_other_user">Принадлежит другому пользователю или тегу. Чтобы отправлять ему файлы, в ACL нужны два гранта: file-sharing-target от того устройства (его владельца или тега) к вашему и file-send от вашего к нему</string>
+    <string name="peer_taildrop_other_user">Принадлежит другому пользователю или тегу. Чтобы отправлять ему файлы, в ACL нужны два гранта, а не один: file-sharing-target от того устройства (его владельца или тега) к вашему и file-send от вашего к нему; только с первым демон считает, что файл отправить можно, а устройство всё равно отвечает отказом (403)</string>
     <!-- PeerDetailsModal: карточка трафика -->
     <string name="peer_traffic_total">Передано</string>
     <!-- PeerDetailsModal: заголовки карточек -->

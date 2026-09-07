@@ -67,6 +67,12 @@ fun PeersScreen(onBack: () -> Unit) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedPeer by remember { mutableStateOf<PeerData?>(null) }
     var peerForFileDrop by remember { mutableStateOf<PeerData?>(null) }
+    // The Tailscale version of each node, by node id, as the Admin API reports it — the one
+    // property the daemon's status does not carry for a peer. Resolved once per list load,
+    // off the main thread, after the list is already on screen; the sheet reads the map and
+    // never asks the network itself. Empty until the answer lands, and stays empty when the
+    // Admin Console has not been set up: then no peer gets a version row.
+    var peerVersions by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
 
     val filteredPeers = remember(peersList, searchQuery) {
         if (searchQuery.isBlank()) peersList
@@ -107,15 +113,23 @@ fun PeersScreen(onBack: () -> Unit) {
                 }
                 val status = AppJson.decodeFromString<StatusResponse>(json)
                 
+                val selfId = status.self?.id
+                val loadedPeers = status.peers?.values
+                    ?.filter { it.id != selfId && (!it.hostName.isNullOrBlank() || !it.dnsName.isNullOrBlank()) && it.shareeNode != true && it.hostName != "funnel-ingress-node" }
+                    ?.toList()
+                    ?.sortedByDescending { it.online == true } ?: emptyList()
                 withContext(Dispatchers.Main) {
                     selfPeer = status.self
-                    val selfId = status.self?.id
-                    peersList = status.peers?.values
-                        ?.filter { it.id != selfId && (!it.hostName.isNullOrBlank() || !it.dnsName.isNullOrBlank()) && it.shareeNode != true && it.hostName != "funnel-ingress-node" }
-                        ?.toList()
-                        ?.sortedByDescending { it.online == true } ?: emptyList()
+                    peersList = loadedPeers
                     isRefreshing = false
                 }
+                // After the list is up, not before: the first answer is an Admin API round
+                // trip (or nothing at all, when no token is configured), and the list must
+                // not wait on it. One call for the whole list — the source reads its settings
+                // once, fetches the device list once and answers every node from memory — so a
+                // refresh a minute later costs no network at all.
+                val versions = PeerVersionSource.versionsFor(context, listOfNotNull(status.self) + loadedPeers)
+                withContext(Dispatchers.Main) { peerVersions = versions }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) { 
                     isRefreshing = false
@@ -198,7 +212,11 @@ fun PeersScreen(onBack: () -> Unit) {
                     if (currentIndex < 0) p.takeIf { offset == 0 }
                     else allSelectablePeers.getOrNull(currentIndex + offset)
                 target?.let { peer ->
-                    PeerPage(peer, isSelf = peer.id?.let { it == selfPeer?.id } ?: (peer === selfPeer))
+                    PeerPage(
+                        peer,
+                        isSelf = peer.id?.let { it == selfPeer?.id } ?: (peer === selfPeer),
+                        version = peer.id?.let { peerVersions[it] }
+                    )
                 }
             }
 

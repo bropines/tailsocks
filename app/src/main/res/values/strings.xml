@@ -464,7 +464,7 @@
     <string name="peer_taildrop_no_peer_info">No information about this device yet</string>
     <string name="peer_taildrop_unsupported_os">The device\'s OS doesn\'t support Taildrop</string>
     <string name="peer_taildrop_no_peer_api">The device exposes no peer API</string>
-    <string name="peer_taildrop_other_user">Belongs to another user or a tag. Sending it files takes two ACL grants: file-sharing-target from that device (or its owner or tag) to yours, and file-send from yours back to it</string>
+    <string name="peer_taildrop_other_user">Belongs to another user or a tag. Sending it files takes two ACL grants, not one: file-sharing-target from that device (or its owner or tag) to yours, and file-send from yours back to it — with only the first, the daemon says the file can be sent and the device still refuses it (403)</string>
     <!-- PeerDetailsModal: the traffic card -->
     <string name="peer_traffic_total">Transferred</string>
     <!-- PeerDetailsModal: headings of the cards -->

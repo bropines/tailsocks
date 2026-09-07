@@ -285,14 +285,14 @@ private class PeerCard(
 /**
  * The rows of PeerData.getDetailsList() dealt into cards, each with its lead chosen. Where a
  * group has one row that is plainly the thing to look at, that row is the lead and leaves the
- * quiet rows (the IPv4 address, the Tailscale version, when the peer was last seen). Where
+ * quiet rows (the IPv4 address, the OS, when the peer was last seen). Where
  * the interesting value is a reading of several fields — how the peer is reached, whether it
  * takes files, how much has passed — the lead is derived and the raw rows all stay, so
  * nothing the daemon reported is lost behind the summary of it. A group with no rows is
  * dropped rather than drawn empty.
  */
-private fun peerCards(peer: PeerData, strings: PeerDetailsStrings): List<PeerCard> {
-    val details = peer.getDetailsList()
+private fun peerCards(peer: PeerData, strings: PeerDetailsStrings, version: String?): List<PeerCard> {
+    val details = peer.getDetailsList(tailscaleVersion = version)
     return PeerDetailGroup.entries.mapNotNull { group ->
         val rows = details.filter { (PEER_DETAIL_GROUP_OF[it.id] ?: PeerDetailGroup.OTHER) == group }
         if (rows.isEmpty()) return@mapNotNull null
@@ -654,10 +654,14 @@ fun PeerShareItem(peer: PeerData, enabled: Boolean, onClick: () -> Unit) {
 }
 
 /**
- * One page of the peer details sheet: a peer, plus the one thing about it the sheet cannot
- * work out for itself — whether it is this device.
+ * One page of the details sheet: the peer, whether it is this device, and the one property
+ * the daemon's status cannot supply — the Tailscale version the Admin API reports for it.
+ * Resolved by PeersScreen once per list load and carried here as a plain value, so a page
+ * sliding in under the finger reads it off the object like everything else and asks the
+ * network nothing. Null when the Admin API is not set up, did not answer, or does not list
+ * the peer: then the version row is not drawn at all.
  */
-data class PeerPage(val peer: PeerData, val isSelf: Boolean)
+data class PeerPage(val peer: PeerData, val isSelf: Boolean, val version: String? = null)
 
 /** Every word the details sheet shows, resolved in the parent composition — see
  *  wrapContextWithLocale(): inside the sheet's own window a stringResource follows the
@@ -1145,9 +1149,9 @@ private fun PeerDetailsPage(
     modifier: Modifier = Modifier
 ) {
     val peer = page.peer
-    // A cache, not state: the cards only change when the peer does, and during a turn this
-    // runs for two peers at once.
-    val cards = remember(peer, strings) { peerCards(peer, strings) }
+    // A cache, not state: the cards only change when the page does (the peer, or the version
+    // the Admin API answered for it), and during a turn this runs for two peers at once.
+    val cards = remember(page, strings) { peerCards(peer, strings, page.version) }
     val taildrop = remember(peer, strings) { taildropStatusOf(peer, strings) }
     // Everything scrolls together, header included. The header is some 300dp of identity
     // row, status strip, button and connection card, and the sheet is capped at 85% of the
