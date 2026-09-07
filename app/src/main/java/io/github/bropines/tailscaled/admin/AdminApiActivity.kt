@@ -122,6 +122,7 @@ class AdminApiActivity : FragmentActivity() {
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AdminApiMainScreen(onBack: () -> Unit) {
     val context = LocalContext.current
@@ -178,7 +179,7 @@ fun AdminApiMainScreen(onBack: () -> Unit) {
 
     if (isLoadingSuffix) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
+            LoadingIndicator()
         }
     } else if (resolvedTailnet.isBlank()) {
         AdminApiNoTailnetScreen(

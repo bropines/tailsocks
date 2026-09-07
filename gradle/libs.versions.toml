@@ -6,6 +6,10 @@ appcompat = "1.7.1"
 material = "1.13.0"
 gson = "2.10.1"
 compose-bom = "2026.08.00"
+# Material 3 Expressive proper: the components (LoadingIndicator, ButtonGroup,
+# SplitButton, MaterialShapes) and MaterialTheme.motionScheme are not public in
+# 1.4.0 — that artifact ships only their token classes. They arrive in 1.5.
+material3 = "1.5.0-alpha27"
 activity-compose = "1.8.2"
 lifecycle-runtime-ktx = "2.7.0"
 navigation = "2.9.6"
@@ -26,7 +30,7 @@ androidx-ui = { group = "androidx.compose.ui", name = "ui" }
 androidx-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
 androidx-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
 androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
-androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
+androidx-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
 androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }
 navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigation" }
 gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }

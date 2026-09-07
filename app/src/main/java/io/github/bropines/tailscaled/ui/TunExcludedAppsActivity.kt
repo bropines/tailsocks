@@ -66,7 +66,7 @@ class TunExcludedAppsActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun TunExcludedAppsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
@@ -219,7 +219,7 @@ fun TunExcludedAppsScreen(onBack: () -> Unit) {
 
             if (loading) {
                 Box(Modifier.fillMaxSize().weight(1f), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                    LoadingIndicator()
                 }
             } else if (filteredApps.isEmpty()) {
                 Box(Modifier.fillMaxSize().weight(1f), contentAlignment = Alignment.Center) {

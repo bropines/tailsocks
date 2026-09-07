@@ -147,7 +147,7 @@ class NetcheckActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun NetcheckScreen(onBack: () -> Unit) {
     val context = LocalContext.current
@@ -408,10 +408,9 @@ fun NetcheckScreen(onBack: () -> Unit) {
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        CircularProgressIndicator(
+                        LoadingIndicator(
                             modifier = Modifier.size(64.dp),
-                            color = MaterialTheme.colorScheme.primary,
-                            strokeWidth = 4.dp
+                            color = MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.height(24.dp))
                         Text(

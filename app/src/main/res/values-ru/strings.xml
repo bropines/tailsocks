@@ -437,6 +437,22 @@
     <string name="peer_ping_self">Это устройство</string>
     <string name="peer_send_file">Отправить файл</string>
     <string name="peer_cd_copy">Скопировать</string>
+    <!-- PeerDetailsModal: строка состояния под именем узла -->
+    <string name="peer_status_online">В сети</string>
+    <string name="peer_status_offline">Не в сети</string>
+    <string name="peer_status_os_unknown">ОС неизвестна</string>
+    <string name="peer_status_direct">Напрямую</string>
+    <string name="peer_status_relay_format">Через реле: %1$s</string>
+    <!-- PeerDetailsModal: блок соединения -->
+    <string name="peer_conn_latency">Время отклика</string>
+    <string name="peer_conn_not_measured">Ещё не измерено</string>
+    <string name="peer_conn_ping_failed">Не удалось измерить</string>
+    <!-- PeerDetailsModal: заголовки групп в списке свойств -->
+    <string name="peer_group_addresses">Адреса</string>
+    <string name="peer_group_connection">Соединение</string>
+    <string name="peer_group_device">Устройство</string>
+    <string name="peer_group_capabilities">Возможности</string>
+    <string name="peer_group_other">Прочее</string>
     <!-- PeerItem / PeerDetailsModal: метки выходного узла -->
     <string name="peer_exit_node_selected">Выбран как выходной узел</string>
     <string name="peer_exit_node_offered">Доступен как выходной узел</string>

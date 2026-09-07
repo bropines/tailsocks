@@ -213,7 +213,7 @@ fun DeviceRow(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun DeviceDetailBottomSheet(
     device: ApiDevice,
@@ -405,7 +405,7 @@ fun DeviceDetailBottomSheet(
 
                     if (isLoadingRoutes) {
                         Box(Modifier.fillMaxWidth().height(80.dp), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                            LoadingIndicator(modifier = Modifier.size(24.dp))
                         }
                     } else {
                         val routes = deviceRoutes

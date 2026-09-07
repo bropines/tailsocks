@@ -476,7 +476,7 @@ fun SettingsEditItem(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SettingsExitNodeItem(
     title: String,
@@ -569,7 +569,7 @@ fun SettingsExitNodeItem(
                 )
 
                 if (isLoading) {
-                    Box(Modifier.fillMaxWidth().height(120.dp), Alignment.Center) { CircularProgressIndicator() }
+                    Box(Modifier.fillMaxWidth().height(120.dp), Alignment.Center) { LoadingIndicator() }
                 } else if (exitNodes.isEmpty()) {
                     Box(Modifier.fillMaxWidth().height(120.dp), Alignment.Center) {
                         Text(strSettingsExitNodeEmpty, color = MaterialTheme.colorScheme.outline)

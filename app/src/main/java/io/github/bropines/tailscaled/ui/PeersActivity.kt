@@ -204,6 +204,14 @@ fun PeersScreen(onBack: () -> Unit) {
 
             PeerDetailsModal(
                 peerAt = peerAt,
+                // The near end of every latency the sheet measures. Taken from selfPeer, not
+                // from visibleSelfPeer: a search that hides this device from the list does
+                // not change which address the pings leave from.
+                // getPrimaryIp() would hand back its "0.0.0.0" sentinel for a Self the
+                // daemon has reported without a tailnet address yet — logged out, or
+                // mid-login before the node map lands — and the connection block would draw
+                // exactly the arrow pointing at nothing it takes a null to avoid.
+                selfAddress = selfPeer?.tailscaleIPs?.firstOrNull(),
                 onDismiss = { selectedPeer = null },
                 onSendFileClick = { peer -> peerForFileDrop = peer; filePickerLauncher.launch("*/*") },
                 onSelectPeer = { peer -> selectedPeer = peer }

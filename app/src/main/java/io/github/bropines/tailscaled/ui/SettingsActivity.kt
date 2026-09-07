@@ -27,7 +27,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.core.FiniteAnimationSpec
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -98,19 +97,6 @@ private val settingsCategories = listOf(
     SettingsCategory("automation", R.string.settings_cat_automation, R.string.settings_cat_automation_desc, Icons.Default.SmartButton),
     SettingsCategory("diagnostics", R.string.settings_cat_diagnostics, R.string.settings_cat_diagnostics_desc, Icons.Default.BugReport)
 )
-
-/**
- * The crossfade between the category hub and a section: Material 3's own standard
- * *default effects* spring, by its numbers rather than by its object.
- * `MaterialTheme.motionScheme` and the `MotionScheme` interface are both *internal*
- * in material3 1.4.0 — the compiler refuses them to an app — and `transitionSpec` is
- * not a composable lambda anyway, so this is transcribed from the scheme
- * MaterialTheme() installs: StandardMotionTokens SpringDefaultEffects, damping 1.0
- * and stiffness 1600. Replace it with motionScheme.defaultEffectsSpec() the day that
- * goes public.
- */
-private val SECTION_FADE_SPEC: FiniteAnimationSpec<Float> =
-    spring(dampingRatio = 1f, stiffness = 1600f)
 
 class SettingsActivity : ComponentActivity() {
     override fun attachBaseContext(newBase: Context) {
@@ -2528,6 +2514,11 @@ fun SettingsScreen(
         }
     }
 
+    // The crossfade between the hub and a section: Material 3's own *default effects*
+    // spring. Read here rather than inside `transitionSpec`, which is not a composable
+    // lambda and so cannot reach `MaterialTheme` itself.
+    val sectionFadeSpec: FiniteAnimationSpec<Float> = MaterialTheme.motionScheme.defaultEffectsSpec()
+
     // The crossfade sits outside the back container, so that opening a section
     // still fades and each level keeps its own container: the one drawn for a
     // section installs the gesture, the one drawn for the hub does not.
@@ -2540,7 +2531,7 @@ fun SettingsScreen(
                 // on top of that would show the section again, full size.
                 EnterTransition.None togetherWith ExitTransition.None
             } else {
-                fadeIn(SECTION_FADE_SPEC) togetherWith fadeOut(SECTION_FADE_SPEC)
+                fadeIn(sectionFadeSpec) togetherWith fadeOut(sectionFadeSpec)
             }
         },
         label = "settings_section",

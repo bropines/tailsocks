@@ -2,6 +2,14 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Changed
+
+- **The interface moved to Material 3 Expressive.** Every place that spun a progress ring now draws Material's own loading indicator, and the peer sheet's page-turn springs are the theme's motion scheme rather than numbers copied out of it — with one adjustment: the swipe animates raw pixels, so the spring is told that half a pixel of residual counts as arrived, or the page would sit visibly still for another sixth of a second before the peer under it actually changed.
+- **The peer details sheet was rebuilt.** Under the node's name there is now a line of status — online, what it runs, whether it is reached directly or through a relay, and the last round trip — and under the buttons a block that puts the measured latency next to the path it was measured along, this device's address to the peer's. The properties below it are grouped under headings instead of being one flat list of twenty-seven rows, the rows worth pasting somewhere carry a copy icon and the rest no longer pretend to, and the whole sheet scrolls as one, so the list is still reachable in landscape and at a large font scale.
+- **The peer properties no longer contradict the status line.** A relay row is shown only while there is no direct endpoint, which is what `tailscale status` does and what the status line above already says.
+
 ## [4.0.0] - 2026-09-06
 
 Root Mode was rebuilt. Two changes alter how a device behaves and are worth reading first:

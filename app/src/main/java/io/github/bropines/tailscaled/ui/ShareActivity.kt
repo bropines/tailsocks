@@ -62,7 +62,7 @@ class ShareActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
     val context = LocalContext.current
@@ -205,7 +205,7 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
                 }
             }
 
-            if (isLoadingPeers) Box(Modifier.fillMaxWidth().height(200.dp), Alignment.Center) { CircularProgressIndicator() }
+            if (isLoadingPeers) Box(Modifier.fillMaxWidth().height(200.dp), Alignment.Center) { LoadingIndicator() }
             else if (errorMsg != null) Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(errorMsg!!, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center); Button(onClick = { loadPeers() }) { Text(context.getString(R.string.action_retry)) }
             } else Box(
@@ -247,7 +247,7 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
     if (isSending) Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(0.5f)), contentAlignment = Alignment.Center) {
         Card(shape = RoundedCornerShape(16.dp)) {
             Column(modifier = Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                CircularProgressIndicator(); Spacer(Modifier.height(20.dp))
+                LoadingIndicator(); Spacer(Modifier.height(20.dp))
                 Text(stringResource(R.string.share_sending), fontWeight = FontWeight.Bold)
                 Text(sendProgressText, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
             }

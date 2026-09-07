@@ -397,7 +397,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun MainScreen(
     showAccountSwitcher: MutableState<Boolean>,
@@ -1896,7 +1896,7 @@ fun MainScreen(
                 )
 
                 if (isExitNodesLoading) {
-                    Box(Modifier.fillMaxWidth().height(120.dp), Alignment.Center) { CircularProgressIndicator() }
+                    Box(Modifier.fillMaxWidth().height(120.dp), Alignment.Center) { LoadingIndicator() }
                 } else if (exitNodes.isEmpty()) {
                     // An exit node can be set while the list is empty — the peers
                     // have not loaded, or the node stopped offering one. Without a
@@ -2205,6 +2205,7 @@ fun MenuCard(title: String, icon: ImageVector, modifier: Modifier = Modifier, on
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun LoggedOutCard(
     loginUrl: String?,
@@ -2291,7 +2292,7 @@ fun LoggedOutCard(
                         modifier = Modifier.weight(1f).height(40.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                        LoadingIndicator(modifier = Modifier.size(20.dp))
                     }
                 }
 
