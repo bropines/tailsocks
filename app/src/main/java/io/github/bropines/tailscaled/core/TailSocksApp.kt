@@ -15,5 +15,6 @@ class TailSocksApp : Application() {
     override fun onCreate() {
         super.onCreate()
         ProxyState.init(this)
+        ProfileHostinfo.migrateGlobalKey(this)
     }
 }

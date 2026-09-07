@@ -1675,10 +1675,12 @@ class TailscaledService : Service() {
             acceptDNS = accDNS
             exitNodeID = profilePrefs.getString("exit_node_id", "") ?: ""
 
-            // What the daemon says about this device to the coordination server.
-            // Off: the patch-06 masquerade (OS "linux", a Linux CLI). On: the
-            // truth, filled the way the official Android client fills it.
-            honestHostinfo = GlobalSettings.isHonestHostinfoEnabled(this@TailscaledService)
+            // What this profile's node says about the device to the coordination
+            // server — a property of the profile, since control binds a node to the
+            // OS it registered with (ProfileHostinfo). Off: the patch-06 masquerade
+            // (OS "linux", a Linux CLI). On: the truth, filled the way the official
+            // Android client fills it.
+            honestHostinfo = ProfileHostinfo.isHonest(this@TailscaledService, activeAccount.id)
             osVersion = android.os.Build.VERSION.RELEASE ?: ""
             deviceModel = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}".trim()
             installSource = installSourceName()

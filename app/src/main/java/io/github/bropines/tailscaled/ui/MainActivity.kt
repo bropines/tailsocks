@@ -188,6 +188,11 @@ fun downloadAndCacheAvatar(context: Context, accountId: String, urlStr: String) 
     }
 }
 
+/** Settings asks the dashboard to open "Add account" (see ProfileHostinfo). */
+internal const val MAIN_EXTRA_ADD_ACCOUNT = "add_account"
+/** The value the new profile's "Report the real OS" checkbox starts with. */
+internal const val MAIN_EXTRA_ADD_ACCOUNT_HONEST = "add_account_honest"
+
 class MainActivity : ComponentActivity() {
 
     private val requestPermissionLauncher =
@@ -195,6 +200,8 @@ class MainActivity : ComponentActivity() {
 
     private val showAccountSwitcher = mutableStateOf(false)
     private val showChangelog = mutableStateOf(false)
+    /** Non-null while an "add account" request from Settings waits for the screen; the value is the checkbox preset. */
+    private val addAccountRequest = mutableStateOf<Boolean?>(null)
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(wrapContextWithLocale(newBase))
@@ -223,7 +230,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             TailSocksTheme {
-                MainScreen(showAccountSwitcher, showChangelog)
+                MainScreen(showAccountSwitcher, showChangelog, addAccountRequest)
             }
         }
     }
@@ -300,6 +307,13 @@ class MainActivity : ComponentActivity() {
                 )
             }
             ServiceWatchdog.clearRevivalRefused(this)
+        }
+        // Settings could not flip "Report the real OS" on a profile that is already
+        // registered, so it sends the user here to create a new one with the
+        // setting preset. Consumed once (singleTask replays the intent otherwise).
+        if (intent.getBooleanExtra(MAIN_EXTRA_ADD_ACCOUNT, false)) {
+            intent.removeExtra(MAIN_EXTRA_ADD_ACCOUNT)
+            addAccountRequest.value = intent.getBooleanExtra(MAIN_EXTRA_ADD_ACCOUNT_HONEST, false)
         }
         // Callback of the PackageInstaller-session fallback in launchApkInstaller().
         // A session cannot install silently: it reports STATUS_PENDING_USER_ACTION
@@ -424,7 +438,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainScreen(
     showAccountSwitcher: MutableState<Boolean>,
-    showChangelog: MutableState<Boolean> = remember { mutableStateOf(false) }
+    showChangelog: MutableState<Boolean> = remember { mutableStateOf(false) },
+    addAccountRequest: MutableState<Boolean?> = remember { mutableStateOf(null) }
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -441,6 +456,17 @@ fun MainScreen(
     var editingAccountId by remember { mutableStateOf<String?>(null) }
     
     var newAccountName by remember { mutableStateOf("") }
+    // "Report the real OS" for the profile about to be created: decided here,
+    // before its first login, because the coordinator binds a node to the OS
+    // it registered with (ProfileHostinfo).
+    var newAccountHonest by remember { mutableStateOf(false) }
+    LaunchedEffect(addAccountRequest.value) {
+        addAccountRequest.value?.let { honest ->
+            newAccountHonest = honest
+            showAddAccountDialog = true
+            addAccountRequest.value = null
+        }
+    }
     var accountMenuExpanded by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
     var isBatteryOptimizationsIgnored by remember { mutableStateOf(true) }
@@ -707,8 +733,10 @@ fun MainScreen(
         val dlgServerPlaceholder = stringResource(R.string.settings_login_server_placeholder)
         val dlgAdd = stringResource(R.string.action_add)
         val dlgCancel = stringResource(R.string.action_cancel)
+        val dlgHonestTitle = stringResource(R.string.settings_honest_hostinfo_title)
+        val dlgHonestDesc = stringResource(R.string.honest_hostinfo_checkbox_desc)
         AlertDialog(
-            onDismissRequest = { showAddAccountDialog = false },
+            onDismissRequest = { showAddAccountDialog = false; newAccountHonest = false },
             title = { Text(dlgTitle) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -725,6 +753,19 @@ fun MainScreen(
                         placeholder = { Text(dlgServerPlaceholder) },
                         singleLine = true
                     )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { newAccountHonest = !newAccountHonest },
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Checkbox(checked = newAccountHonest, onCheckedChange = { newAccountHonest = it })
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(dlgHonestTitle, style = MaterialTheme.typography.bodyMedium)
+                            Text(dlgHonestDesc, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
                 }
             },
             confirmButton = {
@@ -733,6 +774,9 @@ fun MainScreen(
                         val acc = AccountManager.addAccount(context, newAccountName)
                         val accPrefs = context.getSharedPreferences("appctr_${acc.id}", Context.MODE_PRIVATE)
                         accPrefs.edit().putBoolean("do_reset", true).apply()
+                        // Written before the first start, so the node registers with it.
+                        ProfileHostinfo.setHonest(context, acc.id, newAccountHonest)
+                        newAccountHonest = false
                         if (newAccountServer.isNotBlank()) {
                             accPrefs.edit().putString("login_server", newAccountServer.trim()).apply()
                         }
@@ -748,7 +792,7 @@ fun MainScreen(
                     }
                 }) { Text(dlgAdd) }
             },
-            dismissButton = { TextButton(onClick = { showAddAccountDialog = false }) { Text(dlgCancel) } }
+            dismissButton = { TextButton(onClick = { showAddAccountDialog = false; newAccountHonest = false }) { Text(dlgCancel) } }
         )
     }
 

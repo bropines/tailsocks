@@ -1,6 +1,7 @@
 package io.github.bropines.tailscaled.ui
 
 import io.github.bropines.tailscaled.R
+import io.github.bropines.tailscaled.core.ProfileHostinfo
 import io.github.bropines.tailscaled.core.GlobalSettings
 import io.github.bropines.tailscaled.core.SlidingSegmentedChips
 import io.github.bropines.tailscaled.core.SegmentedChipItem
@@ -778,6 +779,36 @@ fun SlideLogin(profilePrefs: android.content.SharedPreferences) {
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
+
+            // Decided before the first login, because the coordination server
+            // binds the node to the OS it registers with (ProfileHostinfo).
+            var honestHostinfo by remember { mutableStateOf(profilePrefs.getBoolean(ProfileHostinfo.KEY, false)) }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        honestHostinfo = !honestHostinfo
+                        profilePrefs.edit().putBoolean(ProfileHostinfo.KEY, honestHostinfo).apply()
+                    },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Checkbox(
+                    checked = honestHostinfo,
+                    onCheckedChange = {
+                        honestHostinfo = it
+                        profilePrefs.edit().putBoolean(ProfileHostinfo.KEY, it).apply()
+                    }
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.settings_honest_hostinfo_title), style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        stringResource(R.string.honest_hostinfo_checkbox_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
 
             Card(
                 shape = RoundedCornerShape(16.dp),

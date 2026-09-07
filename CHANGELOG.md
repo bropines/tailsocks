@@ -6,21 +6,21 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Added
 
-- **Report the real OS** (Settings → Account & connection, off by default). Since May the
-  daemon has told the coordination server it is a Linux command-line client, on the belief
-  that the coordinator ignored advertised services from Android nodes. Reading the client
-  found nothing that depends on the reported OS, and Serve and Funnel turn out to work here
-  because of a different change entirely — the certificate API that the upstream build
-  switches off on Android. The switch reports an Android device with its real model and
-  version, the way the official app does, so the question can be settled on a real tailnet
-  instead of argued about. Measured on the author's rooted phone: with the switch off the node
-  holds `https` and `funnel`, Funnel answers from the public internet and the coordinator pulls
-  the service list; with it on, for a node registered as Linux, the coordinator answers
-  "node OS changed since last connection" and sends no network map at all. So turning it on
-  asks first and explains that it only works together with a fresh login, which registers the
-  node anew — and when the coordinator does refuse, the app now says so, with a notification and
-  a log line, instead of showing "connecting" forever. It changes what the coordinator knows, so
-  the daemon restarts.
+- **Report the real OS** — a choice made per profile, when the profile is created. Since May
+  the daemon has told the coordination server it is a Linux command-line client, on the belief
+  that the coordinator ignored advertised services from Android nodes. Reading the client found
+  nothing that depends on the reported OS, and Serve and Funnel turn out to work here because
+  of a different change entirely — the certificate API that the upstream build switches off on
+  Android. Measured on the author's rooted phone: a node registered as an Android device with
+  its real model and version gets the same `https` and `funnel` capabilities, obtains
+  certificates, answers Funnel requests from the public internet, and the admin console names
+  it after the device model and shows "Android (16)". The one thing the coordinator will not
+  accept is a node that *changes* its OS after registration — it answers "node OS changed since
+  last connection" and sends no network map. So the checkbox sits where the node is born: in
+  the onboarding login step and in the "Add account" dialog. The switch in Settings → Account &
+  connection still works for a profile that has not signed in yet; for a registered one it
+  offers to create a new profile instead. If a node is ever refused for this, the app now says
+  so, with a notification and a log line, instead of showing "connecting" forever.
 
 ### Fixed
 

@@ -316,8 +316,9 @@ fun SettingsScreen(
     var advertiseTags by remember { mutableStateOf(profilePrefs.getString("advertise_tags", "") ?: "") }
     var advertiseRoutes by remember { mutableStateOf(profilePrefs.getString("advertise_routes", "") ?: "") }
     var advertiseExitNode by remember { mutableStateOf(profilePrefs.getBoolean("advertise_exit_node", false)) }
-    var honestHostinfo by remember { mutableStateOf(GlobalSettings.isHonestHostinfoEnabled(context)) }
+    var honestHostinfo by remember(activeAccount.id) { mutableStateOf(ProfileHostinfo.isHonest(context, activeAccount.id)) }
     var showHonestHostinfoDialog by remember { mutableStateOf(false) }
+    var honestHostinfoTarget by remember { mutableStateOf(false) }
     var appliedTags by remember { mutableStateOf<List<String>>(emptyList()) }
     var availableNetworkTags by remember { mutableStateOf<List<String>>(emptyList()) }
 
@@ -770,23 +771,24 @@ fun SettingsScreen(
                 saveProfilePref("advertise_exit_node", it)
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-            // The daemon reads this from its environment at start, so like the
-            // other daemon-environment switches it restarts rather than applies.
-            // Turning it on goes through a confirmation: measured on 2026-09-07,
-            // the coordination server refuses a registered node whose OS changes
-            // ("node OS changed since last connection") and sends no netmap, so
-            // the switch only works together with a fresh login.
+            // A property of the profile (ProfileHostinfo): the coordination server
+            // binds a node to the OS it registered with and refuses it if that
+            // changes — measured 2026-09-07 ("node OS changed since last connection",
+            // no netmap). A profile that has not logged in yet can still choose; a
+            // registered one is offered a new profile instead. The daemon reads the
+            // value from its environment at start, hence RESTART rather than APPLY.
             SettingsSwitchItem(
                 title = stringResource(R.string.settings_honest_hostinfo_title),
                 subtitle = stringResource(R.string.settings_honest_hostinfo_desc),
                 icon = Icons.Default.Android,
                 checked = honestHostinfo
             ) { enabled ->
-                if (enabled) {
+                if (ProfileHostinfo.isRegistered(context, activeAccount.id)) {
+                    honestHostinfoTarget = enabled
                     showHonestHostinfoDialog = true
                 } else {
-                    honestHostinfo = false
-                    GlobalSettings.setHonestHostinfoEnabled(context, false)
+                    honestHostinfo = enabled
+                    ProfileHostinfo.setHonest(context, activeAccount.id, enabled)
                     if (ProxyState.isUserLetRunning(context)) {
                         val intent = Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" }
                         context.startService(intent)
@@ -798,8 +800,11 @@ fun SettingsScreen(
         if (showHonestHostinfoDialog) {
             // Strings resolved in the parent composition — see wrapContextWithLocale().
             val strTitle = stringResource(R.string.settings_honest_hostinfo_dialog_title)
-            val strBody = stringResource(R.string.settings_honest_hostinfo_dialog_body)
-            val strConfirm = stringResource(R.string.settings_tun_warning_confirm)
+            val strRegisteredAs = stringResource(
+                if (honestHostinfo) R.string.honest_hostinfo_os_android else R.string.honest_hostinfo_os_linux
+            )
+            val strBody = stringResource(R.string.settings_honest_hostinfo_dialog_body, strRegisteredAs)
+            val strConfirm = stringResource(R.string.settings_honest_hostinfo_create_profile)
             val strCancel = stringResource(R.string.settings_root_warning_dialog_cancel)
             AlertDialog(
                 onDismissRequest = { showHonestHostinfoDialog = false },
@@ -809,12 +814,13 @@ fun SettingsScreen(
                 confirmButton = {
                     Button(onClick = {
                         showHonestHostinfoDialog = false
-                        honestHostinfo = true
-                        GlobalSettings.setHonestHostinfoEnabled(context, true)
-                        if (ProxyState.isUserLetRunning(context)) {
-                            val intent = Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" }
-                            context.startService(intent)
-                        }
+                        // The dashboard owns profile creation; it opens "Add account"
+                        // with the checkbox preset to what the user asked for here.
+                        context.startActivity(Intent(context, MainActivity::class.java).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                            putExtra(MAIN_EXTRA_ADD_ACCOUNT, true)
+                            putExtra(MAIN_EXTRA_ADD_ACCOUNT_HONEST, honestHostinfoTarget)
+                        })
                     }) { Text(strConfirm) }
                 },
                 dismissButton = {

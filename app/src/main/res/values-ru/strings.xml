@@ -1241,9 +1241,13 @@
     <string name="main_exit_node_partial_desc">%1$s — только для приложений, которые не забрал другой VPN</string>
     <!-- What the daemon reports to the coordination server (patch 06 masquerade and its switch) -->
     <string name="settings_honest_hostinfo_title">Сообщать настоящую ОС</string>
-    <string name="settings_honest_hostinfo_desc">Сообщать серверу координации, что это Android-устройство, с настоящей моделью и версией, а не выдавать узел за Linux-клиент командной строки. Координатор отказывает зарегистрированному узлу, у которого сменилась ОС, поэтому включение требует повторного входа. Перезапускает демон.</string>
-    <string name="settings_honest_hostinfo_dialog_title">Сообщать настоящую ОС?</string>
-    <string name="settings_honest_hostinfo_dialog_body">Сервер координации отказывает узлу, у которого операционная система сменилась с момента регистрации: он сообщает «node OS changed since last connection» и не отдаёт карту сети, так что соединение не поднимется. Это устройство зарегистрировано как Linux. После включения выйдите из аккаунта и войдите снова — узел зарегистрируется заново, с новой личностью, и одобрения для старого (маршруты, exit node, сервисы) не перенесутся. Выключение возвращает старую регистрацию.</string>
+    <string name="settings_honest_hostinfo_desc">Регистрировать узел этого профиля как Android-устройство, с настоящей моделью и версией, а не как Linux-клиент командной строки. Координатор привязывает узел к ОС, с которой тот зарегистрировался, поэтому для уже вошедшего профиля это означает новый профиль.</string>
+    <string name="settings_honest_hostinfo_dialog_title">Профиль уже зарегистрирован</string>
+    <string name="settings_honest_hostinfo_dialog_body">Его узел зарегистрирован как %1$s. Сервер координации отказывает узлу, у которого операционная система сменилась после регистрации («node OS changed since last connection»), и не отдаёт ему карту сети. Создать новый профиль с этой настройкой? Его узел зарегистрируется заново, с новой личностью; одобрения для старого (маршруты, exit node, сервисы) не перенесутся.</string>
+    <string name="settings_honest_hostinfo_create_profile">Создать профиль</string>
+    <string name="honest_hostinfo_os_linux">Linux</string>
+    <string name="honest_hostinfo_os_android">Android</string>
+    <string name="honest_hostinfo_checkbox_desc">Регистрировать как Android-устройство с настоящей моделью. Выключено: как Linux-клиент командной строки, как раньше. Сменить потом можно только новым профилем.</string>
     <!-- The daemon exited on its own; the user still wanted the connection -->
     <string name="daemon_crashed_title">TailSocks потерял соединение</string>
     <string name="daemon_crashed_text">Демон остановился сам. Нажмите, чтобы переподключиться.</string>

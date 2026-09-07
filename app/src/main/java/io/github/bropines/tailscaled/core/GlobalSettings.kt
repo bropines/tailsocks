@@ -351,19 +351,6 @@ object GlobalSettings {
     fun setRootTakeDeviceAnyway(context: Context, enabled: Boolean) = getPrefs(context).edit().putBoolean("root_take_device_anyway", enabled).apply()
 
     /**
-     * Whether the daemon tells the coordination server the truth about this
-     * device: OS "android", the real model and Android version, the install
-     * source. Off by default, which keeps the masquerade in place since
-     * 2026-05-07 (OS "linux", App "tailscale-cli", DeviceModel "Tailsocks",
-     * daemon patch 06). Nothing in the client reads these fields for
-     * behaviour; what the control plane does with them is the open question in
-     * docs/ROADMAP.md, and this switch is how it gets measured. The daemon reads
-     * it from its environment at start, so a change needs a restart.
-     */
-    fun isHonestHostinfoEnabled(context: Context): Boolean = getPrefs(context).getBoolean("honest_hostinfo", false)
-    fun setHonestHostinfoEnabled(context: Context, enabled: Boolean) = getPrefs(context).edit().putBoolean("honest_hostinfo", enabled).apply()
-
-    /**
      * Records that the last routing apply yielded the default route and the
      * device-wide DNS redirect to another VPN.
      *
@@ -477,7 +464,7 @@ object GlobalSettings {
         "socks5", "socks5_user", "socks5_pass", "httpproxy",
         "dns_proxy", "dns_fallbacks", "doh_url", "lan_access_enabled",
         // Daemon behaviour
-        "accept_routes", "accept_dns", "extra_args_raw", "detailed_logs", "auto_refresh", "honest_hostinfo",
+        "accept_routes", "accept_dns", "extra_args_raw", "detailed_logs", "auto_refresh",
         // Control-plane proxy and DPI bypass
         "cp_enabled", "cp_type", "cp_host", "cp_port", "cp_user", "cp_pass", "cp_presets",
         "cp_byedpi_enabled", "cp_byedpi_flags", "cp_byedpi_ipv6_disabled",

@@ -22,7 +22,7 @@ This document outlines the planned features, architectural improvements, and ref
 - [x] **Automation security (4.0.0):** broadcast receiver requires a secret token; AppFunctions (Gemini, Android 16+) actually execute and honour the automation switch.
 - [x] **LAN Access, auto-reconnect, background revival and versioned backups (4.0.0).**
 - [x] **Root Mode coexistence (4.0.0):** the policy ruleset is tiered — tailnet reachability, the default-route capture, the device-wide DNS redirect — with one owner per device for the last two, a partial yield that carries exactly the uids another VPN client bypasses, a health-gated DNS redirect and a CGNAT guard. Verified on the author's Redmi (APatch), including across a real reboot.
-- [x] **Report the real OS (4.2.0, unreleased):** a switch in Settings → Account & connection, off by default. With it off the daemon keeps the patch-06 masquerade — OS `linux`, App `tailscale-cli`, DeviceModel `Tailsocks`. With it on the node reports OS `android` plus the real model, the Android version and the install source, the way the official client does.
+- [x] **Report the real OS (4.2.0, unreleased):** a per-profile choice made when the profile is created (onboarding, the Add-account dialog; the Settings switch for a profile that has not signed in yet, a new profile otherwise). Off keeps the patch-06 masquerade — OS `linux`, App `tailscale-cli`, DeviceModel `Tailsocks`. On, the node registers as OS `android` with the real model, Android version and install source, the way the official client does. Measured 2026-09-07: such a node gets `https`/`funnel`, certificates and a working Funnel; the coordinator refuses only a node that changes its OS after registration.
 - [x] **Root Mode across a reboot (4.2.0, unreleased):** the boot script now takes the active profile's state directory, the SOCKS5/HTTP listen addresses, the SOCKS5 credentials and the tunnel mode (kernel TUN or userspace) from the root-owned env file, starts the daemon with the same command line the app uses, and sets the same file modes (log 644, socket 666, state dir 700). The `TS_VPN_BYPASS=0` line the boot script used to drop is written quoted, so "Ignore other VPNs = off" survives a reboot. The env file is refreshed on every Root Mode start, including when the app attaches to a daemon the boot script started.
 - [x] **A daemon crash is no longer a manual Stop (4.2.0, unreleased):** the desired-running flag stays set when the daemon dies on its own, so auto-reconnect restarts it within its attempt limit; when that limit is spent the service stands down with a tap-to-reconnect notification, and the 15-minute watchdog can still revive it.
 
@@ -73,9 +73,12 @@ State as of 2026-09-07, after 4.1.0 and with 4.2.0 unreleased.
       internet in 5 s, `tailscale cert` issues, and the coordinator pulls the service list over
       c2n; honest, for the same node (registered as Linux), the coordinator answers «node OS
       changed since last connection, was node state copied between devices?», sends no netmap,
-      no capabilities, and `cert` fails — the switch therefore asks for confirmation and requires
-      a fresh login. Open: whether a node registered as Android from the start receives the same
-      capabilities (see *Verify on devices*), and whether honesty ever becomes the default.
+      no capabilities, and `cert` fails — so a registered node cannot switch. The second half ran the same day on a
+      fresh profile: a node registered as Android from the start holds `https` and `funnel`,
+      `tailscale cert` issues, Funnel answers HTTP 200 from the public internet in 5 s, and the
+      admin console names the machine after the device model (`xiaomi-23030rac7y`,
+      "Android (16)"). Hence the setting is a property of the profile, fixed at creation. Only
+      decision left: whether honesty becomes the default for new profiles.
 - [ ] **Scanner-bot issues #5, #6, #7** — verified 2026-09-07: `x/crypto/ssh` is not compiled into any shipped binary (`ts_omit_ssh` plus upstream's `!android` build constraint on the SSH server), the version is dictated by the pinned upstream module, and the two PRs change only the bridge's `go.mod`. The closing comment is written; the author posts it (the assistant is not allowed to write to GitHub).
 - [ ] **Issue #3** — the request Root Mode started from. The author has already answered; either
       close it or wait for `TheLastFlame` to confirm on his tablet.
@@ -84,12 +87,9 @@ State as of 2026-09-07, after 4.1.0 and with 4.2.0 unreleased.
 
 - [ ] **Root Mode on WSA after a reboot:** autostart through `service.d`, and the app attaching
       to a daemon it did not launch.
-- [ ] **The honest-OS experiment, second half.** The first half ran on 2026-09-07 (see *Needs
-      the author's decision*): flipping an existing Linux-registered node to Android is refused
-      by the coordinator. What is left needs the author: log the Redmi out, turn the switch on,
-      log in again so the node registers as Android, then compare `tailscale debug netmap`
-      CapMap (`https`, `funnel`), `tailscale cert`, a funnel end to end and a `svc:`
-      advertisement against the masked baseline, and check the admin console shows Android.
+- [x] **The honest-OS experiment** — both halves ran on 2026-09-07 (see *Needs the author's
+      decision*). Not measured: a *tagged* Android node hosting a `svc:` (the fresh profile was
+      user-owned, and the daemon refuses service hosting without tags regardless of OS).
 - [ ] **Received-file permissions in Root Mode.** The fix was made blind (`umask 022` plus
       handing the directory to the app). Check Routing now prints the real modes — look at them
       and confirm.

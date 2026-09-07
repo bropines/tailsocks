@@ -1241,9 +1241,13 @@
     <string name="main_exit_node_partial_desc">%1$s — only for the apps another VPN leaves out</string>
     <!-- What the daemon reports to the coordination server (patch 06 masquerade and its switch) -->
     <string name="settings_honest_hostinfo_title">Report the real OS</string>
-    <string name="settings_honest_hostinfo_desc">Tell the coordination server this is an Android device, with its real model and version, instead of presenting the node as a Linux command-line client. The coordinator refuses a registered node whose OS changes, so turning this on needs a fresh login. Restarts the daemon.</string>
-    <string name="settings_honest_hostinfo_dialog_title">Report the real OS?</string>
-    <string name="settings_honest_hostinfo_dialog_body">The coordination server refuses a node whose operating system changed since it was registered: it reports «node OS changed since last connection» and sends no network map, so the connection does not come up. This device is registered as Linux. After turning this on, log out and log in again — the node is registered anew, with a new identity, and approvals made for the old one (routes, exit node, services) do not carry over. Turning it off brings the old registration back.</string>
+    <string name="settings_honest_hostinfo_desc">Register this profile\'s node as an Android device, with its real model and version, instead of a Linux command-line client. The coordinator binds a node to the OS it registered with, so for a profile that is already signed in this means a new profile.</string>
+    <string name="settings_honest_hostinfo_dialog_title">This profile is already registered</string>
+    <string name="settings_honest_hostinfo_dialog_body">Its node is registered as %1$s. The coordination server refuses a node whose operating system changes after registration («node OS changed since last connection») and sends it no network map. Create a new profile with this setting instead? Its node is registered anew, with a new identity; approvals made for the old one (routes, exit node, services) do not carry over.</string>
+    <string name="settings_honest_hostinfo_create_profile">Create profile</string>
+    <string name="honest_hostinfo_os_linux">Linux</string>
+    <string name="honest_hostinfo_os_android">Android</string>
+    <string name="honest_hostinfo_checkbox_desc">Register as an Android device with its real model. Off: as a Linux command-line client, like before. Changing it later means a new profile.</string>
     <!-- The daemon exited on its own; the user still wanted the connection -->
     <string name="daemon_crashed_title">TailSocks lost the connection</string>
     <string name="daemon_crashed_text">The daemon stopped on its own. Tap to reconnect.</string>
