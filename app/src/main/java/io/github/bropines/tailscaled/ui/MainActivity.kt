@@ -55,6 +55,29 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.animation.core.Animatable
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sin
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
@@ -1551,6 +1574,11 @@ fun MainScreen(
                 android.util.Log.w("MainActivity", "No handler for $url", e)
             }
         }
+        // Lives inside this block on purpose: closing the dialog takes it down too.
+        var showAboutBackdrop by remember { mutableStateOf(false) }
+        if (showAboutBackdrop) {
+            AboutBackdrop(onDismiss = { showAboutBackdrop = false })
+        }
 
         AlertDialog(
             onDismissRequest = { showAboutDialog = false },
@@ -1834,7 +1862,7 @@ fun MainScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(modifier = Modifier.padding(vertical = 4.dp)) {
-                                credits.forEach { (label, url, icon) ->
+                                credits.forEachIndexed { index, (label, url, icon) ->
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -1842,7 +1870,11 @@ fun MainScreen(
                                             // pages, and a one-line credit measures 36dp —
                                             // under the 48dp a finger is entitled to.
                                             .heightIn(min = 48.dp)
-                                            .clickable { openLink(url) }
+                                            // The first row also answers a long press.
+                                            .combinedClickable(
+                                                onClick = { openLink(url) },
+                                                onLongClick = if (index == 0) ({ showAboutBackdrop = true }) else null
+                                            )
                                             .padding(horizontal = 12.dp, vertical = 8.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
@@ -1877,6 +1909,28 @@ fun MainScreen(
     if (showExitNodeSheet) {
         val configuration = androidx.compose.ui.platform.LocalConfiguration.current
         val maxHeight = (configuration.screenHeightDp * 0.85f).dp
+
+        // Strings for the latency chips, resolved out here in the parent composition — see
+        // wrapContextWithLocale().
+        val pingStrings = ExitNodePingStrings(
+            tapToMeasure = stringResource(R.string.peer_conn_tap_to_measure),
+            pinging = stringResource(R.string.peer_pinging),
+            resultFormat = stringResource(R.string.peer_ping_result),
+            failed = stringResource(R.string.peer_conn_ping_failed)
+        )
+        // The daemon's raw answer per node address, for as long as the sheet is open. A
+        // reopened sheet starts clean: a figure measured minutes ago is not the figure now.
+        // The pings run in the sheet's own scope, not the screen's, so closing the sheet
+        // also drops the answers that were still on their way to this map.
+        val exitNodePings = remember { mutableStateMapOf<String, String>() }
+        val sheetScope = rememberCoroutineScope()
+        fun pingExitNode(ip: String) {
+            // A ping already in flight is not started again: the second answer would
+            // overwrite the state the first one is about to write.
+            if (exitNodePings[ip] == PING_IN_FLIGHT) return
+            exitNodePings[ip] = PING_IN_FLIGHT
+            sheetScope.launch { exitNodePings[ip] = pingPeer(ip) }
+        }
 
         // Strings come from the parent context, not stringResource() — see wrapContextWithLocale().
         ModalBottomSheet(
@@ -2008,7 +2062,11 @@ fun MainScreen(
                                 }
 
                                 items(exitNodes) { node ->
-                                    val isSelected = if (exitNodeIp.isNotEmpty()) node.getPrimaryIp() == exitNodeIp else false
+                                    val nodeIp = node.getPrimaryIp()
+                                    val isSelected = if (exitNodeIp.isNotEmpty()) nodeIp == exitNodeIp else false
+                                    // Parsed once per answer, not once per recomposition.
+                                    val pingRaw = exitNodePings[nodeIp]
+                                    val ping = remember(pingRaw) { pingStateOf(pingRaw) }
                                     val (osIcon, osColor) = getOsVisuals(node.os).let { (icon, color) ->
                                         if (icon == Icons.Default.Devices) Icons.Default.VpnKey to MaterialTheme.colorScheme.primary
                                         else icon to color
@@ -2059,7 +2117,7 @@ fun MainScreen(
                                                     color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                                 )
                                                 Text(
-                                                    node.getPrimaryIp(),
+                                                    nodeIp,
                                                     style = MaterialTheme.typography.bodySmall,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
@@ -2072,6 +2130,15 @@ fun MainScreen(
                                                         .background(MaterialTheme.colorScheme.primary)
                                                 )
                                             }
+                                            Spacer(Modifier.width(10.dp))
+                                            // Its own click target: measuring a node and
+                                            // choosing it are two different taps, and the
+                                            // row stays choosable while a ping is in flight.
+                                            ExitNodePingChip(
+                                                ping = ping,
+                                                strings = pingStrings,
+                                                onPing = { pingExitNode(nodeIp) }
+                                            )
                                         }
                                     }
                                 }
@@ -2465,6 +2532,285 @@ fun ConnectionIssueCard(
                         softWrap = false
                     )
                 }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Exit-node latency chips. The measurement and its parsing are the peer sheet's own —
+// pingPeer() and pingStateOf() in UIComponents.kt — so the two cannot read a pong differently.
+
+/** Strings the chip shows or announces, resolved by the parent — see wrapContextWithLocale(). */
+private data class ExitNodePingStrings(
+    val tapToMeasure: String,
+    val pinging: String,
+    val resultFormat: String,
+    val failed: String
+)
+
+/**
+ * The trailing chip of an exit-node row: the ping icon before anything is measured, the
+ * indicator while the round trip is out, then the figure — or a dash when it did not come
+ * back. Same colours as the peer sheet's connection card: a measured figure earns the
+ * secondary container, everything before it sits a step above the row.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun ExitNodePingChip(
+    ping: PeerPingState,
+    strings: ExitNodePingStrings,
+    onPing: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val measured = ping as? PeerPingState.Measured
+    val inFlight = ping == PeerPingState.InFlight
+    val failed = ping == PeerPingState.Failed
+    val description = when {
+        measured != null -> strings.resultFormat.format(measured.latency)
+        inFlight -> strings.pinging
+        failed -> strings.failed
+        else -> strings.tapToMeasure
+    }
+    val container = when {
+        measured != null -> MaterialTheme.colorScheme.secondaryContainer
+        failed -> MaterialTheme.colorScheme.errorContainer
+        else -> MaterialTheme.colorScheme.surfaceContainerHigh
+    }
+    val content = when {
+        measured != null -> MaterialTheme.colorScheme.onSecondaryContainer
+        failed -> MaterialTheme.colorScheme.onErrorContainer
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    Surface(
+        onClick = onPing,
+        enabled = !inFlight,
+        shape = CircleShape,
+        color = container,
+        contentColor = content,
+        modifier = modifier
+            .heightIn(min = 32.dp)
+            .semantics(mergeDescendants = true) {
+                role = Role.Button
+                contentDescription = description
+            }
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            if (inFlight) {
+                LoadingIndicator(modifier = Modifier.size(18.dp), color = content)
+            } else {
+                Icon(
+                    Icons.Default.NetworkPing,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = content
+                )
+            }
+            when {
+                measured != null -> Text(
+                    measured.latency,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1
+                )
+                failed -> Text("—", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// About: full-screen backdrop.
+
+/** Fixed palette: the scene is the same in both colour schemes. */
+private val BACKDROP_SKY_TOP = Color(0xFF6F777F)
+private val BACKDROP_SKY_BOTTOM = Color(0xFFAAB1B8)
+private val BACKDROP_HAZE = Color(0xFFD5D9DE)
+private val BACKDROP_INK = Color(0xFF262A30)
+private val BACKDROP_PALE = Color(0xFFEEF0F3)
+
+private fun DrawScope.drawBackdropWalker(x: Float, y: Float, s: Float, step: Float, color: Color) {
+    fun px(u: Float) = x + u * s
+    fun py(u: Float) = y + u * s
+    val body = Path().apply {
+        moveTo(px(6f), py(0f))
+        val n = 14
+        for (i in 0..n) {
+            val a = PI.toFloat() * (1f - i / n.toFloat() * 0.8f)
+            val r = if (i % 2 == 1) 30f else 24f
+            lineTo(px(28f + r * cos(a)), py(-6f - r * sin(a)))
+        }
+        lineTo(px(58f), py(-14f))
+        lineTo(px(66f), py(-7f))
+        lineTo(px(60f), py(-3f))
+        lineTo(px(54f), py(0f))
+        close()
+    }
+    drawPath(body, color)
+    val lift = sin(step) * 2f
+    drawRect(color, topLeft = Offset(px(16f), py(-2f)), size = Size(5f * s, (7f + lift) * s))
+    drawRect(color, topLeft = Offset(px(40f), py(-2f)), size = Size(5f * s, (7f - lift) * s))
+    drawCircle(BACKDROP_PALE.copy(alpha = color.alpha), radius = 1.4f * s, center = Offset(px(56f), py(-9f)))
+    drawLine(color, Offset(px(40f), py(-26f)), Offset(px(58f), py(-44f)), strokeWidth = 1.8f * s, cap = StrokeCap.Round)
+    drawCircle(color, radius = 7f * s, center = Offset(px(61f), py(-49f)))
+}
+
+private fun DrawScope.drawBackdropStander(x: Float, y: Float, s: Float, color: Color) {
+    fun px(u: Float) = x + u * s
+    fun py(u: Float) = y + u * s
+    drawOval(color, topLeft = Offset(px(30f), py(-78f)), size = Size(78f * s, 40f * s))
+    val neck = Path().apply {
+        moveTo(px(40f), py(-72f))
+        lineTo(px(12f), py(-118f))
+        lineTo(px(28f), py(-122f))
+        lineTo(px(52f), py(-58f))
+        close()
+    }
+    drawPath(neck, color)
+    val head = Path().apply {
+        moveTo(px(10f), py(-122f))
+        lineTo(px(30f), py(-124f))
+        lineTo(px(24f), py(-108f))
+        lineTo(px(-4f), py(-98f))
+        lineTo(px(-8f), py(-104f))
+        close()
+    }
+    drawPath(head, color)
+    drawLine(color, Offset(px(22f), py(-122f)), Offset(px(26f), py(-134f)), strokeWidth = 3f * s, cap = StrokeCap.Round)
+    val w = 5f * s
+    drawLine(color, Offset(px(44f), py(-50f)), Offset(px(40f), py(0f)), w, StrokeCap.Round)
+    drawLine(color, Offset(px(56f), py(-50f)), Offset(px(58f), py(0f)), w, StrokeCap.Round)
+    drawLine(color, Offset(px(92f), py(-50f)), Offset(px(88f), py(0f)), w, StrokeCap.Round)
+    drawLine(color, Offset(px(102f), py(-50f)), Offset(px(108f), py(0f)), w, StrokeCap.Round)
+    val tail = Path().apply {
+        moveTo(px(106f), py(-70f))
+        quadraticTo(px(126f), py(-60f), px(122f), py(-24f))
+    }
+    drawPath(tail, color, style = Stroke(width = 4f * s, cap = StrokeCap.Round))
+}
+
+/** A value that rises from 0 to 1 between [from] and [to] seconds, and holds. */
+private fun rampAt(t: Float, from: Float, to: Float): Float = ((t - from) / (to - from)).coerceIn(0f, 1f)
+
+/**
+ * Full-screen scene over the About dialog. Its own window, so it sits above the dialog
+ * rather than under it; it is disposed with the dialog's block, so closing the dialog ends
+ * it. A tap anywhere lets it go.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun AboutBackdrop(onDismiss: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    val leaveSpec = MaterialTheme.motionScheme.slowEffectsSpec<Float>()
+    val clearing = remember { Animatable(0f) }
+    var leaving by remember { mutableStateOf(false) }
+    var frameNs by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(Unit) {
+        val start = withFrameNanos { it }
+        while (true) withFrameNanos { frameNs = it - start }
+    }
+    val leave: () -> Unit = {
+        if (!leaving) {
+            leaving = true
+            scope.launch {
+                clearing.animateTo(1f, leaveSpec)
+                onDismiss()
+            }
+        }
+    }
+
+    Dialog(
+        onDismissRequest = leave,
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { leave() }
+        ) {
+            Canvas(Modifier.fillMaxSize()) {
+                val t = frameNs / 1e9f
+                val cover = rampAt(t, 0f, 1.8f) * (1f - clearing.value)
+                if (cover <= 0.005f) return@Canvas
+                val w = size.width
+                val h = size.height
+
+                drawRect(Brush.verticalGradient(listOf(BACKDROP_SKY_TOP, BACKDROP_SKY_BOTTOM)), alpha = cover)
+
+                // Something large, far off, that comes and goes.
+                val far = rampAt(t, 3f, 5.5f) * (1f - rampAt(t, 8f, 10.5f)) * cover
+                if (far > 0.01f) {
+                    val fs = w / 320f
+                    val fx = w * 0.52f
+                    val fy = h * 0.60f
+                    drawBackdropStander(fx, fy, fs * 1.04f, BACKDROP_PALE.copy(alpha = far * 0.18f))
+                    drawBackdropStander(fx, fy, fs, BACKDROP_PALE.copy(alpha = far * 0.5f))
+                }
+
+                // Something small that comes in from the left and stops.
+                val walk = rampAt(t, 1f, 10f)
+                val eased = walk * (2f - walk)
+                val ws = w / 300f
+                val wx = -80f * ws + (w * 0.30f + 80f * ws) * eased
+                val moving = walk < 1f
+                val bob = if (moving) abs(sin(t * 6f)) * 1.5f * ws else 0f
+                drawBackdropWalker(wx, h * 0.70f - bob, ws, if (moving) t * 6f else 0f, BACKDROP_INK.copy(alpha = cover))
+
+                // Drifting haze on top of everything.
+                for (i in 0 until 7) {
+                    val speed = 0.012f + 0.006f * i
+                    val cx = w * (((i * 0.37f + t * speed) % 1.3f) - 0.15f)
+                    val cy = h * (0.12f + 0.12f * i) + sin(t * 0.4f + i) * h * 0.02f
+                    val radius = w * (0.32f + 0.08f * (i % 3))
+                    val center = Offset(cx, cy)
+                    drawCircle(
+                        Brush.radialGradient(
+                            listOf(BACKDROP_HAZE.copy(alpha = 0.55f * cover), Color.Transparent),
+                            center = center,
+                            radius = radius
+                        ),
+                        radius = radius,
+                        center = center
+                    )
+                }
+            }
+
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = 32.dp)
+                    .padding(bottom = 72.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                // Deliberately not in strings.xml, and deliberately not translated: this is a
+                // line from a Russian film, quoted as itself, in the one place the app is
+                // allowed a private joke. An English reader sees the title and year below and
+                // can look it up; an English rendering of the line would not be the line.
+                Text(
+                    "Если лошадь ляжет спать, она захлебнётся в тумане?",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontFamily = FontFamily.Serif,
+                    fontStyle = FontStyle.Italic,
+                    color = BACKDROP_PALE,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.graphicsLayer {
+                        alpha = rampAt(frameNs / 1e9f, 5.5f, 7.5f) * (1f - clearing.value)
+                    }
+                )
+                Text(
+                    "«Ёжик в тумане», 1975",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = BACKDROP_PALE.copy(alpha = 0.7f),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.graphicsLayer {
+                        alpha = rampAt(frameNs / 1e9f, 8f, 9.5f) * (1f - clearing.value)
+                    }
+                )
             }
         }
     }
