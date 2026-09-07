@@ -2,7 +2,10 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
-## [Unreleased]
+## [4.1.0] - 2026-09-07
+
+Mostly the interface. Material 3 Expressive throughout, the peer sheet rebuilt around
+cards, and the parts of Taildrop that had been reporting the wrong thing.
 
 ### Changed
 
@@ -10,6 +13,71 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - **The peer details sheet was rebuilt.** Under the node's name there is now a line of status — online, what it runs, whether it is reached directly or through a relay, and the last round trip — and under the buttons a block that puts the measured latency next to the path it was measured along, this device's address to the peer's. The properties below it are grouped under headings instead of being one flat list of twenty-seven rows, the rows worth pasting somewhere carry a copy icon and the rest no longer pretend to, and the whole sheet scrolls as one, so the list is still reachable in landscape and at a large font scale. Send File is now refused only when the daemon would refuse it; a device the control plane merely calls offline keeps a live button with a note beside it, because that bit lags and the transfer itself finds out.
 - **The peer properties no longer contradict the status line.** A relay row is shown only while there is no direct endpoint, which is what `tailscale status` does and what the status line above already says.
 - **Received files: the same name twice, Root Mode, and the open Inbox.** A file sent again under a name the user had already deleted is announced like any other arrival; it used to be swallowed because the daemon reuses the bare name and the app remembered it. In Root Mode the daemon now starts with `umask 022`, so a received file is readable by the app the moment it lands rather than after the daemon stops (some `su` shells run with 077, which left "File received" opening into a permission error). And while the Inbox page is on screen the list simply refreshes — no notification for a file the user is already looking at.
+- **Swiping between peers shows the peer you are swiping to.** The sheet used to move only
+  the peer you were leaving and swap in the next one after you let go, so the drag showed an
+  empty edge. Both pages now travel together, the release carries the same motion through at
+  the speed your finger left, and the ends of the list push back instead of doing nothing.
+- **Ping is the connection card.** Tap the card, the indicator runs inside it, the figure
+  lands where the caption was; the separate button is gone. On this device's own entry there
+  is no action, and the card says so rather than showing a dead figure.
+- **The back gesture works inside Settings.** A section used to close instantly, with no
+  feedback — deliberately, from a time when the animation looked clumsy. It now recedes under
+  your finger and uncovers the category list, and letting go halfway brings it back. Moving
+  between screens is still the system's own animation, untouched.
+- **About was rebuilt.** It led with nothing: the version, the update state, the licence and
+  five links were one column of identical text buttons. What you open it for is at the top
+  now, and everyone credited is still credited.
+- **Waiting for a login is no longer cut short.** The daemon gets 40 seconds to answer instead
+  of 20, and the control plane 120 instead of 45, before an attempt is abandoned. Both are
+  ceilings, not delays — on a fast network nothing changes; on a throttled one the first
+  attempt stops being the one that fails.
+
+### Added
+
+- **The exit node is visible in the peer list.** The one carrying your traffic wears a filled
+  badge, one that merely offers to be an exit node a dim icon; the data was there all along and
+  nothing showed it.
+- **Latency in the exit-node picker.** Each node has its own measurement, on its own tap
+  target, so checking one never gets in the way of choosing another.
+- **A peer's Tailscale version, when it can be known.** The daemon cannot say: the status
+  carries no such field and the control plane strips it from every peer's Hostinfo. The Admin
+  API does know, so with a token configured the row is filled from there — and with no token,
+  no match, or no answer, the row is not written at all rather than reading "Unknown".
+- **Files announce themselves.** A finished transfer refreshes the list and raises a
+  notification naming the sender, using the mechanism the daemon has always offered for this
+  mode. Nothing announced an arrival before.
+
+### Fixed
+
+- **Sending a file reported failure on success.** The receiving peer answers `{}` and the
+  daemon passes that body through; three screens compared it to `OK`, so every successful
+  transfer looked like an error. Success and failure are now decided by the peer's HTTP
+  status, and a refusal arrives with the reason the peer gave.
+- **Partial downloads were listed as if they had arrived.** Opening one gave a truncated file;
+  deleting one took it out from under the daemon mid-transfer.
+- **Send pickers offered peers that would refuse.** They now carry the daemon's own verdict,
+  and the peer sheet explains a refusal on the button itself. For a tagged device or another
+  user's that explanation is now accurate: the two capabilities involved can only be issued by
+  Tailscale — the console rejects any grant naming its own domain — so the answer is to leave
+  personal devices untagged, not to write an ACL rule that cannot exist.
+- **Pinging this very device reported a failure.** There is no peer to answer; the card says
+  so instead.
+- **A poll that could never return anything.** Every five seconds the app asked the daemon for
+  received files, in the one mode where the daemon writes them straight to disk and always
+  answers empty. Removed, along with a save path nothing called.
+- **An empty node id was papered over with a hostname** the daemon then rejected, turning a
+  clear error into a confusing one.
+- **The build's own guards did not guard.** The check that refuses a release built from a
+  stale Go bridge decided from the text of the command you typed, so Android Studio's Run
+  button walked past it. The check that R8 kept the JNI methods could not see the heaviest
+  case — a whole class removed. The AAR metadata check was switched off with no reason
+  recorded; the reason is now written where the switch is. And `build.sh` skipped patching
+  whenever the source tree already existed, which is how a tree patched by an older patch set
+  kept building here while CI, always starting clean, built something else — it stamps the
+  patch set now and re-patches when it moves.
+- **The daemon carried code no phone runs.** Nine features that cannot execute on Android are
+  no longer compiled in, and the tunnel library is no longer built twice per architecture as a
+  program nothing launches. The daemon is about half a megabyte smaller per architecture.
 
 ## [4.0.0] - 2026-09-06
 
