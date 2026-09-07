@@ -1247,4 +1247,8 @@
     <!-- The daemon exited on its own; the user still wanted the connection -->
     <string name="daemon_crashed_title">TailSocks lost the connection</string>
     <string name="daemon_crashed_text">The daemon stopped on its own. Tap to reconnect.</string>
+    <!-- The coordination server refused the node because its reported OS changed -->
+    <string name="coordinator_os_refused_title">The coordinator refused this device</string>
+    <string name="coordinator_os_refused_text">Its operating system changed since it was registered, so the coordination server sends it no network map. Log out and log in again to register the node anew, or turn “Report the real OS” back off.</string>
+    <string name="coordinator_os_refused_short">Refused by the coordinator: OS changed</string>
 </resources>

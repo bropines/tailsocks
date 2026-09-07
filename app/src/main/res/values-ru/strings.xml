@@ -1247,4 +1247,8 @@
     <!-- The daemon exited on its own; the user still wanted the connection -->
     <string name="daemon_crashed_title">TailSocks потерял соединение</string>
     <string name="daemon_crashed_text">Демон остановился сам. Нажмите, чтобы переподключиться.</string>
+    <!-- The coordination server refused the node because its reported OS changed -->
+    <string name="coordinator_os_refused_title">Координатор отверг это устройство</string>
+    <string name="coordinator_os_refused_text">Его операционная система сменилась после регистрации, и сервер координации не отдаёт ему карту сети. Выйдите из аккаунта и войдите снова, чтобы зарегистрировать узел заново, или выключите «Сообщать настоящую ОС».</string>
+    <string name="coordinator_os_refused_short">Отказ координатора: сменилась ОС</string>
 </resources>

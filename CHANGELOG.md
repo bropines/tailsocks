@@ -18,7 +18,9 @@ All notable changes to the TailSocks project will be documented in this file. Th
   the service list; with it on, for a node registered as Linux, the coordinator answers
   "node OS changed since last connection" and sends no network map at all. So turning it on
   asks first and explains that it only works together with a fresh login, which registers the
-  node anew. It changes what the coordinator knows, so the daemon restarts.
+  node anew — and when the coordinator does refuse, the app now says so, with a notification and
+  a log line, instead of showing "connecting" forever. It changes what the coordinator knows, so
+  the daemon restarts.
 
 ### Fixed
 

@@ -193,6 +193,25 @@ func GetBusState() busStateSnapshot {
 	return busState
 }
 
+// GetHealthWarningsJSON returns the daemon's current health warnings, as the
+// IPN bus last reported them, as a JSON array of {"Code","Text"} objects —
+// "[]" when there are none or no daemon is attached. The coordination server
+// speaks to the user only through these (for example when it refuses a node
+// whose reported OS changed), so the service reads them on its tick.
+func GetHealthWarningsJSON() string {
+	busStateMu.RLock()
+	warnings := busState.Health
+	busStateMu.RUnlock()
+	if len(warnings) == 0 {
+		return "[]"
+	}
+	b, err := json.Marshal(warnings)
+	if err != nil {
+		return "[]"
+	}
+	return string(b)
+}
+
 // resetBusState forgets everything learned from the previous daemon (or
 // profile). The snapshot short-circuits GetBackendState and GetLoginURL, so
 // left in place it answered for a daemon that no longer existed: "Running" for
@@ -449,8 +468,9 @@ func applyNotifyLocked(msg *BusNotify) {
 		busState.ClientVersion = msg.ClientVersion
 	}
 
-	// Health
-	if msg.Health != nil && len(msg.Health.Warnings) > 0 {
+	// Health. Rebuilt whenever the daemon sends its health state, including an
+	// empty one: a warning that cleared used to stay in the snapshot forever.
+	if msg.Health != nil {
 		busState.Health = make([]BusHealthWarning, 0, len(msg.Health.Warnings))
 		for code, w := range msg.Health.Warnings {
 			c := w.WarnableCode

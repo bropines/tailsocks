@@ -241,6 +241,8 @@ class TailscaledService : Service() {
             try { Appctr.getBackendState() } catch (e: Exception) { "" }
         } else ""
 
+        checkCoordinatorOsRefusal(isRunning, backendState)
+
         // First Running state of this run: the netmap (and with it drive:share)
         // is in, so register Taildrive shares now if the start deferred it.
         if (isRunning && backendState == "Running" && !taildriveAppliedWhileRunning) {
@@ -655,6 +657,35 @@ class TailscaledService : Service() {
         } catch (e: Exception) {
             Log.w(TAG, "Failed to acquire wake lock: ${e.message}")
         }
+    }
+
+    @Volatile private var coordinatorOsRefusalReported = false
+
+    /**
+     * The coordination server refuses a registered node whose reported OS
+     * changed ("node OS changed since last connection, was node state copied
+     * between devices?") and sends it no netmap: the daemon sits in Starting
+     * with no peers and an empty CapMap, and says so only in a health warning.
+     * Measured on 2026-09-07 after "Report the real OS" was turned on for a
+     * node registered as Linux. Without this the app just said "connecting"
+     * forever; now it says what happened, once per outage.
+     */
+    private fun checkCoordinatorOsRefusal(isRunning: Boolean, backendState: String) {
+        if (!isRunning || backendState == "Running") {
+            coordinatorOsRefusalReported = false
+            return
+        }
+        if (coordinatorOsRefusalReported) return
+        val warnings = try { Appctr.getHealthWarningsJSON() } catch (e: Exception) { "[]" }
+        if (!warnings.contains("node OS changed since last connection")) return
+        coordinatorOsRefusalReported = true
+        Appctr.logAndroid(
+            "ERROR", "CORE",
+            "The coordination server refused this node: its reported OS changed since it was registered. " +
+                "Log out and log in again to register it anew, or turn \"Report the real OS\" back off."
+        )
+        updateNotification(getString(R.string.coordinator_os_refused_short))
+        ServiceWatchdog.noteCoordinatorRefusedOs(this)
     }
 
     /** Ticks spent without reaching a connected state while the user wants one.

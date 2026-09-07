@@ -140,6 +140,15 @@ object ServiceWatchdog {
         postReviveNotification(context, R.string.daemon_crashed_title, R.string.daemon_crashed_text)
     }
 
+    /**
+     * The coordination server refused the node because its reported OS changed
+     * since registration ("Report the real OS" turned on for a node registered
+     * as Linux). Nothing latches; the START path cancels it like the others.
+     */
+    fun noteCoordinatorRefusedOs(context: Context) {
+        postReviveNotification(context, R.string.coordinator_os_refused_title, R.string.coordinator_os_refused_text)
+    }
+
     private fun postReviveNotification(
         context: Context,
         titleRes: Int = R.string.revive_refused_title,
