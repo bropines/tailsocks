@@ -77,6 +77,9 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
     var sendProgressText by remember { mutableStateOf("") }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var accountMenuExpanded by remember { mutableStateOf(false) }
+    // The daemon's verdict per peer, in the app's language: the sheet's own window follows
+    // the system locale, so the words are resolved out here, once.
+    val taildropStrings = remember { TaildropReasonStrings.from(context) }
 
     fun loadPeers() {
         isLoadingPeers = true
@@ -85,7 +88,9 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
                 val json = Appctr.getStatusFromAPI()
                 if (json.isBlank() || json.startsWith("Error")) throw Exception(if (json.isBlank()) "Empty status" else json)
                 val status = AppJson.decodeFromString<StatusResponse>(json)
-                peers = status.peers?.values?.toList()?.sortedByDescending { it.online == true } ?: emptyList()
+                // Same list and order as the Files hub picker; a peer the daemon refuses is
+                // listed disabled with the reason, so what is offered is what will be accepted.
+                peers = taildropPickerPeers(status, taildropStrings)
                 withContext(Dispatchers.Main) { isLoadingPeers = false; errorMsg = null }
             } catch (e: Exception) { withContext(Dispatchers.Main) { errorMsg = e.message; isLoadingPeers = false } }
         }
@@ -230,11 +235,19 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
                         contentPadding = PaddingValues(bottom = 16.dp)
                     ) {
                         items(peers) { p -> 
-                            PeerShareItem(p, !isSending) {
+                            PeerShareItem(p, !isSending, taildropStatusOf(p, taildropStrings)) {
                                 isSending = true
                                 scope.launch(Dispatchers.IO) {
-                                    sendFilesWithProgress(context, fileUris, p) { sendProgressText = it }
-                                    withContext(Dispatchers.Main) { isSending = false; onDismiss() }
+                                    val failures = sendFilesWithProgress(context, fileUris, p) { sendProgressText = it }
+                                    withContext(Dispatchers.Main) {
+                                        isSending = false
+                                        // The sheet closes right here, so the progress card
+                                        // is gone before anyone reads it: a toast outlives it.
+                                        if (failures.isNotEmpty()) {
+                                            Toast.makeText(context, failures.joinToString("\n"), Toast.LENGTH_LONG).show()
+                                        }
+                                        onDismiss()
+                                    }
                                 }
                             } 
                         }
@@ -255,27 +268,47 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
     }
 }
 
-private suspend fun sendFilesWithProgress(context: Context, uris: List<Uri>, peer: PeerData, onProgress: (String) -> Unit) {
+/**
+ * Sends every file in turn and returns one line per file that did not arrive, already in
+ * the user's words, for the caller to show once the sheet is gone.
+ */
+private suspend fun sendFilesWithProgress(context: Context, uris: List<Uri>, peer: PeerData, onProgress: (String) -> Unit): List<String> {
+    val failures = mutableListOf<String>()
     uris.forEachIndexed { i, uri ->
         val originalName = getFileName(context, uri) ?: "file_${System.currentTimeMillis()}"
         onProgress("${i + 1}/${uris.size}\n$originalName")
         try {
+            // The daemon looks the peer up by StableNodeID alone (localapi file-put): a
+            // hostname or DNS name in its place is a guaranteed 404, so a peer that came
+            // without an ID is an error to report, not something to paper over.
+            val target = taildropTargetId(context, peer)
             val outDir = File(context.cacheDir, "share_out").apply { mkdirs() }
             val tmp = File(outDir, originalName)
             context.contentResolver.openInputStream(uri)?.use { input -> tmp.outputStream().use { output -> input.copyTo(output); output.flush() } }
-            val target = if (!peer.id.isNullOrEmpty()) peer.id else (peer.hostName ?: peer.dnsName ?: peer.getDisplayName())
             val res = Appctr.sendFileFromAPI(target, tmp.absolutePath)
             tmp.delete()
-            // Only record and report success when the daemon actually accepted
-            // it. Sending to an offline peer used to show "Sent!" and add a
-            // phantom history entry.
+            // "OK" is the bridge's word for a 2xx from the peer itself; anything else starts
+            // with "Error" and carries the peer's HTTP status and body, or the local failure.
             if (res == "OK") {
                 logSentFile(context, originalName, peer.getDisplayName())
             } else {
-                onProgress("Failed: $originalName\n${res.removePrefix("Error: ")}")
+                val why = res.removePrefix("Error: ")
+                onProgress(context.getString(R.string.share_failed_format, originalName, why))
+                failures += context.getString(R.string.share_failed_format, originalName, why)
             }
         } catch (e: Exception) {
-            onProgress("Failed: $originalName\n${e.message ?: ""}")
+            val why = e.message ?: e.javaClass.simpleName
+            onProgress(context.getString(R.string.share_failed_format, originalName, why))
+            failures += context.getString(R.string.share_failed_format, originalName, why)
         }
     }
+    return failures
 }
+
+/**
+ * The StableNodeID sendFileFromAPI needs, or an exception with the message to show. Shared
+ * by the three send sites (Share sheet, peer sheet, Files hub).
+ */
+fun taildropTargetId(context: Context, peer: PeerData): String =
+    peer.id?.takeIf { it.isNotEmpty() }
+        ?: throw IllegalStateException(context.getString(R.string.files_peer_no_id, peer.getDisplayName()))

@@ -464,7 +464,7 @@
     <string name="peer_taildrop_no_peer_info">Сведений об этом устройстве пока нет</string>
     <string name="peer_taildrop_unsupported_os">ОС устройства не поддерживает Taildrop</string>
     <string name="peer_taildrop_no_peer_api">Устройство не предоставляет peer API</string>
-    <string name="peer_taildrop_other_user">Принадлежит другому пользователю или тегу. Чтобы отправлять ему файлы, в ACL нужны два гранта, а не один: file-sharing-target от того устройства (его владельца или тега) к вашему и file-send от вашего к нему; только с первым демон считает, что файл отправить можно, а устройство всё равно отвечает отказом (403)</string>
+    <string name="peer_taildrop_other_user">Принадлежит другому пользователю или тегу. Taildrop между такими устройствами включить нельзя: демон ждёт две способности, которые выдаёт только сам Tailscale — панель отказывает любому имени в домене tailscale.com. Выход один: не вешать теги на личные устройства, а доступ давать по пользователю или autogroup.</string>
     <!-- PeerDetailsModal: карточка трафика -->
     <string name="peer_traffic_total">Передано</string>
     <!-- PeerDetailsModal: заголовки карточек -->
@@ -599,6 +599,12 @@
     <string name="files_sent">Отправлено!</string>
     <string name="files_error_format">Ошибка: %1$s</string>
     <string name="files_failed_format">Не удалось: %1$s</string>
+    <string name="files_peer_no_id">Демон вернул %1$s без ID ноды — файл некому адресовать. Обновите список и попробуйте ещё раз</string>
+    <string name="share_failed_format">Не удалось отправить %1$s: %2$s</string>
+    <!-- Уведомление «Файл получен» (TaildropEvents): канал, заголовок и текст «имя от устройства» -->
+    <string name="taildrop_notif_channel">Полученные файлы</string>
+    <string name="taildrop_received_title">Файл получен</string>
+    <string name="taildrop_received_from_format">%1$s от %2$s</string>
     <string name="action_refresh">Обновить</string>
 
     <!-- ======================== Logs Screen ======================== -->

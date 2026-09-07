@@ -243,13 +243,13 @@ func doLocalRequestWith(clientFor func(string) *http.Client, method, path string
 	return data, nil
 }
 
-// doLocalStream sends a request on the deadline-free client and hands back the
-// response with its body unread, so a Taildrop file can be copied straight to
-// disk instead of being buffered in the heap — a phone cannot hold a received
-// video twice over. The caller must Close the body. ctx bounds the exchange (a
-// released run cancels its collector's downloads); contentLength >= 0 is sent
-// as the request's Content-Length so the daemon can forward the declared size.
-func doLocalStream(ctx context.Context, method, path string, body io.Reader, contentLength int64) (*http.Response, error) {
+// doLocalStreamRaw sends a request on the deadline-free client and hands back
+// the response whatever its status, body unread, so a large body is not
+// buffered in the heap and the caller can judge the status itself (Taildrop
+// send: the daemon proxies the peer's status through). The caller must Close
+// the body. ctx bounds the exchange; contentLength >= 0 is sent as the
+// request's Content-Length so the daemon can forward the declared size.
+func doLocalStreamRaw(ctx context.Context, method, path string, body io.Reader, contentLength int64) (*http.Response, error) {
 	sock, err := localSocketReady()
 	if err != nil {
 		return nil, err
@@ -263,17 +263,7 @@ func doLocalStream(ctx context.Context, method, path string, body io.Reader, con
 		req.ContentLength = contentLength
 	}
 
-	resp, err := newLocalXferClient(sock).Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if !localStatusOK(resp.StatusCode) {
-		// An error body is small; a success body may be gigabytes.
-		data, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		resp.Body.Close()
-		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(data))
-	}
-	return resp, nil
+	return newLocalXferClient(sock).Do(req)
 }
 
 func localStatusOK(code int) bool {

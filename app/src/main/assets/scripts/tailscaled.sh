@@ -90,7 +90,10 @@ fi
 # tagged 'TailSocks:' are never taken as daemon output.
 echo "TailSocks: daemon start" >> "$LOG_FILE"
 
-# Run daemon with resolved STATE_DIR (native safesocket patch forces 0666 on tailscaled.sock)
+# Run daemon with resolved STATE_DIR (native safesocket patch forces 0666 on tailscaled.sock).
+# umask 022: received Taildrop files are created 0666 minus umask, and the app
+# must be able to read them while the daemon runs (same line in RootUtils).
+umask 022
 nohup "$DAEMON_BIN" --statedir="$STATE_DIR" --socket="$SOCKET_PATH" --tun=tailscale0 >> "$LOG_FILE" 2>&1 &
 chmod 666 "$LOG_FILE" 2>/dev/null || true
 # No SELinux rule is patched in here. Nothing but root talks to the socket at

@@ -77,3 +77,6 @@ appctr/orig/
 
 # Lock file for an external skill set that is not part of this repo
 skills-lock.json
+
+# Working notes, not shipped
+docs/TAILDROP_RU.md

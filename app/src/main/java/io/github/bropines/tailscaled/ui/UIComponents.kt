@@ -60,6 +60,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.GraphicsLayerScope
@@ -354,8 +355,10 @@ private fun peerCards(peer: PeerData, strings: PeerDetailsStrings, version: Stri
     }
 }
 
-/** Whether the daemon will send this peer a file, and if not, why, in the user's words. */
-private sealed interface TaildropStatus {
+/** Whether the daemon will send this peer a file, and if not, why, in the user's words.
+ *  Shared by the details sheet and both send pickers (Share sheet, Files hub), so what a
+ *  picker offers is the same verdict the sheet shows beside its Send button. */
+sealed interface TaildropStatus {
     data object Available : TaildropStatus
     /** The control plane's Online bit for the peer is off. A note beside the button, not a
      *  refusal: that bit lags reality by seconds to minutes, and `tailscale file cp` itself
@@ -388,22 +391,94 @@ private const val TAILDROP_TARGET_OWNED_BY_OTHER_USER = 9
  * daemon this app did not ship, and is not treated as a refusal — the CLI does treat it as
  * one, but the CLI is about to send a file and this is about a button that can still try.
  */
-private fun taildropStatusOf(peer: PeerData, strings: PeerDetailsStrings): TaildropStatus {
+fun taildropStatusOf(peer: PeerData, strings: TaildropReasonStrings): TaildropStatus {
     val rawReason = peer.noFileSharingReason?.takeIf { it.isNotEmpty() }
     val reason = when (val code = peer.taildropTarget) {
         TAILDROP_TARGET_AVAILABLE -> return TaildropStatus.Available
         null, TAILDROP_TARGET_UNKNOWN -> rawReason ?: return TaildropStatus.Available
-        TAILDROP_TARGET_NO_NETMAP -> strings.taildropNoNetmap
-        TAILDROP_TARGET_NOT_RUNNING -> strings.taildropNotRunning
-        TAILDROP_TARGET_MISSING_CAP -> strings.taildropMissingCap
-        TAILDROP_TARGET_OFFLINE -> return TaildropStatus.Offline(strings.taildropOffline)
-        TAILDROP_TARGET_NO_PEER_INFO -> strings.taildropNoPeerInfo
-        TAILDROP_TARGET_UNSUPPORTED_OS -> strings.taildropUnsupportedOs
-        TAILDROP_TARGET_NO_PEER_API -> strings.taildropNoPeerApi
-        TAILDROP_TARGET_OWNED_BY_OTHER_USER -> strings.taildropOtherUser
-        else -> rawReason ?: strings.taildropBlocked
+        TAILDROP_TARGET_NO_NETMAP -> strings.noNetmap
+        TAILDROP_TARGET_NOT_RUNNING -> strings.notRunning
+        TAILDROP_TARGET_MISSING_CAP -> strings.missingCap
+        TAILDROP_TARGET_OFFLINE -> return TaildropStatus.Offline(strings.offline)
+        TAILDROP_TARGET_NO_PEER_INFO -> strings.noPeerInfo
+        TAILDROP_TARGET_UNSUPPORTED_OS -> strings.unsupportedOs
+        TAILDROP_TARGET_NO_PEER_API -> strings.noPeerApi
+        TAILDROP_TARGET_OWNED_BY_OTHER_USER -> strings.otherUser
+        else -> rawReason ?: strings.blocked
     }
     return TaildropStatus.Blocked(reason)
+}
+
+private fun taildropStatusOf(peer: PeerData, strings: PeerDetailsStrings): TaildropStatus =
+    taildropStatusOf(
+        peer,
+        TaildropReasonStrings(
+            blocked = strings.taildropBlocked,
+            noNetmap = strings.taildropNoNetmap,
+            notRunning = strings.taildropNotRunning,
+            missingCap = strings.taildropMissingCap,
+            offline = strings.taildropOffline,
+            noPeerInfo = strings.taildropNoPeerInfo,
+            unsupportedOs = strings.taildropUnsupportedOs,
+            noPeerApi = strings.taildropNoPeerApi,
+            otherUser = strings.taildropOtherUser
+        )
+    )
+
+/**
+ * The words [taildropStatusOf] puts to each daemon verdict. Resolved by the caller from its
+ * own context (the Share sheet and the Files picker live inside a ModalBottomSheet, whose
+ * window follows the system locale — see wrapContextWithLocale()), never inside the sheet.
+ */
+class TaildropReasonStrings(
+    val blocked: String,
+    val noNetmap: String,
+    val notRunning: String,
+    val missingCap: String,
+    val offline: String,
+    val noPeerInfo: String,
+    val unsupportedOs: String,
+    val noPeerApi: String,
+    val otherUser: String
+) {
+    companion object {
+        fun from(context: Context) = TaildropReasonStrings(
+            blocked = context.getString(R.string.peer_taildrop_blocked),
+            noNetmap = context.getString(R.string.peer_taildrop_no_netmap),
+            notRunning = context.getString(R.string.peer_taildrop_not_running),
+            missingCap = context.getString(R.string.peer_taildrop_missing_cap),
+            offline = context.getString(R.string.peer_taildrop_offline),
+            noPeerInfo = context.getString(R.string.peer_taildrop_no_peer_info),
+            unsupportedOs = context.getString(R.string.peer_taildrop_unsupported_os),
+            noPeerApi = context.getString(R.string.peer_taildrop_no_peer_api),
+            otherUser = context.getString(R.string.peer_taildrop_other_user)
+        )
+    }
+}
+
+/** Sort key for a send picker: the peers the file can go to first, the refused ones last. */
+fun taildropPickerRank(status: TaildropStatus): Int = when (status) {
+    TaildropStatus.Available -> 0
+    is TaildropStatus.Offline -> 1
+    is TaildropStatus.Blocked -> 2
+}
+
+/**
+ * The peers a send picker lists, and their order. Drops this device, sharee nodes, Funnel's
+ * ingress node and peers the daemon named by nothing (none of them is a place a file can
+ * go); the rest are kept, including the peers the daemon refuses — a refused peer is drawn
+ * disabled with the daemon's reason (see [PeerShareItem]) rather than silently missing, so a
+ * device that is on the list but greyed out explains itself the way the details sheet does.
+ */
+fun taildropPickerPeers(status: StatusResponse, strings: TaildropReasonStrings): List<PeerData> {
+    val selfId = status.self?.id
+    return status.peers?.values.orEmpty()
+        .filter { (selfId == null || it.id != selfId) && (!it.hostName.isNullOrBlank() || !it.dnsName.isNullOrBlank()) && it.shareeNode != true && it.hostName != "funnel-ingress-node" }
+        .sortedWith(
+            compareBy<PeerData> { taildropPickerRank(taildropStatusOf(it, strings)) }
+                .thenByDescending { it.online == true }
+                .thenBy { it.getDisplayName().lowercase() }
+        )
 }
 
 fun getOsVisuals(os: String?): Pair<ImageVector, Color> {
@@ -591,15 +666,27 @@ fun PeerItem(peer: PeerData, isSelf: Boolean, onClick: () -> Unit) {
     }
 }
 
+/**
+ * One row of a send picker. [taildrop] is the daemon's verdict on this peer: Blocked makes
+ * the row dead and prints the reason under the name, Offline keeps it live and prints the
+ * note (the Online bit lags; the transfer itself finds out), Available prints nothing extra.
+ */
 @Composable
-fun PeerShareItem(peer: PeerData, enabled: Boolean, onClick: () -> Unit) {
+fun PeerShareItem(peer: PeerData, enabled: Boolean, taildrop: TaildropStatus = TaildropStatus.Available, onClick: () -> Unit) {
     val (osIcon, osColor) = getOsVisuals(peer.os)
+    val refused = taildrop is TaildropStatus.Blocked
+    val note = when (taildrop) {
+        TaildropStatus.Available -> null
+        is TaildropStatus.Offline -> taildrop.reason
+        is TaildropStatus.Blocked -> taildrop.reason
+    }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp)
-            .clickable(enabled = enabled) { onClick() },
+            .alpha(if (refused) 0.55f else 1f)
+            .clickable(enabled = enabled && !refused) { onClick() },
         shape = RoundedCornerShape(14.dp),
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
@@ -640,6 +727,16 @@ fun PeerShareItem(peer: PeerData, enabled: Boolean, onClick: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (note != null) {
+                    Text(
+                        note,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (refused) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
             }
             if (peer.online == true) {
                 Box(
@@ -670,6 +767,7 @@ private data class PeerDetailsStrings(
     val prevPeer: String,
     val nextPeer: String,
     val sendFile: String,
+    val tooltipDismiss: String,
     val pinging: String,
     /** "Ping: %1$s" — formatted in the page with String.format, not with stringResource:
      *  two peers are composed at once during a turn and each carries its own figure. */
@@ -870,6 +968,7 @@ fun PeerDetailsModal(
         prevPeer = stringResource(R.string.peer_details_prev),
         nextPeer = stringResource(R.string.peer_details_next),
         sendFile = stringResource(R.string.peer_send_file),
+        tooltipDismiss = stringResource(R.string.action_close),
         pinging = stringResource(R.string.peer_pinging),
         pingResultFormat = stringResource(R.string.peer_ping_result),
         pingSelf = stringResource(R.string.peer_ping_self),
@@ -1128,7 +1227,7 @@ fun PeerDetailsModal(
  * which cards are open, which row was just copied — is handed to it by [PeerDetailsModal],
  * which composes outside the sheet's window and holds the one copy of each.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun PeerDetailsPage(
     page: PeerPage,
@@ -1243,46 +1342,67 @@ private fun PeerDetailsPage(
         // plane calls offline keeps a live button under the same kind of note: the Online
         // bit lags, and a peer that woke a moment ago would otherwise show a dead button.
         item(key = "actions") {
+            // The reason is a tooltip, not a standing line: it costs no height in the
+            // sheet, and it appears at the moment a person presses the button and
+            // wonders why nothing happened. A blocked peer keeps a visible but dimmed
+            // button for the same reason — a control that vanishes teaches nothing.
             val taildropNote = when (taildrop) {
                 TaildropStatus.Available -> null
                 is TaildropStatus.Offline -> taildrop.reason
                 is TaildropStatus.Blocked -> taildrop.reason
             }
+            val refusedHere = taildrop is TaildropStatus.Blocked
+            val tooltipState = rememberTooltipState(isPersistent = true)
+            val scope = rememberCoroutineScope()
             Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 10.dp)) {
-                Button(
-                    onClick = onSendFileClick,
-                    enabled = taildrop !is TaildropStatus.Blocked,
-                    // heightIn rather than height: «Отправить файл» wraps at a large font
-                    // scale, and a fixed height cuts the second line off.
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 46.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp)
+                TooltipBox(
+                    positionProvider = TooltipDefaults.rememberTooltipPositionProvider(),
+                    tooltip = {
+                        if (taildropNote != null) {
+                            RichTooltip(
+                                title = { Text(strings.sendFile) },
+                                action = {
+                                    TextButton(onClick = { scope.launch { tooltipState.dismiss() } }) {
+                                        Text(strings.tooltipDismiss)
+                                    }
+                                }
+                            ) { Text(taildropNote) }
+                        }
+                    },
+                    state = tooltipState,
+                    enableUserInput = false
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.Send, null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        strings.sendFile,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                if (taildropNote != null) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(top = 8.dp, start = 4.dp, end = 4.dp),
-                        verticalAlignment = Alignment.Top
+                    Button(
+                        onClick = {
+                            if (refusedHere) scope.launch { tooltipState.show() } else onSendFileClick()
+                        },
+                        // Enabled even when refused: a disabled button swallows the tap,
+                        // and the tap is what the explanation hangs on. The dimmed
+                        // colours say it will not send.
+                        colors = if (refusedHere) {
+                            ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else ButtonDefaults.buttonColors(),
+                        // heightIn rather than height: «Отправить файл» wraps at a large font
+                        // scale, and a fixed height cuts the second line off.
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 46.dp)
+                            .semantics { if (taildropNote != null) stateDescription = taildropNote },
+                        shape = RoundedCornerShape(14.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp)
                     ) {
                         Icon(
-                            Icons.Default.Info,
-                            contentDescription = null,
-                            modifier = Modifier.padding(top = 1.dp).size(16.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            if (refusedHere) Icons.Default.Info else Icons.AutoMirrored.Filled.Send,
+                            null,
+                            Modifier.size(18.dp)
                         )
-                        Spacer(Modifier.width(6.dp))
+                        Spacer(Modifier.width(8.dp))
                         Text(
-                            taildropNote,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            strings.sendFile,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }

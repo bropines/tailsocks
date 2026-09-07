@@ -34,6 +34,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -64,23 +67,33 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.tween
 
 class FilesActivity : ComponentActivity() {
+    companion object {
+        /** Boolean extra: open on the TailDrop inbox rather than on Taildrive. Set by the
+         *  "file received" notification (TaildropEvents). */
+        const val EXTRA_OPEN_TAILDROP = "open_taildrop"
+    }
+
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(wrapContextWithLocale(newBase))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { TailSocksTheme { FilesScreen(onBack = { finish() }) } }
+        val openTaildrop = intent?.getBooleanExtra(EXTRA_OPEN_TAILDROP, false) == true
+        setContent { TailSocksTheme { FilesScreen(onBack = { finish() }, openTaildrop = openTaildrop) } }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun FilesScreen(onBack: () -> Unit) {
+fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val mainPagerState = rememberPagerState(pageCount = { 2 })
+    val mainPagerState = rememberPagerState(initialPage = if (openTaildrop) 1 else 0, pageCount = { 2 })
     val taildropPagerState = rememberPagerState(pageCount = { 3 })
+    // The daemon's verdict per peer, in the app's language; resolved here because the picker
+    // sheet's own window follows the system locale (wrapContextWithLocale()).
+    val taildropStrings = remember { TaildropReasonStrings.from(context) }
 
     val activeAccount = remember { AccountManager.getActiveAccount(context) }
     val taildropDir = remember(activeAccount.id) { TaildropPaths.ensureDir(context, activeAccount.id) }
@@ -135,10 +148,9 @@ fun FilesScreen(onBack: () -> Unit) {
                 
                 if (!pJson.startsWith("Error") && pJson.isNotBlank()) {
                     val status = AppJson.decodeFromString<StatusResponse>(pJson)
-                    val newPeers = status.peers?.values?.toList()
-                        ?.filter { it.id != status.self?.id && (!it.hostName.isNullOrBlank() || !it.dnsName.isNullOrBlank()) && it.shareeNode != true && it.hostName != "funnel-ingress-node" }
-                        ?.sortedWith(compareByDescending<PeerData> { it.online == true }.thenBy { it.getDisplayName() })
-                        ?: emptyList()
+                    // Same list and order as the Share sheet: peers the daemon refuses stay
+                    // on it, disabled, with the daemon's reason (taildropPickerPeers).
+                    val newPeers = taildropPickerPeers(status, taildropStrings)
                     withContext(Dispatchers.Main) {
                         peers = newPeers
                         selfPeer = status.self
@@ -169,6 +181,46 @@ fun FilesScreen(onBack: () -> Unit) {
 
     LaunchedEffect(activeAccount.id) { refreshData() }
     LaunchedEffect(taildropPagerState.currentPage, mainPagerState.currentPage) { refreshData() }
+
+    // A file the daemon has just finished writing: the service hears it on the IPN bus
+    // (TaildropEvents) and says so; the list is re-read from disk. No polling of our own.
+    DisposableEffect(Unit) {
+        val receiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: Context?, intent: Intent?) {
+                if (intent?.action == TaildropEvents.ACTION_RECEIVED) refreshData()
+            }
+        }
+        val filter = android.content.IntentFilter(TaildropEvents.ACTION_RECEIVED)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            context.registerReceiver(receiver, filter)
+        }
+        onDispose { try { context.unregisterReceiver(receiver) } catch (e: Exception) {} }
+    }
+
+    // While the Inbox page is on screen and the activity is resumed, TaildropEvents skips
+    // the "File received" notification: the broadcast above already shows the file where
+    // the user is looking. Anything else (paused, another page, screen closed) re-arms it.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val inboxPageShown = mainPagerState.currentPage == 1 && taildropPagerState.currentPage == 0
+    DisposableEffect(lifecycleOwner, inboxPageShown) {
+        var resumed = lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+        fun publish() { TaildropEvents.inboxVisible = inboxPageShown && resumed }
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> { resumed = true; publish() }
+                Lifecycle.Event.ON_PAUSE -> { resumed = false; publish() }
+                else -> {}
+            }
+        }
+        publish()
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            TaildropEvents.inboxVisible = false
+        }
+    }
 
     fun handleSaveRequest(file: TaildropFile) {
         val rootUri = GlobalSettings.getTaildropRootUri(context)
@@ -336,7 +388,7 @@ fun FilesScreen(onBack: () -> Unit) {
                     } else {
                         LazyColumn(modifier = Modifier.heightIn(max = 400.dp)) {
                             this@LazyColumn.items(peers) { p -> 
-                                PeerShareItem(p, !isSendingFile) {
+                                PeerShareItem(p, !isSendingFile, taildropStatusOf(p, taildropStrings)) {
                                     showPeerPicker = false; isSendingFile = true
                                     scope.launch(Dispatchers.IO) {
                                         sendSingleFileInActivity(context, selectedUriForSend!!, p) { sendProgressText = it }
@@ -360,19 +412,22 @@ private suspend fun saveFileToUri(context: Context, file: TaildropFile, destUri:
 
 private suspend fun sendSingleFileInActivity(context: Context, uri: Uri, peer: PeerData, onProgress: (String) -> Unit) {
     try {
+        // StableNodeID or nothing — see taildropTargetId (ShareActivity.kt).
+        val target = taildropTargetId(context, peer)
         val originalName = getFileName(context, uri) ?: "file_${System.currentTimeMillis()}"
         onProgress(context.getString(R.string.files_preparing_format, originalName))
         val outDir = File(context.cacheDir, "taildrop_out").apply { mkdirs() }
         val tmp = File(outDir, originalName)
         context.contentResolver.openInputStream(uri)?.use { i -> tmp.outputStream().use { o -> i.copyTo(o); o.flush() } }
         onProgress(context.getString(R.string.files_uploading))
-        val target = if (!peer.id.isNullOrEmpty()) peer.id else (peer.hostName ?: peer.dnsName ?: peer.getDisplayName())
         val res = Appctr.sendFileFromAPI(target, tmp.absolutePath)
-        
-        if (res.isBlank() || !(res.contains("error", true) || res.contains("failed", true))) {
+        tmp.delete()
+
+        // "OK" is a 2xx from the peer; every failure starts with "Error" and carries the
+        // peer's HTTP status and body ("HTTP 404: node not found") or the local reason.
+        if (res == "OK") {
             logSentFile(context, originalName, peer.getDisplayName())
             withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.files_sent), Toast.LENGTH_SHORT).show() }
-        } else withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.files_error_format, res), Toast.LENGTH_LONG).show() }
-        tmp.delete()
+        } else withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.files_error_format, res.removePrefix("Error: ")), Toast.LENGTH_LONG).show() }
     } catch (e: Exception) { withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.files_failed_format, e.message), Toast.LENGTH_SHORT).show() } }
 }

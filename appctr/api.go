@@ -276,7 +276,14 @@ func SetFileServerAddr(addr string) error {
 	return nil
 }
 
-// GetFileTargetsJSON fetches remote tailnet nodes capable of receiving files via Taildrop.
+// GetFileTargetsJSON returns /localapi/v0/file-targets: the JSON array of
+// peers this node may send files to right now, as the daemon judges it
+// (feature/taildrop/ext.go FileTargets: same user or ACL peer-cap
+// file-sharing-target, not tvOS, advertises a peerAPI port). Each element is
+// {"Node": <tailcfg.Node>, "PeerAPIURL": "http://<ip>:<port>"}; the Node's
+// "StableID" is the peerID SendFileFromAPI expects. Errors (daemon not running,
+// not connected, our node lacks the file-sharing cap) surface as a thrown
+// exception on the Kotlin side.
 func GetFileTargetsJSON() (string, error) {
 	if !IsRunning() {
 		return "", ErrDaemonNotRunning
@@ -288,7 +295,11 @@ func GetFileTargetsJSON() (string, error) {
 	return string(data), nil
 }
 
-// GetWaitingFilesJSON retrieves incoming Taildrop files waiting to be received.
+// GetWaitingFilesJSON returns /localapi/v0/files/, the daemon's managed inbox.
+// TailSocks runs the daemon with TS_TAILDROP_DIR (direct mode), where this
+// endpoint always answers "null" (feature/taildrop/retrieve.go:69-71); use
+// GetTaildropFilesFromAPI for the files actually on disk. Kept for the Console
+// and for a daemon started without that variable.
 func GetWaitingFilesJSON() (string, error) {
 	if !IsRunning() {
 		return "", ErrDaemonNotRunning

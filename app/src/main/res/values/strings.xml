@@ -464,7 +464,7 @@
     <string name="peer_taildrop_no_peer_info">No information about this device yet</string>
     <string name="peer_taildrop_unsupported_os">The device\'s OS doesn\'t support Taildrop</string>
     <string name="peer_taildrop_no_peer_api">The device exposes no peer API</string>
-    <string name="peer_taildrop_other_user">Belongs to another user or a tag. Sending it files takes two ACL grants, not one: file-sharing-target from that device (or its owner or tag) to yours, and file-send from yours back to it — with only the first, the daemon says the file can be sent and the device still refuses it (403)</string>
+    <string name="peer_taildrop_other_user">Belongs to another user or a tag. Taildrop between such devices cannot be turned on: the daemon looks for two capabilities that only Tailscale itself can issue — the console refuses to grant any name in the tailscale.com domain. The way out is to leave personal devices untagged; access can be granted by user or autogroup instead.</string>
     <!-- PeerDetailsModal: the traffic card -->
     <string name="peer_traffic_total">Transferred</string>
     <!-- PeerDetailsModal: headings of the cards -->
@@ -599,6 +599,12 @@
     <string name="files_sent">Sent!</string>
     <string name="files_error_format">Error: %1$s</string>
     <string name="files_failed_format">Failed: %1$s</string>
+    <string name="files_peer_no_id">The daemon listed %1$s without a node ID, so there is nothing to address the file to. Refresh the list and try again</string>
+    <string name="share_failed_format">Couldn\'t send %1$s: %2$s</string>
+    <!-- "File received" notification (TaildropEvents): its channel, title and "name from device" text -->
+    <string name="taildrop_notif_channel">Received files</string>
+    <string name="taildrop_received_title">File received</string>
+    <string name="taildrop_received_from_format">%1$s from %2$s</string>
     <string name="action_refresh">Refresh</string>
 
     <!-- ======================== Logs Screen ======================== -->

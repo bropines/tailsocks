@@ -243,13 +243,17 @@ private fun sendFileToPeer(context: Context, uri: Uri, peer: PeerData, scope: Co
     Toast.makeText(context, context.getString(R.string.peers_sending), Toast.LENGTH_SHORT).show()
     scope.launch(Dispatchers.IO) {
         try {
+            // StableNodeID or nothing: the daemon matches file-put targets by ID alone, so a
+            // name here would only turn a missing ID into a 404 (see taildropTargetId).
+            val target = taildropTargetId(context, peer)
             val originalName = getFileName(context, uri) ?: "file_${System.currentTimeMillis()}"
             val outDir = File(context.cacheDir, "peer_out").apply { mkdirs() }
             val tmp = File(outDir, originalName)
             context.contentResolver.openInputStream(uri)?.use { i -> tmp.outputStream().use { o -> i.copyTo(o); o.flush() } }
-            val target = if (!peer.id.isNullOrEmpty()) peer.id else (peer.hostName ?: peer.dnsName ?: peer.getDisplayName())
             val res = Appctr.sendFileFromAPI(target, tmp.absolutePath)
             tmp.delete()
+            // "OK" is a 2xx from the peer; every failure starts with "Error" and carries the
+            // peer's HTTP status and body, or the local reason.
             if (res == "OK") {
                 logSentFile(context, originalName, peer.getDisplayName())
                 withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.peers_sent), Toast.LENGTH_SHORT).show() }
