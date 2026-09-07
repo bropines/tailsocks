@@ -59,7 +59,7 @@ object ProfileHostinfo {
     }
 
     /**
-     * The 4.2.0 development builds of 2026-09-07 kept this key in the global
+     * The development builds of 2026-09-07 (before 4.1.1) kept this key in the global
      * preferences for a few hours; the one device that ran them carries it to
      * its active profile here, once, so the node it registered as Android keeps
      * saying Android.
