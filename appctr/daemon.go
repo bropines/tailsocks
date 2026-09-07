@@ -26,7 +26,33 @@ var errLaunchSuperseded = errors.New("daemon launch superseded before the proces
 // there is filesystem work (rm/ln) during which a Stop() used to find cmd == nil
 // and do nothing; the process then started anyway, orphaned, with a supervisor
 // that later reported it as a crash. The generation check closes that window.
-func tailscaledCmd(p pathControl, generation uint64, dnsFallbacks string, socksAddr, httpAddr, socksUser, socksPass, taildropDir, controlProxy string) error {
+// hostinfoReport is what the daemon is told to say about this device in its
+// Hostinfo. With honest false the patch-06 masquerade applies (OS "linux",
+// App "tailscale-cli", DeviceModel "Tailsocks"); with honest true the daemon
+// keeps OS "android" and reports the values below, read by the hook in
+// cmd/tailscaled/fix_android_netmon.go from TS_HONEST_HOSTINFO / TS_HI_*.
+type hostinfoReport struct {
+	honest      bool
+	osVersion   string
+	deviceModel string
+	pkg         string
+}
+
+// env returns the variables the daemon reads for the report; nil when the
+// masquerade is wanted, so an unset variable means "as before".
+func (h hostinfoReport) env() []string {
+	if !h.honest {
+		return nil
+	}
+	return []string{
+		"TS_HONEST_HOSTINFO=1",
+		"TS_HI_OS_VERSION=" + h.osVersion,
+		"TS_HI_DEVICE_MODEL=" + h.deviceModel,
+		"TS_HI_PACKAGE=" + h.pkg,
+	}
+}
+
+func tailscaledCmd(p pathControl, generation uint64, dnsFallbacks string, socksAddr, httpAddr, socksUser, socksPass, taildropDir, controlProxy string, hostinfo hostinfoReport) error {
 	// Cheap early exit before the filesystem work; the authoritative check is
 	// the one under stateMu below.
 	if !isCurrentGeneration(generation) {
@@ -105,6 +131,7 @@ func tailscaledCmd(p pathControl, generation uint64, dnsFallbacks string, socksA
 		c.Env = append(c.Env, "TS_SOCKS5_USER="+socksUser)
 		c.Env = append(c.Env, "TS_SOCKS5_PASS="+socksPass)
 	}
+	c.Env = append(c.Env, hostinfo.env()...)
 
 	// Check, start and register under one lock so Stop() can never observe a
 	// launch it is unable to retire: before this section the generation check

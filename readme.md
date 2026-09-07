@@ -210,7 +210,7 @@ TailSocks maintains 16 minimal atomic patches in [`appctr/patches/`](appctr/patc
 | `03-taildrop-monolithic-fs` | Pure-Go `fsFileOps` to avoid JNI panics in Taildrop |
 | `04-vip-services` | Append VIP services to `HostInfo` for coordination server visibility |
 | `05-localapi-cert` | Enable `/cert` endpoint compilation on Android |
-| `06-android-netmon` | Custom `netmon.InterfaceGetter` for Android 10+ `netlink` restrictions |
+| `06-android-netmon` | Custom `netmon.InterfaceGetter` for Android 10+ `netlink` restrictions; the Hostinfo masquerade (`OS = linux` by default, the real device with *Report the real OS*) |
 | `07-taildrive-android` | Android-specific Taildrive adaptations |
 | `08-netstack-cgnat` | CGNAT routing fix for netstack |
 | `09-netstack-loopback` | Loopback routing for self-addressed packets in netstack |

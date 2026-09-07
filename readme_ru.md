@@ -210,7 +210,7 @@ TailSocks поддерживает 16 минимальных атомарных 
 | `03-taildrop-monolithic-fs` | Файловые операции `fsFileOps` на чистом Go во избежание паник JNI в Taildrop |
 | `04-vip-services` | Добавление виртуальных сервисов (VIP) в `HostInfo` для видимости сервером координации |
 | `05-localapi-cert` | Включение компиляции эндпоинта `/cert` на Android |
-| `06-android-netmon` | Кастомный `netmon.InterfaceGetter` для ограничений `netlink` в Android 10+ |
+| `06-android-netmon` | Кастомный `netmon.InterfaceGetter` для ограничений `netlink` в Android 10+; маскировка Hostinfo (`OS = linux` по умолчанию, настоящее устройство при «Сообщать настоящую ОС») |
 | `07-taildrive-android` | Специфичные для Android адаптации Taildrive |
 | `08-netstack-cgnat` | Исправление маршрутизации CGNAT для netstack |
 | `09-netstack-loopback` | Loopback-маршрутизация для пакетов, адресованных самому себе в netstack |

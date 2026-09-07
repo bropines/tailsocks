@@ -708,13 +708,21 @@ class TailscaledService : Service() {
         }
 
         unhealthyTicks = 0
+        restartDaemonForRecovery("Connection did not come up (state: ${backendState.ifEmpty { "stopped" }})")
+        return true
+    }
+
+    /**
+     * One bounded auto-reconnect attempt: tear the daemon down and start again,
+     * unless a manual stop, restart or start lands meanwhile. Shared by the
+     * health check (a connection that never comes up) and the crash path (a
+     * daemon that exited on its own).
+     */
+    private fun restartDaemonForRecovery(reason: String) {
         autoRestartsDone++
         autoRestartInFlight = true
-        Log.w(TAG, "Connection is not coming up (state=$backendState), restarting daemon (attempt $autoRestartsDone)")
-        Appctr.logAndroid(
-            "WARN", "CORE",
-            "Connection did not come up (state: ${backendState.ifEmpty { "stopped" }}), restarting the daemon (attempt $autoRestartsDone)"
-        )
+        Log.w(TAG, "$reason, restarting daemon (attempt $autoRestartsDone)")
+        Appctr.logAndroid("WARN", "CORE", "$reason, restarting the daemon (attempt $autoRestartsDone)")
         updateNotification("Reconnecting...")
 
         val gen = lifecycleGeneration.get()
@@ -738,7 +746,74 @@ class TailscaledService : Service() {
                 autoRestartInFlight = false
             }
         }.also { it.start() }
-        return true
+    }
+
+    /**
+     * The userspace daemon process exited on its own (the Go supervisor reports
+     * it through the close callback; a Stop() we asked for never gets here).
+     *
+     * A crash is not a manual Stop, so desired_running stays true and nothing
+     * here cancels the watchdog. What happens next is whatever recovery the
+     * user enabled: auto-reconnect restarts the daemon now, within its attempt
+     * limit; otherwise the service stands down with a tap-to-reconnect
+     * notification, the 15-minute watchdog revives it if that is on, and a
+     * reboot starts it again. Up to 4.1.0 this path ran stopMe(), which cleared
+     * desired_running — so a crashed daemon was treated exactly like a user
+     * pressing Stop and neither recovery ever fired.
+     */
+    private fun onDaemonExited() {
+        if (teardownStarted || !ProxyState.isUserLetRunning(this)) {
+            // A stop or restart is already in progress, or the user stopped.
+            return
+        }
+        Appctr.logAndroid("ERROR", "CORE", "The daemon exited unexpectedly")
+        if (GlobalSettings.isAutoReconnectEnabled(this) && !autoRestartInFlight) {
+            val limit = GlobalSettings.getAutoReconnectAttempts(this)
+            if (limit == 0 || autoRestartsDone < limit) {
+                restartDaemonForRecovery("The daemon exited unexpectedly")
+                return
+            }
+            Appctr.logAndroid("WARN", "CORE", "Auto-reconnect attempts exhausted ($autoRestartsDone); leaving the connection down")
+        }
+        standDownAfterCrash()
+    }
+
+    /**
+     * Like stopMe(), minus the parts that record a user decision: the wish to
+     * be connected and the watchdog alarm both survive, and a notification
+     * says what happened.
+     */
+    private fun standDownAfterCrash() {
+        if (teardownStarted) return
+        teardownStarted = true
+        refreshHandler.removeCallbacks(refreshRunnable)
+        try {
+            stopTunMode()
+        } catch (t: Throwable) {
+            Log.e(TAG, "stopTunMode failed after a daemon crash, continuing teardown", t)
+        }
+        updateNotification("Connection lost")
+        ServiceWatchdog.noteDaemonCrashed(this)
+
+        val gen = lifecycleGeneration.incrementAndGet()
+        shutdownInFlight = Thread {
+            try {
+                shutdownDaemon()
+            } finally {
+                refreshHandler.post {
+                    if (gen != lifecycleGeneration.get()) {
+                        Log.i(TAG, "Crash stand-down superseded by a newer start")
+                        return@post
+                    }
+                    if (wakeLock?.isHeld == true) wakeLock?.release()
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
+                    updateTile()
+                    applicationContext.sendBroadcast(Intent("STOP").setPackage(packageName))
+                    sendStatusBroadcast(this, "STOPPED")
+                }
+            }
+        }.also { it.start() }
     }
 
     /**
@@ -1376,6 +1451,11 @@ class TailscaledService : Service() {
                             return@Thread
                         }
                         Log.i(TAG, "Root daemon is already running. Attaching to existing socket with full options.")
+                        // The daemon keeps whatever the boot script gave it, but the
+                        // env file that script reads next boot is brought up to date
+                        // now, so a settings change made while attached is not lost
+                        // to the next reboot.
+                        RootUtils.writeRootEnvFile(this@TailscaledService, rootDaemonSpec(options))
                         Appctr.attachExternal(options)
                     } else {
                         if (socketFile.exists()) {
@@ -1383,20 +1463,7 @@ class TailscaledService : Service() {
                             RootUtils.stopRootDaemon(options.socketPath)
                             RootUtils.handStateBackToApp(this@TailscaledService)
                         }
-                        val logsDir = java.io.File(filesDir.parentFile ?: filesDir, "logs").absolutePath
-                        val logFile = "$logsDir/tailscaled.log"
-                        val ok = RootUtils.startRootDaemon(
-                            context = this@TailscaledService,
-                            stateDir = options.statePath,
-                            socketPath = options.socketPath,
-                            logFilePath = logFile,
-                            socksAddr = options.socks5Server,
-                            httpAddr = options.httpProxy,
-                            controlProxy = options.controlProxy,
-                            taildropDir = options.taildropDir,
-                            tunMode = GlobalSettings.isRootTunEnabled(this@TailscaledService),
-                            dnsFallbacks = upstreamDnsAddresses()
-                        )
+                        val ok = RootUtils.startRootDaemon(this@TailscaledService, rootDaemonSpec(options))
 
                         if (!ok) {
                             // Do not report "Active" for a daemon that never came up.
@@ -1565,7 +1632,9 @@ class TailscaledService : Service() {
             execPath     = "${applicationInfo.nativeLibraryDir}/libtailscale.so"
             socketPath   = "${filesDir.absolutePath}/tailscaled.sock"
             statePath    = stateDir
-            closeCallBack = Closer { stopMe() }
+            // The Go supervisor calls this when the daemon process exits on its
+            // own. A crash is not a Stop (see onDaemonExited).
+            closeCallBack = Closer { onDaemonExited() }
             doReset      = profilePrefs.getBoolean("do_reset", false)
             if (doReset) profilePrefs.edit().putBoolean("do_reset", false).apply()
 
@@ -1574,6 +1643,14 @@ class TailscaledService : Service() {
             acceptRoutes = accRoutes
             acceptDNS = accDNS
             exitNodeID = profilePrefs.getString("exit_node_id", "") ?: ""
+
+            // What the daemon says about this device to the coordination server.
+            // Off: the patch-06 masquerade (OS "linux", a Linux CLI). On: the
+            // truth, filled the way the official Android client fills it.
+            honestHostinfo = GlobalSettings.isHonestHostinfoEnabled(this@TailscaledService)
+            osVersion = android.os.Build.VERSION.RELEASE ?: ""
+            deviceModel = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}".trim()
+            installSource = installSourceName()
 
             // The bridge parses extraUpArgs as `tailscale up`-style flags and folds
             // the result into the same prefs PATCH syncSettings sends, after the
@@ -1586,6 +1663,51 @@ class TailscaledService : Service() {
 
             val detailedLogs = GlobalSettings.getBoolean(this@TailscaledService, "detailed_logs", false)
             Appctr.setLogLevel(if (detailedLogs) 0 else 1)
+        }
+    }
+
+    /** The root daemon's launch parameters, the same for the app's start and the boot script. */
+    private fun rootDaemonSpec(options: StartOptions): RootUtils.RootDaemonSpec {
+        val logsDir = java.io.File(filesDir.parentFile ?: filesDir, "logs").absolutePath
+        return RootUtils.RootDaemonSpec(
+            stateDir = options.statePath,
+            socketPath = options.socketPath,
+            logFilePath = "$logsDir/tailscaled.log",
+            socksAddr = options.socks5Server,
+            httpAddr = options.httpProxy,
+            socksUser = options.socks5User,
+            socksPass = options.socks5Pass,
+            controlProxy = options.controlProxy,
+            taildropDir = options.taildropDir,
+            tunMode = GlobalSettings.isRootTunEnabled(this),
+            dnsFallbacks = upstreamDnsAddresses(),
+            honestHostinfo = options.honestHostinfo,
+            osVersion = options.osVersion,
+            deviceModel = options.deviceModel,
+            installSource = options.installSource,
+        )
+    }
+
+    /**
+     * Hostinfo.Package the way the official Android client reports it:
+     * "googleplay", "fdroid", "amazon", else "unknown". Only sent in honest mode.
+     */
+    private fun installSourceName(): String {
+        val installer = try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                packageManager.getInstallSourceInfo(packageName).installingPackageName
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.getInstallerPackageName(packageName)
+            }
+        } catch (e: Exception) {
+            null
+        }
+        return when (installer) {
+            "com.android.vending" -> "googleplay"
+            "org.fdroid.fdroid", "org.fdroid.basic" -> "fdroid"
+            "com.amazon.venezia" -> "amazon"
+            else -> "unknown"
         }
     }
 

@@ -1,6 +1,6 @@
 diff -N -r -u -x '*.orig' -x '*.rej' orig/drive/driveimpl/drive_test.go tailscale_src/drive/driveimpl/drive_test.go
 --- orig/drive/driveimpl/drive_test.go	2026-07-31 19:22:18.000000000 +0300
-+++ tailscale_src/drive/driveimpl/drive_test.go	2026-09-01 14:52:19.623363638 +0300
++++ tailscale_src/drive/driveimpl/drive_test.go	2026-09-06 23:54:16.292281832 +0300
 @@ -556,7 +556,7 @@
  	r := &remote{
  		ln:          ln,
@@ -12,7 +12,7 @@ diff -N -r -u -x '*.orig' -x '*.rej' orig/drive/driveimpl/drive_test.go tailscal
  	}
 diff -N -r -u -x '*.orig' -x '*.rej' orig/drive/driveimpl/fileserver.go tailscale_src/drive/driveimpl/fileserver.go
 --- orig/drive/driveimpl/fileserver.go	2026-07-31 19:22:18.000000000 +0300
-+++ tailscale_src/drive/driveimpl/fileserver.go	2026-09-01 14:52:19.623623591 +0300
++++ tailscale_src/drive/driveimpl/fileserver.go	2026-09-06 23:54:16.292472188 +0300
 @@ -10,6 +10,7 @@
  	"fmt"
  	"net"
@@ -41,7 +41,7 @@ diff -N -r -u -x '*.orig' -x '*.rej' orig/drive/driveimpl/fileserver.go tailscal
  	s.sharesMu.RUnlock()
 diff -N -r -u -x '*.orig' -x '*.rej' orig/drive/driveimpl/remote_impl.go tailscale_src/drive/driveimpl/remote_impl.go
 --- orig/drive/driveimpl/remote_impl.go	2026-07-31 19:22:18.000000000 +0300
-+++ tailscale_src/drive/driveimpl/remote_impl.go	2026-09-01 14:52:19.623696829 +0300
++++ tailscale_src/drive/driveimpl/remote_impl.go	2026-09-06 23:54:16.292574276 +0300
 @@ -27,27 +27,33 @@
  	"tailscale.com/drive/driveimpl/compositedav"
  	"tailscale.com/drive/driveimpl/dirfs"
@@ -101,7 +101,7 @@ diff -N -r -u -x '*.orig' -x '*.rej' orig/drive/driveimpl/remote_impl.go tailsca
  				}
 diff -N -r -u -x '*.orig' -x '*.rej' orig/drive/remote_android.go tailscale_src/drive/remote_android.go
 --- orig/drive/remote_android.go	1970-01-01 03:00:00.000000000 +0300
-+++ tailscale_src/drive/remote_android.go	2026-09-01 14:52:19.623760824 +0300
++++ tailscale_src/drive/remote_android.go	2026-09-06 23:54:16.292663834 +0300
 @@ -0,0 +1,13 @@
 +// Copyright (c) Tailscale Inc & contributors
 +// SPDX-License-Identifier: BSD-3-Clause
@@ -118,7 +118,7 @@ diff -N -r -u -x '*.orig' -x '*.rej' orig/drive/remote_android.go tailscale_src/
 +}
 diff -N -r -u -x '*.orig' -x '*.rej' orig/drive/remote_unix.go tailscale_src/drive/remote_unix.go
 --- orig/drive/remote_unix.go	2026-07-31 19:22:18.000000000 +0300
-+++ tailscale_src/drive/remote_unix.go	2026-09-01 14:52:19.623791850 +0300
++++ tailscale_src/drive/remote_unix.go	2026-09-06 23:54:16.292892808 +0300
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause

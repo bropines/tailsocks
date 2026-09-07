@@ -484,99 +484,169 @@ object RootUtils {
         return res.ok && res.output.contains("uid=0")
     }
 
-    fun startRootDaemon(
-        context: Context,
-        stateDir: String,
-        socketPath: String,
-        logFilePath: String,
-        socksAddr: String = "127.0.0.1:1053",
-        httpAddr: String = "",
-        controlProxy: String = "",
-        taildropDir: String = "",
-        tunMode: Boolean = true,
-        dnsFallbacks: List<String> = listOf("1.1.1.1", "8.8.8.8")
-    ): Boolean {
+    /**
+     * Everything a root daemon is started with, whether by the app now or by the
+     * boot script after the next reboot. One object so the two launch paths
+     * cannot drift: the app-driven start puts these into the daemon's command
+     * line and environment, and writes the same values into the root-owned env
+     * file the boot script parses (see writeRootEnvFile).
+     */
+    data class RootDaemonSpec(
+        val stateDir: String,
+        val socketPath: String,
+        val logFilePath: String = "",
+        val socksAddr: String = "",
+        val httpAddr: String = "",
+        val socksUser: String = "",
+        val socksPass: String = "",
+        val controlProxy: String = "",
+        val taildropDir: String = "",
+        val tunMode: Boolean = true,
+        val dnsFallbacks: List<String> = listOf("1.1.1.1", "8.8.8.8"),
+        /** Report OS "android" and the real device instead of the patch-06 masquerade. */
+        val honestHostinfo: Boolean = false,
+        val osVersion: String = "",
+        val deviceModel: String = "",
+        val installSource: String = "",
+    )
+
+    /**
+     * The `export NAME='value'` lines both root launch paths share. Every value
+     * is single-quoted through shQuote — the boot script accepts nothing else
+     * (assets/scripts/tailscaled.sh parses the file instead of sourcing it),
+     * and a user-supplied value must never be expanded by a root shell.
+     */
+    private fun rootDaemonEnv(context: Context, spec: RootDaemonSpec, logsDir: String): String {
+        val env = StringBuilder()
+        env.append("export TS_LOGS_DIR=${shQuote(logsDir)}\n")
+        env.append("export TS_NO_LOGS_NO_SUPPORT=${shQuote("true")}\n")
+        env.append("export TS_AUTH_ONCE=${shQuote("true")}\n")
+        // Must match the addresses excluded from the DNS redirect in
+        // applyTailscale0Routing, otherwise the daemon's bootstrap queries are
+        // redirected into MagicDNS before MagicDNS can answer anything.
+        val fallbacks = spec.dnsFallbacks.ifEmpty { listOf("1.1.1.1", "8.8.8.8") }
+        env.append("export TS_DNS_FALLBACK=${shQuote(fallbacks.joinToString(","))}\n")
+        // The daemon has no VpnService to protect its sockets, so it sets
+        // Android's protect bit itself unless the user wants the opposite:
+        // its own traffic riding whatever VPN client holds the tunnel. Quoted:
+        // up to 4.1.0 this line was written bare and the boot script's parser
+        // dropped it, so "Ignore other VPNs = off" reverted after every reboot.
+        if (!GlobalSettings.isRootVpnBypassEnabled(context)) {
+            env.append("export TS_VPN_BYPASS=${shQuote("0")}\n")
+        }
+        if (spec.taildropDir.isNotEmpty()) {
+            env.append("export TS_TAILDROP_DIR=${shQuote(spec.taildropDir)}\n")
+        }
+        // The SOCKS5 password. Only the userspace path used to pass it, so a
+        // Root Mode proxy — LAN-exposed or not — accepted anyone. The file is
+        // root-owned 0600 and already carries the control-proxy password.
+        if (spec.socksUser.isNotEmpty() || spec.socksPass.isNotEmpty()) {
+            env.append("export TS_SOCKS5_USER=${shQuote(spec.socksUser)}\n")
+            env.append("export TS_SOCKS5_PASS=${shQuote(spec.socksPass)}\n")
+        }
+        if (spec.honestHostinfo) {
+            env.append("export TS_HONEST_HOSTINFO=${shQuote("1")}\n")
+            env.append("export TS_HI_OS_VERSION=${shQuote(spec.osVersion)}\n")
+            env.append("export TS_HI_DEVICE_MODEL=${shQuote(spec.deviceModel)}\n")
+            env.append("export TS_HI_PACKAGE=${shQuote(spec.installSource)}\n")
+        }
+
+        // Single-quoted: the control proxy URL carries a user-supplied
+        // password, and this file is read by the boot script as root, so
+        // a value containing $(...) or backticks would otherwise run as root
+        // on every boot.
+        if (spec.controlProxy.isNotEmpty()) {
+            val staticOverride = resolveProxyHostStatic(spec.controlProxy)
+            if (staticOverride.isNotEmpty()) {
+                env.append("export TS_STATIC_HOSTS=${shQuote(staticOverride)}\n")
+            }
+            if (spec.controlProxy.startsWith("socks5://")) {
+                env.append("export ALL_PROXY=${shQuote(spec.controlProxy)}\n")
+            } else {
+                env.append("export HTTP_PROXY=${shQuote(spec.controlProxy)}\n")
+                env.append("export HTTPS_PROXY=${shQuote(spec.controlProxy)}\n")
+            }
+        }
+
+        // What the boot script needs to build the same command line the app
+        // builds below. Without these a daemon started at boot had no SOCKS5 or
+        // HTTP listener (Taildrive in Files and LAN clients dead until a manual
+        // restart), always a kernel TUN, and whichever profile `find` saw first.
+        env.append("export TAILSOCKS_STATE_DIR=${shQuote(spec.stateDir)}\n")
+        if (spec.socksAddr.isNotEmpty() && spec.socksAddr != "none") {
+            env.append("export TAILSOCKS_SOCKS_ADDR=${shQuote(spec.socksAddr)}\n")
+        }
+        if (spec.httpAddr.isNotEmpty()) {
+            env.append("export TAILSOCKS_HTTP_ADDR=${shQuote(spec.httpAddr)}\n")
+        }
+        env.append("export TAILSOCKS_TUN=${shQuote(if (spec.tunMode) "tailscale0" else "userspace-networking")}\n")
+        return env.toString()
+    }
+
+    /**
+     * Writes the root-owned env file the boot script parses.
+     *
+     * The boot script reads this file as root on every boot, so it must not
+     * live anywhere the app uid can write: a restored backup used to be able to
+     * drop an attacker's files/control_proxy.env there. It is written through
+     * su into a root-owned directory, 0600, via a quoted heredoc (no expansion),
+     * and the old app-writable copy is removed. Called from every Root Mode
+     * start — the app's own launch and the attach to a daemon the boot script
+     * started — so the next boot always uses the current settings.
+     */
+    fun writeRootEnvFile(context: Context, spec: RootDaemonSpec): Boolean {
+        val dataDir = context.filesDir.parentFile?.absolutePath ?: context.filesDir.absolutePath
+        val logsDir = File(dataDir, "logs").apply { mkdirs() }.absolutePath
+        return writeRootEnvFile(rootDaemonEnv(context, spec, logsDir), dataDir)
+    }
+
+    private fun writeRootEnvFile(env: String, dataDir: String): Boolean {
+        val envScript = StringBuilder()
+            .append("mkdir -p ").append(ROOT_ENV_DIR).append(" && chmod 700 ").append(ROOT_ENV_DIR).append('\n')
+            .append("cat > ").append(ROOT_ENV_FILE).append(" <<'TAILSOCKS_ENV_EOF'\n")
+            .append(env)
+            .append("TAILSOCKS_ENV_EOF\n")
+            .append("chmod 600 ").append(ROOT_ENV_FILE).append('\n')
+            .append("rm -f ").append(shQuote("$dataDir/files/control_proxy.env")).append('\n')
+        val ok = runSu("control-proxy-env", envScript.toString()).ok
+        if (!ok) {
+            Log.w(TAG, "Failed to write the root-owned control_proxy.env; the boot script will start with stale or no settings")
+        }
+        return ok
+    }
+
+    fun startRootDaemon(context: Context, spec: RootDaemonSpec): Boolean {
         return try {
             val tailscaledBin = File(context.applicationInfo.nativeLibraryDir, "libtailscale.so").absolutePath
             val dataDir = context.filesDir.parentFile?.absolutePath ?: context.filesDir.absolutePath
             val logsDir = File(dataDir, "logs").apply { mkdirs() }.absolutePath
-            val logFile = if (logFilePath.isNotEmpty()) logFilePath else "$logsDir/tailscaled.log"
+            val logFile = if (spec.logFilePath.isNotEmpty()) spec.logFilePath else "$logsDir/tailscaled.log"
             // Everything the daemon appends from here on belongs to this run.
             lastDaemonLogFile = File(logFile)
             daemonLogStartOffset = File(logFile).length()
 
-            val socketFile = File(socketPath)
+            val socketFile = File(spec.socketPath)
             socketFile.parentFile?.mkdirs()
 
-            val env = StringBuilder()
-            env.append("export TS_LOGS_DIR=${shQuote(logsDir)}\n")
-            env.append("export TS_NO_LOGS_NO_SUPPORT=true\n")
-            env.append("export TS_AUTH_ONCE=true\n")
-            // Must match the addresses excluded from the DNS redirect in
-            // applyTailscale0Routing, otherwise the daemon's bootstrap queries are
-            // redirected into MagicDNS before MagicDNS can answer anything.
-            val fallbacks = dnsFallbacks.ifEmpty { listOf("1.1.1.1", "8.8.8.8") }
-            env.append("export TS_DNS_FALLBACK=${shQuote(fallbacks.joinToString(","))}\n")
-            // The daemon has no VpnService to protect its sockets, so it sets
-            // Android's protect bit itself unless the user wants the opposite:
-            // its own traffic riding whatever VPN client holds the tunnel.
-            if (!GlobalSettings.isRootVpnBypassEnabled(context)) {
-                env.append("export TS_VPN_BYPASS=0\n")
-            }
-
-            if (taildropDir.isNotEmpty()) {
-                env.append("export TS_TAILDROP_DIR=${shQuote(taildropDir)}\n")
-            }
-
-            // Single-quoted: the control proxy URL carries a user-supplied
-            // password, and this file is sourced by the boot script as root, so
-            // a value containing $(...) or backticks would otherwise run as root
-            // on every boot.
-            if (controlProxy.isNotEmpty()) {
-                val staticOverride = resolveProxyHostStatic(controlProxy)
-                if (staticOverride.isNotEmpty()) {
-                    env.append("export TS_STATIC_HOSTS=${shQuote(staticOverride)}\n")
-                }
-                if (controlProxy.startsWith("socks5://")) {
-                    env.append("export ALL_PROXY=${shQuote(controlProxy)}\n")
-                } else {
-                    env.append("export HTTP_PROXY=${shQuote(controlProxy)}\n")
-                    env.append("export HTTPS_PROXY=${shQuote(controlProxy)}\n")
-                }
-            }
-
-            // The boot script sources this file as root on every boot, so it must
-            // not live anywhere the app uid can write: a restored backup used to
-            // be able to drop an attacker's files/control_proxy.env there. It is
-            // written through su into a root-owned directory, 0600, via a quoted
-            // heredoc (no expansion), and the old app-writable copy is removed.
-            val envScript = StringBuilder()
-                .append("mkdir -p ").append(ROOT_ENV_DIR).append(" && chmod 700 ").append(ROOT_ENV_DIR).append('\n')
-                .append("cat > ").append(ROOT_ENV_FILE).append(" <<'TAILSOCKS_ENV_EOF'\n")
-                .append(env)
-                .append("TAILSOCKS_ENV_EOF\n")
-                .append("chmod 600 ").append(ROOT_ENV_FILE).append('\n')
-                .append("rm -f ").append(shQuote("$dataDir/files/control_proxy.env")).append('\n')
-            if (!runSu("control-proxy-env", envScript.toString()).ok) {
-                Log.w(TAG, "Failed to write the root-owned control_proxy.env; the boot script will start without proxy settings")
-            }
+            val env = rootDaemonEnv(context, spec, logsDir)
+            writeRootEnvFile(env, dataDir)
 
             // Every argument is quoted: the listen addresses come from free-text
             // settings fields and are interpolated into a root shell.
             val cmd = mutableListOf<String>().apply {
                 add(shQuote(tailscaledBin))
-                add("--statedir=" + shQuote(stateDir))
-                add("--socket=" + shQuote(socketPath))
-                if (socksAddr.isNotEmpty() && socksAddr != "none") {
-                    add("--socks5-server=" + shQuote(socksAddr))
+                add("--statedir=" + shQuote(spec.stateDir))
+                add("--socket=" + shQuote(spec.socketPath))
+                if (spec.socksAddr.isNotEmpty() && spec.socksAddr != "none") {
+                    add("--socks5-server=" + shQuote(spec.socksAddr))
                 }
-                if (tunMode) {
+                if (spec.tunMode) {
                     add("--tun=tailscale0")
                 } else {
                     add("--tun=userspace-networking")
                 }
-                if (httpAddr.isNotEmpty()) {
-                    add("--outbound-http-proxy-listen=" + shQuote(httpAddr))
+                if (spec.httpAddr.isNotEmpty()) {
+                    add("--outbound-http-proxy-listen=" + shQuote(spec.httpAddr))
                 }
             }.joinToString(" ")
 
@@ -604,10 +674,10 @@ object RootUtils {
             // No SELinux rule is injected here any more: allowSocketConnect adds
             // one below, with the real domains, and only if a connect is denied.
             sb.append("for i in \$(seq 1 30); do\n")
-            sb.append("    if [ -S ${shQuote(socketPath)} ] || [ -e ${shQuote(socketPath)} ]; then\n")
-            sb.append("        chmod 666 ${shQuote(socketPath)}\n")
-            sb.append("        chcon u:object_r:app_data_file:s0 ${shQuote(socketPath)} 2>/dev/null || true\n")
-            sb.append("        chmod 700 ${shQuote(stateDir)} 2>/dev/null || true\n")
+            sb.append("    if [ -S ${shQuote(spec.socketPath)} ] || [ -e ${shQuote(spec.socketPath)} ]; then\n")
+            sb.append("        chmod 666 ${shQuote(spec.socketPath)}\n")
+            sb.append("        chcon u:object_r:app_data_file:s0 ${shQuote(spec.socketPath)} 2>/dev/null || true\n")
+            sb.append("        chmod 700 ${shQuote(spec.stateDir)} 2>/dev/null || true\n")
             sb.append("        break\n")
             sb.append("    fi\n")
             sb.append("    sleep 0.2\n")
@@ -623,9 +693,9 @@ object RootUtils {
             var attempts = 0
             var policyPatched = false
             while (attempts < 25) {
-                val error = probeSocket(socketPath)
+                val error = probeSocket(spec.socketPath)
                 if (error == null) {
-                    Log.i(TAG, "Root daemon socket is accepting connections at $socketPath")
+                    Log.i(TAG, "Root daemon socket is accepting connections at ${spec.socketPath}")
                     rootLog("INFO", "Root daemon started (socket ready)")
                     return true
                 }
@@ -634,7 +704,7 @@ object RootUtils {
                 // probing as before.
                 if (!policyPatched && isPolicyDenial(error)) {
                     policyPatched = true
-                    if (injectSocketConnectRule(socketPath) && isDaemonAlive(socketPath)) {
+                    if (injectSocketConnectRule(spec.socketPath) && isDaemonAlive(spec.socketPath)) {
                         rootLog("INFO", "Root daemon started (socket ready)")
                         return true
                     }
@@ -642,7 +712,7 @@ object RootUtils {
                 Thread.sleep(200)
                 attempts++
             }
-            rootLog("ERROR", "Root daemon did not open $socketPath within 5s")
+            rootLog("ERROR", "Root daemon did not open ${spec.socketPath} within 5s")
             false
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start root daemon: ${e.message}", e)

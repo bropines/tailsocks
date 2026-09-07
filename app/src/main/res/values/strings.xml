@@ -1239,4 +1239,10 @@
     <string name="main_status_active_root_shared_desc">Carrying the apps another VPN leaves out • Tap to stop</string>
     <string name="main_exit_node_partial_label">Exit node: partial</string>
     <string name="main_exit_node_partial_desc">%1$s — only for the apps another VPN leaves out</string>
+    <!-- What the daemon reports to the coordination server (patch 06 masquerade and its switch) -->
+    <string name="settings_honest_hostinfo_title">Report the real OS</string>
+    <string name="settings_honest_hostinfo_desc">Tell the coordination server this is an Android device, with its real model and version, instead of presenting the node as a Linux command-line client. Restarts the daemon. Serve, Funnel and Tailscale Services may behave differently — turn it back off if they stop working.</string>
+    <!-- The daemon exited on its own; the user still wanted the connection -->
+    <string name="daemon_crashed_title">TailSocks lost the connection</string>
+    <string name="daemon_crashed_text">The daemon stopped on its own. Tap to reconnect.</string>
 </resources>

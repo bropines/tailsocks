@@ -59,7 +59,7 @@ TailSocks поддерживает минимальный набор атома�
 * **`03-taildrop-monolithic-fs`**: Регистрирует `fsFileOps` на чистом Go во избежание JNI-паник в Android и направляет Taildrop в изолированную директорию приложения.
 * **`04-vip-services`**: Добавляет виртуальные сервисы (VIP) в структуру `HostInfo`, делая их видимыми для сервера координации.
 * **`05-localapi-cert`**: Включает компиляцию эндпоинта `/cert` для Android.
-* **`06-android-netmon`**: Реализует кастомный `netmon.InterfaceGetter` для обхода ограничений `netlink` на Android 10+ и маскирует `HostInfo` (ОС, модель устройства) для обхода мобильных ограничений на сервере координации Tailscale.
+* **`06-android-netmon`**: Реализует кастомный `netmon.InterfaceGetter` для обхода ограничений `netlink` на Android 10+ и по умолчанию представляет узел серверу координации как Linux-клиент командной строки (`OS = linux`, `App = tailscale-cli`, `DeviceModel = Tailsocks`). При включённом «Сообщать настоящую ОС» (`TS_HONEST_HOSTINFO=1`) сообщает настоящее Android-устройство; в самом клиенте от этих полей ничего не зависит.
 * **`07-taildrive-android`**: Адаптации Taildrive для платформы Android.
 * **`08-netstack-cgnat`**: Исправление маршрутизации CGNAT в netstack.
 * **`09-netstack-loopback`**: Loopback-маршрутизация пакетов, адресованных самому себе в netstack.

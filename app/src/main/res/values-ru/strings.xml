@@ -1239,4 +1239,10 @@
     <string name="main_status_active_root_shared_desc">Ведём приложения вне чужого VPN • Нажмите для остановки</string>
     <string name="main_exit_node_partial_label">Выходной узел: частично</string>
     <string name="main_exit_node_partial_desc">%1$s — только для приложений, которые не забрал другой VPN</string>
+    <!-- What the daemon reports to the coordination server (patch 06 masquerade and its switch) -->
+    <string name="settings_honest_hostinfo_title">Сообщать настоящую ОС</string>
+    <string name="settings_honest_hostinfo_desc">Сообщать серверу координации, что это Android-устройство, с настоящей моделью и версией, а не выдавать узел за Linux-клиент командной строки. Перезапускает демон. Serve, Funnel и Tailscale Services могут повести себя иначе — выключите обратно, если они перестанут работать.</string>
+    <!-- The daemon exited on its own; the user still wanted the connection -->
+    <string name="daemon_crashed_title">TailSocks потерял соединение</string>
+    <string name="daemon_crashed_text">Демон остановился сам. Нажмите, чтобы переподключиться.</string>
 </resources>

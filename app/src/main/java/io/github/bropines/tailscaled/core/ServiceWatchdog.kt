@@ -117,8 +117,11 @@ object ServiceWatchdog {
      * Called on every start and stop, so it does nothing when there is no outage.
      */
     fun clearRevivalRefused(context: Context) {
-        if (!GlobalSettings.getBoolean(context, KEY_REVIVAL_REFUSED, false)) return
-        GlobalSettings.setBoolean(context, KEY_REVIVAL_REFUSED, false)
+        if (GlobalSettings.getBoolean(context, KEY_REVIVAL_REFUSED, false)) {
+            GlobalSettings.setBoolean(context, KEY_REVIVAL_REFUSED, false)
+        }
+        // The crash notification shares this id and latches nothing, so the
+        // cancel is unconditional: a start or a stop ends either outage.
         try {
             NotificationManagerCompat.from(context).cancel(NOTIF_ID)
         } catch (e: Exception) {
@@ -126,7 +129,22 @@ object ServiceWatchdog {
         }
     }
 
-    private fun postReviveNotification(context: Context) {
+    /**
+     * The daemon exited on its own while the user wanted it running and no
+     * recovery the user enabled could take it (auto-reconnect off or out of
+     * attempts). Unlike a refused revival this latches nothing: desired_running
+     * stays true, the alarm stays armed, and the notification is the shortcut
+     * back — the same tap-to-reconnect path as the refused-revival one.
+     */
+    fun noteDaemonCrashed(context: Context) {
+        postReviveNotification(context, R.string.daemon_crashed_title, R.string.daemon_crashed_text)
+    }
+
+    private fun postReviveNotification(
+        context: Context,
+        titleRes: Int = R.string.revive_refused_title,
+        textRes: Int = R.string.revive_refused_text
+    ) {
         try {
             val nm = NotificationManagerCompat.from(context)
             if (!nm.areNotificationsEnabled()) return
@@ -146,9 +164,9 @@ object ServiceWatchdog {
                 .putExtra(EXTRA_RESUME_SERVICE, true)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             val notification = NotificationCompat.Builder(context, NOTIF_CHANNEL)
-                .setContentTitle(context.getString(R.string.revive_refused_title))
-                .setContentText(context.getString(R.string.revive_refused_text))
-                .setStyle(NotificationCompat.BigTextStyle().bigText(context.getString(R.string.revive_refused_text)))
+                .setContentTitle(context.getString(titleRes))
+                .setContentText(context.getString(textRes))
+                .setStyle(NotificationCompat.BigTextStyle().bigText(context.getString(textRes)))
                 .setSmallIcon(R.drawable.ic_qs_tile)
                 .setAutoCancel(true)
                 .setContentIntent(

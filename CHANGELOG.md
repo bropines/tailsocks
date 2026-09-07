@@ -2,6 +2,39 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [4.2.0] - Unreleased
+
+### Added
+
+- **Report the real OS** (Settings → Account & connection, off by default). Since May the
+  daemon has told the coordination server it is a Linux command-line client, on the belief
+  that the coordinator ignored advertised services from Android nodes. Reading the client
+  found nothing that depends on the reported OS, and Serve and Funnel turn out to work here
+  because of a different change entirely — the certificate API that the upstream build
+  switches off on Android. The switch reports an Android device with its real model and
+  version, the way the official app does, so the question can be settled on a real tailnet
+  instead of argued about. It changes what the coordinator knows, so the daemon restarts.
+
+### Fixed
+
+- **Root Mode after a reboot came up half-configured.** The daemon the boot script started
+  had no SOCKS5 or HTTP proxy at all — Taildrive in the Files app and every client on the
+  local network stayed dead until the connection was restarted by hand — ran with a kernel
+  TUN even when Native TUN was off, could pick the wrong profile when there were several,
+  and left the state directory and the socket world-writable. It now starts with exactly
+  what the app would give it: the active profile, the listen addresses, the SOCKS5
+  password, the tunnel mode and the same file modes. "Ignore other VPNs" was also silently
+  reverting to on after every reboot, because the line carrying it was written in a form the
+  boot script does not read.
+- **The SOCKS5 password was not enforced in Root Mode.** Only the non-root daemon received
+  it; with LAN access on, the proxy on the local network accepted anyone while the settings
+  showed a password.
+- **A crashed daemon was treated as if you had pressed Stop.** The wish to stay connected
+  was cleared and both recovery mechanisms stood down, so neither auto-reconnect nor the
+  15-minute revival ever acted on a crash — the one case they exist for. A crash now keeps
+  that wish: auto-reconnect restarts the daemon within its attempt limit; otherwise a
+  notification offers a one-tap reconnect and the revival check finds the service later.
+
 ## [4.1.0] - 2026-09-07
 
 Mostly the interface. Material 3 Expressive throughout, the peer sheet rebuilt around

@@ -316,6 +316,7 @@ fun SettingsScreen(
     var advertiseTags by remember { mutableStateOf(profilePrefs.getString("advertise_tags", "") ?: "") }
     var advertiseRoutes by remember { mutableStateOf(profilePrefs.getString("advertise_routes", "") ?: "") }
     var advertiseExitNode by remember { mutableStateOf(profilePrefs.getBoolean("advertise_exit_node", false)) }
+    var honestHostinfo by remember { mutableStateOf(GlobalSettings.isHonestHostinfoEnabled(context)) }
     var appliedTags by remember { mutableStateOf<List<String>>(emptyList()) }
     var availableNetworkTags by remember { mutableStateOf<List<String>>(emptyList()) }
 
@@ -766,6 +767,22 @@ fun SettingsScreen(
             ) {
                 advertiseExitNode = it
                 saveProfilePref("advertise_exit_node", it)
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+            // The daemon reads this from its environment at start, so like the
+            // other daemon-environment switches it restarts rather than applies.
+            SettingsSwitchItem(
+                title = stringResource(R.string.settings_honest_hostinfo_title),
+                subtitle = stringResource(R.string.settings_honest_hostinfo_desc),
+                icon = Icons.Default.Android,
+                checked = honestHostinfo
+            ) { enabled ->
+                honestHostinfo = enabled
+                GlobalSettings.setHonestHostinfoEnabled(context, enabled)
+                if (ProxyState.isUserLetRunning(context)) {
+                    val intent = Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" }
+                    context.startService(intent)
+                }
             }
         }
 

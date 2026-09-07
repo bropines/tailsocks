@@ -130,6 +130,14 @@ type StartOptions struct {
 	AcceptRoutes  bool
 	AcceptDNS     bool
 	ExitNodeID    string
+	// What the daemon reports to the coordination server about this device.
+	// false keeps the long-standing masquerade (OS "linux", App "tailscale-cli",
+	// DeviceModel "Tailsocks"); true reports the real OS plus the model, Android
+	// version and install source below. See cmd/tailscaled/fix_android_netmon.go.
+	HonestHostinfo bool
+	OsVersion      string
+	DeviceModel    string
+	InstallSource  string
 }
 
 func SetLogLevel(level int32) {
@@ -577,7 +585,12 @@ func Start(opt *StartOptions) {
 	}
 
 	go func() {
-		err := tailscaledCmd(pc, generation, opt.DnsFallbacks, opt.Socks5Server, opt.HttpProxy, opt.Socks5User, opt.Socks5Pass, opt.TaildropDir, opt.ControlProxy)
+		err := tailscaledCmd(pc, generation, opt.DnsFallbacks, opt.Socks5Server, opt.HttpProxy, opt.Socks5User, opt.Socks5Pass, opt.TaildropDir, opt.ControlProxy, hostinfoReport{
+			honest:      opt.HonestHostinfo,
+			osVersion:   opt.OsVersion,
+			deviceModel: opt.DeviceModel,
+			pkg:         opt.InstallSource,
+		})
 		if errors.Is(err, errLaunchSuperseded) {
 			// A Stop() or another Start() retired this run before its process
 			// existed; there is nothing to tear down and nothing to report.

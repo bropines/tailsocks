@@ -1,6 +1,6 @@
---- /dev/null	2026-08-31 17:55:19.112267238 +0300
-+++ tailscale_src/cmd/tailscaled/fix_android_netmon.go	2026-09-01 14:52:19.621773006 +0300
-@@ -0,0 +1,93 @@
+--- /dev/null	2026-09-06 21:05:22.741199070 +0300
++++ tailscale_src/cmd/tailscaled/fix_android_netmon.go	2026-09-07 17:34:06.957296885 +0300
+@@ -0,0 +1,120 @@
 +// +build android
 +
 +package main
@@ -17,11 +17,38 @@
 +)
 +
 +func init() {
-+	// 1. Mask as CLI to bypass mobile-specific policies on the coordinator side
++	// What the daemon tells the coordination server about this device.
++	//
++	// The default has been a masquerade since 2026-05-07: OS "linux", App
++	// "tailscale-cli", DeviceModel "Tailsocks", added on the belief that the
++	// coordinator ignored advertised services from "android" nodes. Nothing in
++	// the client reads these fields for behaviour (the only peer-OS check
++	// anywhere refuses tvOS for Taildrop), and the one Android gate that does
++	// matter for Serve/Funnel is the build tag on ipn/localapi/cert.go, which
++	// keys on runtime.GOOS and is lifted by patch 05 — so what the control
++	// plane does with the reported OS is an open question, not a known cost.
++	//
++	// TS_HONEST_HOSTINFO=1 keeps the real OS ("android", already filled in by
++	// hostinfo.New from version.OS) and reports what Go cannot learn on Android
++	// from the environment the app supplies, exactly the fields the official
++	// Android client sets (libtailscale/backend.go: SetOSVersion,
++	// SetDeviceModel, SetPackage — and no App).
 +	hostinfo.RegisterHostinfoNewHook(func(hi *tailcfg.Hostinfo) {
++		if os.Getenv("TS_HONEST_HOSTINFO") == "1" {
++			if v := os.Getenv("TS_HI_OS_VERSION"); v != "" {
++				hi.OSVersion = v
++			}
++			if v := os.Getenv("TS_HI_DEVICE_MODEL"); v != "" {
++				hi.DeviceModel = v
++			}
++			if v := os.Getenv("TS_HI_PACKAGE"); v != "" {
++				hi.Package = v
++			}
++			return
++		}
 +		hi.App = "tailscale-cli"
 +		hi.DeviceModel = "Tailsocks"
-+		hi.OS = "linux" // Critical: coordination server ignores services on "android" OS
++		hi.OS = "linux"
 +	})
 +
 +	netmon.RegisterInterfaceGetter(func() ([]netmon.Interface, error) {

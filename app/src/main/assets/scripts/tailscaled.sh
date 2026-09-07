@@ -12,11 +12,48 @@ DATA_DIR="/data/data/$PKG"
 LOGS_DIR="$DATA_DIR/logs"
 mkdir -p "$LOGS_DIR"
 
+# Environment written by TailSocks through su (RootUtils.writeRootEnvFile).
+# Only the root-owned copy is honoured: the app data directory is writable by
+# the app uid (and by a restored backup), so nothing from there may ever be
+# sourced by root. Lines are parsed, not eval'd — the accepted grammar is
+# exactly what RootUtils emits, every value single-quoted:
+#   export NAME='single-quoted value'   (embedded quotes written as '\'')
+# Besides the daemon's own variables (proxy, TS_DNS_FALLBACK, TS_VPN_BYPASS,
+# TS_SOCKS5_USER/PASS, TS_TAILDROP_DIR, TS_HONEST_HOSTINFO...) the app records
+# here what this script needs to start the daemon the way the app does:
+#   TAILSOCKS_STATE_DIR   the active profile's state directory
+#   TAILSOCKS_SOCKS_ADDR  --socks5-server, TAILSOCKS_HTTP_ADDR --outbound-http-proxy-listen
+#   TAILSOCKS_TUN         tailscale0 or userspace-networking (the Native TUN switch)
+# A daemon started here used to come up with no proxy listeners and whatever
+# state directory `find` saw first, so Taildrive in Files and LAN clients were
+# dead until the app restarted it, and with several profiles the wrong one
+# could come up. Unset (an install that never started Root Mode from the app)
+# falls back to the old behaviour below.
+ENV_FILE="/data/adb/tailsocks/control_proxy.env"
+if [ -f "$ENV_FILE" ] && [ "$(stat -c %u "$ENV_FILE" 2>/dev/null)" = "0" ]; then
+    while IFS= read -r line || [ -n "$line" ]; do
+        case "$line" in
+            export\ [A-Z_]*=\'*\')
+                name="${line#export }"; name="${name%%=*}"
+                case "$name" in *[!A-Z_0-9]*) continue;; esac
+                value="${line#*=\'}"; value="${value%\'}"
+                value="$(printf '%s' "$value" | sed "s/'\\\\''/'/g")"
+                export "$name=$value"
+                ;;
+        esac
+    done < "$ENV_FILE"
+fi
+
 # State Directory Resolution:
-# 1. Check default state dir
-# 2. Search for any existing tailscaled.state in states/
-# 3. Fallback to states/root
+# 1. The active profile the app recorded (TAILSOCKS_STATE_DIR), if it holds state
+# 2. Check default state dir
+# 3. Search for any existing tailscaled.state in states/
+# 4. Fallback to states/root
 STATE_DIR="$DATA_DIR/files/states/default"
+case "$TAILSOCKS_STATE_DIR" in
+    "$DATA_DIR"/files/states/*)
+        [ -f "$TAILSOCKS_STATE_DIR/tailscaled.state" ] && STATE_DIR="$TAILSOCKS_STATE_DIR" ;;
+esac
 if [ ! -f "$STATE_DIR/tailscaled.state" ]; then
     FOUND_STATE="$(find "$DATA_DIR/files/states" -name "tailscaled.state" 2>/dev/null | head -n1)"
     if [ -n "$FOUND_STATE" ]; then
@@ -51,30 +88,12 @@ if [ ! -x "$DAEMON_BIN" ]; then
     exit 1
 fi
 
-export TS_LOGS_DIR="$LOGS_DIR"
-export TS_NO_LOGS_NO_SUPPORT=true
-export TS_AUTH_ONCE=true
-export TS_DNS_FALLBACK="1.1.1.1,8.8.8.8"
-
-# Control-proxy environment written by TailSocks through su. Only the root-owned
-# copy is honoured: the app data directory is writable by the app uid (and by a
-# restored backup), so nothing from there may ever be sourced by root. Lines are
-# parsed, not eval'd — the accepted grammar is exactly what RootUtils emits:
-#   export NAME='single-quoted value'   (embedded quotes written as '\'')
-ENV_FILE="/data/adb/tailsocks/control_proxy.env"
-if [ -f "$ENV_FILE" ] && [ "$(stat -c %u "$ENV_FILE" 2>/dev/null)" = "0" ]; then
-    while IFS= read -r line || [ -n "$line" ]; do
-        case "$line" in
-            export\ [A-Z_]*=\'*\')
-                name="${line#export }"; name="${name%%=*}"
-                case "$name" in *[!A-Z_0-9]*) continue;; esac
-                value="${line#*=\'}"; value="${value%\'}"
-                value="$(printf '%s' "$value" | sed "s/'\\\\''/'/g")"
-                export "$name=$value"
-                ;;
-        esac
-    done < "$ENV_FILE"
-fi
+# Defaults for what the env file above did not set (the file is parsed first,
+# so a recorded TS_DNS_FALLBACK wins over the built-in list).
+export TS_LOGS_DIR="${TS_LOGS_DIR:-$LOGS_DIR}"
+export TS_NO_LOGS_NO_SUPPORT="${TS_NO_LOGS_NO_SUPPORT:-true}"
+export TS_AUTH_ONCE="${TS_AUTH_ONCE:-true}"
+export TS_DNS_FALLBACK="${TS_DNS_FALLBACK:-1.1.1.1,8.8.8.8}"
 
 # Log rotation: if log > 2MB, keep last 500 lines
 if [ -f "$LOG_FILE" ]; then
@@ -94,8 +113,21 @@ echo "TailSocks: daemon start" >> "$LOG_FILE"
 # umask 022: received Taildrop files are created 0666 minus umask, and the app
 # must be able to read them while the daemon runs (same line in RootUtils).
 umask 022
-nohup "$DAEMON_BIN" --statedir="$STATE_DIR" --socket="$SOCKET_PATH" --tun=tailscale0 >> "$LOG_FILE" 2>&1 &
-chmod 666 "$LOG_FILE" 2>/dev/null || true
+# Same command line the app builds in RootUtils.startRootDaemon, from the values
+# it recorded: without them the daemon used to run with no SOCKS5/HTTP listener
+# until the app restarted it. TUN_MODE also decides below whether tailscale0 and
+# the T1 rules exist at all.
+TUN_MODE="${TAILSOCKS_TUN:-tailscale0}"
+case "$TUN_MODE" in tailscale0|userspace-networking) ;; *) TUN_MODE="tailscale0" ;; esac
+set -- --statedir="$STATE_DIR" --socket="$SOCKET_PATH" --tun="$TUN_MODE"
+[ -n "$TAILSOCKS_SOCKS_ADDR" ] && [ "$TAILSOCKS_SOCKS_ADDR" != "none" ] && set -- "$@" --socks5-server="$TAILSOCKS_SOCKS_ADDR"
+[ -n "$TAILSOCKS_HTTP_ADDR" ] && set -- "$@" --outbound-http-proxy-listen="$TAILSOCKS_HTTP_ADDR"
+nohup "$DAEMON_BIN" "$@" >> "$LOG_FILE" 2>&1 &
+# Same modes as RootUtils.startRootDaemon: the log is root-owned and the app
+# reads it for the Logs screen (0644), the socket is shared with the app uid
+# (0666), the state directory holds the node keys (0700). Up to 4.1.0 this
+# script left them at 666/777/777 until the app next started the daemon itself.
+chmod 644 "$LOG_FILE" 2>/dev/null || true
 # No SELinux rule is patched in here. Nothing but root talks to the socket at
 # boot (the CLI wrapper runs in the same domain as the daemon), and the fixed
 # "allow untrusted_app magisk unix_stream_socket connectto" this line used to
@@ -106,9 +138,14 @@ chmod 666 "$LOG_FILE" 2>/dev/null || true
 # Wait for daemon socket then apply table 53 routing safely
 for i in $(seq 1 30); do
     if [ -S "$SOCKET_PATH" ] || [ -e "$SOCKET_PATH" ]; then
-        chmod 777 "$SOCKET_PATH"
+        chmod 666 "$SOCKET_PATH"
         chcon u:object_r:app_data_file:s0 "$SOCKET_PATH" 2>/dev/null || true
-        chmod 777 "$STATE_DIR" 2>/dev/null || true
+        chmod 700 "$STATE_DIR" 2>/dev/null || true
+
+        # No kernel interface, nothing to route: the app handles this mode
+        # through the loopback proxies alone, exactly as when it starts the
+        # daemon itself.
+        [ "$TUN_MODE" = "tailscale0" ] || break
 
         # Wait for tailscale0 and apply table 53 policy routing.
         # Rules live in dedicated chains so they stay idempotent across reboots

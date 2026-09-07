@@ -43,4 +43,4 @@ TailSocks maintains minimal patches to the upstream Tailscale core to ensure mob
 *   **`cmd/tailscaled/proxy.go`:** Adds `Username`/`Password` fields to the outbound SOCKS5 listener (read from env vars).
 *   **`feature/taildrop/ext.go`:** Registers a pure-Go `fsFileOps` to avoid Android JNI panics and points Taildrop to the app's isolated data dir.
 *   **`ipn/ipnlocal/local.go`:** Appends VIP services to the `HostInfo` struct so Virtual Services (`svc:`) are visible to the coordination server.
-*   **`fix_android_netmon.go`:** Implements a custom `netmon.InterfaceGetter` to work around `netlink` permission denials on Android 10+ and masks the `HostInfo` (OS, DeviceModel) to bypass mobile-specific policy restrictions on the Tailscale control plane.
+*   **`fix_android_netmon.go`:** Implements a custom `netmon.InterfaceGetter` to work around `netlink` permission denials on Android 10+ and, by default, presents the node to the control plane as a Linux CLI (`OS = linux`, `App = tailscale-cli`, `DeviceModel = Tailsocks`). With *Report the real OS* on (`TS_HONEST_HOSTINFO=1`) it reports the real Android device instead; nothing in the client depends on these fields.
