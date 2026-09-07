@@ -585,6 +585,16 @@ object RootUtils {
             // it, which is what daemonMarksSockets keys on (the boot script writes
             // the same line). A missing marker means "unverified", never "marks".
             sb.append("echo ${shQuote(RUN_MARKER)} >> ${shQuote(logFile)}\n")
+            // Received Taildrop files are created by the root daemon with 0666
+            // (feature/taildrop/send.go, ext.go) minus this shell's umask. Some su
+            // implementations run with 077, which leaves them unreadable to the
+            // app until handStateBackToApp chowns the folder at daemon stop — the
+            // "File received" notification would then open into EACCES. 022 gives
+            // 0644: readable by the app uid, inside its own 0700 data directory.
+            // Nothing else widens: state files are written 0600 explicitly, the
+            // socket and the log get their modes below. Same line in the boot
+            // script (assets/scripts/tailscaled.sh).
+            sb.append("umask 022\n")
             sb.append("nohup $cmd >> ${shQuote(logFile)} 2>&1 &\n")
             // The daemon runs as root, so the file is root-owned; 0644 lets the
             // app read it for the Logs screen. It sits in the app's private data
@@ -2375,6 +2385,7 @@ object RootUtils {
         // Its own root shell, so it runs before the dump script is assembled and
         // its verdict is printed as part of the dump rather than out of band.
         val coexist = detectForeignVpn()
+        val taildropDir = context?.let { TaildropPaths.dir(it, AccountManager.getActiveAccount(it).id).absolutePath }
         val script = buildString {
             append("echo '--- ip rule ---'\n")
             append("ip rule show 2>/dev/null || echo '(ip rule show failed)'\n")
@@ -2444,6 +2455,14 @@ object RootUtils {
             append("iptables -t nat -L $CHAIN_DNS -n -v -x 2>/dev/null || echo '(absent)'\n")
             append("echo '--- tailscale0 ---'\n")
             append("ip -br addr show tailscale0 2>/dev/null || echo '(interface missing)'\n")
+            if (taildropDir != null) {
+                // The real owner and mode bits of what the root daemon wrote, to read in
+                // Check Routing rather than guess at. Expected while the daemon runs:
+                // root-owned, 0644 (0666 under the start scripts' umask 022); after it
+                // stops, owned by the app uid (handStateBackToApp).
+                append("echo '--- taildrop dir (received files; expect 0644 while the root daemon runs, app-owned after it stops) ---'\n")
+                append("ls -la ${shQuote(taildropDir)} 2>&1 | head -n 40\n")
+            }
             append("echo '--- ip binary ---'\n")
             append("ip -V 2>&1 | head -n 1\n")
         }
@@ -2518,13 +2537,22 @@ object RootUtils {
     fun handStateBackToApp(context: Context): Boolean {
         val uid = context.applicationInfo.uid
         val dir = File(context.filesDir, "states").absolutePath
-        if (!File(dir).exists()) return true
+        // Received Taildrop files: the root daemon writes them into files/taildrop/<account>
+        // as root (feature/taildrop/send.go creates the partial, ext.go renames it). The
+        // start scripts set umask 022 so the app can read them while the daemon runs;
+        // this hands over ownership once root is about to go away, so a later non-root
+        // session can rename or rewrite them too. Ownership only — modes are left alone.
+        val taildrop = File(context.filesDir, "taildrop").absolutePath
+        if (!File(dir).exists() && !File(taildrop).exists()) return true
         val script = buildString {
-            append("[ -d ${shQuote(dir)} ] || exit 0\n")
-            append("chown -R $uid:$uid ${shQuote(dir)} 2>/dev/null || true\n")
+            append("if [ -d ${shQuote(dir)} ]; then\n")
+            append("  chown -R $uid:$uid ${shQuote(dir)} 2>/dev/null || true\n")
             // Ownership is what matters; keep the modes the daemon expects.
-            append("find ${shQuote(dir)} -type d -exec chmod 700 {} + 2>/dev/null || true\n")
-            append("find ${shQuote(dir)} -type f -exec chmod 600 {} + 2>/dev/null || true\n")
+            append("  find ${shQuote(dir)} -type d -exec chmod 700 {} + 2>/dev/null || true\n")
+            append("  find ${shQuote(dir)} -type f -exec chmod 600 {} + 2>/dev/null || true\n")
+            append("fi\n")
+            append("[ -d ${shQuote(taildrop)} ] && chown -R $uid:$uid ${shQuote(taildrop)} 2>/dev/null\n")
+            append("exit 0\n")
         }
         val res = runSu("state-chown", script, timeoutMs = 15_000L)
         if (!res.ok) {

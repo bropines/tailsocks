@@ -121,7 +121,7 @@ fun ServiceRow(service: VIPServiceInfo, onClick: () -> Unit) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ServiceDetailBottomSheet(
     service: VIPServiceInfo,
@@ -205,7 +205,7 @@ fun ServiceDetailBottomSheet(
 
             if (isLoadingHosts) {
                 Box(Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                    LoadingIndicator()
                 }
             } else if (hosts.isEmpty()) {
                 Text(

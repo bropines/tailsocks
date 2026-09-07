@@ -430,13 +430,52 @@
     <!-- ======================== UI COMPONENTS ======================== -->
 
     <!-- PeerDetailsModal -->
-    <string name="peer_ping">Ping</string>
     <string name="peer_pinging">Pinging…</string>
     <string name="peer_ping_result">Ping: %1$s</string>
-    <string name="peer_ping_failed">Ping: Failed</string>
     <string name="peer_ping_self">This device</string>
+    <string name="peer_ping_self_caption">Round trip to itself isn\'t measured</string>
+    <string name="peer_cd_ping_card">Measure round trip to %1$s</string>
     <string name="peer_send_file">Send File</string>
     <string name="peer_cd_copy">Copy</string>
+    <string name="peer_copied">Copied</string>
+    <string name="peer_cd_expanded">Expanded</string>
+    <string name="peer_cd_collapsed">Collapsed</string>
+    <!-- PeerDetailsModal: the status strip under the node name -->
+    <string name="peer_status_online">Online</string>
+    <string name="peer_status_offline">Offline</string>
+    <string name="peer_status_os_unknown">Unknown OS</string>
+    <string name="peer_status_direct">Direct</string>
+    <string name="peer_status_relay_format">Relay: %1$s</string>
+    <!-- PeerDetailsModal: the connection card (tap to ping) -->
+    <string name="peer_conn_latency">Round trip</string>
+    <string name="peer_conn_tap_to_measure">Tap to measure</string>
+    <string name="peer_conn_ping_failed">Could not measure</string>
+    <!-- PeerDetailsModal: the route card -->
+    <string name="peer_route_relay">Via DERP relay</string>
+    <string name="peer_route_none">No route yet</string>
+    <!-- PeerDetailsModal: the capabilities card and the note under Send File. Codes are ipnstate.TaildropTargetStatus -->
+    <string name="peer_taildrop_caption">Taildrop</string>
+    <string name="peer_taildrop_ok">Can receive files</string>
+    <string name="peer_taildrop_blocked">Can\'t receive files</string>
+    <string name="peer_taildrop_no_netmap">No network map yet</string>
+    <string name="peer_taildrop_not_running">Tailscale isn\'t running on this phone</string>
+    <string name="peer_taildrop_missing_cap">Taildrop is turned off for this tailnet: your device lacks the file-sharing capability</string>
+    <string name="peer_taildrop_offline">The device is offline</string>
+    <string name="peer_taildrop_no_peer_info">No information about this device yet</string>
+    <string name="peer_taildrop_unsupported_os">The device\'s OS doesn\'t support Taildrop</string>
+    <string name="peer_taildrop_no_peer_api">The device exposes no peer API</string>
+    <string name="peer_taildrop_other_user">Belongs to another user or a tag. Taildrop between such devices cannot be turned on: the daemon looks for two capabilities that only Tailscale itself can issue — the console refuses to grant any name in the tailscale.com domain. The way out is to leave personal devices untagged; access can be granted by user or autogroup instead.</string>
+    <!-- PeerDetailsModal: the traffic card -->
+    <string name="peer_traffic_total">Transferred</string>
+    <!-- PeerDetailsModal: headings of the cards -->
+    <string name="peer_group_addresses">Addresses</string>
+    <string name="peer_group_route">Route</string>
+    <string name="peer_group_connection">Connection</string>
+    <string name="peer_group_device">Device</string>
+    <string name="peer_group_capabilities">Capabilities</string>
+    <string name="peer_group_traffic">Traffic</string>
+    <string name="peer_group_timing">Timeline</string>
+    <string name="peer_group_other">Other</string>
     <!-- PeerItem / PeerDetailsModal: exit node markers -->
     <string name="peer_exit_node_selected">Selected as exit node</string>
     <string name="peer_exit_node_offered">Available as exit node</string>
@@ -461,7 +500,9 @@
     <string name="main_dev_patch">Patch Developer: Bropines</string>
     <string name="main_dev_anet_patch">Anet Patch: Asutorufa</string>
     <string name="main_dev_core">Core Developer: Tailscale</string>
+    <string name="main_about_credits">Credits</string>
     <string name="main_check_updates">Check for App Updates</string>
+    <string name="main_update_checking">Checking…</string>
     <string name="main_update_download">Download &amp; Install Update</string>
     <string name="main_update_install_cached">Install Update</string>
     <string name="main_update_downloading">Downloading update… %d%%</string>
@@ -558,6 +599,12 @@
     <string name="files_sent">Sent!</string>
     <string name="files_error_format">Error: %1$s</string>
     <string name="files_failed_format">Failed: %1$s</string>
+    <string name="files_peer_no_id">The daemon listed %1$s without a node ID, so there is nothing to address the file to. Refresh the list and try again</string>
+    <string name="share_failed_format">Couldn\'t send %1$s: %2$s</string>
+    <!-- "File received" notification (TaildropEvents): its channel, title and "name from device" text -->
+    <string name="taildrop_notif_channel">Received files</string>
+    <string name="taildrop_received_title">File received</string>
+    <string name="taildrop_received_from_format">%1$s from %2$s</string>
     <string name="action_refresh">Refresh</string>
 
     <!-- ======================== Logs Screen ======================== -->

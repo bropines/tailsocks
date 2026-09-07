@@ -430,13 +430,52 @@
     <!-- ======================== UI COMPONENTS ======================== -->
 
     <!-- PeerDetailsModal -->
-    <string name="peer_ping">Ping</string>
     <string name="peer_pinging">Пингую…</string>
     <string name="peer_ping_result">Ping: %1$s</string>
-    <string name="peer_ping_failed">Ping: Неудача</string>
     <string name="peer_ping_self">Это устройство</string>
+    <string name="peer_ping_self_caption">Время отклика до самого себя не измеряется</string>
+    <string name="peer_cd_ping_card">Измерить время отклика до %1$s</string>
     <string name="peer_send_file">Отправить файл</string>
     <string name="peer_cd_copy">Скопировать</string>
+    <string name="peer_copied">Скопировано</string>
+    <string name="peer_cd_expanded">Развёрнуто</string>
+    <string name="peer_cd_collapsed">Свёрнуто</string>
+    <!-- PeerDetailsModal: строка состояния под именем узла -->
+    <string name="peer_status_online">В сети</string>
+    <string name="peer_status_offline">Не в сети</string>
+    <string name="peer_status_os_unknown">ОС неизвестна</string>
+    <string name="peer_status_direct">Напрямую</string>
+    <string name="peer_status_relay_format">Через реле: %1$s</string>
+    <!-- PeerDetailsModal: карточка соединения (нажатие — пинг) -->
+    <string name="peer_conn_latency">Время отклика</string>
+    <string name="peer_conn_tap_to_measure">Нажмите, чтобы измерить</string>
+    <string name="peer_conn_ping_failed">Не удалось измерить</string>
+    <!-- PeerDetailsModal: карточка маршрута -->
+    <string name="peer_route_relay">Через реле DERP</string>
+    <string name="peer_route_none">Маршрута ещё нет</string>
+    <!-- PeerDetailsModal: карточка возможностей и пояснение под «Отправить файл». Коды — ipnstate.TaildropTargetStatus -->
+    <string name="peer_taildrop_caption">Taildrop</string>
+    <string name="peer_taildrop_ok">Может принимать файлы</string>
+    <string name="peer_taildrop_blocked">Не может принимать файлы</string>
+    <string name="peer_taildrop_no_netmap">Карта сети ещё не получена</string>
+    <string name="peer_taildrop_not_running">Tailscale на этом телефоне не запущен</string>
+    <string name="peer_taildrop_missing_cap">Taildrop для этого tailnet отключён: у вашего устройства нет возможности file-sharing</string>
+    <string name="peer_taildrop_offline">Устройство не в сети</string>
+    <string name="peer_taildrop_no_peer_info">Сведений об этом устройстве пока нет</string>
+    <string name="peer_taildrop_unsupported_os">ОС устройства не поддерживает Taildrop</string>
+    <string name="peer_taildrop_no_peer_api">Устройство не предоставляет peer API</string>
+    <string name="peer_taildrop_other_user">Принадлежит другому пользователю или тегу. Taildrop между такими устройствами включить нельзя: демон ждёт две способности, которые выдаёт только сам Tailscale — панель отказывает любому имени в домене tailscale.com. Выход один: не вешать теги на личные устройства, а доступ давать по пользователю или autogroup.</string>
+    <!-- PeerDetailsModal: карточка трафика -->
+    <string name="peer_traffic_total">Передано</string>
+    <!-- PeerDetailsModal: заголовки карточек -->
+    <string name="peer_group_addresses">Адреса</string>
+    <string name="peer_group_route">Маршрут</string>
+    <string name="peer_group_connection">Соединение</string>
+    <string name="peer_group_device">Устройство</string>
+    <string name="peer_group_capabilities">Возможности</string>
+    <string name="peer_group_traffic">Трафик</string>
+    <string name="peer_group_timing">Хронология</string>
+    <string name="peer_group_other">Прочее</string>
     <!-- PeerItem / PeerDetailsModal: метки выходного узла -->
     <string name="peer_exit_node_selected">Выбран как выходной узел</string>
     <string name="peer_exit_node_offered">Доступен как выходной узел</string>
@@ -461,7 +500,9 @@
     <string name="main_dev_patch">Разработчик патчей: Bropines</string>
     <string name="main_dev_anet_patch">Anet Патч: Asutorufa</string>
     <string name="main_dev_core">Разработчик ядра: Tailscale</string>
+    <string name="main_about_credits">Авторы</string>
     <string name="main_check_updates">Проверить обновления</string>
+    <string name="main_update_checking">Проверка…</string>
     <string name="main_update_download">Скачать и установить обновление</string>
     <string name="main_update_install_cached">Установить обновление</string>
     <string name="main_update_downloading">Загрузка обновления… %d%%</string>
@@ -558,6 +599,12 @@
     <string name="files_sent">Отправлено!</string>
     <string name="files_error_format">Ошибка: %1$s</string>
     <string name="files_failed_format">Не удалось: %1$s</string>
+    <string name="files_peer_no_id">Демон вернул %1$s без ID ноды — файл некому адресовать. Обновите список и попробуйте ещё раз</string>
+    <string name="share_failed_format">Не удалось отправить %1$s: %2$s</string>
+    <!-- Уведомление «Файл получен» (TaildropEvents): канал, заголовок и текст «имя от устройства» -->
+    <string name="taildrop_notif_channel">Полученные файлы</string>
+    <string name="taildrop_received_title">Файл получен</string>
+    <string name="taildrop_received_from_format">%1$s от %2$s</string>
     <string name="action_refresh">Обновить</string>
 
     <!-- ======================== Logs Screen ======================== -->

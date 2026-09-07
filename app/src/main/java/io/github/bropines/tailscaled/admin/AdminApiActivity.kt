@@ -122,29 +122,35 @@ class AdminApiActivity : FragmentActivity() {
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AdminApiMainScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val activeAccount = remember { AccountManager.getActiveAccount(context) }
     val profilePrefs = remember(activeAccount.id) { context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE) }
-    val globalPrefs = remember { context.getSharedPreferences("admin_api_keys", Context.MODE_PRIVATE) }
+    val globalPrefs = remember { context.getSharedPreferences(AdminApiSettings.PREFS_NAME, Context.MODE_PRIVATE) }
 
     var resolvedTailnet by remember { mutableStateOf(profilePrefs.getString("last_known_tailnet", "") ?: "") }
     var isLoadingSuffix by remember { mutableStateOf(true) }
 
+    // What is stored for this tailnet, read through the same seam the peer sheet's version
+    // lookup reads it through (AdminApiSettings), then split into per-field state because the
+    // setup and settings screens hand the fields back one at a time.
+    val stored = remember(resolvedTailnet) { AdminApiSettings.read(context, resolvedTailnet) }
+
     // Auth credentials
-    var authType by remember(resolvedTailnet) { mutableStateOf(globalPrefs.getString("${resolvedTailnet}_auth_type", "TOKEN") ?: "TOKEN") }
-    var token by remember(resolvedTailnet) { mutableStateOf(globalPrefs.getString(resolvedTailnet, "") ?: "") }
-    var clientId by remember(resolvedTailnet) { mutableStateOf(globalPrefs.getString("${resolvedTailnet}_oauth_client_id", "") ?: "") }
-    var clientSecret by remember(resolvedTailnet) { mutableStateOf(globalPrefs.getString("${resolvedTailnet}_oauth_client_secret", "") ?: "") }
+    var authType by remember(resolvedTailnet) { mutableStateOf(stored.authType) }
+    var token by remember(resolvedTailnet) { mutableStateOf(stored.token) }
+    var clientId by remember(resolvedTailnet) { mutableStateOf(stored.clientId) }
+    var clientSecret by remember(resolvedTailnet) { mutableStateOf(stored.clientSecret) }
 
     // Proxy settings
-    var proxyMode by remember(resolvedTailnet) { mutableStateOf(globalPrefs.getString("${resolvedTailnet}_proxy_mode", "CONTROL_PLANE") ?: "CONTROL_PLANE") }
-    var proxyHost by remember(resolvedTailnet) { mutableStateOf(globalPrefs.getString("${resolvedTailnet}_proxy_host", "") ?: "") }
-    var proxyPort by remember(resolvedTailnet) { mutableIntStateOf(globalPrefs.getInt("${resolvedTailnet}_proxy_port", 0)) }
-    var proxyUser by remember(resolvedTailnet) { mutableStateOf(globalPrefs.getString("${resolvedTailnet}_proxy_user", "") ?: "") }
-    var proxyPass by remember(resolvedTailnet) { mutableStateOf(globalPrefs.getString("${resolvedTailnet}_proxy_pass", "") ?: "") }
+    var proxyMode by remember(resolvedTailnet) { mutableStateOf(stored.proxyMode) }
+    var proxyHost by remember(resolvedTailnet) { mutableStateOf(stored.proxyHost) }
+    var proxyPort by remember(resolvedTailnet) { mutableIntStateOf(stored.proxyPort) }
+    var proxyUser by remember(resolvedTailnet) { mutableStateOf(stored.proxyUser) }
+    var proxyPass by remember(resolvedTailnet) { mutableStateOf(stored.proxyPass) }
 
     // Fetch magicDnsSuffix from LocalAPI on start
     LaunchedEffect(activeAccount.id) {
@@ -170,7 +176,7 @@ fun AdminApiMainScreen(onBack: () -> Unit) {
         }
     }
 
-    val hasCredentials = if (authType == "TOKEN") {
+    val hasCredentials = if (authType == AdminApiSettings.AUTH_TYPE_TOKEN) {
         token.isNotBlank()
     } else {
         clientId.isNotBlank() && clientSecret.isNotBlank()
@@ -178,7 +184,7 @@ fun AdminApiMainScreen(onBack: () -> Unit) {
 
     if (isLoadingSuffix) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
+            LoadingIndicator()
         }
     } else if (resolvedTailnet.isBlank()) {
         AdminApiNoTailnetScreen(

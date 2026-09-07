@@ -82,28 +82,11 @@ fun AdminApiDashboardScreen(
     val pagerState = rememberPagerState(pageCount = { tabs.size })
     var showKeysManagement by remember { mutableStateOf(false) }
 
-    // Fetch SOCKS5 and Control Plane Proxy settings from global configurations
-    val localSocksAddr = remember { GlobalSettings.getString(context, "socks5", "127.0.0.1:48115") }
-    val localSocksUser = remember { GlobalSettings.getString(context, "socks5_user", "") }
-    val localSocksPass = remember { GlobalSettings.getString(context, "socks5_pass", "") }
-    val controlProxyUrl = remember { GlobalSettings.getControlProxyUrl(context) }
-
-    val client = remember(token, tailnet, proxyMode, proxyHost, proxyPort, proxyUser, proxyPass, localSocksAddr, localSocksUser, localSocksPass, clientId, clientSecret, controlProxyUrl) {
-        TailscaleApiClient(
-            token = token,
-            tailnetName = tailnet,
-            proxyMode = proxyMode,
-            proxyHost = proxyHost,
-            proxyPort = proxyPort,
-            proxyUser = proxyUser,
-            proxyPass = proxyPass,
-            localSocksAddr = localSocksAddr,
-            localSocksUser = localSocksUser,
-            localSocksPass = localSocksPass,
-            clientId = clientId,
-            clientSecret = clientSecret,
-            controlProxyUrl = controlProxyUrl
-        )
+    // The local SOCKS5 endpoint and the control-plane proxy come from the app-wide settings
+    // inside the factory, read once with the client — the same client the peer sheet's
+    // version lookup builds, so the two cannot disagree on how the API is reached.
+    val client = remember(token, tailnet, proxyMode, proxyHost, proxyPort, proxyUser, proxyPass, clientId, clientSecret) {
+        newAdminApiClient(context, tailnet, token, clientId, clientSecret, proxyMode, proxyHost, proxyPort, proxyUser, proxyPass)
     }
 
     // State holders

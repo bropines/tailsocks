@@ -80,7 +80,6 @@ var cmd *exec.Cmd
 var PC pathControl
 var currentLogLevel int32 = 1
 var dnsProxyCancel context.CancelFunc
-var taildropCancel context.CancelFunc
 var lastOptions *StartOptions
 var webUI *webUIState
 var coreVersion string = "unknown"
@@ -610,14 +609,12 @@ func Start(opt *StartOptions) {
 	if opt.DnsProxy != "" {
 		RestartDNS()
 	}
-
-	startTaildropCollectorFor(opt.TaildropDir)
 }
 
 func AttachExternal(opt *StartOptions) {
 	// A re-attach without an intervening DetachExternal (the root daemon died
 	// and a START intent relaunched it) must retire the previous run — its
-	// Taildrop collector, DNS proxy, bus listener and post-start goroutines —
+	// DNS proxy, bus listener and post-start goroutines —
 	// instead of running them alongside the new ones. On a first attach every
 	// step is a no-op, so this mirrors Start()'s Stop() prologue.
 	releaseGoResources()
@@ -640,8 +637,6 @@ func AttachExternal(opt *StartOptions) {
 	if opt.DnsProxy != "" {
 		RestartDNS()
 	}
-
-	startTaildropCollectorFor(opt.TaildropDir)
 }
 
 // runPostStart waits for the daemon's LocalAPI and then performs the one-time
@@ -672,24 +667,6 @@ func runPostStart(ctx context.Context, opt *StartOptions, notReadyMsg string) {
 		return
 	}
 	syncSettings(ctx, opt)
-}
-
-// startTaildropCollectorFor replaces the Taildrop collector for dir (no-op for
-// an empty dir). Cancel-before-overwrite: a collector whose cancel was simply
-// overwritten kept polling the waiting-files endpoint every 5s for the life of
-// the process, with nothing left holding its cancel.
-func startTaildropCollectorFor(dir string) {
-	if dir == "" {
-		return
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	stateMu.Lock()
-	if taildropCancel != nil {
-		taildropCancel()
-	}
-	taildropCancel = cancel
-	stateMu.Unlock()
-	go startTaildropCollector(ctx, dir)
 }
 
 func RestartDNS() {
@@ -773,7 +750,7 @@ func DetachExternal() {
 }
 
 // releaseGoResources tears down everything the bridge owns — bus listener, DNS
-// proxy, Taildrop collector, Taildrive server and proxy, Web UI, the run
+// proxy, Taildrive server and proxy, Web UI, the run
 // context of the post-start goroutines — and clears the socket path so no
 // further LocalAPI request is attempted.
 func releaseGoResources() {
@@ -808,10 +785,6 @@ func releaseGoResources() {
 	if dnsProxyCancel != nil {
 		dnsProxyCancel()
 		dnsProxyCancel = nil
-	}
-	if taildropCancel != nil {
-		taildropCancel()
-		taildropCancel = nil
 	}
 }
 

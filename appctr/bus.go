@@ -55,6 +55,24 @@ type BusNotify struct {
 	// Auth
 	BrowseToURL   *string   `json:"BrowseToURL,omitempty"`
 	LoginFinished *struct{} `json:"LoginFinished,omitempty"`
+
+	// Taildrop transfers being received (ipn.Notify.IncomingFiles). nil = this
+	// Notify says nothing about transfers; non-nil but empty = none in flight
+	// (ipn/backend.go:432-439; the daemon always sends a non-nil slice when it
+	// reports, feature/taildrop/taildrop.go:181-184).
+	IncomingFiles []BusPartialFile `json:"IncomingFiles,omitempty"`
+}
+
+// BusPartialFile mirrors ipn.PartialFile (ipn/backend.go:603-619): one
+// incoming Taildrop transfer as the daemon reports it on the bus.
+type BusPartialFile struct {
+	Name         string `json:"Name"`                  // e.g. "foo.jpg"
+	Started      string `json:"Started"`               // RFC 3339, time the transfer started
+	DeclaredSize int64  `json:"DeclaredSize"`          // or -1 if unknown
+	Received     int64  `json:"Received"`              // bytes copied so far
+	PartialPath  string `json:"PartialPath,omitempty"` // direct mode: the in-progress "*.partial" path
+	FinalPath    string `json:"FinalPath,omitempty"`   // direct mode, with Done: where the file ended up
+	Done         bool   `json:"Done,omitempty"`        // direct mode: closed and renamed into place
 }
 
 // BusPrefs mirrors the subset of ipn.Prefs we care about.
@@ -148,6 +166,14 @@ type busStateSnapshot struct {
 	Prefs          *BusPrefs
 	ClientVersion  *BusClientVersion
 	MagicDNSSuffix string
+	// IncomingFiles is the last non-nil Notify.IncomingFiles seen. It is NOT
+	// cleared when transfers finish: with NotifyRateLimit in the watch mask
+	// (mask=4095) an empty slice is not "notable" (ipn/ipnlocal/bus.go:244
+	// needs len > 0) and mergeBoringNotifies never carries IncomingFiles, so an
+	// empty Notify never reaches us — and the daemon sends none after the final
+	// Done entry anyway (send.go: SendFileNotify, then the deferred Delete).
+	// The last Done entry therefore stays here until resetBusState().
+	IncomingFiles []BusPartialFile
 }
 
 type BusHealthWarning struct {
@@ -371,8 +397,17 @@ func listenToBus(ctx context.Context, tr *http.Transport) error {
 	}
 }
 
-// applyNotify merges a single Notify message into busState and DNS caches.
+// applyNotify merges a single Notify message into busState and DNS caches,
+// then forwards the parts other components subscribe to.
 func applyNotify(msg *BusNotify) {
+	applyNotifyLocked(msg)
+	// Outside the lock: the Kotlin listener may call back into appctr.
+	if msg.IncomingFiles != nil {
+		notifyTaildropListener(msg.IncomingFiles)
+	}
+}
+
+func applyNotifyLocked(msg *BusNotify) {
 	busStateMu.Lock()
 	defer busStateMu.Unlock()
 
@@ -463,6 +498,19 @@ func applyNotify(msg *BusNotify) {
 			updateNodeCacheFromPeer(p)
 		}
 		slog.Info("Bus: peers upserted", "count", len(msg.PeersChanged))
+	}
+
+	// Incoming Taildrop transfers (direct mode). A nil field is "no update".
+	// An empty slice would mean "nothing in flight", but under mask=4095 it is
+	// never delivered (see busStateSnapshot.IncomingFiles), so in practice the
+	// snapshot only ever moves forward to the latest non-empty report.
+	if msg.IncomingFiles != nil {
+		busState.IncomingFiles = msg.IncomingFiles
+		for _, f := range msg.IncomingFiles {
+			if f.Done {
+				slog.Info("Bus: Taildrop file received", "name", f.Name, "size", f.Received, "path", f.FinalPath)
+			}
+		}
 	}
 }
 

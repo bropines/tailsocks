@@ -1165,6 +1165,9 @@ class TailscaledService : Service() {
                 Log.w(TAG, "Failed to register Doze receiver: ${e.message}")
             }
         }
+        // Finished Taildrop transfers arrive on the IPN bus; the bridge forwards them
+        // here for as long as the service lives, across daemon restarts and attaches.
+        TaildropEvents.attach(this)
     }
 
     /**
@@ -1672,8 +1675,8 @@ class TailscaledService : Service() {
 
         val rootMode = GlobalSettings.isRootModeEnabled(this)
         if (rootMode) {
-            // Release the bridge first: the IPN bus, the DNS proxy and the Taildrop
-            // collector must stop talking to a daemon that is about to disappear.
+            // Release the bridge first: the IPN bus and the DNS proxy must stop
+            // talking to a daemon that is about to disappear.
             Appctr.detachExternal()
         } else {
             Appctr.stop()
@@ -2034,6 +2037,7 @@ class TailscaledService : Service() {
         try { unregisterReceiver(idleModeReceiver) } catch (e: Exception) {}
         try { unregisterReceiver(packageChangeReceiver) } catch (e: Exception) {}
         try { globalPrefs.unregisterOnSharedPreferenceChangeListener(rootRulePrefsListener) } catch (e: Exception) {}
+        TaildropEvents.detach()
         if (wakeLock?.isHeld == true) wakeLock?.release()
         super.onDestroy()
     }

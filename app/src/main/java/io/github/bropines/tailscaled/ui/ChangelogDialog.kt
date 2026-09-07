@@ -29,6 +29,7 @@ import kotlinx.coroutines.withContext
  * from the About dialog. [onDismiss] is invoked for Close, the outside tap and
  * the "Full changelog" button; the caller records the version as seen there.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ChangelogDialog(onDismiss: () -> Unit) {
     val context = LocalContext.current
@@ -74,7 +75,7 @@ fun ChangelogDialog(onDismiss: () -> Unit) {
                 when {
                     !loaded -> {
                         Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                            LoadingIndicator(modifier = Modifier.size(24.dp))
                         }
                     }
                     s == null -> {

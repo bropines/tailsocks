@@ -39,7 +39,12 @@ data class PeerData(
     @SerialName("LastSeen") val lastSeen: String? = null,
     @SerialName("LastHandshake") val lastHandshake: String? = null,
     @SerialName("KeyExpiry") val keyExpiry: String? = null,
-    @SerialName("Version") val version: String? = null,
+    /** The node key ("nodekey:…"), which is what the Admin API also calls the device by
+     *  (ApiDevice.nodeKey): the one field the two sides can be matched on without a name.
+     *  There is deliberately no Version field: ipnstate.PeerStatus has none, and the control
+     *  plane strips a peer's version from the Hostinfo it distributes, so the daemon cannot
+     *  say what a peer runs — only the Admin API can (see PeerVersionSource). */
+    @SerialName("PublicKey") val publicKey: String? = null,
     @SerialName("ExitNode") val exitNode: Boolean? = null,
     @SerialName("ExitNodeOption") val exitNodeOption: Boolean? = null,
     @SerialName("RxBytes") val rxBytes: Long? = null,
@@ -63,7 +68,13 @@ data class PeerData(
         return getPrimaryIp()
     }
 
-    fun getDetailsList(): List<Pair<String, String>> {
+    /**
+     * The peer's properties as rows. [tailscaleVersion] is the one row this status did not
+     * supply: it comes from the Admin API when the user has set that up (PeerVersionSource),
+     * and when it is null the row is simply not there — not "Unknown", not a dash. The label
+     * lives here with its siblings and the row keeps its old place in the order.
+     */
+    fun getDetailsList(tailscaleVersion: String? = null): List<PeerDetail> {
         fun formatTime(t: String?): String {
             if (t.isNullOrEmpty() || t.startsWith("0001-01-01")) return "Never"
             return t.replace("T", " ").substringBefore(".").removeSuffix("Z")
@@ -72,43 +83,74 @@ data class PeerData(
         val displaySeen = if (lastSeen != null && lastSeen.contains("0001-01-01")) "Active now" else formatTime(lastSeen)
 
         val list = mutableListOf(
-            "Machine Name" to getDisplayName(),
-            "DNS Name" to (dnsName ?: "N/A"),
-            "OS" to (os ?: "Unknown"),
-            "IPv4" to getPrimaryIp(),
-            "IPv6" to (tailscaleIPs?.getOrNull(1) ?: "N/A"),
-            "Allowed IPs" to (allowedIPs?.joinToString(", ") ?: "N/A"),
-            "Tailscale Version" to (version ?: "Unknown"),
-            "Node ID" to (id ?: "N/A"),
-            "Relay (DERP)" to (relay?.let { if (it.isEmpty()) "Direct" else it } ?: "Direct"),
-            "Current Addr" to (curAddr?.let { if (it.isEmpty()) "N/A" else it } ?: "N/A"),
-            "Key Expiry" to formatTime(keyExpiry),
-            "Created" to formatTime(created),
-            "Last Seen" to displaySeen,
-            "Last Write" to formatTime(lastWrite),
-            "Last Handshake" to formatTime(lastHandshake),
-            "Rx Bytes" to (rxBytes?.toString() ?: "0"),
-            "Tx Bytes" to (txBytes?.toString() ?: "0"),
-            "Is Exit Node" to (exitNode?.toString() ?: "false"),
-            "Exit Node Option" to (exitNodeOption?.toString() ?: "false"),
-            "In Network Map" to (inNetworkMap?.toString() ?: "false"),
-            "In MagicSock (P2P)" to (inMagicSock?.toString() ?: "false"),
-            "In WG Engine" to (inEngine?.toString() ?: "false"),
-            "Capabilities" to (capabilities?.size?.toString() ?: "0"),
-            "Taildrop Target" to (taildropTarget?.toString() ?: "Unknown")
+            PeerDetail(PeerDetailId.MACHINE_NAME, "Machine Name", getDisplayName()),
+            PeerDetail(PeerDetailId.DNS_NAME, "DNS Name", dnsName ?: "N/A"),
+            PeerDetail(PeerDetailId.OS, "OS", os ?: "Unknown"),
+            PeerDetail(PeerDetailId.IPV4, "IPv4", getPrimaryIp()),
+            PeerDetail(PeerDetailId.IPV6, "IPv6", tailscaleIPs?.getOrNull(1) ?: "N/A"),
+            PeerDetail(PeerDetailId.ALLOWED_IPS, "Allowed IPs", allowedIPs?.joinToString(", ") ?: "N/A")
+        )
+        if (tailscaleVersion != null) {
+            list.add(PeerDetail(PeerDetailId.VERSION, "Tailscale Version", tailscaleVersion))
+        }
+        list.add(PeerDetail(PeerDetailId.NODE_ID, "Node ID", id ?: "N/A"))
+
+        // Relay is shown only while there is no direct endpoint. The daemon keeps Relay
+        // populated with the home DERP region even when CurAddr is set and the traffic is
+        // going direct — `tailscale status` hides it in exactly that case — and a "Relay
+        // (DERP): fra" row under a "Direct" status chip is the sheet contradicting itself.
+        if (curAddr.isNullOrEmpty()) {
+            list.add(PeerDetail(PeerDetailId.RELAY, "Relay (DERP)", relay?.takeIf { it.isNotEmpty() } ?: "Direct"))
+        }
+
+        list.addAll(
+            listOf(
+                PeerDetail(PeerDetailId.CUR_ADDR, "Current Addr", curAddr?.takeIf { it.isNotEmpty() } ?: "N/A"),
+                PeerDetail(PeerDetailId.KEY_EXPIRY, "Key Expiry", formatTime(keyExpiry)),
+                PeerDetail(PeerDetailId.CREATED, "Created", formatTime(created)),
+                PeerDetail(PeerDetailId.LAST_SEEN, "Last Seen", displaySeen),
+                PeerDetail(PeerDetailId.LAST_WRITE, "Last Write", formatTime(lastWrite)),
+                PeerDetail(PeerDetailId.LAST_HANDSHAKE, "Last Handshake", formatTime(lastHandshake)),
+                PeerDetail(PeerDetailId.RX_BYTES, "Rx Bytes", rxBytes?.toString() ?: "0"),
+                PeerDetail(PeerDetailId.TX_BYTES, "Tx Bytes", txBytes?.toString() ?: "0"),
+                PeerDetail(PeerDetailId.IS_EXIT_NODE, "Is Exit Node", exitNode?.toString() ?: "false"),
+                PeerDetail(PeerDetailId.EXIT_NODE_OPTION, "Exit Node Option", exitNodeOption?.toString() ?: "false"),
+                PeerDetail(PeerDetailId.IN_NETWORK_MAP, "In Network Map", inNetworkMap?.toString() ?: "false"),
+                PeerDetail(PeerDetailId.IN_MAGICSOCK, "In MagicSock (P2P)", inMagicSock?.toString() ?: "false"),
+                PeerDetail(PeerDetailId.IN_WG_ENGINE, "In WG Engine", inEngine?.toString() ?: "false"),
+                PeerDetail(PeerDetailId.CAPABILITIES, "Capabilities", capabilities?.size?.toString() ?: "0"),
+                PeerDetail(PeerDetailId.TAILDROP_TARGET, "Taildrop Target", taildropTarget?.toString() ?: "Unknown")
+            )
         )
 
         if (!tags.isNullOrEmpty()) {
-            list.add("Tags" to tags.joinToString(", "))
+            list.add(PeerDetail(PeerDetailId.TAGS, "Tags", tags.joinToString(", ")))
         }
 
         if (!noFileSharingReason.isNullOrEmpty()) {
-            list.add("No File Sharing" to noFileSharingReason)
+            list.add(PeerDetail(PeerDetailId.NO_FILE_SHARING, "No File Sharing", noFileSharingReason))
         }
         if (!peerApiUrl.isNullOrEmpty()) {
-            list.add("Peer API" to peerApiUrl.first())
+            list.add(PeerDetail(PeerDetailId.PEER_API, "Peer API", peerApiUrl.first()))
         }
 
         return list
     }
 }
+
+/**
+ * Which field of [PeerData] a detail row carries. The UI groups, formats and decides what is
+ * worth copying by this, never by [PeerDetail.label]: the label is display text, and the day
+ * it is translated every lookup keyed on it would miss silently — no compile error, every
+ * row falling into the "other" group with its copy icon and its monospace face gone.
+ */
+enum class PeerDetailId {
+    MACHINE_NAME, DNS_NAME, OS, IPV4, IPV6, ALLOWED_IPS, VERSION, NODE_ID,
+    RELAY, CUR_ADDR, KEY_EXPIRY, CREATED, LAST_SEEN, LAST_WRITE, LAST_HANDSHAKE,
+    RX_BYTES, TX_BYTES, IS_EXIT_NODE, EXIT_NODE_OPTION, IN_NETWORK_MAP, IN_MAGICSOCK,
+    IN_WG_ENGINE, CAPABILITIES, TAILDROP_TARGET, TAGS, NO_FILE_SHARING, PEER_API
+}
+
+/** One row of [PeerData.getDetailsList]: what the row is, what it is called on screen, and
+ *  what it says. */
+data class PeerDetail(val id: PeerDetailId, val label: String, val value: String)

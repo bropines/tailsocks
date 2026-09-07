@@ -2,6 +2,83 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [4.1.0] - 2026-09-07
+
+Mostly the interface. Material 3 Expressive throughout, the peer sheet rebuilt around
+cards, and the parts of Taildrop that had been reporting the wrong thing.
+
+### Changed
+
+- **The interface moved to Material 3 Expressive.** Every place that spun a progress ring now draws Material's own loading indicator, and the peer sheet's page-turn springs are the theme's motion scheme rather than numbers copied out of it — with one adjustment: the swipe animates raw pixels, so the spring is told that half a pixel of residual counts as arrived, or the page would sit visibly still for another sixth of a second before the peer under it actually changed.
+- **The peer details sheet was rebuilt.** Under the node's name there is now a line of status — online, what it runs, whether it is reached directly or through a relay, and the last round trip — and under the buttons a block that puts the measured latency next to the path it was measured along, this device's address to the peer's. The properties below it are grouped under headings instead of being one flat list of twenty-seven rows, the rows worth pasting somewhere carry a copy icon and the rest no longer pretend to, and the whole sheet scrolls as one, so the list is still reachable in landscape and at a large font scale. Send File is now refused only when the daemon would refuse it; a device the control plane merely calls offline keeps a live button with a note beside it, because that bit lags and the transfer itself finds out.
+- **The peer properties no longer contradict the status line.** A relay row is shown only while there is no direct endpoint, which is what `tailscale status` does and what the status line above already says.
+- **Received files: the same name twice, Root Mode, and the open Inbox.** A file sent again under a name the user had already deleted is announced like any other arrival; it used to be swallowed because the daemon reuses the bare name and the app remembered it. In Root Mode the daemon now starts with `umask 022`, so a received file is readable by the app the moment it lands rather than after the daemon stops (some `su` shells run with 077, which left "File received" opening into a permission error). And while the Inbox page is on screen the list simply refreshes — no notification for a file the user is already looking at.
+- **Swiping between peers shows the peer you are swiping to.** The sheet used to move only
+  the peer you were leaving and swap in the next one after you let go, so the drag showed an
+  empty edge. Both pages now travel together, the release carries the same motion through at
+  the speed your finger left, and the ends of the list push back instead of doing nothing.
+- **Ping is the connection card.** Tap the card, the indicator runs inside it, the figure
+  lands where the caption was; the separate button is gone. On this device's own entry there
+  is no action, and the card says so rather than showing a dead figure.
+- **The back gesture works inside Settings.** A section used to close instantly, with no
+  feedback — deliberately, from a time when the animation looked clumsy. It now recedes under
+  your finger and uncovers the category list, and letting go halfway brings it back. Moving
+  between screens is still the system's own animation, untouched.
+- **About was rebuilt.** It led with nothing: the version, the update state, the licence and
+  five links were one column of identical text buttons. What you open it for is at the top
+  now, and everyone credited is still credited.
+- **Waiting for a login is no longer cut short.** The daemon gets 40 seconds to answer instead
+  of 20, and the control plane 120 instead of 45, before an attempt is abandoned. Both are
+  ceilings, not delays — on a fast network nothing changes; on a throttled one the first
+  attempt stops being the one that fails.
+
+### Added
+
+- **The exit node is visible in the peer list.** The one carrying your traffic wears a filled
+  badge, one that merely offers to be an exit node a dim icon; the data was there all along and
+  nothing showed it.
+- **Latency in the exit-node picker.** Each node has its own measurement, on its own tap
+  target, so checking one never gets in the way of choosing another.
+- **A peer's Tailscale version, when it can be known.** The daemon cannot say: the status
+  carries no such field and the control plane strips it from every peer's Hostinfo. The Admin
+  API does know, so with a token configured the row is filled from there — and with no token,
+  no match, or no answer, the row is not written at all rather than reading "Unknown".
+- **Files announce themselves.** A finished transfer refreshes the list and raises a
+  notification naming the sender, using the mechanism the daemon has always offered for this
+  mode. Nothing announced an arrival before.
+
+### Fixed
+
+- **Sending a file reported failure on success.** The receiving peer answers `{}` and the
+  daemon passes that body through; three screens compared it to `OK`, so every successful
+  transfer looked like an error. Success and failure are now decided by the peer's HTTP
+  status, and a refusal arrives with the reason the peer gave.
+- **Partial downloads were listed as if they had arrived.** Opening one gave a truncated file;
+  deleting one took it out from under the daemon mid-transfer.
+- **Send pickers offered peers that would refuse.** They now carry the daemon's own verdict,
+  and the peer sheet explains a refusal on the button itself. For a tagged device or another
+  user's that explanation is now accurate: the two capabilities involved can only be issued by
+  Tailscale — the console rejects any grant naming its own domain — so the answer is to leave
+  personal devices untagged, not to write an ACL rule that cannot exist.
+- **Pinging this very device reported a failure.** There is no peer to answer; the card says
+  so instead.
+- **A poll that could never return anything.** Every five seconds the app asked the daemon for
+  received files, in the one mode where the daemon writes them straight to disk and always
+  answers empty. Removed, along with a save path nothing called.
+- **An empty node id was papered over with a hostname** the daemon then rejected, turning a
+  clear error into a confusing one.
+- **The build's own guards did not guard.** The check that refuses a release built from a
+  stale Go bridge decided from the text of the command you typed, so Android Studio's Run
+  button walked past it. The check that R8 kept the JNI methods could not see the heaviest
+  case — a whole class removed. The AAR metadata check was switched off with no reason
+  recorded; the reason is now written where the switch is. And `build.sh` skipped patching
+  whenever the source tree already existed, which is how a tree patched by an older patch set
+  kept building here while CI, always starting clean, built something else — it stamps the
+  patch set now and re-patches when it moves.
+- **The daemon carried code no phone runs.** Nine features that cannot execute on Android are
+  no longer compiled in, and the tunnel library is no longer built twice per architecture as a
+  program nothing launches. The daemon is about half a megabyte smaller per architecture.
+
 ## [4.0.0] - 2026-09-06
 
 Root Mode was rebuilt. Two changes alter how a device behaves and are worth reading first:
@@ -18,6 +95,8 @@ Root Mode was rebuilt. Two changes alter how a device behaves and are worth read
 - **Public IPv6 through the TUN tunnel is now something to turn on.** TUN mode used to advertise IPv6 the SOCKS side could not deliver, so sites hung instead of falling back to IPv4; tailnet IPv6 still works unconditionally, and "Route all IPv6 through the tunnel" (Tunnel mode) covers the rest of the internet only when enabled — which is worth doing only with an exit node that really carries IPv6.
 - **Turning on VPN (TUN) mode asks first.** Enabling TUN silently revoked Android's VPN slot from whatever held it — an ad blocker there simply went dark; it now confirms, says when another VPN is running, and states the reverse too (the next app to take the slot disconnects TailSocks).
 - **Settings were rebuilt from six tabs into a list of eleven sections**, and the tunnel mode became three rows — Proxy, VPN (TUN), Root — instead of a tab strip. Diagnostic and sharing screens now open from the section they belong to: Taildrive shares, Serve & Funnel, DNS diagnostics, Logs, Terminal, Netcheck and the Admin Console.
+- **The peer details sheet turns pages instead of guessing.** A horizontal swipe used to move nothing until the finger came up; the neighbouring device now slides in alongside the one on screen from the first millimetre of the drag, follows the finger back if the swipe is taken back, and the arrows on either side say when there is nothing to turn to.
+- **About was rebuilt around the one question it answers first.** The app version, the core version, the update state and the update button are one block at the top — the version being fetched stays on screen while it downloads, and the check says so while it runs — What's new and the project's GitHub page are buttons rather than lines of text, and the people this build stands on are a list where each name opens the page its work lives on.
 - **The profile backup file now carries the app-wide settings too** — proxy addresses, control-plane proxy and DPI bypass, TUN and Root Mode options, recovery and appearance. Files written by earlier versions still restore and a setting the file does not mention keeps its current value; the automation secret, the API token, the node keys and device-bound entries are still never written to it.
 
 ### Added
@@ -53,7 +132,7 @@ Root Mode was rebuilt. Two changes alter how a device behaves and are worth read
 - **Account and daemon settings**: spaces and line breaks no longer reach the control plane as part of the device name, a control-plane proxy behind a hostname resolves again, its username and password are percent-encoded (a `/`, `?`, `#` or `%` used to make the app connect without the proxy), and the DNS test and exported debug report no longer show defaults that were never in use.
 - **Taildrive and Taildrop**: browsing another node's Taildrive shares from the system Files app works in proxy mode again (an upstream upgrade had silently blanked it) and with a password-protected SOCKS5 proxy, shares are registered once the backend is running instead of being refused at every start, Taildrop transfers stream to disk without the 30-second cut-off, and sending a file to an offline device reports the failure instead of "Sent!".
 - **Serve, Funnel and automation**: the 14 Gemini AppFunctions execute again, Serve TCP targets can be entered, and editing a Serve rule keeps its PROXY setting.
-- **Interface**: the status card now reads "Active + Root" instead of looking like plain proxy mode, an exit node can be cleared even when the peer list is empty, dialogs follow the app language rather than the system's and more of the interface is translated, the back gesture reveals the real previous screen instead of a fake one, the Terminal no longer grows without limit in a long session, and several labels, headers and buttons no longer collide with their own controls.
+- **Interface**: the status card now reads "Active + Root" instead of looking like plain proxy mode, an exit node can be cleared even when the peer list is empty, dialogs follow the app language rather than the system's and more of the interface is translated, the back gesture reveals the real previous screen instead of a fake one — inside Settings it drags the open section away and brings the category list back underneath it, and letting go halfway puts the section back — the Terminal no longer grows without limit in a long session, and several labels, headers and buttons no longer collide with their own controls.
 
 ### Security
 

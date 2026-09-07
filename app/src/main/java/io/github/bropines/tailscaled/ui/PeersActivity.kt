@@ -67,6 +67,12 @@ fun PeersScreen(onBack: () -> Unit) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedPeer by remember { mutableStateOf<PeerData?>(null) }
     var peerForFileDrop by remember { mutableStateOf<PeerData?>(null) }
+    // The Tailscale version of each node, by node id, as the Admin API reports it — the one
+    // property the daemon's status does not carry for a peer. Resolved once per list load,
+    // off the main thread, after the list is already on screen; the sheet reads the map and
+    // never asks the network itself. Empty until the answer lands, and stays empty when the
+    // Admin Console has not been set up: then no peer gets a version row.
+    var peerVersions by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
 
     val filteredPeers = remember(peersList, searchQuery) {
         if (searchQuery.isBlank()) peersList
@@ -74,6 +80,16 @@ fun PeersScreen(onBack: () -> Unit) {
             it.getDisplayName().contains(searchQuery, ignoreCase = true) || 
             it.getPrimaryIp().contains(searchQuery) ||
             it.os?.contains(searchQuery, ignoreCase = true) == true
+        }
+    }
+    // This device, but only while the search leaves it on screen. The row below and the
+    // sheet's page turn both read this one value: built separately they disagreed — the
+    // list dropped self on a search that does not match its name while the sheet still
+    // paged onto it, so a swipe right from the first result landed on a device that was
+    // not in the list behind the sheet.
+    val visibleSelfPeer = remember(selfPeer, searchQuery) {
+        selfPeer?.takeIf {
+            searchQuery.isBlank() || it.getDisplayName().contains(searchQuery, ignoreCase = true)
         }
     }
 
@@ -97,15 +113,23 @@ fun PeersScreen(onBack: () -> Unit) {
                 }
                 val status = AppJson.decodeFromString<StatusResponse>(json)
                 
+                val selfId = status.self?.id
+                val loadedPeers = status.peers?.values
+                    ?.filter { it.id != selfId && (!it.hostName.isNullOrBlank() || !it.dnsName.isNullOrBlank()) && it.shareeNode != true && it.hostName != "funnel-ingress-node" }
+                    ?.toList()
+                    ?.sortedByDescending { it.online == true } ?: emptyList()
                 withContext(Dispatchers.Main) {
                     selfPeer = status.self
-                    val selfId = status.self?.id
-                    peersList = status.peers?.values
-                        ?.filter { it.id != selfId && (!it.hostName.isNullOrBlank() || !it.dnsName.isNullOrBlank()) && it.shareeNode != true && it.hostName != "funnel-ingress-node" }
-                        ?.toList()
-                        ?.sortedByDescending { it.online == true } ?: emptyList()
+                    peersList = loadedPeers
                     isRefreshing = false
                 }
+                // After the list is up, not before: the first answer is an Admin API round
+                // trip (or nothing at all, when no token is configured), and the list must
+                // not wait on it. One call for the whole list — the source reads its settings
+                // once, fetches the device list once and answers every node from memory — so a
+                // refresh a minute later costs no network at all.
+                val versions = PeerVersionSource.versionsFor(context, listOfNotNull(status.self) + loadedPeers)
+                withContext(Dispatchers.Main) { peerVersions = versions }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) { 
                     isRefreshing = false
@@ -154,8 +178,8 @@ fun PeersScreen(onBack: () -> Unit) {
                 }
             } else {
                 LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
-                    if (selfPeer != null && (searchQuery.isBlank() || selfPeer!!.getDisplayName().contains(searchQuery, ignoreCase = true))) {
-                        item { PeerItem(selfPeer!!, true) { selectedPeer = selfPeer } }
+                    if (visibleSelfPeer != null) {
+                        item { PeerItem(visibleSelfPeer, true) { selectedPeer = visibleSelfPeer } }
                     }
                     items(filteredPeers) { p -> 
                         PeerItem(p, false) { selectedPeer = p } 
@@ -165,7 +189,7 @@ fun PeersScreen(onBack: () -> Unit) {
         }
 
         selectedPeer?.let { p ->
-            val allSelectablePeers = listOfNotNull(selfPeer) + filteredPeers
+            val allSelectablePeers = listOfNotNull(visibleSelfPeer) + filteredPeers
             // By node id, not by the object: PeerData is a data class whose equality covers
             // the traffic counters and the last-seen stamps, so every refresh replaces the
             // selected peer with an equal-looking but unequal instance. indexOf would then
@@ -174,19 +198,41 @@ fun PeersScreen(onBack: () -> Unit) {
             val currentIndex =
                 if (p.id != null) allSelectablePeers.indexOfFirst { it.id == p.id }
                 else allSelectablePeers.indexOf(p)
-            val prevPeer = if (currentIndex > 0) allSelectablePeers[currentIndex - 1] else null
-            val nextPeer = if (currentIndex in 0 until allSelectablePeers.size - 1) allSelectablePeers[currentIndex + 1] else null
-            // The refreshed instance, so the sheet stops rendering the snapshot it was
-            // opened on.
-            val shownPeer = allSelectablePeers.getOrNull(currentIndex) ?: p
+            // The list is what the sheet pages through, so the list stays here and the sheet
+            // borrows a window onto it: the peer at 0 (the refreshed instance, so the sheet
+            // stops rendering the snapshot it was opened on), the two it can slide in under
+            // the finger, and the two beyond those, which only decide whether the arriving
+            // page draws an arrow of its own. Handing over the neighbouring PeerData rather
+            // than bare prev/next callbacks is what lets the sheet draw the next peer while
+            // the finger is still down; a callback can only be fired once it is up.
+            val peerAt: (Int) -> PeerPage? = { offset ->
+                // currentIndex is -1 when a refresh or a search has filtered the selected
+                // peer out from under the sheet: then it is the only page there is.
+                val target =
+                    if (currentIndex < 0) p.takeIf { offset == 0 }
+                    else allSelectablePeers.getOrNull(currentIndex + offset)
+                target?.let { peer ->
+                    PeerPage(
+                        peer,
+                        isSelf = peer.id?.let { it == selfPeer?.id } ?: (peer === selfPeer),
+                        version = peer.id?.let { peerVersions[it] }
+                    )
+                }
+            }
 
             PeerDetailsModal(
-                peer = shownPeer,
-                isSelf = shownPeer.id?.let { it == selfPeer?.id } ?: (shownPeer === selfPeer),
+                peerAt = peerAt,
+                // The near end of every latency the sheet measures. Taken from selfPeer, not
+                // from visibleSelfPeer: a search that hides this device from the list does
+                // not change which address the pings leave from.
+                // getPrimaryIp() would hand back its "0.0.0.0" sentinel for a Self the
+                // daemon has reported without a tailnet address yet — logged out, or
+                // mid-login before the node map lands — and the connection block would draw
+                // exactly the arrow pointing at nothing it takes a null to avoid.
+                selfAddress = selfPeer?.tailscaleIPs?.firstOrNull(),
                 onDismiss = { selectedPeer = null },
-                onSendFileClick = { peerForFileDrop = shownPeer; filePickerLauncher.launch("*/*") },
-                onPrevPeer = if (prevPeer != null) { { selectedPeer = prevPeer } } else null,
-                onNextPeer = if (nextPeer != null) { { selectedPeer = nextPeer } } else null
+                onSendFileClick = { peer -> peerForFileDrop = peer; filePickerLauncher.launch("*/*") },
+                onSelectPeer = { peer -> selectedPeer = peer }
             )
         }
     }
@@ -197,13 +243,17 @@ private fun sendFileToPeer(context: Context, uri: Uri, peer: PeerData, scope: Co
     Toast.makeText(context, context.getString(R.string.peers_sending), Toast.LENGTH_SHORT).show()
     scope.launch(Dispatchers.IO) {
         try {
+            // StableNodeID or nothing: the daemon matches file-put targets by ID alone, so a
+            // name here would only turn a missing ID into a 404 (see taildropTargetId).
+            val target = taildropTargetId(context, peer)
             val originalName = getFileName(context, uri) ?: "file_${System.currentTimeMillis()}"
             val outDir = File(context.cacheDir, "peer_out").apply { mkdirs() }
             val tmp = File(outDir, originalName)
             context.contentResolver.openInputStream(uri)?.use { i -> tmp.outputStream().use { o -> i.copyTo(o); o.flush() } }
-            val target = if (!peer.id.isNullOrEmpty()) peer.id else (peer.hostName ?: peer.dnsName ?: peer.getDisplayName())
             val res = Appctr.sendFileFromAPI(target, tmp.absolutePath)
             tmp.delete()
+            // "OK" is a 2xx from the peer; every failure starts with "Error" and carries the
+            // peer's HTTP status and body, or the local reason.
             if (res == "OK") {
                 logSentFile(context, originalName, peer.getDisplayName())
                 withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.peers_sent), Toast.LENGTH_SHORT).show() }
