@@ -227,6 +227,7 @@ private val PEER_DETAIL_GROUP_OF: Map<PeerDetailId, PeerDetailGroup> = mapOf(
     PeerDetailId.IN_MAGICSOCK to PeerDetailGroup.ROUTE,
     PeerDetailId.IN_WG_ENGINE to PeerDetailGroup.ROUTE,
     PeerDetailId.OS to PeerDetailGroup.DEVICE,
+    PeerDetailId.VERSION to PeerDetailGroup.DEVICE,
     PeerDetailId.NODE_ID to PeerDetailGroup.DEVICE,
     PeerDetailId.TAGS to PeerDetailGroup.DEVICE,
     PeerDetailId.IS_EXIT_NODE to PeerDetailGroup.CAPABILITIES,
