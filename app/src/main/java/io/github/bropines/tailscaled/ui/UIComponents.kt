@@ -227,7 +227,6 @@ private val PEER_DETAIL_GROUP_OF: Map<PeerDetailId, PeerDetailGroup> = mapOf(
     PeerDetailId.IN_MAGICSOCK to PeerDetailGroup.ROUTE,
     PeerDetailId.IN_WG_ENGINE to PeerDetailGroup.ROUTE,
     PeerDetailId.OS to PeerDetailGroup.DEVICE,
-    PeerDetailId.VERSION to PeerDetailGroup.DEVICE,
     PeerDetailId.NODE_ID to PeerDetailGroup.DEVICE,
     PeerDetailId.TAGS to PeerDetailGroup.DEVICE,
     PeerDetailId.IS_EXIT_NODE to PeerDetailGroup.CAPABILITIES,
@@ -303,7 +302,7 @@ private fun peerCards(peer: PeerData, strings: PeerDetailsStrings): List<PeerCar
         val relay = peer.relay?.takeIf { it.isNotEmpty() }
         val card = when (group) {
             PeerDetailGroup.ADDRESSES -> leadRow(PeerDetailId.IPV4)
-            PeerDetailGroup.DEVICE -> leadRow(PeerDetailId.VERSION)
+            PeerDetailGroup.DEVICE -> leadRow(PeerDetailId.OS)
             PeerDetailGroup.TIMING -> leadRow(PeerDetailId.LAST_SEEN)
             // The same reading as the status strip's route chip, with the raw endpoint or
             // region as the figure. The row it was read from steps aside; the other one —

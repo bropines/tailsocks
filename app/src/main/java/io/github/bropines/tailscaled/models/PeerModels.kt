@@ -78,7 +78,9 @@ data class PeerData(
             PeerDetail(PeerDetailId.IPV4, "IPv4", getPrimaryIp()),
             PeerDetail(PeerDetailId.IPV6, "IPv6", tailscaleIPs?.getOrNull(1) ?: "N/A"),
             PeerDetail(PeerDetailId.ALLOWED_IPS, "Allowed IPs", allowedIPs?.joinToString(", ") ?: "N/A"),
-            PeerDetail(PeerDetailId.VERSION, "Tailscale Version", version ?: "Unknown"),
+            // No version row: ipnstate.PeerStatus carries no Version field, so the
+            // status JSON never fills PeerData.version and the row read "Unknown"
+            // for every peer. The value exists only in the netmap's Hostinfo.
             PeerDetail(PeerDetailId.NODE_ID, "Node ID", id ?: "N/A")
         )
 
