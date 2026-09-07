@@ -177,10 +177,12 @@ the topmost heading, `## [X.Y.Z] - Unreleased`, in the `Added` / `Changed` /
 `Fixed` / `Security` group that fits. Never edit a heading that already has a
 date: released sections are history.
 
-Changelog entries are for users and for whoever cuts the release. Write what
-changed and why it mattered; leave out class names, file paths, constants,
-resource ids and API payloads. Compare a commit subject with its changelog line
-in the `[4.0.0]` section to calibrate.
+Changelog entries are for users and for whoever cuts the release, and they
+are short: one line per change, saying what changed — about twenty words at
+most, no class names, file paths, constants, resource ids or API payloads.
+The why and the details go into the commit message body, where anyone who
+wants them can read them. CI copies the tagged section into the GitHub release
+notes verbatim. Calibrate against the `[4.1.1]` section.
 
 **Versioning is derived, never typed.** Gradle computes `versionName` from
 `git describe --tags --always --abbrev=0` and `versionCode` from

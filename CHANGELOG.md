@@ -6,41 +6,15 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Added
 
-- **Report the real OS** — a choice made per profile, when the profile is created. Since May
-  the daemon has told the coordination server it is a Linux command-line client, on the belief
-  that the coordinator ignored advertised services from Android nodes. Reading the client found
-  nothing that depends on the reported OS, and Serve and Funnel turn out to work here because
-  of a different change entirely — the certificate API that the upstream build switches off on
-  Android. Measured on the author's rooted phone: a node registered as an Android device with
-  its real model and version gets the same `https` and `funnel` capabilities, obtains
-  certificates, answers Funnel requests from the public internet, and the admin console names
-  it after the device model and shows "Android (16)". The one thing the coordinator will not
-  accept is a node that *changes* its OS after registration — it answers "node OS changed since
-  last connection" and sends no network map. So the checkbox sits where the node is born: in
-  the onboarding login step and in the "Add account" dialog. The switch in Settings → Account &
-  connection still works for a profile that has not signed in yet; for a registered one it
-  offers to create a new profile instead. If a node is ever refused for this, the app now says
-  so, with a notification and a log line, instead of showing "connecting" forever.
+- Report the real OS to the coordination server — a per-profile choice, made in onboarding or when adding an account; off by default.
+- A notification when the coordination server refuses a node because its OS changed.
 
 ### Fixed
 
-- **Root Mode after a reboot came up half-configured.** The daemon the boot script started
-  had no SOCKS5 or HTTP proxy at all — Taildrive in the Files app and every client on the
-  local network stayed dead until the connection was restarted by hand — ran with a kernel
-  TUN even when Native TUN was off, could pick the wrong profile when there were several,
-  and left the state directory and the socket world-writable. It now starts with exactly
-  what the app would give it: the active profile, the listen addresses, the SOCKS5
-  password, the tunnel mode and the same file modes. "Ignore other VPNs" was also silently
-  reverting to on after every reboot, because the line carrying it was written in a form the
-  boot script does not read.
-- **The SOCKS5 password was not enforced in Root Mode.** Only the non-root daemon received
-  it; with LAN access on, the proxy on the local network accepted anyone while the settings
-  showed a password.
-- **A crashed daemon was treated as if you had pressed Stop.** The wish to stay connected
-  was cleared and both recovery mechanisms stood down, so neither auto-reconnect nor the
-  15-minute revival ever acted on a crash — the one case they exist for. A crash now keeps
-  that wish: auto-reconnect restarts the daemon within its attempt limit; otherwise a
-  notification offers a one-tap reconnect and the revival check finds the service later.
+- Root Mode after a reboot: the boot-started daemon now has the proxies, the SOCKS5 password, the tunnel mode, the active profile and the same file permissions as an app-started one.
+- "Ignore other VPNs" no longer reverts to on after a reboot.
+- The SOCKS5 password is enforced in Root Mode.
+- A crashed daemon is no longer treated as a manual Stop, so auto-reconnect and the background revival act on it.
 
 ## [4.1.0] - 2026-09-07
 

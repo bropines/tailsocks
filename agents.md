@@ -136,8 +136,8 @@ KEY_ALIAS=... KEY_PASSWORD=... ./gradlew app:assembleRelease
   Always use `.replace(Regex("[^0-9.]"), "")` when parsing or comparing version name strings in Kotlin (e.g., `isVersionNewer` in `MainActivity.kt`) to strip non-numeric suffixes before splitting.
 * **Changelog Rules**: Track changes in [`CHANGELOG.md`](CHANGELOG.md):
   - Always record new changes under a bumped version header (`## [X.Y.Z] - YYYY-MM-DD`). Do not append changes to an already released or tagged version header.
-  - Document factual updates only ("What" and "Why"). Do not include discarded experiments or marketing fluff.
-  - **User & Releaser Oriented (Minimal Technical Noise)**: `CHANGELOG.md` is created for end-users and the releaser, not for internal code diff tracking. Keep entries simple, concise, and focused on user-facing impact. **Do NOT include low-level technical details**: avoid internal class/struct names (e.g., `PredictiveBackContainer`), source file paths (`Utils.kt`, `appctr/api.go`), function arguments/constants (`scale = 0.88`, `maxLines = 1`), XML resource IDs, or code-level API payloads.
+  - **One terse line per change.** An entry names *what* changed in one sentence of about twenty words at most, under Added / Changed / Fixed / Security. The *why*, the mechanism and the measurements belong in the commit message body — that is where a reader who wants them goes. CI copies the tagged section into the GitHub release notes verbatim, so a long entry is a long release page. Calibrate against the `[4.1.1]` section; the `[4.0.0]` and `[4.1.0]` sections are the style to avoid.
+  - Facts only: no discarded experiments, no marketing, no internal names (classes, file paths, constants, resource ids, API payloads).
 
 ---
 
