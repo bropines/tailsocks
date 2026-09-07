@@ -22,66 +22,111 @@ This document outlines the planned features, architectural improvements, and ref
 - [x] **Automation security (4.0.0):** broadcast receiver requires a secret token; AppFunctions (Gemini, Android 16+) actually execute and honour the automation switch.
 - [x] **LAN Access, auto-reconnect, background revival and versioned backups (4.0.0).**
 - [x] **Root Mode coexistence (4.0.0):** the policy ruleset is tiered — tailnet reachability, the default-route capture, the device-wide DNS redirect — with one owner per device for the last two, a partial yield that carries exactly the uids another VPN client bypasses, a health-gated DNS redirect and a CGNAT guard. Verified on the author's Redmi (APatch), including across a real reboot.
+- [x] **Report the real OS (4.2.0, unreleased):** a switch in Settings → Account & connection, off by default. With it off the daemon keeps the patch-06 masquerade — OS `linux`, App `tailscale-cli`, DeviceModel `Tailsocks`. With it on the node reports OS `android` plus the real model, the Android version and the install source, the way the official client does.
+- [x] **Root Mode across a reboot (4.2.0, unreleased):** the boot script now takes the active profile's state directory, the SOCKS5/HTTP listen addresses, the SOCKS5 credentials and the tunnel mode (kernel TUN or userspace) from the root-owned env file, starts the daemon with the same command line the app uses, and sets the same file modes (log 644, socket 666, state dir 700). The `TS_VPN_BYPASS=0` line the boot script used to drop is written quoted, so "Ignore other VPNs = off" survives a reboot. The env file is refreshed on every Root Mode start, including when the app attaches to a daemon the boot script started.
+- [x] **A daemon crash is no longer a manual Stop (4.2.0, unreleased):** the desired-running flag stays set when the daemon dies on its own, so auto-reconnect restarts it within its attempt limit; when that limit is spent the service stands down with a tap-to-reconnect notification, and the 15-minute watchdog can still revive it.
 
 ## Plans
 
-Состояние на 2026-09-07, после выпуска 4.1.0.
+State as of 2026-09-07, after 4.1.0 and with 4.2.0 unreleased.
 
-### Крупное
+### Big
 
-- [ ] **Нативный TUN.** План: `docs/NATIVE_TUN_PLAN.md`, шесть шагов. Главный риск снят —
-      политика SELinux разрешает приложению `TUNGETIFF` на дескрипторе туннеля
-      (`allowxperm untrusted_app tun_device chr_file ioctl { 0x54D2 }`, прочитано с Redmi).
-      Не проверено вживую: передача дескриптора в дочерний процесс через `SCM_RIGHTS`,
-      поведение при смерти владельца, задержка при подмене. Требует отладочного помощника
-      в APK — через `su` проверять бессмысленно, другой домен SELinux.
-- [ ] **tsnet — идея для 5.0.** Демон внутрь процесса. Несовместимо с Root-режимом, где он
-      обязан быть отдельным процессом под `su`.
-- [ ] **Отдельный CLI-бинарник.** Решение за автором, отложено. Цена измерена: около 6 МБ в
-      каждом срезе, 25 МБ в универсальном.
+- [ ] **Native TUN.** The plan is [`NATIVE_TUN_PLAN.md`](NATIVE_TUN_PLAN.md): seven steps (0–6,
+      the last one optional polish), each leaving the app shippable. Target: unscheduled, to be
+      re-set before work starts — it slipped past 4.0.0 and 4.1.0, so every "4.1" in the plan is
+      stale. The main risk is gone: SELinux policy allows the app `TUNGETIFF` on the tunnel fd
+      (`allowxperm untrusted_app tun_device chr_file ioctl { 0x54D2 }`, read off the Redmi).
+      Still unverified on a device: passing the fd to the child process over `SCM_RIGHTS`, the
+      behaviour when the owner dies, and the latency of a swap. Verifying them needs a debug
+      helper inside the APK — checking through `su` proves nothing, it is a different SELinux
+      domain.
+- [ ] **tsnet — an idea for 5.0.** The daemon moved inside the app process. Incompatible with
+      Root Mode, where it must be a separate process under `su`.
+- [ ] **The separate CLI binary.** The author's decision, deferred. The cost is measured: about
+      6 MB in every per-ABI slice, 25 MB in the universal APK, and roughly 22 MB on device
+      because native libraries are extracted at install. What it buys: the Root Mode shell
+      wrapper (`su -c tailscale …`) and a handful of Console commands that already have LocalAPI
+      equivalents.
+  - **Choose between:** (a) keep it as it is — zero work.
+  - (b) Download it on demand from the app's own GitHub release — the smallest APK, but it adds a downloader, hash verification, published CI assets, version pinning and reachability concerns, and a downloaded binary can likely only be executed by root.
+  - (c) `lite` / `full` Gradle product flavors — a contained build change, but the variant matrix doubles and CI renaming plus updater awareness follow.
+  - (d) Ship the CLI in the universal APK only — the same mechanism as (c), with the release page still at five assets (four per-ABI APKs plus the universal one).
+  - (e) The `ts_include_cli` build tag upstream offers: one binary serves both roles, `tailscaled` dispatching to the CLI when it is invoked as `tailscale`, so there is no second 6 MB library at all. This option was missing from the earlier list.
+  - Note: `useLegacyPackaging` cannot be turned off — the daemon is `exec()`d from
+    `nativeLibraryDir`, which requires the libraries to be extracted to disk.
 
-### Требует решения автора
+### Needs the author's decision
 
-- [ ] **Переключатель честной ОС.** Патч 06 подставляет `OS = linux`, потому что (по
-      комментарию автора патча) координатор игнорирует объявленные сервисы у андроидных
-      узлов. Проверено 2026-09-07: peerAPI это НЕ ломает — узел `Pixel 8` с `OS = android`
-      в этой сети объявляет `peerapi4`/`peerapi6`, то есть Taildrop не под угрозой.
-      Под вопросом остаются serve и funnel. Цена выясняется одним экспериментом на своей сети.
-- [ ] **Три задачи от бота-сканера** (#5, #6, #7 и два PR). Проверено: `x/crypto/ssh` в
-      сборке отсутствует (`ts_omit_ssh`), версию диктует апстрим, патч бота неприменим.
-      Осталось закрыть с объяснением.
-- [ ] **Задача #3** — запрос, с которого начался Root-режим. Автор уже ответил; закрывать
-      или ждать подтверждения от `TheLastFlame` на его планшете.
+- [ ] **The honest OS — what the research settled (2026-09-07).** Patch 06 substitutes
+      `OS = linux` on the theory that the control plane ignores services advertised by Android
+      nodes. That theory does not hold: the client has no `Hostinfo.OS` gate on serve, funnel or
+      cert — the only gates are the `https` and `funnel` node capabilities carried in the netmap.
+      The real Android gate is the `!android` build tag on `ipn/localapi/cert.go`, which patch 05
+      already removes, so the masquerade was never what made Serve/Funnel work. peerAPI and
+      Taildrop are unaffected: a `Pixel 8` with `OS = android` on this tailnet advertises
+      `peerapi4`/`peerapi6`, and only tvOS is refused in code. The single documented consequence
+      of honesty is device posture — `node:os` flips from linux to android. Upstream
+      `tailscale/tailscale#18245` shows an `OS = android` node obtaining certificates from
+      control. The switch itself has shipped (see Completed, off by default); the open decision is
+      whether honesty ever becomes the default, and that waits on one experiment listed under
+      *Verify on devices*.
+- [ ] **Scanner-bot issues #5, #6, #7** — verified 2026-09-07: `x/crypto/ssh` is not compiled into any shipped binary (`ts_omit_ssh` plus upstream's `!android` build constraint on the SSH server), the version is dictated by the pinned upstream module, and the two PRs change only the bridge's `go.mod`. The closing comment is written; the author posts it (the assistant is not allowed to write to GitHub).
+- [ ] **Issue #3** — the request Root Mode started from. The author has already answered; either
+      close it or wait for `TheLastFlame` to confirm on his tablet.
 
-### Проверка на устройствах
+### Verify on devices
 
-- [ ] **Root-режим на WSA после перезагрузки:** автозапуск через `service.d` и присоединение
-      приложения к демону, которого оно не запускало.
-- [ ] **Права принятых файлов в Root-режиме.** Правка сделана вслепую (`umask 022` + передача
-      каталога приложению). В «Проверить маршрутизацию» добавлен вывод реальных прав —
-      посмотреть и подтвердить.
-- [ ] **Утечка exit node по IPv6** — на Redmi 2026-09-07 НЕ воспроизводится: маршрут по
-      умолчанию в таблице есть, трафик уходит в туннель с тайлнет-адресом источника.
-      Проверить на POCO, где сеть другая; если не воспроизведётся и там — вычеркнуть.
-- [ ] **Версия пира из Admin API** — работает только при настроенном токене; проверить на
-      устройстве, где он настроен.
+- [ ] **Root Mode on WSA after a reboot:** autostart through `service.d`, and the app attaching
+      to a daemon it did not launch.
+- [ ] **The honest-OS experiment on the author's tailnet.** One run with the switch off as the
+      baseline, one with it on: `tailscale debug netmap` CapMap (`https`, `funnel`),
+      `tailscale cert`, a funnel end to end, and a `svc:` advertisement. This is the only thing
+      still unknown about reporting the real OS.
+- [ ] **Received-file permissions in Root Mode.** The fix was made blind (`umask 022` plus
+      handing the directory to the app). Check Routing now prints the real modes — look at them
+      and confirm.
+- [ ] **The IPv6 exit-node leak** does not reproduce on the Redmi as of 2026-09-07: table `52`
+      has a default route and traffic leaves through the tunnel with a tailnet source address.
+      Check the POCO, where the network is different; if it does not reproduce there either,
+      strike the item.
+- [ ] **A peer's version from the Admin API** is implemented and works only with a token
+      configured. All that is left is a look on a device where one is.
+- Deferred, not implemented — recorded so they are not lost again:
+  - A foreign tunnel restarting with a new netId: the ruleset signature keys on the netId, but this has never been observed on a device.
+  - FBE phones: wait for user-0 CE storage before starting.
 
-### Мелкое
+### Small
 
-- [ ] **IPv6 в перехвате DNS.** На ядре Redmi (4.19) таблицы `nat` для шестой версии не
-      существует — писать правила некуда, это ограничение прошивки, а не наш пробел.
-      Сделать: сказать об этом в диагностике вместо нынешнего молчания, и проверить, не
-      уходит ли DNS-запрос по IPv6 мимо MagicDNS.
-- [ ] **Пять индикаторов загрузки внутри кнопок** остались старыми — новый компонент при
-      размере 14 dp перестаёт читаться. Посмотреть на устройстве и решить.
-- [ ] **Стабильная Material 3.** Сейчас `1.5.0-alpha27` ради компонентов, которых нет в 1.4.0.
-      Выйдет стабильная — смена одной строки в `gradle/libs.versions.toml`.
-- [ ] **Обновление Tailscale** с 1.102.1 на свежий выпуск. Подтянет и версии зависимостей,
-      на которые ругается бот.
-- [ ] **Английская версия пасхалки** — если делать, то другой шуткой, а не переводом.
+- [ ] **IPv6 in the DNS redirect.** On the Redmi's kernel (4.19) there is no IPv6 `nat` table —
+      there is nowhere to write the rules; a firmware limit, not a gap of ours. To do: say so in
+      the diagnostics instead of the present silence, and check whether a DNS query goes out over
+      IPv6 past MagicDNS.
+- [ ] **Console `status` / `netcheck` / `ping` do not work in Root Mode.** The CLI symlink is
+      created only by the userspace launch path (`appctr/daemon.go`); `AttachExternal` never
+      creates it, so in Root Mode those commands have no binary to call.
+- [ ] **The five loading indicators inside buttons** are still the old ones — the new component
+      stops being legible at 14 dp. Look at it on a device and decide.
+- [ ] **Stable Material 3.** `1.5.0-alpha27` is in use for components 1.4.0 does not have, and it
+      is still the latest — no stable release exists yet. When one appears it is one line in
+      `gradle/libs.versions.toml`.
+- [ ] **Update Tailscale** from 1.102.1 to the current upstream release, v1.102.3 (2026-08-20).
+      Correction to the earlier note: it does *not* pull the dependency versions the scanner bot
+      asked for — v1.102.3 still pins `x/crypto` v0.54.0. Those arrive only with a later upstream
+      release.
+- [ ] **An English easter egg** — if it is done at all, as a different joke, not a translation.
+- Deferred, not implemented — recorded so they are not lost again:
+  - Re-apply the ruleset after a netd restart flushes it; nothing reacts to that today.
+  - Do not kill a daemon that is still starting when the app adopts it — there is a single probe today.
+  - A version header in the installed boot script, and an "outdated" state in Settings.
 
-### Аудит второго проекта
+### Audit of the second project
 
-- [ ] **`bropines/tailscale-termux-cli`** — аудит запущен 2026-09-07, отчёт кладётся вне
-      репозитория. Починка найденного — отдельной сессией из папки того проекта.
+- [ ] **`bropines/tailscale-termux-cli`** — the audit started 2026-09-07 and its report is kept
+      outside this repository. Fixing what it finds is a separate session, run from that
+      project's directory.
 
+### Dropped
+
+- Dropped deliberately, with no code behind any of them: the MCP server, the Kotlin LocalAPI
+  bridge, the traffic analyzer, and custom DERP maps.

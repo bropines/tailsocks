@@ -1,9 +1,9 @@
-# Native TUN — the design for 4.1 (tailscaled owns the VpnService fd)
+# Native TUN — the design (tailscaled owns the VpnService fd)
 
 **Status: not implemented.** Nothing described here is in the app. TUN mode
 still runs on hev-socks5-tunnel: it owns the VpnService tunnel and pushes every
 packet into the daemon's SOCKS5 port. This document is the design that replaces
-that, planned for 4.1 — it records what was decided, why the alternatives were
+that — first aimed at 4.0, then 4.1, and shipped in neither; the target version is unset until the work is scheduled. It records what was decided, why the alternatives were
 rejected, and in what order the work can land while keeping the app shippable
 after every step.
 
@@ -155,4 +155,4 @@ MagicDNS names, split-DNS domains served by tailnet peers, exit node with and
 without LAN access, subnet routes, Taildrive via 100.100.100.100:8080, network
 switch Wi-Fi ↔ cellular, VPN revoke and re-grant — all without hev in the APK,
 with Proxy and Root modes behaving exactly as before, and `CHANGELOG.md`
-describing the change under 4.1.0.
+describing the change under the release it lands in.

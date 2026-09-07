@@ -11,7 +11,7 @@ pointer, nothing more; the substance lives in the files it names.
    section in its own style whenever you change behaviour.
 3. Plans and leftovers: [`docs/ROADMAP.md`](docs/ROADMAP.md). The one large
    effort ahead is [`docs/NATIVE_TUN_PLAN.md`](docs/NATIVE_TUN_PLAN.md) — TUN
-   rebuilt around a tailscaled-owned `VpnService` fd, targeted at 4.1. It is a
+   rebuilt around a tailscaled-owned `VpnService` fd, unscheduled since it slipped past 4.1.0. It is a
    plan; shipped TUN mode still runs on `hev-socks5-tunnel`.
 4. Building: [`docs/BUILDING.md`](docs/BUILDING.md). Run `appctr/build.sh` after
    any Go or patch change, or the APK will not contain it.

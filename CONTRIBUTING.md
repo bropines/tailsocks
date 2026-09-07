@@ -141,9 +141,9 @@ share the daemon and the local proxies and nothing else, and it is easy to
   T3 (device-wide DNS) claim the whole device and therefore have exactly one
   owner. If you touch T2 or T3, read `docs/ROOT.md` §4–5 first: the coexistence
   logic there is what keeps another VPN client's apps from being stolen.
-* TUN mode is, and in 4.0 remains, the `hev-socks5-tunnel` engine. The rebuild
-  in which `tailscaled` owns the `VpnService` fd directly is a plan for 4.1
-  ([`docs/NATIVE_TUN_PLAN.md`](docs/NATIVE_TUN_PLAN.md)), not code — do not
+* TUN mode is, and remains, the `hev-socks5-tunnel` engine. The rebuild in
+  which `tailscaled` owns the `VpnService` fd directly is a plan with no release
+  date yet ([`docs/NATIVE_TUN_PLAN.md`](docs/NATIVE_TUN_PLAN.md)), not code — do not
   half-land it, and do not document it as if it existed.
 
 State the modes you tested in the pull request. "Proxy only" is a fine answer;
