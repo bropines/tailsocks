@@ -58,7 +58,7 @@ State as of 2026-09-07, after 4.1.0 and with 4.2.0 unreleased.
 
 ### Needs the author's decision
 
-- [ ] **The honest OS — what the research settled (2026-09-07).** Patch 06 substitutes
+- [x] **The honest OS — what the research settled (2026-09-07).** Patch 06 substitutes
       `OS = linux` on the theory that the control plane ignores services advertised by Android
       nodes. That theory does not hold: the client has no `Hostinfo.OS` gate on serve, funnel or
       cert — the only gates are the `https` and `funnel` node capabilities carried in the netmap.
@@ -77,8 +77,8 @@ State as of 2026-09-07, after 4.1.0 and with 4.2.0 unreleased.
       fresh profile: a node registered as Android from the start holds `https` and `funnel`,
       `tailscale cert` issues, Funnel answers HTTP 200 from the public internet in 5 s, and the
       admin console names the machine after the device model (`xiaomi-23030rac7y`,
-      "Android (16)"). Hence the setting is a property of the profile, fixed at creation. Only
-      decision left: whether honesty becomes the default for new profiles.
+      "Android (16)"). Hence the setting is a property of the profile, fixed at creation. Decided
+      2026-09-07: it stays off by default for new profiles; the masquerade remains the norm.
 - [ ] **Scanner-bot issues #5, #6, #7** — verified 2026-09-07: `x/crypto/ssh` is not compiled into any shipped binary (`ts_omit_ssh` plus upstream's `!android` build constraint on the SSH server), the version is dictated by the pinned upstream module, and the two PRs change only the bridge's `go.mod`. The closing comment is written; the author posts it (the assistant is not allowed to write to GitHub).
 - [ ] **Issue #3** — the request Root Mode started from. The author has already answered; either
       close it or wait for `TheLastFlame` to confirm on his tablet.
