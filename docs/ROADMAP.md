@@ -68,9 +68,14 @@ State as of 2026-09-07, after 4.1.0 and with 4.2.0 unreleased.
       `peerapi4`/`peerapi6`, and only tvOS is refused in code. The single documented consequence
       of honesty is device posture — `node:os` flips from linux to android. Upstream
       `tailscale/tailscale#18245` shows an `OS = android` node obtaining certificates from
-      control. The switch itself has shipped (see Completed, off by default); the open decision is
-      whether honesty ever becomes the default, and that waits on one experiment listed under
-      *Verify on devices*.
+      control. The switch itself has shipped (see Completed, off by default). **Measured 2026-09-07 on the
+      Redmi:** masked, the node holds `https` and `funnel`, Funnel answers from the public
+      internet in 5 s, `tailscale cert` issues, and the coordinator pulls the service list over
+      c2n; honest, for the same node (registered as Linux), the coordinator answers «node OS
+      changed since last connection, was node state copied between devices?», sends no netmap,
+      no capabilities, and `cert` fails — the switch therefore asks for confirmation and requires
+      a fresh login. Open: whether a node registered as Android from the start receives the same
+      capabilities (see *Verify on devices*), and whether honesty ever becomes the default.
 - [ ] **Scanner-bot issues #5, #6, #7** — verified 2026-09-07: `x/crypto/ssh` is not compiled into any shipped binary (`ts_omit_ssh` plus upstream's `!android` build constraint on the SSH server), the version is dictated by the pinned upstream module, and the two PRs change only the bridge's `go.mod`. The closing comment is written; the author posts it (the assistant is not allowed to write to GitHub).
 - [ ] **Issue #3** — the request Root Mode started from. The author has already answered; either
       close it or wait for `TheLastFlame` to confirm on his tablet.
@@ -79,10 +84,12 @@ State as of 2026-09-07, after 4.1.0 and with 4.2.0 unreleased.
 
 - [ ] **Root Mode on WSA after a reboot:** autostart through `service.d`, and the app attaching
       to a daemon it did not launch.
-- [ ] **The honest-OS experiment on the author's tailnet.** One run with the switch off as the
-      baseline, one with it on: `tailscale debug netmap` CapMap (`https`, `funnel`),
-      `tailscale cert`, a funnel end to end, and a `svc:` advertisement. This is the only thing
-      still unknown about reporting the real OS.
+- [ ] **The honest-OS experiment, second half.** The first half ran on 2026-09-07 (see *Needs
+      the author's decision*): flipping an existing Linux-registered node to Android is refused
+      by the coordinator. What is left needs the author: log the Redmi out, turn the switch on,
+      log in again so the node registers as Android, then compare `tailscale debug netmap`
+      CapMap (`https`, `funnel`), `tailscale cert`, a funnel end to end and a `svc:`
+      advertisement against the masked baseline, and check the admin console shows Android.
 - [ ] **Received-file permissions in Root Mode.** The fix was made blind (`umask 022` plus
       handing the directory to the app). Check Routing now prints the real modes — look at them
       and confirm.

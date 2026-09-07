@@ -317,6 +317,7 @@ fun SettingsScreen(
     var advertiseRoutes by remember { mutableStateOf(profilePrefs.getString("advertise_routes", "") ?: "") }
     var advertiseExitNode by remember { mutableStateOf(profilePrefs.getBoolean("advertise_exit_node", false)) }
     var honestHostinfo by remember { mutableStateOf(GlobalSettings.isHonestHostinfoEnabled(context)) }
+    var showHonestHostinfoDialog by remember { mutableStateOf(false) }
     var appliedTags by remember { mutableStateOf<List<String>>(emptyList()) }
     var availableNetworkTags by remember { mutableStateOf<List<String>>(emptyList()) }
 
@@ -771,19 +772,55 @@ fun SettingsScreen(
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
             // The daemon reads this from its environment at start, so like the
             // other daemon-environment switches it restarts rather than applies.
+            // Turning it on goes through a confirmation: measured on 2026-09-07,
+            // the coordination server refuses a registered node whose OS changes
+            // ("node OS changed since last connection") and sends no netmap, so
+            // the switch only works together with a fresh login.
             SettingsSwitchItem(
                 title = stringResource(R.string.settings_honest_hostinfo_title),
                 subtitle = stringResource(R.string.settings_honest_hostinfo_desc),
                 icon = Icons.Default.Android,
                 checked = honestHostinfo
             ) { enabled ->
-                honestHostinfo = enabled
-                GlobalSettings.setHonestHostinfoEnabled(context, enabled)
-                if (ProxyState.isUserLetRunning(context)) {
-                    val intent = Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" }
-                    context.startService(intent)
+                if (enabled) {
+                    showHonestHostinfoDialog = true
+                } else {
+                    honestHostinfo = false
+                    GlobalSettings.setHonestHostinfoEnabled(context, false)
+                    if (ProxyState.isUserLetRunning(context)) {
+                        val intent = Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" }
+                        context.startService(intent)
+                    }
                 }
             }
+        }
+
+        if (showHonestHostinfoDialog) {
+            // Strings resolved in the parent composition — see wrapContextWithLocale().
+            val strTitle = stringResource(R.string.settings_honest_hostinfo_dialog_title)
+            val strBody = stringResource(R.string.settings_honest_hostinfo_dialog_body)
+            val strConfirm = stringResource(R.string.settings_tun_warning_confirm)
+            val strCancel = stringResource(R.string.settings_root_warning_dialog_cancel)
+            AlertDialog(
+                onDismissRequest = { showHonestHostinfoDialog = false },
+                icon = { Icon(Icons.Default.Android, contentDescription = null) },
+                title = { Text(strTitle) },
+                text = { Text(text = strBody, style = MaterialTheme.typography.bodyMedium) },
+                confirmButton = {
+                    Button(onClick = {
+                        showHonestHostinfoDialog = false
+                        honestHostinfo = true
+                        GlobalSettings.setHonestHostinfoEnabled(context, true)
+                        if (ProxyState.isUserLetRunning(context)) {
+                            val intent = Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" }
+                            context.startService(intent)
+                        }
+                    }) { Text(strConfirm) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showHonestHostinfoDialog = false }) { Text(strCancel) }
+                }
+            )
         }
 
         Spacer(Modifier.height(12.dp))

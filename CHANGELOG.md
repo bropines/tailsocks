@@ -13,7 +13,12 @@ All notable changes to the TailSocks project will be documented in this file. Th
   because of a different change entirely — the certificate API that the upstream build
   switches off on Android. The switch reports an Android device with its real model and
   version, the way the official app does, so the question can be settled on a real tailnet
-  instead of argued about. It changes what the coordinator knows, so the daemon restarts.
+  instead of argued about. Measured on the author's rooted phone: with the switch off the node
+  holds `https` and `funnel`, Funnel answers from the public internet and the coordinator pulls
+  the service list; with it on, for a node registered as Linux, the coordinator answers
+  "node OS changed since last connection" and sends no network map at all. So turning it on
+  asks first and explains that it only works together with a fresh login, which registers the
+  node anew. It changes what the coordinator knows, so the daemon restarts.
 
 ### Fixed
 

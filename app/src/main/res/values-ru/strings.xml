@@ -1241,7 +1241,9 @@
     <string name="main_exit_node_partial_desc">%1$s — только для приложений, которые не забрал другой VPN</string>
     <!-- What the daemon reports to the coordination server (patch 06 masquerade and its switch) -->
     <string name="settings_honest_hostinfo_title">Сообщать настоящую ОС</string>
-    <string name="settings_honest_hostinfo_desc">Сообщать серверу координации, что это Android-устройство, с настоящей моделью и версией, а не выдавать узел за Linux-клиент командной строки. Перезапускает демон. Serve, Funnel и Tailscale Services могут повести себя иначе — выключите обратно, если они перестанут работать.</string>
+    <string name="settings_honest_hostinfo_desc">Сообщать серверу координации, что это Android-устройство, с настоящей моделью и версией, а не выдавать узел за Linux-клиент командной строки. Координатор отказывает зарегистрированному узлу, у которого сменилась ОС, поэтому включение требует повторного входа. Перезапускает демон.</string>
+    <string name="settings_honest_hostinfo_dialog_title">Сообщать настоящую ОС?</string>
+    <string name="settings_honest_hostinfo_dialog_body">Сервер координации отказывает узлу, у которого операционная система сменилась с момента регистрации: он сообщает «node OS changed since last connection» и не отдаёт карту сети, так что соединение не поднимется. Это устройство зарегистрировано как Linux. После включения выйдите из аккаунта и войдите снова — узел зарегистрируется заново, с новой личностью, и одобрения для старого (маршруты, exit node, сервисы) не перенесутся. Выключение возвращает старую регистрацию.</string>
     <!-- The daemon exited on its own; the user still wanted the connection -->
     <string name="daemon_crashed_title">TailSocks потерял соединение</string>
     <string name="daemon_crashed_text">Демон остановился сам. Нажмите, чтобы переподключиться.</string>

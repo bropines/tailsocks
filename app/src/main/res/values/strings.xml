@@ -1241,7 +1241,9 @@
     <string name="main_exit_node_partial_desc">%1$s — only for the apps another VPN leaves out</string>
     <!-- What the daemon reports to the coordination server (patch 06 masquerade and its switch) -->
     <string name="settings_honest_hostinfo_title">Report the real OS</string>
-    <string name="settings_honest_hostinfo_desc">Tell the coordination server this is an Android device, with its real model and version, instead of presenting the node as a Linux command-line client. Restarts the daemon. Serve, Funnel and Tailscale Services may behave differently — turn it back off if they stop working.</string>
+    <string name="settings_honest_hostinfo_desc">Tell the coordination server this is an Android device, with its real model and version, instead of presenting the node as a Linux command-line client. The coordinator refuses a registered node whose OS changes, so turning this on needs a fresh login. Restarts the daemon.</string>
+    <string name="settings_honest_hostinfo_dialog_title">Report the real OS?</string>
+    <string name="settings_honest_hostinfo_dialog_body">The coordination server refuses a node whose operating system changed since it was registered: it reports «node OS changed since last connection» and sends no network map, so the connection does not come up. This device is registered as Linux. After turning this on, log out and log in again — the node is registered anew, with a new identity, and approvals made for the old one (routes, exit node, services) do not carry over. Turning it off brings the old registration back.</string>
     <!-- The daemon exited on its own; the user still wanted the connection -->
     <string name="daemon_crashed_title">TailSocks lost the connection</string>
     <string name="daemon_crashed_text">The daemon stopped on its own. Tap to reconnect.</string>
