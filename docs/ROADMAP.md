@@ -24,21 +24,64 @@ This document outlines the planned features, architectural improvements, and ref
 - [x] **Root Mode coexistence (4.0.0):** the policy ruleset is tiered — tailnet reachability, the default-route capture, the device-wide DNS redirect — with one owner per device for the last two, a partial yield that carries exactly the uids another VPN client bypasses, a health-gated DNS redirect and a CGNAT guard. Verified on the author's Redmi (APatch), including across a real reboot.
 
 ## Plans
-- [ ] **Native TUN (4.1):** replace the current TUN path — hev-socks5-tunnel owning the tunnel and pushing everything into the daemon's SOCKS5 port, a double network stack — with the architecture of the official client: the `VpnService` creates the TUN and `tailscaled` itself owns that fd, so MagicDNS, split DNS, search domains, subnet routes, exit nodes and 100.100.100.100 work natively. Nothing of it is implemented; the architecture, the seven shippable steps (0–6, the last one optional polish) and the device checks that must pass first are in [`NATIVE_TUN_PLAN.md`](NATIVE_TUN_PLAN.md).
-- [ ] **Root Mode: finish device verification.** Proven on the author's Redmi (Android 16, APatch): preflight, root detection, SELinux and socket access, the daemon's `SO_MARK` probe, the coexistence ruleset, and autostart across a real reboot. What is left:
-  - WSA (Magisk, x86_64): reboot autostart through `service.d`, and the app attaching to a daemon it did not launch, with "Keep running in background" both on and off.
-  - Watch a foreign tunnel restart with a new netId. Losing its `RETURN` used to leave the DNS redirect installed while the log still claimed the other client's resolver was left alone; the signature now keys on the netId, so the ruleset should be rebuilt — that has not been seen happen on a device.
-  - Decisions the author owes before this can move: whether a boot-started daemon gets parity with an app-started one (the SOCKS5/HTTP listen addresses and the tunnel mode carried through `/data/adb/tailsocks/control_proxy.env` and turned into flags — today a reboot leaves a daemon with no proxy listeners, so Taildrive in Files and LAN clients fail until a manual restart); whether that daemon's SOCKS5 listener should be authenticated at all (`TS_SOCKS5_USER` / `TS_SOCKS5_PASS` are never exported, so in Root Mode it is open on localhost whatever the settings fields say); whether the boot script should honour "Native Linux TUN" being off instead of always forcing `tailscale0`; and whether its file modes should match the app's (socket 666, state dir 700, log 644 instead of 777/777/666).
-  - Only if a device actually shows the symptom: wait for user-0 CE storage before starting on FBE phones, do not kill a daemon that is still starting when the boot script is reinstalled, and add a version header to the installed script with an "outdated" state in Settings.
-  - Not conditional on a device, and not device verification either — separate hardening that fell out of the same review: re-apply the ruleset after a netd restart flushes it (`docs/research/root-exit-node-design.json:281`), and settle which profile a boot-started daemon runs as. The boot script takes `files/states/default` or the first `tailscaled.state` it finds (`app/src/main/assets/scripts/tailscaled.sh`), while the app uses `files/states/<activeAccount.id>`, so with several profiles a reboot can bring up a different identity than the app expects — today `docs/ROOT.md` presents that search as a feature and does not say so.
-- [ ] **Root Mode: IPv6 in the device-wide DNS redirect.** The redirect and every carve-out around it are `iptables -t nat` only — there is no `ip6tables -t nat` anywhere — so a query sent to an IPv6 resolver is neither pulled into MagicDNS nor exempted for an excluded app or for an upstream resolver. On a device whose resolvers are IPv6 the whole tier silently does nothing.
-- [ ] **Root Mode: the IPv6 exit-node leak.** When table `52` has no IPv6 default route but the phone has global v6, nothing carries v6 traffic into the exit node and it goes out over the physical network instead — a leak past the exit node, not a tier that merely does nothing (`docs/research/root-exit-node-design.json:272`). The IPv6 catch-all is installed best-effort and its absence is logged (`IPv6 exit-node catch-all not installed`); it has not yet been seen leak on a device, so the first step is to reproduce it on a phone with global v6 and report what table `52` actually holds.
-- [ ] **AI Model Context Protocol (MCP) Server:** Expose an embedded MCP server endpoint (JSON-RPC over SSE / LocalSocket) wrapping `appctr/api.go` LocalAPI, enabling AI assistants (Claude, Cursor, local LLMs) to query status, switch exit nodes, and manage profiles natively.
-- [ ] **Native Kotlin LocalAPI Bridge:** Refactor LocalAPI client requests from Go (`appctr`) to direct OkHttp/UnixDomainSocket calls in Kotlin, keeping `libtailscale.so` purely for daemon execution.
-- [ ] **Traffic Analyzer & Diagnostics:** Add an in-app real-time connection logger to inspect active Tailnet connections and MagicDNS requests.
-- [ ] **Advanced Networking:** Support for custom DERP maps and regional routing overrides.
-- [ ] **APK Size Reduction:** Before R8 the arm64 release held 106.9 MB uncompressed — 53.1 MB of dex and 50.2 MB of native code (`libtailscale.so` 23.1, `libtailscale_cli.so` 15.4, `libgojni.so` 11.3). R8 and resource shrinking are now on (see above); the remaining lever is the bundled `tailscale` CLI binary, and it needs the author's decision before anything is built.
-  - What it costs: about 6 MB of every per-ABI release APK — a quarter of the download — 25 MB of the universal one, and roughly 22 MB on device, because native libraries are extracted at install. What it buys: the Root Mode shell wrapper (`su -c tailscale …`), and a handful of Console commands that already have LocalAPI equivalents.
-  - **Decide between:** (a) keep it as it is, zero work; (b) download it on demand from the app's own GitHub release — the smallest APK, but it adds a downloader, hash verification, published CI assets, version pinning and reachability concerns, and a downloaded binary can likely only be executed by root; (c) `lite` / `full` Gradle product flavors — a contained build change, but it doubles the variant matrix and needs CI renaming and updater awareness; (d) ship the CLI in the universal APK only, the same mechanism as (c) with the release page still at five assets (four per-ABI APKs plus the universal one).
-  - Worth doing whichever is chosen: make a missing CLI degrade visibly instead of returning a blank result, and move the in-app CLI uses to LocalAPI — which also fixes Console `status` / `netcheck` / `ping` in Root Mode, where the CLI symlink is never created at all.
-  - Note: `useLegacyPackaging` cannot be turned off. The daemon is `exec()`d from `nativeLibraryDir`, which requires the libraries to be extracted to disk.
+
+Состояние на 2026-09-07, после выпуска 4.1.0.
+
+### Крупное
+
+- [ ] **Нативный TUN.** План: `docs/NATIVE_TUN_PLAN.md`, шесть шагов. Главный риск снят —
+      политика SELinux разрешает приложению `TUNGETIFF` на дескрипторе туннеля
+      (`allowxperm untrusted_app tun_device chr_file ioctl { 0x54D2 }`, прочитано с Redmi).
+      Не проверено вживую: передача дескриптора в дочерний процесс через `SCM_RIGHTS`,
+      поведение при смерти владельца, задержка при подмене. Требует отладочного помощника
+      в APK — через `su` проверять бессмысленно, другой домен SELinux.
+- [ ] **tsnet — идея для 5.0.** Демон внутрь процесса. Несовместимо с Root-режимом, где он
+      обязан быть отдельным процессом под `su`.
+- [ ] **Отдельный CLI-бинарник.** Решение за автором, отложено. Цена измерена: около 6 МБ в
+      каждом срезе, 25 МБ в универсальном.
+
+### Требует решения автора
+
+- [ ] **Переключатель честной ОС.** Патч 06 подставляет `OS = linux`, потому что (по
+      комментарию автора патча) координатор игнорирует объявленные сервисы у андроидных
+      узлов. Проверено 2026-09-07: peerAPI это НЕ ломает — узел `Pixel 8` с `OS = android`
+      в этой сети объявляет `peerapi4`/`peerapi6`, то есть Taildrop не под угрозой.
+      Под вопросом остаются serve и funnel. Цена выясняется одним экспериментом на своей сети.
+- [ ] **Три задачи от бота-сканера** (#5, #6, #7 и два PR). Проверено: `x/crypto/ssh` в
+      сборке отсутствует (`ts_omit_ssh`), версию диктует апстрим, патч бота неприменим.
+      Осталось закрыть с объяснением.
+- [ ] **Задача #3** — запрос, с которого начался Root-режим. Автор уже ответил; закрывать
+      или ждать подтверждения от `TheLastFlame` на его планшете.
+
+### Проверка на устройствах
+
+- [ ] **Root-режим на WSA после перезагрузки:** автозапуск через `service.d` и присоединение
+      приложения к демону, которого оно не запускало.
+- [ ] **Права принятых файлов в Root-режиме.** Правка сделана вслепую (`umask 022` + передача
+      каталога приложению). В «Проверить маршрутизацию» добавлен вывод реальных прав —
+      посмотреть и подтвердить.
+- [ ] **Утечка exit node по IPv6** — на Redmi 2026-09-07 НЕ воспроизводится: маршрут по
+      умолчанию в таблице есть, трафик уходит в туннель с тайлнет-адресом источника.
+      Проверить на POCO, где сеть другая; если не воспроизведётся и там — вычеркнуть.
+- [ ] **Версия пира из Admin API** — работает только при настроенном токене; проверить на
+      устройстве, где он настроен.
+
+### Мелкое
+
+- [ ] **IPv6 в перехвате DNS.** На ядре Redmi (4.19) таблицы `nat` для шестой версии не
+      существует — писать правила некуда, это ограничение прошивки, а не наш пробел.
+      Сделать: сказать об этом в диагностике вместо нынешнего молчания, и проверить, не
+      уходит ли DNS-запрос по IPv6 мимо MagicDNS.
+- [ ] **Пять индикаторов загрузки внутри кнопок** остались старыми — новый компонент при
+      размере 14 dp перестаёт читаться. Посмотреть на устройстве и решить.
+- [ ] **Стабильная Material 3.** Сейчас `1.5.0-alpha27` ради компонентов, которых нет в 1.4.0.
+      Выйдет стабильная — смена одной строки в `gradle/libs.versions.toml`.
+- [ ] **Обновление Tailscale** с 1.102.1 на свежий выпуск. Подтянет и версии зависимостей,
+      на которые ругается бот.
+- [ ] **Английская версия пасхалки** — если делать, то другой шуткой, а не переводом.
+
+### Аудит второго проекта
+
+- [ ] **`bropines/tailscale-termux-cli`** — аудит запущен 2026-09-07, отчёт кладётся вне
+      репозитория. Починка найденного — отдельной сессией из папки того проекта.
+
