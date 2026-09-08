@@ -737,7 +737,7 @@
     <string name="serve_cap_unknown">Ещё не загружено</string>
     <string name="serve_rules_heading">Правила</string>
     <string name="serve_service_heading">Служба %1$s</string>
-    <string name="serve_service_note">Службу нужно подтвердить в консоли администратора, иначе она не заработает.</string>
+    <string name="serve_service_note">Сначала создайте службу в консоли администратора (Services), затем подтвердите этот узел как её хост, иначе tailnet на неё не ответит.</string>
     <string name="serve_empty_title">Пока ничего не раздаётся</string>
     <string name="serve_empty_text">Правило открывает локальный порт, текст или редирект в ваш tailnet или в интернет через Funnel.</string>
     <string name="serve_kind_proxy">Локальный сервис</string>

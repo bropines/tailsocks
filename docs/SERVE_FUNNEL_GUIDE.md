@@ -47,7 +47,7 @@ Tailscale Services allow you to host a service under a **different hostname** th
 
 ### Features & Limitations:
 *   **Independent Hostname:** Accessible via `https://service-name.tailnet.ts.net`.
-*   **Manual Approval Required:** After creating a virtual service in TailSocks, you **must** log into the Tailscale Admin Console (Web UI), navigate to the "Machines" tab, find the new service, and manually approve it before it becomes accessible on the Tailnet.
+*   **Create first, then approve:** define the service in the Tailscale Admin Console (**Services** page) before this node advertises it, then — once the node has advertised it — approve the node as a host there. Alternatively let the policy do it with `autoApprovers.services`. Until both happen the tailnet does not answer on the service name.
 *   **No L3 Tun Mode:** Because TailSocks runs in userspace-networking mode without a VpnService, the L3 Tun mode (forwarding all traffic to a virtual IP) is **not supported**. You can only use Serve/Funnel on specific ports.
 *   **ACL Requirements:** Requires a `tag` or `service` definition in your ACLs if you are using advanced policies.
 

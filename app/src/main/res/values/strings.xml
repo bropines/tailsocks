@@ -737,7 +737,7 @@
     <string name="serve_cap_unknown">Not loaded yet</string>
     <string name="serve_rules_heading">Rules</string>
     <string name="serve_service_heading">Service %1$s</string>
-    <string name="serve_service_note">A service must be approved in the admin console before it works.</string>
+    <string name="serve_service_note">Create the service in the admin console first (Services), then approve this node as its host, or the tailnet will not answer on it.</string>
     <string name="serve_empty_title">Nothing is served yet</string>
     <string name="serve_empty_text">A rule exposes a local port, a text or a redirect to your tailnet, or to the internet through Funnel.</string>
     <string name="serve_kind_proxy">Local service</string>
