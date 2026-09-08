@@ -789,6 +789,9 @@
     <string name="serve_svc_publish_failed">Не удалось опубликовать службу: %1$s</string>
     <string name="serve_svc_biometric_subtitle">Изменение tailnet через Admin API</string>
     <string name="serve_menu_publish">Опубликовать в tailnet…</string>
+    <string name="serve_svc_status_published">Опубликована в tailnet · %1$s</string>
+    <string name="serve_svc_status_unpublished">В tailnet ещё нет: определите службу и подтвердите этот узел</string>
+    <string name="serve_svc_publish_button">Опубликовать…</string>
     <string name="serve_editor_service_required">Укажите имя службы</string>
     <string name="serve_kind_file">Файлы</string>
     <string name="serve_desc_file">Отдаёт файлы из %1$s</string>

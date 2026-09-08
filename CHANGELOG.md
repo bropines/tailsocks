@@ -24,6 +24,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Admin API: a dropped connection is retried once; a 404 on `vip-services` falls back to `services`.
 - Serve & Funnel rebuilt: a node card with certificate, Funnel ports and services; one list of rules with Public/Tailnet tags and target health; an editor in plain words, with paths, self-signed backends and TLS-terminated TCP under Advanced.
 - Serve: a service rule can define the service in the tailnet and approve this node as its host through the Admin API, behind the device credential.
+- Serve: each service shows whether the tailnet has published it (this node listed as a host, with the service address) or still needs to be, with the publish action right there.
 
 ## [4.1.1] - 2026-09-07
 

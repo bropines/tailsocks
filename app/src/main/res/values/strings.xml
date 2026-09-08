@@ -789,6 +789,9 @@
     <string name="serve_svc_publish_failed">Could not publish the service: %1$s</string>
     <string name="serve_svc_biometric_subtitle">Changing the tailnet through the Admin API</string>
     <string name="serve_menu_publish">Publish in the tailnet…</string>
+    <string name="serve_svc_status_published">Published in the tailnet · %1$s</string>
+    <string name="serve_svc_status_unpublished">Not in the tailnet yet: define the service and approve this node</string>
+    <string name="serve_svc_publish_button">Publish…</string>
     <string name="serve_editor_service_required">Enter a service name</string>
     <string name="serve_kind_file">Files</string>
     <string name="serve_desc_file">Serves files from %1$s</string>

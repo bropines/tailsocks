@@ -56,6 +56,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 
 // A FragmentActivity, not a ComponentActivity: publishing a service goes through
@@ -134,7 +139,14 @@ private data class ServeCapabilities(
     val services: Boolean = false,
     val certDomains: List<String> = emptyList(),
     /** This node's stable ID, what the Admin API approves a service host by. */
-    val nodeId: String = ""
+    val nodeId: String = "",
+    /**
+     * Services the tailnet has made this node a host of, by name without `svc:`,
+     * with their addresses: the netmap's `service-host` capability. Present only
+     * once the service is defined and this node approved — the in-app answer to
+     * "did the publish work".
+     */
+    val serviceHosts: Map<String, List<String>> = emptyMap()
 ) {
     private val tailnetSuffix: String get() = dnsName.substringAfter(".", "")
 
@@ -165,8 +177,22 @@ private fun capabilitiesOf(status: StatusResponse): ServeCapabilities {
         // capability is what the coordinator grants such a node.
         services = "cap:advertise-services" in caps || !self?.tags.isNullOrEmpty(),
         certDomains = status.certDomains ?: emptyList(),
-        nodeId = self?.id ?: ""
+        nodeId = self?.id ?: "",
+        serviceHosts = serviceHostsOf(self?.capMap?.get("service-host"))
     )
+}
+
+/** `service-host` is an array of `{"svc:name": ["100.x", "fd7a:…"]}` objects (tailcfg.ServiceIPMappings). */
+private fun serviceHostsOf(cap: JsonElement?): Map<String, List<String>> {
+    val out = HashMap<String, List<String>>()
+    val items = (cap as? JsonArray) ?: return out
+    for (item in items) {
+        val obj = item as? JsonObject ?: continue
+        for ((name, addrs) in obj) {
+            out[name.removePrefix("svc:")] = (addrs as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull } ?: emptyList()
+        }
+    }
+    return out
 }
 
 private fun rulesOf(config: ServeConfig): List<ServeRule> {
@@ -367,6 +393,8 @@ fun ServeScreen(onBack: () -> Unit) {
     /** A service whose tailnet-side definition and host approval are being offered. */
     var publishFor by remember { mutableStateOf<String?>(null) }
     var publishBusy by remember { mutableStateOf(false) }
+    /** When the last publish succeeded; the netmap is re-read a few seconds after. */
+    var publishedAt by remember { mutableStateOf(0L) }
 
     val rules = remember(config) { config?.let { rulesOf(it) } ?: emptyList() }
 
@@ -410,6 +438,7 @@ fun ServeScreen(onBack: () -> Unit) {
                     publishBusy = false
                     result.onSuccess {
                         Toast.makeText(context, context.getString(R.string.serve_svc_publish_done, it), Toast.LENGTH_LONG).show()
+                        publishedAt = System.currentTimeMillis()
                     }.onFailure {
                         Toast.makeText(context, context.getString(R.string.serve_svc_publish_failed, it.message), Toast.LENGTH_LONG).show()
                     }
@@ -473,6 +502,15 @@ fun ServeScreen(onBack: () -> Unit) {
     }
 
     LaunchedEffect(Unit) { refresh() }
+
+    // Control hands the node its service-host capability a few seconds after a
+    // publish; read the netmap again then, so the service heading flips.
+    LaunchedEffect(publishedAt) {
+        if (publishedAt != 0L) {
+            kotlinx.coroutines.delay(3000); refresh()
+            kotlinx.coroutines.delay(7000); refresh()
+        }
+    }
 
     // Right after the app starts, the bridge may not have reached the daemon yet
     // (Root Mode attaches a few seconds in); keep asking for a while instead of
@@ -602,15 +640,12 @@ fun ServeScreen(onBack: () -> Unit) {
                             }
                             rules.filter { it.service != null }.groupBy { it.service!! }.forEach { (service, list) ->
                                 item {
-                                    Column {
-                                        SectionHeading(context.getString(R.string.serve_service_heading, service))
-                                        Text(
-                                            context.getString(R.string.serve_service_note),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.padding(start = 4.dp, top = 2.dp)
-                                        )
-                                    }
+                                    ServiceHeading(
+                                        service = service,
+                                        addresses = caps.serviceHosts[service],
+                                        context = context,
+                                        onPublish = { publishFor = service }
+                                    )
                                 }
                                 items(list) { rule ->
                                     RuleCard(
@@ -833,6 +868,44 @@ private fun NodeCard(caps: ServeCapabilities, context: Context, onCopy: (String)
                 },
                 ok = caps.loaded && caps.services
             )
+        }
+    }
+}
+
+/**
+ * A service's heading with where it stands in the tailnet: published (control
+ * lists this node as a host, with the service address) or not yet, with the
+ * way to get there.
+ */
+@Composable
+private fun ServiceHeading(service: String, addresses: List<String>?, context: Context, onPublish: () -> Unit) {
+    Column {
+        SectionHeading(context.getString(R.string.serve_service_heading, service))
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 4.dp, top = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (addresses != null) {
+                Icon(Icons.Default.CheckCircle, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    context.getString(R.string.serve_svc_status_published, addresses.firstOrNull { ':' !in it } ?: addresses.firstOrNull() ?: ""),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                Icon(Icons.Default.Schedule, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    context.getString(R.string.serve_svc_status_unpublished),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = onPublish, contentPadding = PaddingValues(horizontal = 8.dp)) {
+                    Text(context.getString(R.string.serve_svc_publish_button))
+                }
+            }
         }
     }
 }
