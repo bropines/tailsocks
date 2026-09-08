@@ -11,6 +11,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Console commands (`status`, `netcheck`, `ping`) work in Root Mode after a reinstall; the CLI link is refreshed on attach.
 - Console `netcheck` prints a report; the CLI's own needs netlink access an app process does not have.
 - Long exit-node names wrap at their hyphens instead of mid-word.
+- Local proxies: the LAN hint names the Wi-Fi or Ethernet address, not the cellular one, and adds the Tailscale IP other tailnet devices reach the proxies at.
 
 ### Changed
 

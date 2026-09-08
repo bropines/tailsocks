@@ -884,6 +884,7 @@
     <string name="settings_lan_access_title">Открыть прокси в локальную сеть</string>
     <string name="settings_lan_access_desc">Сейчас SOCKS5, HTTP-прокси и локальный DNS слушают только 127.0.0.1. Включите, чтобы ими могли пользоваться другие устройства сети.</string>
     <string name="settings_lan_access_active">Слушает все интерфейсы — доступно по адресу %1$s</string>
+    <string name="settings_lan_access_tailnet">из tailnet по адресу %1$s</string>
     <string name="settings_lan_access_no_auth_warning">У SOCKS5-прокси не заданы логин и пароль. Любое устройство в сети сможет пустить трафик через ваш tailnet.</string>
     <string name="settings_socks5_address_title">Адрес SOCKS5</string>
     <string name="settings_socks5_username_title">Имя пользователя SOCKS5</string>

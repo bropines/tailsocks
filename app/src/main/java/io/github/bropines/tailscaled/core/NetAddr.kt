@@ -60,17 +60,39 @@ object NetAddr {
     }
 
     /**
-     * First non-loopback IPv4 address of this device, used to tell the user
-     * where a LAN-exposed proxy can actually be reached.
+     * The IPv4 address a LAN-exposed proxy can be reached at from other devices
+     * on the same network: the Wi-Fi, Ethernet, USB or hotspot address. The
+     * first non-loopback address of the enumeration, which this used to be, was
+     * the cellular one on a phone (rmnet_data1, a carrier CGNAT 100.64/10
+     * address) — reachable by nobody, and easily mistaken for a Tailscale IP.
+     * Cellular and tunnel interfaces are never offered; if nothing else has an
+     * address, null.
      */
     fun lanIpv4(): String? = try {
         NetworkInterface.getNetworkInterfaces()?.asSequence()
-            ?.filter { it.isUp && !it.isLoopback }
+            ?.filter { it.isUp && !it.isLoopback && lanRank(it.name) < Int.MAX_VALUE }
+            ?.sortedBy { lanRank(it.name) }
             ?.flatMap { it.inetAddresses.asSequence() }
             ?.filterIsInstance<Inet4Address>()
             ?.firstOrNull { !it.isLoopbackAddress && !it.isLinkLocalAddress }
             ?.hostAddress
     } catch (e: Exception) {
         null
+    }
+
+    /** Lower is better; Int.MAX_VALUE means "not a LAN interface at all". */
+    private fun lanRank(name: String?): Int {
+        val n = name.orEmpty()
+        return when {
+            n.startsWith("wlan") || n.startsWith("eth") || n.startsWith("en") -> 0
+            n.startsWith("usb") || n.startsWith("rndis") || n.startsWith("ncm") -> 1
+            n.startsWith("ap") || n.startsWith("swlan") || n.startsWith("softap") -> 2
+            // Cellular (rmnet, ccmni, pdp, clat) and tunnels (tun, ppp, wg, ipsec,
+            // tailscale) are not a LAN; dummy and p2p never carry a client.
+            n.startsWith("rmnet") || n.startsWith("ccmni") || n.startsWith("pdp") || n.startsWith("clat") ||
+                n.startsWith("tun") || n.startsWith("ppp") || n.startsWith("wg") || n.startsWith("ipsec") ||
+                n.startsWith("tailscale") || n.startsWith("dummy") || n.startsWith("p2p") -> Int.MAX_VALUE
+            else -> 3
+        }
     }
 }

@@ -1633,6 +1633,16 @@ fun SettingsScreen(
         // expose the listeners above to anyone on the same Wi-Fi.
         SettingsCard(title = stringResource(R.string.settings_sect_lan)) {
             val lanIp = remember { NetAddr.lanIpv4() }
+            // The proxies also answer on this node's Tailscale IP: in userspace
+            // mode the daemon's netstack hands connections to that address to
+            // local listeners (measured 2026-09-08 from another tailnet node).
+            var tailnetIp by remember { mutableStateOf<String?>(null) }
+            LaunchedEffect(Unit) {
+                tailnetIp = withContext(Dispatchers.IO) {
+                    runCatching { AppJson.decodeFromString<StatusResponse>(Appctr.getStatusFromAPI()) }
+                        .getOrNull()?.self?.tailscaleIPs?.firstOrNull { ':' !in it }
+                }
+            }
             val socksHasAuth = socks5User.isNotEmpty() || socks5Pass.isNotEmpty()
 
             SettingsSwitchItem(
@@ -1647,6 +1657,7 @@ fun SettingsScreen(
                         NetAddr.port(GlobalSettings.getDnsProxyBindAddr(context))?.let { "DNS $it" }
                     ).joinToString(", ")
                     stringResource(R.string.settings_lan_access_active, lanIp ?: "?") +
+                        (tailnetIp?.let { " · " + stringResource(R.string.settings_lan_access_tailnet, it) } ?: "") +
                         if (ports.isEmpty()) "" else " · $ports"
                 } else {
                     stringResource(R.string.settings_lan_access_desc)
