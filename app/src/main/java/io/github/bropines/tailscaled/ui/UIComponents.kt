@@ -481,6 +481,15 @@ fun taildropPickerPeers(status: StatusResponse, strings: TaildropReasonStrings):
         )
 }
 
+/**
+ * A hostname is one token to the line breaker, so a long one splits wherever the
+ * line happens to end ("ffm-access-01-jonne" / "rly" in the exit-node sheet). A
+ * zero-width space after every hyphen and dot gives the breaker the places a
+ * reader would break at, and draws nothing.
+ */
+internal fun String.withBreakOpportunities(): String =
+    replace("-", "-\u200B").replace(".", ".\u200B")
+
 fun getOsVisuals(os: String?): Pair<ImageVector, Color> {
     val osLower = os?.lowercase().orEmpty()
     val icon = when {

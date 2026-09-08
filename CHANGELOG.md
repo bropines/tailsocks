@@ -10,6 +10,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - The ERROR filter now shows daemon errors and the app's own error-level lines.
 - Console commands (`status`, `netcheck`, `ping`) work in Root Mode after a reinstall; the CLI link is refreshed on attach.
 - Console `netcheck` prints a report; the CLI's own needs netlink access an app process does not have.
+- Long exit-node names wrap at their hyphens instead of mid-word.
 
 ### Changed
 

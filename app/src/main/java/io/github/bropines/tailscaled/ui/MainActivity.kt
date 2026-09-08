@@ -2155,9 +2155,11 @@ fun MainScreen(
                                             Spacer(Modifier.width(16.dp))
                                             Column(Modifier.weight(1f)) {
                                                 Text(
-                                                    node.getDisplayName(),
+                                                    node.getDisplayName().withBreakOpportunities(),
                                                     fontWeight = FontWeight.Bold,
                                                     fontSize = 15.sp,
+                                                    maxLines = 2,
+                                                    overflow = TextOverflow.Ellipsis,
                                                     color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                                 )
                                                 Text(
