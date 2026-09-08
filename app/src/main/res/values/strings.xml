@@ -315,7 +315,7 @@
     <string name="admin_users_deleted">User deleted</string>
 
     <!-- Admin: Services tab -->
-    <string name="admin_services_info">Virtual services are advertised automatically by nodes on your network. You cannot create a service manually here. Once a node advertises a service, you must approve it for specific devices.</string>
+    <string name="admin_services_info">Services are defined in the admin console, or from the Serve &amp; Funnel screen when you save a rule for one. Here you approve which devices host them.</string>
     <string name="admin_services_no_services">No virtual services found</string>
     <string name="admin_services_no_ip">No IP</string>
     <string name="admin_services_ip_addresses">IP Addresses</string>
@@ -779,6 +779,15 @@
     <string name="serve_editor_target_required">Enter a target</string>
     <string name="serve_editor_port_invalid">Port must be 1–65535</string>
     <string name="serve_editor_conflict">This port and path already have a rule</string>
+    <string name="serve_svc_publish_title">Service %1$s in the tailnet</string>
+    <string name="serve_svc_publish_text">The tailnet answers on a service only once it is defined and this node is approved as its host. Both can be done here through the Admin API, after unlocking.</string>
+    <string name="serve_svc_publish_action">Define and approve this node</string>
+    <string name="serve_svc_publish_no_api">The Admin API is not set up for this tailnet. Set it up under Settings → Admin API, or define the service and approve this host in the admin console.</string>
+    <string name="serve_svc_open_console">Open admin console</string>
+    <string name="serve_svc_publish_done">%1$s is defined and this node is approved as its host</string>
+    <string name="serve_svc_publish_failed">Could not publish the service: %1$s</string>
+    <string name="serve_svc_biometric_subtitle">Changing the tailnet through the Admin API</string>
+    <string name="serve_menu_publish">Publish in the tailnet…</string>
     <string name="serve_editor_service_required">Enter a service name</string>
     <string name="serve_kind_file">Files</string>
     <string name="serve_desc_file">Serves files from %1$s</string>

@@ -19,6 +19,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Logs: one Clear button that asks what to clear (app log, daemon log, everything); the daemon's lines are under TAILSCALE in both modes, ROOT keeps the app's routing decisions.
 - Saved logs carry the date on every app line.
 - Serve & Funnel rebuilt: a node card with certificate, Funnel ports and services; one list of rules with Public/Tailnet tags and target health; an editor in plain words, with paths, self-signed backends and TLS-terminated TCP under Advanced.
+- Serve: a service rule can define the service in the tailnet and approve this node as its host through the Admin API, behind the device credential.
 
 ## [4.1.1] - 2026-09-07
 

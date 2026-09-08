@@ -7,9 +7,10 @@ import io.github.bropines.tailscaled.core.*
 import io.github.bropines.tailscaled.models.*
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -47,6 +48,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.fragment.app.FragmentActivity
 import appctr.Appctr
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 import kotlinx.coroutines.Dispatchers
@@ -56,7 +58,10 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 
-class ServeActivity : ComponentActivity() {
+// A FragmentActivity, not a ComponentActivity: publishing a service goes through
+// the Admin API behind the same biometric prompt as the console, and
+// BiometricPrompt wants one.
+class ServeActivity : FragmentActivity() {
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(wrapContextWithLocale(newBase))
     }
@@ -127,7 +132,9 @@ private data class ServeCapabilities(
     val funnel: Boolean = false,
     val funnelPorts: List<Int> = FUNNEL_DEFAULT_PORTS,
     val services: Boolean = false,
-    val certDomains: List<String> = emptyList()
+    val certDomains: List<String> = emptyList(),
+    /** This node's stable ID, what the Admin API approves a service host by. */
+    val nodeId: String = ""
 ) {
     private val tailnetSuffix: String get() = dnsName.substringAfter(".", "")
 
@@ -157,7 +164,8 @@ private fun capabilitiesOf(status: StatusResponse): ServeCapabilities {
         // Service hosts must be tagged nodes (the daemon refuses others); the
         // capability is what the coordinator grants such a node.
         services = "cap:advertise-services" in caps || !self?.tags.isNullOrEmpty(),
-        certDomains = status.certDomains ?: emptyList()
+        certDomains = status.certDomains ?: emptyList(),
+        nodeId = self?.id ?: ""
     )
 }
 
@@ -356,8 +364,65 @@ fun ServeScreen(onBack: () -> Unit) {
     var showClearDialog by remember { mutableStateOf(false) }
     var showCertExportDialog by remember { mutableStateOf(false) }
     var pendingCertData by remember { mutableStateOf("") }
+    /** A service whose tailnet-side definition and host approval are being offered. */
+    var publishFor by remember { mutableStateOf<String?>(null) }
+    var publishBusy by remember { mutableStateOf(false) }
 
     val rules = remember(config) { config?.let { rulesOf(it) } ?: emptyList() }
+
+    /** The Admin API credentials for this tailnet, if the console was ever set up for it. */
+    fun adminSettings(): AdminApiSettings? {
+        val tailnet = AdminApiSettings.lastKnownTailnet(context).ifBlank { caps.dnsName.substringAfter(".", "") }
+        if (tailnet.isBlank()) return null
+        return AdminApiSettings.read(context, tailnet).takeIf { it.hasCredentials }
+    }
+
+    /**
+     * Defines `svc:<service>` in the tailnet (or adds this screen's ports to its
+     * definition) and approves this node as its host, through the Admin API and
+     * behind the device credential. The two steps the admin console otherwise
+     * asks for by hand.
+     */
+    fun publishService(service: String) {
+        val settings = adminSettings() ?: return
+        val run = {
+            publishBusy = true
+            scope.launch(Dispatchers.IO) {
+                val result = runCatching {
+                    val client = settings.newClient(context)
+                    val name = "svc:$service"
+                    val existing = client.getTailnetService(name)
+                    val ports = ((existing?.ports ?: emptyList()) +
+                        rules.filter { it.service == service }.map { "tcp:${it.port}" }).distinct()
+                    client.createOrUpdateService(
+                        VIPServiceInfo(
+                            name = name,
+                            addrs = existing?.addrs,
+                            comment = existing?.comment,
+                            ports = ports,
+                            tags = existing?.tags
+                        )
+                    )
+                    if (caps.nodeId.isNotEmpty()) client.setServiceDeviceApproved(name, caps.nodeId, true)
+                    name
+                }
+                withContext(Dispatchers.Main) {
+                    publishBusy = false
+                    result.onSuccess {
+                        Toast.makeText(context, context.getString(R.string.serve_svc_publish_done, it), Toast.LENGTH_LONG).show()
+                    }.onFailure {
+                        Toast.makeText(context, context.getString(R.string.serve_svc_publish_failed, it.message), Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        }
+        val activity = context.findFragmentActivity()
+        if (activity == null) run()
+        else activity.authenticateWithBiometrics(
+            context.getString(R.string.admin_biometric_title),
+            context.getString(R.string.serve_svc_biometric_subtitle)
+        ) { ok -> if (ok) run() }
+    }
 
     val certSaveLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/x-pem-file")) { uri ->
         if (uri != null && pendingCertData.isNotEmpty()) {
@@ -530,6 +595,7 @@ fun ServeScreen(onBack: () -> Unit) {
                                         context = context,
                                         onEdit = { editor = RuleEditorState(rule, rule) },
                                         onCopy = { copyText(ruleUrl(rule, caps)) },
+                                        onPublish = rule.service?.let { svc -> { publishFor = svc } },
                                         onDelete = { applyChange { it.without(rule) } }
                                     )
                                 }
@@ -555,6 +621,7 @@ fun ServeScreen(onBack: () -> Unit) {
                                         context = context,
                                         onEdit = { editor = RuleEditorState(rule, rule) },
                                         onCopy = { copyText(ruleUrl(rule, caps)) },
+                                        onPublish = rule.service?.let { svc -> { publishFor = svc } },
                                         onDelete = { applyChange { it.without(rule) } }
                                     )
                                 }
@@ -576,7 +643,39 @@ fun ServeScreen(onBack: () -> Unit) {
             onSave = { rule ->
                 applyChange { base -> (state.original?.let { base.without(it) } ?: base).with(rule, caps) }
                 editor = null
+                if (rule.service != null) publishFor = rule.service
             }
+        )
+    }
+
+    publishFor?.let { service ->
+        // Strings come from the parent context, not stringResource() — see wrapContextWithLocale().
+        val hasApi = adminSettings() != null
+        AlertDialog(
+            onDismissRequest = { if (!publishBusy) publishFor = null },
+            icon = { Icon(Icons.Default.Hub, null) },
+            title = { Text(context.getString(R.string.serve_svc_publish_title, "svc:$service")) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(context.getString(if (hasApi) R.string.serve_svc_publish_text else R.string.serve_svc_publish_no_api))
+                    if (publishBusy) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
+            },
+            confirmButton = {
+                if (hasApi) {
+                    Button(enabled = !publishBusy, onClick = { publishService(service); publishFor = null }) {
+                        Text(context.getString(R.string.serve_svc_publish_action))
+                    }
+                } else {
+                    Button(onClick = {
+                        publishFor = null
+                        runCatching {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://login.tailscale.com/admin/services")))
+                        }
+                    }) { Text(context.getString(R.string.serve_svc_open_console)) }
+                }
+            },
+            dismissButton = { TextButton(onClick = { publishFor = null }) { Text(context.getString(R.string.action_close)) } }
         )
     }
 
@@ -803,6 +902,7 @@ private fun RuleCard(
     context: Context,
     onEdit: () -> Unit,
     onCopy: () -> Unit,
+    onPublish: (() -> Unit)?,
     onDelete: () -> Unit
 ) {
     var menu by remember { mutableStateOf(false) }
@@ -856,6 +956,13 @@ private fun RuleCard(
                                 text = { Text(context.getString(R.string.serve_menu_copy_link)) },
                                 leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
                                 onClick = { menu = false; onCopy() }
+                            )
+                        }
+                        if (onPublish != null) {
+                            DropdownMenuItem(
+                                text = { Text(context.getString(R.string.serve_menu_publish)) },
+                                leadingIcon = { Icon(Icons.Default.Hub, null) },
+                                onClick = { menu = false; onPublish() }
                             )
                         }
                         DropdownMenuItem(

@@ -505,6 +505,35 @@ class TailscaleApiClient(
         return response?.vipServices ?: emptyList()
     }
 
+    /**
+     * One service by its `svc:` name, or null when the tailnet has none. The
+     * current API path is `vip-services`; `services` is tried when that one
+     * answers 404, for tailnets still on the older name.
+     */
+    fun getTailnetService(serviceName: String): VIPServiceInfo? {
+        for (base in listOf("vip-services", "services")) {
+            try {
+                val json = request("GET", "/tailnet/$tailnet/$base/$serviceName")
+                if (json.isBlank()) return null
+                return runCatching { AppJson.decodeFromString<VIPServiceInfo>(json) }.getOrNull()
+            } catch (e: Exception) {
+                if (e.message?.startsWith("HTTP 404") != true) throw e
+            }
+        }
+        return null
+    }
+
+    /** Creates the service or replaces its definition (PUT), the way the console's Add service does. */
+    fun createOrUpdateService(service: VIPServiceInfo) {
+        val body = AppJson.encodeToString(service)
+        try {
+            request("PUT", "/tailnet/$tailnet/vip-services/${service.name}", body)
+        } catch (e: Exception) {
+            if (e.message?.startsWith("HTTP 404") != true) throw e
+            request("PUT", "/tailnet/$tailnet/services/${service.name}", body)
+        }
+    }
+
     fun listServiceHosts(serviceName: String): List<ServiceHostInfo> {
         val json = request("GET", "/tailnet/$tailnet/services/$serviceName/devices")
         if (json.isBlank()) return emptyList()

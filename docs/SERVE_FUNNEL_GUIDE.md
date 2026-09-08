@@ -65,7 +65,7 @@ and whether something answers on its target.
 2.  Choose what to expose: a **local service** (HTTP proxy), a **text**, a **redirect** or a raw **TCP port**.
 3.  Enter the target and the port on this node; 443, 8443 and 10000 — the Funnel ports — are one tap away.
 4.  Turn on **Public internet (Funnel)** if the rule should be reachable from outside. When the switch cannot be turned on it says why: no Funnel capability, a port Funnel does not allow, plain HTTP, or a service.
-5.  For a new rule, pick the scope: **this device**, or a **service** (`svc:name`, tagged nodes only — approve it in the admin console afterwards).
+5.  For a new rule, pick the scope: **this device**, or a **service** (`svc:name`, tagged nodes only). After saving, the app offers to define the service in the tailnet and approve this node as its host through the Admin API (Settings → Admin API must be set up; the device credential is asked first); without the API, do both in the admin console. The same action is in the card menu as **Publish in the tailnet**.
 6.  **Advanced** holds the daemon's own terms: the mount path (several handlers can share one port), plain HTTP instead of HTTPS, a backend with a self-signed certificate (`https+insecure://`), TLS termination and PROXY protocol for TCP rules.
 7.  Tap **Add**. A card's menu offers edit, copy link and delete; the screen's menu exports the HTTPS certificate or removes every rule.
 

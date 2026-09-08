@@ -315,7 +315,7 @@
     <string name="admin_users_deleted">Пользователь удалён</string>
 
     <!-- Admin: Services tab -->
-    <string name="admin_services_info">Виртуальные службы рекламируются узлами вашей сети автоматически. Создать службу вручную здесь нельзя. После того как узел объявит о службе, вы должны одобрить её для конкретных устройств.</string>
+    <string name="admin_services_info">Службы определяются в консоли администратора или с экрана Serve &amp; Funnel при сохранении правила для службы. Здесь подтверждаются устройства, которые их хостят.</string>
     <string name="admin_services_no_services">Виртуальные службы не найдены</string>
     <string name="admin_services_no_ip">Нет IP</string>
     <string name="admin_services_ip_addresses">IP-адреса</string>
@@ -779,6 +779,15 @@
     <string name="serve_editor_target_required">Укажите цель</string>
     <string name="serve_editor_port_invalid">Порт должен быть от 1 до 65535</string>
     <string name="serve_editor_conflict">На этом порту и пути уже есть правило</string>
+    <string name="serve_svc_publish_title">Служба %1$s в tailnet</string>
+    <string name="serve_svc_publish_text">Tailnet отвечает по имени службы, только когда она определена и этот узел подтверждён как её хост. Оба шага можно сделать здесь через Admin API после разблокировки.</string>
+    <string name="serve_svc_publish_action">Определить и подтвердить этот узел</string>
+    <string name="serve_svc_publish_no_api">Admin API для этого tailnet не настроен. Настройте его в Настройки → Admin API или определите службу и подтвердите этот хост в консоли администратора.</string>
+    <string name="serve_svc_open_console">Открыть консоль</string>
+    <string name="serve_svc_publish_done">%1$s определена, этот узел подтверждён как её хост</string>
+    <string name="serve_svc_publish_failed">Не удалось опубликовать службу: %1$s</string>
+    <string name="serve_svc_biometric_subtitle">Изменение tailnet через Admin API</string>
+    <string name="serve_menu_publish">Опубликовать в tailnet…</string>
     <string name="serve_editor_service_required">Укажите имя службы</string>
     <string name="serve_kind_file">Файлы</string>
     <string name="serve_desc_file">Отдаёт файлы из %1$s</string>
