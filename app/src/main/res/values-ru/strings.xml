@@ -761,7 +761,7 @@
     <string name="serve_editor_target_text">Текст для отдачи</string>
     <string name="serve_editor_target_redirect">Адрес перенаправления</string>
     <string name="serve_editor_target_tcp">Пробросить на (host:port)</string>
-    <string name="serve_editor_port">Порт на этом узле</string>
+    <string name="serve_editor_port">Порты на этом узле</string>
     <string name="serve_editor_who">Кому доступно</string>
     <string name="serve_editor_public">Интернет (Funnel)</string>
     <string name="serve_editor_public_anyone">Любой, у кого есть ссылка</string>
@@ -778,7 +778,7 @@
     <string name="serve_editor_plain_http">Обычный HTTP, без TLS</string>
     <string name="serve_editor_proxy_protocol">Протокол PROXY</string>
     <string name="serve_editor_target_required">Укажите цель</string>
-    <string name="serve_editor_port_invalid">Порт должен быть от 1 до 65535</string>
+    <string name="serve_editor_port_invalid">Каждый порт должен быть от 1 до 65535</string>
     <string name="serve_editor_conflict">На этом порту и пути уже есть правило</string>
     <string name="serve_svc_publish_title">Служба %1$s в tailnet</string>
     <string name="serve_svc_publish_text">Tailnet отвечает по имени службы, только когда она определена и этот узел подтверждён как её хост. Оба шага можно сделать здесь через Admin API после разблокировки.</string>

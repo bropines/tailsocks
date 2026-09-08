@@ -761,7 +761,7 @@
     <string name="serve_editor_target_text">Text to serve</string>
     <string name="serve_editor_target_redirect">Destination URL</string>
     <string name="serve_editor_target_tcp">Forward to (host:port)</string>
-    <string name="serve_editor_port">Port on this node</string>
+    <string name="serve_editor_port">Ports on this node</string>
     <string name="serve_editor_who">Who can reach it</string>
     <string name="serve_editor_public">Public internet (Funnel)</string>
     <string name="serve_editor_public_anyone">Anyone with the link</string>
@@ -778,7 +778,7 @@
     <string name="serve_editor_plain_http">Plain HTTP, no TLS</string>
     <string name="serve_editor_proxy_protocol">PROXY protocol</string>
     <string name="serve_editor_target_required">Enter a target</string>
-    <string name="serve_editor_port_invalid">Port must be 1–65535</string>
+    <string name="serve_editor_port_invalid">Each port must be 1–65535</string>
     <string name="serve_editor_conflict">This port and path already have a rule</string>
     <string name="serve_svc_publish_title">Service %1$s in the tailnet</string>
     <string name="serve_svc_publish_text">The tailnet answers on a service only once it is defined and this node is approved as its host. Both can be done here through the Admin API, after unlocking.</string>

@@ -364,8 +364,27 @@ private fun kindIcon(kind: RuleKind): ImageVector = when (kind) {
     RuleKind.FILE -> Icons.Default.Folder
 }
 
-/** A rule in the editor: the one it replaces (null for a new one) and the values it opens with. */
-private data class RuleEditorState(val original: ServeRule?, val initial: ServeRule)
+/**
+ * Rules that differ only by port, shown and edited as one: the daemon keeps one
+ * entry per port, a person thinks "this service on 443 and 2550".
+ */
+private data class RuleGroup(val rules: List<ServeRule>) {
+    val first: ServeRule get() = rules.first()
+    val ports: List<Int> get() = rules.map { it.port }.sorted()
+}
+
+private fun groupKey(r: ServeRule) = listOf(r.service, r.kind, r.tls, r.target, r.path, r.funnel, r.proxyProtocol, r.insecureBackend)
+
+private fun groupsOf(rules: List<ServeRule>): List<RuleGroup> =
+    rules.groupBy { groupKey(it) }.values
+        .map { RuleGroup(it.sortedBy { r -> r.port }) }
+        .sortedWith(compareBy<RuleGroup> { it.first.service ?: "" }.thenBy { it.ports.first() }.thenBy { it.first.path })
+
+/** A group in the editor: the rules it replaces (empty for a new one) and the values it opens with. */
+private data class RuleEditorState(val originals: List<ServeRule>, val initial: ServeRule) {
+    val isNew: Boolean get() = originals.isEmpty()
+    val ports: List<Int> get() = if (originals.isEmpty()) listOf(initial.port) else originals.map { it.port }.sorted()
+}
 
 private fun newRuleTemplate(): ServeRule = ServeRule(
     service = null, port = 443, path = "/", kind = RuleKind.PROXY, tls = true,
@@ -607,7 +626,7 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null) {
                 )
             },
             floatingActionButton = {
-                FloatingActionButton(onClick = { editor = RuleEditorState(null, newRuleTemplate()) }) {
+                FloatingActionButton(onClick = { editor = RuleEditorState(emptyList(), newRuleTemplate()) }) {
                     Icon(Icons.Default.Add, stringResource(R.string.serve_cd_add_rule))
                 }
             }
@@ -630,24 +649,25 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null) {
                         }
                         rules.isEmpty() -> item { EmptyRulesCard(context) }
                         else -> {
-                            val nodeRules = rules.filter { it.service == null }
-                            if (nodeRules.isNotEmpty()) {
+                            val groups = groupsOf(rules)
+                            val nodeGroups = groups.filter { it.first.service == null }
+                            if (nodeGroups.isNotEmpty()) {
                                 item { SectionHeading(context.getString(R.string.serve_rules_heading)) }
-                                items(nodeRules) { rule ->
+                                items(nodeGroups) { group ->
                                     RuleCard(
-                                        rule = rule,
-                                        url = ruleUrl(rule, caps),
-                                        description = ruleDescription(context, rule),
-                                        health = healthMap[rule.target],
+                                        group = group,
+                                        url = ruleUrl(group.first, caps),
+                                        description = ruleDescription(context, group.first),
+                                        health = healthMap[group.first.target],
                                         context = context,
-                                        onEdit = { editor = RuleEditorState(rule, rule) },
-                                        onCopy = { copyText(ruleUrl(rule, caps)) },
-                                        onPublish = rule.service?.let { svc -> { publishFor = svc } },
-                                        onDelete = { applyChange { it.without(rule) } }
+                                        onEdit = { editor = RuleEditorState(group.rules, group.first) },
+                                        onCopy = { copyText(ruleUrl(group.first, caps)) },
+                                        onPublish = null,
+                                        onDelete = { applyChange { c -> group.rules.fold(c) { acc, r -> acc.without(r) } } }
                                     )
                                 }
                             }
-                            rules.filter { it.service != null }.groupBy { it.service!! }.forEach { (service, list) ->
+                            groups.filter { it.first.service != null }.groupBy { it.first.service!! }.forEach { (service, list) ->
                                 item {
                                     ServiceHeading(
                                         service = service,
@@ -659,17 +679,17 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null) {
                                         }
                                     )
                                 }
-                                items(list) { rule ->
+                                items(list) { group ->
                                     RuleCard(
-                                        rule = rule,
-                                        url = ruleUrl(rule, caps),
-                                        description = ruleDescription(context, rule),
-                                        health = healthMap[rule.target],
+                                        group = group,
+                                        url = ruleUrl(group.first, caps),
+                                        description = ruleDescription(context, group.first),
+                                        health = healthMap[group.first.target],
                                         context = context,
-                                        onEdit = { editor = RuleEditorState(rule, rule) },
-                                        onCopy = { copyText(ruleUrl(rule, caps)) },
-                                        onPublish = rule.service?.let { svc -> { publishFor = svc } },
-                                        onDelete = { applyChange { it.without(rule) } }
+                                        onEdit = { editor = RuleEditorState(group.rules, group.first) },
+                                        onCopy = { copyText(ruleUrl(group.first, caps)) },
+                                        onPublish = { publishFor = service },
+                                        onDelete = { applyChange { c -> group.rules.fold(c) { acc, r -> acc.without(r) } } }
                                     )
                                 }
                             }
@@ -688,16 +708,20 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null) {
             canPublish = adminSettings() != null,
             context = context,
             onDismiss = { editor = null },
-            onSave = { rule, publish ->
-                applyChange { base -> (state.original?.let { base.without(it) } ?: base).with(rule, caps) }
+            onSave = { newRules, publish ->
+                applyChange { base ->
+                    val stripped = state.originals.fold(base) { c, r -> c.without(r) }
+                    newRules.fold(stripped) { c, r -> c.with(r, caps) }
+                }
                 editor = null
-                if (rule.service != null) {
+                val service = newRules.firstOrNull()?.service
+                if (service != null) {
                     // Asked for: define and approve right away. Not possible: say how.
                     if (publish) publishService(
-                        rule.service,
-                        rules.filter { it.service == rule.service && it != state.original }.map { it.port } + rule.port
+                        service,
+                        rules.filter { it.service == service && it !in state.originals }.map { it.port } + newRules.map { it.port }
                     )
-                    else if (adminSettings() == null) publishFor = rule.service
+                    else if (adminSettings() == null) publishFor = service
                 }
             }
         )
@@ -996,7 +1020,7 @@ private fun Tag(text: String, container: Color, content: Color) {
 
 @Composable
 private fun RuleCard(
-    rule: ServeRule,
+    group: RuleGroup,
     url: String,
     description: String,
     health: Boolean?,
@@ -1006,6 +1030,7 @@ private fun RuleCard(
     onPublish: (() -> Unit)?,
     onDelete: () -> Unit
 ) {
+    val rule = group.first
     var menu by remember { mutableStateOf(false) }
     val scheme = MaterialTheme.colorScheme
     val iconContainer = if (rule.funnel) scheme.tertiaryContainer else scheme.secondaryContainer
@@ -1089,6 +1114,7 @@ private fun RuleCard(
                     else -> "HTTP"
                 }
                 Tag(protocol, scheme.surfaceVariant, scheme.onSurfaceVariant)
+                if (group.ports.size > 1) Tag(group.ports.joinToString(" · "), scheme.surfaceVariant, scheme.onSurfaceVariant)
                 if (health != null) {
                     Spacer(Modifier.width(2.dp))
                     Box(
@@ -1150,15 +1176,16 @@ private fun RuleEditorSheet(
     canPublish: Boolean,
     context: Context,
     onDismiss: () -> Unit,
-    onSave: (ServeRule, Boolean) -> Unit
+    onSave: (List<ServeRule>, Boolean) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val isNew = state.original == null
+    val isNew = state.isNew
     val initial = state.initial
 
     var kind by remember { mutableStateOf(initial.kind) }
     var target by remember { mutableStateOf(initial.target) }
-    var port by remember { mutableStateOf(initial.port.toString()) }
+    // One or more ports, "443, 2550": the daemon gets one entry per port.
+    var portsText by remember { mutableStateOf(state.ports.joinToString(", ")) }
     var path by remember { mutableStateOf(initial.path) }
     var funnel by remember { mutableStateOf(initial.funnel) }
     var plainHttp by remember { mutableStateOf(initial.kind != RuleKind.TCP && !initial.tls) }
@@ -1176,17 +1203,17 @@ private fun RuleEditorSheet(
     val kinds = remember(initial.kind) {
         if (initial.kind == RuleKind.FILE) listOf(RuleKind.FILE) else listOf(RuleKind.PROXY, RuleKind.TEXT, RuleKind.REDIRECT, RuleKind.TCP)
     }
-    val portInt = port.toIntOrNull()
-    val portOk = portInt != null && portInt in 1..65535
+    val ports = remember(portsText) { portsText.split(Regex("[,;\\s]+")).filter { it.isNotBlank() }.map { it.toIntOrNull() ?: -1 }.distinct() }
+    val portOk = ports.isNotEmpty() && ports.all { it in 1..65535 }
     val tlsNow = if (kind == RuleKind.TCP) tlsTcp else !plainHttp
     val targetOk = target.isNotBlank() && (kind != RuleKind.TCP || target.contains(':'))
     val serviceOk = !scopeService || DNS_LABEL.matches(serviceName.trim().lowercase())
     val normalizedPath = path.trim().let { if (it.isEmpty()) "/" else if (it.startsWith("/")) it else "/$it" }
     val scopeName = if (isNew) serviceName.trim().lowercase().takeIf { scopeService } else initial.service
-    // Another rule already on this port: a TCP forward owns the whole port, web
-    // handlers share a port but not a path. Saving would silently replace it.
+    // Another rule already on one of these ports: a TCP forward owns the whole
+    // port, web handlers share a port but not a path. Saving would replace it.
     val conflict = portOk && existing.any { r ->
-        r != state.original && r.service == scopeName && r.port == portInt &&
+        r !in state.originals && r.service == scopeName && r.port in ports &&
             (kind == RuleKind.TCP || r.kind == RuleKind.TCP || r.path == normalizedPath)
     }
     // Why the Funnel switch is off and disabled, or null when it may be turned on.
@@ -1194,7 +1221,7 @@ private fun RuleEditorSheet(
         !caps.loaded || !caps.funnel -> context.getString(R.string.serve_editor_public_no_cap)
         scopeService -> context.getString(R.string.serve_editor_public_service)
         !tlsNow -> context.getString(R.string.serve_editor_public_tls)
-        portOk && portInt !in caps.funnelPorts -> context.getString(R.string.serve_editor_public_ports, caps.funnelPorts.joinToString(", "))
+        portOk && !caps.funnelPorts.containsAll(ports) -> context.getString(R.string.serve_editor_public_ports, caps.funnelPorts.joinToString(", "))
         else -> null
     }
     LaunchedEffect(funnelBlock) { if (funnelBlock != null) funnel = false }
@@ -1242,9 +1269,9 @@ private fun RuleEditorSheet(
                             val k = kinds[idx]
                             if (k != kind) {
                                 kind = k
-                                // A sensible port follows the kind; a port the user typed stays.
-                                if (k == RuleKind.TCP && (port == "443" || port == "80")) port = "10000"
-                                if (k != RuleKind.TCP && port == "10000") port = "443"
+                                // A sensible port follows the kind; ports the user typed stay.
+                                if (k == RuleKind.TCP && (portsText.trim() == "443" || portsText.trim() == "80")) portsText = "10000"
+                                if (k != RuleKind.TCP && portsText.trim() == "10000") portsText = "443"
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
@@ -1267,8 +1294,9 @@ private fun RuleEditorSheet(
 
             EditorSection(context.getString(R.string.serve_editor_port)) {
                 OutlinedTextField(
-                    value = port,
-                    onValueChange = { v -> if (v.length <= 5 && v.all { it.isDigit() }) port = v },
+                    value = portsText,
+                    onValueChange = { v -> if (v.all { it.isDigit() || it == ',' || it == ' ' || it == ';' }) portsText = v },
+                    placeholder = { Text("443, 2550") },
                     singleLine = true,
                     isError = !portOk || conflict,
                     supportingText = when {
@@ -1282,9 +1310,13 @@ private fun RuleEditorSheet(
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     portPresets.forEach { p ->
-                        val selected = portInt == p
+                        val selected = p in ports
                         SuggestionChip(
-                            onClick = { port = p.toString() },
+                            // Toggles the port in the list; the last port cannot be removed.
+                            onClick = {
+                                val next = if (selected) ports.filter { it != p } else ports + p
+                                if (next.isNotEmpty()) portsText = next.filter { it > 0 }.joinToString(", ")
+                            },
                             label = { Text(p.toString()) },
                             colors = if (selected) SuggestionChipDefaults.suggestionChipColors(
                                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
@@ -1419,20 +1451,18 @@ private fun RuleEditorSheet(
                 Button(
                     enabled = targetOk && portOk && serviceOk && !conflict && (!scopeService || serviceName.isNotBlank()),
                     onClick = {
-                        onSave(
-                            ServeRule(
-                                service = scopeName,
-                                port = portInt!!,
-                                path = if (kind == RuleKind.TCP) "/" else normalizedPath,
-                                kind = kind,
-                                tls = tlsNow || funnel,
-                                target = target.trim(),
-                                funnel = funnel,
-                                proxyProtocol = if (kind == RuleKind.TCP) proxyProtocol else 0,
-                                insecureBackend = kind == RuleKind.PROXY && insecureBackend
-                            ),
-                            scopeName != null && canPublish && publishAfter
+                        val template = ServeRule(
+                            service = scopeName,
+                            port = 0,
+                            path = if (kind == RuleKind.TCP) "/" else normalizedPath,
+                            kind = kind,
+                            tls = tlsNow || funnel,
+                            target = target.trim(),
+                            funnel = funnel,
+                            proxyProtocol = if (kind == RuleKind.TCP) proxyProtocol else 0,
+                            insecureBackend = kind == RuleKind.PROXY && insecureBackend
                         )
+                        onSave(ports.sorted().map { template.copy(port = it) }, scopeName != null && canPublish && publishAfter)
                     }
                 ) { Text(context.getString(if (isNew) R.string.action_add else R.string.action_save)) }
             }
