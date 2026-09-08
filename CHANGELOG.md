@@ -2,32 +2,30 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
-## [Unreleased]
+## [4.1.2] - 2026-09-08
 
-### Fixed
+### Added
 
-- Logs in Root Mode: app and daemon lines are merged by date and time, not by time of day, so yesterday's lines no longer sit under today's.
-- The ERROR filter now shows daemon errors and the app's own error-level lines.
-- Console commands (`status`, `netcheck`, `ping`) work in Root Mode after a reinstall; the CLI link is refreshed on attach.
-- Console `netcheck` prints a report; the CLI's own needs netlink access an app process does not have.
-- Long exit-node names wrap at their hyphens instead of mid-word.
-- Admin API through a SOCKS5 proxy with a password works again: requests now go through the Go bridge's proxy clients, the same ones the daemon uses for control; the JDK's SOCKS handshake had gone out with an empty password.
-- Local proxies: the LAN hint names the Wi-Fi or Ethernet address, not the cellular one, and adds the Tailscale IP other tailnet devices reach the proxies at.
+- Serve: services are defined in the tailnet and this node approved as their host from the app (Admin API, behind the device credential); each service shows whether it is published, with a step-by-step publish log.
+- Serve: a rule can take several ports; paths, self-signed backends and TLS-terminated TCP under Advanced.
+- Logs: the app's own logcat as an optional source.
+- Console: `netcheck` prints a report.
 
 ### Changed
 
-- Logs: day dividers when the log spans days; long entries fold to three lines until tapped; a button back to the live tail.
-- Console: a compact input bar with the command history as a menu; commands, errors and slow-command timings are highlighted; copy the output; delete a custom preset by long press.
-- Logs: one Clear button that asks what to clear (app log, daemon log, everything); the daemon's lines are under TAILSCALE in both modes, ROOT keeps the app's routing decisions.
+- Serve & Funnel rebuilt: a node card (certificate, Funnel ports, services), one list of rules with Public/Tailnet tags and target health, an editor in plain words.
+- Logs: merged by date with day dividers, long entries fold, one Clear by source; the daemon's lines are TAILSCALE in both modes, ROOT keeps the routing decisions.
+- Console: compact input bar, history as a menu, highlighted commands and errors, copy output, delete presets.
+
+### Fixed
+
+- Logs in Root Mode showed yesterday's lines under today's.
+- The ERROR filter missed daemon errors and the app's own error lines.
+- Console commands in Root Mode failed after a reinstall; the CLI link is refreshed on attach.
+- Admin API through a SOCKS5 proxy with a password: requests go through the Go bridge's proxy clients; the JDK handshake sent an empty password.
+- Long exit-node names wrapped mid-word.
+- The LAN hint named the cellular address; it names the Wi-Fi one and the Tailscale IP.
 - Saved logs carry the date on every app line.
-- Logs: the app's own logcat can be shown as a source (a toggle in the top bar), and goes into Save and Copy while it is on.
-- Admin API: a dropped connection is retried once; a 404 on `vip-services` falls back to `services`.
-- Serve & Funnel rebuilt: a node card with certificate, Funnel ports and services; one list of rules with Public/Tailnet tags and target health; an editor in plain words, with paths, self-signed backends and TLS-terminated TCP under Advanced.
-- Serve: a service rule can define the service in the tailnet and approve this node as its host through the Admin API, behind the device credential.
-- Serve: each service shows whether the tailnet has published it (this node listed as a host, with the service address) or still needs to be, with the publish action right there.
-- Serve: publishing a service writes a step-by-step log under the service heading instead of a toast; tap to fold it.
-- Serve: a rule can take several ports ("443, 2550"); rules that differ only by port are one card.
-- Serve: the editor can publish a service right after saving (a switch, on when the Admin API is set up).
 
 ## [4.1.1] - 2026-09-07
 
