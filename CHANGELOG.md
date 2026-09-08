@@ -25,6 +25,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Serve & Funnel rebuilt: a node card with certificate, Funnel ports and services; one list of rules with Public/Tailnet tags and target health; an editor in plain words, with paths, self-signed backends and TLS-terminated TCP under Advanced.
 - Serve: a service rule can define the service in the tailnet and approve this node as its host through the Admin API, behind the device credential.
 - Serve: each service shows whether the tailnet has published it (this node listed as a host, with the service address) or still needs to be, with the publish action right there.
+- Serve: publishing a service writes a step-by-step log under the service heading instead of a toast; tap to fold it.
 - Serve: a rule can take several ports ("443, 2550"); rules that differ only by port are one card.
 - Serve: the editor can publish a service right after saving (a switch, on when the Admin API is set up).
 

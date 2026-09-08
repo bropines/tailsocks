@@ -61,6 +61,9 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 
 // A FragmentActivity, not a ComponentActivity: publishing a service goes through
@@ -414,6 +417,15 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null) {
     var publishBusy by remember { mutableStateOf(false) }
     /** When the last publish succeeded; the netmap is re-read a few seconds after. */
     var publishedAt by remember { mutableStateOf(0L) }
+    /** What each publish did, step by step, shown under the service's heading instead of a toast. */
+    val publishLogs = remember { mutableStateMapOf<String, List<String>>() }
+    var logExpanded by remember { mutableStateOf(setOf<String>()) }
+    /** Services whose publish succeeded and whose address the netmap has not shown yet. */
+    var awaitingAddress by remember { mutableStateOf(setOf<String>()) }
+    val logTime = remember { SimpleDateFormat("HH:mm:ss", Locale.US) }
+    fun logLine(service: String, text: String) {
+        publishLogs[service] = (publishLogs[service] ?: emptyList()) + "${logTime.format(Date())}  $text"
+    }
 
     val rules = remember(config) { config?.let { rulesOf(it) } ?: emptyList() }
 
@@ -434,35 +446,52 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null) {
         val settings = adminSettings() ?: return
         val run = {
             publishBusy = true
+            publishLogs[service] = emptyList()
+            logExpanded = logExpanded + service
+            val name = "svc:$service"
+            val portList = ports.distinct().sorted().map { "tcp:$it" }
             scope.launch(Dispatchers.IO) {
+                suspend fun log(text: String) = withContext(Dispatchers.Main) { logLine(service, text) }
                 val result = runCatching {
                     val client = settings.newClient(context)
-                    val name = "svc:$service"
+                    log(context.getString(R.string.serve_log_reading, name))
                     val existing = client.getTailnetService(name)
+                    log(
+                        if (existing == null) context.getString(R.string.serve_log_not_found)
+                        else context.getString(R.string.serve_log_found, existing.ports?.joinToString(", ") ?: "")
+                    )
                     // The definition's endpoints are exactly what this node serves for
                     // the service. Merging in the old ones left a port behind when a
                     // rule moved (443 → 2550), and a host that does not serve every
                     // defined port is "needs configuration" in the console: control
                     // then hands the service address to nobody.
+                    log(context.getString(R.string.serve_log_defining, portList.joinToString(", ")))
                     client.createOrUpdateService(
                         VIPServiceInfo(
                             name = name,
                             addrs = existing?.addrs,
                             comment = existing?.comment,
-                            ports = ports.distinct().sorted().map { "tcp:$it" },
+                            ports = portList,
                             tags = existing?.tags
                         )
                     )
-                    if (caps.nodeId.isNotEmpty()) client.setServiceDeviceApproved(name, caps.nodeId, true)
-                    name
+                    log(context.getString(R.string.serve_log_defined))
+                    if (caps.nodeId.isNotEmpty()) {
+                        log(context.getString(R.string.serve_log_approving, caps.nodeId))
+                        client.setServiceDeviceApproved(name, caps.nodeId, true)
+                        log(context.getString(R.string.serve_log_approved))
+                    } else {
+                        log(context.getString(R.string.serve_log_no_node_id))
+                    }
                 }
                 withContext(Dispatchers.Main) {
                     publishBusy = false
                     result.onSuccess {
-                        Toast.makeText(context, context.getString(R.string.serve_svc_publish_done, it), Toast.LENGTH_LONG).show()
+                        logLine(service, context.getString(R.string.serve_log_waiting))
+                        awaitingAddress = awaitingAddress + service
                         publishedAt = System.currentTimeMillis()
                     }.onFailure {
-                        Toast.makeText(context, context.getString(R.string.serve_svc_publish_failed, it.message), Toast.LENGTH_LONG).show()
+                        logLine(service, context.getString(R.string.serve_log_error, it.message ?: it.toString()))
                     }
                 }
             }
@@ -537,6 +566,16 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null) {
         if (publishedAt != 0L) {
             kotlinx.coroutines.delay(3000); refresh()
             kotlinx.coroutines.delay(7000); refresh()
+            kotlinx.coroutines.delay(5000)
+            // Still nothing after 15 s: say so, the console knows why.
+            for (svc in awaitingAddress) if (caps.serviceHosts[svc] == null) logLine(svc, context.getString(R.string.serve_log_still_waiting))
+        }
+    }
+    LaunchedEffect(caps.serviceHosts) {
+        for (svc in awaitingAddress) {
+            val addrs = caps.serviceHosts[svc] ?: continue
+            logLine(svc, context.getString(R.string.serve_log_published, addrs.firstOrNull { ':' !in it } ?: addrs.firstOrNull() ?: ""))
+            awaitingAddress = awaitingAddress - svc
         }
     }
 
@@ -672,6 +711,9 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null) {
                                     ServiceHeading(
                                         service = service,
                                         addresses = caps.serviceHosts[service],
+                                        log = publishLogs[service],
+                                        logExpanded = service in logExpanded,
+                                        onToggleLog = { logExpanded = if (service in logExpanded) logExpanded - service else logExpanded + service },
                                         context = context,
                                         onPublish = {
                                             if (adminSettings() != null) publishService(service, rules.filter { it.service == service }.map { it.port })
@@ -925,7 +967,15 @@ private fun NodeCard(caps: ServeCapabilities, context: Context, onCopy: (String)
  * way to get there.
  */
 @Composable
-private fun ServiceHeading(service: String, addresses: List<String>?, context: Context, onPublish: () -> Unit) {
+private fun ServiceHeading(
+    service: String,
+    addresses: List<String>?,
+    log: List<String>?,
+    logExpanded: Boolean,
+    onToggleLog: () -> Unit,
+    context: Context,
+    onPublish: () -> Unit
+) {
     Column {
         SectionHeading(context.getString(R.string.serve_service_heading, service))
         Row(
@@ -956,6 +1006,47 @@ private fun ServiceHeading(service: String, addresses: List<String>?, context: C
                 )
                 TextButton(onClick = onPublish, contentPadding = PaddingValues(horizontal = 8.dp)) {
                     Text(context.getString(R.string.serve_svc_publish_button))
+                }
+            }
+        }
+        if (!log.isNullOrEmpty()) {
+            // What the last publish did, one line per step; a tap folds it to its last line.
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                modifier = Modifier.fillMaxWidth().padding(top = 6.dp).clickable(onClick = onToggleLog)
+            ) {
+                Column(Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            if (logExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            if (logExpanded) context.getString(R.string.serve_svc_log_title)
+                            else context.getString(R.string.serve_svc_log_title) + " · " + log.last().substringAfter("  "),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    if (logExpanded) {
+                        Spacer(Modifier.height(4.dp))
+                        log.forEach { line ->
+                            Text(
+                                line,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 11.sp,
+                                color = if (line.contains(context.getString(R.string.serve_log_error, "").trimEnd()))
+                                    MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.padding(vertical = 1.dp)
+                            )
+                        }
+                    }
                 }
             }
         }
