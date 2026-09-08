@@ -738,7 +738,7 @@
     <string name="serve_cap_unknown">Ещё не загружено</string>
     <string name="serve_rules_heading">Правила</string>
     <string name="serve_service_heading">Служба %1$s</string>
-    <string name="serve_service_note">Сначала создайте службу в консоли администратора (Services), затем подтвердите этот узел как её хост, иначе tailnet на неё не ответит.</string>
+    <string name="serve_service_note">Служба заработает, когда она определена в tailnet и этот узел подтверждён как её хост.</string>
     <string name="serve_empty_title">Пока ничего не раздаётся</string>
     <string name="serve_empty_text">Правило открывает локальный порт, текст или редирект в ваш tailnet или в интернет через Funnel.</string>
     <string name="serve_kind_proxy">Локальный сервис</string>
@@ -792,6 +792,7 @@
     <string name="serve_svc_status_published">Опубликована в tailnet · %1$s</string>
     <string name="serve_svc_status_unpublished">В tailnet ещё нет: определите службу и подтвердите этот узел</string>
     <string name="serve_svc_publish_button">Опубликовать…</string>
+    <string name="serve_editor_publish_after">Опубликовать в tailnet после сохранения</string>
     <string name="serve_editor_service_required">Укажите имя службы</string>
     <string name="serve_kind_file">Файлы</string>
     <string name="serve_desc_file">Отдаёт файлы из %1$s</string>

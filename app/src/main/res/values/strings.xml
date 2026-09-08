@@ -738,7 +738,7 @@
     <string name="serve_cap_unknown">Not loaded yet</string>
     <string name="serve_rules_heading">Rules</string>
     <string name="serve_service_heading">Service %1$s</string>
-    <string name="serve_service_note">Create the service in the admin console first (Services), then approve this node as its host, or the tailnet will not answer on it.</string>
+    <string name="serve_service_note">A service works once it is defined in the tailnet and this node is approved as its host.</string>
     <string name="serve_empty_title">Nothing is served yet</string>
     <string name="serve_empty_text">A rule exposes a local port, a text or a redirect to your tailnet, or to the internet through Funnel.</string>
     <string name="serve_kind_proxy">Local service</string>
@@ -792,6 +792,7 @@
     <string name="serve_svc_status_published">Published in the tailnet · %1$s</string>
     <string name="serve_svc_status_unpublished">Not in the tailnet yet: define the service and approve this node</string>
     <string name="serve_svc_publish_button">Publish…</string>
+    <string name="serve_editor_publish_after">Publish in the tailnet after saving</string>
     <string name="serve_editor_service_required">Enter a service name</string>
     <string name="serve_kind_file">Files</string>
     <string name="serve_desc_file">Serves files from %1$s</string>

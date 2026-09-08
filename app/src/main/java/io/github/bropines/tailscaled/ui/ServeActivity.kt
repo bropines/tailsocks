@@ -411,7 +411,7 @@ fun ServeScreen(onBack: () -> Unit) {
      * behind the device credential. The two steps the admin console otherwise
      * asks for by hand.
      */
-    fun publishService(service: String) {
+    fun publishService(service: String, extraPorts: List<Int> = emptyList()) {
         val settings = adminSettings() ?: return
         val run = {
             publishBusy = true
@@ -421,7 +421,8 @@ fun ServeScreen(onBack: () -> Unit) {
                     val name = "svc:$service"
                     val existing = client.getTailnetService(name)
                     val ports = ((existing?.ports ?: emptyList()) +
-                        rules.filter { it.service == service }.map { "tcp:${it.port}" }).distinct()
+                        rules.filter { it.service == service }.map { "tcp:${it.port}" } +
+                        extraPorts.map { "tcp:$it" }).distinct()
                     client.createOrUpdateService(
                         VIPServiceInfo(
                             name = name,
@@ -673,12 +674,17 @@ fun ServeScreen(onBack: () -> Unit) {
             state = state,
             caps = caps,
             existing = rules,
+            canPublish = adminSettings() != null,
             context = context,
             onDismiss = { editor = null },
-            onSave = { rule ->
+            onSave = { rule, publish ->
                 applyChange { base -> (state.original?.let { base.without(it) } ?: base).with(rule, caps) }
                 editor = null
-                if (rule.service != null) publishFor = rule.service
+                if (rule.service != null) {
+                    // Asked for: define and approve right away. Not possible: say how.
+                    if (publish) publishService(rule.service, listOf(rule.port))
+                    else if (adminSettings() == null) publishFor = rule.service
+                }
             }
         )
     }
@@ -1119,9 +1125,10 @@ private fun RuleEditorSheet(
     state: RuleEditorState,
     caps: ServeCapabilities,
     existing: List<ServeRule>,
+    canPublish: Boolean,
     context: Context,
     onDismiss: () -> Unit,
-    onSave: (ServeRule) -> Unit
+    onSave: (ServeRule, Boolean) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val isNew = state.original == null
@@ -1138,6 +1145,8 @@ private fun RuleEditorSheet(
     var insecureBackend by remember { mutableStateOf(initial.insecureBackend) }
     var scopeService by remember { mutableStateOf(initial.service != null) }
     var serviceName by remember { mutableStateOf(initial.service ?: "") }
+    /** Define the service and approve this node right after saving, through the Admin API. */
+    var publishAfter by remember { mutableStateOf(canPublish) }
     var advanced by remember {
         mutableStateOf(!isNew && (plainHttp || tlsTcp || proxyProtocol > 0 || insecureBackend || initial.path != "/"))
     }
@@ -1284,6 +1293,14 @@ private fun RuleEditorSheet(
                 }
             }
 
+            if (!isNew && initial.service != null && canPublish) {
+                SwitchRow(
+                    label = context.getString(R.string.serve_editor_publish_after),
+                    checked = publishAfter,
+                    onChange = { publishAfter = it }
+                )
+            }
+
             if (isNew) {
                 EditorSection(context.getString(R.string.serve_editor_scope)) {
                     SlidingSegmentedChips(
@@ -1294,6 +1311,13 @@ private fun RuleEditorSheet(
                         height = 36.dp
                     )
                     if (scopeService) {
+                        if (canPublish) {
+                            SwitchRow(
+                                label = context.getString(R.string.serve_editor_publish_after),
+                                checked = publishAfter,
+                                onChange = { publishAfter = it }
+                            )
+                        }
                         OutlinedTextField(
                             value = serviceName,
                             onValueChange = { serviceName = it },
@@ -1384,7 +1408,8 @@ private fun RuleEditorSheet(
                                 funnel = funnel,
                                 proxyProtocol = if (kind == RuleKind.TCP) proxyProtocol else 0,
                                 insecureBackend = kind == RuleKind.PROXY && insecureBackend
-                            )
+                            ),
+                            scopeName != null && canPublish && publishAfter
                         )
                     }
                 ) { Text(context.getString(if (isNew) R.string.action_add else R.string.action_save)) }
