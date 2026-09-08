@@ -411,7 +411,7 @@ fun ServeScreen(onBack: () -> Unit) {
      * behind the device credential. The two steps the admin console otherwise
      * asks for by hand.
      */
-    fun publishService(service: String, extraPorts: List<Int> = emptyList()) {
+    fun publishService(service: String, ports: List<Int>) {
         val settings = adminSettings() ?: return
         val run = {
             publishBusy = true
@@ -420,15 +420,17 @@ fun ServeScreen(onBack: () -> Unit) {
                     val client = settings.newClient(context)
                     val name = "svc:$service"
                     val existing = client.getTailnetService(name)
-                    val ports = ((existing?.ports ?: emptyList()) +
-                        rules.filter { it.service == service }.map { "tcp:${it.port}" } +
-                        extraPorts.map { "tcp:$it" }).distinct()
+                    // The definition's endpoints are exactly what this node serves for
+                    // the service. Merging in the old ones left a port behind when a
+                    // rule moved (443 → 2550), and a host that does not serve every
+                    // defined port is "needs configuration" in the console: control
+                    // then hands the service address to nobody.
                     client.createOrUpdateService(
                         VIPServiceInfo(
                             name = name,
                             addrs = existing?.addrs,
                             comment = existing?.comment,
-                            ports = ports,
+                            ports = ports.distinct().sorted().map { "tcp:$it" },
                             tags = existing?.tags
                         )
                     )
@@ -682,7 +684,10 @@ fun ServeScreen(onBack: () -> Unit) {
                 editor = null
                 if (rule.service != null) {
                     // Asked for: define and approve right away. Not possible: say how.
-                    if (publish) publishService(rule.service, listOf(rule.port))
+                    if (publish) publishService(
+                        rule.service,
+                        rules.filter { it.service == rule.service && it != state.original }.map { it.port } + rule.port
+                    )
                     else if (adminSettings() == null) publishFor = rule.service
                 }
             }
@@ -704,7 +709,10 @@ fun ServeScreen(onBack: () -> Unit) {
             },
             confirmButton = {
                 if (hasApi) {
-                    Button(enabled = !publishBusy, onClick = { publishService(service); publishFor = null }) {
+                    Button(enabled = !publishBusy, onClick = {
+                        publishService(service, rules.filter { it.service == service }.map { it.port })
+                        publishFor = null
+                    }) {
                         Text(context.getString(R.string.serve_svc_publish_action))
                     }
                 } else {
