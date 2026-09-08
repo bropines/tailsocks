@@ -261,6 +261,58 @@ private object RootDaemonLog {
     }
 }
 
+/** Preference: whether the Logs screen also shows the process's own logcat. */
+private const val LOGCAT_PREF = "logs_include_logcat"
+private const val LOGCAT_CATEGORY = "LOGCAT"
+
+/**
+ * The app's own logcat: what the Kotlin side writes with android.util.Log, plus
+ * the platform's lines for this process. An app may read its own without any
+ * permission; `--pid` keeps it to this process. Optional, because Compose and
+ * the platform are chatty, and off by default.
+ */
+private object LogcatSource {
+    private const val MAX_LINES = 600
+
+    /** `-v epoch`: `1757340000.123  pid  tid L Tag: message` */
+    private val lineRegex = Regex("""^\s*(\d+)\.(\d{3})\s+\d+\s+\d+\s+([VDIWEF])\s+(.*?)\s*:\s?(.*)$""")
+
+    fun rawText(): String = try {
+        val pid = android.os.Process.myPid()
+        val proc = ProcessBuilder("logcat", "-d", "-v", "epoch", "--pid=$pid", "-t", MAX_LINES.toString())
+            .redirectErrorStream(true).start()
+        val text = proc.inputStream.bufferedReader().readText()
+        proc.waitFor()
+        text
+    } catch (e: Exception) {
+        ""
+    }
+
+    /** Entries newer than [since] (epoch millis); the level follows logcat's priority letter. */
+    fun entries(since: Long): List<LogEntry> {
+        val time = SimpleDateFormat("HH:mm:ss", Locale.US)
+        val out = ArrayList<LogEntry>()
+        for (line in rawText().lineSequence()) {
+            val m = lineRegex.matchEntire(line) ?: continue
+            val unix = m.groupValues[1].toLong() * 1000 + m.groupValues[2].toLong()
+            if (unix <= since) continue
+            val level = when (m.groupValues[3]) {
+                "E", "F" -> "ERROR"
+                "W" -> "WARN"
+                else -> "INFO"
+            }
+            out += LogEntry(
+                unix = unix,
+                timestamp = time.format(Date(unix)),
+                level = level,
+                category = LOGCAT_CATEGORY,
+                message = "${m.groupValues[4]}: ${m.groupValues[5]}"
+            )
+        }
+        return out
+    }
+}
+
 /** One row of the list: an entry, or the divider that opens a new day. */
 private sealed interface LogRow {
     data class Entry(val log: LogEntry) : LogRow
@@ -319,6 +371,7 @@ private const val FOLDED_LINES = 3
 private fun foldKey(log: LogEntry): Long = log.unix * 31 + log.message.hashCode()
 
 private const val ROOT_LOG_SECTION_HEADER = "\n--- ROOT DAEMON LOGS (tailscaled.log) ---\n"
+private const val LOGCAT_SECTION_HEADER = "\n--- LOGCAT (this process) ---\n"
 
 /**
  * Upper bound on what Copy hands to the clipboard. A ClipData travels in a
@@ -338,7 +391,8 @@ fun buildFullLogString(context: Context): String {
     val rootLogs = if (logFile.exists()) {
         try { ROOT_LOG_SECTION_HEADER + logFile.readText() } catch (e: Exception) { "" }
     } else ""
-    return header + goLogs + rootLogs
+    val logcat = if (GlobalSettings.getBoolean(context, LOGCAT_PREF, false)) LOGCAT_SECTION_HEADER + LogcatSource.rawText() else ""
+    return header + goLogs + rootLogs + logcat
 }
 
 /** Drops the beginning of [text] so that at most [maxChars] remain, cutting at a line boundary. */
@@ -416,6 +470,9 @@ fun LogsScreen(onBack: () -> Unit) {
     var searchQuery by remember { mutableStateOf("") }
     var unfolded by remember { mutableStateOf(emptySet<Long>()) }
     var clearMenuOpen by remember { mutableStateOf(false) }
+    var includeLogcat by remember { mutableStateOf(GlobalSettings.getBoolean(context, LOGCAT_PREF, false)) }
+    // Clearing cannot empty logcat itself (that is the system's buffer); it hides what came before.
+    var logcatSince by remember { mutableStateOf(0L) }
     
     var isAutoScroll by remember { mutableStateOf(true) }
     var isRefreshing by remember { mutableStateOf(false) }
@@ -424,7 +481,7 @@ fun LogsScreen(onBack: () -> Unit) {
     val listState = rememberLazyListState()
 
     val isRootMode = remember { GlobalSettings.isRootModeEnabled(context) }
-    val categoryItems = remember(isRootMode) {
+    val categoryItems = remember(isRootMode, includeLogcat) {
         val list = mutableListOf(
             SegmentedChipItem("ALL", Icons.AutoMirrored.Filled.List),
             SegmentedChipItem("ERROR", Icons.Default.Error, containerColor = Color(0xFFEF5350).copy(alpha = 0.25f), contentColor = Color(0xFFEF5350)),
@@ -437,6 +494,9 @@ fun LogsScreen(onBack: () -> Unit) {
             list.add(SegmentedChipItem("ROOT", Icons.Default.Terminal, containerColor = Color(0xFF9C27B0).copy(alpha = 0.25f), contentColor = Color(0xFF9C27B0)))
         }
         list.add(SegmentedChipItem("OTHER", Icons.Default.Category, containerColor = Color(0xFFFFA726).copy(alpha = 0.25f), contentColor = Color(0xFFFB8C00)))
+        if (includeLogcat) {
+            list.add(SegmentedChipItem(LOGCAT_CATEGORY, Icons.Default.BugReport, containerColor = Color(0xFF26A69A).copy(alpha = 0.25f), contentColor = Color(0xFF26A69A)))
+        }
         list.toList()
     }
     val categories = remember(categoryItems) { categoryItems.map { it.title } }
@@ -497,6 +557,10 @@ fun LogsScreen(onBack: () -> Unit) {
                     logsList = (logsList + parsed).sortedBy { it.unix }
                 }
             }
+            if (includeLogcat) {
+                val lines = LogcatSource.entries(logcatSince)
+                if (lines.isNotEmpty()) logsList = (logsList + lines).sortedBy { it.unix }
+            }
 
             withContext(Dispatchers.Main) {
                 allLogs = logsList
@@ -520,6 +584,7 @@ fun LogsScreen(onBack: () -> Unit) {
                 ClearScope.APP -> Appctr.clearLogsWhere(DAEMON_CATEGORY, true)
                 ClearScope.DAEMON -> Appctr.clearLogsWhere(DAEMON_CATEGORY, false)
             }
+            if (scope != ClearScope.DAEMON) logcatSince = System.currentTimeMillis()
             withContext(Dispatchers.Main) {
                 allLogs = when (scope) {
                     ClearScope.ALL -> if (fileOk) emptyList() else allLogs.filter { it.category == DAEMON_CATEGORY }
@@ -606,6 +671,18 @@ fun LogsScreen(onBack: () -> Unit) {
                             }) { Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.action_copy)) }
                             
                             IconButton(onClick = { saveFileLauncher.launch("tailsocks_logs_${System.currentTimeMillis()}.txt") }) { Icon(Icons.Default.Save, contentDescription = stringResource(R.string.action_save)) }
+
+                            IconButton(onClick = {
+                                includeLogcat = !includeLogcat
+                                GlobalSettings.setBoolean(context, LOGCAT_PREF, includeLogcat)
+                                if (!includeLogcat && selectedCategory == LOGCAT_CATEGORY) selectedCategory = "ALL"
+                            }) {
+                                Icon(
+                                    Icons.Default.BugReport,
+                                    contentDescription = stringResource(R.string.logs_cd_logcat),
+                                    tint = if (includeLogcat) MaterialTheme.colorScheme.primary else LocalContentColor.current
+                                )
+                            }
                         }
                     )
                     

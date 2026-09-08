@@ -505,6 +505,22 @@ class TailscaleApiClient(
         return response?.vipServices ?: emptyList()
     }
 
+    /** executeCall wraps every failure as "API Error: …", so the status is looked for inside. */
+    private fun isNotFound(e: Exception) = e.message?.contains("HTTP 404") == true
+
+    /** A dropped connection through the proxy ("unexpected end of stream", reset) is worth one more try. */
+    private fun isConnectionDrop(e: Exception): Boolean {
+        val m = e.message?.lowercase() ?: return false
+        return "unexpected end of stream" in m || "connection reset" in m || "broken pipe" in m || "stream was reset" in m
+    }
+
+    private fun <T> withRetry(block: () -> T): T = try {
+        block()
+    } catch (e: Exception) {
+        if (!isConnectionDrop(e)) throw e
+        block()
+    }
+
     /**
      * One service by its `svc:` name, or null when the tailnet has none. The
      * current API path is `vip-services`; `services` is tried when that one
@@ -513,11 +529,11 @@ class TailscaleApiClient(
     fun getTailnetService(serviceName: String): VIPServiceInfo? {
         for (base in listOf("vip-services", "services")) {
             try {
-                val json = request("GET", "/tailnet/$tailnet/$base/$serviceName")
+                val json = withRetry { request("GET", "/tailnet/$tailnet/$base/$serviceName") }
                 if (json.isBlank()) return null
                 return runCatching { AppJson.decodeFromString<VIPServiceInfo>(json) }.getOrNull()
             } catch (e: Exception) {
-                if (e.message?.startsWith("HTTP 404") != true) throw e
+                if (!isNotFound(e)) throw e
             }
         }
         return null
@@ -527,10 +543,10 @@ class TailscaleApiClient(
     fun createOrUpdateService(service: VIPServiceInfo) {
         val body = AppJson.encodeToString(service)
         try {
-            request("PUT", "/tailnet/$tailnet/vip-services/${service.name}", body)
+            withRetry { request("PUT", "/tailnet/$tailnet/vip-services/${service.name}", body) }
         } catch (e: Exception) {
-            if (e.message?.startsWith("HTTP 404") != true) throw e
-            request("PUT", "/tailnet/$tailnet/services/${service.name}", body)
+            if (!isNotFound(e)) throw e
+            withRetry { request("PUT", "/tailnet/$tailnet/services/${service.name}", body) }
         }
     }
 
@@ -542,9 +558,13 @@ class TailscaleApiClient(
     }
 
     fun setServiceDeviceApproved(serviceName: String, deviceId: String, approved: Boolean) {
-        request("POST", "/tailnet/$tailnet/services/$serviceName/device/$deviceId/approved", buildJsonObject {
-            put("approved", approved)
-        })
+        val body = buildJsonObject { put("approved", approved) }
+        try {
+            withRetry { request("POST", "/tailnet/$tailnet/services/$serviceName/device/$deviceId/approved", body) }
+        } catch (e: Exception) {
+            if (!isNotFound(e)) throw e
+            withRetry { request("POST", "/tailnet/$tailnet/vip-services/$serviceName/device/$deviceId/approved", body) }
+        }
     }
 
     fun triggerDeviceUpdate(deviceId: String, machineKey: String, nodeKey: String): String {

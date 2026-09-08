@@ -619,6 +619,7 @@
     <string name="logs_root_clear_failed">Не удалось очистить лог демона (ошибка root-оболочки)</string>
     <string name="logs_search_placeholder">Поиск…</string>
     <string name="logs_cd_jump_to_end">К концу лога</string>
+    <string name="logs_cd_logcat">Включить logcat приложения</string>
     <string name="logs_expand_more">… развернуть (ещё %1$d)</string>
     <string name="logs_collapse">… свернуть</string>
     <string name="logs_day_today">Сегодня</string>

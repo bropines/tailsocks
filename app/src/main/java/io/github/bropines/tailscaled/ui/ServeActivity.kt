@@ -808,7 +808,7 @@ private fun NodeCard(caps: ServeCapabilities, context: Context, onCopy: (String)
                 label = context.getString(R.string.serve_cap_cert),
                 value = when {
                     !caps.loaded -> unknown
-                    caps.certDomains.isNotEmpty() -> context.getString(R.string.serve_cap_cert_ok, caps.certDomains.joinToString(", "))
+                    caps.certDomains.isNotEmpty() -> context.getString(R.string.serve_cap_cert_ok, caps.certDomains.joinToString(", ")).withBreakOpportunities()
                     else -> context.getString(R.string.serve_cap_cert_no)
                 },
                 ok = caps.loaded && caps.certDomains.isNotEmpty()

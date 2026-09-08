@@ -19,6 +19,8 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Console: a compact input bar with the command history as a menu; commands, errors and slow-command timings are highlighted; copy the output; delete a custom preset by long press.
 - Logs: one Clear button that asks what to clear (app log, daemon log, everything); the daemon's lines are under TAILSCALE in both modes, ROOT keeps the app's routing decisions.
 - Saved logs carry the date on every app line.
+- Logs: the app's own logcat can be shown as a source (a toggle in the top bar), and goes into Save and Copy while it is on.
+- Admin API: a dropped connection is retried once; a 404 on `vip-services` falls back to `services`.
 - Serve & Funnel rebuilt: a node card with certificate, Funnel ports and services; one list of rules with Public/Tailnet tags and target health; an editor in plain words, with paths, self-signed backends and TLS-terminated TCP under Advanced.
 - Serve: a service rule can define the service in the tailnet and approve this node as its host through the Admin API, behind the device credential.
 

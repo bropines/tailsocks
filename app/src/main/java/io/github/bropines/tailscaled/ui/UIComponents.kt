@@ -2145,6 +2145,7 @@ fun highlightLogMessage(
             "CORE" -> Color(0xFF42A5F5)
             "TAILSCALE" -> Color(0xFF66BB6A)
             "ROOT" -> Color(0xFFBA68C8)
+            "LOGCAT" -> Color(0xFF26A69A)
             else -> Color(0xFFFFA726)
         }
         withStyle(style = SpanStyle(color = catColor, fontWeight = FontWeight.Bold)) {
