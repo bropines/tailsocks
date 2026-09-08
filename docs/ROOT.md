@@ -588,7 +588,9 @@ exit-node egress — while it keeps the device and everything else keeps working
   install) is logged under the **ROOT** category, which has its own tab in the
   **Logs** screen. Failures land there instead of being silently discarded, and
   so does the one-line summary of every apply: which tiers went in, and why any
-  of them did not.
+  of them did not. The daemon's own output (the `logs/tailscaled.log` file) is
+  shown under the **TAILSCALE** tab, the one it fills in Proxy mode too; the
+  Clear button asks what to empty: the app log, the daemon log or everything.
 
 ### 7. SELinux: the on-demand `connectto` rule
 
@@ -675,7 +677,7 @@ su -c tailscale version
 * **Daemon Logs:** Saved at `/data/data/io.github.bropines.tailscaled/logs/tailscaled.log`
 * **Socket File:** Located at `/data/data/io.github.bropines.tailscaled/files/tailscaled.sock`
 * **Magisk Module Prop:** `/data/adb/modules/tailscaled/module.prop`
-* **In-app:** Logs screen → **ROOT** tab, and **Settings → Diagnostics & developer → Check Routing**.
+* **In-app:** Logs screen — the daemon's output under the **TAILSCALE** tab (the same tab it fills in Proxy mode), the app's routing decisions under **ROOT**; the Clear button asks whether to empty the app log, the daemon log or both — and **Settings → Diagnostics & developer → Check Routing**.
 
 ### Useful Troubleshooting Commands:
 

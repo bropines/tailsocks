@@ -623,6 +623,9 @@
     <string name="logs_collapse">… свернуть</string>
     <string name="logs_day_today">Сегодня</string>
     <string name="logs_day_yesterday">Вчера</string>
+    <string name="logs_clear_app">Лог приложения</string>
+    <string name="logs_clear_daemon">Лог демона</string>
+    <string name="logs_clear_all">Всё</string>
 
     <!-- ======================== Main Screen ======================== -->
     <string name="main_add_account_title">Добавить аккаунт</string>

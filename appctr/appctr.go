@@ -161,7 +161,7 @@ func logWithFilter(text string) {
 			return
 		}
 	}
-	slog.Info(text)
+	slog.Info(text, "src", "daemon")
 }
 
 var externalSocketPath string

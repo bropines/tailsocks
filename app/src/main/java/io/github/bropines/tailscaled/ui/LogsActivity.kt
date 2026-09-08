@@ -138,7 +138,21 @@ fun getDebugHeader(context: Context): String {
 }
 
 /**
+ * The category of the daemon's own lines: its stdout in Proxy mode (tagged by
+ * the Go bridge), its file in Root Mode (parsed here). CORE is the app, ROOT
+ * the app's Root Mode routing decisions, OTHER the DPI bypass. Clearing works
+ * by this split: the daemon's lines, the app's, or everything.
+ */
+private const val DAEMON_CATEGORY = "TAILSCALE"
+
+/** What one Clear removes. */
+private enum class ClearScope { ALL, APP, DAEMON }
+
+/**
  * Tail reader for the Root Mode daemon log (`<dataDir>/logs/tailscaled.log`).
+ * Its lines are the daemon's, so they join the TAILSCALE category, the same
+ * tab the daemon's stdout fills in Proxy mode; until 4.1.1 they were a
+ * separate ROOT category and shared that tab with the app's routing lines.
  *
  * The daemon appends as root and the file grows without bound; hundreds of KB
  * of netmap dumps are normal. Reading and parsing the whole file on every
@@ -233,7 +247,7 @@ private object RootDaemonLog {
         }
         return List(timestamps.size) { i ->
             val message = messages[i].toString()
-            LogEntry(unix = unixes[i], timestamp = timestamps[i], level = levelOf(message), category = "ROOT", message = message)
+            LogEntry(unix = unixes[i], timestamp = timestamps[i], level = levelOf(message), category = DAEMON_CATEGORY, message = message)
         }
     }
 
@@ -401,6 +415,7 @@ fun LogsScreen(onBack: () -> Unit) {
     var selectedCategory by remember { mutableStateOf("ALL") }
     var searchQuery by remember { mutableStateOf("") }
     var unfolded by remember { mutableStateOf(emptySet<Long>()) }
+    var clearMenuOpen by remember { mutableStateOf(false) }
     
     var isAutoScroll by remember { mutableStateOf(true) }
     var isRefreshing by remember { mutableStateOf(false) }
@@ -417,6 +432,8 @@ fun LogsScreen(onBack: () -> Unit) {
             SegmentedChipItem("TAILSCALE", Icons.Default.VpnLock, containerColor = Color(0xFF66BB6A).copy(alpha = 0.25f), contentColor = Color(0xFF43A047))
         )
         if (isRootMode) {
+            // The app's Root Mode work: tiers, rules, the daemon's launch. The
+            // daemon's own lines are under TAILSCALE, as in Proxy mode.
             list.add(SegmentedChipItem("ROOT", Icons.Default.Terminal, containerColor = Color(0xFF9C27B0).copy(alpha = 0.25f), contentColor = Color(0xFF9C27B0)))
         }
         list.add(SegmentedChipItem("OTHER", Icons.Default.Category, containerColor = Color(0xFFFFA726).copy(alpha = 0.25f), contentColor = Color(0xFFFB8C00)))
@@ -484,6 +501,33 @@ fun LogsScreen(onBack: () -> Unit) {
             withContext(Dispatchers.Main) {
                 allLogs = logsList
                 if (manual) isRefreshing = false
+            }
+        }
+    }
+
+    /**
+     * One Clear for both sources. The daemon's lines live in the Go buffer in
+     * Proxy mode and in the root-owned file in Root Mode; the app's only in the
+     * buffer. Two buttons with different, unstated scopes (the whole buffer plus
+     * the file, or the file alone) used to do this.
+     */
+    fun clearLogs(scope: ClearScope) {
+        coroutineScope.launch(Dispatchers.IO) {
+            val fileOk = scope == ClearScope.APP ||
+                !GlobalSettings.isRootModeEnabled(context) || clearRootDaemonLogFile(context)
+            when (scope) {
+                ClearScope.ALL -> Appctr.clearLogs()
+                ClearScope.APP -> Appctr.clearLogsWhere(DAEMON_CATEGORY, true)
+                ClearScope.DAEMON -> Appctr.clearLogsWhere(DAEMON_CATEGORY, false)
+            }
+            withContext(Dispatchers.Main) {
+                allLogs = when (scope) {
+                    ClearScope.ALL -> if (fileOk) emptyList() else allLogs.filter { it.category == DAEMON_CATEGORY }
+                    ClearScope.APP -> allLogs.filter { it.category == DAEMON_CATEGORY }
+                    ClearScope.DAEMON -> if (fileOk) allLogs.filter { it.category != DAEMON_CATEGORY } else allLogs
+                }
+                val message = if (fileOk) R.string.logs_cleared else R.string.logs_root_clear_failed
+                Toast.makeText(context, context.getString(message), if (fileOk) Toast.LENGTH_SHORT else Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -562,22 +606,6 @@ fun LogsScreen(onBack: () -> Unit) {
                             }) { Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.action_copy)) }
                             
                             IconButton(onClick = { saveFileLauncher.launch("tailsocks_logs_${System.currentTimeMillis()}.txt") }) { Icon(Icons.Default.Save, contentDescription = stringResource(R.string.action_save)) }
-
-                            if (GlobalSettings.isRootModeEnabled(context)) {
-                                IconButton(onClick = {
-                                    coroutineScope.launch(Dispatchers.IO) {
-                                        val ok = clearRootDaemonLogFile(context)
-                                        withContext(Dispatchers.Main) {
-                                            if (ok) {
-                                                allLogs = allLogs.filter { it.category != "ROOT" }
-                                                Toast.makeText(context, context.getString(R.string.logs_cleared), Toast.LENGTH_SHORT).show()
-                                            } else {
-                                                Toast.makeText(context, context.getString(R.string.logs_root_clear_failed), Toast.LENGTH_LONG).show()
-                                            }
-                                        }
-                                    }
-                                }) { Icon(Icons.Default.DeleteForever, contentDescription = stringResource(R.string.action_clear)) }
-                            }
                         }
                     )
                     
@@ -612,23 +640,25 @@ fun LogsScreen(onBack: () -> Unit) {
                         coroutineScope.launch { listState.scrollToItem(rows.size - 1) }
                     }) { Icon(Icons.Default.ArrowDownward, contentDescription = stringResource(R.string.logs_cd_jump_to_end)) }
                 }
-                FloatingActionButton(onClick = {
-                    coroutineScope.launch(Dispatchers.IO) {
-                        Appctr.clearLogs()
-                        // The ROOT entries come from the daemon file; leaving it alone
-                        // made them reappear on the next refresh tick right after "Cleared".
-                        val rootOk = !GlobalSettings.isRootModeEnabled(context) || clearRootDaemonLogFile(context)
-                        withContext(Dispatchers.Main) {
-                            if (rootOk) {
-                                allLogs = emptyList()
-                                Toast.makeText(context, context.getString(R.string.logs_cleared), Toast.LENGTH_SHORT).show()
-                            } else {
-                                allLogs = allLogs.filter { it.category == "ROOT" }
-                                Toast.makeText(context, context.getString(R.string.logs_root_clear_failed), Toast.LENGTH_LONG).show()
-                            }
-                        }
+                Box {
+                    FloatingActionButton(onClick = { clearMenuOpen = true }) {
+                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.action_clear))
                     }
-                }) { Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.action_clear)) }
+                    DropdownMenu(expanded = clearMenuOpen, onDismissRequest = { clearMenuOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.logs_clear_all)) },
+                            onClick = { clearMenuOpen = false; clearLogs(ClearScope.ALL) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.logs_clear_app)) },
+                            onClick = { clearMenuOpen = false; clearLogs(ClearScope.APP) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.logs_clear_daemon)) },
+                            onClick = { clearMenuOpen = false; clearLogs(ClearScope.DAEMON) }
+                        )
+                    }
+                }
             }
         }
     ) { padding ->

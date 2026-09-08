@@ -15,6 +15,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 - Logs: day dividers when the log spans days; long entries fold to three lines until tapped; a button back to the live tail.
 - Console: a compact input bar with the command history as a menu; commands, errors and slow-command timings are highlighted; copy the output; delete a custom preset by long press.
+- Logs: one Clear button that asks what to clear (app log, daemon log, everything); the daemon's lines are under TAILSCALE in both modes, ROOT keeps the app's routing decisions.
 - Saved logs carry the date on every app line.
 
 ## [4.1.1] - 2026-09-07

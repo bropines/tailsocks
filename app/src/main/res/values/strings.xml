@@ -623,6 +623,9 @@
     <string name="logs_collapse">… collapse</string>
     <string name="logs_day_today">Today</string>
     <string name="logs_day_yesterday">Yesterday</string>
+    <string name="logs_clear_app">App log</string>
+    <string name="logs_clear_daemon">Daemon log</string>
+    <string name="logs_clear_all">Everything</string>
 
     <!-- ======================== Main Screen ======================== -->
     <string name="main_add_account_title">Add Account</string>

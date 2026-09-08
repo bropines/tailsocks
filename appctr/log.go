@@ -79,10 +79,28 @@ func (lm *LogManager) ClearLogs() {
 	lm.logs = make([]LogEntry, 0, lm.maxSize)
 }
 
+// ClearLogsWhere drops the entries of one category, or, with keep set, every
+// entry except that category. The Logs screen clears by source: the daemon's
+// lines are all TAILSCALE, everything else is the app's.
+func (lm *LogManager) ClearLogsWhere(category string, keep bool) {
+	lm.mu.Lock()
+	defer lm.mu.Unlock()
+	kept := make([]LogEntry, 0, len(lm.logs))
+	for _, l := range lm.logs {
+		if (l.Category == category) == keep {
+			kept = append(kept, l)
+		}
+	}
+	lm.logs = kept
+}
+
 // Exported wrappers for gomobile.
 func GetLogsJSON() string { return logManager.GetLogsJSON() }
 func GetLogs() string     { return logManager.GetLogs() }
 func ClearLogs()          { logManager.ClearLogs() }
+func ClearLogsWhere(category string, keep bool) {
+	logManager.ClearLogsWhere(category, keep)
+}
 func LogAndroid(level, category, message string) {
 	now := time.Now()
 	logManager.AddLog(LogEntry{
@@ -113,7 +131,14 @@ func (h *dualHandler) Enabled(_ context.Context, _ slog.Level) bool { return tru
 func (h *dualHandler) Handle(ctx context.Context, r slog.Record) error {
 	var sb strings.Builder
 	sb.WriteString(r.Message)
+	source := ""
 	r.Attrs(func(a slog.Attr) bool {
+		// The daemon's stdout is logged with src=daemon (logWithFilter); the
+		// attribute names the source and is not part of the line.
+		if a.Key == "src" {
+			source = a.Value.String()
+			return true
+		}
 		sb.WriteString(" ")
 		sb.WriteString(a.Key)
 		sb.WriteString("=")
@@ -128,22 +153,31 @@ func (h *dualHandler) Handle(ctx context.Context, r slog.Record) error {
 	}
 
 	timestamp := r.Time.Local().Format("15:04:05")
-
-	// Determine log category.
-	category := "OTHER"
 	lowerMsg := strings.ToLower(msg)
-	if r.Level >= slog.LevelError || strings.Contains(lowerMsg, "error") || strings.Contains(lowerMsg, "failed") {
-		category = "ERROR"
-	} else if strings.HasPrefix(msg, "[v1]") || strings.HasPrefix(msg, "[v2]") || strings.Contains(lowerMsg, "wgengine") {
+
+	// Category is the source: TAILSCALE is the daemon (its stdout here, its
+	// file in Root Mode, which the Logs screen parses the same way), CORE is
+	// the app, and ERROR keeps the app's own error-level lines red. The level
+	// of a daemon line is read off the text, as the Logs screen does for the file.
+	category := "CORE"
+	level := r.Level.String()
+	switch {
+	case source == "daemon":
 		category = "TAILSCALE"
-	} else {
-		category = "CORE"
+		switch {
+		case strings.Contains(lowerMsg, "error") || strings.Contains(lowerMsg, "failed") || strings.Contains(lowerMsg, "panic"):
+			level = "ERROR"
+		case strings.Contains(lowerMsg, "warn"):
+			level = "WARN"
+		}
+	case r.Level >= slog.LevelError || strings.Contains(lowerMsg, "error") || strings.Contains(lowerMsg, "failed"):
+		category = "ERROR"
 	}
 
 	entry := LogEntry{
 		Unix:      r.Time.UnixMilli(),
 		Timestamp: timestamp,
-		Level:     r.Level.String(),
+		Level:     level,
 		Category:  category,
 		Message:   msg,
 	}
