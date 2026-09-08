@@ -2,6 +2,21 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Fixed
+
+- Logs in Root Mode: app and daemon lines are merged by date and time, not by time of day, so yesterday's lines no longer sit under today's.
+- The ERROR filter now shows daemon errors and the app's own error-level lines.
+- Console commands (`status`, `netcheck`, `ping`) work in Root Mode after a reinstall; the CLI link is refreshed on attach.
+- Console `netcheck` prints a report; the CLI's own needs netlink access an app process does not have.
+
+### Changed
+
+- Logs: day dividers when the log spans days; long entries fold to three lines until tapped; a button back to the live tail.
+- Console: a compact input bar with the command history as a menu; commands, errors and slow-command timings are highlighted; copy the output; delete a custom preset by long press.
+- Saved logs carry the date on every app line.
+
 ## [4.1.1] - 2026-09-07
 
 ### Added

@@ -638,7 +638,11 @@ func AttachExternal(opt *StartOptions) {
 	lastOptions = opt
 	daemonStartTime = time.Now()
 	ctx := newDaemonRunLocked()
+	pc := PC
 	stateMu.Unlock()
+
+	// The root daemon is already running; only the CLI needs its link renewed.
+	linkBinaries(pc)
 
 	slog.Info("========================================")
 	slog.Info("=== TAILSOCKS GO CORE ATTACHING (ROOT) ===", "version", coreVersion, "do_reset", opt.DoReset, "has_authkey", opt.AuthKey != "")

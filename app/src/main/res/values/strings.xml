@@ -540,12 +540,15 @@
     <string name="console_cd_toggle_wrap">Toggle Wrap</string>
     <string name="console_clear_desc">Clear</string>
     <string name="console_add_preset">+ Add</string>
-    <string name="console_cd_history_up">History Up</string>
-    <string name="console_cd_history_down">History Down</string>
+    <string name="console_cd_history">Command history</string>
     <string name="console_placeholder">Command…</string>
     <string name="console_cd_run">Run</string>
     <string name="console_new_preset_title">New Preset</string>
     <string name="console_new_preset_label">e.g. up --ssh</string>
+    <string name="console_cd_copy">Copy output</string>
+    <string name="console_copied">Output copied</string>
+    <string name="console_preset_dialog_title">Preset</string>
+    <string name="console_preset_insert">Insert</string>
 
     <!-- ======================== DNS Management ======================== -->
     <string name="dns_title">DNS Management</string>
@@ -615,6 +618,11 @@
     <string name="logs_copied_tail">Log is large: only the tail was copied. Use Save to export the complete log</string>
     <string name="logs_root_clear_failed">Could not clear the daemon log (root shell failed)</string>
     <string name="logs_search_placeholder">Search…</string>
+    <string name="logs_cd_jump_to_end">Jump to the end</string>
+    <string name="logs_expand_more">… expand (%1$d more lines)</string>
+    <string name="logs_collapse">… collapse</string>
+    <string name="logs_day_today">Today</string>
+    <string name="logs_day_yesterday">Yesterday</string>
 
     <!-- ======================== Main Screen ======================== -->
     <string name="main_add_account_title">Add Account</string>

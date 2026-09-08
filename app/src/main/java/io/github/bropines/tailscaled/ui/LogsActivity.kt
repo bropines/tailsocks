@@ -18,6 +18,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -26,6 +28,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -36,7 +39,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import appctr.Appctr
@@ -51,10 +58,20 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.OutputStreamWriter
 import java.io.RandomAccessFile
+import java.text.DateFormat
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 
+/**
+ * One log line as the Go bridge reports it. [unix] is epoch milliseconds and
+ * the key the merged list is ordered by; [timestamp] is the `HH:MM:SS` shown.
+ */
 @Serializable
 data class LogEntry(
+    @SerialName("unix") val unix: Long = 0L,
     @SerialName("timestamp") val timestamp: String = "",
     @SerialName("level") val level: String = "",
     @SerialName("category") val category: String = "",
@@ -185,8 +202,15 @@ private object RootDaemonLog {
      * and is appended to the previous entry. The old code took the first 19
      * characters of every line as its timestamp, which rendered continuation
      * lines as `netmap: self: [B06o [ROOT] netmap: self: [B06oh] ...`.
+     *
+     * The date and time are local wall-clock, the same clock the Go buffer
+     * stamps its entries with, and become the entry's [LogEntry.unix]; a line
+     * without a stamp inherits the previous entry's so it stays in place.
      */
     fun parse(text: String): List<LogEntry> {
+        // Not thread-safe, hence one per parse: two refresh ticks can overlap on IO.
+        val stampFormat = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.US)
+        val unixes = ArrayList<Long>()
         val timestamps = ArrayList<String>()
         val messages = ArrayList<StringBuilder>()
         for (line in text.lineSequence()) {
@@ -194,11 +218,14 @@ private object RootDaemonLog {
             val m = lineRegex.matchEntire(line)
             when {
                 m != null -> {
+                    val unix = try { stampFormat.parse("${m.groupValues[1]} ${m.groupValues[2]}")?.time ?: 0L } catch (e: Exception) { 0L }
+                    unixes.add(unix)
                     timestamps.add(m.groupValues[2])
                     messages.add(StringBuilder(m.groupValues[3]))
                 }
                 messages.isNotEmpty() -> messages.last().append('\n').append(line)
                 else -> {
+                    unixes.add(0L)
                     timestamps.add("")
                     messages.add(StringBuilder(line))
                 }
@@ -206,7 +233,7 @@ private object RootDaemonLog {
         }
         return List(timestamps.size) { i ->
             val message = messages[i].toString()
-            LogEntry(timestamp = timestamps[i], level = levelOf(message), category = "ROOT", message = message)
+            LogEntry(unix = unixes[i], timestamp = timestamps[i], level = levelOf(message), category = "ROOT", message = message)
         }
     }
 
@@ -220,21 +247,62 @@ private object RootDaemonLog {
     }
 }
 
-/**
- * Seconds since local midnight for an `HH:MM:SS` timestamp, or -1 when there is
- * none. Both sources carry local wall-clock time (the Go buffer emits `15:04:05`,
- * [RootDaemonLog.parse] reduces the daemon's `2006/01/02 15:04:05` to the time
- * part), so this is the one key the merged list can be ordered by.
- */
-private fun timestampSortKey(timestamp: String): Int {
-    if (timestamp.length < 8) return -1
-    val t = timestamp.takeLast(8)
-    if (t[2] != ':' || t[5] != ':') return -1
-    val h = t.substring(0, 2).toIntOrNull() ?: return -1
-    val m = t.substring(3, 5).toIntOrNull() ?: return -1
-    val s = t.substring(6, 8).toIntOrNull() ?: return -1
-    return h * 3600 + m * 60 + s
+/** One row of the list: an entry, or the divider that opens a new day. */
+private sealed interface LogRow {
+    data class Entry(val log: LogEntry) : LogRow
+    data class Day(val label: String) : LogRow
 }
+
+/**
+ * Inserts a day divider before the first entry of each day, but only when the
+ * list spans more than one day. Every line shows just `HH:MM:SS`, and the Go
+ * buffer lives as long as the app process — with the phone on for two days,
+ * yesterday's "16:43" and today's "11:27" are otherwise indistinguishable.
+ */
+private fun withDayDividers(logs: List<LogEntry>, today: String, yesterday: String): List<LogRow> {
+    if (logs.isEmpty()) return emptyList()
+    val cal = Calendar.getInstance()
+    fun dayOf(unix: Long): Long {
+        cal.timeInMillis = unix
+        return cal.get(Calendar.YEAR) * 1000L + cal.get(Calendar.DAY_OF_YEAR)
+    }
+    val days = HashSet<Long>()
+    for (log in logs) if (log.unix != 0L) days.add(dayOf(log.unix))
+    if (days.size < 2) return logs.map { LogRow.Entry(it) }
+
+    val now = System.currentTimeMillis()
+    val todayDay = dayOf(now)
+    val yesterdayDay = dayOf(now - 86_400_000L)
+    val dateFormat = DateFormat.getDateInstance(DateFormat.MEDIUM)
+    val rows = ArrayList<LogRow>(logs.size + days.size)
+    var lastDay = -1L
+    for (log in logs) {
+        if (log.unix != 0L) {
+            val day = dayOf(log.unix)
+            if (day != lastDay) {
+                lastDay = day
+                rows.add(LogRow.Day(when (day) {
+                    todayDay -> today
+                    yesterdayDay -> yesterday
+                    else -> dateFormat.format(Date(log.unix))
+                }))
+            }
+        }
+        rows.add(LogRow.Entry(log))
+    }
+    return rows
+}
+
+/**
+ * An entry longer than [FOLD_OVER_LINES] lines — a netmap dump, a panic — is
+ * shown as its first [FOLDED_LINES] lines until tapped, so one dump does not
+ * push a screen of real lines out of view.
+ */
+private const val FOLD_OVER_LINES = 6
+private const val FOLDED_LINES = 3
+
+/** Identity of an entry across refreshes, for the set of unfolded ones. */
+private fun foldKey(log: LogEntry): Long = log.unix * 31 + log.message.hashCode()
 
 private const val ROOT_LOG_SECTION_HEADER = "\n--- ROOT DAEMON LOGS (tailscaled.log) ---\n"
 
@@ -332,6 +400,7 @@ fun LogsScreen(onBack: () -> Unit) {
     var allLogs by remember { mutableStateOf<List<LogEntry>>(emptyList()) }
     var selectedCategory by remember { mutableStateOf("ALL") }
     var searchQuery by remember { mutableStateOf("") }
+    var unfolded by remember { mutableStateOf(emptySet<Long>()) }
     
     var isAutoScroll by remember { mutableStateOf(true) }
     var isRefreshing by remember { mutableStateOf(false) }
@@ -357,10 +426,22 @@ fun LogsScreen(onBack: () -> Unit) {
 
     val displayedLogs = remember(allLogs, selectedCategory, searchQuery) {
         allLogs.filter { log ->
-            val matchCategory = selectedCategory == "ALL" || log.category == selectedCategory
+            val matchCategory = when (selectedCategory) {
+                "ALL" -> true
+                // An error is a level as much as a category: the daemon file's
+                // lines are all ROOT and the app's own logAndroid("ERROR", "CORE", …)
+                // are CORE, and the ERROR chip used to show neither.
+                "ERROR" -> log.category == "ERROR" || log.level == "ERROR"
+                else -> log.category == selectedCategory
+            }
             val matchQuery = searchQuery.isEmpty() || log.message.contains(searchQuery, ignoreCase = true)
             matchCategory && matchQuery
         }
+    }
+    val todayLabel = stringResource(R.string.logs_day_today)
+    val yesterdayLabel = stringResource(R.string.logs_day_yesterday)
+    val rows = remember(displayedLogs, todayLabel, yesterdayLabel) {
+        withDayDividers(displayedLogs, todayLabel, yesterdayLabel)
     }
 
     val saveFileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
@@ -389,9 +470,14 @@ fun LogsScreen(onBack: () -> Unit) {
             if (GlobalSettings.isRootModeEnabled(context)) {
                 val parsed = RootDaemonLog.tailEntries(RootUtils.rootDaemonLogFile(context))
                 if (parsed.isNotEmpty()) {
-                    // sortedBy is stable: entries from one source keep their
-                    // original order when they share a second.
-                    logsList = (logsList + parsed).sortedBy { timestampSortKey(it.timestamp) }
+                    // Both sources carry epoch millis, so the merge is by that.
+                    // Until 4.1.1 this sorted by seconds since midnight, which put
+                    // yesterday's "16:43" from the Go buffer (alive as long as the
+                    // app process) after today's "11:27" from the daemon file
+                    // (only its last minutes are read) — the bottom of the screen
+                    // was stale. sortedBy is stable: entries from one source keep
+                    // their original order when they share a millisecond.
+                    logsList = (logsList + parsed).sortedBy { it.unix }
                 }
             }
 
@@ -413,7 +499,7 @@ fun LogsScreen(onBack: () -> Unit) {
     // be set once and never cleared, so every refresh tick (2 s) yanked the list
     // back to the bottom while the user was reading further up — "the log is
     // stuck at the bottom". A manual scroll away from the end switches following
-    // off; scrolling back to the end switches it on again.
+    // off; scrolling back to the end, or the arrow button, switches it on again.
     val isAtBottom by remember {
         derivedStateOf {
             val info = listState.layoutInfo
@@ -425,9 +511,9 @@ fun LogsScreen(onBack: () -> Unit) {
         if (!listState.isScrollInProgress) isAutoScroll = isAtBottom
     }
 
-    LaunchedEffect(displayedLogs.size) {
-        if (isAutoScroll && displayedLogs.isNotEmpty()) {
-            listState.animateScrollToItem(displayedLogs.size - 1)
+    LaunchedEffect(rows.size) {
+        if (isAutoScroll && rows.isNotEmpty()) {
+            listState.animateScrollToItem(rows.size - 1)
         }
     }
 
@@ -518,23 +604,32 @@ fun LogsScreen(onBack: () -> Unit) {
                 }
             },
         floatingActionButton = {
-            FloatingActionButton(onClick = {
-                coroutineScope.launch(Dispatchers.IO) {
-                    Appctr.clearLogs()
-                    // The ROOT entries come from the daemon file; leaving it alone
-                    // made them reappear on the next refresh tick right after "Cleared".
-                    val rootOk = !GlobalSettings.isRootModeEnabled(context) || clearRootDaemonLogFile(context)
-                    withContext(Dispatchers.Main) {
-                        if (rootOk) {
-                            allLogs = emptyList()
-                            Toast.makeText(context, context.getString(R.string.logs_cleared), Toast.LENGTH_SHORT).show()
-                        } else {
-                            allLogs = allLogs.filter { it.category == "ROOT" }
-                            Toast.makeText(context, context.getString(R.string.logs_root_clear_failed), Toast.LENGTH_LONG).show()
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                // Back to the live tail after reading further up; following resumes.
+                AnimatedVisibility(visible = !isAutoScroll && rows.isNotEmpty()) {
+                    SmallFloatingActionButton(onClick = {
+                        isAutoScroll = true
+                        coroutineScope.launch { listState.scrollToItem(rows.size - 1) }
+                    }) { Icon(Icons.Default.ArrowDownward, contentDescription = stringResource(R.string.logs_cd_jump_to_end)) }
+                }
+                FloatingActionButton(onClick = {
+                    coroutineScope.launch(Dispatchers.IO) {
+                        Appctr.clearLogs()
+                        // The ROOT entries come from the daemon file; leaving it alone
+                        // made them reappear on the next refresh tick right after "Cleared".
+                        val rootOk = !GlobalSettings.isRootModeEnabled(context) || clearRootDaemonLogFile(context)
+                        withContext(Dispatchers.Main) {
+                            if (rootOk) {
+                                allLogs = emptyList()
+                                Toast.makeText(context, context.getString(R.string.logs_cleared), Toast.LENGTH_SHORT).show()
+                            } else {
+                                allLogs = allLogs.filter { it.category == "ROOT" }
+                                Toast.makeText(context, context.getString(R.string.logs_root_clear_failed), Toast.LENGTH_LONG).show()
+                            }
                         }
                     }
-                }
-            }) { Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.action_clear)) }
+                }) { Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.action_clear)) }
+            }
         }
     ) { padding ->
         PullToRefreshBox(
@@ -545,25 +640,77 @@ fun LogsScreen(onBack: () -> Unit) {
             SelectionContainer {
                 LazyColumn(
                     state = listState,
+                    // Room under the last line for the buttons, which otherwise cover the tail.
+                    contentPadding = PaddingValues(bottom = 96.dp),
                     modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp).pointerInput(Unit) {
                         detectTransformGestures { _, _, zoom, _ -> scale = (scale * zoom).coerceIn(0.5f, 4f) }
                     }
                 ) {
-                    items(displayedLogs) { log ->
-                        val defaultColor = MaterialTheme.colorScheme.onSurface
-                        val highlightedText = remember(log, defaultColor) {
-                            highlightLogMessage(log.timestamp, log.category, log.message, defaultColor)
+                    items(rows, contentType = { it::class }) { row ->
+                        when (row) {
+                            is LogRow.Day -> DayDivider(row.label)
+                            is LogRow.Entry -> {
+                                val key = foldKey(row.log)
+                                LogEntryRow(
+                                    log = row.log,
+                                    scale = scale,
+                                    expanded = key in unfolded,
+                                    onToggle = { unfolded = if (key in unfolded) unfolded - key else unfolded + key }
+                                )
+                            }
                         }
-                        Text(
-                            text = highlightedText,
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = (12 * scale).sp,
-                            modifier = Modifier.padding(vertical = 2.dp)
-                        )
                     }
                 }
             }
         }
     }
 }
+}
+
+@Composable
+private fun DayDivider(label: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        HorizontalDivider(modifier = Modifier.weight(1f))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.outline,
+            modifier = Modifier.padding(horizontal = 8.dp)
+        )
+        HorizontalDivider(modifier = Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun LogEntryRow(log: LogEntry, scale: Float, expanded: Boolean, onToggle: () -> Unit) {
+    val context = LocalContext.current
+    val defaultColor = MaterialTheme.colorScheme.onSurface
+    val hintColor = MaterialTheme.colorScheme.primary
+    val lineCount = remember(log.message) { log.message.count { it == '\n' } + 1 }
+    val foldable = lineCount > FOLD_OVER_LINES
+    val text = remember(log, defaultColor, expanded) {
+        val shown = if (foldable && !expanded) log.message.lineSequence().take(FOLDED_LINES).joinToString("\n") else log.message
+        val body = highlightLogMessage(log.timestamp, log.category, shown, defaultColor)
+        if (!foldable) body else buildAnnotatedString {
+            append(body)
+            withStyle(SpanStyle(color = hintColor, fontStyle = FontStyle.Italic)) {
+                append('\n')
+                append(
+                    if (expanded) context.getString(R.string.logs_collapse)
+                    else context.getString(R.string.logs_expand_more, lineCount - FOLDED_LINES)
+                )
+            }
+        }
+    }
+    Text(
+        text = text,
+        fontFamily = FontFamily.Monospace,
+        fontSize = (12 * scale).sp,
+        modifier = Modifier
+            .then(if (foldable) Modifier.clickable(onClick = onToggle) else Modifier)
+            .padding(vertical = 2.dp)
+    )
 }

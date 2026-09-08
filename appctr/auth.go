@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -56,9 +57,21 @@ func RunTailscaleArgs(parts ...string) string {
 	if !IsRunning() {
 		return "Error: " + errNotRunning.Error()
 	}
+	// The CLI's own netcheck has never worked on Android from an app process
+	// (netlink RIB denied, see runNetcheck); the bare command gets the
+	// in-process report in the CLI's layout. Flags still go to the CLI.
+	if len(parts) == 1 && parts[0] == "netcheck" {
+		return netcheckText()
+	}
 	pc := getPC()
 	args := append([]string{"--socket", pc.Socket()}, parts...)
-	c := exec.Command(pc.Tailscale(), args...)
+	// The data-directory link is preferred for the process name; if it dangles
+	// (the ln shell-out failed), the library itself is executable.
+	cli := pc.Tailscale()
+	if _, err := os.Stat(cli); err != nil {
+		cli = pc.TailscaleCliSo()
+	}
+	c := exec.Command(cli, args...)
 
 	isRoutineCheck := len(parts) > 0 && (parts[0] == "status" || parts[0] == "dns" || parts[0] == "netcheck" || parts[0] == "ping")
 

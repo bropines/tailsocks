@@ -109,9 +109,13 @@ State as of 2026-09-07, after 4.1.1.
       there is nowhere to write the rules; a firmware limit, not a gap of ours. To do: say so in
       the diagnostics instead of the present silence, and check whether a DNS query goes out over
       IPv6 past MagicDNS.
-- [ ] **Console `status` / `netcheck` / `ping` do not work in Root Mode.** The CLI symlink is
-      created only by the userspace launch path (`appctr/daemon.go`); `AttachExternal` never
-      creates it, so in Root Mode those commands have no binary to call.
+- [x] **Console `status` / `netcheck` / `ping` do not work in Root Mode.** Done 2026-09-08. The
+      `tailscale` link in the data directory was made only by the userspace launch, and Android
+      renames the native library directory on every reinstall, so in Root Mode it dangled (seen
+      on the Redmi: a link from 2026-09-05 into a removed `/data/app/~~…` directory). Both launch
+      paths now refresh the links, and the CLI runner falls back to `libtailscale_cli.so` itself.
+      `netcheck` additionally needs a netlink RIB dump the CLI cannot get as an app process (in
+      any mode), so the bare command is answered by the in-process netcheck of the Netcheck screen.
 - [ ] **The five loading indicators inside buttons** are still the old ones — the new component
       stops being legible at 14 dp. Look at it on a device and decide.
 - [ ] **Stable Material 3.** `1.5.0-alpha27` is in use for components 1.4.0 does not have, and it

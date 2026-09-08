@@ -52,6 +52,18 @@ func (h hostinfoReport) env() []string {
 	}
 }
 
+// linkBinaries refreshes the `tailscale` and `tailscaled` names in the data
+// directory, which point into the install's native library directory. Android
+// renames that directory on every (re)install, so a link made by an earlier
+// launch dangles. Both launch paths call this: the Root Mode attach never did,
+// so after a reinstall the Console's `status`, `netcheck` and `ping` had no
+// binary to run until the daemon was once started in userspace.
+func linkBinaries(p pathControl) {
+	rm(p.Tailscale(), p.Tailscaled())
+	ln(p.TailscaleCliSo(), p.Tailscale())
+	ln(p.TailscaledSo(), p.Tailscaled())
+}
+
 func tailscaledCmd(p pathControl, generation uint64, dnsFallbacks string, socksAddr, httpAddr, socksUser, socksPass, taildropDir, controlProxy string, hostinfo hostinfoReport) error {
 	// Cheap early exit before the filesystem work; the authoritative check is
 	// the one under stateMu below.
@@ -59,9 +71,7 @@ func tailscaledCmd(p pathControl, generation uint64, dnsFallbacks string, socksA
 		return errLaunchSuperseded
 	}
 
-	rm(p.Tailscale(), p.Tailscaled())
-	ln(p.TailscaleCliSo(), p.Tailscale())
-	ln(p.TailscaledSo(), p.Tailscaled())
+	linkBinaries(p)
 
 	args := []string{
 		"--tun=userspace-networking",

@@ -13,6 +13,11 @@ import (
 
 // LogEntry is the structured log record sent to Kotlin.
 type LogEntry struct {
+	// Unix is the entry's wall-clock time in milliseconds since the epoch.
+	// Timestamp carries only the time of day, and a buffer that lives as long
+	// as the app process spans days; the Logs screen orders it by this, together
+	// with the root daemon's dated file, instead of by seconds since midnight.
+	Unix      int64  `json:"unix"`
 	Timestamp string `json:"timestamp"`
 	Level     string `json:"level"`
 	Category  string `json:"category"`
@@ -52,13 +57,18 @@ func (lm *LogManager) GetLogsJSON() string {
 	return string(bytes)
 }
 
-// GetLogs returns logs as plain text (e.g. for export to a .txt file).
+// GetLogs returns logs as plain text (e.g. for export to a .txt file), one
+// entry per line with the date, so an export that spans days can be read.
 func (lm *LogManager) GetLogs() string {
 	lm.mu.RLock()
 	defer lm.mu.RUnlock()
 	var sb strings.Builder
 	for _, l := range lm.logs {
-		sb.WriteString(fmt.Sprintf("%s [%s] %s\n", l.Timestamp, l.Level, l.Message))
+		day := ""
+		if l.Unix != 0 {
+			day = time.UnixMilli(l.Unix).Local().Format("2006/01/02 ")
+		}
+		fmt.Fprintf(&sb, "%s%s [%s] [%s] %s\n", day, l.Timestamp, l.Level, l.Category, l.Message)
 	}
 	return sb.String()
 }
@@ -74,8 +84,10 @@ func GetLogsJSON() string { return logManager.GetLogsJSON() }
 func GetLogs() string     { return logManager.GetLogs() }
 func ClearLogs()          { logManager.ClearLogs() }
 func LogAndroid(level, category, message string) {
+	now := time.Now()
 	logManager.AddLog(LogEntry{
-		Timestamp: time.Now().Format("15:04:05"),
+		Unix:      now.UnixMilli(),
+		Timestamp: now.Format("15:04:05"),
 		Level:     level,
 		Category:  category,
 		Message:   message,
@@ -129,6 +141,7 @@ func (h *dualHandler) Handle(ctx context.Context, r slog.Record) error {
 	}
 
 	entry := LogEntry{
+		Unix:      r.Time.UnixMilli(),
 		Timestamp: timestamp,
 		Level:     r.Level.String(),
 		Category:  category,

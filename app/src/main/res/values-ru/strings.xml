@@ -540,12 +540,15 @@
     <string name="console_cd_toggle_wrap">Перенос строк</string>
     <string name="console_clear_desc">Очистить</string>
     <string name="console_add_preset">+ Добавить</string>
-    <string name="console_cd_history_up">История вверх</string>
-    <string name="console_cd_history_down">История вниз</string>
+    <string name="console_cd_history">История команд</string>
     <string name="console_placeholder">Команда…</string>
     <string name="console_cd_run">Запустить</string>
     <string name="console_new_preset_title">Новый шаблон</string>
     <string name="console_new_preset_label">например, up --ssh</string>
+    <string name="console_cd_copy">Скопировать вывод</string>
+    <string name="console_copied">Вывод скопирован</string>
+    <string name="console_preset_dialog_title">Шаблон</string>
+    <string name="console_preset_insert">Вставить</string>
 
     <!-- ======================== DNS Management ======================== -->
     <string name="dns_title">Управление DNS</string>
@@ -615,6 +618,11 @@
     <string name="logs_copied_tail">Лог большой: скопирован только хвост. Полный лог — через «Сохранить»</string>
     <string name="logs_root_clear_failed">Не удалось очистить лог демона (ошибка root-оболочки)</string>
     <string name="logs_search_placeholder">Поиск…</string>
+    <string name="logs_cd_jump_to_end">К концу лога</string>
+    <string name="logs_expand_more">… развернуть (ещё %1$d)</string>
+    <string name="logs_collapse">… свернуть</string>
+    <string name="logs_day_today">Сегодня</string>
+    <string name="logs_day_yesterday">Вчера</string>
 
     <!-- ======================== Main Screen ======================== -->
     <string name="main_add_account_title">Добавить аккаунт</string>
