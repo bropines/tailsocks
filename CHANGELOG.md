@@ -11,7 +11,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Console commands (`status`, `netcheck`, `ping`) work in Root Mode after a reinstall; the CLI link is refreshed on attach.
 - Console `netcheck` prints a report; the CLI's own needs netlink access an app process does not have.
 - Long exit-node names wrap at their hyphens instead of mid-word.
-- Admin API through a SOCKS5 proxy with a password works again; the credentials were withheld from the JDK's SOCKS handshake, so every request failed over to a direct connection.
+- Admin API through a SOCKS5 proxy with a password works again: requests now go through the Go bridge's proxy clients, the same ones the daemon uses for control; the JDK's SOCKS handshake had gone out with an empty password.
 - Local proxies: the LAN hint names the Wi-Fi or Ethernet address, not the cellular one, and adds the Tailscale IP other tailnet devices reach the proxies at.
 
 ### Changed

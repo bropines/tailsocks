@@ -14,10 +14,11 @@ import kotlinx.serialization.json.putJsonObject
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
-import java.net.InetSocketAddress
-import java.net.Proxy
-import java.net.URI
-import java.util.concurrent.TimeUnit
+import appctr.Appctr
+import io.github.bropines.tailscaled.core.GlobalSettings
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import okio.Buffer
 
 class TailscaleApiClient(
     private val token: String,
@@ -35,144 +36,69 @@ class TailscaleApiClient(
     private val controlProxyUrl: String = ""
 ) {
     private val baseUrl = "https://api.tailscale.com/api/v2"
+    private val REQUEST_TIMEOUT_SEC = 15
     private val tailnet = if (tailnetName.isBlank()) "-" else tailnetName
 
     private var cachedAccessToken: String? = null
     private var tokenExpiryTime: Long = 0
 
-    private val httpClient: OkHttpClient by lazy {
-        buildOkHttpClient()
+    /**
+     * The proxy every request goes through, as a URL the Go bridge understands
+     * (`socks5://user:pass@host:port`, `http://…`), or "" for a direct connection.
+     * The bridge speaks both with Go's own proxy clients — the ones tailscaled
+     * uses for its control connection — so the console reaches the API wherever
+     * the daemon reaches control. OkHttp only assembles requests here; the JDK's
+     * SOCKS client, whose password hand-off broke silently once, is out of the path.
+     */
+    private val proxyUrl: String = when (proxyMode.uppercase()) {
+        "CONTROL_PLANE", "AUTO" -> controlProxyUrl.trim().let { if (it.isNotEmpty() && !it.contains("://")) "socks5://$it" else it }
+        "LOCAL_SOCKS5" -> {
+            val addr = localSocksAddr.takeIf { it.isNotEmpty() } ?: "127.0.0.1:48115"
+            socksUrl(NetAddr.dialableHost(addr), NetAddr.port(addr) ?: 48115, localSocksUser, localSocksPass)
+        }
+        "CUSTOM_SOCKS5", "CUSTOM_PROXY" ->
+            if (proxyHost.isNotEmpty() && proxyPort > 0) socksUrl(proxyHost, proxyPort, proxyUser, proxyPass) else ""
+        else -> ""
     }
 
-    private data class ParsedProxyInfo(
-        val host: String,
-        val port: Int,
-        val user: String,
-        val pass: String,
-        val proxy: Proxy
+    private fun socksUrl(host: String, port: Int, user: String, pass: String): String {
+        val auth = if (user.isNotEmpty()) "${GlobalSettings.pctEncodeUserInfo(user)}:${GlobalSettings.pctEncodeUserInfo(pass)}@" else ""
+        val h = if (host.contains(':') && !host.startsWith("[")) "[$host]" else host
+        return "socks5://$auth$h:$port"
+    }
+
+    @Serializable
+    private data class BridgeResponse(
+        @SerialName("status") val status: Int = 0,
+        @SerialName("body") val body: String = "",
+        @SerialName("error") val error: String? = null
     )
 
-    private fun parseProxyFromUrl(urlStr: String): ParsedProxyInfo? {
-        try {
-            val trimmed = urlStr.trim()
-            if (trimmed.isEmpty()) return null
-            val uri = URI(if (!trimmed.contains("://")) "socks5://$trimmed" else trimmed)
-            val scheme = uri.scheme?.lowercase() ?: "socks5"
-            val host = uri.host ?: return null
-            val port = if (uri.port > 0) uri.port else (if (scheme.startsWith("http")) 8080 else 1080)
-
-            var user = ""
-            var pass = ""
-            if (uri.userInfo != null && uri.userInfo.contains(":")) {
-                val parts = uri.userInfo.split(":", limit = 2)
-                user = parts[0]
-                pass = parts[1]
-            }
-
-            val proxyType = if (scheme.startsWith("http")) Proxy.Type.HTTP else Proxy.Type.SOCKS
-            return ParsedProxyInfo(host, port, user, pass, Proxy(proxyType, InetSocketAddress(host, port)))
-        } catch (e: Exception) {
-            return null
-        }
+    /** One request through the bridge: method, URL, headers and text body over, status and body back. */
+    private fun viaBridge(req: Request, proxy: String): BridgeResponse {
+        val headers = buildJsonObject {
+            for (i in 0 until req.headers.size) put(req.headers.name(i), req.headers.value(i))
+            req.body?.contentType()?.let { put("Content-Type", it.toString()) }
+        }.toString()
+        val body = req.body?.let { b -> Buffer().also { b.writeTo(it) }.readUtf8() } ?: ""
+        val raw = Appctr.fetchViaProxy(req.method, req.url.toString(), headers, body, proxy, REQUEST_TIMEOUT_SEC)
+        return runCatching { AppJson.decodeFromString<BridgeResponse>(raw) }
+            .getOrElse { BridgeResponse(error = "unreadable bridge response: ${raw.take(200)}") }
     }
 
-    private fun buildOkHttpClient(): OkHttpClient {
-        val builder = OkHttpClient.Builder()
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(15, TimeUnit.SECONDS)
-            .writeTimeout(15, TimeUnit.SECONDS)
-
-        var authUser = ""
-        var authPass = ""
-
-        val selectedProxy = when (proxyMode.uppercase()) {
-            "CONTROL_PLANE", "AUTO" -> {
-                if (controlProxyUrl.isNotEmpty()) {
-                    val parsed = parseProxyFromUrl(controlProxyUrl)
-                    if (parsed != null) {
-                        authUser = parsed.user
-                        authPass = parsed.pass
-                        parsed.proxy
-                    } else Proxy.NO_PROXY
-                } else Proxy.NO_PROXY
-            }
-            "LOCAL_SOCKS5" -> {
-                val addr = localSocksAddr.takeIf { it.isNotEmpty() } ?: "127.0.0.1:48115"
-                val host = NetAddr.dialableHost(addr)
-                val port = NetAddr.port(addr) ?: 48115
-                authUser = localSocksUser
-                authPass = localSocksPass
-                Proxy(Proxy.Type.SOCKS, InetSocketAddress(host, port))
-            }
-            "CUSTOM_SOCKS5", "CUSTOM_PROXY" -> {
-                if (proxyHost.isNotEmpty() && proxyPort > 0) {
-                    authUser = proxyUser
-                    authPass = proxyPass
-                    Proxy(Proxy.Type.SOCKS, InetSocketAddress(proxyHost, proxyPort))
-                } else Proxy.NO_PROXY
-            }
-            else -> Proxy.NO_PROXY
+    private fun <T> executeCall(req: Request, parse: (String) -> T): T {
+        var resp = viaBridge(req, proxyUrl)
+        if (resp.error != null && proxyUrl.isNotEmpty() && proxyMode.uppercase() in listOf("CONTROL_PLANE", "AUTO")) {
+            // The proxy could not be reached or refused us; the network itself may still be there.
+            Log.w("TailscaleApiClient", "Request to ${req.url} failed through the proxy (${resp.error}); trying a direct connection")
+            resp = viaBridge(req, "")
         }
-
-        if (selectedProxy != Proxy.NO_PROXY) {
-            builder.proxy(selectedProxy)
+        resp.error?.let {
+            Log.e("TailscaleApiClient", "Request to ${req.url} failed (proxyMode=$proxyMode): $it")
+            throw Exception("API Error: $it")
         }
-
-        if (authUser.isNotEmpty() && authPass.isNotEmpty()) {
-            val credentials = Credentials.basic(authUser, authPass)
-            
-            // 1. Authenticator for HTTP 407 responses
-            builder.proxyAuthenticator { _, response ->
-                if (response.request.header("Proxy-Authorization") != null) {
-                    null // Prevent retry loop if credentials failed
-                } else {
-                    response.request.newBuilder()
-                        .header("Proxy-Authorization", credentials)
-                        .build()
-                }
-            }
-
-            // 2. Pre-emptive network interceptor for HTTP proxy CONNECT requests
-            builder.addNetworkInterceptor { chain ->
-                var request = chain.request()
-                if (selectedProxy.type() == Proxy.Type.HTTP && request.header("Proxy-Authorization") == null) {
-                    request = request.newBuilder()
-                        .header("Proxy-Authorization", credentials)
-                        .build()
-                }
-                chain.proceed(request)
-            }
-
-            // 3. SOCKS5 has no per-connection auth in the JDK, so a default
-            //    Authenticator is unavoidable — but it is scoped to the exact
-            //    proxy endpoint. An unscoped default handed the proxy password to
-            //    any host that answered with a 401 or 407, including remote avatar
-            //    URLs and the update check that share this process.
-            //
-            //    The scope must not be "PROXY requests only": SocksSocketImpl asks
-            //    through the legacy requestPasswordAuthentication(host, addr, port,
-            //    "SOCKS5", …) overload, which reports RequestorType.SERVER. With the
-            //    PROXY check every SOCKS5 proxy with a password answered "SOCKS :
-            //    authentication failed" and the console fell back to a direct
-            //    connection, which is exactly what the proxy was there to avoid.
-            val socksAddr = (selectedProxy.address() as? InetSocketAddress)
-            if (socksAddr != null) {
-                val proxyHostName = socksAddr.hostString
-                val proxyPortNum = socksAddr.port
-                val user = authUser
-                val pass = authPass
-                java.net.Authenticator.setDefault(object : java.net.Authenticator() {
-                    override fun getPasswordAuthentication(): java.net.PasswordAuthentication? {
-                        val forSocks = requestingProtocol?.startsWith("SOCKS", ignoreCase = true) == true
-                        if (requestorType != RequestorType.PROXY && !forSocks) return null
-                        if (!requestingHost.equals(proxyHostName, ignoreCase = true) || requestingPort != proxyPortNum) return null
-                        return java.net.PasswordAuthentication(user, pass.toCharArray())
-                    }
-                })
-            }
-        }
-
-        return builder.build()
+        if (resp.status !in 200..299) throw Exception("API Error: HTTP ${resp.status}: ${resp.body}")
+        return parse(resp.body)
     }
 
     @Synchronized
@@ -190,43 +116,6 @@ class TailscaleApiClient(
         cachedAccessToken = fetched.accessToken
         tokenExpiryTime = now + (fetched.expiresIn * 1000L) - 60000L
         return cachedAccessToken!!
-    }
-
-    private fun <T> executeCall(req: Request, parse: (String) -> T): T {
-        try {
-            httpClient.newCall(req).execute().use { resp ->
-                val bodyStr = resp.body?.string() ?: ""
-                if (resp.isSuccessful) {
-                    return parse(bodyStr)
-                } else {
-                    throw Exception("HTTP ${resp.code}: $bodyStr")
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("TailscaleApiClient", "Request to ${req.url} failed (proxyMode=$proxyMode): ${e.message}", e)
-
-            // If proxy fails with IOException (unexpected end of stream / connection reset), try fallback to DIRECT connection
-            if (proxyMode.uppercase() in listOf("CONTROL_PLANE", "AUTO") && e is java.io.IOException) {
-                Log.w("TailscaleApiClient", "Proxy connection failed, trying Direct fallback...")
-                try {
-                    val directClient = OkHttpClient.Builder()
-                        .connectTimeout(10, TimeUnit.SECONDS)
-                        .readTimeout(10, TimeUnit.SECONDS)
-                        .proxy(Proxy.NO_PROXY)
-                        .build()
-                    directClient.newCall(req).execute().use { resp ->
-                        val bodyStr = resp.body?.string() ?: ""
-                        if (resp.isSuccessful) {
-                            return parse(bodyStr)
-                        }
-                    }
-                } catch (fallbackErr: Exception) {
-                    Log.e("TailscaleApiClient", "Direct fallback also failed: ${fallbackErr.message}")
-                }
-            }
-
-            throw Exception("API Error: ${e.message ?: "Connection error"}")
-        }
     }
 
     private fun fetchOauthToken(): OauthTokenResponse {
