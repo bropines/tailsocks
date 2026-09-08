@@ -145,10 +145,16 @@ class TailscaleApiClient(
 
             // 3. SOCKS5 has no per-connection auth in the JDK, so a default
             //    Authenticator is unavoidable — but it is scoped to the exact
-            //    proxy endpoint and to PROXY requests only. An unscoped default
-            //    handed the proxy password to any host that answered with a 401
-            //    or 407, including remote avatar URLs and the update check that
-            //    share this process.
+            //    proxy endpoint. An unscoped default handed the proxy password to
+            //    any host that answered with a 401 or 407, including remote avatar
+            //    URLs and the update check that share this process.
+            //
+            //    The scope must not be "PROXY requests only": SocksSocketImpl asks
+            //    through the legacy requestPasswordAuthentication(host, addr, port,
+            //    "SOCKS5", …) overload, which reports RequestorType.SERVER. With the
+            //    PROXY check every SOCKS5 proxy with a password answered "SOCKS :
+            //    authentication failed" and the console fell back to a direct
+            //    connection, which is exactly what the proxy was there to avoid.
             val socksAddr = (selectedProxy.address() as? InetSocketAddress)
             if (socksAddr != null) {
                 val proxyHostName = socksAddr.hostString
@@ -157,8 +163,9 @@ class TailscaleApiClient(
                 val pass = authPass
                 java.net.Authenticator.setDefault(object : java.net.Authenticator() {
                     override fun getPasswordAuthentication(): java.net.PasswordAuthentication? {
-                        if (requestorType != RequestorType.PROXY) return null
-                        if (requestingHost != proxyHostName || requestingPort != proxyPortNum) return null
+                        val forSocks = requestingProtocol?.startsWith("SOCKS", ignoreCase = true) == true
+                        if (requestorType != RequestorType.PROXY && !forSocks) return null
+                        if (!requestingHost.equals(proxyHostName, ignoreCase = true) || requestingPort != proxyPortNum) return null
                         return java.net.PasswordAuthentication(user, pass.toCharArray())
                     }
                 })

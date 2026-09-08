@@ -619,7 +619,7 @@
     <string name="logs_root_clear_failed">Could not clear the daemon log (root shell failed)</string>
     <string name="logs_search_placeholder">Search…</string>
     <string name="logs_cd_jump_to_end">Jump to the end</string>
-    <string name="logs_cd_logcat">Include the app's logcat</string>
+    <string name="logs_cd_logcat">Include the app\'s logcat</string>
     <string name="logs_expand_more">… expand (%1$d more lines)</string>
     <string name="logs_collapse">… collapse</string>
     <string name="logs_day_today">Today</string>
