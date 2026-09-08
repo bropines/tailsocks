@@ -24,8 +24,10 @@ data class TCPPortHandler(
     @SerialName("HTTP") val http: Boolean? = null,
     @SerialName("TCPForward") val tcpForward: String? = null,
     @SerialName("TerminateTLS") val terminateTLS: String? = null,
-    @SerialName("ProxyProtocol") val proxyProtocol: Int? = null,
-    @SerialName("Disabled") val disabled: Boolean? = null
+    // No Disabled field: ipn.TCPPortHandler has none, and the daemon drops unknown
+    // JSON on the way in — the "disable rule" the Serve screen offered until 4.1.1
+    // was written here and silently discarded there.
+    @SerialName("ProxyProtocol") val proxyProtocol: Int? = null
 )
 
 @Serializable

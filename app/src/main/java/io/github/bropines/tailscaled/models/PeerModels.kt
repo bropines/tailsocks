@@ -2,6 +2,7 @@ package io.github.bropines.tailscaled.models
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 
 @Serializable
 data class UserProfile(
@@ -16,7 +17,9 @@ data class StatusResponse(
     @SerialName("Self") val self: PeerData? = null,
     @SerialName("Peer") val peers: Map<String, PeerData>? = null,
     @SerialName("User") val users: Map<String, UserProfile>? = null,
-    @SerialName("MagicDNSSuffix") val magicDnsSuffix: String? = null
+    @SerialName("MagicDNSSuffix") val magicDnsSuffix: String? = null,
+    /** Domains this node can hold a TLS certificate for; empty when it has no HTTPS capability. */
+    @SerialName("CertDomains") val certDomains: List<String>? = null
 )
 
 @Serializable
@@ -57,7 +60,10 @@ data class PeerData(
     @SerialName("NoFileSharingReason") val noFileSharingReason: String? = null,
     @SerialName("Capabilities") val capabilities: List<String>? = null,
     @SerialName("ShareeNode") val shareeNode: Boolean? = null,
-    @SerialName("Tags") val tags: List<String>? = null
+    @SerialName("Tags") val tags: List<String>? = null,
+    /** Node capabilities from the netmap (`https`, `funnel`, `cap:advertise-services`,
+     *  the funnel-ports URL…); the values are per-capability data or null. */
+    @SerialName("CapMap") val capMap: Map<String, JsonElement>? = null
 ) {
     fun getPrimaryIp(): String = tailscaleIPs?.firstOrNull() ?: "0.0.0.0"
 

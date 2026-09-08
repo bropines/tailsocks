@@ -55,13 +55,19 @@ Tailscale Services allow you to host a service under a **different hostname** th
 
 ## 🛠 Using Serve & Funnel in TailSocks
 
-1.  Open **Serve & Funnel** from the main menu.
-2.  Tap the **(+)** button to add a new rule.
-3.  Choose between **Node-scoped** (uses machine name) or **Service-scoped** (uses a custom name).
-4.  Select **TCP** or **Web** mode.
-5.  Configure the **Target** (e.g., `127.0.0.1:8000`).
-6.  Toggle **Funnel** if you need public access (ensure ACLs are set!).
-7.  Tap **Add**. The link will be generated automatically.
+The screen opens on a card for this node: its address, whether it can hold an HTTPS
+certificate, whether Funnel is allowed and on which ports, and whether it may host
+services (a tagged node). Below it is one list of rules. Each card shows the address a
+rule is reached at, what it does, whether it is **Public** (Funnel) or **Tailnet**-only,
+and whether something answers on its target.
+
+1.  Tap **+**.
+2.  Choose what to expose: a **local service** (HTTP proxy), a **text**, a **redirect** or a raw **TCP port**.
+3.  Enter the target and the port on this node; 443, 8443 and 10000 — the Funnel ports — are one tap away.
+4.  Turn on **Public internet (Funnel)** if the rule should be reachable from outside. When the switch cannot be turned on it says why: no Funnel capability, a port Funnel does not allow, plain HTTP, or a service.
+5.  For a new rule, pick the scope: **this device**, or a **service** (`svc:name`, tagged nodes only — approve it in the admin console afterwards).
+6.  **Advanced** holds the daemon's own terms: the mount path (several handlers can share one port), plain HTTP instead of HTTPS, a backend with a self-signed certificate (`https+insecure://`), TLS termination and PROXY protocol for TCP rules.
+7.  Tap **Add**. A card's menu offers edit, copy link and delete; the screen's menu exports the HTTPS certificate or removes every rule.
 
 ### Variables in Redirects:
 *   `https://example.com/${REQUEST_URI}`: Redirects the user while preserving the path.
