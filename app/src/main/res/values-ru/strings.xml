@@ -792,6 +792,7 @@
     <string name="serve_svc_status_published">Опубликована в tailnet · %1$s</string>
     <string name="serve_svc_status_unpublished">В tailnet ещё нет: определите службу и подтвердите этот узел</string>
     <string name="serve_svc_publish_button">Опубликовать…</string>
+    <string name="serve_svc_update_button">Обновить…</string>
     <string name="serve_editor_publish_after">Опубликовать в tailnet после сохранения</string>
     <string name="serve_editor_service_required">Укажите имя службы</string>
     <string name="serve_kind_file">Файлы</string>

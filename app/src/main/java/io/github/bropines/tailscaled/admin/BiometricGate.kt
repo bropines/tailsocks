@@ -23,6 +23,7 @@ fun FragmentActivity.authenticateWithBiometrics(title: String, subtitle: String,
 
         override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
             super.onAuthenticationError(errorCode, errString)
+            android.util.Log.w("BiometricGate", "credential prompt ended with error $errorCode: $errString")
             onResult(false)
         }
     })
@@ -34,6 +35,7 @@ fun FragmentActivity.authenticateWithBiometrics(title: String, subtitle: String,
     try {
         prompt.authenticate(info)
     } catch (e: Exception) {
+        android.util.Log.w("BiometricGate", "credential prompt could not be shown, proceeding as the console does", e)
         onResult(true)
     }
 }

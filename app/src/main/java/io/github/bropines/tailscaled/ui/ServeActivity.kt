@@ -75,7 +75,7 @@ class ServeActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             TailSocksTheme {
-                ServeScreen(onBack = { finish() })
+                ServeScreen(onBack = { finish() }, activity = this)
             }
         }
     }
@@ -376,7 +376,7 @@ private fun newRuleTemplate(): ServeRule = ServeRule(
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun ServeScreen(onBack: () -> Unit) {
+fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
@@ -448,9 +448,15 @@ fun ServeScreen(onBack: () -> Unit) {
                 }
             }
         }
-        val activity = context.findFragmentActivity()
-        if (activity == null) run()
-        else activity.authenticateWithBiometrics(
+        // The prompt needs the FragmentActivity itself; the one handed in by
+        // ServeActivity, not whatever LocalContext resolves to. Without it the
+        // tailnet is not touched.
+        val host = activity ?: context.findFragmentActivity()
+        if (host == null) {
+            Toast.makeText(context, context.getString(R.string.serve_svc_publish_failed, "no activity for the credential prompt"), Toast.LENGTH_LONG).show()
+            return
+        }
+        host.authenticateWithBiometrics(
             context.getString(R.string.admin_biometric_title),
             context.getString(R.string.serve_svc_biometric_subtitle)
         ) { ok -> if (ok) run() }
@@ -647,7 +653,10 @@ fun ServeScreen(onBack: () -> Unit) {
                                         service = service,
                                         addresses = caps.serviceHosts[service],
                                         context = context,
-                                        onPublish = { publishFor = service }
+                                        onPublish = {
+                                            if (adminSettings() != null) publishService(service, rules.filter { it.service == service }.map { it.port })
+                                            else publishFor = service
+                                        }
                                     )
                                 }
                                 items(list) { rule ->
@@ -905,8 +914,13 @@ private fun ServiceHeading(service: String, addresses: List<String>?, context: C
                 Text(
                     context.getString(R.string.serve_svc_status_published, addresses.firstOrNull { ':' !in it } ?: addresses.firstOrNull() ?: ""),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
                 )
+                // Re-sync the definition's endpoints with this node's rules after a change.
+                TextButton(onClick = onPublish, contentPadding = PaddingValues(horizontal = 8.dp)) {
+                    Text(context.getString(R.string.serve_svc_update_button))
+                }
             } else {
                 Icon(Icons.Default.Schedule, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.width(6.dp))
