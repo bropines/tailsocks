@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Added
+
+- Serve: a rule can be paused and resumed; paused rules leave the daemon but stay in the list, greyed, per profile.
+
 ## [4.1.2] - 2026-09-08
 
 ### Added

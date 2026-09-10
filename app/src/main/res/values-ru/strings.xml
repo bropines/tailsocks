@@ -754,6 +754,10 @@
     <string name="serve_health_ok">цель доступна</string>
     <string name="serve_health_bad">цель недоступна</string>
     <string name="serve_menu_copy_link">Скопировать ссылку</string>
+    <string name="serve_menu_pause">Приостановить</string>
+    <string name="serve_menu_resume">Возобновить</string>
+    <string name="serve_tag_paused">Пауза</string>
+    <string name="serve_resume_conflict">Нельзя возобновить: порт %1$d занят другим правилом</string>
     <string name="serve_editor_new">Новое правило</string>
     <string name="serve_editor_edit">Изменить правило</string>
     <string name="serve_editor_what">Что открыть</string>

@@ -754,6 +754,10 @@
     <string name="serve_health_ok">target reachable</string>
     <string name="serve_health_bad">target unreachable</string>
     <string name="serve_menu_copy_link">Copy link</string>
+    <string name="serve_menu_pause">Pause</string>
+    <string name="serve_menu_resume">Resume</string>
+    <string name="serve_tag_paused">Paused</string>
+    <string name="serve_resume_conflict">Cannot resume: port %1$d is taken by another rule</string>
     <string name="serve_editor_new">New rule</string>
     <string name="serve_editor_edit">Edit rule</string>
     <string name="serve_editor_what">What to expose</string>

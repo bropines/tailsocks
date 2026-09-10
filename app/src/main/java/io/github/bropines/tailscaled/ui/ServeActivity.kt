@@ -54,6 +54,7 @@ import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.JsonArray
@@ -126,8 +127,47 @@ private data class ServeRule(
     val funnel: Boolean,
     val proxyProtocol: Int,
     /** The proxy target is `https+insecure://`: an HTTPS backend with an untrusted certificate. */
-    val insecureBackend: Boolean
+    val insecureBackend: Boolean,
+    /**
+     * Held by the app, not by the daemon. The daemon has no "off" for a rule or a
+     * service (a configured service is Active whatever AdvertiseServices says), so
+     * pausing takes the rule out of the daemon's config and keeps it here until
+     * it is resumed.
+     */
+    val paused: Boolean = false
 )
+
+/** What makes two rules the same rule, port included. */
+private fun ruleId(r: ServeRule) = "${r.service}|${r.port}|${r.path}|${r.kind}"
+
+@Serializable
+private data class PausedRuleDto(
+    val service: String? = null, val port: Int = 0, val path: String = "/", val kind: String = "PROXY",
+    val tls: Boolean = true, val target: String = "", val funnel: Boolean = false,
+    val proxyProtocol: Int = 0, val insecureBackend: Boolean = false
+) {
+    fun toRule() = ServeRule(
+        service, port, path, runCatching { RuleKind.valueOf(kind) }.getOrDefault(RuleKind.PROXY),
+        tls, target, funnel, proxyProtocol, insecureBackend, paused = true
+    )
+    companion object {
+        fun of(r: ServeRule) = PausedRuleDto(r.service, r.port, r.path, r.kind.name, r.tls, r.target, r.funnel, r.proxyProtocol, r.insecureBackend)
+    }
+}
+
+/** Paused rules of the active profile, in its own preferences file. */
+private object PausedRules {
+    private fun prefs(context: Context) =
+        context.getSharedPreferences("serve_paused_${AccountManager.getActiveAccount(context).id}", Context.MODE_PRIVATE)
+
+    fun load(context: Context): List<ServeRule> = runCatching {
+        AppJson.decodeFromString<List<PausedRuleDto>>(prefs(context).getString("rules", "[]") ?: "[]")
+    }.getOrDefault(emptyList()).map { it.toRule() }
+
+    fun save(context: Context, rules: List<ServeRule>) {
+        prefs(context).edit().putString("rules", AppJson.encodeToString(rules.map { PausedRuleDto.of(it) })).apply()
+    }
+}
 
 /** The ports Funnel accepts when the node carries no funnel-ports capability (ipn.CheckFunnelPort). */
 private val FUNNEL_DEFAULT_PORTS = listOf(443, 8443, 10000)
@@ -376,7 +416,7 @@ private data class RuleGroup(val rules: List<ServeRule>) {
     val ports: List<Int> get() = rules.map { it.port }.sorted()
 }
 
-private fun groupKey(r: ServeRule) = listOf(r.service, r.kind, r.tls, r.target, r.path, r.funnel, r.proxyProtocol, r.insecureBackend)
+private fun groupKey(r: ServeRule) = listOf(r.service, r.kind, r.tls, r.target, r.path, r.funnel, r.proxyProtocol, r.insecureBackend, r.paused)
 
 private fun groupsOf(rules: List<ServeRule>): List<RuleGroup> =
     rules.groupBy { groupKey(it) }.values
@@ -428,6 +468,10 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null) {
     }
 
     val rules = remember(config) { config?.let { rulesOf(it) } ?: emptyList() }
+    var paused by remember { mutableStateOf(PausedRules.load(context)) }
+    /** Active rules from the daemon plus the paused ones the app holds; what the list shows. */
+    val allRules = remember(rules, paused) { rules + paused }
+    fun setPaused(list: List<ServeRule>) { paused = list; PausedRules.save(context, list) }
 
     /** The Admin API credentials for this tailnet, if the console was ever set up for it. */
     fun adminSettings(): AdminApiSettings? {
@@ -624,6 +668,37 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null) {
         }
     }
 
+    /**
+     * Pause: out of the daemon, into the app's list. Resume: the reverse, unless
+     * an active rule has taken one of the ports meanwhile.
+     */
+    fun pauseOrResume(group: RuleGroup) {
+        if (group.first.paused) {
+            val taken = group.rules.firstOrNull { p ->
+                rules.any { a -> a.service == p.service && a.port == p.port && (a.kind == RuleKind.TCP || p.kind == RuleKind.TCP || a.path == p.path) }
+            }
+            if (taken != null) {
+                Toast.makeText(context, context.getString(R.string.serve_resume_conflict, taken.port), Toast.LENGTH_LONG).show()
+                return
+            }
+            val ids = group.rules.map { ruleId(it) }.toSet()
+            setPaused(paused.filter { ruleId(it) !in ids })
+            applyChange { c -> group.rules.fold(c) { acc, r -> acc.with(r.copy(paused = false), caps) } }
+        } else {
+            setPaused(paused + group.rules.map { it.copy(paused = true) })
+            applyChange { c -> group.rules.fold(c) { acc, r -> acc.without(r) } }
+        }
+    }
+
+    fun deleteGroup(group: RuleGroup) {
+        if (group.first.paused) {
+            val ids = group.rules.map { ruleId(it) }.toSet()
+            setPaused(paused.filter { ruleId(it) !in ids })
+        } else {
+            applyChange { c -> group.rules.fold(c) { acc, r -> acc.without(r) } }
+        }
+    }
+
     fun copyText(text: String) {
         clipboard.setText(AnnotatedString(text))
         Toast.makeText(context, context.getString(R.string.serve_link_copied), Toast.LENGTH_SHORT).show()
@@ -686,9 +761,9 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null) {
                         config == null && isLoading -> item {
                             Box(Modifier.fillMaxWidth().height(120.dp), Alignment.Center) { LoadingIndicator() }
                         }
-                        rules.isEmpty() -> item { EmptyRulesCard(context) }
+                        allRules.isEmpty() -> item { EmptyRulesCard(context) }
                         else -> {
-                            val groups = groupsOf(rules)
+                            val groups = groupsOf(allRules)
                             val nodeGroups = groups.filter { it.first.service == null }
                             if (nodeGroups.isNotEmpty()) {
                                 item { SectionHeading(context.getString(R.string.serve_rules_heading)) }
@@ -697,12 +772,13 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null) {
                                         group = group,
                                         url = ruleUrl(group.first, caps),
                                         description = ruleDescription(context, group.first),
-                                        health = healthMap[group.first.target],
+                                        health = if (group.first.paused) null else healthMap[group.first.target],
                                         context = context,
                                         onEdit = { editor = RuleEditorState(group.rules, group.first) },
                                         onCopy = { copyText(ruleUrl(group.first, caps)) },
                                         onPublish = null,
-                                        onDelete = { applyChange { c -> group.rules.fold(c) { acc, r -> acc.without(r) } } }
+                                        onPauseResume = { pauseOrResume(group) },
+                                        onDelete = { deleteGroup(group) }
                                     )
                                 }
                             }
@@ -726,12 +802,13 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null) {
                                         group = group,
                                         url = ruleUrl(group.first, caps),
                                         description = ruleDescription(context, group.first),
-                                        health = healthMap[group.first.target],
+                                        health = if (group.first.paused) null else healthMap[group.first.target],
                                         context = context,
                                         onEdit = { editor = RuleEditorState(group.rules, group.first) },
                                         onCopy = { copyText(ruleUrl(group.first, caps)) },
-                                        onPublish = { publishFor = service },
-                                        onDelete = { applyChange { c -> group.rules.fold(c) { acc, r -> acc.without(r) } } }
+                                        onPublish = if (group.first.paused) null else ({ publishFor = service }),
+                                        onPauseResume = { pauseOrResume(group) },
+                                        onDelete = { deleteGroup(group) }
                                     )
                                 }
                             }
@@ -746,11 +823,18 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null) {
         RuleEditorSheet(
             state = state,
             caps = caps,
-            existing = rules,
+            existing = allRules,
             canPublish = adminSettings() != null,
             context = context,
             onDismiss = { editor = null },
             onSave = { newRules, publish ->
+                if (state.originals.firstOrNull()?.paused == true) {
+                    // A paused rule is edited in place and stays paused; the daemon is not touched.
+                    val ids = state.originals.map { ruleId(it) }.toSet()
+                    setPaused(paused.filter { ruleId(it) !in ids } + newRules.map { it.copy(paused = true) })
+                    editor = null
+                    return@RuleEditorSheet
+                }
                 applyChange { base ->
                     val stripped = state.originals.fold(base) { c, r -> c.without(r) }
                     newRules.fold(stripped) { c, r -> c.with(r, caps) }
@@ -1119,6 +1203,7 @@ private fun RuleCard(
     onEdit: () -> Unit,
     onCopy: () -> Unit,
     onPublish: (() -> Unit)?,
+    onPauseResume: () -> Unit,
     onDelete: () -> Unit
 ) {
     val rule = group.first
@@ -1130,7 +1215,7 @@ private fun RuleCard(
     Card(
         onClick = onEdit,
         shape = RULE_CARD_SHAPE,
-        colors = CardDefaults.cardColors(containerColor = scheme.surfaceContainerHigh)
+        colors = CardDefaults.cardColors(containerColor = if (rule.paused) scheme.surfaceContainerLow else scheme.surfaceContainerHigh)
     ) {
         Column(Modifier.padding(start = 14.dp, top = 12.dp, end = 4.dp, bottom = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1149,7 +1234,7 @@ private fun RuleCard(
                         fontWeight = FontWeight.Medium,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
-                        color = scheme.onSurface
+                        color = if (rule.paused) scheme.onSurfaceVariant else scheme.onSurface
                     )
                     Text(
                         description,
@@ -1183,6 +1268,11 @@ private fun RuleCard(
                             )
                         }
                         DropdownMenuItem(
+                            text = { Text(context.getString(if (rule.paused) R.string.serve_menu_resume else R.string.serve_menu_pause)) },
+                            leadingIcon = { Icon(if (rule.paused) Icons.Default.PlayArrow else Icons.Default.Pause, null) },
+                            onClick = { menu = false; onPauseResume() }
+                        )
+                        DropdownMenuItem(
                             text = { Text(context.getString(R.string.action_delete), color = scheme.error) },
                             leadingIcon = { Icon(Icons.Default.Delete, null, tint = scheme.error) },
                             onClick = { menu = false; onDelete() }
@@ -1206,6 +1296,7 @@ private fun RuleCard(
                 }
                 Tag(protocol, scheme.surfaceVariant, scheme.onSurfaceVariant)
                 if (group.ports.size > 1) Tag(group.ports.joinToString(" · "), scheme.surfaceVariant, scheme.onSurfaceVariant)
+                if (rule.paused) Tag(context.getString(R.string.serve_tag_paused), scheme.surfaceVariant, scheme.onSurfaceVariant)
                 if (health != null) {
                     Spacer(Modifier.width(2.dp))
                     Box(
