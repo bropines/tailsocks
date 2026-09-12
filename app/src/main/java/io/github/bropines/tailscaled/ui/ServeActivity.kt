@@ -37,6 +37,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -1207,7 +1209,6 @@ private fun RuleCard(
     onDelete: () -> Unit
 ) {
     val rule = group.first
-    var menu by remember { mutableStateOf(false) }
     val scheme = MaterialTheme.colorScheme
     val iconContainer = if (rule.funnel) scheme.tertiaryContainer else scheme.secondaryContainer
     val iconTint = if (rule.funnel) scheme.onTertiaryContainer else scheme.onSecondaryContainer
@@ -1245,40 +1246,15 @@ private fun RuleCard(
                         modifier = Modifier.padding(top = 2.dp)
                     )
                 }
-                Box {
-                    IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, contentDescription = null) }
-                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                        DropdownMenuItem(
-                            text = { Text(context.getString(R.string.action_edit)) },
-                            leadingIcon = { Icon(Icons.Default.Edit, null) },
-                            onClick = { menu = false; onEdit() }
-                        )
-                        if (url.isNotEmpty()) {
-                            DropdownMenuItem(
-                                text = { Text(context.getString(R.string.serve_menu_copy_link)) },
-                                leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
-                                onClick = { menu = false; onCopy() }
-                            )
-                        }
-                        if (onPublish != null) {
-                            DropdownMenuItem(
-                                text = { Text(context.getString(R.string.serve_menu_publish)) },
-                                leadingIcon = { Icon(Icons.Default.Hub, null) },
-                                onClick = { menu = false; onPublish() }
-                            )
-                        }
-                        DropdownMenuItem(
-                            text = { Text(context.getString(if (rule.paused) R.string.serve_menu_resume else R.string.serve_menu_pause)) },
-                            leadingIcon = { Icon(if (rule.paused) Icons.Default.PlayArrow else Icons.Default.Pause, null) },
-                            onClick = { menu = false; onPauseResume() }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(context.getString(R.string.action_delete), color = scheme.error) },
-                            leadingIcon = { Icon(Icons.Default.Delete, null, tint = scheme.error) },
-                            onClick = { menu = false; onDelete() }
-                        )
+                // The switch is the rule's on/off: a paused rule leaves the daemon but
+                // stays in the list.
+                Switch(
+                    checked = !rule.paused,
+                    onCheckedChange = { onPauseResume() },
+                    modifier = Modifier.padding(end = 6.dp).semantics {
+                        contentDescription = context.getString(if (rule.paused) R.string.serve_menu_resume else R.string.serve_menu_pause)
                     }
-                }
+                )
             }
             Spacer(Modifier.height(8.dp))
             Row(
@@ -1310,7 +1286,27 @@ private fun RuleCard(
                     )
                 }
             }
+            // Actions in the open, not behind an overflow menu: delete on the far
+            // left, away from the everyday ones on the right.
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp, end = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CardAction(Icons.Default.Delete, context.getString(R.string.action_delete), tint = scheme.error, onClick = onDelete)
+                Spacer(Modifier.weight(1f))
+                if (onPublish != null) CardAction(Icons.Default.Hub, context.getString(R.string.serve_menu_publish), onClick = onPublish)
+                if (url.isNotEmpty()) CardAction(Icons.Default.ContentCopy, context.getString(R.string.serve_menu_copy_link), onClick = onCopy)
+                CardAction(Icons.Default.Edit, context.getString(R.string.action_edit), onClick = onEdit)
+            }
         }
+    }
+}
+
+/** A compact icon action for a card's bottom row; the label is its accessibility name. */
+@Composable
+private fun CardAction(icon: ImageVector, label: String, tint: Color = MaterialTheme.colorScheme.onSurfaceVariant, onClick: () -> Unit) {
+    IconButton(onClick = onClick, modifier = Modifier.size(40.dp)) {
+        Icon(icon, contentDescription = label, tint = tint, modifier = Modifier.size(20.dp))
     }
 }
 

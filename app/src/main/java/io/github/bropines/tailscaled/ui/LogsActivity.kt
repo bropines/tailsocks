@@ -19,6 +19,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
@@ -717,22 +721,31 @@ fun LogsScreen(onBack: () -> Unit) {
                         coroutineScope.launch { listState.scrollToItem(rows.size - 1) }
                     }) { Icon(Icons.Default.ArrowDownward, contentDescription = stringResource(R.string.logs_cd_jump_to_end)) }
                 }
-                Box {
-                    FloatingActionButton(onClick = { clearMenuOpen = true }) {
-                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.action_clear))
+                // The scopes slide out beside the button instead of a menu: one
+                // tap opens, the next clears and folds them back.
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AnimatedVisibility(
+                        visible = clearMenuOpen,
+                        enter = slideInHorizontally(initialOffsetX = { it / 2 }) + fadeIn(),
+                        exit = slideOutHorizontally(targetOffsetX = { it / 2 }) + fadeOut()
+                    ) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            for ((scope, label) in listOf(
+                                ClearScope.ALL to R.string.logs_clear_all,
+                                ClearScope.APP to R.string.logs_clear_app,
+                                ClearScope.DAEMON to R.string.logs_clear_daemon
+                            )) {
+                                FilledTonalButton(
+                                    onClick = { clearMenuOpen = false; clearLogs(scope) },
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                ) { Text(stringResource(label), maxLines = 1) }
+                            }
+                        }
                     }
-                    DropdownMenu(expanded = clearMenuOpen, onDismissRequest = { clearMenuOpen = false }) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.logs_clear_all)) },
-                            onClick = { clearMenuOpen = false; clearLogs(ClearScope.ALL) }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.logs_clear_app)) },
-                            onClick = { clearMenuOpen = false; clearLogs(ClearScope.APP) }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.logs_clear_daemon)) },
-                            onClick = { clearMenuOpen = false; clearLogs(ClearScope.DAEMON) }
+                    FloatingActionButton(onClick = { clearMenuOpen = !clearMenuOpen }) {
+                        Icon(
+                            if (clearMenuOpen) Icons.Default.Close else Icons.Default.Delete,
+                            contentDescription = stringResource(R.string.action_clear)
                         )
                     }
                 }
