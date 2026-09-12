@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"golang.org/x/net/dns/dnsmessage"
+	"golang.org/x/net/ipv4"
 	"golang.org/x/net/proxy"
 )
 
@@ -28,7 +29,31 @@ func startDNSProxy(ctx context.Context, listenAddr string, fallbacks []string, d
 		return fmt.Errorf("dns proxy listen failed: %w", err)
 	}
 	defer pc.Close()
-	slog.Info("DNS proxy listening", "addr", listenAddr)
+
+	// A reply must leave from the address the query was sent to. With LAN
+	// access on, the proxy is bound to the wildcard, and for a client on
+	// loopback the kernel then picks 127.0.0.1 as the source whatever alias
+	// the client used (the local route for 127.0.0.0/8 has src 127.0.0.1) —
+	// so a resolver that asked 127.199.44.20 through a connected UDP socket
+	// (AdGuard, anything built on net.Dial) never saw the answer. IP_PKTINFO
+	// gives the destination on read and sets the source on write.
+	var p4 *ipv4.PacketConn
+	if ua, ok := pc.LocalAddr().(*net.UDPAddr); ok && (ua.IP == nil || ua.IP.To4() != nil) {
+		p4 = ipv4.NewPacketConn(pc)
+		if err := p4.SetControlMessage(ipv4.FlagDst, true); err != nil {
+			slog.Warn("DNS proxy: cannot read query destinations, replies use the kernel's source address", "err", err)
+			p4 = nil
+		}
+	}
+
+	socks, user, _, _ := GConfig.get()
+	slog.Info("DNS proxy listening",
+		"addr", listenAddr,
+		"reply_from", map[bool]string{true: "the address each query arrives at", false: "kernel default"}[p4 != nil],
+		"upstream_socks5", socks,
+		"socks5_auth", user != "",
+		"fallbacks", strings.Join(fallbacks, ","),
+		"doh", dohUrl)
 
 	EnsureIPNBusListener()
 
@@ -39,7 +64,20 @@ func startDNSProxy(ctx context.Context, listenAddr string, fallbacks []string, d
 
 	buf := make([]byte, 65535)
 	for {
-		n, clientAddr, err := pc.ReadFrom(buf)
+		var (
+			n          int
+			clientAddr net.Addr
+			dst        net.IP
+		)
+		if p4 != nil {
+			var cm *ipv4.ControlMessage
+			n, cm, clientAddr, err = p4.ReadFrom(buf)
+			if cm != nil {
+				dst = cm.Dst
+			}
+		} else {
+			n, clientAddr, err = pc.ReadFrom(buf)
+		}
 		if err != nil {
 			if ctx.Err() != nil {
 				return nil
@@ -48,12 +86,17 @@ func startDNSProxy(ctx context.Context, listenAddr string, fallbacks []string, d
 		}
 		query := make([]byte, n)
 		copy(query, buf[:n])
-		go func(q []byte, cAddr net.Addr) {
+		go func(q []byte, cAddr net.Addr, dst net.IP) {
 			resp := processDNSQuery(q, fallbacks, dohUrl)
-			if resp != nil {
+			if resp == nil {
+				return
+			}
+			if p4 != nil && dst != nil {
+				_, _ = p4.WriteTo(resp, &ipv4.ControlMessage{Src: dst}, cAddr)
+			} else {
 				_, _ = pc.WriteTo(resp, cAddr)
 			}
-		}(query, clientAddr)
+		}(query, clientAddr, dst)
 	}
 }
 
