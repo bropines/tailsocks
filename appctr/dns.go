@@ -98,14 +98,20 @@ func startDNSProxy(ctx context.Context, listenAddr string, fallbacks []string, d
 		copy(query, buf[:n])
 		go func(q []byte, cAddr net.Addr, dst net.IP) {
 			started := time.Now()
-			resp := processDNSQuery(q, fallbacks, dohUrl)
+			resp, cached := dnsCacheLookup(q)
+			if !cached {
+				resp = processDNSQuery(q, fallbacks, dohUrl)
+				if resp != nil {
+					dnsCacheStore(q, resp)
+				}
+			}
 			name, qtype := dnsQuestion(q)
 			to := "kernel default"
 			if dst != nil {
 				to = dst.String()
 			}
 			slog.Debug("DNS query", "name", name, "type", qtype, "from", cAddr.String(), "to", to,
-				"answered", resp != nil, "ms", time.Since(started).Milliseconds())
+				"answered", resp != nil, "cached", cached, "ms", time.Since(started).Milliseconds())
 			if resp == nil {
 				return
 			}

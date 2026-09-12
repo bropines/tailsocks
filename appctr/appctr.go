@@ -336,6 +336,7 @@ func FlushDNS() {
 		return true
 	})
 	setMagicDNSSuffix("")
+	dnsCacheFlush()
 	slog.Info("DNS caches and metadata reset")
 }
 

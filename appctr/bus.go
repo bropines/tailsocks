@@ -227,8 +227,9 @@ func resetBusState() {
 
 // ─── Shared DNS state (written here, read in dns.go) ────────────────────────
 
-var splitDNSCache sync.Map // domain → []string resolverIPs
-var nodesCache sync.Map    // hostname / FQDN → []string IPs
+var splitDNSCache sync.Map   // domain → []string resolverIPs
+var lastSplitRouteSig string // sorted "domain=ips;…" of the routes the answer cache was filled under
+var nodesCache sync.Map      // hostname / FQDN → []string IPs
 var magicDNSSuffix string
 var magicDNSSuffixMu sync.RWMutex
 
@@ -558,6 +559,7 @@ func applyNetMapToDNSCache(nm *BusNetMap) {
 
 	// 3. Split DNS routes
 	routesCount := 0
+	var routeSig []string
 	for domain, resolvers := range nm.DNS.Routes {
 		var ips []string
 		for _, r := range resolvers {
@@ -570,7 +572,16 @@ func applyNetMapToDNSCache(nm *BusNetMap) {
 		}
 		d := strings.ToLower(strings.Trim(domain, "."))
 		splitDNSCache.Store(d, ips)
+		routeSig = append(routeSig, d+"="+strings.Join(ips, ","))
 		routesCount++
+	}
+	// Cached answers came from the previous routes; a changed set makes them stale.
+	sort.Strings(routeSig)
+	if sig := strings.Join(routeSig, ";"); sig != lastSplitRouteSig {
+		if lastSplitRouteSig != "" {
+			dnsCacheFlush()
+		}
+		lastSplitRouteSig = sig
 	}
 
 	suffixNow := getMagicDNSSuffix()

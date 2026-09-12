@@ -20,6 +20,7 @@ Standard Android applications cannot route UDP packets into a userspace network 
 2.  **In-Memory Peer Resolution:** All nodes in the network are cached by their FQDN and short names. Resolution of `*.ts.net` names occurs in **0ms** by querying the internal memory map directly.
 3.  **Split DNS (TCP-over-SOCKS5):** For domains matching corporate routes (e.g., `therodev.com`), the bridge wraps UDP queries into TCP frames and tunnels them via SOCKS5 to the specific internal resolver IP provided by the netmap.
 4.  **Smart Upstream Fallback:** Public queries (e.g., `google.com`) are attempted via Tailscale's `dns-query` API first. If the daemon returns a `SERVFAIL` (common in userspace-only mode), the bridge automatically falls back to user-configured system/DoH resolvers.
+5.  **Answer Cache:** Every answer from steps 3–4 is kept for its TTL (floor 10 s, cap 1 h; NXDOMAIN and NODATA for 30 s or the SOA minimum if shorter). A hit is re-stamped with the client's transaction ID and its TTLs counted down. The cache is dropped together with the peer cache and whenever the split-DNS routes change, so a stale route never serves an old answer. Each query is logged at debug level with `cached=true|false`.
 
 ## 4. Native Diagnostics (Netcheck)
 *   **Android Limitations:** Permission restrictions (`netlinkrib: permission denied`) prevent the `tailscaled` daemon from identifying network interfaces, leading to failed diagnostics in the core.
