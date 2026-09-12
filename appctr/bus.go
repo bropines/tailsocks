@@ -508,6 +508,7 @@ func applyNotifyLocked(msg *BusNotify) {
 		applyNetMapToDNSCache(msg.NetMap)
 		if msg.NetMap.SelfNode != nil {
 			busState.Self = msg.NetMap.SelfNode
+			busState.TailscaleIPs = peerIPs(msg.NetMap.SelfNode)
 		}
 	}
 

@@ -7,7 +7,9 @@ package appctr
 // — a crash restart included — gets the same device, until ClearNativeTun.
 
 import (
+	"encoding/json"
 	"log/slog"
+	"net"
 	"os"
 	"strings"
 	"sync"
@@ -73,9 +75,41 @@ func ClearNativeTun(relaunch bool) {
 	}
 }
 
-// GetSelfIPs returns the node's tailnet addresses from the IPN bus snapshot,
-// comma-separated, "" until the netmap has arrived. The VpnService.Builder in
-// native TUN mode uses them as the interface addresses.
+// GetSelfIPs returns the node's tailnet addresses, comma-separated: from the
+// IPN bus snapshot when the netmap has arrived, otherwise from LocalAPI
+// /status; "" when neither knows them yet. The VpnService.Builder in native
+// TUN mode uses them as the interface addresses.
 func GetSelfIPs() string {
-	return strings.Join(GetBusState().TailscaleIPs, ",")
+	if s := GetBusState(); s.Self != nil {
+		if ips := peerIPs(s.Self); len(ips) > 0 {
+			return strings.Join(ips, ",")
+		}
+	}
+	data, err := doLocalRequest("GET", "/localapi/v0/status?peers=false", nil)
+	if err != nil {
+		return ""
+	}
+	var st struct{ TailscaleIPs []string }
+	if json.Unmarshal(data, &st) != nil {
+		return ""
+	}
+	return strings.Join(st.TailscaleIPs, ",")
+}
+
+// peerIPs lists a node's addresses without prefix lengths: TailscaleIPs when
+// the message carried them, else Addresses (CIDRs) stripped.
+func peerIPs(p *BusPeer) []string {
+	if len(p.TailscaleIPs) > 0 {
+		return p.TailscaleIPs
+	}
+	var ips []string
+	for _, a := range p.Addresses {
+		if i := strings.Index(a, "/"); i >= 0 {
+			a = a[:i]
+		}
+		if net.ParseIP(a) != nil {
+			ips = append(ips, a)
+		}
+	}
+	return ips
 }
