@@ -46,7 +46,7 @@
     <string name="sw_accept_dns_desc">Использовать настройки Magic DNS Tailscale</string>
 
     <string name="extra_args">Дополнительные аргументы (raw)</string>
-    <string name="extra_args_desc">Флаги tailscale up. Применяются поверх настроек, которые приложение отправляет само. Поддерживаются: --accept-routes, --accept-dns, --shields-up, --ssh, --exit-node-allow-lan-access, --report-posture, --hostname, --login-server, --advertise-routes, --advertise-tags, --advertise-exit-node; отрицание — через --no-флаг или =false. Остальные флаги игнорируются, и о каждом пишется в логи. Маршруты и теги, заданные здесь, приложение почти сразу перезаписывает полями «Анонсируемые маршруты» и «Анонсируемые теги», поэтому задавайте их там.</string>
+    <string name="extra_args_desc">Флаги tailscale up поверх настроек, которые приложение задаёт само.\n• Поддерживаются: --accept-routes, --accept-dns, --shields-up, --ssh, --exit-node-allow-lan-access, --report-posture, --hostname, --login-server, --advertise-routes, --advertise-tags, --advertise-exit-node.\n• Отрицание: --no-флаг или =false.\n• Остальные флаги игнорируются, каждый называется в логах.\n• Маршруты и теги отсюда почти сразу перезаписываются полями «Анонсируемые маршруты» и «Анонсируемые теги» — задавайте их там.</string>
 
     <string name="force_bg_subtitle">Попытка перезапуска службы при завершении</string>
 
@@ -841,7 +841,7 @@
     <!-- ======================== Settings ======================== -->
     <string name="settings_title">Настройки</string>
     <string name="settings_root_sect_title">Root-режим и системная служба (ЭКСПЕРИМЕНТАЛЬНО)</string>
-    <string name="settings_root_enable_desc">ЭКСПЕРИМЕНТАЛЬНАЯ ФУНКЦИЯ (в разработке). Запуск демона через \'su\' с прямой маршрутизацией ядра (tailscale0) и iptables. Автор bropines еще не все проверил и отлаживает этот режим.</string>
+    <string name="settings_root_enable_desc">Экспериментально, в разработке.\n• Демон запускается через su с TUN ядра (tailscale0) и iptables.\n• Автор ещё тестирует и отлаживает этот режим.</string>
     <string name="settings_root_service_title">Автозапуск Magisk/KernelSU службы (ЭКСПЕРИМЕНТАЛЬНО)</string>
     <string name="settings_root_service_desc">Установка скрипта в /data/adb/service.d/ для автозапуска при загрузке системы</string>
     <string name="settings_root_cli_title">Установить консольную утилиту Tailscale CLI (ЭКСПЕРИМЕНТАЛЬНО)</string>
@@ -899,7 +899,7 @@
     <string name="settings_auto_reconnect_desc">Перезапускать демон, если соединение не поднялось или отвалилось. Ожидание вашего входа сбоем не считается.</string>
     <string name="settings_auto_reconnect_attempts_title">Попыток перезапуска (0 — без лимита)</string>
     <string name="settings_watchdog_title">Восстанавливать службу в фоне</string>
-    <string name="settings_watchdog_desc">Раз в 15 минут проверяет, жива ли служба, и запускает её заново. Разрешите «Будильники и напоминания», чтобы проверка могла поднять службу из фона; на прошивках, которые блокируют фоновый запуск, нужен ещё и автозапуск.</string>
+    <string name="settings_watchdog_desc">Раз в 15 минут проверяет, жива ли служба, и запускает её заново.\n• Разрешите «Будильники и напоминания», чтобы проверка могла поднять службу из фона.\n• На прошивках, блокирующих фоновый запуск, нужен ещё и автозапуск.</string>
     <string name="settings_root_dns_redirect_title">Системный DNS через MagicDNS</string>
     <string name="settings_root_dns_redirect_desc">Направляет весь DNS устройства в MagicDNS. Выключите, если системный резолвер должен остаться за другим VPN или DNS-фильтром.</string>
     <string name="settings_sect_socks5">SOCKS5-прокси (внутренний)</string>
@@ -921,7 +921,7 @@
     <string name="settings_socks5_password_title">Пароль SOCKS5</string>
     <string name="settings_sagernet_copy">Копировать ссылку SagerNet</string>
     <string name="settings_sagernet_copy_for">Ссылка SagerNet для клиента на…</string>
-    <string name="settings_sagernet_copy_local">Это устройство</string>
+    <string name="settings_sagernet_copy_local">Локально</string>
     <string name="settings_sect_http">HTTP-прокси (внутренний)</string>
     <string name="settings_http_enable_title">Включить HTTP-прокси</string>
     <string name="settings_http_enable_desc">Локальный HTTP прокси-сервер для программ без поддержки SOCKS5</string>
@@ -1060,9 +1060,9 @@
     <string name="settings_tun_address_title">Адрес TUN-интерфейса</string>
     <string name="settings_tun_address_desc">IPv4-адрес с префиксом подсети (например, 10.0.0.1/8)</string>
     <string name="settings_tun_native_title">Нативный движок (экспериментально)</string>
-    <string name="settings_tun_native_desc">Туннелем управляет сам tailscaled, а не hev-socks5-tunnel: MagicDNS и split DNS идут напрямую от демона, MTU 1280. Переключение перезапускает демона; соединение должно подняться до старта TUN.</string>
+    <string name="settings_tun_native_desc">Туннелем управляет сам tailscaled, а не hev-socks5-tunnel.\n• MagicDNS и split DNS идут напрямую от демона; MTU 1280.\n• Смена движка, а также включение или выключение выходного узла перезапускают демона (несколько секунд).\n• Соединение должно подняться до старта TUN.</string>
     <string name="settings_tun_ipv6_title">Весь IPv6 через туннель</string>
-    <string name="settings_tun_ipv6_desc">Адреса тейлнета идут через туннель всегда. Включайте это, только если ваш выходной узел действительно умеет IPv6 — иначе сайты с адресом IPv6 будут висеть вместо отката на IPv4.</string>
+    <string name="settings_tun_ipv6_desc">Адреса тейлнета идут через туннель всегда; речь об остальном IPv6.\n• Включайте, только если выходной узел действительно умеет IPv6.\n• Иначе сайты с адресом IPv6 будут висеть вместо отката на IPv4.</string>
 
     <string name="main_tun_active_title">Режим TUN активен</string>
     <string name="main_tun_full_tunnel_desc">Весь трафик направляется через VPN</string>
@@ -1282,7 +1282,7 @@
     <string name="settings_tunnel_mode_root">Root</string>
     <string name="settings_tunnel_mode_proxy_desc">Работает в фоне без разрешения VPN. Остальные приложения придётся самому направить на локальный SOCKS5 или HTTP-прокси.</string>
     <string name="settings_tunnel_mode_vpn_desc">Пропускает весь трафик устройства через Tailscale по интерфейсу Android VPN. Потребуется системное разрешение VPN.</string>
-    <string name="settings_tunnel_mode_root_desc">Запускает демон через su как системную службу на нативном интерфейсе ядра tailscale0. Слот Android VPN остаётся свободным для другого приложения. Меняет маршрутизацию и DNS всего устройства: DNS любого приложения идёт через MagicDNS, а при выбранном выходном узле через него уходит и весь трафик. Чтобы вывести приложение из-под выходного узла, добавьте его в «Исключенные приложения» ниже. Имена ему по-прежнему разрешает MagicDNS: DNS обычного приложения Android отправляет системным резолвером от его имени, и поуровневое исключение его не видит.</string>
+    <string name="settings_tunnel_mode_root_desc">Демон работает через su на интерфейсе ядра tailscale0; слот Android VPN остаётся свободным.\n• Маршрутизация и DNS меняются для всего устройства: имена всем приложениям разрешает MagicDNS, а при выходном узле через него уходит весь трафик.\n• Приложения из списка исключений ниже выводятся из-под выходного узла.\n• Имена им по-прежнему разрешает MagicDNS: Android отправляет DNS приложения системным резолвером от его имени, и поприложенное исключение его не видит.</string>
     <!-- 4.0 settings restructure: stage 5 link rows -->
     <string name="settings_sect_share_links">Доступ для тейлнета</string>
     <string name="settings_link_taildrive_desc">Папки, которые устройство раздаёт остальным вашим устройствам через Taildrive</string>
@@ -1305,23 +1305,23 @@
     <string name="settings_tun_warning_confirm">Включить</string>
     <string name="main_status_active_root_desc">Система идёт через tailscale0 • Нажмите для остановки</string>
     <string name="settings_root_vpn_bypass_title">Игнорировать чужие VPN</string>
-    <string name="settings_root_vpn_bypass_desc">Демон помечает свои соединения так же, как VPN-приложения защищают свои, чтобы другой клиент на телефоне их не перехватывал. Выключайте, только если хотите, чтобы наш туннель шёл внутри того клиента.</string>
+    <string name="settings_root_vpn_bypass_desc">Демон помечает свои соединения так же, как VPN-приложения защищают свои, чтобы другой клиент их не перехватывал.\n• Выключайте, только если наш туннель должен идти внутри того клиента.</string>
     <string name="tun_excluded_apps_count">В обход туннеля: %1$d</string>
     <string name="tun_excluded_apps_not_installed">Не установлено на этом телефоне</string>
     <!-- Root Mode next to another VPN: the sticky override and what a yield looks like -->
     <string name="settings_root_take_device_title">Всё равно занять устройство</string>
-    <string name="settings_root_take_device_desc">Пока телефон держит другой VPN, TailSocks оставляет ему маршрут по умолчанию и DNS и забирает их только для приложений, которые тот держит вне своего туннеля. Включите, чтобы забрать всё себе — приложения того VPN останутся без туннеля.</string>
+    <string name="settings_root_take_device_desc">Забрать маршрут по умолчанию и DNS у другого VPN, который держит телефон.\n• Выкл: TailSocks оставляет их тому VPN и берёт только приложения, которые тот держит вне своего туннеля.\n• Вкл: всё уходит в TailSocks, приложения того VPN остаются без туннеля.</string>
     <string name="settings_root_take_device_dialog_title">Забрать устройство у другого VPN?</string>
     <string name="settings_root_take_device_dialog_body">Маршрут по умолчанию и DNS телефона сейчас держит другой VPN. Если забрать их, весь трафик и все запросы имён пойдут через TailSocks: приложения, которые тот VPN защищал, останутся без туннеля, а его фильтрация перестанет работать — и он об этом не узнает. Выключите переключатель, чтобы вернуть устройство.</string>
     <string name="settings_root_take_device_confirm">Занять устройство</string>
-    <string name="settings_root_yielded_banner">Устройство держит другой VPN, поэтому маршрутизируются только адреса тейлнета и имена MagicDNS. Выходной узел и системный DNS выключены, пока он работает.</string>
+    <string name="settings_root_yielded_banner">Устройство держит другой VPN.\n• Маршрутизируются только адреса тейлнета и имена MagicDNS.\n• Выходной узел и системный DNS выключены, пока он работает.</string>
     <string name="main_root_yielded_title">Только тейлнет</string>
     <string name="main_root_yielded_desc">Устройство держит другой VPN: выходной узел и системный DNS выключены. Адреса тейлнета и имена MagicDNS работают.</string>
     <string name="main_status_active_root_yielded_desc">Только тейлнет — устройство держит другой VPN • Нажмите для остановки</string>
     <string name="main_exit_node_inert_label">Выходной узел не используется</string>
     <string name="main_exit_node_inert_desc">Выбран %1$s, но устройство держит другой VPN</string>
     <!-- Root Mode sharing the device: the other VPN bypasses some apps, we carry those -->
-    <string name="settings_root_shared_banner">Устройство держит другой VPN, но часть приложений оставил вне своего туннеля. Они идут через TailSocks — с выходным узлом и MagicDNS; остальные остаются у него.</string>
+    <string name="settings_root_shared_banner">Устройство держит другой VPN, но часть приложений оставил вне своего туннеля.\n• Эти приложения идут через TailSocks — с выходным узлом и MagicDNS.\n• Остальные остаются у него.</string>
     <string name="settings_root_dns_shared_desc">Включён для приложений, которые не забрал другой VPN. Его собственные запросы оставлены ему.</string>
     <string name="main_root_shared_title">Делим с другим VPN</string>
     <string name="main_root_shared_desc">Устройство держит он, а приложения, которые он не забрал, идут через нас — с выходным узлом и MagicDNS.</string>
@@ -1330,7 +1330,7 @@
     <string name="main_exit_node_partial_desc">%1$s — только для приложений, которые не забрал другой VPN</string>
     <!-- What the daemon reports to the coordination server (patch 06 masquerade and its switch) -->
     <string name="settings_honest_hostinfo_title">Сообщать настоящую ОС</string>
-    <string name="settings_honest_hostinfo_desc">Регистрировать узел этого профиля как Android-устройство, с настоящей моделью и версией, а не как Linux-клиент командной строки. Координатор привязывает узел к ОС, с которой тот зарегистрировался, поэтому для уже вошедшего профиля это означает новый профиль.</string>
+    <string name="settings_honest_hostinfo_desc">Регистрировать узел профиля как Android-устройство, с настоящей моделью и версией, а не как Linux-клиент.\n• Координатор привязывает узел к ОС, с которой тот зарегистрировался.\n• Для уже вошедшего профиля это означает новый профиль.</string>
     <string name="settings_honest_hostinfo_dialog_title">Профиль уже зарегистрирован</string>
     <string name="settings_honest_hostinfo_dialog_body">Его узел зарегистрирован как %1$s. Сервер координации отказывает узлу, у которого операционная система сменилась после регистрации («node OS changed since last connection»), и не отдаёт ему карту сети. Создать новый профиль с этой настройкой? Его узел зарегистрируется заново, с новой личностью; одобрения для старого (маршруты, exit node, сервисы) не перенесутся.</string>
     <string name="settings_honest_hostinfo_create_profile">Создать профиль</string>

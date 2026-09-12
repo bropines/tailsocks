@@ -46,7 +46,7 @@
     <string name="sw_accept_dns_desc">Use Tailscale magic DNS settings</string>
 
     <string name="extra_args">Extra Arguments (Raw)</string>
-    <string name="extra_args_desc">tailscale up flags, applied on top of the settings the app sends itself. Supported: --accept-routes, --accept-dns, --shields-up, --ssh, --exit-node-allow-lan-access, --report-posture, --hostname, --login-server, --advertise-routes, --advertise-tags, --advertise-exit-node; negate with --no-flag or =false. Any other flag is ignored and named in the logs. Routes and tags set here are overwritten a moment after start by Advertise Routes and Advertise Tags, so set those there instead.</string>
+    <string name="extra_args_desc">tailscale up flags, applied on top of what the app sets itself.\n• Supported: --accept-routes, --accept-dns, --shields-up, --ssh, --exit-node-allow-lan-access, --report-posture, --hostname, --login-server, --advertise-routes, --advertise-tags, --advertise-exit-node.\n• Negate with --no-flag or =false.\n• Any other flag is ignored and named in the logs.\n• Routes and tags set here are overwritten right after start by Advertise Routes and Advertise Tags — set them there.</string>
 
     <string name="force_bg_subtitle">Try to restart service if killed</string>
 
@@ -841,7 +841,7 @@
     <!-- ======================== Settings ======================== -->
     <string name="settings_title">Settings</string>
     <string name="settings_root_sect_title">Root Mode &amp; System Service (EXPERIMENTAL)</string>
-    <string name="settings_root_enable_desc">EXPERIMENTAL FEATURE (work in progress). Runs daemon via \'su\' with direct kernel TUN (tailscale0) and iptables. Author bropines is still actively testing and debugging this mode.</string>
+    <string name="settings_root_enable_desc">Experimental, work in progress.\n• The daemon runs via su with a kernel TUN (tailscale0) and iptables.\n• The author is still testing and debugging this mode.</string>
     <string name="settings_root_service_title">Autostart Magisk/KernelSU Service (EXPERIMENTAL)</string>
     <string name="settings_root_service_desc">Install script to /data/adb/service.d/ for standalone system boot</string>
     <string name="settings_root_cli_title">Install Tailscale CLI Utility (EXPERIMENTAL)</string>
@@ -899,7 +899,7 @@
     <string name="settings_auto_reconnect_desc">Restart the daemon when the connection does not come up or drops. Waiting for you to sign in is not treated as a failure.</string>
     <string name="settings_auto_reconnect_attempts_title">Restart attempts (0 = unlimited)</string>
     <string name="settings_watchdog_title">Revive service in background</string>
-    <string name="settings_watchdog_desc">Checks every 15 minutes that the service is still alive and starts it again. Allow "Alarms &amp; reminders" so the check may start it from the background; on skins that block background starts, grant autostart as well.</string>
+    <string name="settings_watchdog_desc">Checks every 15 minutes that the service is alive and starts it again.\n• Allow \"Alarms &amp; reminders\" so the check can start it from the background.\n• On skins that block background starts, grant autostart as well.</string>
     <string name="settings_root_dns_redirect_title">System-wide DNS via MagicDNS</string>
     <string name="settings_root_dns_redirect_desc">Sends DNS from the whole device to MagicDNS. Turn off when another VPN or DNS filtering app should keep the system resolver.</string>
     <string name="settings_sect_socks5">SOCKS5 Proxy (Internal)</string>
@@ -921,7 +921,7 @@
     <string name="settings_socks5_password_title">SOCKS5 Password</string>
     <string name="settings_sagernet_copy">Copy SagerNet Link</string>
     <string name="settings_sagernet_copy_for">SagerNet link for a client on…</string>
-    <string name="settings_sagernet_copy_local">This device</string>
+    <string name="settings_sagernet_copy_local">Local</string>
     <string name="settings_sect_http">HTTP Proxy (Internal)</string>
     <string name="settings_http_enable_title">Enable HTTP Proxy</string>
     <string name="settings_http_enable_desc">Runs a local HTTP proxy server for apps without SOCKS5 support</string>
@@ -1060,9 +1060,9 @@
     <string name="settings_tun_address_title">TUN Address</string>
     <string name="settings_tun_address_desc">IPv4 address with prefix length (e.g. 10.0.0.1/8)</string>
     <string name="settings_tun_native_title">Native engine (experimental)</string>
-    <string name="settings_tun_native_desc">tailscaled drives the tunnel itself instead of hev-socks5-tunnel: MagicDNS and split DNS come straight from the daemon, MTU 1280. Switching relaunches the daemon; the connection must be up before TUN starts.</string>
+    <string name="settings_tun_native_desc">tailscaled drives the tunnel itself instead of hev-socks5-tunnel.\n• MagicDNS and split DNS come straight from the daemon; MTU 1280.\n• Switching the engine, or the exit node on or off, relaunches the daemon (a few seconds).\n• The connection must be up before TUN starts.</string>
     <string name="settings_tun_ipv6_title">Route all IPv6 through the tunnel</string>
-    <string name="settings_tun_ipv6_desc">Tailnet addresses always use the tunnel. Turn this on only if your exit node really carries IPv6 — otherwise sites with an IPv6 address hang instead of falling back to IPv4.</string>
+    <string name="settings_tun_ipv6_desc">Tailnet addresses always use the tunnel; this is about the rest of IPv6.\n• Turn on only if your exit node really carries IPv6.\n• Otherwise sites with an IPv6 address hang instead of falling back to IPv4.</string>
 
     <string name="main_tun_active_title">TUN Mode Active</string>
     <string name="main_tun_full_tunnel_desc">All traffic is routed through the VPN</string>
@@ -1282,7 +1282,7 @@
     <string name="settings_tunnel_mode_root">Root</string>
     <string name="settings_tunnel_mode_proxy_desc">Runs in the background without the VPN permission. Other apps have to be pointed at the local SOCKS5 or HTTP proxy themselves.</string>
     <string name="settings_tunnel_mode_vpn_desc">Routes the whole device through Tailscale over the Android VPN interface. Asks for the system VPN permission.</string>
-    <string name="settings_tunnel_mode_root_desc">Runs the daemon through su as a system service on the native kernel interface tailscale0. The Android VPN slot stays free for another app. It changes routing and DNS for the whole device: every app’s DNS goes through MagicDNS, and with an exit node selected every app’s traffic follows it. Put an app on the Excluded apps list below to take it off the exit node. Its name resolution still goes through MagicDNS: Android sends an ordinary app’s DNS from the system resolver, under that resolver’s own identity, so a per-app carve-out cannot see it.</string>
+    <string name="settings_tunnel_mode_root_desc">The daemon runs through su on the kernel interface tailscale0; the Android VPN slot stays free.\n• Routing and DNS change for the whole device: every app resolves through MagicDNS, and with an exit node every app\'s traffic follows it.\n• Excluded apps below are taken off the exit node.\n• Their names are still resolved by MagicDNS: Android sends an app\'s DNS from the system resolver, under its own identity, so a per-app carve-out cannot see it.</string>
     <!-- 4.0 settings restructure: stage 5 link rows -->
     <string name="settings_sect_share_links">Share with your tailnet</string>
     <string name="settings_link_taildrive_desc">Folders this device serves to your other devices over Taildrive</string>
@@ -1305,23 +1305,23 @@
     <string name="settings_tun_warning_confirm">Turn on</string>
     <string name="main_status_active_root_desc">Routed by the system through tailscale0 • Tap to stop</string>
     <string name="settings_root_vpn_bypass_title">Ignore other VPNs</string>
-    <string name="settings_root_vpn_bypass_desc">The daemon marks its own connections the way a VPN app protects its own, so another VPN client on the phone cannot swallow them. Turn it off only if you want this tunnel to run inside that other client.</string>
+    <string name="settings_root_vpn_bypass_desc">The daemon marks its own connections the way a VPN app protects its own, so another VPN client cannot swallow them.\n• Turn off only to run this tunnel inside that other client.</string>
     <string name="tun_excluded_apps_count">Bypassing the tunnel: %1$d</string>
     <string name="tun_excluded_apps_not_installed">Not installed on this phone</string>
     <!-- Root Mode next to another VPN: the sticky override and what a yield looks like -->
     <string name="settings_root_take_device_title">Take the device anyway</string>
-    <string name="settings_root_take_device_desc">While another VPN holds this phone, TailSocks leaves it the default route and DNS, taking them only for the apps it keeps outside its own tunnel. Turn this on to take both back — that VPN\'s apps lose their tunnel.</string>
+    <string name="settings_root_take_device_desc">Take the default route and DNS back from another VPN that holds this phone.\n• Off: TailSocks leaves them to that VPN and takes only the apps it keeps outside its tunnel.\n• On: everything comes to TailSocks; that VPN\'s apps lose their tunnel.</string>
     <string name="settings_root_take_device_dialog_title">Take the device from the other VPN?</string>
     <string name="settings_root_take_device_dialog_body">Another VPN is holding this phone\'s default route and DNS. Taking them back sends every app\'s traffic and every name lookup through TailSocks, so the apps that VPN protects lose their tunnel and its filtering stops — and it is never told. Turn this off to give the device back.</string>
     <string name="settings_root_take_device_confirm">Take the device</string>
-    <string name="settings_root_yielded_banner">Another VPN holds this device, so only tailnet addresses and MagicDNS names are routed. Exit nodes and system-wide DNS are off until it stops.</string>
+    <string name="settings_root_yielded_banner">Another VPN holds this device.\n• Only tailnet addresses and MagicDNS names are routed.\n• Exit nodes and system-wide DNS are off until it stops.</string>
     <string name="main_root_yielded_title">Tailnet only</string>
     <string name="main_root_yielded_desc">Another VPN holds the device: exit node and system-wide DNS are off. Tailnet addresses and MagicDNS names still work.</string>
     <string name="main_status_active_root_yielded_desc">Tailnet only — another VPN holds the device • Tap to stop</string>
     <string name="main_exit_node_inert_label">Exit node not in use</string>
     <string name="main_exit_node_inert_desc">%1$s is selected, but another VPN holds the device</string>
     <!-- Root Mode sharing the device: the other VPN bypasses some apps, we carry those -->
-    <string name="settings_root_shared_banner">Another VPN holds this device but leaves some apps outside its tunnel. Those apps go through TailSocks, exit node and MagicDNS included; the rest stay with it.</string>
+    <string name="settings_root_shared_banner">Another VPN holds this device but leaves some apps outside its tunnel.\n• Those apps go through TailSocks, exit node and MagicDNS included.\n• The rest stay with that VPN.</string>
     <string name="settings_root_dns_shared_desc">On for the apps the other VPN leaves out. Its own lookups are left to it.</string>
     <string name="main_root_shared_title">Shared with another VPN</string>
     <string name="main_root_shared_desc">It holds the device; the apps it leaves out go through us, with the exit node and MagicDNS.</string>
@@ -1330,7 +1330,7 @@
     <string name="main_exit_node_partial_desc">%1$s — only for the apps another VPN leaves out</string>
     <!-- What the daemon reports to the coordination server (patch 06 masquerade and its switch) -->
     <string name="settings_honest_hostinfo_title">Report the real OS</string>
-    <string name="settings_honest_hostinfo_desc">Register this profile\'s node as an Android device, with its real model and version, instead of a Linux command-line client. The coordinator binds a node to the OS it registered with, so for a profile that is already signed in this means a new profile.</string>
+    <string name="settings_honest_hostinfo_desc">Register this profile\'s node as an Android device, with its real model and version, instead of a Linux command-line client.\n• The coordinator binds a node to the OS it registered with.\n• For a profile already signed in this means a new profile.</string>
     <string name="settings_honest_hostinfo_dialog_title">This profile is already registered</string>
     <string name="settings_honest_hostinfo_dialog_body">Its node is registered as %1$s. The coordination server refuses a node whose operating system changes after registration («node OS changed since last connection») and sends it no network map. Create a new profile with this setting instead? Its node is registered anew, with a new identity; approvals made for the old one (routes, exit node, services) do not carry over.</string>
     <string name="settings_honest_hostinfo_create_profile">Create profile</string>

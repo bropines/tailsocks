@@ -6,6 +6,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Changed
 
+- Settings: the long explanations are written as a summary line plus bullet points — Root mode, TUN engine, extra arguments, watchdog, the Root banners; folded they show the summary, unfolded the points.
 - Local proxies: with LAN access on, the SagerNet link is copied for a chosen client — this device, Wi‑Fi/LAN or tailnet — instead of falling back to 127.0.0.1 when there is no Wi‑Fi address.
 - Local proxies: with LAN access on, the addresses are listed under the switch — one block per network (Wi‑Fi/LAN, tailnet) with the host on its own line and a chip per port; a tap copies the host or host:port.
 
