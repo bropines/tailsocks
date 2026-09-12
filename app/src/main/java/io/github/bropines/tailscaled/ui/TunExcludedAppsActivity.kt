@@ -25,6 +25,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -52,6 +53,8 @@ data class AppItem(
     val packageName: String,
     val label: String,
     val icon: ImageBitmap?,
+    /** False for a package that is on the exclusion list but no longer on the phone. */
+    val installed: Boolean = true,
 )
 
 class TunExcludedAppsActivity : ComponentActivity() {
@@ -84,7 +87,12 @@ fun TunExcludedAppsScreen(onBack: () -> Unit) {
     var showOnlyExcluded by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        apps = withContext(Dispatchers.IO) { loadInstalledApps(context) }
+        val installed = withContext(Dispatchers.IO) { loadInstalledApps(context) }
+        // Packages excluded earlier but gone from the phone still count against
+        // the list; show them greyed so they can be seen and removed.
+        val present = installed.map { it.packageName }.toSet()
+        val missing = initialExcluded.filter { it !in present }.sorted().map { AppItem(it, it, null, installed = false) }
+        apps = installed + missing
         loading = false
     }
 
@@ -129,11 +137,14 @@ fun TunExcludedAppsScreen(onBack: () -> Unit) {
     }
 
     // Filter apps based on search query and tab/chip selection
-    val filteredApps = remember(apps, searchQuery, showOnlyExcluded, excluded.value) {
+    val filteredApps = remember(apps, searchQuery, showOnlyExcluded, excluded.value, persistedExcluded.value) {
+        // In the "bypassed" view an app switched off stays on screen, switch off,
+        // until the screen is left — a slip can be undone where it happened.
+        val bypassedView = excluded.value + persistedExcluded.value
         apps.filter { app ->
             val matchesSearch = app.label.contains(searchQuery, ignoreCase = true) || 
                                 app.packageName.contains(searchQuery, ignoreCase = true)
-            val matchesFilter = !showOnlyExcluded || app.packageName in excluded.value
+            val matchesFilter = !showOnlyExcluded || app.packageName in bypassedView
             matchesSearch && matchesFilter
         }
     }
@@ -271,6 +282,7 @@ private fun AppExclusionCard(app: AppItem, isExcluded: Boolean, onToggle: () -> 
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onToggle)
+            .alpha(if (app.installed) 1f else 0.55f)
     ) {
         Row(
             modifier = Modifier
@@ -312,7 +324,8 @@ private fun AppExclusionCard(app: AppItem, isExcluded: Boolean, onToggle: () -> 
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = app.packageName,
+                    text = if (app.installed) app.packageName
+                           else androidx.compose.ui.res.stringResource(R.string.tun_excluded_apps_not_installed),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,

@@ -1300,6 +1300,7 @@
     <string name="settings_root_vpn_bypass_title">Игнорировать чужие VPN</string>
     <string name="settings_root_vpn_bypass_desc">Демон помечает свои соединения так же, как VPN-приложения защищают свои, чтобы другой клиент на телефоне их не перехватывал. Выключайте, только если хотите, чтобы наш туннель шёл внутри того клиента.</string>
     <string name="tun_excluded_apps_count">В обход туннеля: %1$d</string>
+    <string name="tun_excluded_apps_not_installed">Не установлено на этом телефоне</string>
     <!-- Root Mode next to another VPN: the sticky override and what a yield looks like -->
     <string name="settings_root_take_device_title">Всё равно занять устройство</string>
     <string name="settings_root_take_device_desc">Пока телефон держит другой VPN, TailSocks оставляет ему маршрут по умолчанию и DNS и забирает их только для приложений, которые тот держит вне своего туннеля. Включите, чтобы забрать всё себе — приложения того VPN останутся без туннеля.</string>

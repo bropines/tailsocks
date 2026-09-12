@@ -18,6 +18,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Serve: a rule card has an on/off switch and a row of actions (delete, publish, copy link, edit) instead of an overflow menu.
 - Logs: the clear button slides its scopes out beside it instead of opening a menu.
 - Serve: the node card folds to its name and three capability glyphs; tap to expand, the state is remembered.
+- Excluded apps: packages on the list but no longer installed are shown greyed and can be removed; in the "bypassed" view an app switched off stays visible until the screen is left, so a slip can be undone.
 - One ongoing notification instead of two: the TUN service shares the main card, whose text reads "Active · TUN" while the tunnel is up.
 
 ### Fixed

@@ -1300,6 +1300,7 @@
     <string name="settings_root_vpn_bypass_title">Ignore other VPNs</string>
     <string name="settings_root_vpn_bypass_desc">The daemon marks its own connections the way a VPN app protects its own, so another VPN client on the phone cannot swallow them. Turn it off only if you want this tunnel to run inside that other client.</string>
     <string name="tun_excluded_apps_count">Bypassing the tunnel: %1$d</string>
+    <string name="tun_excluded_apps_not_installed">Not installed on this phone</string>
     <!-- Root Mode next to another VPN: the sticky override and what a yield looks like -->
     <string name="settings_root_take_device_title">Take the device anyway</string>
     <string name="settings_root_take_device_desc">While another VPN holds this phone, TailSocks leaves it the default route and DNS, taking them only for the apps it keeps outside its own tunnel. Turn this on to take both back — that VPN\'s apps lose their tunnel.</string>
