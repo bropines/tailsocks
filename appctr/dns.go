@@ -24,7 +24,17 @@ import (
 )
 
 func startDNSProxy(ctx context.Context, listenAddr string, fallbacks []string, dohUrl string) error {
-	pc, err := net.ListenPacket("udp", listenAddr)
+	// Kotlin hands over an IPv4 address: a loopback alias, or 0.0.0.0 with LAN
+	// access on. Listening on "udp" turns 0.0.0.0 into a dual-stack [::]
+	// socket whose local address is not IPv4, and the reply pinning below
+	// would silently fall back to the kernel's choice — so bind IPv4 as such.
+	network := "udp"
+	if host, _, err := net.SplitHostPort(listenAddr); err == nil {
+		if ip := net.ParseIP(host); ip != nil && ip.To4() != nil {
+			network = "udp4"
+		}
+	}
+	pc, err := net.ListenPacket(network, listenAddr)
 	if err != nil {
 		return fmt.Errorf("dns proxy listen failed: %w", err)
 	}
@@ -87,7 +97,15 @@ func startDNSProxy(ctx context.Context, listenAddr string, fallbacks []string, d
 		query := make([]byte, n)
 		copy(query, buf[:n])
 		go func(q []byte, cAddr net.Addr, dst net.IP) {
+			started := time.Now()
 			resp := processDNSQuery(q, fallbacks, dohUrl)
+			name, qtype := dnsQuestion(q)
+			to := "kernel default"
+			if dst != nil {
+				to = dst.String()
+			}
+			slog.Debug("DNS query", "name", name, "type", qtype, "from", cAddr.String(), "to", to,
+				"answered", resp != nil, "ms", time.Since(started).Milliseconds())
 			if resp == nil {
 				return
 			}
@@ -98,6 +116,19 @@ func startDNSProxy(ctx context.Context, listenAddr string, fallbacks []string, d
 			}
 		}(query, clientAddr, dst)
 	}
+}
+
+// dnsQuestion names the first question of a raw DNS message for the log.
+func dnsQuestion(msg []byte) (name, qtype string) {
+	var p dnsmessage.Parser
+	if _, err := p.Start(msg); err != nil {
+		return "?", "?"
+	}
+	q, err := p.Question()
+	if err != nil {
+		return "?", "?"
+	}
+	return strings.TrimSuffix(q.Name.String(), "."), strings.TrimPrefix(q.Type.String(), "Type")
 }
 
 func getSplitDNSServers(domain string) []string {

@@ -8,6 +8,10 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 - Serve: a rule can be paused and resumed; paused rules leave the daemon but stay in the list, greyed, per profile.
 
+### Changed
+
+- Logs: every DNS query at debug level — name, type, client, the address it is answered from, time taken.
+
 ### Fixed
 
 - The DNS proxy replies from the address a query was sent to; with LAN access on, a resolver pointed at a loopback alias got its answers from 127.0.0.1 and dropped them (Chrome's "DNS probe finished: bad config").
