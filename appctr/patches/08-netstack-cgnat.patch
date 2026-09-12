@@ -1,5 +1,5 @@
 --- orig/cmd/tailscaled/tailscaled.go	2026-07-31 19:22:18.000000000 +0300
-+++ tailscale_src/cmd/tailscaled/tailscaled.go	2026-09-12 13:50:38.879913666 +0300
++++ tailscale_src/cmd/tailscaled/tailscaled.go	2026-09-12 14:17:54.419842664 +0300
 @@ -48,6 +48,7 @@
  	"tailscale.com/net/dnsfallback"
  	"tailscale.com/net/netmon"
@@ -67,8 +67,8 @@
 -			return false, fmt.Errorf("creating router: %w", err)
 +		var r router.Router
 +		if androidVPNMode {
-+			// The VpnService.Builder installed the routes; nothing to do here.
-+			r = router.NewFake(logf)
++			// The VpnService.Builder installed the routes; see android_vpn.go.
++			r = &androidVPNRouter{logf: logf}
 +		} else {
 +			r, err = router.New(logf, dev, sys.NetMon.Get(), sys.HealthTracker.Get(), sys.Bus.Get())
 +			if err != nil {

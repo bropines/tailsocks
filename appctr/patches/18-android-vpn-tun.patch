@@ -1,6 +1,6 @@
 --- /dev/null	2026-09-12 02:45:18.483629514 +0300
-+++ tailscale_src/cmd/tailscaled/android_vpn.go	2026-09-12 13:50:38.799695710 +0300
-@@ -0,0 +1,40 @@
++++ tailscale_src/cmd/tailscaled/android_vpn.go	2026-09-12 14:17:54.419690981 +0300
+@@ -0,0 +1,89 @@
 +//go:build linux
 +
 +package main
@@ -16,10 +16,13 @@
 +
 +import (
 +	"fmt"
++	"net/netip"
++	"strings"
 +
 +	"github.com/tailscale/wireguard-go/tun"
 +	"tailscale.com/envknob"
 +	"tailscale.com/types/logger"
++	"tailscale.com/wgengine/router"
 +)
 +
 +const androidVPNTunName = "android-vpn"
@@ -40,4 +43,50 @@
 +	mtu, mtuErr := dev.MTU()
 +	logf("android-vpn: running on inherited TUN fd %d as %q (mtu %d, err %v)", fd, name, mtu, mtuErr)
 +	return dev, name, nil
++}
++
++// androidVPNRouter is the router for a VpnService-owned device: the Builder
++// on the Kotlin side already installed addresses, routes and DNS, so every
++// call is a no-op that only records what the daemon would have configured —
++// the list the app must eventually mirror. A pointer type on purpose:
++// tsd.System.Set compares the old and new value, and router.NewFake's struct
++// with a func field is not comparable (it panicked there).
++type androidVPNRouter struct {
++	logf logger.Logf
++	last string
++}
++
++func (r *androidVPNRouter) Up() error { return nil }
++
++func (r *androidVPNRouter) Set(cfg *router.Config) error {
++	if cfg == nil {
++		return nil
++	}
++	summary := fmt.Sprintf("addrs=%s routes=%s local=%s subnets=%s mtu=%d",
++		prefixList(cfg.LocalAddrs), prefixList(cfg.Routes), prefixList(cfg.LocalRoutes), prefixList(cfg.SubnetRoutes), cfg.NewMTU)
++	if summary != r.last {
++		r.logf("android-vpn: router config (installed by the VpnService, not here): %s", summary)
++		r.last = summary
++	}
++	return nil
++}
++
++func (r *androidVPNRouter) Close() error { return nil }
++
++func prefixList(ps []netip.Prefix) string {
++	const max = 12
++	var b strings.Builder
++	b.WriteByte('[')
++	for i, p := range ps {
++		if i == max {
++			fmt.Fprintf(&b, " +%d more", len(ps)-max)
++			break
++		}
++		if i > 0 {
++			b.WriteByte(' ')
++		}
++		b.WriteString(p.String())
++	}
++	b.WriteByte(']')
++	return b.String()
 +}
