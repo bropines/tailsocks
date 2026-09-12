@@ -414,6 +414,7 @@ class MainActivity : ComponentActivity() {
     private fun checkForUpdatesSilent() {
         val scope = kotlinx.coroutines.MainScope()
         scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            pruneUpdateDownloads(this@MainActivity)
             try {
                 val currentVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0.0"
                 val connection = java.net.URL("https://api.github.com/repos/bropines/tailsocks/releases/latest").openConnection() as java.net.HttpURLConnection
@@ -1735,6 +1736,7 @@ fun MainScreen(
                                             isDownloading = true
                                             downloadProgress = 0
                                             scope.launch(Dispatchers.IO) {
+                                                pruneUpdateDownloads(context, keepVersion = cleanVer)
                                                 val tempFile = java.io.File(destDir, "tailsocks-update-$cleanVer.tmp")
                                                 try {
                                                     val url = java.net.URL(targetUrl)
@@ -2859,5 +2861,32 @@ private fun AboutBackdrop(onDismiss: () -> Unit) {
                 )
             }
         }
+    }
+}
+
+/**
+ * The in-app updater kept every APK it ever downloaded in the external files
+ * dir — five releases later that was 118 MB of "app storage". Drop every
+ * download that is not newer than the installed version (installed or
+ * superseded) and every stale .tmp; keepVersion names the download in flight.
+ */
+private fun pruneUpdateDownloads(context: Context, keepVersion: String? = null) {
+    val dir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: return
+    val installed = try {
+        context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0.0.0"
+    } catch (_: Exception) { "0.0.0" }
+    fun parts(v: String) = v.removePrefix("v").substringBefore("-").split(".").map { it.toIntOrNull() ?: 0 }
+    fun newerThanInstalled(v: String): Boolean {
+        val a = parts(v); val b = parts(installed)
+        for (i in 0 until maxOf(a.size, b.size)) {
+            val x = a.getOrElse(i) { 0 }; val y = b.getOrElse(i) { 0 }
+            if (x != y) return x > y
+        }
+        return false
+    }
+    dir.listFiles { f -> f.name.startsWith("tailsocks-update-") }?.forEach { f ->
+        val ver = f.name.removePrefix("tailsocks-update-").substringBefore(".apk").substringBefore(".tmp")
+        val keep = f.name.endsWith(".apk") && (ver == keepVersion || newerThanInstalled(ver))
+        if (!keep) f.delete()
     }
 }
