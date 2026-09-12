@@ -9,7 +9,9 @@ import android.content.Context
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -24,6 +26,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -327,6 +331,7 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 fun SettingsClickableItem(
     title: String,
     subtitle: String,
@@ -334,23 +339,69 @@ fun SettingsClickableItem(
     enabled: Boolean = true,
     onClick: () -> Unit
 ) {
+    var showHelp by remember { mutableStateOf(false) }
+    val haptics = LocalHapticFeedback.current
     Surface(
-        onClick = { if (enabled) onClick() },
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (enabled) 0.3f else 0.1f),
-        modifier = Modifier.padding(vertical = 4.dp)
+        modifier = Modifier.padding(vertical = 4.dp).clip(RoundedCornerShape(12.dp)).combinedClickable(
+            onClick = { if (enabled) onClick() },
+            onLongClick = { haptics.performHapticFeedback(HapticFeedbackType.LongPress); showHelp = true }
+        )
     ) {
         ListItem(
             headlineContent = { Text(title, color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline) },
-            supportingContent = { Text(subtitle, style = MaterialTheme.typography.bodySmall, color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.outline) },
+            supportingContent = { SettingsSubtitle(subtitle, enabled) },
             leadingContent = { Icon(icon, null, tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline) },
             trailingContent = { Icon(Icons.Default.ChevronRight, null, tint = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.outline) },
             colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
         )
     }
+    if (showHelp) SettingsHelpDialog(title, subtitle) { showHelp = false }
+}
+
+/**
+ * A row's explanation, two lines at most; rows used to carry whole paragraphs.
+ * When the text is cut, an ⓘ marks that a long press shows the rest.
+ */
+@Composable
+private fun SettingsSubtitle(text: String, enabled: Boolean) {
+    var cut by remember(text) { mutableStateOf(false) }
+    val color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.outline
+    Row(verticalAlignment = Alignment.Bottom) {
+        Text(
+            text,
+            style = MaterialTheme.typography.bodySmall,
+            color = color,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            onTextLayout = { cut = it.hasVisualOverflow },
+            modifier = Modifier.weight(1f, fill = false)
+        )
+        if (cut) {
+            Icon(
+                Icons.Default.Info, contentDescription = null,
+                tint = color.copy(alpha = 0.7f),
+                modifier = Modifier.padding(start = 4.dp, bottom = 1.dp).size(13.dp)
+            )
+        }
+    }
+}
+
+/** Long press on a settings row: the full explanation, in the parent's locale. */
+@Composable
+private fun SettingsHelpDialog(title: String, text: String, onDismiss: () -> Unit) {
+    val ctx = LocalContext.current
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { Text(text, style = MaterialTheme.typography.bodyMedium) },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(ctx.getString(android.R.string.ok)) } }
+    )
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 fun SettingsSwitchItem(
     title: String,
     subtitle: String,
@@ -359,15 +410,20 @@ fun SettingsSwitchItem(
     enabled: Boolean = true,
     onCheckedChange: (Boolean) -> Unit
 ) {
+    var showHelp by remember { mutableStateOf(false) }
+    val haptics = LocalHapticFeedback.current
+    if (showHelp) SettingsHelpDialog(title, subtitle) { showHelp = false }
     Surface(
-        onClick = { if (enabled) onCheckedChange(!checked) },
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (enabled) 0.3f else 0.1f),
-        modifier = Modifier.padding(vertical = 4.dp)
+        modifier = Modifier.padding(vertical = 4.dp).clip(RoundedCornerShape(12.dp)).combinedClickable(
+            onClick = { if (enabled) onCheckedChange(!checked) },
+            onLongClick = { haptics.performHapticFeedback(HapticFeedbackType.LongPress); showHelp = true }
+        )
     ) {
         ListItem(
             headlineContent = { Text(title, color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline) },
-            supportingContent = { Text(subtitle, style = MaterialTheme.typography.bodySmall, color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.outline) },
+            supportingContent = { SettingsSubtitle(subtitle, enabled) },
             leadingContent = { Icon(icon, null, tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline) },
             trailingContent = { Switch(checked = checked, onCheckedChange = if (enabled) onCheckedChange else null, enabled = enabled) },
             colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
@@ -376,6 +432,7 @@ fun SettingsSwitchItem(
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 fun SettingsEditItem(
     title: String,
     value: String,
@@ -396,11 +453,16 @@ fun SettingsEditItem(
     // locale, so its strings are resolved through this parent context instead —
     // see wrapContextWithLocale().
     val ctx = LocalContext.current
+    var showHelp by remember { mutableStateOf(false) }
+    val haptics = LocalHapticFeedback.current
+    if (showHelp) SettingsHelpDialog(title, description.ifEmpty { placeholder.ifEmpty { notSet } }) { showHelp = false }
     Surface(
-        onClick = { if (enabled) showDialog = true },
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (enabled) 0.3f else 0.15f),
-        modifier = Modifier.padding(vertical = 4.dp)
+        modifier = Modifier.padding(vertical = 4.dp).clip(RoundedCornerShape(12.dp)).combinedClickable(
+            onClick = { if (enabled) showDialog = true },
+            onLongClick = { haptics.performHapticFeedback(HapticFeedbackType.LongPress); showHelp = true }
+        )
     ) {
         ListItem(
             headlineContent = { Text(title, color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)) },

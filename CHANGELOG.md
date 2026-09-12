@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Changed
+
+- Settings: a row's explanation is two lines at most; long-press the row for the full text (an ⓘ marks rows with more).
+
 ## [4.2.0] - 2026-09-12
 
 ### Added
