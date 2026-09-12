@@ -1050,6 +1050,8 @@
     <string name="tun_apps_filter_excluded">Bypassed</string>
     <string name="settings_tun_address_title">TUN Address</string>
     <string name="settings_tun_address_desc">IPv4 address with prefix length (e.g. 10.0.0.1/8)</string>
+    <string name="settings_tun_native_title">Native engine (experimental)</string>
+    <string name="settings_tun_native_desc">tailscaled drives the tunnel itself instead of hev-socks5-tunnel: MagicDNS and split DNS come straight from the daemon, MTU 1280. Switching relaunches the daemon; the connection must be up before TUN starts.</string>
     <string name="settings_tun_ipv6_title">Route all IPv6 through the tunnel</string>
     <string name="settings_tun_ipv6_desc">Tailnet addresses always use the tunnel. Turn this on only if your exit node really carries IPv6 — otherwise sites with an IPv6 address hang instead of falling back to IPv4.</string>
 

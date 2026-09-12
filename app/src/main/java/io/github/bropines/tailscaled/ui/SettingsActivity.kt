@@ -285,6 +285,7 @@ fun SettingsScreen(
 
     // TUN Mode State
     var tunModeEnabled by remember { mutableStateOf(GlobalSettings.isTunModeEnabled(context)) }
+    var tunNativeEngine by remember { mutableStateOf(GlobalSettings.getTunEngine(context) == TunVpnService.ENGINE_NATIVE) }
     var tunExcludedCIDRs by remember { mutableStateOf(GlobalSettings.getTunExcludedCIDRs(context)) }
     var tunExcludedApps by remember { mutableStateOf(GlobalSettings.getTunExcludedApps(context)) }
     var tunAddress by remember { mutableStateOf(GlobalSettings.getTunAddress(context)) }
@@ -1267,6 +1268,16 @@ fun SettingsScreen(
                     icon = Icons.Default.SwapHoriz
                 ) {
                     openSection = "proxies"
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                SettingsSwitchItem(
+                    title = stringResource(R.string.settings_tun_native_title),
+                    subtitle = stringResource(R.string.settings_tun_native_desc),
+                    icon = Icons.Default.Build,
+                    checked = tunNativeEngine
+                ) {
+                    tunNativeEngine = it
+                    saveGlobalPref("tun_engine", if (it) TunVpnService.ENGINE_NATIVE else TunVpnService.ENGINE_HEV)
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
                 SettingsSwitchItem(

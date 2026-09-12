@@ -1050,6 +1050,8 @@
     <string name="tun_apps_filter_excluded">В обход VPN</string>
     <string name="settings_tun_address_title">Адрес TUN-интерфейса</string>
     <string name="settings_tun_address_desc">IPv4-адрес с префиксом подсети (например, 10.0.0.1/8)</string>
+    <string name="settings_tun_native_title">Нативный движок (экспериментально)</string>
+    <string name="settings_tun_native_desc">Туннелем управляет сам tailscaled, а не hev-socks5-tunnel: MagicDNS и split DNS идут напрямую от демона, MTU 1280. Переключение перезапускает демона; соединение должно подняться до старта TUN.</string>
     <string name="settings_tun_ipv6_title">Весь IPv6 через туннель</string>
     <string name="settings_tun_ipv6_desc">Адреса тейлнета идут через туннель всегда. Включайте это, только если ваш выходной узел действительно умеет IPv6 — иначе сайты с адресом IPv6 будут висеть вместо отката на IPv4.</string>
 

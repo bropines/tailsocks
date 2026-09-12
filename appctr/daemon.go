@@ -73,8 +73,15 @@ func tailscaledCmd(p pathControl, generation uint64, dnsFallbacks string, socksA
 
 	linkBinaries(p)
 
+	// Native TUN: the VpnService device travels as fd 3 (see nativetun.go).
+	tunFile := nativeTunFile()
+	tunArg := "--tun=userspace-networking"
+	if tunFile != nil {
+		tunArg = "--tun=android-vpn"
+	}
+
 	args := []string{
-		"--tun=userspace-networking",
+		tunArg,
 		"--socks5-server=" + socksAddr,
 		fmt.Sprintf("--statedir=%s", p.State()),
 		fmt.Sprintf("--socket=%s", p.Socket()),
@@ -142,6 +149,11 @@ func tailscaledCmd(p pathControl, generation uint64, dnsFallbacks string, socksA
 		c.Env = append(c.Env, "TS_SOCKS5_PASS="+socksPass)
 	}
 	c.Env = append(c.Env, hostinfo.env()...)
+	if tunFile != nil {
+		c.ExtraFiles = []*os.File{tunFile} // fd 3 in the child
+		c.Env = append(c.Env, "TS_TUN_FD=3")
+		slog.Info("Daemon launch: native TUN, the VpnService device is attached")
+	}
 
 	// Check, start and register under one lock so Stop() can never observe a
 	// launch it is unable to retire: before this section the generation check

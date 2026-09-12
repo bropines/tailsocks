@@ -1,5 +1,5 @@
 --- orig/cmd/tailscaled/tailscaled.go	2026-07-31 19:22:18.000000000 +0300
-+++ tailscale_src/cmd/tailscaled/tailscaled.go	2026-09-06 23:54:16.295312207 +0300
++++ tailscale_src/cmd/tailscaled/tailscaled.go	2026-09-12 13:50:38.879913666 +0300
 @@ -48,6 +48,7 @@
  	"tailscale.com/net/dnsfallback"
  	"tailscale.com/net/netmon"
@@ -8,9 +8,21 @@
  	"tailscale.com/net/tsdial"
  	"tailscale.com/net/tstun"
  	"tailscale.com/paths"
-@@ -716,6 +717,9 @@
+@@ -679,7 +680,7 @@
+ 
+ 	var ns tsd.NetstackImpl // or nil if not linked in
+ 	if newNetstack, ok := hookNewNetstack.GetOk(); ok {
+-		ns, err = newNetstack(logf, sys, onlyNetstack)
++		ns, err = newNetstack(logf, sys, onlyNetstack || androidVPNMode)
+ 		if err != nil {
+ 			return nil, fmt.Errorf("newNetstack: %w", err)
+ 		}
+@@ -714,8 +715,11 @@
+ 	if err != nil {
+ 		return nil, fmt.Errorf("ipnlocal.NewLocalBackend: %w", err)
  	}
- 	if onlyNetstack {
+-	if onlyNetstack {
++	if onlyNetstack || androidVPNMode {
  		dialer.UseNetstackForIP = func(ip netip.Addr) bool {
 +			if ip == tsaddr.TailscaleServiceIP() || ip == tsaddr.TailscaleServiceIPv6() {
 +				return true
@@ -18,3 +30,51 @@
  			_, ok := lb.PeerForIP(ip)
  			return ok
  		}
+@@ -807,8 +811,11 @@
+ 	sys.HealthTracker.Get().SetMetricsRegistry(sys.UserMetricsRegistry())
+ 
+ 	onlyNetstack = name == "userspace-networking"
+-	netstackSubnetRouter := onlyNetstack // but mutated later on some platforms
+-	netns.SetEnabled(!onlyNetstack)
++	// TailSocks: a VpnService-owned device behaves like userspace-networking
++	// with a real TUN attached; see android_vpn.go.
++	androidVPNMode = name == androidVPNTunName
++	netstackSubnetRouter := onlyNetstack || androidVPNMode // but mutated later on some platforms
++	netns.SetEnabled(!onlyNetstack && !androidVPNMode)
+ 
+ 	if buildfeatures.HasBird && args.birdSocketPath != "" {
+ 		conf.BIRDSocket = args.birdSocketPath
+@@ -827,7 +834,11 @@
+ 			}
+ 		}
+ 	} else {
+-		dev, devName, err := tstunNew(logf, name)
++		newTUN := tstunNew
++		if androidVPNMode {
++			newTUN = newAndroidVPNTUN
++		}
++		dev, devName, err := newTUN(logf, name)
+ 		if err != nil {
+ 			tstun.Diagnose(logf, name, err)
+ 			return false, fmt.Errorf("tstun.New(%q): %w", name, err)
+@@ -850,10 +861,16 @@
+ 			netmon.SetTailscaleInterfaceProps(devName, 0)
+ 		}
+ 
+-		r, err := router.New(logf, dev, sys.NetMon.Get(), sys.HealthTracker.Get(), sys.Bus.Get())
+-		if err != nil {
+-			dev.Close()
+-			return false, fmt.Errorf("creating router: %w", err)
++		var r router.Router
++		if androidVPNMode {
++			// The VpnService.Builder installed the routes; nothing to do here.
++			r = router.NewFake(logf)
++		} else {
++			r, err = router.New(logf, dev, sys.NetMon.Get(), sys.HealthTracker.Get(), sys.Bus.Get())
++			if err != nil {
++				dev.Close()
++				return false, fmt.Errorf("creating router: %w", err)
++			}
+ 		}
+ 
+ 		d, err := dns.NewOSConfigurator(logf, sys.HealthTracker.Get(), sys.Bus.Get(), sys.PolicyClientOrDefault(), sys.ControlKnobs(), devName)

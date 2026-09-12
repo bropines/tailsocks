@@ -9,6 +9,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Serve: a rule can be paused and resumed; paused rules leave the daemon but stay in the list, greyed, per profile.
 - DNS proxy: answers are cached for their TTL (floor 10 s, cap 1 h, negative 30 s), flushed with the other DNS caches and when split-DNS routes change.
 - TUN: a development probe hands a duplicate of the VPN fd to a child tailscaled, which reports the interface name, flags and MTU (native TUN groundwork; patch 17).
+- TUN: an experimental native engine — tailscaled owns the VpnService device (`--tun=android-vpn`, patch 18), the Builder carries addresses, routes and MagicDNS; hev stays the default.
 
 ### Changed
 

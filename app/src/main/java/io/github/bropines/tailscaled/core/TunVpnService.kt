@@ -51,6 +51,12 @@ class TunVpnService : VpnService() {
         const val TUN_PREFIX_V6 = 64
         const val TUN_MTU      = 1500
 
+        /** Native engine: tailscaled owns the device; Tailscale's default TUN MTU. */
+        const val TUN_MTU_NATIVE = 1280
+        const val TUN_DNS_IP_V6  = "fd7a:115c:a1e0::53"
+        const val ENGINE_HEV     = "hev"
+        const val ENGINE_NATIVE  = "native"
+
         private const val NOTIF_CHANNEL = "tailsocks_tun"
         internal const val NOTIF_ID     = 2
         private const val TAG           = "TunVpnService"
@@ -90,6 +96,7 @@ class TunVpnService : VpnService() {
     private val executor = Executors.newSingleThreadExecutor()
     private var tunFd: ParcelFileDescriptor? = null
     private var currentExitNodeId: String? = null
+    private var currentEngine: String? = null
 
     // -------------------------------------------------------------------------
     // Service lifecycle
@@ -161,15 +168,24 @@ class TunVpnService : VpnService() {
         val profilePrefs = getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
         val exitNodeId = profilePrefs.getString("exit_node_id", "") ?: ""
 
+        val engine = GlobalSettings.getTunEngine(this)
         if (tunFd != null) {
-            if (currentExitNodeId == exitNodeId) {
-                Log.w(TAG, "Already running with same exit node, ignoring start")
+            if (currentExitNodeId == exitNodeId && currentEngine == engine) {
+                Log.w(TAG, "Already running with the same exit node and engine, ignoring start")
                 return
             }
-            Log.i(TAG, "Exit Node changed from '$currentExitNodeId' to '$exitNodeId', restarting TUN interface...")
+            Log.i(TAG, "TUN parameters changed (exit node '$currentExitNodeId' -> '$exitNodeId', engine '$currentEngine' -> '$engine'), restarting TUN interface...")
             stopTunInternal()
         }
         currentExitNodeId = exitNodeId
+        currentEngine = engine
+
+        if (engine == ENGINE_NATIVE) {
+            if (!startNativeTunInternal(exitNodeId)) {
+                android.os.Handler(android.os.Looper.getMainLooper()).post { stopSelf() }
+            }
+            return
+        }
 
         val socksAddr = GlobalSettings.getString(this, "socks5", "127.0.0.1:48115")
         // The tunnel dials the proxy locally; a wildcard bind is reached via loopback.
@@ -237,30 +253,7 @@ class TunVpnService : VpnService() {
             }
         }
 
-        // Always exclude all TailSocks packages to avoid routing loops.
-        val pm = packageManager
-        try {
-            pm.getInstalledApplications(PackageManager.GET_META_DATA).forEach { info ->
-                if (info.packageName.startsWith("io.github.bropines.tailscaled")) {
-                    try {
-                        builder.addDisallowedApplication(info.packageName)
-                        Log.i(TAG, "Automatically excluded TailSocks package: ${info.packageName}")
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Failed to exclude package ${info.packageName}: ${e.message}")
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to query installed apps for auto-exclusion: ${e.message}")
-            // Fallback to current packageName
-            try { builder.addDisallowedApplication(packageName) } catch (_: Exception) {}
-        }
-
-        // User-defined app exclusions.
-        for (pkg in excludedApps) {
-            try { builder.addDisallowedApplication(pkg) }
-            catch (e: PackageManager.NameNotFoundException) { Log.w(TAG, "Excluded app not found: $pkg") }
-        }
+        applyAppExclusions(builder, excludedApps)
 
         val fd = builder.establish()
         if (fd == null) {
@@ -303,6 +296,109 @@ class TunVpnService : VpnService() {
         Log.i(TAG, "TUN started: socks=$socksAddr mtu=$mtu full=$fullTunnel")
     }
 
+    /** Our own packages always bypass the tunnel (routing loop), then the user's list. */
+    private fun applyAppExclusions(builder: Builder, excludedApps: Set<String>) {
+        // Always exclude all TailSocks packages to avoid routing loops.
+        val pm = packageManager
+        try {
+            pm.getInstalledApplications(PackageManager.GET_META_DATA).forEach { info ->
+                if (info.packageName.startsWith("io.github.bropines.tailscaled")) {
+                    try {
+                        builder.addDisallowedApplication(info.packageName)
+                        Log.i(TAG, "Automatically excluded TailSocks package: ${info.packageName}")
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to exclude package ${info.packageName}: ${e.message}")
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to query installed apps for auto-exclusion: ${e.message}")
+            // Fallback to current packageName
+            try { builder.addDisallowedApplication(packageName) } catch (_: Exception) {}
+        }
+
+        // User-defined app exclusions.
+        for (pkg in excludedApps) {
+            try { builder.addDisallowedApplication(pkg) }
+            catch (e: PackageManager.NameNotFoundException) { Log.w(TAG, "Excluded app not found: $pkg") }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Native engine: tailscaled owns the device
+    // -------------------------------------------------------------------------
+
+    /**
+     * Establishes the VPN with what the daemon's router would otherwise install
+     * — the node's own addresses, the tailnet ranges, the default route behind
+     * an exit node, MagicDNS at 100.100.100.100 — and hands a duplicate of the
+     * fd to the bridge, which relaunches tailscaled on it (--tun=android-vpn).
+     * hev is not started. Returns false when nothing was established.
+     */
+    private fun startNativeTunInternal(exitNodeId: String): Boolean {
+        val selfIps = waitForSelfIps()
+        if (selfIps.isEmpty()) {
+            Log.e(TAG, "Native TUN: the node's addresses are unknown (no netmap yet), not establishing")
+            Appctr.logAndroid("ERROR", "CORE", "Native TUN: node addresses unknown, the daemon has no netmap yet")
+            return false
+        }
+        val fullTunnel = exitNodeId.isNotEmpty()
+        val ipv6DefaultRoute = GlobalSettings.isTunIpv6Enabled(this)
+        val hasV6 = selfIps.any { ':' in it }
+
+        val builder = Builder()
+            .setSession("TailSocks TUN (native)")
+            .setMtu(TUN_MTU_NATIVE)
+        for (ip in selfIps) {
+            builder.addAddress(ip, if (':' in ip) 128 else 32)
+        }
+        builder.addDnsServer(TUN_DNS_IP)
+        if (hasV6) builder.addDnsServer(TUN_DNS_IP_V6)
+        if (fullTunnel) {
+            builder.addRoute("0.0.0.0", 0)
+            if (ipv6DefaultRoute) builder.addRoute("::", 0)
+            builder.addRoute("fd7a:115c:a1e0::", 48)
+        } else {
+            builder.addRoute("100.64.0.0", 10)
+            builder.addRoute("fd7a:115c:a1e0::", 48)
+        }
+        applyAppExclusions(builder, GlobalSettings.getTunExcludedApps(this))
+
+        val fd = builder.establish()
+        if (fd == null) {
+            Log.e(TAG, "Native TUN: establish() returned null (another VPN active?)")
+            return false
+        }
+        tunFd = fd
+        val err = try {
+            val dup = fd.dup()
+            Appctr.setNativeTun(dup.detachFd())
+        } catch (e: Exception) {
+            "hand-over failed: $e"
+        }
+        if (err.isNotEmpty()) {
+            Log.e(TAG, "Native TUN: the bridge refused the device: $err")
+            Appctr.logAndroid("ERROR", "CORE", "Native TUN: $err")
+            try { fd.close() } catch (_: Exception) {}
+            tunFd = null
+            return false
+        }
+        isRunning = true
+        Log.i(TAG, "Native TUN started: addrs=$selfIps full=$fullTunnel mtu=$TUN_MTU_NATIVE")
+        return true
+    }
+
+    /** The bus snapshot carries the addresses once the netmap is in; give it a moment. */
+    private fun waitForSelfIps(timeoutMs: Long = 8000L): List<String> {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (true) {
+            val ips = (try { Appctr.getSelfIPs() } catch (e: Exception) { "" })
+                .split(",").map { it.trim() }.filter { it.isNotEmpty() }
+            if (ips.isNotEmpty() || System.currentTimeMillis() >= deadline) return ips
+            try { Thread.sleep(250) } catch (_: InterruptedException) { return emptyList() }
+        }
+    }
+
     private fun stopTunInternal() {
         Log.i(TAG, "Stopping TUN...")
         isRunning = false
@@ -312,7 +408,16 @@ class TunVpnService : VpnService() {
         // thread; closing the fd before that frees the number for immediate reuse
         // by another thread (the Go daemon opens sockets constantly), so the
         // tunnel would read and write an unrelated socket.
-        if (nativeLoaded) {
+        if (currentEngine == ENGINE_NATIVE) {
+            // tailscaled holds its own copy of the device; the bridge closes its
+            // copy and relaunches the daemon in userspace mode unless the whole
+            // connection is going down.
+            try {
+                Appctr.clearNativeTun(ProxyState.isUserLetRunning(this))
+            } catch (e: Exception) {
+                Log.w(TAG, "Native TUN: clearNativeTun failed: $e")
+            }
+        } else if (nativeLoaded) {
             try {
                 Log.d(TAG, "Calling TProxyStopService JNI...")
                 TProxyStopService()

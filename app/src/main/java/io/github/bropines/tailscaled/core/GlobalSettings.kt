@@ -279,6 +279,10 @@ object GlobalSettings {
     fun isTunIpv6Enabled(context: Context): Boolean = getBoolean(context, "tun_ipv6_enabled", false)
     fun setTunIpv6Enabled(context: Context, enabled: Boolean) = setBoolean(context, "tun_ipv6_enabled", enabled)
 
+    /** TUN engine: "hev" (hev-socks5-tunnel, the default) or "native" (tailscaled owns the VpnService device). */
+    fun getTunEngine(context: Context): String = getString(context, "tun_engine", "hev")
+    fun setTunEngine(context: Context, engine: String) = setString(context, "tun_engine", engine)
+
     @Serializable
     data class ProxyPreset(
         val name: String = "",
@@ -473,7 +477,7 @@ object GlobalSettings {
         "service_watchdog", "automation_enabled",
         // TUN mode
         "tun_mode_enabled", "tun_full_tunnel", "tun_excluded_apps", "tun_excluded_cidrs",
-        "tun_address", "tun_ipv6_enabled",
+        "tun_address", "tun_ipv6_enabled", "tun_engine",
         // Root mode. "Ignore other VPNs" belongs here as much as the rest: it
         // decides how our own daemon marks its sockets, and dropping it silently
         // restored a device that yields where the exported one did not. The

@@ -1,0 +1,43 @@
+--- /dev/null	2026-09-12 02:45:18.483629514 +0300
++++ tailscale_src/cmd/tailscaled/android_vpn.go	2026-09-12 13:50:38.799695710 +0300
+@@ -0,0 +1,40 @@
++//go:build linux
++
++package main
++
++// TailSocks native TUN: the app's VpnService owns the tunnel device and hands
++// this process its file descriptor (TS_TUN_FD, inherited through ExtraFiles).
++// --tun=android-vpn makes tryEngine build the wireguard-go device from that fd
++// instead of creating one by name. Routes and DNS servers are the
++// VpnService.Builder's business, so the router is a no-op; everything else
++// keeps the userspace-networking shape — netstack terminates the node's own
++// addresses and the daemon dials peers through netstack, because its UID is
++// excluded from the VPN and the OS would not route it there.
++
++import (
++	"fmt"
++
++	"github.com/tailscale/wireguard-go/tun"
++	"tailscale.com/envknob"
++	"tailscale.com/types/logger"
++)
++
++const androidVPNTunName = "android-vpn"
++
++// androidVPNMode is set by tryEngine once the engine runs on the VpnService fd.
++var androidVPNMode bool
++
++// newAndroidVPNTUN has tstun.New's signature so tryEngine can swap it in.
++func newAndroidVPNTUN(logf logger.Logf, _ string) (tun.Device, string, error) {
++	fd, ok := envknob.LookupInt("TS_TUN_FD")
++	if !ok || fd <= 2 {
++		return nil, "", fmt.Errorf("--tun=%s needs TS_TUN_FD, an inherited VpnService fd", androidVPNTunName)
++	}
++	dev, name, err := tun.CreateUnmonitoredTUNFromFD(fd)
++	if err != nil {
++		return nil, "", fmt.Errorf("VpnService fd %d: %w", fd, err)
++	}
++	mtu, mtuErr := dev.MTU()
++	logf("android-vpn: running on inherited TUN fd %d as %q (mtu %d, err %v)", fd, name, mtu, mtuErr)
++	return dev, name, nil
++}

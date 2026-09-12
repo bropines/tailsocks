@@ -123,6 +123,12 @@ diff -u orig/net/dnscache/dnscache.go tailscale_src/net/dnscache/dnscache.go > p
 # can do with an inherited VpnService TUN fd (TUNGETIFF, SIOCGIFMTU) and exit.
 diff -N -u /dev/null tailscale_src/cmd/tailscaled/android_tunfd_probe.go > patches/17-android-tunfd-probe.patch || true
 
+# 18-android-vpn-tun.patch (creates cmd/tailscaled/android_vpn.go)
+# Native TUN: --tun=android-vpn builds the wireguard-go device from the
+# VpnService fd in TS_TUN_FD; the matching tryEngine/getLocalBackend edits in
+# tailscaled.go travel in 08 (whole-file diff).
+diff -N -u /dev/null tailscale_src/cmd/tailscaled/android_vpn.go > patches/18-android-vpn-tun.patch || true
+
 # Guard: a zero-byte patch means a diff target moved or vanished and `|| true`
 # swallowed it — exactly how 08-netstack-cgnat was silently lost during the
 # v1.102.1 bump. Refuse to finish with any empty patch so it can never ship blank.
