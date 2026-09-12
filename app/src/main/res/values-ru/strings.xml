@@ -1042,7 +1042,7 @@
     <string name="tun_notif_active">VPN-туннель активен</string>
     <string name="settings_sect_tun_mode">Настройки режима TUN</string>
     <string name="settings_tun_excluded_cidrs_title">Исключенные подсети IP</string>
-    <string name="settings_tun_excluded_cidrs_desc">Подсети через запятую, идущие в обход VPN</string>
+    <string name="settings_tun_excluded_cidrs_desc">Подсети через запятую, которые при включённом exit node остаются в реальной сети. Нужен Android 13+.</string>
     <string name="settings_tun_excluded_apps_title">Исключенные приложения</string>
     <string name="settings_tun_excluded_apps_desc">Приложений в обход туннеля (VPN и Root): %1$d</string>
     <string name="title_activity_tun_excluded_apps">Исключения</string>

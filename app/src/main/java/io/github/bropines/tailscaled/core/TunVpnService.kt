@@ -254,6 +254,7 @@ class TunVpnService : VpnService() {
         }
 
         applyAppExclusions(builder, excludedApps)
+        applyRouteExclusions(builder, excludedCIDRs, fullTunnel)
 
         val fd = builder.establish()
         if (fd == null) {
@@ -324,6 +325,33 @@ class TunVpnService : VpnService() {
         }
     }
 
+    /**
+     * The "Excluded IP ranges" setting: subnets that keep going out through the
+     * real network. Android can carve them out of the tunnel only since 13
+     * (Builder.excludeRoute), and only when a route covers them — with the
+     * default route behind an exit node. Without an exit node the tunnel only
+     * takes the tailnet ranges, so private subnets already bypass it.
+     */
+    private fun applyRouteExclusions(builder: Builder, cidrs: List<String>, fullTunnel: Boolean) {
+        if (cidrs.isEmpty() || !fullTunnel) return
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            Log.w(TAG, "Excluded IP ranges need Android 13+, ignoring: $cidrs")
+            return
+        }
+        for (cidr in cidrs) {
+            try {
+                val (addr, len) = cidr.split("/").let {
+                    android.net.InetAddresses.parseNumericAddress(it[0].trim()) to
+                        (it.getOrNull(1)?.trim()?.toInt() ?: if (it[0].contains(':')) 128 else 32)
+                }
+                builder.excludeRoute(android.net.IpPrefix(addr, len))
+                Log.i(TAG, "Excluded IP range from the tunnel: $cidr")
+            } catch (e: Exception) {
+                Log.w(TAG, "Excluded IP range ignored: $cidr (${e.message})")
+            }
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Native engine: tailscaled owns the device
     // -------------------------------------------------------------------------
@@ -363,6 +391,8 @@ class TunVpnService : VpnService() {
             builder.addRoute("fd7a:115c:a1e0::", 48)
         }
         applyAppExclusions(builder, GlobalSettings.getTunExcludedApps(this))
+        applyRouteExclusions(builder, GlobalSettings.getTunExcludedCIDRs(this)
+            .split(",").map { it.trim() }.filter { it.isNotEmpty() }, fullTunnel)
 
         val fd = builder.establish()
         if (fd == null) {

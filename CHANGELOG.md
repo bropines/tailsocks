@@ -17,6 +17,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Fixed
 
+- TUN: the "Excluded IP ranges" setting is applied — both engines carve those subnets out of the tunnel behind an exit node (Android 13+); it was read and ignored.
 - The DNS proxy replies from the address a query was sent to; with LAN access on, a resolver pointed at a loopback alias got its answers from 127.0.0.1 and dropped them (Chrome's "DNS probe finished: bad config").
 
 ## [4.1.2] - 2026-09-08

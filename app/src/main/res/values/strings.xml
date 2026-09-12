@@ -1042,7 +1042,7 @@
     <string name="tun_notif_active">VPN Tunnel is active</string>
     <string name="settings_sect_tun_mode">TUN Mode Settings</string>
     <string name="settings_tun_excluded_cidrs_title">Excluded IP Ranges</string>
-    <string name="settings_tun_excluded_cidrs_desc">Comma-separated subnets bypassed by VPN</string>
+    <string name="settings_tun_excluded_cidrs_desc">Comma-separated subnets that stay on the real network while an exit node is on. Needs Android 13+.</string>
     <string name="settings_tun_excluded_apps_title">Excluded Apps</string>
     <string name="settings_tun_excluded_apps_desc">%1$d apps kept outside the tunnel (VPN and Root)</string>
     <string name="title_activity_tun_excluded_apps">Excluded apps</string>
