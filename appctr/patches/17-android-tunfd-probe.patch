@@ -1,0 +1,92 @@
+--- /dev/null	2026-09-12 02:45:18.483629514 +0300
++++ tailscale_src/cmd/tailscaled/android_tunfd_probe.go	2026-09-12 05:53:32.501387588 +0300
+@@ -0,0 +1,89 @@
++//go:build linux
++
++package main
++
++// TailSocks: native-TUN experiment. When TS_TUN_FD_PROBE names an inherited
++// file descriptor, this process reports what a tailscaled child of the app can
++// learn about an Android VpnService TUN fd — TUNGETIFF name and flags,
++// SIOCGIFMTU via wireguard-go — and exits before main runs. It never reads or
++// writes the device: the running hev-socks5-tunnel owns that traffic. The
++// nonblocking flag lives on the open file description, shared with every
++// duplicate of the fd, so it is put back the way it was found.
++
++import (
++	"fmt"
++	"os"
++	"strconv"
++
++	"github.com/tailscale/wireguard-go/tun"
++	"golang.org/x/sys/unix"
++)
++
++func init() {
++	// os.Getenv rather than envknob: envknob panics when read from an init.
++	v := os.Getenv("TS_TUN_FD_PROBE")
++	if v == "" {
++		return
++	}
++	os.Exit(runTunFdProbe(v))
++}
++
++func runTunFdProbe(v string) int {
++	say := func(k string, val any) { fmt.Printf("tunfd-probe: %s=%v\n", k, val) }
++	fd, err := strconv.Atoi(v)
++	if err != nil || fd <= 2 {
++		say("error", fmt.Sprintf("bad fd %q", v))
++		return 2
++	}
++	code := 0
++	fail := func(k string, err error) {
++		say(k+"_err", err)
++		code = 1
++	}
++
++	var st unix.Stat_t
++	if err := unix.Fstat(fd, &st); err != nil {
++		fail("fstat", err)
++	} else {
++		say("mode", fmt.Sprintf("%#o", st.Mode))
++		say("rdev", fmt.Sprintf("%d:%d", unix.Major(uint64(st.Rdev)), unix.Minor(uint64(st.Rdev))))
++	}
++
++	flags, flErr := unix.FcntlInt(uintptr(fd), unix.F_GETFL, 0)
++	if flErr != nil {
++		fail("fcntl", flErr)
++	} else {
++		say("nonblock_before", flags&unix.O_NONBLOCK != 0)
++	}
++
++	// The raw ioctl first, so a refusal here is told apart from anything
++	// wireguard-go does on top of it.
++	if ifr, err := unix.NewIfreq(""); err != nil {
++		fail("ifreq", err)
++	} else if err := unix.IoctlIfreq(fd, unix.TUNGETIFF, ifr); err != nil {
++		fail("tungetiff", err)
++	} else {
++		say("ifname", ifr.Name())
++		say("ifflags", fmt.Sprintf("%#x", ifr.Uint16()))
++	}
++
++	if dev, name, err := tun.CreateUnmonitoredTUNFromFD(fd); err != nil {
++		fail("create_from_fd", err)
++	} else {
++		say("name", name)
++		if mtu, err := dev.MTU(); err != nil {
++			fail("mtu", err)
++		} else {
++			say("mtu", mtu)
++		}
++		say("batch", dev.BatchSize())
++	}
++
++	if flErr == nil {
++		if err := unix.SetNonblock(fd, flags&unix.O_NONBLOCK != 0); err != nil {
++			fail("restore_nonblock", err)
++		}
++	}
++	say("done", fmt.Sprintf("code=%d", code))
++	return code
++}

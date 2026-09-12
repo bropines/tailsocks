@@ -118,6 +118,11 @@ diff -u orig/net/dns/resolver/forwarder.go tailscale_src/net/dns/resolver/forwar
 # years but nothing in the daemon ever read it.
 diff -u orig/net/dnscache/dnscache.go tailscale_src/net/dnscache/dnscache.go > patches/15-dnscache-static-hosts.patch || true
 
+# 17-android-tunfd-probe.patch (creates cmd/tailscaled/android_tunfd_probe.go)
+# Native-TUN experiment: TS_TUN_FD_PROBE=<fd> makes tailscaled report what it
+# can do with an inherited VpnService TUN fd (TUNGETIFF, SIOCGIFMTU) and exit.
+diff -N -u /dev/null tailscale_src/cmd/tailscaled/android_tunfd_probe.go > patches/17-android-tunfd-probe.patch || true
+
 # Guard: a zero-byte patch means a diff target moved or vanished and `|| true`
 # swallowed it — exactly how 08-netstack-cgnat was silently lost during the
 # v1.102.1 bump. Refuse to finish with any empty patch so it can never ship blank.

@@ -13,6 +13,7 @@ import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import appctr.Appctr
 import io.github.bropines.tailscaled.ui.MainActivity
 import java.io.File
 import java.io.FileOutputStream
@@ -282,6 +283,17 @@ class TunVpnService : VpnService() {
                 stopSelf()
             }
             return
+        }
+
+        // Native-TUN experiment 1: can a child process of ours ioctl the VPN fd?
+        // A duplicate goes to a short-lived tailscaled that reports the interface
+        // name and MTU; hev gets the original below, so traffic is untouched.
+        try {
+            val dup = fd.dup()
+            val report = Appctr.probeTunFd(dup.detachFd())
+            Log.i(TAG, "TUN fd probe:\n$report")
+        } catch (e: Exception) {
+            Log.w(TAG, "TUN fd probe failed: $e")
         }
 
         // Start hev tunnel (JNI).
