@@ -20,6 +20,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 - TUN: changing the exit node no longer reverts on the native engine — the daemon relaunch takes the exit node in effect, and a restart into the native engine stops and starts the daemon once, reusing the node's addresses.
 - TUN: with the native engine and addresses known from the last run, the VPN comes up before the daemon, so connecting launches it once instead of a userspace start followed by a relaunch.
+- TUN: switching from one exit node to another keeps the tunnel up in both engines; the device is rebuilt only when the default route comes or goes.
 - TUN: the "Excluded IP ranges" setting is applied — both engines carve those subnets out of the tunnel behind an exit node (Android 13+); it was read and ignored.
 - The DNS proxy replies from the address a query was sent to; with LAN access on, a resolver pointed at a loopback alias got its answers from 127.0.0.1 and dropped them (Chrome's "DNS probe finished: bad config").
 

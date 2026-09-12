@@ -105,6 +105,8 @@ class TunVpnService : VpnService() {
     private val executor = Executors.newSingleThreadExecutor()
     private var tunFd: ParcelFileDescriptor? = null
     private var currentExitNodeId: String? = null
+    /** Whether the device carries the default route; the only exit-node fact the Builder knows. */
+    private var currentFullTunnel: Boolean? = null
     private var currentEngine: String? = null
     /** Addresses the native device was established with; a restart reuses them, the daemon is down then. */
     private var nativeSelfIps: List<String> = emptyList()
@@ -185,21 +187,28 @@ class TunVpnService : VpnService() {
         val exitNodeId = profilePrefs.getString("exit_node_id", "") ?: ""
 
         val engine = GlobalSettings.getTunEngine(this)
+        val wantFullTunnel = exitNodeId.isNotEmpty()
         var knownIps = nativeSelfIps
         if (tunFd != null) {
-            // The device may have been established from cached addresses before the
-            // daemon started; once the daemon knows better, re-establish.
+            // Android fixes a VPN's routes at establish(): the device must be
+            // rebuilt when the default route comes or goes (exit node on/off), when
+            // the engine changes, or when the daemon's netmap disagrees with the
+            // addresses the device was established from. Switching from one exit
+            // node to another changes none of that — the daemon re-points WireGuard
+            // itself, the tunnel stays up.
             val liveIps = if (currentEngine == ENGINE_NATIVE) selfIpsNow() else emptyList()
             val ipsChanged = liveIps.isNotEmpty() && liveIps.toSet() != nativeSelfIps.toSet()
-            if (currentExitNodeId == exitNodeId && currentEngine == engine && !ipsChanged) {
-                Log.w(TAG, "Already running with the same exit node and engine, ignoring start")
+            if (currentFullTunnel == wantFullTunnel && currentEngine == engine && !ipsChanged) {
+                if (currentExitNodeId != exitNodeId) Log.i(TAG, "Exit node '$currentExitNodeId' -> '$exitNodeId': routes unchanged, keeping the device")
+                currentExitNodeId = exitNodeId
                 return
             }
             if (ipsChanged) knownIps = liveIps
-            Log.i(TAG, "TUN parameters changed (exit node '$currentExitNodeId' -> '$exitNodeId', engine '$currentEngine' -> '$engine', addresses ${if (ipsChanged) "changed" else "same"}), restarting TUN interface...")
+            Log.i(TAG, "TUN parameters changed (default route $currentFullTunnel -> $wantFullTunnel, engine '$currentEngine' -> '$engine', addresses ${if (ipsChanged) "changed" else "same"}), restarting TUN interface...")
             stopTunInternal(nativeStartFollows = engine == ENGINE_NATIVE)
         }
         currentExitNodeId = exitNodeId
+        currentFullTunnel = wantFullTunnel
         currentEngine = engine
 
         if (engine == ENGINE_NATIVE) {
