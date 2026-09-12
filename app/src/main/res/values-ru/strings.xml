@@ -726,6 +726,8 @@
     <!-- ======================== Serve & Funnel ======================== -->
     <string name="serve_title">Serve &amp; Funnel</string>
     <string name="serve_node_card_title">Этот узел</string>
+    <string name="serve_node_expand">Показать возможности</string>
+    <string name="serve_node_collapse">Скрыть возможности</string>
     <string name="serve_cap_cert">HTTPS-сертификат</string>
     <string name="serve_cap_cert_ok">Доступен для %1$s</string>
     <string name="serve_cap_cert_no">Недоступен: у узла нет возможности HTTPS</string>

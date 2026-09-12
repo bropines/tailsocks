@@ -976,9 +976,17 @@ private fun SectionHeading(text: String) {
  *  gates the tailnet policy holds — certificate, Funnel with its ports, services. */
 @Composable
 private fun NodeCard(caps: ServeCapabilities, context: Context, onCopy: (String) -> Unit) {
+    // Collapsed by default: the name is what one comes back for, the
+    // capabilities are read once. The choice is remembered.
+    var expanded by remember { mutableStateOf(GlobalSettings.getBoolean(context, NODE_CARD_EXPANDED_PREF, false)) }
+    val scheme = MaterialTheme.colorScheme
     Card(
         shape = SERVE_CARD_SHAPE,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+        colors = CardDefaults.cardColors(containerColor = scheme.surfaceContainerLow),
+        onClick = {
+            expanded = !expanded
+            GlobalSettings.setBoolean(context, NODE_CARD_EXPANDED_PREF, expanded)
+        }
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1008,7 +1016,34 @@ private fun NodeCard(caps: ServeCapabilities, context: Context, onCopy: (String)
                         Icon(Icons.Default.ContentCopy, context.getString(R.string.action_copy), modifier = Modifier.size(18.dp))
                     }
                 }
+                Icon(
+                    if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = context.getString(if (expanded) R.string.serve_node_collapse else R.string.serve_node_expand),
+                    tint = scheme.onSurfaceVariant
+                )
             }
+            if (!expanded) {
+                // The three capabilities as a glance: lit when available.
+                Row(
+                    modifier = Modifier.padding(top = 10.dp, start = 52.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    for ((icon, ok, label) in listOf(
+                        Triple(Icons.Default.Lock, caps.loaded && caps.certDomains.isNotEmpty(), R.string.serve_cap_cert),
+                        Triple(Icons.Default.Public, caps.loaded && caps.funnel, R.string.serve_cap_funnel),
+                        Triple(Icons.Default.Hub, caps.loaded && caps.services, R.string.serve_cap_services)
+                    )) {
+                        Icon(
+                            icon, contentDescription = context.getString(label),
+                            modifier = Modifier.size(16.dp),
+                            tint = if (ok) scheme.primary else scheme.onSurfaceVariant.copy(alpha = 0.45f)
+                        )
+                    }
+                }
+            }
+            AnimatedVisibility(visible = expanded) {
+            Column {
             Spacer(Modifier.height(12.dp))
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             Spacer(Modifier.height(4.dp))
@@ -1043,9 +1078,13 @@ private fun NodeCard(caps: ServeCapabilities, context: Context, onCopy: (String)
                 },
                 ok = caps.loaded && caps.services
             )
+            }
+            }
         }
     }
 }
+
+private const val NODE_CARD_EXPANDED_PREF = "serve_node_card_expanded"
 
 /**
  * A service's heading with where it stands in the tailnet: published (control

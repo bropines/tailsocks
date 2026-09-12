@@ -726,6 +726,8 @@
     <!-- ======================== Serve & Funnel ======================== -->
     <string name="serve_title">Serve &amp; Funnel</string>
     <string name="serve_node_card_title">This node</string>
+    <string name="serve_node_expand">Show capabilities</string>
+    <string name="serve_node_collapse">Hide capabilities</string>
     <string name="serve_cap_cert">HTTPS certificate</string>
     <string name="serve_cap_cert_ok">Available for %1$s</string>
     <string name="serve_cap_cert_no">Not available: the node has no HTTPS capability</string>
