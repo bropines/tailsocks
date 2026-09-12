@@ -18,6 +18,21 @@ import (
 var nativeTun struct {
 	sync.Mutex
 	f *os.File
+	// swapPending is set between ReleaseNativeTunForSwap and the SetNativeTun
+	// that completes the restart, so the latter relaunches the daemon it stopped.
+	swapPending bool
+	// lastSelfIPs is the node's last known tailnet addresses, kept across
+	// daemon relaunches for the callers that need them while no daemon can
+	// answer (a device swap, a start on the VpnService device).
+	lastSelfIPs string
+}
+
+// HasNativeTun reports whether a VpnService fd is waiting for, or in use by,
+// the daemon.
+func HasNativeTun() bool {
+	nativeTun.Lock()
+	defer nativeTun.Unlock()
+	return nativeTun.f != nil
 }
 
 // nativeTunFile is the fd the next daemon launch inherits, or nil.
@@ -34,19 +49,27 @@ func SetNativeTun(fd int32) string {
 	if f == nil {
 		return "invalid fd"
 	}
+	running := IsRunning()
+	if running {
+		refreshOptionsFromDaemon()
+	}
 	nativeTun.Lock()
 	if nativeTun.f != nil {
 		nativeTun.f.Close()
 	}
 	nativeTun.f = f
+	swap := nativeTun.swapPending
+	nativeTun.swapPending = false
 	nativeTun.Unlock()
 
-	refreshOptionsFromDaemon()
 	stateMu.Lock()
 	opt := lastOptions
 	stateMu.Unlock()
-	if opt == nil {
-		return "the daemon has not been started yet"
+	if opt == nil || (!running && !swap) {
+		// No daemon to replace: the app established the VPN before Start(), so
+		// the daemon's first launch is already on the device — no relaunch.
+		slog.Info("Native TUN: device stored, the daemon will start on it")
+		return ""
 	}
 	slog.Info("Native TUN: relaunching the daemon on the VpnService device")
 	Start(opt)
@@ -66,6 +89,7 @@ func ReleaseNativeTunForSwap() {
 		nativeTun.f.Close()
 		nativeTun.f = nil
 	}
+	nativeTun.swapPending = true
 	nativeTun.Unlock()
 	slog.Info("Native TUN: stopping the daemon for a device swap")
 	Stop()
@@ -106,6 +130,7 @@ func ClearNativeTun(relaunch bool) {
 		nativeTun.f.Close()
 		nativeTun.f = nil
 	}
+	nativeTun.swapPending = false
 	nativeTun.Unlock()
 	if !had || !relaunch {
 		return
@@ -124,10 +149,26 @@ func ClearNativeTun(relaunch bool) {
 // /status; "" when neither knows them yet. The VpnService.Builder in native
 // TUN mode uses them as the interface addresses.
 func GetSelfIPs() string {
+	if ips := liveSelfIPs(); ips != "" {
+		nativeTun.Lock()
+		nativeTun.lastSelfIPs = ips
+		nativeTun.Unlock()
+		return ips
+	}
+	nativeTun.Lock()
+	defer nativeTun.Unlock()
+	return nativeTun.lastSelfIPs
+}
+
+// liveSelfIPs asks the bus snapshot, then LocalAPI; "" when neither answers.
+func liveSelfIPs() string {
 	if s := GetBusState(); s.Self != nil {
 		if ips := peerIPs(s.Self); len(ips) > 0 {
 			return strings.Join(ips, ",")
 		}
+	}
+	if !IsRunning() {
+		return ""
 	}
 	data, err := doLocalRequest("GET", "/localapi/v0/status?peers=false", nil)
 	if err != nil {

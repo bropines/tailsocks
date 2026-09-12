@@ -70,6 +70,15 @@ class TunVpnService : VpnService() {
         @Volatile var isRunning = false
             private set
 
+        private const val SELF_IPS_PREF = "native_tun_self_ips"
+
+        /** The node's addresses from the last native start, per profile; lets the VPN come up before the daemon. */
+        fun cachedSelfIps(context: Context): List<String> {
+            val account = AccountManager.getActiveAccount(context)
+            return context.getSharedPreferences("appctr_${account.id}", Context.MODE_PRIVATE)
+                .getString(SELF_IPS_PREF, "")!!.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        }
+
         // JNI interface (hev-socks5-tunnel)
         @JvmStatic external fun TProxyStartService(configPath: String, fd: Int)
         @JvmStatic external fun TProxyStopService()
@@ -97,6 +106,8 @@ class TunVpnService : VpnService() {
     private var tunFd: ParcelFileDescriptor? = null
     private var currentExitNodeId: String? = null
     private var currentEngine: String? = null
+    /** Addresses the native device was established with; a restart reuses them, the daemon is down then. */
+    private var nativeSelfIps: List<String> = emptyList()
 
     // -------------------------------------------------------------------------
     // Service lifecycle
@@ -174,19 +185,25 @@ class TunVpnService : VpnService() {
         val exitNodeId = profilePrefs.getString("exit_node_id", "") ?: ""
 
         val engine = GlobalSettings.getTunEngine(this)
+        var knownIps = nativeSelfIps
         if (tunFd != null) {
-            if (currentExitNodeId == exitNodeId && currentEngine == engine) {
+            // The device may have been established from cached addresses before the
+            // daemon started; once the daemon knows better, re-establish.
+            val liveIps = if (currentEngine == ENGINE_NATIVE) selfIpsNow() else emptyList()
+            val ipsChanged = liveIps.isNotEmpty() && liveIps.toSet() != nativeSelfIps.toSet()
+            if (currentExitNodeId == exitNodeId && currentEngine == engine && !ipsChanged) {
                 Log.w(TAG, "Already running with the same exit node and engine, ignoring start")
                 return
             }
-            Log.i(TAG, "TUN parameters changed (exit node '$currentExitNodeId' -> '$exitNodeId', engine '$currentEngine' -> '$engine'), restarting TUN interface...")
+            if (ipsChanged) knownIps = liveIps
+            Log.i(TAG, "TUN parameters changed (exit node '$currentExitNodeId' -> '$exitNodeId', engine '$currentEngine' -> '$engine', addresses ${if (ipsChanged) "changed" else "same"}), restarting TUN interface...")
             stopTunInternal(nativeStartFollows = engine == ENGINE_NATIVE)
         }
         currentExitNodeId = exitNodeId
         currentEngine = engine
 
         if (engine == ENGINE_NATIVE) {
-            if (!startNativeTunInternal(exitNodeId)) {
+            if (!startNativeTunInternal(exitNodeId, knownIps)) {
                 android.os.Handler(android.os.Looper.getMainLooper()).post { stopSelf() }
             }
             return
@@ -368,8 +385,8 @@ class TunVpnService : VpnService() {
      * fd to the bridge, which relaunches tailscaled on it (--tun=android-vpn).
      * hev is not started. Returns false when nothing was established.
      */
-    private fun startNativeTunInternal(exitNodeId: String): Boolean {
-        val selfIps = waitForSelfIps()
+    private fun startNativeTunInternal(exitNodeId: String, knownIps: List<String>): Boolean {
+        val selfIps = knownIps.ifEmpty { waitForSelfIps() }
         if (selfIps.isEmpty()) {
             Log.e(TAG, "Native TUN: the node's addresses are unknown (no netmap yet), not establishing")
             Appctr.logAndroid("ERROR", "CORE", "Native TUN: node addresses unknown, the daemon has no netmap yet")
@@ -419,16 +436,34 @@ class TunVpnService : VpnService() {
             return false
         }
         isRunning = true
+        nativeSelfIps = selfIps
+        val account = AccountManager.getActiveAccount(this)
+        getSharedPreferences("appctr_${account.id}", Context.MODE_PRIVATE).edit()
+            .putString(SELF_IPS_PREF, selfIps.joinToString(",")).apply()
         Log.i(TAG, "Native TUN started: addrs=$selfIps full=$fullTunnel mtu=$TUN_MTU_NATIVE")
         return true
     }
 
-    /** The bus snapshot carries the addresses once the netmap is in; give it a moment. */
+    /** What the bridge knows right now: the bus snapshot, LocalAPI, or its last-known copy. */
+    private fun selfIpsNow(): List<String> =
+        (try { Appctr.getSelfIPs() } catch (e: Exception) { "" })
+            .split(",").map { it.trim() }.filter { it.isNotEmpty() }
+
+    /**
+     * With a daemon up, the netmap brings the addresses within moments — wait for
+     * it. Without one (the VPN is being established before the first daemon
+     * start) fall back to the addresses cached from the last native run.
+     */
     private fun waitForSelfIps(timeoutMs: Long = 8000L): List<String> {
+        val daemonUp = try { Appctr.isRunning() } catch (e: Exception) { false }
+        if (!daemonUp) {
+            val ips = selfIpsNow().ifEmpty { cachedSelfIps(this) }
+            if (ips.isNotEmpty()) Log.i(TAG, "Native TUN: no daemon yet, using the cached addresses $ips")
+            return ips
+        }
         val deadline = System.currentTimeMillis() + timeoutMs
         while (true) {
-            val ips = (try { Appctr.getSelfIPs() } catch (e: Exception) { "" })
-                .split(",").map { it.trim() }.filter { it.isNotEmpty() }
+            val ips = selfIpsNow()
             if (ips.isNotEmpty() || System.currentTimeMillis() >= deadline) return ips
             try { Thread.sleep(250) } catch (_: InterruptedException) { return emptyList() }
         }

@@ -1546,6 +1546,22 @@ class TailscaledService : Service() {
                         shutdownDaemon()
                         return@Thread
                     }
+                    // Native TUN engine: when the node's addresses are known from the
+                    // last run, establish the VPN first so the daemon's first launch
+                    // is already on the device — no userspace start followed by a
+                    // relaunch, no flicker. Anything missing falls back to the usual
+                    // order: TUN after readiness.
+                    if (GlobalSettings.isTunModeEnabled(this@TailscaledService) &&
+                        GlobalSettings.getTunEngine(this@TailscaledService) == TunVpnService.ENGINE_NATIVE &&
+                        TunVpnService.cachedSelfIps(this@TailscaledService).isNotEmpty() &&
+                        android.net.VpnService.prepare(this@TailscaledService) == null
+                    ) {
+                        startTunMode()
+                        var waited = 0
+                        while (!Appctr.hasNativeTun() && waited < 5000 && !stale()) { Thread.sleep(100); waited += 100 }
+                        Log.i(TAG, if (Appctr.hasNativeTun()) "Native TUN established before the daemon start ($waited ms)"
+                                   else "Native TUN not ready after $waited ms, the daemon starts in userspace mode first")
+                    }
                     Appctr.setExternalSocketPath("")
                     Appctr.start(options)
                 }
