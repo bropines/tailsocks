@@ -910,6 +910,11 @@
     <string name="settings_lan_access_desc">Binds SOCKS5, HTTP proxy and local DNS to 127.0.0.1 only. Enable to let other devices on this network use them.</string>
     <string name="settings_lan_access_active">Listening on all interfaces — reachable at %1$s</string>
     <string name="settings_lan_access_tailnet">from the tailnet at %1$s</string>
+    <string name="settings_lan_access_listening">Listening on all interfaces — the addresses are below.</string>
+    <string name="settings_lan_endpoint_lan">Wi‑Fi / LAN</string>
+    <string name="settings_lan_endpoint_tailnet">Tailnet</string>
+    <string name="settings_lan_endpoint_none">No address on this network right now</string>
+    <string name="settings_lan_copied">Copied: %1$s</string>
     <string name="settings_lan_access_no_auth_warning">The SOCKS5 proxy has no username or password. Anyone on this network can route traffic through your tailnet.</string>
     <string name="settings_socks5_address_title">SOCKS5 Address</string>
     <string name="settings_socks5_username_title">SOCKS5 Username</string>

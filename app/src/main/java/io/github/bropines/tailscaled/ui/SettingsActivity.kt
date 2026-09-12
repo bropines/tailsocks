@@ -36,6 +36,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -1654,21 +1656,8 @@ fun SettingsScreen(
 
             SettingsSwitchItem(
                 title = stringResource(R.string.settings_lan_access_title),
-                subtitle = if (lanAccessEnabled) {
-                    // Show what is actually bound: the stored fields keep the
-                    // user's own value, the wildcard is applied on top of it.
-                    val ports = listOfNotNull(
-                        NetAddr.port(GlobalSettings.getSocks5BindAddr(context))?.let { "SOCKS5 $it" },
-                        GlobalSettings.getHttpProxyBindAddr(context)
-                            .takeIf { it.isNotEmpty() }?.let { a -> NetAddr.port(a)?.let { "HTTP $it" } },
-                        NetAddr.port(GlobalSettings.getDnsProxyBindAddr(context))?.let { "DNS $it" }
-                    ).joinToString(", ")
-                    stringResource(R.string.settings_lan_access_active, lanIp ?: "?") +
-                        (tailnetIp?.let { " · " + stringResource(R.string.settings_lan_access_tailnet, it) } ?: "") +
-                        if (ports.isEmpty()) "" else " · $ports"
-                } else {
-                    stringResource(R.string.settings_lan_access_desc)
-                },
+                subtitle = if (lanAccessEnabled) stringResource(R.string.settings_lan_access_listening)
+                           else stringResource(R.string.settings_lan_access_desc),
                 icon = Icons.Default.Lan,
                 checked = lanAccessEnabled
             ) { enabled ->
@@ -1680,6 +1669,31 @@ fun SettingsScreen(
                     }
                     context.startService(intent)
                 }
+            }
+
+            if (lanAccessEnabled) {
+                // What is actually bound: the stored fields keep the user's own
+                // value, the wildcard is applied on top of it. One block per
+                // network, every host and host:port a tap away.
+                val ports = listOfNotNull(
+                    NetAddr.port(GlobalSettings.getSocks5BindAddr(context))?.let { "SOCKS5" to it },
+                    GlobalSettings.getHttpProxyBindAddr(context)
+                        .takeIf { it.isNotEmpty() }?.let { a -> NetAddr.port(a)?.let { "HTTP" to it } },
+                    NetAddr.port(GlobalSettings.getDnsProxyBindAddr(context))?.let { "DNS" to it }
+                )
+                val copiedFmt = stringResource(R.string.settings_lan_copied)
+                LanEndpoints(
+                    networks = listOf(
+                        stringResource(R.string.settings_lan_endpoint_lan) to lanIp,
+                        stringResource(R.string.settings_lan_endpoint_tailnet) to tailnetIp
+                    ),
+                    ports = ports,
+                    onCopy = { text ->
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("TailSocks", text))
+                        Toast.makeText(context, copiedFmt.format(text), Toast.LENGTH_SHORT).show()
+                    }
+                )
             }
 
             if (lanAccessEnabled && !socksHasAuth) {
@@ -2760,5 +2774,70 @@ fun SettingsScreen(
                 }) { Text(strActionCancel) }
             }
         )
+    }
+}
+
+/**
+ * The listeners' addresses while LAN access is on: one block per network
+ * (Wi-Fi/LAN, tailnet) with the host on its own line and a chip per port.
+ * Tapping the host copies it, tapping a chip copies host:port.
+ */
+@Composable
+private fun LanEndpoints(
+    networks: List<Pair<String, String?>>,
+    ports: List<Pair<String, Int>>,
+    onCopy: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        for ((label, host) in networks) {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+            ) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)) {
+                    Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (host == null) {
+                        Text(
+                            stringResource(R.string.settings_lan_endpoint_none),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { onCopy(host) },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                host,
+                                fontFamily = FontFamily.Monospace,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.weight(1f).padding(vertical = 2.dp)
+                            )
+                            Icon(
+                                Icons.Default.ContentCopy, contentDescription = stringResource(R.string.action_copy),
+                                modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.padding(top = 6.dp).horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            for ((name, port) in ports) {
+                                AssistChip(
+                                    onClick = { onCopy("$host:$port") },
+                                    label = { Text("$name  :$port", fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.labelMedium) },
+                                    trailingIcon = { Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(14.dp)) }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

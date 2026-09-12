@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Changed
+
+- Local proxies: with LAN access on, the addresses are listed under the switch — one block per network (Wi‑Fi/LAN, tailnet) with the host on its own line and a chip per port; a tap copies the host or host:port.
+
 ## [4.2.1] - 2026-09-12
 
 ### Changed
