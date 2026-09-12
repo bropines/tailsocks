@@ -108,6 +108,16 @@ class TunVpnService : VpnService() {
     /** Whether the device carries the default route; the only exit-node fact the Builder knows. */
     private var currentFullTunnel: Boolean? = null
     private var currentEngine: String? = null
+    /** Everything else the Builder was given (exclusions, IPv6, address); a change means a rebuild. */
+    private var currentBuilderInputs: String? = null
+
+    /** The Builder's inputs beyond engine and default route, as one comparable string. */
+    private fun builderInputs(): String = listOf(
+        GlobalSettings.getTunExcludedApps(this).sorted().joinToString(","),
+        GlobalSettings.getTunExcludedCIDRs(this),
+        GlobalSettings.isTunIpv6Enabled(this).toString(),
+        GlobalSettings.getTunAddress(this)
+    ).joinToString("|")
     /** Addresses the native device was established with; a restart reuses them, the daemon is down then. */
     private var nativeSelfIps: List<String> = emptyList()
 
@@ -188,6 +198,7 @@ class TunVpnService : VpnService() {
 
         val engine = GlobalSettings.getTunEngine(this)
         val wantFullTunnel = exitNodeId.isNotEmpty()
+        val wantInputs = builderInputs()
         var knownIps = nativeSelfIps
         if (tunFd != null) {
             // Android fixes a VPN's routes at establish(): the device must be
@@ -198,18 +209,20 @@ class TunVpnService : VpnService() {
             // itself, the tunnel stays up.
             val liveIps = if (currentEngine == ENGINE_NATIVE) selfIpsNow() else emptyList()
             val ipsChanged = liveIps.isNotEmpty() && liveIps.toSet() != nativeSelfIps.toSet()
-            if (currentFullTunnel == wantFullTunnel && currentEngine == engine && !ipsChanged) {
+            val inputsChanged = currentBuilderInputs != wantInputs
+            if (currentFullTunnel == wantFullTunnel && currentEngine == engine && !ipsChanged && !inputsChanged) {
                 if (currentExitNodeId != exitNodeId) Log.i(TAG, "Exit node '$currentExitNodeId' -> '$exitNodeId': routes unchanged, keeping the device")
                 currentExitNodeId = exitNodeId
                 return
             }
             if (ipsChanged) knownIps = liveIps
-            Log.i(TAG, "TUN parameters changed (default route $currentFullTunnel -> $wantFullTunnel, engine '$currentEngine' -> '$engine', addresses ${if (ipsChanged) "changed" else "same"}), restarting TUN interface...")
+            Log.i(TAG, "TUN parameters changed (default route $currentFullTunnel -> $wantFullTunnel, engine '$currentEngine' -> '$engine', addresses ${if (ipsChanged) "changed" else "same"}, exclusions/IPv6/address ${if (inputsChanged) "changed" else "same"}), restarting TUN interface...")
             stopTunInternal(nativeStartFollows = engine == ENGINE_NATIVE)
         }
         currentExitNodeId = exitNodeId
         currentFullTunnel = wantFullTunnel
         currentEngine = engine
+        currentBuilderInputs = wantInputs
 
         if (engine == ENGINE_NATIVE) {
             if (!startNativeTunInternal(exitNodeId, knownIps)) {
