@@ -476,6 +476,12 @@ fun SettingsEditItem(
     // locale, so its strings are resolved through this parent context instead —
     // see wrapContextWithLocale().
     val ctx = LocalContext.current
+    // What the row shows under its title: the description while there is no
+    // value (or the row is locked), otherwise the value. A shown description
+    // folds like every other explanation; a hidden one opens on a long press.
+    val showsDescription = description.isNotEmpty() && (!enabled || value.isEmpty())
+    val supporting = if (showsDescription) description else if (value.isEmpty()) placeholder.ifEmpty { notSet } else value
+    val help = remember(supporting) { mutableStateOf(false) }
     var showHelp by remember { mutableStateOf(false) }
     val haptics = LocalHapticFeedback.current
     if (showHelp) SettingsHelpDialog(title, description.ifEmpty { placeholder.ifEmpty { notSet } }) { showHelp = false }
@@ -484,19 +490,20 @@ fun SettingsEditItem(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (enabled) 0.3f else 0.15f),
         modifier = Modifier.padding(vertical = 4.dp).clip(RoundedCornerShape(12.dp)).combinedClickable(
             onClick = { if (enabled) showDialog = true },
-            onLongClick = { haptics.performHapticFeedback(HapticFeedbackType.LongPress); showHelp = true }
+            onLongClick = {
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                if (showsDescription) help.value = !help.value else showHelp = true
+            }
         )
     ) {
         ListItem(
             headlineContent = { Text(title, color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)) },
             supportingContent = {
-                Text(
-                    text = if (!enabled && description.isNotEmpty()) description else if (value.isEmpty()) {
-                        if (description.isNotEmpty()) description else (placeholder.ifEmpty { notSet })
-                    } else value,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                HelpText(
+                    supporting,
+                    lines = if (showsDescription) 2 else 1,
+                    color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                    expanded = help
                 )
             },
             leadingContent = { Icon(icon, null, tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)) },
