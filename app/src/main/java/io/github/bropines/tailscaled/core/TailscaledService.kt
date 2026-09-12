@@ -33,6 +33,27 @@ import kotlinx.serialization.json.*
 class TailscaledService : Service() {
     companion object {
         const val ACTION_APPLY_SETTINGS = "APPLY_SETTINGS"
+
+        /** The one ongoing card; TunVpnService goes foreground on it too. */
+        const val MAIN_NOTIF_ID = 1
+        private const val MAIN_CHANNEL_ID = "tailscaled_channel"
+
+        /** "Active" becomes "Active · TUN" while the tunnel is up, so one card tells both. */
+        fun statusText(context: Context, status: String): String =
+            if (TunVpnService.isRunning && status == "Active") "$status · TUN" else status
+
+        fun buildStatusNotification(context: Context, status: String): Notification {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                nm.createNotificationChannel(NotificationChannel(MAIN_CHANNEL_ID, "Tailscale Service", NotificationManager.IMPORTANCE_LOW))
+            }
+            val pendingIntent = PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            val stopIntent = Intent(context, TailscaledService::class.java).apply { action = "STOP_ACTION" }
+            val stopPendingIntent = PendingIntent.getService(context, 0, stopIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            return NotificationCompat.Builder(context, MAIN_CHANNEL_ID)
+                .setContentTitle("TailSocks").setContentText(status).setSmallIcon(android.R.drawable.ic_secure).setOngoing(true).setContentIntent(pendingIntent)
+                .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", stopPendingIntent).build()
+        }
         const val ACTION_STATUS_CHANGED = "io.github.bropines.tailscaled.STATUS_CHANGED"
         const val ALIAS_STATUS_CHANGED = "io.github.bropines.tailscaled.STATUS"
 
@@ -1898,22 +1919,10 @@ class TailscaledService : Service() {
         updateAllWidgets(this@TailscaledService)
         forceAppWidgetUpdate(this@TailscaledService)
     }
-    private fun updateNotification(status: String) = notificationManager.notify(1, buildNotification(status))
+    private fun updateNotification(status: String) =
+        notificationManager.notify(MAIN_NOTIF_ID, buildStatusNotification(this, statusText(this, status)))
 
-    private fun buildNotification(status: String): Notification {
-        val channelId = "tailscaled_channel"
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(channelId, "Tailscale Service", NotificationManager.IMPORTANCE_LOW)
-            notificationManager.createNotificationChannel(channel)
-        }
-        val pendingIntent = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val stopIntent = Intent(this, TailscaledService::class.java).apply { action = "STOP_ACTION" }
-        val stopPendingIntent = PendingIntent.getService(this, 0, stopIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-
-        return NotificationCompat.Builder(this, channelId)
-            .setContentTitle("TailSocks").setContentText(status).setSmallIcon(android.R.drawable.ic_secure).setOngoing(true).setContentIntent(pendingIntent)
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", stopPendingIntent).build()
-    }
+    private fun buildNotification(status: String): Notification = buildStatusNotification(this, statusText(this, status))
 
     private fun applyTagsAndRoutes(context: Context) {
         val activeAccount = AccountManager.getActiveAccount(context)

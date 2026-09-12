@@ -103,16 +103,21 @@ class TunVpnService : VpnService() {
     // -------------------------------------------------------------------------
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val notification = buildNotification()
+        // One card for the whole app: this service goes foreground on the main
+        // service's notification id, so the two do not stack. On stop it detaches
+        // instead of removing, leaving the card to the main service.
+        val notification = TailscaledService.buildStatusNotification(this, TailscaledService.statusText(this, "Active"))
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(
-                NOTIF_ID,
+                TailscaledService.MAIN_NOTIF_ID,
                 notification,
                 android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
             )
         } else {
-            startForeground(NOTIF_ID, notification)
+            startForeground(TailscaledService.MAIN_NOTIF_ID, notification)
         }
+        // Drop the separate TUN card older builds left behind.
+        (getSystemService(NOTIFICATION_SERVICE) as? NotificationManager)?.cancel(NOTIF_ID)
 
         val action = intent?.action
 
@@ -175,7 +180,7 @@ class TunVpnService : VpnService() {
                 return
             }
             Log.i(TAG, "TUN parameters changed (exit node '$currentExitNodeId' -> '$exitNodeId', engine '$currentEngine' -> '$engine'), restarting TUN interface...")
-            stopTunInternal()
+            stopTunInternal(nativeStartFollows = engine == ENGINE_NATIVE)
         }
         currentExitNodeId = exitNodeId
         currentEngine = engine
@@ -429,7 +434,13 @@ class TunVpnService : VpnService() {
         }
     }
 
-    private fun stopTunInternal() {
+    /**
+     * nativeStartFollows: this stop is the first half of a restart into the
+     * native engine. The daemon is then stopped once and started once, on the
+     * new device, by the SetNativeTun that follows — instead of a relaunch in
+     * userspace mode in between and a second one right after.
+     */
+    private fun stopTunInternal(nativeStartFollows: Boolean = false) {
         Log.i(TAG, "Stopping TUN...")
         isRunning = false
 
@@ -439,13 +450,15 @@ class TunVpnService : VpnService() {
         // by another thread (the Go daemon opens sockets constantly), so the
         // tunnel would read and write an unrelated socket.
         if (currentEngine == ENGINE_NATIVE) {
-            // tailscaled holds its own copy of the device; the bridge closes its
-            // copy and relaunches the daemon in userspace mode unless the whole
-            // connection is going down.
+            // tailscaled holds its own copy of the device. For a restart into
+            // the native engine the bridge only stops the daemon; otherwise it
+            // relaunches it in userspace mode unless the whole connection is
+            // going down.
             try {
-                Appctr.clearNativeTun(ProxyState.isUserLetRunning(this))
+                if (nativeStartFollows) Appctr.releaseNativeTunForSwap()
+                else Appctr.clearNativeTun(ProxyState.isUserLetRunning(this))
             } catch (e: Exception) {
-                Log.w(TAG, "Native TUN: clearNativeTun failed: $e")
+                Log.w(TAG, "Native TUN: releasing the device failed: $e")
             }
         } else if (nativeLoaded) {
             try {
@@ -465,7 +478,7 @@ class TunVpnService : VpnService() {
         }
         tunFd = null
 
-        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopForeground(STOP_FOREGROUND_DETACH)
         Log.i(TAG, "TUN service stop sequence completed")
     }
 

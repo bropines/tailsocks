@@ -368,6 +368,20 @@ func SetPrefs(prefsJson string) string {
 	if err := PatchPrefsJSON(prefsJson); err != nil {
 		return "Error: " + err.Error()
 	}
+	// A relaunch of the daemon (native TUN, crash recovery) re-applies
+	// lastOptions through syncSettings; a pref changed only here would be
+	// reverted by it. Mirror the fields syncSettings owns.
+	var patch struct {
+		ExitNodeID    *string `json:"ExitNodeID"`
+		ExitNodeIDSet bool    `json:"ExitNodeIDSet"`
+	}
+	if json.Unmarshal([]byte(prefsJson), &patch) == nil && patch.ExitNodeID != nil && patch.ExitNodeIDSet {
+		stateMu.Lock()
+		if lastOptions != nil {
+			lastOptions.ExitNodeID = *patch.ExitNodeID
+		}
+		stateMu.Unlock()
+	}
 	return "OK"
 }
 
