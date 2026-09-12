@@ -277,6 +277,18 @@ fun SettingsScreen(
     var httpProxy by remember { mutableStateOf(GlobalSettings.getString(context, "httpproxy", "")) }
     var dnsProxy by remember { mutableStateOf(GlobalSettings.getString(context, "dns_proxy", "127.0.0.1:1053")) }
     var lanAccessEnabled by remember { mutableStateOf(GlobalSettings.isLanAccessEnabled(context)) }
+    // Where the listeners can be reached from outside this device: the Wi-Fi
+    // address (none on mobile data) and this node's tailnet address — in
+    // userspace mode the daemon's netstack hands connections to that address to
+    // local listeners (measured 2026-09-08 from another tailnet node).
+    val lanIp = remember { NetAddr.lanIpv4() }
+    var tailnetIp by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        tailnetIp = withContext(Dispatchers.IO) {
+            runCatching { AppJson.decodeFromString<StatusResponse>(Appctr.getStatusFromAPI()) }
+                .getOrNull()?.self?.tailscaleIPs?.firstOrNull { ':' !in it }
+        }
+    }
     var dnsFallbacks by remember { mutableStateOf(GlobalSettings.getString(context, "dns_fallbacks", "8.8.8.8:53,1.1.1.1:53")) }
     var dohUrl by remember { mutableStateOf(GlobalSettings.getString(context, "doh_url", "https://1.1.1.1/dns-query")) }
     var loginServer by remember { mutableStateOf(profilePrefs.getString("login_server", "") ?: "") }
@@ -646,19 +658,22 @@ fun SettingsScreen(
         }
     }
 
-    fun copySagerNetLink() {
+    /**
+     * host: the address to publish in the link. Null means this device — the
+     * stored bind host, which with LAN access on has been widened to the
+     * wildcard and is published as the loopback alias the user typed. A link is
+     * meant to be used from somewhere else, so the caller picks the Wi-Fi or
+     * tailnet address when the listeners are open to them.
+     */
+    fun copySagerNetLink(host: String? = null) {
         try {
             val encodedUser = URLEncoder.encode(socks5User, "UTF-8").replace("+", "%20")
             val encodedPass = URLEncoder.encode(socks5Pass, "UTF-8").replace("+", "%20")
             val label = URLEncoder.encode("TAILSCALE (${activeAccount.name})", "UTF-8")
-            // A link is meant to be used from somewhere else, so a wildcard bind
-            // has to be published as the address that is actually reachable.
-            val bind = GlobalSettings.getSocks5BindAddr(context)
-            val endpoint = if (NetAddr.isWildcard(bind)) {
-                "${NetAddr.lanIpv4() ?: NetAddr.LOOPBACK_V4}:${NetAddr.port(bind) ?: ""}"
-            } else {
-                bind
-            }
+            val stored = GlobalSettings.getString(context, "socks5", GlobalSettings.DEFAULT_SOCKS5)
+            val port = NetAddr.port(stored) ?: ""
+            val localHost = NetAddr.host(stored).ifEmpty { NetAddr.LOOPBACK_V4 }.let { if (NetAddr.isWildcard(stored)) NetAddr.LOOPBACK_V4 else it }
+            val endpoint = "${host ?: localHost}:$port"
             val link = if (encodedUser.isNotEmpty()) {
                 "socks5://$encodedUser:$encodedPass@$endpoint#$label"
             } else {
@@ -1588,10 +1603,32 @@ fun SettingsScreen(
             SettingsEditItem(stringResource(R.string.settings_socks5_username_title), socks5User, Icons.Default.Person, onAction = { generateRandomString(8) }, actionIcon = Icons.Default.Casino) { socks5User = it; saveGlobalPref("socks5_user", it) }
             SettingsEditItem(stringResource(R.string.settings_socks5_password_title), socks5Pass, Icons.Default.Password, onAction = { generateRandomString(12) }, actionIcon = Icons.Default.Casino) { socks5Pass = it; saveGlobalPref("socks5_pass", it) }
             Spacer(Modifier.height(12.dp))
-            OutlinedButton(onClick = { copySagerNetLink() }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
-                Icon(Icons.Default.Share, null)
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.settings_sagernet_copy))
+            if (!lanAccessEnabled) {
+                OutlinedButton(onClick = { copySagerNetLink() }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+                    Icon(Icons.Default.Share, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.settings_sagernet_copy))
+                }
+            } else {
+                // Open to the network: the link is for another device, so it
+                // carries the address that device can reach. Unknown ones are dim.
+                Text(
+                    stringResource(R.string.settings_sagernet_copy_for),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 4.dp, bottom = 6.dp)
+                )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { copySagerNetLink() }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)) {
+                        Text(stringResource(R.string.settings_sagernet_copy_local), maxLines = 1, style = MaterialTheme.typography.labelLarge)
+                    }
+                    OutlinedButton(onClick = { lanIp?.let { copySagerNetLink(it) } }, enabled = lanIp != null, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)) {
+                        Text(stringResource(R.string.settings_lan_endpoint_lan), maxLines = 1, style = MaterialTheme.typography.labelLarge)
+                    }
+                    OutlinedButton(onClick = { tailnetIp?.let { copySagerNetLink(it) } }, enabled = tailnetIp != null, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)) {
+                        Text(stringResource(R.string.settings_lan_endpoint_tailnet), maxLines = 1, style = MaterialTheme.typography.labelLarge)
+                    }
+                }
             }
         }
 
@@ -1641,17 +1678,6 @@ fun SettingsScreen(
         // Last in the section on purpose: it is the one switch here that can
         // expose the listeners above to anyone on the same Wi-Fi.
         SettingsCard(title = stringResource(R.string.settings_sect_lan)) {
-            val lanIp = remember { NetAddr.lanIpv4() }
-            // The proxies also answer on this node's Tailscale IP: in userspace
-            // mode the daemon's netstack hands connections to that address to
-            // local listeners (measured 2026-09-08 from another tailnet node).
-            var tailnetIp by remember { mutableStateOf<String?>(null) }
-            LaunchedEffect(Unit) {
-                tailnetIp = withContext(Dispatchers.IO) {
-                    runCatching { AppJson.decodeFromString<StatusResponse>(Appctr.getStatusFromAPI()) }
-                        .getOrNull()?.self?.tailscaleIPs?.firstOrNull { ':' !in it }
-                }
-            }
             val socksHasAuth = socks5User.isNotEmpty() || socks5Pass.isNotEmpty()
 
             SettingsSwitchItem(

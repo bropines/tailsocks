@@ -920,6 +920,8 @@
     <string name="settings_socks5_username_title">Имя пользователя SOCKS5</string>
     <string name="settings_socks5_password_title">Пароль SOCKS5</string>
     <string name="settings_sagernet_copy">Копировать ссылку SagerNet</string>
+    <string name="settings_sagernet_copy_for">Ссылка SagerNet для клиента на…</string>
+    <string name="settings_sagernet_copy_local">Это устройство</string>
     <string name="settings_sect_http">HTTP-прокси (внутренний)</string>
     <string name="settings_http_enable_title">Включить HTTP-прокси</string>
     <string name="settings_http_enable_desc">Локальный HTTP прокси-сервер для программ без поддержки SOCKS5</string>
