@@ -6,7 +6,9 @@ the default): `TunVpnService` establishes the VPN itself (node addresses,
 tailnet ranges, `0.0.0.0/0` behind an exit node, MagicDNS, MTU 1280), hands a
 dup of the fd to the bridge, and the bridge relaunches tailscaled with
 `--tun=android-vpn` and the fd inherited as fd 3 (patches 18, 19; the tryEngine
-edits ride in 08). Verified on the POCO: MagicDNS, split DNS, exit node, peers.
+edits ride in 08, netstack gates in 19). Verified on the POCO: MagicDNS, split
+DNS, exit node (switching between exit nodes keeps the device), peers, LAN
+exclusions, a single daemon launch on connect from cached addresses.
 It takes the short road this document argues against in places — a daemon
 relaunch instead of an fd swap, a no-op router instead of `CallbackRouter`, no
 `SCM_RIGHTS` — so steps 3-5 below remain the way to a default engine. The rest

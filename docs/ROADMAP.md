@@ -46,9 +46,12 @@ State as of 2026-09-07, after 4.1.1.
       domain.
       **2026-09-12: a first cut ships as the opt-in "Native engine" in TUN settings** (patches
       18/19, daemon relaunch on the fd, no-op router, netstack keeps only its own flows). Works
-      on the POCO: MagicDNS, split DNS, exit node, peers. Left for the full design: fd swap
-      without a relaunch (exit-node and engine changes restart the daemon), accepted subnet
-      routes without an exit node, LAN CIDR exclusions, always-on/"block without VPN" tests.
+      on the POCO: MagicDNS, split DNS, exit node and switching between exit nodes without a
+      restart, LAN exclusions, one notification card, a single daemon launch on connect (the VPN
+      comes up first from cached addresses). Left for the full design: fd swap without a
+      relaunch (turning the exit node on or off still restarts the daemon, 3–5 s), accepted
+      subnet routes without an exit node, always-on/"block without VPN", Wi‑Fi ↔ LTE and doze
+      behaviour, Android 7/8 (verified on 16 only); hev stays the default.
 - [ ] **tsnet — an idea for 5.0.** The daemon moved inside the app process. Incompatible with
       Root Mode, where it must be a separate process under `su`.
 - [ ] **The separate CLI binary.** The author's decision, deferred. The cost is measured: about
