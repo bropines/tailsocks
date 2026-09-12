@@ -34,7 +34,9 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -1192,10 +1194,12 @@ fun SettingsScreen(
             }
         }
 
+        @OptIn(ExperimentalFoundationApi::class)
         @Composable
         fun ModeOption(index: Int, icon: ImageVector, title: String, desc: String, danger: Boolean = false) {
             val selected = index == selectedMode
             val accent = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+            val help = remember(desc) { mutableStateOf(false) }
             Card(
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
@@ -1206,7 +1210,7 @@ fun SettingsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 8.dp)
-                    .clickable { selectMode(index) }
+                    .combinedClickable(onClick = { selectMode(index) }, onLongClick = { help.value = !help.value })
             ) {
                 Row(
                     modifier = Modifier
@@ -1227,11 +1231,7 @@ fun SettingsScreen(
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
                         )
-                        Text(
-                            text = desc,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        HelpText(desc, expanded = help)
                     }
                     RadioButton(
                         selected = selected,
@@ -1352,9 +1352,8 @@ fun SettingsScreen(
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(Modifier.width(10.dp))
-                Text(
-                    text = stringResource(R.string.settings_root_banner_warning),
-                    style = MaterialTheme.typography.bodySmall,
+                HelpText(
+                    stringResource(R.string.settings_root_banner_warning),
                     color = MaterialTheme.colorScheme.onErrorContainer,
                     fontWeight = FontWeight.Bold
                 )
@@ -1558,11 +1557,9 @@ fun SettingsScreen(
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = if (rootRoutingShared) stringResource(R.string.settings_root_shared_banner)
-                                   else stringResource(R.string.settings_root_yielded_banner),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        HelpText(
+                            if (rootRoutingShared) stringResource(R.string.settings_root_shared_banner)
+                            else stringResource(R.string.settings_root_yielded_banner)
                         )
                     }
                 }
@@ -1629,9 +1626,8 @@ fun SettingsScreen(
                     httpProxy = it
                     saveGlobalPref("httpproxy", it) 
                 }
-                Text(
-                    text = stringResource(R.string.settings_http_desc),
-                    style = MaterialTheme.typography.bodySmall,
+                HelpText(
+                    stringResource(R.string.settings_http_desc),
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 8.dp)
                 )
@@ -1807,9 +1803,8 @@ fun SettingsScreen(
         Spacer(Modifier.height(12.dp))
 
         SettingsCard(title = stringResource(R.string.settings_tab_byedpi)) {
-            Text(
-                text = stringResource(R.string.settings_byedpi_desc),
-                style = MaterialTheme.typography.bodySmall,
+            HelpText(
+                stringResource(R.string.settings_byedpi_desc),
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                 modifier = Modifier.padding(bottom = 12.dp)
             )

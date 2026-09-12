@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -30,7 +31,11 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -339,50 +344,69 @@ fun SettingsClickableItem(
     enabled: Boolean = true,
     onClick: () -> Unit
 ) {
-    var showHelp by remember { mutableStateOf(false) }
+    val help = remember(subtitle) { mutableStateOf(false) }
     val haptics = LocalHapticFeedback.current
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (enabled) 0.3f else 0.1f),
         modifier = Modifier.padding(vertical = 4.dp).clip(RoundedCornerShape(12.dp)).combinedClickable(
             onClick = { if (enabled) onClick() },
-            onLongClick = { haptics.performHapticFeedback(HapticFeedbackType.LongPress); showHelp = true }
+            onLongClick = { haptics.performHapticFeedback(HapticFeedbackType.LongPress); help.value = !help.value }
         )
     ) {
         ListItem(
             headlineContent = { Text(title, color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline) },
-            supportingContent = { SettingsSubtitle(subtitle, enabled) },
+            supportingContent = { HelpText(subtitle, color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.outline, expanded = help) },
             leadingContent = { Icon(icon, null, tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline) },
             trailingContent = { Icon(Icons.Default.ChevronRight, null, tint = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.outline) },
             colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
         )
     }
-    if (showHelp) SettingsHelpDialog(title, subtitle) { showHelp = false }
 }
 
 /**
- * A row's explanation, two lines at most; rows used to carry whole paragraphs.
- * When the text is cut, an ⓘ marks that a long press shows the rest.
+ * Explanatory text that starts folded: [lines] lines at most, an ⓘ at the end
+ * when there is more. Tapping the ⓘ unfolds it in place; a parent may drive
+ * [expanded] itself, for instance from a long press on its row. Screens used to
+ * carry whole paragraphs under every control; this keeps the first sentence in
+ * view and the rest one tap away.
  */
 @Composable
-private fun SettingsSubtitle(text: String, enabled: Boolean) {
+fun HelpText(
+    text: String,
+    modifier: Modifier = Modifier,
+    lines: Int = 2,
+    style: TextStyle = MaterialTheme.typography.bodySmall,
+    color: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    fontWeight: FontWeight? = null,
+    textAlign: TextAlign? = null,
+    lineHeight: TextUnit = TextUnit.Unspecified,
+    expanded: MutableState<Boolean> = remember(text) { mutableStateOf(false) },
+) {
     var cut by remember(text) { mutableStateOf(false) }
-    val color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.outline
-    Row(verticalAlignment = Alignment.Bottom) {
+    val open = expanded.value
+    Row(modifier = modifier.animateContentSize(), verticalAlignment = Alignment.Bottom) {
         Text(
             text,
-            style = MaterialTheme.typography.bodySmall,
+            style = style,
             color = color,
-            maxLines = 2,
+            fontWeight = fontWeight,
+            textAlign = textAlign,
+            lineHeight = lineHeight,
+            maxLines = if (open) Int.MAX_VALUE else lines,
             overflow = TextOverflow.Ellipsis,
-            onTextLayout = { cut = it.hasVisualOverflow },
-            modifier = Modifier.weight(1f, fill = false)
+            onTextLayout = { if (!open) cut = it.hasVisualOverflow },
+            modifier = Modifier.weight(1f)
         )
-        if (cut) {
+        if (cut || open) {
             Icon(
-                Icons.Default.Info, contentDescription = null,
+                if (open) Icons.Default.ExpandLess else Icons.Default.Info,
+                contentDescription = null,
                 tint = color.copy(alpha = 0.7f),
-                modifier = Modifier.padding(start = 4.dp, bottom = 1.dp).size(13.dp)
+                modifier = Modifier
+                    .padding(start = 4.dp, bottom = 1.dp)
+                    .size(16.dp)
+                    .clickable { expanded.value = !open }
             )
         }
     }
@@ -410,20 +434,19 @@ fun SettingsSwitchItem(
     enabled: Boolean = true,
     onCheckedChange: (Boolean) -> Unit
 ) {
-    var showHelp by remember { mutableStateOf(false) }
+    val help = remember(subtitle) { mutableStateOf(false) }
     val haptics = LocalHapticFeedback.current
-    if (showHelp) SettingsHelpDialog(title, subtitle) { showHelp = false }
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (enabled) 0.3f else 0.1f),
         modifier = Modifier.padding(vertical = 4.dp).clip(RoundedCornerShape(12.dp)).combinedClickable(
             onClick = { if (enabled) onCheckedChange(!checked) },
-            onLongClick = { haptics.performHapticFeedback(HapticFeedbackType.LongPress); showHelp = true }
+            onLongClick = { haptics.performHapticFeedback(HapticFeedbackType.LongPress); help.value = !help.value }
         )
     ) {
         ListItem(
             headlineContent = { Text(title, color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline) },
-            supportingContent = { SettingsSubtitle(subtitle, enabled) },
+            supportingContent = { HelpText(subtitle, color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.outline, expanded = help) },
             leadingContent = { Icon(icon, null, tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline) },
             trailingContent = { Switch(checked = checked, onCheckedChange = if (enabled) onCheckedChange else null, enabled = enabled) },
             colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)

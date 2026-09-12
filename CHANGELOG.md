@@ -6,7 +6,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Changed
 
-- Settings: a row's explanation is two lines at most; long-press the row for the full text (an ⓘ marks rows with more).
+- Explanations fold everywhere — settings rows, tunnel-mode cards, Root banners, field hints, first start: two lines at most, an ⓘ when there is more; tap it or long-press the row to unfold in place.
 
 ## [4.2.0] - 2026-09-12
 

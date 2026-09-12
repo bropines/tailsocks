@@ -227,10 +227,10 @@ fun SlideContainer(
         textAlign = TextAlign.Center
     )
     Spacer(modifier = Modifier.height(16.dp))
-    Text(
-        text = description,
+    HelpText(
+        description,
+        lines = 3,
         style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center,
         lineHeight = 22.sp,
         modifier = Modifier.padding(horizontal = 8.dp)
@@ -405,7 +405,7 @@ fun SlideHowItWorks() {
                             Text(stringResource(R.string.settings_root_sect_title), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
                         }
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text(stringResource(R.string.settings_root_enable_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        HelpText(stringResource(R.string.settings_root_enable_desc))
                     }
                     Switch(
                         checked = isRootMode,
@@ -802,11 +802,7 @@ fun SlideLogin(profilePrefs: android.content.SharedPreferences) {
                 )
                 Column(modifier = Modifier.weight(1f)) {
                     Text(stringResource(R.string.settings_honest_hostinfo_title), style = MaterialTheme.typography.bodyMedium)
-                    Text(
-                        stringResource(R.string.honest_hostinfo_checkbox_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    HelpText(stringResource(R.string.honest_hostinfo_checkbox_desc))
                 }
             }
 
@@ -838,9 +834,8 @@ fun SlideLogin(profilePrefs: android.content.SharedPreferences) {
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = stringResource(R.string.first_start_key_oauth_hint_desc),
-                            style = MaterialTheme.typography.bodySmall,
+                        HelpText(
+                            stringResource(R.string.first_start_key_oauth_hint_desc),
                             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                         )
                     }
