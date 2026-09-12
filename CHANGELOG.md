@@ -14,6 +14,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 ### Changed
 
 - Logs: every DNS query at debug level — name, type, client, the address it is answered from, time taken.
+- The DNS rescue log line says whether the fallback resolver was reached through the tunnel (exit node) or directly.
 - One ongoing notification instead of two: the TUN service shares the main card, whose text reads "Active · TUN" while the tunnel is up.
 
 ### Fixed

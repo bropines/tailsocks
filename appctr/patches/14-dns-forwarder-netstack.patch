@@ -1,5 +1,5 @@
 --- orig/net/dns/resolver/forwarder.go	2026-07-31 19:22:18.000000000 +0300
-+++ tailscale_src/net/dns/resolver/forwarder.go	2026-09-06 23:54:16.315443950 +0300
++++ tailscale_src/net/dns/resolver/forwarder.go	2026-09-12 15:51:27.437158648 +0300
 @@ -37,12 +37,14 @@
  	"tailscale.com/net/netmon"
  	"tailscale.com/net/netx"
@@ -157,7 +157,7 @@
  }
  
  // GetUpstreamResolvers returns the resolvers that would be used to resolve
-@@ -1152,6 +1246,238 @@
+@@ -1152,6 +1246,254 @@
  	// ...
  }
  
@@ -360,7 +360,7 @@
 +				continue
 +			}
 +			metricDNSFwdRescueSuccess.Add(1)
-+			f.logRescue(domain, failed, r.addr)
++			f.logRescue(domain, failed, r.addr, f.rescuePath(r.addr))
 +			return r.res
 +		case <-ctx.Done():
 +			f.logf("[v1] dns rescue for %q: %v", domain, ctx.Err())
@@ -374,7 +374,23 @@
 +// logRescue logs a successful rescue, at most once per dnsRescueLogPeriod, so
 +// the Logs screen shows why DNS suddenly started working through a different
 +// path without a line per query.
-+func (f *forwarder) logRescue(domain dnsname.FQDN, failed []resolverAndDelay, answered string) {
++// rescuePath names how the rescue reached the base resolver at addr. With an
++// exit node selected, PeerForIP resolves any internet address to that peer,
++// so the query travels the tunnel and exits there — a DNS leak test then sees
++// the base resolver, not the device's own network. Without an exit node the
++// OS socket is used and the query leaves directly, as every other query would.
++func (f *forwarder) rescuePath(addr string) string {
++	ipp, err := netip.ParseAddrPort(addr)
++	if err != nil {
++		return "directly"
++	}
++	if f.viaNetstack(ipp.Addr()) {
++		return "through the tunnel"
++	}
++	return "directly"
++}
++
++func (f *forwarder) logRescue(domain dnsname.FQDN, failed []resolverAndDelay, answered, path string) {
 +	now := time.Now().UnixNano()
 +	last := f.rescueLogLast.Load()
 +	if now-last < int64(dnsRescueLogPeriod) || !f.rescueLogLast.CompareAndSwap(last, now) {
@@ -384,8 +400,8 @@
 +	for _, rr := range failed {
 +		addrs = append(addrs, rr.name.Addr)
 +	}
-+	f.logf("dns rescue: %q failed via %s, answered by %s (set TS_DNS_RESCUE=0 to disable)",
-+		domain, strings.Join(addrs, ","), answered)
++	f.logf("dns rescue: %q failed via %s, answered by %s %s (set TS_DNS_RESCUE=0 to disable)",
++		domain, strings.Join(addrs, ","), answered, path)
 +}
 +
 +var (
@@ -396,7 +412,7 @@
  // forwardWithDestChan forwards the query to all upstream nameservers
  // and waits for the first response.
  //
-@@ -1196,8 +1522,15 @@
+@@ -1196,8 +1538,15 @@
  
  	clampEDNSSize(query.bs, maxResponseBytes)
  
@@ -413,7 +429,7 @@
  		if len(resolvers) == 0 {
  			// No upstream resolver for this name isn't a forwarder failure:
  			// it's split DNS / a name we weren't asked to handle. Count it
-@@ -1271,6 +1604,12 @@
+@@ -1271,6 +1620,12 @@
  	for {
  		select {
  		case v := <-resc:
@@ -426,7 +442,7 @@
  			select {
  			case <-ctx.Done():
  				metricDNSFwdErrorContext.Add(1)
-@@ -1321,6 +1660,18 @@
+@@ -1321,6 +1676,18 @@
  					}
  					res = packet{rcodeErr.res, query.family, query.addr}
  				}
