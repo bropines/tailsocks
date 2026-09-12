@@ -1,11 +1,24 @@
 # Native TUN — the design (tailscaled owns the VpnService fd)
 
-**Status: not implemented.** Nothing described here is in the app. TUN mode
-still runs on hev-socks5-tunnel: it owns the VpnService tunnel and pushes every
-packet into the daemon's SOCKS5 port. This document is the design that replaces
-that — first aimed at 4.0, then 4.1, and shipped in neither; the target version is unset until the work is scheduled. It records what was decided, why the alternatives were
-rejected, and in what order the work can land while keeping the app shippable
-after every step.
+**Status (2026-09-12): a first cut exists as an opt-in fourth tunnel option.**
+Settings → TUN → "Native engine (experimental)" (`tun_engine=native`, hev stays
+the default): `TunVpnService` establishes the VPN itself (node addresses,
+tailnet ranges, `0.0.0.0/0` behind an exit node, MagicDNS, MTU 1280), hands a
+dup of the fd to the bridge, and the bridge relaunches tailscaled with
+`--tun=android-vpn` and the fd inherited as fd 3 (patches 18, 19; the tryEngine
+edits ride in 08). Verified on the POCO: MagicDNS, split DNS, exit node, peers.
+It takes the short road this document argues against in places — a daemon
+relaunch instead of an fd swap, a no-op router instead of `CallbackRouter`, no
+`SCM_RIGHTS` — so steps 3-5 below remain the way to a default engine. The rest
+of this document is the full design as decided; where the shipped cut
+differs, the cut is the interim.
+
+Before that cut, TUN mode ran only on hev-socks5-tunnel: it owns the VpnService
+tunnel and pushes every packet into the daemon's SOCKS5 port. This design
+was first aimed at 4.0, then 4.1, and shipped in neither; the target version is
+unset until the remaining work is scheduled. It records what was decided, why
+the alternatives were rejected, and in what order the work can land while
+keeping the app shippable after every step.
 
 Two constraints hold throughout, and neither is negotiable: **Proxy mode and
 Root mode stay byte-for-byte unchanged** — engine behaviour is keyed on the
