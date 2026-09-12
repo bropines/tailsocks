@@ -114,6 +114,12 @@ clients).
 
 - `TUNGETIFF` / `SIOCGIFMTU` on the VpnService fd from the **child** process
   (same UID/SELinux domain, different process) on Android 7 and 8.
+  **Verified 2026-09-12 on the POCO (Android 16 / HyperOS)** with the probe in
+  patch 17 (`TS_TUN_FD_PROBE`, `appctr/tunprobe.go`): the fd reached the child
+  through `exec.Cmd.ExtraFiles`; `fstat` → char device 10:200; `TUNGETIFF` →
+  `tun0`, flags `0x1001` (IFF_TUN | IFF_NO_PI, no VNET_HDR, no multi-queue);
+  wireguard-go `CreateUnmonitoredTUNFromFD` + `MTU()` → 1500, batch 1; the fd
+  arrives already `O_NONBLOCK`. Whole probe ~40 ms. Android 7/8 still untested.
 - SCM_RIGHTS between two processes of one `untrusted_app` UID — check logcat
   for `avc:` denials.
 - One `100.64.0.0/10` route, not a /32 per peer

@@ -36,9 +36,12 @@ State as of 2026-09-07, after 4.1.1.
       the last one optional polish), each leaving the app shippable. Target: unscheduled, to be
       re-set before work starts — it slipped past 4.0.0 and 4.1.0, so every "4.1" in the plan is
       stale. The main risk is gone: SELinux policy allows the app `TUNGETIFF` on the tunnel fd
-      (`allowxperm untrusted_app tun_device chr_file ioctl { 0x54D2 }`, read off the Redmi).
-      Still unverified on a device: passing the fd to the child process over `SCM_RIGHTS`, the
-      behaviour when the owner dies, and the latency of a swap. Verifying them needs a debug
+      (`allowxperm untrusted_app tun_device chr_file ioctl { 0x54D2 }`, read off the Redmi), and
+      on 2026-09-12 a real child tailscaled on the POCO did `TUNGETIFF` and `SIOCGIFMTU` on an
+      inherited VpnService fd (patch 17 probe: `tun0`, flags `0x1001`, MTU 1500). Inheritance via
+      `ExtraFiles` is enough for a fixed fd; `SCM_RIGHTS` is only needed for a mid-run swap.
+      Still unverified on a device: `SCM_RIGHTS` itself, the behaviour when the owner dies, and
+      the latency of a swap. Verifying them needs a debug
       helper inside the APK — checking through `su` proves nothing, it is a different SELinux
       domain.
 - [ ] **tsnet — an idea for 5.0.** The daemon moved inside the app process. Incompatible with
