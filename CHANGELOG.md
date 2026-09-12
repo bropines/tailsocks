@@ -2,33 +2,30 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
-## [Unreleased]
+## [4.2.0] - 2026-09-12
 
 ### Added
 
-- Serve: a rule can be paused and resumed; paused rules leave the daemon but stay in the list, greyed, per profile.
-- DNS proxy: answers are cached for their TTL (floor 10 s, cap 1 h, negative 30 s), flushed with the other DNS caches and when split-DNS routes change.
-- TUN: a development probe hands a duplicate of the VPN fd to a child tailscaled, which reports the interface name, flags and MTU (native TUN groundwork; patch 17).
-- TUN: an experimental native engine — tailscaled owns the VpnService device (`--tun=android-vpn`, patch 18), the Builder carries addresses, routes and MagicDNS; hev stays the default.
+- TUN: an experimental native engine — tailscaled owns the VpnService device instead of hev-socks5-tunnel, so MagicDNS, split DNS and the exit node come straight from the daemon (MTU 1280). Opt-in under Settings → TUN; hev stays the default.
+- TUN: a start-up probe reports what a child tailscaled can do with the VPN fd (interface name, flags, MTU) — the groundwork the native engine rests on.
+- Serve: rules can be paused and resumed; a paused rule leaves the daemon but stays in the list, greyed, per profile.
+- DNS proxy: answers are cached for their TTL (10 s floor, 1 h cap, 30 s for negative answers) and flushed with the other DNS caches or when split-DNS routes change, so repeated lookups no longer cross the SOCKS tunnel.
 
 ### Changed
 
-- Logs: every DNS query at debug level — name, type, client, the address it is answered from, time taken.
-- The DNS rescue log line says whether the fallback resolver was reached through the tunnel (exit node) or directly.
-- Serve: a rule card has an on/off switch and a row of actions (delete, publish, copy link, edit) instead of an overflow menu.
-- Logs: the clear button slides its scopes out beside it instead of opening a menu.
-- Serve: the node card folds to its name and three capability glyphs; tap to expand, the state is remembered.
-- Excluded apps: packages on the list but no longer installed are shown greyed and can be removed; in the "bypassed" view an app switched off stays visible until the screen is left, so a slip can be undone.
-- One ongoing notification instead of two: the TUN service shares the main card, whose text reads "Active · TUN" while the tunnel is up.
+- Serve: a rule card has an on/off switch and a row of actions (delete, publish, copy link, edit) instead of an overflow menu; the node card folds to its name and three capability glyphs, tap to expand.
+- Logs: every DNS query at debug level — name, type, client, the address it is answered from, cached or not, time taken; the clear button slides its three scopes out beside it instead of opening a menu.
+- Excluded apps: packages no longer installed are shown greyed and can be removed; in the "bypassed" view an app switched off stays visible until the screen is left, so a slip can be undone.
+- One ongoing notification instead of two: the TUN service shares the main card, which reads "Active · TUN" while the tunnel is up.
+- The DNS rescue log says whether the fallback resolver was reached through the tunnel (exit node) or directly.
 
 ### Fixed
 
-- TUN: changing the exit node no longer reverts on the native engine — the daemon relaunch takes the exit node in effect, and a restart into the native engine stops and starts the daemon once, reusing the node's addresses.
-- TUN: with the native engine and addresses known from the last run, the VPN comes up before the daemon, so connecting launches it once instead of a userspace start followed by a relaunch.
-- TUN: switching from one exit node to another keeps the tunnel up in both engines; the device is rebuilt only when the default route comes or goes.
-- TUN: changing the excluded apps, excluded IP ranges, the IPv6 route or the TUN address rebuilds the device at once; it used to wait for the next TUN restart.
-- TUN: the "Excluded IP ranges" setting is applied — both engines carve those subnets out of the tunnel behind an exit node (Android 13+); it was read and ignored.
-- The DNS proxy replies from the address a query was sent to; with LAN access on, a resolver pointed at a loopback alias got its answers from 127.0.0.1 and dropped them (Chrome's "DNS probe finished: bad config").
+- The DNS proxy replies from the address a query was sent to. With LAN access on it listened on 0.0.0.0 and answered a loopback alias from 127.0.0.1, which resolvers with a connected socket (AdGuard) dropped — Chrome's "DNS probe finished: bad config".
+- TUN: the "Excluded IP ranges" setting is applied behind an exit node (Android 13+); it was read and ignored, so LAN traffic went through the exit node.
+- TUN: changes to excluded apps, excluded ranges, the IPv6 route or the TUN address rebuild the device at once instead of waiting for the next TUN restart.
+- TUN: switching from one exit node to another keeps the tunnel up in both engines; the device is rebuilt only when the default route comes or goes. On the native engine an exit-node change no longer reverts to the previous node.
+- TUN: with the native engine and the node's addresses known from the last run, the VPN comes up before the daemon, so connecting launches it once instead of a userspace start followed by a relaunch.
 
 ## [4.1.2] - 2026-09-08
 
