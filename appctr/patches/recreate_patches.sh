@@ -129,6 +129,13 @@ diff -N -u /dev/null tailscale_src/cmd/tailscaled/android_tunfd_probe.go > patch
 # tailscaled.go travel in 08 (whole-file diff).
 diff -N -u /dev/null tailscale_src/cmd/tailscaled/android_vpn.go > patches/18-android-vpn-tun.patch || true
 
+# 19-android-vpn-netstack.patch (cmd/tailscaled/netstack.go)
+# Native TUN: in android-vpn mode the host stack owns inbound traffic to the
+# node's address (ProcessLocalIPs stays false) while gVisor claims replies to
+# its own dials (CheckLocalTransportEndpoints), and the daemon dials peers
+# through netstack because its UID is excluded from the VPN.
+diff -u orig/cmd/tailscaled/netstack.go tailscale_src/cmd/tailscaled/netstack.go > patches/19-android-vpn-netstack.patch || true
+
 # Guard: a zero-byte patch means a diff target moved or vanished and `|| true`
 # swallowed it — exactly how 08-netstack-cgnat was silently lost during the
 # v1.102.1 bump. Refuse to finish with any empty patch so it can never ship blank.

@@ -1,5 +1,5 @@
 --- orig/cmd/tailscaled/tailscaled.go	2026-07-31 19:22:18.000000000 +0300
-+++ tailscale_src/cmd/tailscaled/tailscaled.go	2026-09-12 14:17:54.419842664 +0300
++++ tailscale_src/cmd/tailscaled/tailscaled.go	2026-09-12 14:30:31.328380927 +0300
 @@ -48,6 +48,7 @@
  	"tailscale.com/net/dnsfallback"
  	"tailscale.com/net/netmon"
@@ -8,15 +8,6 @@
  	"tailscale.com/net/tsdial"
  	"tailscale.com/net/tstun"
  	"tailscale.com/paths"
-@@ -679,7 +680,7 @@
- 
- 	var ns tsd.NetstackImpl // or nil if not linked in
- 	if newNetstack, ok := hookNewNetstack.GetOk(); ok {
--		ns, err = newNetstack(logf, sys, onlyNetstack)
-+		ns, err = newNetstack(logf, sys, onlyNetstack || androidVPNMode)
- 		if err != nil {
- 			return nil, fmt.Errorf("newNetstack: %w", err)
- 		}
 @@ -714,8 +715,11 @@
  	if err != nil {
  		return nil, fmt.Errorf("ipnlocal.NewLocalBackend: %w", err)
@@ -34,12 +25,11 @@
  	sys.HealthTracker.Get().SetMetricsRegistry(sys.UserMetricsRegistry())
  
  	onlyNetstack = name == "userspace-networking"
--	netstackSubnetRouter := onlyNetstack // but mutated later on some platforms
--	netns.SetEnabled(!onlyNetstack)
 +	// TailSocks: a VpnService-owned device behaves like userspace-networking
 +	// with a real TUN attached; see android_vpn.go.
 +	androidVPNMode = name == androidVPNTunName
-+	netstackSubnetRouter := onlyNetstack || androidVPNMode // but mutated later on some platforms
+ 	netstackSubnetRouter := onlyNetstack // but mutated later on some platforms
+-	netns.SetEnabled(!onlyNetstack)
 +	netns.SetEnabled(!onlyNetstack && !androidVPNMode)
  
  	if buildfeatures.HasBird && args.birdSocketPath != "" {

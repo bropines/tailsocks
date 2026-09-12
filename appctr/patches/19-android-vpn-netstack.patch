@@ -1,0 +1,23 @@
+--- orig/cmd/tailscaled/netstack.go	2026-07-31 19:22:18.000000000 +0300
++++ tailscale_src/cmd/tailscaled/netstack.go	2026-09-12 14:30:31.328491226 +0300
+@@ -40,10 +40,19 @@
+ 	sys.Set(ns)
+ 	ns.ProcessLocalIPs = onlyNetstack
+ 	ns.ProcessSubnets = onlyNetstack || handleSubnetsInNetstack()
++	if androidVPNMode {
++		// TailSocks android-vpn: a real TUN carries the apps' connections, so
++		// inbound traffic to the node's own address belongs to the host stack
++		// — except replies to the flows netstack itself dialed (split DNS,
++		// SOCKS, Taildrive), which gVisor recognises by their endpoints.
++		ns.CheckLocalTransportEndpoints = true
++	}
+ 
+ 	dialer := sys.Dialer.Get() // must be set by caller already
+ 
+-	if onlyNetstack {
++	// TailSocks android-vpn: the daemon's UID is excluded from the VPN, so
++	// its own dials to peers must go through netstack too.
++	if onlyNetstack || androidVPNMode {
+ 		dialer.NetstackDialTCP = func(ctx context.Context, dst netip.AddrPort) (net.Conn, error) {
+ 			// Note: don't just return ns.DialContextTCP or we'll return
+ 			// *gonet.TCPConn(nil) instead of a nil interface which trips up

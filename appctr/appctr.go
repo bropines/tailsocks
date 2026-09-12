@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 	_ "time/tzdata"
 
@@ -552,8 +553,19 @@ func ReUp() {
 }
 
 func Start(opt *StartOptions) {
+	stateMu.Lock()
+	var old *os.Process
+	if cmd != nil {
+		old = cmd.Process
+	}
+	stateMu.Unlock()
 	Stop()
-	time.Sleep(1 * time.Second)
+	// The successor binds the same SOCKS/HTTP ports. A fixed one-second pause
+	// was not always enough for the predecessor to let go of them (a relaunch
+	// mid-login died with "address already in use"), so wait for the process
+	// to be gone — Stop() kills it after two seconds at the latest.
+	waitProcessGone(old, 4*time.Second)
+	time.Sleep(300 * time.Millisecond)
 
 	// Default the SOCKS address before opt is published: lastOptions readers,
 	// GConfig (DNS-over-SOCKS, DoH, Taildrive proxy) and the daemon command
@@ -623,6 +635,23 @@ func Start(opt *StartOptions) {
 	if opt.DnsProxy != "" {
 		RestartDNS()
 	}
+}
+
+// waitProcessGone polls until p no longer exists or timeout passes. Signal 0
+// probes without delivering anything; once the supervisor's Wait has reaped
+// the process it reports "already finished".
+func waitProcessGone(p *os.Process, timeout time.Duration) {
+	if p == nil {
+		return
+	}
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if err := p.Signal(syscall.Signal(0)); err != nil {
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	slog.Warn("Previous daemon still alive after the grace period, launching the successor anyway", "pid", p.Pid)
 }
 
 func AttachExternal(opt *StartOptions) {
