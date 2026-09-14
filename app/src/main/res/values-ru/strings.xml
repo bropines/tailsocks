@@ -1020,6 +1020,10 @@
     <string name="taildrive_err_name_exists">Имя папки уже существует</string>
     <string name="taildrive_err_resolve_path">Не удалось разрешить физический путь к папке. Введите его вручную.</string>
     <string name="taildrive_err_grant_storage">Пожалуйста, предоставьте разрешение на доступ к хранилищу в настройках приложения</string>
+    <string name="taildrive_unavailable_no_fileserver">Недоступно — на узле не запущен файловый сервер (Windows/macOS: откройте приложение Tailscale)</string>
+    <string name="taildrive_unavailable_forbidden">Недоступно — нет доступа к этой папке</string>
+    <string name="taildrive_unavailable_not_found">Недоступно — папки больше нет на узле</string>
+    <string name="taildrive_unavailable_generic">Недоступно — %1$s</string>
     <!-- Peer Details & UI Components -->
     <string name="peer_details_prev">Предыдущий</string>
     <string name="peer_details_next">Следующий</string>

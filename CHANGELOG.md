@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Changed
+
+- Taildrive in the Files app: a share whose node cannot serve it is marked "Unavailable" with the reason under its name, and a folder that fails to list shows the reason instead of an empty list — on Windows and macOS that is the Tailscale app not running.
+
 ## [4.2.3] - 2026-09-12
 
 ### Fixed

@@ -9,6 +9,7 @@ import io.github.bropines.tailscaled.ui.*
 import android.content.Context
 import android.database.Cursor
 import android.database.MatrixCursor
+import android.os.Bundle
 import android.os.CancellationSignal
 import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
@@ -18,7 +19,10 @@ import java.io.File
 import java.io.FileNotFoundException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
 import java.io.InputStream
@@ -50,6 +54,7 @@ class TailsocksFileProvider : DocumentsProvider() {
         DocumentsContract.Document.COLUMN_DOCUMENT_ID,
         DocumentsContract.Document.COLUMN_MIME_TYPE,
         DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+        DocumentsContract.Document.COLUMN_SUMMARY,
         DocumentsContract.Document.COLUMN_LAST_MODIFIED,
         DocumentsContract.Document.COLUMN_FLAGS,
         DocumentsContract.Document.COLUMN_SIZE
@@ -266,6 +271,7 @@ class TailsocksFileProvider : DocumentsProvider() {
                 }
             } catch (e: Exception) {
                 android.util.Log.e("Taildrive", "Error querying drive root children: ${e.message}")
+                result.extras = Bundle().apply { putString(DocumentsContract.EXTRA_ERROR, unavailableReason(context, e)) }
             }
             return result
         }
@@ -279,35 +285,84 @@ class TailsocksFileProvider : DocumentsProvider() {
                 try {
                     val list = client.list(parentPath)
                     val normalizedParent = parentPath.trimEnd('/')
-                    
-                    for (file in list) {
+                    val entries = list.filter { file ->
                         val cleanHref = file.href.trimEnd('/')
-                        if (cleanHref != normalizedParent && cleanHref.startsWith(normalizedParent)) {
-                            val isDir = file.isDirectory
-                            val name = file.getDisplayName()
-                            val childDocId = "drive_path:$accId:$cleanHref"
-                            
-                            var flags = DocumentsContract.Document.FLAG_SUPPORTS_DELETE or DocumentsContract.Document.FLAG_SUPPORTS_WRITE
-                            if (isDir) {
-                                flags = flags or DocumentsContract.Document.FLAG_DIR_SUPPORTS_CREATE
-                            }
-                            
-                            result.newRow().apply {
-                                add(DocumentsContract.Document.COLUMN_DOCUMENT_ID, childDocId)
-                                add(DocumentsContract.Document.COLUMN_DISPLAY_NAME, name)
-                                add(DocumentsContract.Document.COLUMN_SIZE, if (isDir) 0 else file.size)
-                                add(DocumentsContract.Document.COLUMN_MIME_TYPE, if (isDir) DocumentsContract.Document.MIME_TYPE_DIR else getMimeTypeForName(name))
-                                add(DocumentsContract.Document.COLUMN_LAST_MODIFIED, file.lastModified)
-                                add(DocumentsContract.Document.COLUMN_FLAGS, flags)
-                            }
+                        cleanHref != normalizedParent && cleanHref.startsWith(normalizedParent)
+                    }
+                    // A node's share list comes from the node's daemon; the share's contents
+                    // come from its file server, which on Windows and macOS lives in the
+                    // Tailscale app. With that app closed the share still lists and then
+                    // answers 500 to everything inside, so probe each share here and say so.
+                    val summaries = if (isNodeLevel(normalizedParent)) shareSummaries(context, client, entries) else emptyMap()
+
+                    for (file in entries) {
+                        val cleanHref = file.href.trimEnd('/')
+                        val isDir = file.isDirectory
+                        val name = file.getDisplayName()
+                        val childDocId = "drive_path:$accId:$cleanHref"
+
+                        var flags = DocumentsContract.Document.FLAG_SUPPORTS_DELETE or DocumentsContract.Document.FLAG_SUPPORTS_WRITE
+                        if (isDir) {
+                            flags = flags or DocumentsContract.Document.FLAG_DIR_SUPPORTS_CREATE
+                        }
+
+                        result.newRow().apply {
+                            add(DocumentsContract.Document.COLUMN_DOCUMENT_ID, childDocId)
+                            add(DocumentsContract.Document.COLUMN_DISPLAY_NAME, name)
+                            add(DocumentsContract.Document.COLUMN_SUMMARY, summaries[cleanHref])
+                            add(DocumentsContract.Document.COLUMN_SIZE, if (isDir) 0 else file.size)
+                            add(DocumentsContract.Document.COLUMN_MIME_TYPE, if (isDir) DocumentsContract.Document.MIME_TYPE_DIR else getMimeTypeForName(name))
+                            add(DocumentsContract.Document.COLUMN_LAST_MODIFIED, file.lastModified)
+                            add(DocumentsContract.Document.COLUMN_FLAGS, flags)
                         }
                     }
                 } catch (e: Exception) {
                     android.util.Log.e("Taildrive", "Error querying drive_path children: ${e.message}")
+                    val name = parentPath.trimEnd('/').substringAfterLast("/")
+                    result.extras = Bundle().apply {
+                        putString(DocumentsContract.EXTRA_ERROR, "$name: ${unavailableReason(context, e)}")
+                    }
                 }
             }
         }
         return result
+    }
+
+    /** `/<tailnet>/<node>`: the level whose children are the node's shares. */
+    private fun isNodeLevel(path: String): Boolean =
+        path.split('/').count { it.isNotEmpty() } == 2
+
+    /**
+     * One OPTIONS per share, in parallel. Returns a reason for every share that did not
+     * answer 200, keyed by its href without the trailing slash; nothing for the healthy ones.
+     */
+    private fun shareSummaries(context: Context, client: TaildriveClient, shares: List<WebDavFile>): Map<String, String> {
+        val dirs = shares.filter { it.isDirectory }
+        if (dirs.isEmpty()) return emptyMap()
+        return runBlocking {
+            dirs.map { share ->
+                async(Dispatchers.IO) {
+                    val reason = try {
+                        val code = client.probe(share.href)
+                        if (code == 200) null else unavailableReason(context, WebDavHttpException("OPTIONS", code, ""))
+                    } catch (e: Exception) {
+                        unavailableReason(context, e)
+                    }
+                    reason?.let { share.href.trimEnd('/') to it }
+                }
+            }.awaitAll().filterNotNull().toMap()
+        }
+    }
+
+    /** The reason a share or folder could not be listed, in the user's words. */
+    private fun unavailableReason(context: Context, e: Exception): String = when {
+        // 500 is the node's daemon with no file server to hand the request to: on
+        // Windows and macOS the Tailscale app is closed (it serves the files); 502 is a
+        // file server that registered and then went away.
+        e is WebDavHttpException && (e.code == 500 || e.code == 502) -> context.getString(R.string.taildrive_unavailable_no_fileserver)
+        e is WebDavHttpException && e.code == 403 -> context.getString(R.string.taildrive_unavailable_forbidden)
+        e is WebDavHttpException && e.code == 404 -> context.getString(R.string.taildrive_unavailable_not_found)
+        else -> context.getString(R.string.taildrive_unavailable_generic, e.message ?: e.javaClass.simpleName)
     }
 
     private fun getMimeTypeForName(name: String): String {
@@ -635,6 +690,10 @@ data class WebDavFile(
     }
 }
 
+/** A WebDAV request the daemon answered with an error status; [body] is the first line it sent. */
+class WebDavHttpException(method: String, val code: Int, val body: String) :
+    Exception("WebDAV $method failed: HTTP $code" + if (body.isNotEmpty()) " ($body)" else "")
+
 class TaildriveClient(private val context: Context, private val accountId: String) {
     private fun getSocksProxy(): Proxy? {
         val socksAddr = GlobalSettings.getString(context, "socks5", "127.0.0.1:48115")
@@ -716,13 +775,37 @@ class TaildriveClient(private val context: Context, private val accountId: Strin
             conn.readTimeout = 10000
             val code = conn.responseCode
             if (code != 207 && code != 200) {
-                throw Exception("WebDAV PROPFIND failed: HTTP $code")
+                throw WebDavHttpException("PROPFIND", code, errorBodyLine(conn))
             }
             return conn.inputStream.use { parsePropFindXml(it) }
         } finally {
             conn.disconnect()
         }
     }
+
+    /**
+     * OPTIONS on [path]; the status code. Unlike a Depth-0 PROPFIND, which the sharing
+     * node answers from its own share table, OPTIONS is forwarded to the node's file
+     * server, so 200 means the share's contents are actually reachable.
+     */
+    fun probe(path: String): Int {
+        val proxy = getSocksProxy() ?: throw Exception("SOCKS5 proxy is not running")
+        val conn = getUrl(path).openConnection(proxy) as HttpURLConnection
+        try {
+            setRequestMethod(conn, "OPTIONS")
+            conn.connectTimeout = 10000
+            conn.readTimeout = 10000
+            return conn.responseCode
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    /** The first line of an error response, for the log and the reason shown to the user. */
+    private fun errorBodyLine(conn: HttpURLConnection): String = try {
+        conn.errorStream?.bufferedReader()?.use { it.readText() }
+            ?.lineSequence()?.firstOrNull { it.isNotBlank() }?.trim()?.take(200) ?: ""
+    } catch (e: Exception) { "" }
 
     fun delete(path: String) {
         val proxy = getSocksProxy() ?: throw Exception("SOCKS5 proxy is not running")
