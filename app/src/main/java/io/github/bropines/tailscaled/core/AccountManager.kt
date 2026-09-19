@@ -19,6 +19,36 @@ data class TailscaleAccount(
 )
 
 object AccountManager {
+    /**
+     * What can be said about a profile without a daemon to ask: where it logs
+     * in, whether it has ever registered, and the two properties that are
+     * decided before its first start. Read straight from the profile's own
+     * preferences, so it also answers for accounts that are not active.
+     */
+    data class AccountFacts(
+        val loginServer: String,
+        val hasAuthKey: Boolean,
+        val honestOs: Boolean,
+        val registered: Boolean
+    )
+
+    fun facts(context: Context, id: String): AccountFacts {
+        val prefs = context.getSharedPreferences("appctr_$id", Context.MODE_PRIVATE)
+        val server = (prefs.getString("login_server", "") ?: "").trim()
+        return AccountFacts(
+            loginServer = if (server.isEmpty()) DEFAULT_LOGIN_SERVER else hostOf(server),
+            hasAuthKey = !(prefs.getString("authkey", "") ?: "").isBlank(),
+            honestOs = prefs.getBoolean(ProfileHostinfo.KEY, false),
+            registered = ProfileHostinfo.isRegistered(context, id)
+        )
+    }
+
+    /** The coordination server a profile with no login server of its own uses. */
+    private const val DEFAULT_LOGIN_SERVER = "tailscale.com"
+
+    private fun hostOf(url: String): String =
+        url.substringAfter("://").substringBefore('/').trim().ifEmpty { DEFAULT_LOGIN_SERVER }
+
     private const val PREFS_NAME = "account_manager"
     private const val KEY_ACCOUNTS = "accounts"
     private const val KEY_ACTIVE_ID = "active_account_id"

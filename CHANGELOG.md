@@ -4,6 +4,10 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ## [Unreleased]
 
+### Changed
+
+- The account switcher says what each account is: where it logs in, whether it has ever signed in, whether it holds an auth key; the active one shows its node name and address. Renaming and deleting live under an Edit switch instead of a long press, and adding an account is a row in the same list.
+
 ### Added
 
 - Adding an account takes an auth key, optionally: the profile then registers itself on its first start instead of opening the browser.
