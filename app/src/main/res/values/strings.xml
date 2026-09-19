@@ -630,6 +630,9 @@
 
     <!-- ======================== Main Screen ======================== -->
     <string name="main_add_account_title">Add Account</string>
+    <string name="main_add_account_authkey_label">Auth key — optional</string>
+    <string name="main_add_account_authkey_placeholder">tskey-auth-…</string>
+    <string name="main_add_account_authkey_hint">With a key the device registers itself on the first start; leave it empty to sign in through the browser.</string>
     <string name="main_rename_account_title">Rename Account</string>
     <string name="main_update_available_format">🚀 New TailSocks update available: %1$s</string>
     <string name="main_refreshing_config">Refreshing configuration…</string>

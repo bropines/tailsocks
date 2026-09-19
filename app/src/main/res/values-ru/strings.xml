@@ -630,6 +630,9 @@
 
     <!-- ======================== Main Screen ======================== -->
     <string name="main_add_account_title">Добавить аккаунт</string>
+    <string name="main_add_account_authkey_label">Ключ авторизации — необязательно</string>
+    <string name="main_add_account_authkey_placeholder">tskey-auth-…</string>
+    <string name="main_add_account_authkey_hint">С ключом устройство зарегистрируется само при первом запуске; оставьте пустым, чтобы войти через браузер.</string>
     <string name="main_rename_account_title">Переименовать аккаунт</string>
     <string name="main_update_available_format">🚀 Доступно обновление TailSocks: %1$s</string>
     <string name="main_refreshing_config">Обновление конфигурации…</string>

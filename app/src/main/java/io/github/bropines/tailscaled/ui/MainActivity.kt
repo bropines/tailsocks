@@ -727,11 +727,15 @@ fun MainScreen(
 
     if (showAddAccountDialog) {
         var newAccountServer by remember { mutableStateOf("") }
+        var newAccountAuthKey by remember { mutableStateOf("") }
         // Dialog strings are resolved out here, in the parent composition — see wrapContextWithLocale().
         val dlgTitle = stringResource(R.string.main_add_account_title)
         val dlgNameLabel = stringResource(R.string.main_account_name_label)
         val dlgServerLabel = stringResource(R.string.settings_login_server_title)
         val dlgServerPlaceholder = stringResource(R.string.settings_login_server_placeholder)
+        val dlgAuthKeyLabel = stringResource(R.string.main_add_account_authkey_label)
+        val dlgAuthKeyPlaceholder = stringResource(R.string.main_add_account_authkey_placeholder)
+        val dlgAuthKeyHint = stringResource(R.string.main_add_account_authkey_hint)
         val dlgAdd = stringResource(R.string.action_add)
         val dlgCancel = stringResource(R.string.action_cancel)
         val dlgHonestTitle = stringResource(R.string.settings_honest_hostinfo_title)
@@ -753,6 +757,20 @@ fun MainScreen(
                         label = { Text(dlgServerLabel) },
                         placeholder = { Text(dlgServerPlaceholder) },
                         singleLine = true
+                    )
+                    // Optional: with a key the profile registers on its first start,
+                    // without one it goes through the browser like before.
+                    OutlinedTextField(
+                        value = newAccountAuthKey,
+                        onValueChange = { newAccountAuthKey = it },
+                        label = { Text(dlgAuthKeyLabel) },
+                        placeholder = { Text(dlgAuthKeyPlaceholder) },
+                        singleLine = true
+                    )
+                    Text(
+                        dlgAuthKeyHint,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Row(
                         modifier = Modifier
@@ -780,6 +798,11 @@ fun MainScreen(
                         newAccountHonest = false
                         if (newAccountServer.isNotBlank()) {
                             accPrefs.edit().putString("login_server", newAccountServer.trim()).apply()
+                        }
+                        // Written before the first start, like the hostinfo choice: the
+                        // service reads it out of the profile when it builds StartOptions.
+                        if (newAccountAuthKey.isNotBlank()) {
+                            accPrefs.edit().putString("authkey", newAccountAuthKey.trim()).apply()
                         }
                         accounts.value = AccountManager.getAccounts(context)
                         AccountManager.setActiveAccount(context, acc.id)
