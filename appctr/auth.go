@@ -180,17 +180,12 @@ func registerMachineWithAuthKey(ctx context.Context, opt *StartOptions) {
 	}
 
 	if opt.AuthKey != "" {
+		// Both callers send an auth key to Login and only reach this function
+		// without one, so this is defensive. It delegates rather than repeating
+		// the sequence: the order of prefs, Start and the login request is what
+		// makes an auth key register at all, and a second copy of it drifts.
 		slog.Info("LocalAPI: authenticating with auth key")
-		// Preferences go through PATCH /prefs, which is a masked partial update.
-		// Passing them as Start's UpdatePrefs would replace the whole prefs
-		// object and silently drop everything not listed here — exit node,
-		// advertised routes and tags among them.
-		applyStartupPrefs(opt)
-		if ctx.Err() != nil {
-			return
-		}
-		payload, _ := json.Marshal(map[string]interface{}{"AuthKey": opt.AuthKey})
-		_ = StartDaemon(string(payload))
+		Login(opt.AuthKey)
 		return
 	}
 
@@ -246,7 +241,7 @@ func registerMachineWithAuthKey(ctx context.Context, opt *StartOptions) {
 				// Logged in but paused. Ask it to run; logging in again would
 				// throw away a working node key for no reason.
 				slog.Info("Account is logged in but stopped, requesting WantRunning")
-				_ = PatchPrefsJSON(`{"WantRunning":true,"WantRunningSet":true}`)
+				requestWantRunning()
 				return
 			case "NeedsLogin":
 				if statusResp.AuthURL != "" {
@@ -258,11 +253,15 @@ func registerMachineWithAuthKey(ctx context.Context, opt *StartOptions) {
 				if !startNudged {
 					startNudged = true
 					slog.Info("Backend has not been started yet, sending Start")
-					applyStartupPrefs(opt)
+					applyPreStartPrefs(opt)
 					if ctx.Err() != nil {
 						return
 					}
 					_ = StartDaemon("{}")
+					if ctx.Err() != nil {
+						return
+					}
+					requestWantRunning()
 				}
 			}
 			if needsLogin {
@@ -292,17 +291,24 @@ func registerMachineWithAuthKey(ctx context.Context, opt *StartOptions) {
 	_ = LoginInteractive()
 }
 
-// applyStartupPrefs pushes the options the user configured through the masked
-// PATCH /prefs endpoint. Start's UpdatePrefs replaces the entire prefs object,
-// so it must never be used to carry a partial set.
-func applyStartupPrefs(opt *StartOptions) {
+// applyPreStartPrefs pushes the options the daemon has to hold *before* Start
+// through the masked PATCH /prefs endpoint. Start's UpdatePrefs replaces the
+// entire prefs object, so it must never be used to carry a partial set.
+//
+// Everything the control client is built from belongs here. Start reads
+// ControlURL and Hostname out of the prefs as they stand at that moment and
+// hands them to a newly created control client; changing them afterwards does
+// not move an existing client to another control server, it only takes effect
+// at the next Start. A custom login server applied after Start would send the
+// auth key to the default coordination server instead.
+//
+// WantRunning is deliberately not in this set — see requestWantRunning.
+func applyPreStartPrefs(opt *StartOptions) {
 	prefs := map[string]interface{}{
-		"WantRunning":    true,
-		"WantRunningSet": true,
-		"RouteAll":       opt.AcceptRoutes,
-		"RouteAllSet":    true,
-		"CorpDNS":        opt.AcceptDNS,
-		"CorpDNSSet":     true,
+		"RouteAll":    opt.AcceptRoutes,
+		"RouteAllSet": true,
+		"CorpDNS":     opt.AcceptDNS,
+		"CorpDNSSet":  true,
 	}
 	if opt.Hostname != "" {
 		prefs["Hostname"] = opt.Hostname
@@ -316,4 +322,35 @@ func applyStartupPrefs(opt *StartOptions) {
 	if err := PatchPrefsJSON(string(payload)); err != nil {
 		slog.Warn("Could not apply startup preferences", "err", err)
 	}
+}
+
+// requestWantRunning asks the daemon to run. It is the other half of
+// applyPreStartPrefs and goes *after* the Start that carried the auth key: the
+// daemon logs in when WantRunning goes from false to true, and it does so on
+// whichever control client exists at that moment. Sent before Start, that login
+// runs on the previous, keyless client, while the client Start then builds with
+// the key is never asked to log in — a new profile's stored prefs are LoggedOut,
+// which is exactly what stops Start from logging in by itself.
+func requestWantRunning() {
+	if err := PatchPrefsJSON(`{"WantRunning":true,"WantRunningSet":true}`); err != nil {
+		slog.Warn("Could not request WantRunning", "err", err)
+	}
+}
+
+// profileNeedsRegistration reports whether the daemon holds no node key for the
+// active profile, meaning it has never registered. A status it cannot read
+// answers false: the caller decides from this whether to force a login, and
+// forcing one on a node that may already hold a key throws that key away.
+func profileNeedsRegistration() bool {
+	stStr, err := GetStatusJSON(false)
+	if err != nil || len(stStr) == 0 {
+		return false
+	}
+	var st struct {
+		HaveNodeKey bool `json:"HaveNodeKey"`
+	}
+	if json.Unmarshal([]byte(stStr), &st) != nil {
+		return false
+	}
+	return !st.HaveNodeKey
 }

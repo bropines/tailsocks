@@ -299,12 +299,12 @@ func Login(authKey string) string {
 	stateMu.Unlock()
 
 	// Preferences are pushed through the masked PATCH /prefs endpoint, never
-	// through Start's UpdatePrefs: the daemon replaces the entire prefs object
-	// with whatever UpdatePrefs contains, so sending a partial set here silently
-	// dropped the hostname, accepted routes, exit node, advertised routes and
-	// services. ForceRefresh reaches this on every app resume.
+	// through Start's UpdatePrefs, and they straddle the Start: the control
+	// server and hostname have to be in place before the daemon builds its
+	// control client, WantRunning only after, because that transition is what
+	// makes the daemon log in and it must find the client that carries the key.
 	if opt != nil {
-		applyStartupPrefs(opt)
+		applyPreStartPrefs(opt)
 	}
 
 	data, _ := json.Marshal(map[string]interface{}{"AuthKey": authKey})
@@ -312,6 +312,22 @@ func Login(authKey string) string {
 	_, err := doLocalRequest("POST", "/localapi/v0/start", strings.NewReader(string(data)))
 	if err != nil {
 		return "Error: " + err.Error()
+	}
+
+	if opt != nil {
+		requestWantRunning()
+	}
+
+	if authKey != "" && profileNeedsRegistration() {
+		// WantRunning only triggers a login when the pref actually changed, so
+		// a profile that has never registered cannot depend on it. Ask for the
+		// login outright, the way `tailscale up` does after a Start that
+		// carried a key: the daemon registers with the key instead of producing
+		// an auth URL.
+		slog.Info("LocalAPI: no node key for this profile, requesting login with the auth key")
+		if err := LoginInteractive(); err != nil {
+			slog.Warn("Could not request login after the auth-key start", "err", err)
+		}
 	}
 
 	if authKey == "" {

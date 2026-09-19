@@ -10,6 +10,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Fixed
 
+- Login with an auth key: a profile that had never registered stayed unauthenticated — the key reached the daemon, the request to log in did not.
 - A new account logged in through the browser stayed logged in: returning to the app used to run the profile's one-time reset again, logging it out and wiping its state.
 - An account that logs in with an auth key no longer re-registers its node every time the app is opened; a live session is left alone, as it already was without a key.
 
