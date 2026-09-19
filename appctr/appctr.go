@@ -528,10 +528,24 @@ func ApplySettings(opt *StartOptions) {
 	if opt.DoReset {
 		slog.Info("Reset requested via Logout")
 		Logout()
+		consumeReset()
 		return
 	}
 
 	syncSettings(currentDaemonCtx(), opt)
+}
+
+// consumeReset clears the one-shot reset flag once the reset has been carried
+// out. The app clears the preference behind it as soon as it builds the
+// options, but the options themselves live for as long as the process: until
+// this ran, every later resume found DoReset again and logged the profile out
+// — right after the browser login had finished — and wiped its state directory.
+func consumeReset() {
+	stateMu.Lock()
+	if lastOptions != nil {
+		lastOptions.DoReset = false
+	}
+	stateMu.Unlock()
 }
 
 // backendState returns the daemon's own verdict — "Running", "NeedsLogin" and

@@ -167,6 +167,10 @@ func registerMachineWithAuthKey(ctx context.Context, opt *StartOptions) {
 	if opt.DoReset {
 		slog.Info("LocalAPI: reset requested, logging out existing session")
 		Logout()
+		// Once. A new profile carries this flag into its first start, and
+		// without clearing it here every trip back to the app logged the
+		// profile out again, seconds after the browser login had succeeded.
+		consumeReset()
 		if !sleepCtx(ctx, 500*time.Millisecond) {
 			return
 		}
