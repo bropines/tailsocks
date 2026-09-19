@@ -8,6 +8,10 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 - Adding an account takes an auth key, optionally: the profile then registers itself on its first start instead of opening the browser.
 
+### Fixed
+
+- An account that logs in with an auth key no longer re-registers its node every time the app is opened; a live session is left alone, as it already was without a key.
+
 ### Changed
 
 - Taildrive in the Files app: a share whose node cannot serve it is marked "Unavailable" with the reason under its name, and a folder that fails to list shows the reason instead of an empty list — on Windows and macOS that is the Tailscale app not running.

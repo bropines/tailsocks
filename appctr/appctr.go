@@ -534,6 +534,22 @@ func ApplySettings(opt *StartOptions) {
 	syncSettings(currentDaemonCtx(), opt)
 }
 
+// backendState returns the daemon's own verdict — "Running", "NeedsLogin" and
+// so on — or "" when the status cannot be read.
+func backendState() string {
+	stStr, err := GetStatusJSON(false)
+	if err != nil || len(stStr) == 0 {
+		return ""
+	}
+	var st struct {
+		BackendState string `json:"BackendState"`
+	}
+	if json.Unmarshal([]byte(stStr), &st) != nil {
+		return ""
+	}
+	return st.BackendState
+}
+
 func ReUp() {
 	stateMu.Lock()
 	opt := lastOptions
@@ -545,7 +561,27 @@ func ReUp() {
 			return
 		}
 		if opt.AuthKey != "" {
-			Login(opt.AuthKey)
+			// Ask the daemon what it is doing first, the way the no-key path
+			// below always has. Login here means POST /start, and Start drops
+			// the control client to build another one: the node re-registers
+			// and the map poll starts over. This runs on every trip to the
+			// foreground, so an account with an auth key paid that on each one.
+			// A key that actually changed does not come through here — it is
+			// caught in ApplySettings, which logs in whatever the state.
+			switch state := backendState(); state {
+			case "Running", "Starting", "NeedsMachineAuth":
+				slog.Debug("ReUp: the session is alive, leaving it alone", "backend_state", state)
+			case "Stopped":
+				// Logged in but paused, same as the no-key path: ask it to run
+				// rather than log in again over a working node key.
+				slog.Info("ReUp: logged in but stopped, requesting WantRunning")
+				if err := PatchPrefsJSON(`{"WantRunning":true,"WantRunningSet":true}`); err != nil {
+					slog.Warn("Could not request WantRunning", "err", err)
+				}
+			default:
+				// NeedsLogin, NoState, or a status that could not be read.
+				Login(opt.AuthKey)
+			}
 		} else {
 			go registerMachineWithAuthKey(currentDaemonCtx(), opt)
 		}
