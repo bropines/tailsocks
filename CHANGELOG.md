@@ -2,25 +2,22 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
-## [Unreleased]
-
-### Changed
-
-- The account switcher says what each account is: where it logs in, whether it has ever signed in, whether it holds an auth key; the active one shows its node name and address. Renaming and deleting live under an Edit switch instead of a long press, and adding an account is a row in the same list.
+## [4.3.0] - 2026-09-20
 
 ### Added
 
 - Adding an account takes an auth key, optionally: the profile then registers itself on its first start instead of opening the browser.
+
+### Changed
+
+- The account switcher says what each account is: where it logs in, whether it has ever signed in, whether it holds an auth key; the active one shows its node name and address. Renaming and deleting live under an Edit switch instead of a long press, and adding an account is a row in the same list.
+- Taildrive in the Files app: a share whose node cannot serve it is marked "Unavailable" with the reason under its name, and a folder that fails to list shows the reason instead of an empty list — on Windows and macOS that is the Tailscale app not running.
 
 ### Fixed
 
 - Login with an auth key: a profile that had never registered stayed unauthenticated — the key reached the daemon, the request to log in did not.
 - A new account logged in through the browser stayed logged in: returning to the app used to run the profile's one-time reset again, logging it out and wiping its state.
 - An account that logs in with an auth key no longer re-registers its node every time the app is opened; a live session is left alone, as it already was without a key.
-
-### Changed
-
-- Taildrive in the Files app: a share whose node cannot serve it is marked "Unavailable" with the reason under its name, and a folder that fails to list shows the reason instead of an empty list — on Windows and macOS that is the Tailscale app not running.
 
 ## [4.2.3] - 2026-09-12
 
