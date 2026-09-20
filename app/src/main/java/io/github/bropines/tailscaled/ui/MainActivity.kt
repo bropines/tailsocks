@@ -2054,11 +2054,15 @@ fun MainScreen(
                                             Spacer(Modifier.width(16.dp))
                                             Column(Modifier.weight(1f)) {
                                                 Text(
-                                                    node.getDisplayName().withBreakOpportunities(),
+                                                    node.getDisplayName(),
                                                     fontWeight = FontWeight.Bold,
                                                     fontSize = 15.sp,
-                                                    maxLines = 2,
-                                                    overflow = TextOverflow.Ellipsis,
+                                                    maxLines = 1,
+                                                    softWrap = false,
+                                                    // A name too long for the row travels
+                                                    // across it instead of wrapping onto a
+                                                    // second line and making the row taller.
+                                                    modifier = Modifier.basicMarquee(iterations = Int.MAX_VALUE),
                                                     color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                                 )
                                                 val latency = when (ping) {
@@ -2134,6 +2138,7 @@ fun StatusCard(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 130.dp)
+            .animateContentSize()
             .alpha(if (isProcessing) 0.6f else 1f)
             .combinedClickable(
                 enabled = !isProcessing,
@@ -2197,19 +2202,30 @@ fun StatusCard(
             )
             Spacer(modifier = Modifier.height(4.dp))
             if (aside != null) {
-                // One line that scrolls itself when it is longer than the card: a second
-                // line would change the card's height, and this card is the one thing on
-                // the screen that never moves.
-                Text(
-                    text = aside,
-                    textAlign = TextAlign.Center,
-                    color = contentColor,
-                    maxLines = 1,
-                    softWrap = false,
-                    modifier = Modifier
-                        .alpha(0.75f)
-                        .basicMarquee(iterations = Int.MAX_VALUE)
-                )
+                // The line is typed out rather than scrolled. A copy of the whole text sits
+                // underneath at zero alpha to claim the space up front, so the card makes
+                // one smooth move to its full height instead of growing per character.
+                var shown by remember(aside) { mutableIntStateOf(0) }
+                LaunchedEffect(aside) {
+                    for (i in 1..aside.length) {
+                        shown = i
+                        delay(16)
+                    }
+                }
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = aside,
+                        textAlign = TextAlign.Center,
+                        color = contentColor,
+                        modifier = Modifier.alpha(0f)
+                    )
+                    Text(
+                        text = aside.take(shown),
+                        textAlign = TextAlign.Center,
+                        color = contentColor,
+                        modifier = Modifier.alpha(0.75f)
+                    )
+                }
                 return@Column
             }
             Text(

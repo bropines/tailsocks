@@ -24,6 +24,7 @@ import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -666,7 +667,14 @@ internal fun PeerItem(
             Column(Modifier.weight(1f)) {
                 val displayName = peer.getDisplayName()
                 val primaryIp = peer.getPrimaryIp()
-                Text(displayName, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                // Long names travel across the row rather than being cut off.
+                Text(
+                    displayName,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier.basicMarquee(iterations = Int.MAX_VALUE)
+                )
                 if (displayName != primaryIp) {
                     // One line each, like the name above them: the tag list of an exit node
                     // is long enough to wrap and make this row taller than its neighbours.
