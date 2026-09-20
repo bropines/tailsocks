@@ -13,8 +13,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -108,21 +110,35 @@ fun IssueReportDialog(onDismiss: () -> Unit) {
                     modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    // Half a dialog each, so the label is kept on one line and the icon
+                    // small: "Копировать" broke across two lines mid-word at this width.
                     OutlinedButton(
                         onClick = { report?.let { copyToClipboard(context, it, copied) } },
-                        modifier = Modifier.weight(1f).fillMaxHeight()
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
                     ) {
-                        Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size18())
+                        Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text(copyLabel, textAlign = TextAlign.Center)
+                        Text(
+                            copyLabel,
+                            style = MaterialTheme.typography.labelMedium,
+                            maxLines = 1,
+                            softWrap = false
+                        )
                     }
                     OutlinedButton(
                         onClick = { report?.let { shareReport(context, it) } },
-                        modifier = Modifier.weight(1f).fillMaxHeight()
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
                     ) {
-                        Icon(Icons.Default.Share, null, modifier = Modifier.size18())
+                        Icon(Icons.Default.Share, null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text(shareLabel, textAlign = TextAlign.Center)
+                        Text(
+                            shareLabel,
+                            style = MaterialTheme.typography.labelMedium,
+                            maxLines = 1,
+                            softWrap = false
+                        )
                     }
                 }
             }
@@ -136,16 +152,14 @@ fun IssueReportDialog(onDismiss: () -> Unit) {
                 },
                 enabled = report != null
             ) {
-                Icon(Icons.AutoMirrored.Filled.OpenInNew, null, modifier = Modifier.size18())
+                Icon(Icons.AutoMirrored.Filled.OpenInNew, null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
-                Text(openLabel)
+                Text(openLabel, maxLines = 1, softWrap = false)
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(close) } }
     )
 }
-
-private fun Modifier.size18() = this.then(Modifier.height(18.dp).width(18.dp))
 
 private fun copyToClipboard(context: Context, text: String, confirmation: String) {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager

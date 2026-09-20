@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [4.4.1] - 2026-09-20
+
+### Fixed
+
+- The report dialog's Copy and Share labels broke across two lines mid-word.
+
 ## [4.4.0] - 2026-09-20
 
 ### Added
