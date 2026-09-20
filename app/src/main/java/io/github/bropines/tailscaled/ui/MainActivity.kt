@@ -2040,10 +2040,17 @@ fun MainScreen(
                                                     overflow = TextOverflow.Ellipsis,
                                                     color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                                 )
+                                                val latency = when (ping) {
+                                                    is PeerPingState.Measured -> " · ${ping.latency}"
+                                                    PeerPingState.InFlight -> " · …"
+                                                    PeerPingState.Failed -> " · —"
+                                                    PeerPingState.Idle -> ""
+                                                }
                                                 Text(
-                                                    nodeIp,
+                                                    nodeIp + latency,
                                                     style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    color = if (ping is PeerPingState.Measured) MaterialTheme.colorScheme.primary
+                                                            else MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             }
                                             if (isSelected) {
@@ -2514,10 +2521,6 @@ private fun ExitNodePingChip(
         contentColor = content,
         modifier = modifier
             .heightIn(min = 32.dp)
-            // Wide enough for a three-digit figure from the start. The chip used to grow
-            // when the answer arrived, which took width from the name beside it, wrapped it
-            // onto a second line and made the whole row — and the sheet — taller.
-            .widthIn(min = 86.dp)
             .semantics(mergeDescendants = true) {
                 role = Role.Button
                 contentDescription = description
@@ -2538,15 +2541,9 @@ private fun ExitNodePingChip(
                     tint = content
                 )
             }
-            when {
-                measured != null -> Text(
-                    measured.latency,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1
-                )
-                failed -> Text("—", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-            }
+            // The figure itself goes on the address line of the row, not in here: a chip
+            // that grows when the answer lands takes the width from the name beside it,
+            // wraps it onto a second line and makes the row — and the sheet — taller.
         }
     }
 }
