@@ -1373,5 +1373,28 @@
         <item>Held down long enough to read this, which means the connection is not the thing keeping you here.</item>
         <item>Somewhere between here and the exit node there are eleven hops, four of them belonging to companies you have never heard of, and every one of them is having a worse day than you.</item>
         <item>The tunnel does not care whether you are watching. It carries whatever you hand it, in order, without comment, until the battery runs out or you press this card again.</item>
+        <item>Committed at 3:14 in the morning. Tests? You are the tests.</item>
+        <item>The developer is installing the release over the working app again. The service has made its peace with this.</item>
+        <item>Somewhere in the Downloads folder are eleven APKs of the same build. Every one of them will come in handy.</item>
+        <item>The native TUN plan has been postponed since 4.0.0. It is not upset. It is waiting.</item>
+        <item>"Make it work" — three words that turned into a release and a half.</item>
+        <item>The app is not at fault. The Tailscale window on the other machine is simply closed. Verified at three in the morning.</item>
+        <item>The hedgehog is still in the fog. The horse is where it was. The bundle of jam is untouched.</item>
+        <item>You pressed and held. The daemon is holding too.</item>
+        <item>Nothing is ever pushed without the magic word. It is the one law observed around here.</item>
+        <item>Half of this code was written by one neural network and half by another. Occasionally they agree.</item>
+        <item>Every easter egg is a line in strings.xml that nobody bothered to review.</item>
+        <item>More patch releases than users. Both numbers are going up.</item>
+        <item>Battery at 89 percent, three in the morning, and you are still testing account switching.</item>
+        <item>Nodes in Amsterdam, Frankfurt, Helsinki and Moscow. You are on the sofa.</item>
+        <item>A DERP relay in Helsinki has no idea who you are. Just as well.</item>
+        <item>The packet left. The packet came back. The packet will tell you nothing.</item>
+        <item>The daemon tells the coordination server it is Linux. The server believes it. Everyone is happy.</item>
+        <item>Routing below netd is like rearranging the furniture in somebody else\'s flat while they sleep.</item>
+        <item>Stare at this card long enough and it starts staring back. It already has.</item>
+        <item>This space could carry an advertisement, except there is no advertisement, no manager, no monetisation plan and, frankly, no plan.</item>
+        <item>There are more checks for "what if the daemon died" in this app than in some marriages.</item>
+        <item>New build installed, service dead, tap to start. Every release begins with a small funeral.</item>
+        <item>Between you and this line: Compose, two coroutines, a local socket, a daemon written in Go, a patch held together by good intentions, and a person who decided at three in the morning that a long press had to do something.</item>
     </string-array>
 </resources>
