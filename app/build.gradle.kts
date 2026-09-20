@@ -10,7 +10,11 @@ plugins {
 val gitVersionCode = providers.exec {
     commandLine("git", "rev-list", "--count", "HEAD")
     workingDir = rootDir
-}.standardOutput.asText.map { it.trim().toInt() + 500 }.getOrElse(500)
+// The offset was 500 until 2026-09-20, when a release built from a throwaway
+// branch reached the phone: its extra merge commits put its code one ahead of
+// main's, and Android refuses anything lower as a downgrade. 502 steps over it
+// and leaves room for the next time a side branch gets installed by mistake.
+}.standardOutput.asText.map { it.trim().toInt() + 502 }.getOrElse(502)
 
 val baseVersion = providers.exec {
     commandLine("git", "describe", "--tags", "--always", "--abbrev=0")
