@@ -2,6 +2,18 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [4.4.0] - 2026-09-20
+
+### Added
+
+- Report a problem: About builds a diagnostics block — versions, device, the permissions the service depends on, the network, what the tunnel is made of, how much the app has been used — shows it in full before anything leaves the device, and hands it to the clipboard, a share target or GitHub's issue form. About also links the issue list.
+- The exit-node picker marks the fastest of the measured nodes.
+
+### Changed
+
+- Saved logs carry that same diagnostics block instead of the shorter header they had.
+- The status card's easter egg counts: how often it has been held, the service switched, every node pinged at once, the account changed. The counters never leave the device.
+
 ## [4.3.0] - 2026-09-20
 
 ### Added

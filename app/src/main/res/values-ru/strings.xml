@@ -76,6 +76,16 @@
     <string name="action_close">Закрыть</string>
     <string name="action_download">Скачать</string>
     <string name="action_github">GitHub</string>
+    <string name="issue_report_action">Сообщить о проблеме</string>
+    <string name="issue_list_action">Список проблем</string>
+    <string name="issue_report_title">Сообщить о проблеме</string>
+    <string name="issue_report_intro">Здесь всё, что уйдёт в отчёт. Ни имён узлов, ни адресов, ни ключей, ни названий аккаунтов — ключ авторизации и логин-сервер отмечены только как «есть» или «нет», без значений. Прочитай и скопируй, отправь или сразу открой форму issue.</string>
+    <string name="issue_report_gathering">Собираю…</string>
+    <string name="issue_report_copy">Копировать</string>
+    <string name="issue_report_share">Поделиться</string>
+    <string name="issue_report_open">Создать issue</string>
+    <string name="issue_report_copied">Отчёт скопирован</string>
+    <string name="issue_report_template">**Что произошло**\n\n\n**Что должно было произойти**\n\n\n**Шаги**\n1. \n2. \n\n**Диагностика**</string>
     <string name="action_clear">Очистить</string>
     <string name="action_rename">Переименовать</string>
     <string name="action_confirm">Подтвердить</string>
@@ -610,6 +620,7 @@
     <string name="taildrop_received_from_format">%1$s от %2$s</string>
     <string name="action_refresh">Обновить</string>
     <string name="action_ping_all">Пинг всех</string>
+    <string name="exit_node_fastest">Самый быстрый из измеренных</string>
 
     <!-- ======================== Logs Screen ======================== -->
     <string name="logs_saved">Логи сохранены</string>
@@ -1407,6 +1418,18 @@
         <item>В профиле сказано: учит Kotlin и Go. Код подтверждает и то, и другое.</item>
         <item>У Homebrew-формулы ноль звёзд. Кто-то же должен был.</item>
         <item>Кто-то переписал OCR из «Ножниц» Windows 11 на Python. Просто так. Этот кто-то написал и это приложение.</item>
+        <item>Любая проблема начинается с «какая версия». Теперь отчёт отвечает раньше вопроса.</item>
+        <item>В диагностике нет ни имён узлов, ни адресов. В шутках нет гарантий.</item>
+        <item>Где-то прямо сейчас пишут баг-репорт без версии, без устройства и без логов. Но не отсюда.</item>
+        <item>Снова зажал. Счётчик снова вырос. В этом вся функция.</item>
+        <item>Выбор exit node теперь помечает самый быстрый узел. Самый медленный старается как может.</item>
+        <item>Тайлнет из одного устройства — тоже тайлнет. Просто одинокий.</item>
+        <item>Если сервис умер после обновления — это не обновление. Это производитель прошивки.</item>
+        <item>Оптимизация батареи включена, сервис мёртв, в issue написано «приложение само закрывается».</item>
+        <item>В About рисуется ёжик в тумане. Никто не просил. Никто не жалеет.</item>
+        <item>Четыре счётчика, и ни один не покидает телефон. Самая честная телеметрия на рынке.</item>
+        <item>Между нажатием и пакетом — одиннадцать наших собственных проверок, и пакет всё равно успевает первым.</item>
+        <item>Дочитал? Строка кончилась. Туннель нет.</item>
     </string-array>
     <!-- Считающие строки: %1$d — счётчик, который живёт только на устройстве. -->
     <string name="aside_count_holds">Это нажатие номер %1$d. Да, кто-то считает.</string>

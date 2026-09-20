@@ -97,49 +97,7 @@ class LogsActivity : ComponentActivity() {
     }
 }
 
-fun getDebugHeader(context: Context): String {
-    val verName = try { context.packageManager.getPackageInfo(context.packageName, 0).versionName } catch (e: Exception) { "unknown" }
-    val coreVer = try { Appctr.getCoreVersion() } catch (e: Exception) { "unknown" }
-    val activeAccount = AccountManager.getActiveAccount(context)
-    val prefs = context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
-    
-    val hostname = prefs.getString("hostname", "") ?: ""
-    // Proxy, DNS and route options are global settings — reading them from the
-    // per-profile store always missed and reported defaults that were never used.
-    val socks5 = GlobalSettings.getString(context, "socks5", "127.0.0.1:48115")
-    val httpProxy = GlobalSettings.getString(context, "httpproxy", "")
-    val dnsProxy = GlobalSettings.getString(context, "dns_proxy", "")
-    val acceptRoutes = GlobalSettings.getBoolean(context, "accept_routes", false)
-    val acceptDNS = GlobalSettings.getBoolean(context, "accept_dns", true)
-    val lanAccess = GlobalSettings.isLanAccessEnabled(context)
-    val rootMode = GlobalSettings.isRootModeEnabled(context)
-    val rootTun = rootMode && GlobalSettings.isRootTunEnabled(context)
-    val exitNodeSet = prefs.getString("exit_node_id", "")?.isNotEmpty() == true
-    val authKeySet = prefs.getString("authkey", "")?.isNotEmpty() == true
-
-    return """
-        --- TAILSOCKS DEBUG INFO ---
-        App Version: $verName
-        Tailscale Core: $coreVer
-        Device: ${Build.MANUFACTURER} ${Build.MODEL} (Android ${Build.VERSION.RELEASE}, API ${Build.VERSION.SDK_INT})
-        Arch: ${Build.SUPPORTED_ABIS.joinToString(", ")}
-        
-        Settings:
-        hostname: $hostname
-        socks5: $socks5
-        httpProxy: $httpProxy
-        dnsProxy: $dnsProxy
-        acceptRoutes: $acceptRoutes
-        acceptDNS: $acceptDNS
-        lanAccess: ${if (lanAccess) "Enabled (0.0.0.0)" else "Disabled (loopback)"}
-        rootMode: ${if (rootMode) "Enabled" else "Disabled"}
-        rootTun: ${if (rootTun) "tailscale0 (kernel)" else "Off"}
-        exitNode: ${if (exitNodeSet) "Enabled" else "Disabled"}
-        authKey: ${if (authKeySet) "Present" else "Empty"}
-        ----------------------------
-        
-    """.trimIndent()
-}
+fun getDebugHeader(context: Context): String = Diagnostics.report(context) + "\n\n"
 
 /**
  * The category of the daemon's own lines: its stdout in Proxy mode (tagged by

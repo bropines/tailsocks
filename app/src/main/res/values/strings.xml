@@ -76,6 +76,16 @@
     <string name="action_close">Close</string>
     <string name="action_download">Download</string>
     <string name="action_github">GitHub</string>
+    <string name="issue_report_action">Report a problem</string>
+    <string name="issue_list_action">Open issues</string>
+    <string name="issue_report_title">Report a problem</string>
+    <string name="issue_report_intro">This is everything the report carries. No node names, no addresses, no keys, no account names — the auth key and the login server are reported as present or absent and never by value. Read it, then copy it, share it, or take it straight to the issue form.</string>
+    <string name="issue_report_gathering">Collecting…</string>
+    <string name="issue_report_copy">Copy</string>
+    <string name="issue_report_share">Share</string>
+    <string name="issue_report_open">New issue</string>
+    <string name="issue_report_copied">Report copied</string>
+    <string name="issue_report_template">**What happened**\n\n\n**What should have happened**\n\n\n**Steps**\n1. \n2. \n\n**Diagnostics**</string>
     <string name="action_clear">Clear</string>
     <string name="action_rename">Rename</string>
     <string name="action_confirm">Confirm</string>
@@ -610,6 +620,7 @@
     <string name="taildrop_received_from_format">%1$s from %2$s</string>
     <string name="action_refresh">Refresh</string>
     <string name="action_ping_all">Ping all</string>
+    <string name="exit_node_fastest">Fastest of the measured nodes</string>
 
     <!-- ======================== Logs Screen ======================== -->
     <string name="logs_saved">Logs saved</string>
@@ -1407,6 +1418,18 @@
         <item>Still learning Kotlin and Go, says the profile. The code agrees on both counts.</item>
         <item>The Homebrew tap has zero stars. Somebody had to.</item>
         <item>Somebody reimplemented the Windows 11 Snipping Tool OCR engine in Python. For no reason. That somebody wrote this app too.</item>
+        <item>Every issue starts with "which version". Now the report answers before the question.</item>
+        <item>The diagnostics carry no node names and no addresses. The jokes carry no guarantees.</item>
+        <item>Somewhere a bug report is being typed with no version, no device and no logs. Not from here, though.</item>
+        <item>Held again. The counter went up again. This is the whole feature.</item>
+        <item>The exit node picker now marks the fastest node. The slowest one is doing its best.</item>
+        <item>A tailnet of one device is still a tailnet. It is just a lonely one.</item>
+        <item>If the service died after an update, that was not the update. That was the manufacturer.</item>
+        <item>Battery optimisation is on, the service is dead, and the issue says "app closes itself".</item>
+        <item>The About screen draws a hedgehog in fog. Nobody asked for it. Nobody regrets it.</item>
+        <item>Four counters, zero of them leaving the phone. The most honest telemetry in the business.</item>
+        <item>Between the tap and the packet there are eleven of our own checks, and the packet still makes it first.</item>
+        <item>Read this far? The line is over. The tunnel is not.</item>
     </string-array>
     <!-- Counting lines: %1$d is a tally kept on the device and nowhere else. -->
     <string name="aside_count_holds">That is hold number %1$d. Yes, somebody is counting.</string>

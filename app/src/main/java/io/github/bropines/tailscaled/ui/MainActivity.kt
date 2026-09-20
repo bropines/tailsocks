@@ -1487,6 +1487,10 @@ fun MainScreen(
         }
         // Lives inside this block on purpose: closing the dialog takes it down too.
         var showAboutBackdrop by remember { mutableStateOf(false) }
+        var showIssueReport by remember { mutableStateOf(false) }
+        if (showIssueReport) {
+            IssueReportDialog(onDismiss = { showIssueReport = false })
+        }
         if (showAboutBackdrop) {
             AboutBackdrop(onDismiss = { showAboutBackdrop = false })
         }
@@ -1760,6 +1764,32 @@ fun MainScreen(
                         }
                     }
 
+                    // Where a problem goes. The report is built and shown before anything
+                    // leaves the device, so the button next to it only opens the list.
+                    Row(
+                        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { showIssueReport = true },
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Icon(Icons.Default.BugReport, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(stringResource(R.string.issue_report_action), textAlign = TextAlign.Center)
+                        }
+                        OutlinedButton(
+                            onClick = { openLink("https://github.com/bropines/tailsocks/issues") },
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.List, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(stringResource(R.string.issue_list_action), textAlign = TextAlign.Center)
+                        }
+                    }
+
                     // The people, kept together and out of the way of the state above.
                     Column {
                         Text(
@@ -1845,6 +1875,17 @@ fun MainScreen(
         }
 
         var pingingAllExitNodes by remember { mutableStateOf(false) }
+        // The quickest of the measured ones. Only once two have answered: "fastest" out of
+        // one is not a comparison.
+        val fastestExitNodeIp = remember(exitNodePings.toMap()) {
+            val measured = exitNodePings.mapNotNull { (ip, raw) ->
+                val state = pingStateOf(raw)
+                if (state is PeerPingState.Measured) {
+                    state.latency.takeWhile { it.isDigit() }.toIntOrNull()?.let { ip to it }
+                } else null
+            }
+            if (measured.size > 1) measured.minByOrNull { it.second }?.first else null
+        }
         // Strings come from the parent context, not stringResource() — see wrapContextWithLocale().
         ModalBottomSheet(
             onDismissRequest = { showExitNodeSheet = false },
@@ -2051,6 +2092,7 @@ fun MainScreen(
                                             }
                                             Spacer(Modifier.width(16.dp))
                                             Column(Modifier.weight(1f)) {
+                                              Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Text(
                                                     node.getDisplayName(),
                                                     fontWeight = FontWeight.Bold,
@@ -2060,9 +2102,19 @@ fun MainScreen(
                                                     // A name too long for the row travels
                                                     // across it instead of wrapping onto a
                                                     // second line and making the row taller.
-                                                    modifier = Modifier.basicMarquee(iterations = Int.MAX_VALUE),
+                                                    modifier = Modifier.weight(1f, fill = false).basicMarquee(iterations = Int.MAX_VALUE),
                                                     color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                                 )
+                                                if (nodeIp == fastestExitNodeIp) {
+                                                    Spacer(Modifier.width(6.dp))
+                                                    Icon(
+                                                        Icons.Default.Bolt,
+                                                        contentDescription = context.getString(R.string.exit_node_fastest),
+                                                        tint = MaterialTheme.colorScheme.primary,
+                                                        modifier = Modifier.size(15.dp)
+                                                    )
+                                                }
+                                              }
                                                 val latency = when (ping) {
                                                     is PeerPingState.Measured -> " · ${ping.latency}"
                                                     PeerPingState.InFlight -> " · …"
