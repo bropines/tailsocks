@@ -960,9 +960,13 @@ fun MainScreen(
                     if (json.isBlank() || json.startsWith("Error")) return@runCatching null
                     val st = AppJson.decodeFromString<StatusResponse>(json)
                     val self = st.self ?: return@runCatching null
-                    val name = self.dnsName?.trimEnd('.')?.takeIf { it.isNotEmpty() } ?: self.hostName
+                    // The tailnet, not the node's full name: which tailnet this
+                    // account is in is what tells it apart from the others, and
+                    // the fqdn is long enough to push the address off the row.
+                    val tailnet = st.magicDnsSuffix?.trim('.')?.takeIf { it.isNotEmpty() }
+                        ?: self.dnsName?.trim('.')?.substringAfter('.')?.takeIf { it.isNotEmpty() }
                     val ip = self.tailscaleIPs?.firstOrNull { !it.contains(':') }
-                    listOfNotNull(name, ip).joinToString(" · ").takeIf { it.isNotEmpty() }
+                    listOfNotNull(tailnet, ip).joinToString(" · ").takeIf { it.isNotEmpty() }
                 }.getOrNull()
             }
             activeLiveLine = line
