@@ -609,6 +609,7 @@
     <string name="taildrop_received_title">Файл получен</string>
     <string name="taildrop_received_from_format">%1$s от %2$s</string>
     <string name="action_refresh">Обновить</string>
+    <string name="action_ping_all">Пинг всех</string>
 
     <!-- ======================== Logs Screen ======================== -->
     <string name="logs_saved">Логи сохранены</string>

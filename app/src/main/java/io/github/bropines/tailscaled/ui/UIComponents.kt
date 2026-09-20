@@ -88,6 +88,9 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.decodeFromString
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -202,6 +205,28 @@ internal suspend fun pingPeer(ip: String): String = withContext(Dispatchers.IO) 
         else Appctr.runTailscaleCmd("ping $ip")
     } catch (e: Exception) { "Error" }
     (out.split("\n").find { it.contains("pong from") || it.contains("LatencyMs") } ?: out.ifBlank { "Failed" }).trim()
+}
+
+/**
+ * Pings every address in [ips], writing each answer into [into] the moment it lands so the
+ * rows fill in as the measurements arrive rather than all at the end. A few at a time: a
+ * tailnet of forty nodes would otherwise open forty disco pings at once, and the ones at the
+ * back would time out waiting for the daemon rather than for the network. Addresses already
+ * being measured are left alone. Call it from a UI scope — the writes land on that scope's
+ * dispatcher, and a scope that is gone drops the answers still on their way.
+ */
+internal suspend fun pingAll(
+    ips: List<String>,
+    into: MutableMap<String, String>,
+    parallelism: Int = 4
+) {
+    val queue = ips.filter { it.isNotBlank() && into[it] != PING_IN_FLIGHT }.distinct()
+    queue.forEach { into[it] = PING_IN_FLIGHT }
+    for (batch in queue.chunked(parallelism)) {
+        coroutineScope {
+            batch.map { ip -> async { into[ip] = pingPeer(ip) } }.awaitAll()
+        }
+    }
 }
 
 /**
@@ -610,7 +635,12 @@ fun ExitNodeBadge(
 }
 
 @Composable
-fun PeerItem(peer: PeerData, isSelf: Boolean, onClick: () -> Unit) {
+internal fun PeerItem(
+    peer: PeerData,
+    isSelf: Boolean,
+    ping: PeerPingState = PeerPingState.Idle,
+    onClick: () -> Unit
+) {
     Surface(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
@@ -640,13 +670,22 @@ fun PeerItem(peer: PeerData, isSelf: Boolean, onClick: () -> Unit) {
                 if (displayName != primaryIp) {
                     // One line each, like the name above them: the tag list of an exit node
                     // is long enough to wrap and make this row taller than its neighbours.
+                    // The latency rides on this line for the same reason — a chip of its own
+                    // would change the height of every row the moment a ping came back.
+                    val latency = when (ping) {
+                        is PeerPingState.Measured -> " · ${ping.latency}"
+                        PeerPingState.InFlight -> " · …"
+                        PeerPingState.Failed -> " · ✕"
+                        PeerPingState.Idle -> ""
+                    }
                     Text(
-                        primaryIp,
+                        primaryIp + latency,
                         fontFamily = FontFamily.Monospace,
                         fontSize = 12.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = if (ping is PeerPingState.Measured) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 if (!peer.tags.isNullOrEmpty()) {

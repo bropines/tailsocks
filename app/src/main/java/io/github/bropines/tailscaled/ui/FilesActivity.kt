@@ -375,7 +375,13 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false) {
             val strFilesSelectDevice = stringResource(R.string.files_select_device)
             val strFilesNoDevicesFound = stringResource(R.string.files_no_devices_found)
             val strActionRefresh = stringResource(R.string.action_refresh)
-            ModalBottomSheet(onDismissRequest = { showPeerPicker = false }, containerColor = MaterialTheme.colorScheme.surface) {
+            ModalBottomSheet(
+                onDismissRequest = { showPeerPicker = false },
+                // Opened at full height: a sheet that settles from half to full a frame
+                // after it appears reads as a jump.
+                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                containerColor = MaterialTheme.colorScheme.surface
+            ) {
                 Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
                     Text(strFilesSelectDevice, modifier = Modifier.padding(20.dp), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                     if (peers.isEmpty()) {

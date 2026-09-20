@@ -1826,22 +1826,50 @@ fun MainScreen(
             sheetScope.launch { exitNodePings[ip] = pingPeer(ip) }
         }
 
+        var pingingAllExitNodes by remember { mutableStateOf(false) }
         // Strings come from the parent context, not stringResource() — see wrapContextWithLocale().
         ModalBottomSheet(
-            onDismissRequest = { showExitNodeSheet = false }
+            onDismissRequest = { showExitNodeSheet = false },
+            // Without this the sheet opens half height and settles to its content a frame
+            // later, which reads as a jump; the list also arrives after the spinner, so the
+            // height it settles at is held from the start by the minimum below.
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = maxHeight)
+                    .heightIn(min = 280.dp, max = maxHeight)
                     .navigationBarsPadding()
             ) {
-                Text(
-                    context.getString(R.string.main_select_exit_node),
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 24.dp, end = 12.dp, top = 12.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        context.getString(R.string.main_select_exit_node),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (exitNodes.isNotEmpty()) {
+                        TextButton(
+                            onClick = {
+                                pingingAllExitNodes = true
+                                sheetScope.launch {
+                                    pingAll(exitNodes.map { it.getPrimaryIp() }, exitNodePings)
+                                    pingingAllExitNodes = false
+                                }
+                            },
+                            enabled = !pingingAllExitNodes
+                        ) {
+                            Icon(Icons.Default.NetworkPing, null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(context.getString(R.string.action_ping_all))
+                        }
+                    }
+                }
 
                 if (isExitNodesLoading) {
                     Box(Modifier.fillMaxWidth().height(120.dp), Alignment.Center) { LoadingIndicator() }

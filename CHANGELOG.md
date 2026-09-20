@@ -2,6 +2,16 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Added
+
+- Peers and the exit-node picker take a Ping all button: every node is measured a few at a time and each row fills in as its answer arrives.
+
+### Fixed
+
+- Bottom sheets opened at half height and settled a frame later, which read as a jump — the exit-node picker, the device picker in Files, the share sheet and the settings pickers.
+
 ## [4.3.0] - 2026-09-20
 
 ### Added

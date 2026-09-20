@@ -609,6 +609,7 @@
     <string name="taildrop_received_title">File received</string>
     <string name="taildrop_received_from_format">%1$s from %2$s</string>
     <string name="action_refresh">Refresh</string>
+    <string name="action_ping_all">Ping all</string>
 
     <!-- ======================== Logs Screen ======================== -->
     <string name="logs_saved">Logs saved</string>

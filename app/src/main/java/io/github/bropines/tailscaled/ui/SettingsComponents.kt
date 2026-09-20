@@ -646,7 +646,10 @@ fun SettingsExitNodeItem(
         val strSettingsExitNodeEmpty = stringResource(R.string.settings_exit_node_empty)
         val strSettingsNone = stringResource(R.string.settings_none)
         val strMainRouteTrafficDirectly = stringResource(R.string.main_route_traffic_directly)
-        ModalBottomSheet(onDismissRequest = { showDialog = false }) {
+        ModalBottomSheet(
+            onDismissRequest = { showDialog = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()

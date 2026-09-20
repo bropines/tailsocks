@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.NetworkPing
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -73,6 +74,10 @@ fun PeersScreen(onBack: () -> Unit) {
     // never asks the network itself. Empty until the answer lands, and stays empty when the
     // Admin Console has not been set up: then no peer gets a version row.
     var peerVersions by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    // The daemon's raw answer per address, for as long as this screen is open. Cleared on a
+    // reload: a figure measured before the list changed is not the figure now.
+    val peerPings = remember { mutableStateMapOf<String, String>() }
+    var pingingAll by remember { mutableStateOf(false) }
 
     val filteredPeers = remember(peersList, searchQuery) {
         if (searchQuery.isBlank()) peersList
@@ -152,9 +157,30 @@ fun PeersScreen(onBack: () -> Unit) {
             Column {
                 TopAppBar(title = { Text(stringResource(R.string.peers_title)) },
                     navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back)) } },
-                    actions = { IconButton(onClick = { 
-                        loadPeers() 
-                    }) { Icon(Icons.Default.Refresh, stringResource(R.string.action_refresh)) } })
+                    actions = {
+                        // One round trip per node, a few at a time; the figures land in the
+                        // rows as they arrive rather than all at the end.
+                        IconButton(
+                            onClick = {
+                                pingingAll = true
+                                coroutineScope.launch {
+                                    pingAll(
+                                        (listOfNotNull(visibleSelfPeer) + filteredPeers)
+                                            .filter { it.online == true || it === visibleSelfPeer }
+                                            .map { it.getPrimaryIp() },
+                                        peerPings
+                                    )
+                                    pingingAll = false
+                                }
+                            },
+                            enabled = !pingingAll && !isRefreshing
+                        ) {
+                            Icon(Icons.Default.NetworkPing, stringResource(R.string.action_ping_all))
+                        }
+                        IconButton(onClick = {
+                            loadPeers()
+                        }) { Icon(Icons.Default.Refresh, stringResource(R.string.action_refresh)) }
+                    })
                 
                 CompactSearchBar(
                     value = searchQuery,
@@ -179,10 +205,16 @@ fun PeersScreen(onBack: () -> Unit) {
             } else {
                 LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
                     if (visibleSelfPeer != null) {
-                        item { PeerItem(visibleSelfPeer, true) { selectedPeer = visibleSelfPeer } }
+                        item {
+                            PeerItem(
+                                visibleSelfPeer,
+                                true,
+                                pingStateOf(peerPings[visibleSelfPeer.getPrimaryIp()])
+                            ) { selectedPeer = visibleSelfPeer }
+                        }
                     }
-                    items(filteredPeers) { p -> 
-                        PeerItem(p, false) { selectedPeer = p } 
+                    items(filteredPeers) { p ->
+                        PeerItem(p, false, pingStateOf(peerPings[p.getPrimaryIp()])) { selectedPeer = p }
                     }
                 }
             }
