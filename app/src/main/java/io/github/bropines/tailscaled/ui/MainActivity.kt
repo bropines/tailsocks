@@ -2514,6 +2514,10 @@ private fun ExitNodePingChip(
         contentColor = content,
         modifier = modifier
             .heightIn(min = 32.dp)
+            // Wide enough for a three-digit figure from the start. The chip used to grow
+            // when the answer arrived, which took width from the name beside it, wrapped it
+            // onto a second line and made the whole row — and the sheet — taller.
+            .widthIn(min = 86.dp)
             .semantics(mergeDescendants = true) {
                 role = Role.Button
                 contentDescription = description
@@ -2522,7 +2526,7 @@ private fun ExitNodePingChip(
         Row(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)
         ) {
             if (inFlight) {
                 LoadingIndicator(modifier = Modifier.size(18.dp), color = content)
