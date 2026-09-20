@@ -1358,4 +1358,20 @@
     <string name="coordinator_os_refused_title">The coordinator refused this device</string>
     <string name="coordinator_os_refused_text">Its operating system changed since it was registered, so the coordination server sends it no network map. Log out and log in again to register the node anew, or turn “Report the real OS” back off.</string>
     <string name="coordinator_os_refused_short">Refused by the coordinator: OS changed</string>
+    <!-- Long press on the status card. Decoration; nothing reads these back. -->
+    <string-array name="status_asides">
+        <item>100.64.0.0/10 — a whole country, and you are the only one living in it.</item>
+        <item>Every packet you send takes a shortcut you will never see.</item>
+        <item>The daemon has been awake this whole time. It does not mind.</item>
+        <item>Somewhere a DERP relay just took your traffic personally.</item>
+        <item>NAT traversal: two machines behind routers, both convinced the other one goes first.</item>
+        <item>No, it is not a VPN. It is the same argument you had last week.</item>
+        <item>A tailnet is a group chat where the members are computers and nobody types.</item>
+        <item>MagicDNS is not magic. Nobody has been brave enough to say so out loud.</item>
+        <item>Your phone is a node. It has been one for a while now. Congratulations.</item>
+        <item>This card has been pressed. Nothing else happened, which is the point of it.</item>
+        <item>Held down long enough to read this, which means the connection is not the thing keeping you here.</item>
+        <item>Somewhere between here and the exit node there are eleven hops, four of them belonging to companies you have never heard of, and every one of them is having a worse day than you.</item>
+        <item>The tunnel does not care whether you are watching. It carries whatever you hand it, in order, without comment, until the battery runs out or you press this card again.</item>
+    </string-array>
 </resources>

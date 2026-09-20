@@ -6,6 +6,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Added
 
+- An easter egg.
 - Peers and the exit-node picker take a Ping all button: every node is measured a few at a time and each row fills in as its answer arrives.
 
 ### Fixed

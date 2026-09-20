@@ -28,6 +28,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
@@ -454,6 +455,16 @@ fun MainScreen(
     var accountToDeleteConfirm by remember { mutableStateOf<TailscaleAccount?>(null) }
     var accountToRename by remember { mutableStateOf<TailscaleAccount?>(null) }
     var accountsEditMode by remember { mutableStateOf(false) }
+    // A long press on the status card puts a line there for a while. Nothing reads it
+    // back and nothing is stored: it is decoration, and it clears itself.
+    var statusAside by remember { mutableStateOf<String?>(null) }
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+    LaunchedEffect(statusAside) {
+        val line = statusAside ?: return@LaunchedEffect
+        // Long lines scroll, so they are given the time to travel once and a bit.
+        delay((6000L + 70L * line.length).coerceAtMost(30000L))
+        statusAside = null
+    }
     
     var newAccountName by remember { mutableStateOf("") }
     // "Report the real OS" for the profile about to be created: decided here,
@@ -1313,7 +1324,17 @@ fun MainScreen(
                 isFullTunnel = isFullTunnel,
                 isRootEnabled = isRootEnabled,
                 isYieldedToForeignVpn = yieldedToForeignVpn,
-                isSharedWithForeignVpn = sharedWithForeignVpn
+                isSharedWithForeignVpn = sharedWithForeignVpn,
+                aside = statusAside,
+                onLongPress = {
+                    haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                    val lines = context.resources.getStringArray(R.array.status_asides)
+                    if (lines.isNotEmpty()) {
+                        // Never the same one twice in a row, which is what makes a random
+                        // pick feel broken on a short list.
+                        statusAside = lines.filter { it != statusAside }.randomOrNull() ?: lines.first()
+                    }
+                }
             ) {
                 if (isProcessing) return@StatusCard
 
@@ -2083,7 +2104,19 @@ fun MainScreen(
 }
 
 @Composable
-fun StatusCard(state: String, isProcessing: Boolean, isTunEnabled: Boolean, isFullTunnel: Boolean, isRootEnabled: Boolean = false, isYieldedToForeignVpn: Boolean = false, isSharedWithForeignVpn: Boolean = false, onToggle: () -> Unit) {
+fun StatusCard(
+    state: String,
+    isProcessing: Boolean,
+    isTunEnabled: Boolean,
+    isFullTunnel: Boolean,
+    isRootEnabled: Boolean = false,
+    isYieldedToForeignVpn: Boolean = false,
+    isSharedWithForeignVpn: Boolean = false,
+    /** Shown in place of the card's own subtitle while it is set. */
+    aside: String? = null,
+    onLongPress: () -> Unit = {},
+    onToggle: () -> Unit
+) {
     val backgroundColor = when (state) {
         "ACTIVE" -> MaterialTheme.colorScheme.primaryContainer
         "STARTING" -> MaterialTheme.colorScheme.tertiaryContainer
@@ -2102,7 +2135,11 @@ fun StatusCard(state: String, isProcessing: Boolean, isTunEnabled: Boolean, isFu
             .fillMaxWidth()
             .heightIn(min = 130.dp)
             .alpha(if (isProcessing) 0.6f else 1f)
-            .clickable(enabled = !isProcessing) { onToggle() },
+            .combinedClickable(
+                enabled = !isProcessing,
+                onClick = onToggle,
+                onLongClick = onLongPress
+            ),
         tonalElevation = 4.dp
     ) {
         Column(
@@ -2159,6 +2196,22 @@ fun StatusCard(state: String, isProcessing: Boolean, isTunEnabled: Boolean, isFu
                 color = contentColor
             )
             Spacer(modifier = Modifier.height(4.dp))
+            if (aside != null) {
+                // One line that scrolls itself when it is longer than the card: a second
+                // line would change the card's height, and this card is the one thing on
+                // the screen that never moves.
+                Text(
+                    text = aside,
+                    textAlign = TextAlign.Center,
+                    color = contentColor,
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier
+                        .alpha(0.75f)
+                        .basicMarquee(iterations = Int.MAX_VALUE)
+                )
+                return@Column
+            }
             Text(
                 text = when {
                     isProcessing -> stringResource(R.string.main_status_please_wait)

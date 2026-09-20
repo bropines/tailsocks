@@ -164,10 +164,11 @@ fun PeersScreen(onBack: () -> Unit) {
                             onClick = {
                                 pingingAll = true
                                 coroutineScope.launch {
+                                    // This device is not pinged: a node cannot measure a
+                                    // round trip to itself, and the row would only ever
+                                    // show a failure.
                                     pingAll(
-                                        (listOfNotNull(visibleSelfPeer) + filteredPeers)
-                                            .filter { it.online == true || it === visibleSelfPeer }
-                                            .map { it.getPrimaryIp() },
+                                        filteredPeers.filter { it.online == true }.map { it.getPrimaryIp() },
                                         peerPings
                                     )
                                     pingingAll = false
