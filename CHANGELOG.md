@@ -2,22 +2,13 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
-## [Unreleased]
-
-### Added
-
-- An easter egg.
-- Peers and the exit-node picker take a Ping all button: every node is measured a few at a time and each row fills in as its answer arrives.
-
-### Fixed
-
-- Bottom sheets opened at half height and settled a frame later, which read as a jump — the exit-node picker, the device picker in Files, the share sheet and the settings pickers.
-
 ## [4.3.0] - 2026-09-20
 
 ### Added
 
 - Adding an account takes an auth key, optionally: the profile then registers itself on its first start instead of opening the browser.
+- Peers and the exit-node picker take a Ping all button: every node is measured a few at a time and each row fills in as its answer arrives.
+- An easter egg.
 
 ### Changed
 
@@ -29,6 +20,8 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Login with an auth key: a profile that had never registered stayed unauthenticated — the key reached the daemon, the request to log in did not.
 - A new account logged in through the browser stayed logged in: returning to the app used to run the profile's one-time reset again, logging it out and wiping its state.
 - An account that logs in with an auth key no longer re-registers its node every time the app is opened; a live session is left alone, as it already was without a key.
+- Bottom sheets opened at half height and settled a frame later, which read as a jump — the exit-node picker, the device picker in Files, the share sheet and the settings pickers.
+- Long node names travel across their row instead of wrapping onto a second line and changing the height of the row and the sheet around it.
 
 ## [4.2.3] - 2026-09-12
 
