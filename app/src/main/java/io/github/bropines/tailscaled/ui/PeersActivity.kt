@@ -163,6 +163,7 @@ fun PeersScreen(onBack: () -> Unit) {
                         IconButton(
                             onClick = {
                                 pingingAll = true
+                                StatusAsides.bump(context, StatusAsides.PINGS)
                                 coroutineScope.launch {
                                     // This device is not pinged: a node cannot measure a
                                     // round trip to itself, and the row would only ever

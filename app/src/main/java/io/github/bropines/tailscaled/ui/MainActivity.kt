@@ -1044,6 +1044,7 @@ fun MainScreen(
                                 if (accountsEditMode) return@AccountRow
                                 accountMenuExpanded = false
                                 if (!isActive) {
+                                    StatusAsides.bump(context, StatusAsides.SWITCHES)
                                     if (ProxyState.isActualRunning()) showSwitchConfirmDialog = account
                                     else {
                                         AccountManager.setActiveAccount(context, account.id)
@@ -1328,15 +1329,11 @@ fun MainScreen(
                 aside = statusAside,
                 onLongPress = {
                     haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
-                    val lines = context.resources.getStringArray(R.array.status_asides)
-                    if (lines.isNotEmpty()) {
-                        // Never the same one twice in a row, which is what makes a random
-                        // pick feel broken on a short list.
-                        statusAside = lines.filter { it != statusAside }.randomOrNull() ?: lines.first()
-                    }
+                    statusAside = StatusAsides.pick(context, statusAside)
                 }
             ) {
                 if (isProcessing) return@StatusCard
+                StatusAsides.bump(context, StatusAsides.TOGGLES)
 
                 if (proxyState == "ACTIVE" || proxyState == "STARTING" || proxyState == "CONNECTION_ISSUE" || proxyState == "LOGGED_OUT") {
                     isProcessing = true
@@ -1878,6 +1875,7 @@ fun MainScreen(
                         TextButton(
                             onClick = {
                                 pingingAllExitNodes = true
+                                StatusAsides.bump(context, StatusAsides.PINGS)
                                 sheetScope.launch {
                                     pingAll(exitNodes.map { it.getPrimaryIp() }, exitNodePings)
                                     pingingAllExitNodes = false

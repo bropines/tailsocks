@@ -28,30 +28,30 @@ This document outlines the planned features, architectural improvements, and ref
 
 ## Plans
 
-State as of 2026-09-07, after 4.1.1.
+State as of 2026-09-20, after 4.3.0.
 
 ### Big
 
-- [ ] **Native TUN.** The plan is [`NATIVE_TUN_PLAN.md`](NATIVE_TUN_PLAN.md): seven steps (0–6,
-      the last one optional polish), each leaving the app shippable. Target: unscheduled, to be
-      re-set before work starts — it slipped past 4.0.0 and 4.1.0, so every "4.1" in the plan is
-      stale. The main risk is gone: SELinux policy allows the app `TUNGETIFF` on the tunnel fd
+- [x] **Native TUN — the opt-in engine (4.2.0).** `tailscaled` owns the `VpnService` device
+      instead of hev: `TunVpnService` establishes the tunnel itself and the bridge relaunches
+      the daemon with `--tun=android-vpn` on the inherited fd, with a no-op router and netstack
+      keeping only its own flows (patches 17–19). Settings → TUN → "Native engine
+      (experimental)". Verified on the POCO: MagicDNS, split DNS, exit nodes and switching
+      between them without a restart, LAN exclusions, one notification card, a single daemon
+      launch on connect (the VPN comes up first from cached addresses). The risk the plan was
+      written around is gone with it: SELinux allows the app `TUNGETIFF` on the tunnel fd
       (`allowxperm untrusted_app tun_device chr_file ioctl { 0x54D2 }`, read off the Redmi), and
-      on 2026-09-12 a real child tailscaled on the POCO did `TUNGETIFF` and `SIOCGIFMTU` on an
-      inherited VpnService fd (patch 17 probe: `tun0`, flags `0x1001`, MTU 1500). Inheritance via
-      `ExtraFiles` is enough for a fixed fd; `SCM_RIGHTS` is only needed for a mid-run swap.
-      Still unverified on a device: `SCM_RIGHTS` itself, the behaviour when the owner dies, and
-      the latency of a swap. Verifying them needs a debug
-      helper inside the APK — checking through `su` proves nothing, it is a different SELinux
-      domain.
-      **2026-09-12: a first cut ships as the opt-in "Native engine" in TUN settings** (patches
-      18/19, daemon relaunch on the fd, no-op router, netstack keeps only its own flows). Works
-      on the POCO: MagicDNS, split DNS, exit node and switching between exit nodes without a
-      restart, LAN exclusions, one notification card, a single daemon launch on connect (the VPN
-      comes up first from cached addresses). Left for the full design: fd swap without a
-      relaunch (turning the exit node on or off still restarts the daemon, 3–5 s), accepted
-      subnet routes without an exit node, always-on/"block without VPN", Wi‑Fi ↔ LTE and doze
-      behaviour, Android 7/8 (verified on 16 only); hev stays the default.
+      a real child tailscaled did `TUNGETIFF` and `SIOCGIFMTU` on an inherited fd (patch 17
+      probe: `tun0`, flags `0x1001`, MTU 1500).
+- [ ] **Native TUN — what the full design still owes.** The shipped cut takes the short road
+      [`NATIVE_TUN_PLAN.md`](NATIVE_TUN_PLAN.md) argues against: a daemon relaunch instead of an
+      fd swap (turning an exit node on or off restarts the daemon, 3–5 s), a no-op router
+      instead of `CallbackRouter`, no `SCM_RIGHTS`. Left: the fd swap, accepted subnet routes
+      without an exit node, always-on and "block connections without VPN", behaviour across
+      Wi‑Fi ↔ LTE and in doze, Android 7/8 (verified on 16 only) — and then making it the
+      default instead of hev. Still unverified on a device: `SCM_RIGHTS` itself, what happens
+      when the fd's owner dies, and the latency of a swap; each needs a debug helper inside the
+      APK, since checking through `su` proves nothing — it is a different SELinux domain.
 - [ ] **tsnet — an idea for 5.0.** The daemon moved inside the app process. Incompatible with
       Root Mode, where it must be a separate process under `su`.
 - [ ] **The separate CLI binary.** The author's decision, deferred. The cost is measured: about

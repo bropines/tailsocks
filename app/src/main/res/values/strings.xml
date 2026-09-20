@@ -1376,7 +1376,6 @@
         <item>Committed at 3:14 in the morning. Tests? You are the tests.</item>
         <item>The developer is installing the release over the working app again. The service has made its peace with this.</item>
         <item>Somewhere in the Downloads folder are eleven APKs of the same build. Every one of them will come in handy.</item>
-        <item>The native TUN plan has been postponed since 4.0.0. It is not upset. It is waiting.</item>
         <item>"Make it work" — three words that turned into a release and a half.</item>
         <item>The app is not at fault. The Tailscale window on the other machine is simply closed. Verified at three in the morning.</item>
         <item>The hedgehog is still in the fog. The horse is where it was. The bundle of jam is untouched.</item>
@@ -1396,5 +1395,26 @@
         <item>There are more checks for "what if the daemon died" in this app than in some marriages.</item>
         <item>New build installed, service dead, tap to start. Every release begins with a small funeral.</item>
         <item>Between you and this line: Compose, two coroutines, a local socket, a daemon written in Go, a patch held together by good intentions, and a person who decided at three in the morning that a long press had to do something.</item>
+        <item>The native engine has been ready since 4.2.0 and is still labelled experimental. So is everything else here.</item>
+        <item>The profile bio reads "Coder -_-". Exhaustive.</item>
+        <item>Employer: "Not a Company". The pay matches.</item>
+        <item>Sixty public repositories. Count the finished ones yourself.</item>
+        <item>The most starred repository is a config editor for xray. Not this one.</item>
+        <item>Somewhere there is a "working" implementation of tailscaled under termux. The quotes are the author\'s own.</item>
+        <item>An AmneziaWG client, a Tailscale client, another proxy on top. The internet is still the same internet.</item>
+        <item>Between an OCR library for Google Lens and a manga translator, there was still time for a VPN client.</item>
+        <item>In the Downloads folder, the manga directory sits next to the tailscaled logs. Priorities are in order.</item>
+        <item>Still learning Kotlin and Go, says the profile. The code agrees on both counts.</item>
+        <item>The Homebrew tap has zero stars. Somebody had to.</item>
+        <item>Somebody reimplemented the Windows 11 Snipping Tool OCR engine in Python. For no reason. That somebody wrote this app too.</item>
     </string-array>
+    <!-- Counting lines: %1$d is a tally kept on the device and nowhere else. -->
+    <string name="aside_count_holds">That is hold number %1$d. Yes, somebody is counting.</string>
+    <string name="aside_count_toggles">The service has been switched on and off %1$d times. It remembers every one.</string>
+    <string name="aside_count_pings">Ping all has been pressed %1$d times. The nodes know your footsteps by now.</string>
+    <string name="aside_count_switches">The account has changed %1$d times. Still not the right one.</string>
+    <string name="aside_first">First time. It gets worse.</string>
+    <string name="aside_ten">Ten holds. Technically a habit.</string>
+    <string name="aside_fortytwo">Forty-two. The answer is here, the question has been lost.</string>
+    <string name="aside_hundred">One hundred holds. There would be a suggestion to go and do something useful, but we both know.</string>
 </resources>
