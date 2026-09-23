@@ -1440,4 +1440,28 @@
     <string name="aside_ten">Ten holds. Technically a habit.</string>
     <string name="aside_fortytwo">Forty-two. The answer is here, the question has been lost.</string>
     <string name="aside_hundred">One hundred holds. There would be a suggestion to go and do something useful, but we both know.</string>
+
+    <!-- Tailcat -->
+    <string name="tailcat_title">Tailcat</string>
+    <string name="tailcat_link_desc">Local ports carried to a tailcat server, without a VPN or a Tailscale account</string>
+    <string name="tailcat_intro">Each port listens on 127.0.0.1 and is carried over WireGuard to the tailcat server whose address you paste here. Point an app at http://127.0.0.1:&lt;port&gt;. No VPN is started and no Tailscale account is needed; the server runs tailcat serve.</string>
+    <string name="tailcat_address">Server address</string>
+    <string name="tailcat_ports">Ports</string>
+    <string name="tailcat_ports_hint">The server\'s port, e.g. 8080; local:remote to listen on another port here (18080:8080). Separate several with commas.</string>
+    <string name="tailcat_start">Start</string>
+    <string name="tailcat_stop">Stop</string>
+    <string name="tailcat_status_running">Forwarding %1$s</string>
+    <string name="tailcat_status_stopped">Stopped</string>
+    <string name="tailcat_client_key">Client key</string>
+    <string name="tailcat_client_key_desc">Without one, anyone holding the server address can connect. Create a key and start the server with tailcat serve --allow=&lt;this key&gt; to let only this device in.</string>
+    <string name="tailcat_client_key_create">Create client key</string>
+    <string name="tailcat_copy">Copy</string>
+    <string name="tailcat_copied">Copied</string>
+    <string name="tailcat_output">Output</string>
+    <string name="tailcat_notif_starting">Starting…</string>
+    <string name="tailcat_notif_running">Forwarding %1$s</string>
+    <string name="tailcat_err_address">No server address</string>
+    <string name="tailcat_err_ports">A port mapping is malformed</string>
+    <string name="tailcat_err_binary">This build does not contain tailcat</string>
+    <string name="tailcat_exited">tailcat stopped (exit code %1$d); see the output below</string>
 </resources>

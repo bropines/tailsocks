@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [4.5.0] - 2026-09-23
+
+### Added
+
+- Tailcat: local ports carried to a tailcat server over WireGuard, without a VPN or a Tailscale account; with a client key for the server's allow list.
+
 ## [4.4.1] - 2026-09-20
 
 ### Fixed

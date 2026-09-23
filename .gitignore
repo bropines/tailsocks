@@ -56,6 +56,7 @@ desktop.ini
 cobase.txt
 
 tailscale_src/
+tailcat_src/
 appctr/libtailscale.so
 appctr/libtailscale_cli.so
 

@@ -13,6 +13,7 @@ TailSocks is a hybrid, multi-layer Android client for Tailscale operating in **u
 3. **UI (Kotlin/Compose)**: High-density, no-scroll Material 3 dashboard implemented in Jetpack Compose.
 4. **TUN Engine**: System-wide transparent VPN routing, two engines. `hev-socks5-tunnel` (C) owns the `VpnService` tunnel and pushes every packet into the daemon's SOCKS5 port — still the default. Since 4.2.0 there is also the opt-in **native engine** (Settings → TUN, `tun_engine=native`): `TunVpnService` establishes the tunnel and the bridge relaunches `tailscaled` with `--tun=android-vpn` on the inherited fd, so MagicDNS, split DNS and the exit node come from the daemon itself (patches 17–19, MTU 1280). It is the short road [`docs/NATIVE_TUN_PLAN.md`](docs/NATIVE_TUN_PLAN.md) argues against — a daemon relaunch instead of an fd swap, a no-op router, no `SCM_RIGHTS` — so treat the full design as unfinished, but not the engine: that one ships and works.
 5. **DPI Bypass (JNI/C)**: Native JNI ByeDPI implementation binding to a randomized loopback IP/port in `127.0.0.0/8` upon startup to bypass Control Plane SNI-based DPI.
+6. **Tailcat (Go executable)**: `libtailcat.so` is upstream `tailcat` (version pinned in `appctr/TAILCAT_VERSION`), built unpatched by `build.sh` step 5 and run by `core/TailcatService.kt` as `tailcat forward` — local ports carried to a tailcat server, with no VpnService and no tailnet. It is a separate executable because it requires a newer `tailscale.com` than the patched daemon, and it is driven through its CLI by design: the CLI-less rule below is about `tailscaled`, which tailcat does not touch. Its only state is the client key under `files/tailcat/`.
 
 ### Fundamental Architectural Rules:
 * **CLI-less Daemon Management**: Management is 100% CLI-less. Communicate exclusively via the Unix Socket (`tailscaled.sock`) using LocalAPI v0. Do not execute shell commands or wrap CLI binaries unless recovering from process lock.
@@ -60,7 +61,7 @@ When Go code, bridge JNI bindings, or Tailscale patches are modified:
 cd appctr
 bash build.sh
 ```
-*   **Dynamic Patch Pipeline**: `build.sh` downloads clean Tailscale source code, applies the atomic patches in `appctr/patches/` in alphabetical order (`01-enable-socks-android` through `16-android-somark`), and cross-compiles native `.so` binaries for 4 target architectures (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`).
+*   **Dynamic Patch Pipeline**: `build.sh` downloads clean Tailscale source code, applies the atomic patches in `appctr/patches/` in alphabetical order (`01-enable-socks-android` through `16-android-somark`), and cross-compiles native `.so` binaries for 4 target architectures (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`), then builds upstream `tailcat` for the same four as `libtailcat.so`.
 *   **Patch Management**: If code in `appctr/tailscale_src/` is modified, recreate the atomic patch files before committing:
     ```bash
     ./appctr/patches/recreate_patches.sh
