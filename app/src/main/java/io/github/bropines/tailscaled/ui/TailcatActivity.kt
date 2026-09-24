@@ -2,6 +2,8 @@ package io.github.bropines.tailscaled.ui
 
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.GlobalSettings
+import io.github.bropines.tailscaled.core.TailcatConnection
+import io.github.bropines.tailscaled.core.TailcatConnections
 import io.github.bropines.tailscaled.core.TailcatService
 import io.github.bropines.tailscaled.core.wrapContextWithLocale
 import android.content.ClipData
@@ -11,6 +13,8 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -18,18 +22,23 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 import kotlinx.coroutines.Dispatchers
@@ -52,19 +61,19 @@ class TailcatActivity : ComponentActivity() {
 fun TailcatScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val status by TailcatService.status.collectAsState()
-    val log by TailcatService.log.collectAsState()
-    val running = status.state == TailcatService.State.RUNNING
+    val statuses by TailcatService.statuses.collectAsState()
+    val logs by TailcatService.logs.collectAsState()
 
-    var address by remember { mutableStateOf(GlobalSettings.getString(context, TailcatService.PREF_ADDRESS, "")) }
-    var ports by remember { mutableStateOf(GlobalSettings.getString(context, TailcatService.PREF_PORTS, "")) }
+    var connections by remember { mutableStateOf(TailcatConnections.load(context)) }
     var clientKey by remember { mutableStateOf(GlobalSettings.getString(context, TailcatService.PREF_CLIENT_KEY, "")) }
-    // The address is what lets a client in: hidden unless asked for.
-    var showAddress by remember { mutableStateOf(false) }
     var generating by remember { mutableStateOf(false) }
+    // Which cards are open, by connection id; survives rotation.
+    var expanded by rememberSaveable { mutableStateOf(setOf<String>()) }
+    // The dialog: null when closed, a blank connection for "Add", the connection for "Edit".
+    var editing by remember { mutableStateOf<TailcatConnection?>(null) }
+    var deleting by remember { mutableStateOf<TailcatConnection?>(null) }
 
-    val portsValid = TailcatService.parsePorts(ports) != null
-    val addressValid = address.isNotBlank() && address.trim().none { it.isWhitespace() }
+    fun isRunning(id: String) = statuses[id]?.state == TailcatService.State.RUNNING
 
     fun copy(label: String, text: String) {
         val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -78,6 +87,15 @@ fun TailcatScreen(onBack: () -> Unit) {
                 title = { Text(stringResource(R.string.tailcat_title)) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back)) } }
             )
+        },
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = {
+                    editing = TailcatConnection(name = context.getString(R.string.tailcat_name_default, connections.size + 1))
+                },
+                icon = { Icon(Icons.Default.Add, null) },
+                text = { Text(stringResource(R.string.tailcat_add)) }
+            )
         }
     ) { padding ->
         Column(
@@ -86,67 +104,28 @@ fun TailcatScreen(onBack: () -> Unit) {
         ) {
             HelpText(stringResource(R.string.tailcat_intro), lines = 3)
 
-            ElevatedCard(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(
-                        value = address,
-                        onValueChange = { address = it },
-                        label = { Text(stringResource(R.string.tailcat_address)) },
-                        placeholder = { Text("tc…") },
-                        singleLine = true,
-                        enabled = !running,
-                        isError = address.isNotEmpty() && !addressValid,
-                        visualTransformation = if (showAddress) VisualTransformation.None else PasswordVisualTransformation(),
-                        trailingIcon = {
-                            IconButton(onClick = { showAddress = !showAddress }) {
-                                Icon(if (showAddress) Icons.Default.VisibilityOff else Icons.Default.Visibility, null)
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = ports,
-                        onValueChange = { ports = it },
-                        label = { Text(stringResource(R.string.tailcat_ports)) },
-                        placeholder = { Text("8080") },
-                        supportingText = { Text(stringResource(R.string.tailcat_ports_hint)) },
-                        singleLine = true,
-                        enabled = !running,
-                        isError = ports.isNotEmpty() && !portsValid,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                        modifier = Modifier.fillMaxWidth()
-                    )
+            if (connections.isEmpty()) {
+                Text(
+                    stringResource(R.string.tailcat_empty),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
 
-                    val statusText = when {
-                        running -> stringResource(R.string.tailcat_status_running, status.detail)
-                        status.detail.isNotEmpty() -> status.detail
-                        else -> stringResource(R.string.tailcat_status_stopped)
-                    }
-                    Text(
-                        statusText,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (running) MaterialTheme.colorScheme.primary
-                                else if (status.detail.isNotEmpty()) MaterialTheme.colorScheme.error
-                                else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    Button(
-                        onClick = {
-                            if (running) {
-                                TailcatService.stop(context)
-                            } else {
-                                GlobalSettings.setString(context, TailcatService.PREF_ADDRESS, address.trim())
-                                GlobalSettings.setString(context, TailcatService.PREF_PORTS, ports.trim())
-                                TailcatService.start(context)
-                            }
-                        },
-                        enabled = running || (addressValid && portsValid),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(stringResource(if (running) R.string.tailcat_stop else R.string.tailcat_start))
-                    }
-                }
+            connections.forEach { conn ->
+                TailcatConnectionCard(
+                    connection = conn,
+                    status = statuses[conn.id] ?: TailcatService.Status(),
+                    log = logs[conn.id].orEmpty(),
+                    expanded = conn.id in expanded,
+                    onToggleExpanded = { expanded = if (conn.id in expanded) expanded - conn.id else expanded + conn.id },
+                    onRunningChange = { run ->
+                        if (run) TailcatService.start(context, conn.id) else TailcatService.stop(context, conn.id)
+                    },
+                    onEdit = { editing = conn },
+                    onDelete = { deleting = conn }
+                )
             }
 
             ElevatedCard(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
@@ -154,7 +133,7 @@ fun TailcatScreen(onBack: () -> Unit) {
                     Text(stringResource(R.string.tailcat_client_key), style = MaterialTheme.typography.titleSmall)
                     HelpText(stringResource(R.string.tailcat_client_key_desc))
                     if (clientKey.isNotEmpty()) {
-                        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 clientKey,
                                 fontFamily = FontFamily.Monospace,
@@ -162,7 +141,7 @@ fun TailcatScreen(onBack: () -> Unit) {
                                 modifier = Modifier.weight(1f)
                             )
                             IconButton(onClick = { copy("tailcat client key", clientKey) }) {
-                                Icon(Icons.Default.ContentCopy, stringResource(R.string.tailcat_copy))
+                                Icon(Icons.Default.ContentCopy, stringResource(R.string.action_copy))
                             }
                         }
                     } else {
@@ -186,19 +165,195 @@ fun TailcatScreen(onBack: () -> Unit) {
                 }
             }
 
-            if (log.isNotEmpty()) {
-                ElevatedCard(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(stringResource(R.string.tailcat_output), style = MaterialTheme.typography.titleSmall)
+            // Room to scroll the last card out from under the button.
+            Spacer(Modifier.height(72.dp))
+        }
+    }
+
+    editing?.let { initial ->
+        TailcatConnectionDialog(
+            initial = initial,
+            isNew = connections.none { it.id == initial.id },
+            onDismiss = { editing = null },
+            onSave = { saved ->
+                val updated = if (connections.any { it.id == saved.id }) connections.map { if (it.id == saved.id) saved else it }
+                              else connections + saved
+                TailcatConnections.save(context, updated)
+                connections = updated
+                editing = null
+                // A running connection takes its new settings at once.
+                if (isRunning(saved.id)) TailcatService.restart(context, saved.id)
+            }
+        )
+    }
+
+    deleting?.let { conn ->
+        AlertDialog(
+            onDismissRequest = { deleting = null },
+            title = { Text(stringResource(R.string.tailcat_delete_confirm, conn.name)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (isRunning(conn.id)) TailcatService.stop(context, conn.id)
+                    val updated = connections.filter { it.id != conn.id }
+                    TailcatConnections.save(context, updated)
+                    connections = updated
+                    TailcatService.forget(conn.id)
+                    deleting = null
+                }) { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { deleting = null }) { Text(stringResource(R.string.action_cancel)) } }
+        )
+    }
+}
+
+@Composable
+private fun TailcatConnectionCard(
+    connection: TailcatConnection,
+    status: TailcatService.Status,
+    log: List<String>,
+    expanded: Boolean,
+    onToggleExpanded: () -> Unit,
+    onRunningChange: (Boolean) -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val running = status.state == TailcatService.State.RUNNING
+    val statusText = when (status.state) {
+        TailcatService.State.RUNNING -> stringResource(R.string.tailcat_status_running, status.detail)
+        TailcatService.State.EXITED -> status.detail
+        TailcatService.State.STOPPED -> stringResource(R.string.tailcat_status_stopped, TailcatConnections.summary(connection.ports))
+    }
+    val statusColor = when (status.state) {
+        TailcatService.State.RUNNING -> MaterialTheme.colorScheme.primary
+        TailcatService.State.EXITED -> MaterialTheme.colorScheme.error
+        TailcatService.State.STOPPED -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    ElevatedCard(
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth().animateContentSize()
+    ) {
+        Column {
+            Row(
+                Modifier.fillMaxWidth().clickable(onClick = onToggleExpanded).padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        connection.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(statusText, style = MaterialTheme.typography.bodySmall, color = statusColor)
+                }
+                Switch(checked = running, onCheckedChange = onRunningChange)
+            }
+
+            if (expanded) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.tailcat_output), style = MaterialTheme.typography.labelMedium)
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         Text(
-                            log.takeLast(40).joinToString("\n"),
+                            if (log.isEmpty()) stringResource(R.string.tailcat_no_output) else log.takeLast(40).joinToString("\n"),
                             fontFamily = FontFamily.Monospace,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(12.dp)
                         )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = onEdit, shape = RoundedCornerShape(12.dp)) {
+                            Text(stringResource(R.string.action_edit))
+                        }
+                        OutlinedButton(onClick = onDelete, shape = RoundedCornerShape(12.dp)) {
+                            Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error)
+                        }
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun TailcatConnectionDialog(
+    initial: TailcatConnection,
+    isNew: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (TailcatConnection) -> Unit,
+) {
+    val context = LocalContext.current
+    var name by remember { mutableStateOf(initial.name) }
+    var address by remember { mutableStateOf(initial.address) }
+    var ports by remember { mutableStateOf(initial.ports) }
+    // The address is what lets a client in: hidden unless asked for.
+    var showAddress by remember { mutableStateOf(false) }
+
+    val addressValid = TailcatConnections.isValidAddress(address)
+    val portsValid = TailcatConnections.parsePorts(ports) != null
+    val clash = remember(ports) {
+        if (portsValid) TailcatConnections.clashes(context, ports, except = initial.id).firstOrNull() else null
+    }
+    val canSave = name.isNotBlank() && addressValid && portsValid && clash == null
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(if (isNew) R.string.tailcat_add else R.string.tailcat_edit)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text(stringResource(R.string.tailcat_name)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = address,
+                    onValueChange = { address = it },
+                    label = { Text(stringResource(R.string.tailcat_address)) },
+                    placeholder = { Text("tc…") },
+                    singleLine = true,
+                    isError = address.isNotEmpty() && !addressValid,
+                    visualTransformation = if (showAddress) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { showAddress = !showAddress }) {
+                            Icon(if (showAddress) Icons.Default.VisibilityOff else Icons.Default.Visibility, null)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = ports,
+                    onValueChange = { ports = it },
+                    label = { Text(stringResource(R.string.tailcat_ports)) },
+                    placeholder = { Text("8080") },
+                    supportingText = {
+                        Text(
+                            if (clash != null) stringResource(R.string.tailcat_err_port_clash, clash.first, clash.second.name)
+                            else stringResource(R.string.tailcat_ports_hint)
+                        )
+                    },
+                    singleLine = true,
+                    isError = (ports.isNotEmpty() && !portsValid) || clash != null,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSave(initial.copy(name = name.trim(), address = address.trim(), ports = ports.trim())) },
+                enabled = canSave
+            ) { Text(stringResource(R.string.action_save)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } }
+    )
 }

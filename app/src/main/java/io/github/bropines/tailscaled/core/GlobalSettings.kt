@@ -209,7 +209,8 @@ object GlobalSettings {
     // Generic accessors for global settings
     fun getString(context: Context, key: String, default: String): String = getPrefs(context).getString(key, default) ?: default
     fun setString(context: Context, key: String, value: String) = getPrefs(context).edit().putString(key, value).apply()
-    
+    fun remove(context: Context, key: String) = getPrefs(context).edit().remove(key).apply()
+
     fun getBoolean(context: Context, key: String, default: Boolean): Boolean = getPrefs(context).getBoolean(key, default)
     fun setBoolean(context: Context, key: String, value: Boolean) = getPrefs(context).edit().putBoolean(key, value).apply()
 

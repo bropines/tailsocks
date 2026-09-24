@@ -1443,25 +1443,31 @@
 
     <!-- Tailcat -->
     <string name="tailcat_title">Tailcat</string>
-    <string name="tailcat_link_desc">Локальные порты до сервера tailcat, без VPN и без аккаунта Tailscale</string>
-    <string name="tailcat_intro">Каждый порт слушает на 127.0.0.1 и передаётся через WireGuard на сервер tailcat, адрес которого вставлен здесь. Укажите приложению http://127.0.0.1:&lt;порт&gt;. VPN не запускается, аккаунт Tailscale не нужен; на сервере работает tailcat serve.</string>
+    <string name="tailcat_link_desc">Локальные порты до серверов tailcat, без VPN и без аккаунта Tailscale</string>
+    <string name="tailcat_intro">Каждое подключение ведёт к одному серверу tailcat: его порты слушают на 127.0.0.1 и передаются через WireGuard на те же порты сервера. Укажите приложению http://127.0.0.1:&lt;порт&gt;. Подключений может работать несколько одновременно. VPN не запускается, аккаунт Tailscale не нужен; на каждом сервере работает tailcat serve.</string>
+    <string name="tailcat_add">Добавить подключение</string>
+    <string name="tailcat_edit">Изменить подключение</string>
+    <string name="tailcat_delete_confirm">Удалить %1$s?</string>
+    <string name="tailcat_empty">Подключений пока нет.</string>
+    <string name="tailcat_name">Название</string>
+    <string name="tailcat_name_default">Сервер %1$d</string>
     <string name="tailcat_address">Адрес сервера</string>
     <string name="tailcat_ports">Порты</string>
     <string name="tailcat_ports_hint">Порт на сервере, например 8080; локальный:удалённый — чтобы слушать здесь другой порт (18080:8080). Несколько — через запятую.</string>
-    <string name="tailcat_start">Запустить</string>
-    <string name="tailcat_stop">Остановить</string>
     <string name="tailcat_status_running">Проброшено: %1$s</string>
-    <string name="tailcat_status_stopped">Остановлено</string>
-    <string name="tailcat_client_key">Ключ клиента</string>
-    <string name="tailcat_client_key_desc">Без него подключиться может любой, у кого есть адрес сервера. Создайте ключ и запустите сервер с tailcat serve --allow=&lt;этот ключ&gt;, чтобы пускать только это устройство.</string>
-    <string name="tailcat_client_key_create">Создать ключ клиента</string>
-    <string name="tailcat_copy">Скопировать</string>
-    <string name="tailcat_copied">Скопировано</string>
+    <string name="tailcat_status_stopped">Остановлено · %1$s</string>
     <string name="tailcat_output">Вывод</string>
+    <string name="tailcat_no_output">Вывода пока нет.</string>
+    <string name="tailcat_client_key">Ключ клиента</string>
+    <string name="tailcat_client_key_desc">Без него подключиться может любой, у кого есть адрес сервера. Создайте ключ и запускайте каждый сервер с tailcat serve --allow=&lt;этот ключ&gt;, чтобы пускать только это устройство; один ключ используется для всех подключений.</string>
+    <string name="tailcat_client_key_create">Создать ключ клиента</string>
+    <string name="tailcat_copied">Скопировано</string>
+    <string name="tailcat_notif_title">Tailcat · работает: %1$d</string>
     <string name="tailcat_notif_starting">Запуск…</string>
-    <string name="tailcat_notif_running">Проброшено: %1$s</string>
+    <string name="tailcat_stop_all">Остановить все</string>
     <string name="tailcat_err_address">Не указан адрес сервера</string>
     <string name="tailcat_err_ports">Ошибка в описании порта</string>
+    <string name="tailcat_err_port_clash">Порт %1$d уже занят подключением %2$s</string>
     <string name="tailcat_err_binary">В этой сборке нет tailcat</string>
-    <string name="tailcat_exited">tailcat остановился (код %1$d); подробности в выводе ниже</string>
+    <string name="tailcat_exited">Завершился (код %1$d); подробности в выводе</string>
 </resources>

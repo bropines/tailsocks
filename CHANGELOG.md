@@ -6,7 +6,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Added
 
-- Tailcat: local ports carried to a tailcat server over WireGuard, without a VPN or a Tailscale account; with a client key for the server's allow list.
+- Tailcat: local ports carried to tailcat servers over WireGuard, without a VPN or a Tailscale account; several connections at once, each with its own output, and a client key for the servers' allow lists.
 
 ## [4.4.1] - 2026-09-20
 
