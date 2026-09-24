@@ -52,9 +52,7 @@ class TailcatService : Service() {
         /** tailcat's name for the client key that client modes load on their own. */
         private const val CLIENT_KEY_NAME = "client-default"
 
-        // `2283`, `18080:2283`, `3001:192.168.1.5:3001`, `5555:[fd7a::1]:5555`:
-        // the port mappings `tailcat forward` accepts, before it parses them itself.
-        private val PORT_SPEC = Regex("""^(\d{1,5}(:\d{1,5})?|\d{1,5}:(\[[0-9A-Fa-f:.]+]|[A-Za-z0-9.-]+):\d{1,5})$""")
+        private val IPV6_LITERAL = Regex("""^[0-9A-Fa-f:.]+$""")
 
         private val _status = MutableStateFlow(Status())
         val status: StateFlow<Status> = _status.asStateFlow()
@@ -68,7 +66,43 @@ class TailcatService : Service() {
         /** Splits the ports field into mappings; null when any of them is malformed. */
         fun parsePorts(text: String): List<String>? {
             val specs = text.split(',', ' ', '\n').map { it.trim() }.filter { it.isNotEmpty() }
-            return specs.takeIf { it.isNotEmpty() && it.all(PORT_SPEC::matches) }
+            return specs.takeIf { it.isNotEmpty() && it.all(::isForwardSpec) }
+        }
+
+        /**
+         * The mappings `tailcat forward` accepts (parseForwardSpec in its
+         * cmd/tailcat/forward.go), checked here so a typo never reaches Start:
+         * `8080`; `18080:8080`, with local port 0 for one the OS picks; and
+         * `3001:192.168.1.5:3001` or `5555:[fd7a::1]:5555` through an exit-node
+         * server. The remote host must be an IP literal — tailcat resolves no
+         * names here and exits on one.
+         */
+        private fun isForwardSpec(spec: String): Boolean {
+            val colon = spec.indexOf(':')
+            if (colon < 0) return isPort(spec)
+            val local = spec.substring(0, colon)
+            val target = spec.substring(colon + 1)
+            if (local != "0" && !isPort(local)) return false
+            if (isPort(target)) return true
+            val portSep = target.lastIndexOf(':')
+            if (portSep <= 0 || !isPort(target.substring(portSep + 1))) return false
+            val host = target.substring(0, portSep)
+            return if (host.startsWith('[') && host.endsWith(']')) {
+                host.length > 2 && ':' in host && IPV6_LITERAL.matches(host.substring(1, host.length - 1))
+            } else {
+                isIpv4(host)
+            }
+        }
+
+        private fun isPort(s: String) = s.isNotEmpty() && s.all(Char::isDigit) && s.length <= 5 && s.toInt() in 1..65535
+
+        // Four decimal octets without leading zeros, as Go's netip requires.
+        private fun isIpv4(s: String): Boolean {
+            val parts = s.split('.')
+            return parts.size == 4 && parts.all {
+                it.isNotEmpty() && it.length <= 3 && it.all(Char::isDigit) &&
+                    (it == "0" || !it.startsWith('0')) && it.toInt() <= 255
+            }
         }
 
         fun start(context: Context) {
