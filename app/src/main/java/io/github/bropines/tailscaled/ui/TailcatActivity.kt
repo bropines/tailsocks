@@ -19,11 +19,17 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
@@ -40,6 +46,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -72,6 +80,7 @@ fun TailcatScreen(onBack: () -> Unit) {
     // The dialog: null when closed, a blank connection for "Add", the connection for "Edit".
     var editing by remember { mutableStateOf<TailcatConnection?>(null) }
     var deleting by remember { mutableStateOf<TailcatConnection?>(null) }
+    var viewing by remember { mutableStateOf<TailcatConnection?>(null) }
 
     fun isRunning(id: String) = statuses[id]?.state == TailcatService.State.RUNNING
 
@@ -123,6 +132,7 @@ fun TailcatScreen(onBack: () -> Unit) {
                     onRunningChange = { run ->
                         if (run) TailcatService.start(context, conn.id) else TailcatService.stop(context, conn.id)
                     },
+                    onFullOutput = { viewing = conn },
                     onEdit = { editing = conn },
                     onDelete = { deleting = conn }
                 )
@@ -187,6 +197,16 @@ fun TailcatScreen(onBack: () -> Unit) {
         )
     }
 
+    viewing?.let { conn ->
+        val lines = logs[conn.id].orEmpty()
+        TailcatOutputDialog(
+            name = conn.name,
+            log = lines,
+            onCopy = { copy("tailcat output", lines.joinToString("\n")) },
+            onDismiss = { viewing = null }
+        )
+    }
+
     deleting?.let { conn ->
         AlertDialog(
             onDismissRequest = { deleting = null },
@@ -214,6 +234,7 @@ private fun TailcatConnectionCard(
     expanded: Boolean,
     onToggleExpanded: () -> Unit,
     onRunningChange: (Boolean) -> Unit,
+    onFullOutput: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -228,14 +249,17 @@ private fun TailcatConnectionCard(
         TailcatService.State.EXITED -> MaterialTheme.colorScheme.error
         TailcatService.State.STOPPED -> MaterialTheme.colorScheme.onSurfaceVariant
     }
+    var menuOpen by remember { mutableStateOf(false) }
 
     ElevatedCard(
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier.fillMaxWidth().animateContentSize()
     ) {
         Column {
+            // The header toggles the output; everything else about the
+            // connection is in the menu, reachable with the card closed.
             Row(
-                Modifier.fillMaxWidth().clickable(onClick = onToggleExpanded).padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
+                Modifier.fillMaxWidth().clickable(onClick = onToggleExpanded).padding(start = 16.dp, end = 4.dp, top = 12.dp, bottom = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
@@ -249,34 +273,107 @@ private fun TailcatConnectionCard(
                     Text(statusText, style = MaterialTheme.typography.bodySmall, color = statusColor)
                 }
                 Switch(checked = running, onCheckedChange = onRunningChange)
+                Box {
+                    IconButton(onClick = { menuOpen = true }) { Icon(Icons.Default.MoreVert, stringResource(R.string.tailcat_more)) }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.tailcat_full_output)) },
+                            leadingIcon = { Icon(Icons.Default.OpenInFull, null) },
+                            onClick = { menuOpen = false; onFullOutput() }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.action_edit)) },
+                            leadingIcon = { Icon(Icons.Default.Edit, null) },
+                            onClick = { menuOpen = false; onEdit() }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) },
+                            leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                            onClick = { menuOpen = false; onDelete() }
+                        )
+                    }
+                }
             }
 
             if (expanded) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(stringResource(R.string.tailcat_output), style = MaterialTheme.typography.labelMedium)
+                Column(Modifier.padding(start = 16.dp, end = 4.dp, bottom = 16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            stringResource(R.string.tailcat_output),
+                            style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(onClick = onFullOutput) { Icon(Icons.Default.OpenInFull, stringResource(R.string.tailcat_full_output)) }
+                    }
                     Surface(
                         shape = RoundedCornerShape(12.dp),
                         color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth().padding(end = 12.dp)
                     ) {
-                        Text(
-                            if (log.isEmpty()) stringResource(R.string.tailcat_no_output) else log.takeLast(40).joinToString("\n"),
-                            fontFamily = FontFamily.Monospace,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(12.dp)
-                        )
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = onEdit, shape = RoundedCornerShape(12.dp)) {
-                            Text(stringResource(R.string.action_edit))
-                        }
-                        OutlinedButton(onClick = onDelete, shape = RoundedCornerShape(12.dp)) {
-                            Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error)
-                        }
+                        // Capped, and scrolling inside, so a long run of output
+                        // never pushes the cards below out of reach.
+                        TailcatOutput(log, Modifier.heightIn(max = 240.dp))
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * A connection's output, newest at the bottom. It stays on the newest line as
+ * output arrives, like a terminal, until scrolled up; scrolling back to the
+ * end resumes that.
+ */
+@Composable
+private fun TailcatOutput(log: List<String>, modifier: Modifier = Modifier, selectable: Boolean = false) {
+    val scroll = rememberScrollState()
+    var follow by remember { mutableStateOf(true) }
+    // Only a scroll by the user decides whether to follow: when it ends, follow
+    // if it ended at the bottom. A scroll made here ends there, so it keeps it.
+    LaunchedEffect(scroll) {
+        snapshotFlow { scroll.isScrollInProgress }.collect { scrolling ->
+            if (!scrolling) follow = scroll.maxValue - scroll.value < 24
+        }
+    }
+    LaunchedEffect(scroll) {
+        snapshotFlow { scroll.maxValue }.collect { max -> if (follow) scroll.scrollTo(max) }
+    }
+    val text: @Composable () -> Unit = {
+        Text(
+            if (log.isEmpty()) stringResource(R.string.tailcat_no_output) else log.joinToString("\n"),
+            fontFamily = FontFamily.Monospace,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(12.dp)
+        )
+    }
+    Box(modifier.verticalScroll(scroll)) {
+        if (selectable) SelectionContainer { text() } else text()
+    }
+}
+
+/** The whole of a connection's output, full screen, selectable, with Copy all. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TailcatOutputDialog(name: String, log: List<String>, onCopy: () -> Unit, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    navigationIcon = { IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, stringResource(R.string.action_close)) } },
+                    actions = {
+                        IconButton(onClick = onCopy, enabled = log.isNotEmpty()) {
+                            Icon(Icons.Default.ContentCopy, stringResource(R.string.tailcat_copy_all))
+                        }
+                    }
+                )
+            }
+        ) { padding ->
+            Surface(color = MaterialTheme.colorScheme.surfaceContainerHighest, modifier = Modifier.padding(padding).fillMaxSize()) {
+                TailcatOutput(log, Modifier.fillMaxSize(), selectable = true)
             }
         }
     }

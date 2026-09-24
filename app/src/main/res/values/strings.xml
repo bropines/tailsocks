@@ -1457,6 +1457,9 @@
     <string name="tailcat_status_running">Forwarding %1$s</string>
     <string name="tailcat_status_stopped">Stopped · %1$s</string>
     <string name="tailcat_output">Output</string>
+    <string name="tailcat_full_output">Full output</string>
+    <string name="tailcat_copy_all">Copy all</string>
+    <string name="tailcat_more">More options</string>
     <string name="tailcat_no_output">No output yet.</string>
     <string name="tailcat_client_key">Client key</string>
     <string name="tailcat_client_key_desc">Without one, anyone holding a server\'s address can connect. Create a key and start each server with tailcat serve --allow=&lt;this key&gt; to let only this device in; the same key is used for every connection.</string>

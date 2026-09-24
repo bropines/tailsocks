@@ -1457,6 +1457,9 @@
     <string name="tailcat_status_running">Проброшено: %1$s</string>
     <string name="tailcat_status_stopped">Остановлено · %1$s</string>
     <string name="tailcat_output">Вывод</string>
+    <string name="tailcat_full_output">Весь вывод</string>
+    <string name="tailcat_copy_all">Скопировать всё</string>
+    <string name="tailcat_more">Ещё</string>
     <string name="tailcat_no_output">Вывода пока нет.</string>
     <string name="tailcat_client_key">Ключ клиента</string>
     <string name="tailcat_client_key_desc">Без него подключиться может любой, у кого есть адрес сервера. Создайте ключ и запускайте каждый сервер с tailcat serve --allow=&lt;этот ключ&gt;, чтобы пускать только это устройство; один ключ используется для всех подключений.</string>
