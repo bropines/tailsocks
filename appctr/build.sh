@@ -47,7 +47,7 @@ if [ "$FORCE_REBUILD" -eq 1 ]; then
     rm -rf tailscale_src orig
 fi
 
-echo "[1/4] Preparing and Patching Tailscale sources (${TS_VERSION})..."
+echo "[1/5] Preparing and Patching Tailscale sources (${TS_VERSION})..."
 # A tree patched by an older patch set is not the tree the patches describe, and
 # nothing noticed: the download-and-patch block below is skipped whenever
 # tailscale_src exists, so weeks of edits could accumulate locally while CI —
@@ -88,7 +88,7 @@ else
     echo "-> Sources already exist and patched for ${TS_VERSION}. Skipping download."
 fi
 
-echo "[2/4] Compiling binaries in PIE mode..."
+echo "[2/5] Compiling binaries in PIE mode..."
 
 cd tailscale_src
 mkdir -p tmp
@@ -176,7 +176,7 @@ GOOS=android GOARCH=amd64 go build -v \
 
 cd ..
 
-echo "[3/4] Building appctr.aar (Gomobile Bridge)..."
+echo "[3/5] Building appctr.aar (Gomobile Bridge)..."
 GIT_HASH=$(git rev-parse --short=7 HEAD 2>/dev/null || echo "dev")
 BUILD_TIME=$(date -u +"%Y-%m-%d_%H%M%S")
 FULL_CORE_VER="${TS_VERSION}-${GIT_HASH}-${BUILD_TIME}"
@@ -186,7 +186,7 @@ unset CC
 go mod tidy
 gomobile bind -ldflags="-s -w -buildid= -checklinkname=0 -X appctr.coreVersion=${FULL_CORE_VER}" -trimpath -target="android/arm,android/arm64,android/386,android/amd64" -androidapi 21 -tags "$TAGS" -o tmp/appctr.aar -v .
 
-echo "[4/4] Copying binaries to jniLibs..."
+echo "[4/5] Copying binaries to jniLibs..."
 mkdir -p ../app/src/main/jniLibs/arm64-v8a
 cp tailscale_src/tmp/libtailscale_arm64.so ../app/src/main/jniLibs/arm64-v8a/libtailscale.so
 cp tailscale_src/tmp/libtailscale_cli_arm64.so ../app/src/main/jniLibs/arm64-v8a/libtailscale_cli.so
@@ -202,5 +202,40 @@ cp tailscale_src/tmp/libtailscale_cli_x86.so ../app/src/main/jniLibs/x86/libtail
 mkdir -p ../app/src/main/jniLibs/x86_64
 cp tailscale_src/tmp/libtailscale_x86_64.so ../app/src/main/jniLibs/x86_64/libtailscale.so
 cp tailscale_src/tmp/libtailscale_cli_x86_64.so ../app/src/main/jniLibs/x86_64/libtailscale_cli.so
+
+echo "[5/5] Building tailcat..."
+# tailcat (github.com/tailscale/tailcat) ships as its own executable, launched by
+# TailcatService. It is not linked into the bridge: it requires a newer
+# tailscale.com than the patched tree above, and one module cannot hold both.
+TAILCAT_VERSION=$(tr -d ' \n\r' < TAILCAT_VERSION)
+if [ "$(cat tailcat_src/.build_version 2>/dev/null)" != "$TAILCAT_VERSION" ]; then
+    echo "-> Downloading tailcat ${TAILCAT_VERSION}..."
+    rm -rf tailcat_src
+    curl -sfL "https://github.com/tailscale/tailcat/archive/refs/tags/${TAILCAT_VERSION}.tar.gz" | tar -xz
+    mv "tailcat-${TAILCAT_VERSION#v}" tailcat_src
+    echo "$TAILCAT_VERSION" > tailcat_src/.build_version
+fi
+cd tailcat_src
+# Built the way official tailcat releases are: the tag list from its
+# build-tags.md, and a static GOOS=linux binary without cgo. Not GOOS=android
+# with cgo like the daemon above: tailscale.com reads that combination as the
+# official Android app, which supplies interface enumeration and DNS from Java,
+# so it leaves out the fallbacks (feature/androidbin, feature/androiddns) an app
+# process needs — it may not list interfaces, and netmon would never start.
+TAILCAT_TAGS=$(tr -d ' \n\r' < build-tags.txt)
+build_tailcat() { # <jniLibs ABI> <GOARCH> [extra env]
+    echo "-> Compiling tailcat [$1]..."
+    env CGO_ENABLED=0 GOOS=linux GOARCH=$2 $3 go build -trimpath \
+        -tags "$TAILCAT_TAGS" \
+        -ldflags="-s -w -X main.version=${TAILCAT_VERSION}" \
+        -o ../tmp/libtailcat_$1.so ./cmd/tailcat
+    mkdir -p ../../app/src/main/jniLibs/$1
+    cp ../tmp/libtailcat_$1.so ../../app/src/main/jniLibs/$1/libtailcat.so
+}
+build_tailcat arm64-v8a   arm64
+build_tailcat armeabi-v7a arm GOARM=7
+build_tailcat x86         386
+build_tailcat x86_64      amd64
+cd ..
 
 echo "✅ Done! Ready to assemble APK."

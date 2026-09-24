@@ -1749,6 +1749,16 @@ fun SettingsScreen(
                 }
             }
         }
+
+        Spacer(Modifier.height(12.dp))
+
+        SettingsCard(title = stringResource(R.string.tailcat_title)) {
+            SettingsClickableItem(
+                stringResource(R.string.tailcat_title),
+                stringResource(R.string.tailcat_link_desc),
+                Icons.Default.SettingsEthernet
+            ) { context.startActivity(Intent(context, TailcatActivity::class.java)) }
+        }
     }
 
     // D. DNS
