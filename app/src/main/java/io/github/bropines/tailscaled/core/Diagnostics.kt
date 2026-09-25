@@ -103,7 +103,7 @@ object Diagnostics {
             Service running: ${runCatching { Appctr.isRunning() }.getOrDefault(false)}
             Mode: ${if (root) "root" else if (tun) "tun" else "proxy"}
             TUN: ${if (tun) "on (engine: $engine, ipv6: ${GlobalSettings.isTunIpv6Enabled(context)})" else "off"}
-            Root: ${if (root) "on (kernel tun: ${GlobalSettings.isRootTunEnabled(context)}, dns redirect: ${GlobalSettings.isRootDnsRedirectEnabled(context)}, yielded: ${GlobalSettings.isRootRoutingYielded(context)}, shared: ${GlobalSettings.isRootRoutingShared(context)})" else "off"}
+            Root: ${if (root) "on (kernel tun: ${GlobalSettings.isRootTunEnabled(context)}, dns redirect: ${GlobalSettings.isRootDnsRedirectEnabled(context)}${if (GlobalSettings.isRootDnsV6Unsupported(context)) " [IPv4 only: no IPv6 nat table]" else ""}, yielded: ${GlobalSettings.isRootRoutingYielded(context)}, shared: ${GlobalSettings.isRootRoutingShared(context)})" else "off"}
             SOCKS5: ${GlobalSettings.getString(context, "socks5", "127.0.0.1:48115")}, HTTP: ${GlobalSettings.getString(context, "httpproxy", "")}
             DNS proxy: ${GlobalSettings.getString(context, "dns_proxy", "")}
             LAN access: ${GlobalSettings.isLanAccessEnabled(context)}

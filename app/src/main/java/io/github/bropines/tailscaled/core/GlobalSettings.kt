@@ -392,6 +392,15 @@ object GlobalSettings {
      * marker survives both, so the rules can always be found and removed.
      */
     fun isRootRoutingInstalled(context: Context): Boolean = getPrefs(context).getBoolean("root_routing_installed", false)
+
+    /**
+     * Whether the last device-wide DNS apply found no IPv6 `nat` table to write
+     * into, so the redirect covers IPv4 only. Recorded by [RootUtils] for the
+     * diagnostics report; meaningless while Root Mode's DNS tier is off.
+     */
+    fun isRootDnsV6Unsupported(context: Context): Boolean = getPrefs(context).getBoolean("root_dns_v6_unsupported", false)
+    fun setRootDnsV6Unsupported(context: Context, unsupported: Boolean) =
+        getPrefs(context).edit().putBoolean("root_dns_v6_unsupported", unsupported).apply()
     fun setRootRoutingInstalled(context: Context, installed: Boolean) =
         getPrefs(context).edit().putBoolean("root_routing_installed", installed).apply()
 

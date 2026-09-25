@@ -259,6 +259,17 @@ object RootUtils {
     private const val CHAIN_BYPASS = "TAILSOCKS_BYPASS"
 
     /** Printed by [setDnsRedirectHooked] when asked to arm a redirect whose chain is not there. */
+    /**
+     * Printed by the apply script when device-wide DNS goes in on a kernel with
+     * no IPv6 `nat` table — 4.19 on the Redmi is one. There is nowhere to write
+     * the v6 rules, so the redirect covers IPv4 only and a query that leaves
+     * over IPv6 passes MagicDNS by. A firmware limit rather than a gap of ours,
+     * but it used to be silent, which is worse: the summary announced
+     * device-wide DNS without saying half of it was missing. Only ever printed
+     * when IPv6 is up, so a device with it off cannot raise a false alarm.
+     */
+    private const val DNS_V6_NO_NAT = "verify: no IPv6 nat table, DNS redirect covers IPv4 only"
+
     private const val DNS_CHAIN_ABSENT = "verify: $CHAIN_DNS does not exist, nothing to hook"
 
     /** Printed by [setDnsRedirectHooked] when the jump it installed is not on the device afterwards. */
@@ -1141,6 +1152,16 @@ object RootUtils {
             // The chain is complete either way; only these two lines redirect
             // anything, and they wait for a resolver that answers.
             if (dnsHealthy) sb.append(dnsHookInstall())
+            // Whether the same capture is possible over IPv6 at all. Asked, not
+            // assumed: `ip6tables -t nat` exists on some kernels and not on
+            // others, and the answer decides what the summary is allowed to claim.
+            // The v6-up test is written out here rather than reusing the V6UP
+            // variable: that one is set by the exclusions fragment, which is
+            // only appended when there are uids to exclude.
+            sb.append(
+                "[ -d /proc/sys/net/ipv6 ] && [ \"\$(cat /proc/sys/net/ipv6/conf/all/disable_ipv6 2>/dev/null)\" = \"0\" ] && " +
+                    "{ ip6tables -t nat -S >/dev/null 2>&1 || echo '$DNS_V6_NO_NAT'; } || true\n"
+            )
         }
 
         // Verify rather than trust: the shell's exit code otherwise only reflects
@@ -1191,6 +1212,17 @@ object RootUtils {
                     "excluded apps stay inside the tunnel exactly like every other app. Nothing in Root Mode " +
                     "can carve them out on this kernel"
             )
+        }
+        if (res.output.contains(DNS_V6_NO_NAT)) {
+            context?.let { GlobalSettings.setRootDnsV6Unsupported(it, true) }
+            rootLog(
+                "WARN",
+                "device-wide DNS covers IPv4 only: this kernel has no IPv6 `nat` table, so there is nowhere to " +
+                    "write the v6 redirect. A query sent over IPv6 reaches its resolver directly instead of " +
+                    "MagicDNS — tailnet names still resolve, because the daemon's own resolver is asked over IPv4"
+            )
+        } else if (installDns) {
+            context?.let { GlobalSettings.setRootDnsV6Unsupported(it, false) }
         }
         if (res.output.contains(UIDRANGE_MISSING_V6)) {
             rootLog(

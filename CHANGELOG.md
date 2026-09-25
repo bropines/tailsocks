@@ -7,6 +7,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 ### Changed
 
 - The Tailscale core is 1.102.5, up from 1.102.1.
+- Root mode says when device-wide DNS covers IPv4 only: on a kernel with no IPv6 `nat` table there is nowhere to write the v6 redirect, and that now reaches the log and the diagnostics instead of passing in silence.
 
 ## [4.4.1] - 2026-09-20
 

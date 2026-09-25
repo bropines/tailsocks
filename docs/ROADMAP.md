@@ -43,15 +43,16 @@ State as of 2026-09-20, after 4.3.0.
       (`allowxperm untrusted_app tun_device chr_file ioctl { 0x54D2 }`, read off the Redmi), and
       a real child tailscaled did `TUNGETIFF` and `SIOCGIFMTU` on an inherited fd (patch 17
       probe: `tun0`, flags `0x1001`, MTU 1500).
-- [ ] **Native TUN — what the full design still owes.** The shipped cut takes the short road
-      [`NATIVE_TUN_PLAN.md`](NATIVE_TUN_PLAN.md) argues against: a daemon relaunch instead of an
-      fd swap (turning an exit node on or off restarts the daemon, 3–5 s), a no-op router
-      instead of `CallbackRouter`, no `SCM_RIGHTS`. Left: the fd swap, accepted subnet routes
-      without an exit node, always-on and "block connections without VPN", behaviour across
-      Wi‑Fi ↔ LTE and in doze, Android 7/8 (verified on 16 only) — and then making it the
-      default instead of hev. Still unverified on a device: `SCM_RIGHTS` itself, what happens
-      when the fd's owner dies, and the latency of a swap; each needs a debug helper inside the
-      APK, since checking through `su` proves nothing — it is a different SELinux domain.
+- [ ] **Native TUN — what is left.** Stopping the daemon and starting it again on the other
+      engine is the intended behaviour, not a debt: the author's design from the start was that
+      switching between hev and native restarts the daemon, and that is what ships. The fd swap,
+      `CallbackRouter` and `SCM_RIGHTS` that [`NATIVE_TUN_PLAN.md`](NATIVE_TUN_PLAN.md) argues
+      for are that document's ambition, kept there for the record and not wanted here — with
+      them go the questions about what happens when the fd's owner dies and how long a swap
+      takes, which were only ever asked because of the swap. What is actually left: accepted
+      subnet routes without an exit node, always-on and "block connections without VPN",
+      behaviour across Wi‑Fi ↔ LTE and in doze, Android 7/8 (verified on 16 only) — and then
+      making it the default instead of hev.
 - [ ] **tsnet — an idea for 5.0.** The daemon moved inside the app process. Incompatible with
       Root Mode, where it must be a separate process under `su`.
 - [ ] **The separate CLI binary.** The author's decision, deferred. The cost is measured: about
@@ -90,35 +91,43 @@ State as of 2026-09-20, after 4.3.0.
       admin console names the machine after the device model (`xiaomi-23030rac7y`,
       "Android (16)"). Hence the setting is a property of the profile, fixed at creation. Decided
       2026-09-07: it stays off by default for new profiles; the masquerade remains the norm.
-- [ ] **Issue #3** — the request Root Mode started from. The author has already answered; either
-      close it or wait for `TheLastFlame` to confirm on his tablet.
+- [x] **Issue #3** — answered and closed; Root Mode is the feature it asked for.
 
 ### Verify on devices
 
-- [ ] **Root Mode on WSA after a reboot:** autostart through `service.d`, and the app attaching
+- [x] **Root Mode on WSA after a reboot (verified by the author, 2026-09-25):** autostart through `service.d`, and the app attaching
       to a daemon it did not launch.
 - [x] **The honest-OS experiment** — both halves ran on 2026-09-07 (see *Needs the author's
       decision*). Not measured: a *tagged* Android node hosting a `svc:` (the fresh profile was
       user-owned, and the daemon refuses service hosting without tags regardless of OS).
-- [ ] **Received-file permissions in Root Mode.** The fix was made blind (`umask 022` plus
+- [x] **Received-file permissions in Root Mode (verified by the author, 2026-09-25).** `RootUtils` launches the root daemon under `umask 022`, so a received file is readable by the app the moment it lands. The fix was made blind (`umask 022` plus
       handing the directory to the app). Check Routing now prints the real modes — look at them
       and confirm.
 - [ ] **The IPv6 exit-node leak** does not reproduce on the Redmi as of 2026-09-07: table `52`
       has a default route and traffic leaves through the tunnel with a tailnet source address.
       Check the POCO, where the network is different; if it does not reproduce there either,
       strike the item.
-- [ ] **A peer's version from the Admin API** is implemented and works only with a token
-      configured. All that is left is a look on a device where one is.
+- [ ] **A peer's version without the Admin API.** What ships reads it from the Admin API and
+      therefore only works with a token configured. There is a source that needs neither: a
+      peer's `Hostinfo` rides on its node, `Hostinfo.IPNVersion` is the version, and
+      `/localapi/v0/whois?addr=` returns the node — already wrapped here as `WhoIsAddr`
+      (`appctr/api.go`). One check decides it, on any device with a daemon: call WhoIs for a
+      peer and see whether the coordinator ships `IPNVersion` to other nodes (it ships `OS`,
+      which the app already displays). If it does, the version comes from our own daemon with
+      no token and no request to the internet, and the Admin API stays for what the netmap does
+      not carry.
 - Deferred, not implemented — recorded so they are not lost again:
   - A foreign tunnel restarting with a new netId: the ruleset signature keys on the netId, but this has never been observed on a device.
   - FBE phones: wait for user-0 CE storage before starting.
 
 ### Small
 
-- [ ] **IPv6 in the DNS redirect.** On the Redmi's kernel (4.19) there is no IPv6 `nat` table —
-      there is nowhere to write the rules; a firmware limit, not a gap of ours. To do: say so in
-      the diagnostics instead of the present silence, and check whether a DNS query goes out over
-      IPv6 past MagicDNS.
+- [x] **IPv6 in the DNS redirect — said out loud (2026-09-26).** On kernels without an IPv6
+      `nat` table (4.19 on the Redmi) there is nowhere to write the v6 rules, so device-wide DNS
+      covers IPv4 only. The apply script now asks — `ip6tables -t nat -S`, and only when IPv6 is
+      up, so a device with it off raises no false alarm — and the answer becomes a warning in the
+      Root log and a marker in the diagnostics report instead of silence. Still open, and only
+      measurable on such a device: whether a query actually leaves over IPv6 past MagicDNS.
 - [x] **Console `status` / `netcheck` / `ping` do not work in Root Mode.** Done 2026-09-08. The
       `tailscale` link in the data directory was made only by the userspace launch, and Android
       renames the native library directory on every reinstall, so in Root Mode it dangled (seen
