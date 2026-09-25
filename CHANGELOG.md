@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Changed
+
+- The Tailscale core is 1.102.5, up from 1.102.1.
+
 ## [4.4.1] - 2026-09-20
 
 ### Fixed

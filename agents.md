@@ -8,7 +8,7 @@ This document contains mandatory rules, architectural principles, engineering st
 
 TailSocks is a hybrid, multi-layer Android client for Tailscale operating in **userspace-networking mode**:
 
-1. **Core (Go Daemon)**: Patched `tailscaled` daemon (version pinned in `appctr/TAILSCALE_VERSION`, currently v1.102.1), compiled as the native shared library `libtailscale.so` (PIE).
+1. **Core (Go Daemon)**: Patched `tailscaled` daemon (version pinned in `appctr/TAILSCALE_VERSION`, currently v1.102.5), compiled as the native shared library `libtailscale.so` (PIE).
 2. **Bridge (Go/Gomobile)**: The `appctr` module provides JNI bindings (`appctr.Appctr` in Kotlin) and handles LocalAPI v0 communication over Unix Domain Sockets (`tailscaled.sock`).
 3. **UI (Kotlin/Compose)**: High-density, no-scroll Material 3 dashboard implemented in Jetpack Compose.
 4. **TUN Engine**: System-wide transparent VPN routing, two engines. `hev-socks5-tunnel` (C) owns the `VpnService` tunnel and pushes every packet into the daemon's SOCKS5 port — still the default. Since 4.2.0 there is also the opt-in **native engine** (Settings → TUN, `tun_engine=native`): `TunVpnService` establishes the tunnel and the bridge relaunches `tailscaled` with `--tun=android-vpn` on the inherited fd, so MagicDNS, split DNS and the exit node come from the daemon itself (patches 17–19, MTU 1280). It is the short road [`docs/NATIVE_TUN_PLAN.md`](docs/NATIVE_TUN_PLAN.md) argues against — a daemon relaunch instead of an fd swap, a no-op router, no `SCM_RIGHTS` — so treat the full design as unfinished, but not the engine: that one ships and works.

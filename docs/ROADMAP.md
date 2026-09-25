@@ -63,7 +63,7 @@ State as of 2026-09-20, after 4.3.0.
   - (b) Download it on demand from the app's own GitHub release — the smallest APK, but it adds a downloader, hash verification, published CI assets, version pinning and reachability concerns, and a downloaded binary can likely only be executed by root.
   - (c) `lite` / `full` Gradle product flavors — a contained build change, but the variant matrix doubles and CI renaming plus updater awareness follow.
   - (d) Ship the CLI in the universal APK only — the same mechanism as (c), with the release page still at five assets (four per-ABI APKs plus the universal one).
-  - (e) The `ts_include_cli` build tag upstream offers: one binary serves both roles, `tailscaled` dispatching to the CLI when it is invoked as `tailscale`, so there is no second 6 MB library at all. This option was missing from the earlier list.
+  - (e) The `ts_include_cli` build tag upstream offers: one binary serves both roles, `tailscaled` dispatching to the CLI when it is invoked as `tailscale`, so there is no second library at all. **Measured 2026-09-25 on arm64: 26.6 MB for the combined binary against 22.6 + 15.3 MB for the two, i.e. -11.3 MB per ABI on device.** The link the app already makes in its data directory is named `tailscale` (`daemon.go`), which is exactly the argv[0] this dispatch needs — pointing it at the daemon is the whole switch. The cheapest item on this page.
   - Note: `useLegacyPackaging` cannot be turned off — the daemon is `exec()`d from
     `nativeLibraryDir`, which requires the libraries to be extracted to disk.
 
@@ -90,7 +90,6 @@ State as of 2026-09-20, after 4.3.0.
       admin console names the machine after the device model (`xiaomi-23030rac7y`,
       "Android (16)"). Hence the setting is a property of the profile, fixed at creation. Decided
       2026-09-07: it stays off by default for new profiles; the masquerade remains the norm.
-- [ ] **Scanner-bot issues #5, #6, #7** — verified 2026-09-07: `x/crypto/ssh` is not compiled into any shipped binary (`ts_omit_ssh` plus upstream's `!android` build constraint on the SSH server), the version is dictated by the pinned upstream module, and the two PRs change only the bridge's `go.mod`. The closing comment is written; the author posts it (the assistant is not allowed to write to GitHub).
 - [ ] **Issue #3** — the request Root Mode started from. The author has already answered; either
       close it or wait for `TheLastFlame` to confirm on his tablet.
 
@@ -132,11 +131,12 @@ State as of 2026-09-20, after 4.3.0.
 - [ ] **Stable Material 3.** `1.5.0-alpha27` is in use for components 1.4.0 does not have, and it
       is still the latest — no stable release exists yet. When one appears it is one line in
       `gradle/libs.versions.toml`.
-- [ ] **Update Tailscale** from 1.102.1 to the current upstream release, v1.102.3 (2026-08-20).
-      Correction to the earlier note: it does *not* pull the dependency versions the scanner bot
-      asked for — v1.102.3 still pins `x/crypto` v0.54.0. Those arrive only with a later upstream
-      release.
-- [ ] **An English easter egg** — if it is done at all, as a different joke, not a translation.
+- [x] **Update Tailscale (2026-09-25).** Pinned at `v1.102.5`, up from 1.102.1. All nineteen
+      patches applied with `-F0`; two hunks landed at an offset (04 and 10), which the build
+      allows, and nothing had to be re-fitted. It does not pull the dependency versions the
+      scanner bot asked for — `x/crypto` is still what upstream pins. The next step up is the
+      stable line that carries `feature/androidbin`; see issue #10.
+- [x] **An English easter egg (4.4.0).** The status card's long press carries its own set in each language, written separately rather than translated.
 - Deferred, not implemented — recorded so they are not lost again:
   - Re-apply the ruleset after a netd restart flushes it; nothing reacts to that today.
   - Do not kill a daemon that is still starting when the app adopts it — there is a single probe today.
