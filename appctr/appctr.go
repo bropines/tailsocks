@@ -640,6 +640,7 @@ func Start(opt *StartOptions) {
 	slog.Info("=== TAILSOCKS GO CORE STARTING ===", "version", coreVersion, "do_reset", opt.DoReset, "has_authkey", opt.AuthKey != "")
 	slog.Info("========================================")
 	GConfig.update(opt.Socks5Server, opt.Socks5User, opt.Socks5Pass, opt.DnsProxy)
+	reportProcessHandles()
 
 	killLeftoverDaemons()
 

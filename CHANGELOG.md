@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Fixed
+
+- Android 11 and older: the app died the moment the service was started. Go probes whether it can track child processes by pidfd, the app sandbox answers that probe with SIGSYS, and Go's own guard against it does not reach a c-shared library — so the core logged its banner and the process was killed. The probe now happens once, behind a handler of our own, and the core settles on pids. ([#11](https://github.com/bropines/tailsocks/issues/11))
+
 ## [4.4.2] - 2026-09-26
 
 ### Changed
