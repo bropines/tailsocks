@@ -1,0 +1,105 @@
+--- orig/net/socks5/socks5.go
++++ tailscale_src/net/socks5/socks5.go
+@@ -21,6 +21,7 @@
+ 	"io"
+ 	"log"
+ 	"net"
++	"os"
+ 	"slices"
+ 	"strconv"
+ 	"time"
+@@ -88,6 +89,33 @@
+ 	readTimeout = 5 * time.Second
+ )
+ 
++// How long a client has to get through the greeting, the optional
++// authentication and the request. Without it a client that connects and then
++// says nothing holds a goroutine and a file descriptor for as long as the
++// daemon lives — and on a listener reachable from the LAN that is how the
++// daemon runs out of descriptors.
++const handshakeTimeout = 10 * time.Second
++
++// How long an outbound dial may take before the client is told the connection
++// failed.
++//
++// Upstream hard-codes five seconds, which is shorter than a DERP reconnect
++// (derphttp gives itself ten): when the relays are being reset, every dial in
++// that window fails although the path is coming back. Fifteen seconds rides
++// out the reconnect and still answers the client rather than hanging.
++const defaultDialTimeout = 15 * time.Second
++
++// dialTimeout is defaultDialTimeout unless TS_SOCKS5_DIAL_TIMEOUT overrides it
++// with a Go duration ("20s"). An unparseable value is ignored.
++func dialTimeout() time.Duration {
++	if v := os.Getenv("TS_SOCKS5_DIAL_TIMEOUT"); v != "" {
++		if d, err := time.ParseDuration(v); err == nil && d > 0 {
++			return d
++		}
++	}
++	return defaultDialTimeout
++}
++
+ // Server is a SOCKS5 proxy server.
+ type Server struct {
+ 	// Logf optionally specifies the logger to use.
+@@ -123,11 +151,31 @@
+ // Serve accepts and handles incoming connections on the given listener.
+ func (s *Server) Serve(ln net.Listener) error {
+ 	defer ln.Close()
++	var retryIn time.Duration
+ 	for {
+ 		c, err := ln.Accept()
+ 		if err != nil {
+-			return err
++			// Only a closed listener is final. Every other accept error is
++			// transient — descriptors exhausted, a client gone between the SYN
++			// and the accept, an interface withdrawn — and returning on those
++			// ends the whole daemon, because cmd/tailscaled treats Serve's
++			// return as fatal. Back off the way net/http does and keep serving.
++			if errors.Is(err, net.ErrClosed) {
++				return err
++			}
++			if retryIn == 0 {
++				retryIn = 5 * time.Millisecond
++			} else {
++				retryIn *= 2
++			}
++			if retryIn > time.Second {
++				retryIn = time.Second
++			}
++			s.logf("socks5: accept: %v; retrying in %v", err, retryIn)
++			time.Sleep(retryIn)
++			continue
+ 		}
++		retryIn = 0
+ 		go func() {
+ 			defer c.Close()
+ 			conn := &Conn{logf: s.Logf, clientConn: c, srv: s}
+@@ -156,6 +204,10 @@
+ 
+ // Run starts the new connection.
+ func (c *Conn) Run() error {
++	// Cleared in handleRequest once the request has been read: what follows is
++	// a relay or a UDP association, both of which are meant to idle.
++	c.clientConn.SetDeadline(time.Now().Add(handshakeTimeout))
++
+ 	needAuth := c.srv.Username != "" || c.srv.Password != ""
+ 	authMethod := noAuthRequired
+ 	if needAuth {
+@@ -192,6 +244,7 @@
+ 	}
+ 
+ 	c.request = req
++	c.clientConn.SetDeadline(time.Time{})
+ 	switch req.command {
+ 	case connect:
+ 		return c.handleTCP()
+@@ -206,7 +259,7 @@
+ }
+ 
+ func (c *Conn) handleTCP() error {
+-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
++	ctx, cancel := context.WithTimeout(context.Background(), dialTimeout())
+ 	defer cancel()
+ 	srv, err := c.srv.dial(
+ 		ctx,

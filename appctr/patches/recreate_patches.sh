@@ -136,6 +136,13 @@ diff -N -u /dev/null tailscale_src/cmd/tailscaled/android_vpn.go > patches/18-an
 # through netstack because its UID is excluded from the VPN.
 diff -u orig/cmd/tailscaled/netstack.go tailscale_src/cmd/tailscaled/netstack.go > patches/19-android-vpn-netstack.patch || true
 
+# 20-socks5-resilience.patch (net/socks5/socks5.go)
+# The served SOCKS5 proxy keeps serving: a transient accept error backs off
+# instead of ending Serve (whose return kills the daemon), the handshake has a
+# deadline so a silent client cannot hold a descriptor forever, and an outbound
+# dial gets long enough to ride out a DERP reconnect.
+diff -u orig/net/socks5/socks5.go tailscale_src/net/socks5/socks5.go > patches/20-socks5-resilience.patch || true
+
 # Guard: a zero-byte patch means a diff target moved or vanished and `|| true`
 # swallowed it — exactly how 08-netstack-cgnat was silently lost during the
 # v1.102.1 bump. Refuse to finish with any empty patch so it can never ship blank.

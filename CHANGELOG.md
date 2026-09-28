@@ -2,6 +2,16 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Fixed
+
+- The served SOCKS5 proxy stops taking the whole daemon down with it: an accept error now backs off and keeps serving instead of ending the server, which the daemon treats as fatal. A client that connects and then says nothing is dropped after ten seconds rather than holding a descriptor for the life of the process.
+
+### Changed
+
+- An outbound dial through the SOCKS5 proxy gets fifteen seconds instead of five — long enough to ride out a relay reconnect, which takes up to ten — and `TS_SOCKS5_DIAL_TIMEOUT` overrides it.
+
 ## [4.4.3] - 2026-09-28
 
 ### Fixed
