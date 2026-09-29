@@ -1409,20 +1409,55 @@ fun MainScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            val wideEnoughForTwoPanes = maxWidth >= 600.dp
+            // A foldable decides the split itself: open like a book, each half
+            // is a pane; half open like a laptop, the upright half shows the
+            // status and the half lying flat holds the menu, under the thumbs.
+            val fold = rememberFold()
+            val insetStart = paddingValues.calculateStartPadding(androidx.compose.ui.platform.LocalLayoutDirection.current)
+            val insetTop = paddingValues.calculateTopPadding()
+            val wideEnoughForTwoPanes = maxWidth >= 600.dp || fold is Fold.Vertical
             // Landscape on a phone leaves about 390dp of height, so the cards
             // give some of it back; upright there is room to spare.
             val cardHeight = if (maxHeight < 440.dp) 84.dp else 96.dp
-            if (wideEnoughForTwoPanes) {
+            if (fold is Fold.Horizontal) {
+                val menuColumns = ((maxWidth - 48.dp) / 150.dp).toInt().coerceIn(2, 4)
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height((fold.top - insetTop).coerceAtLeast(0.dp))
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        statusPane()
+                    }
+                    Spacer(modifier = Modifier.height(fold.bottom - fold.top))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 24.dp, vertical = 12.dp)
+                    ) {
+                        menuPane(menuColumns, cardHeight)
+                    }
+                }
+            } else if (wideEnoughForTwoPanes) {
                 // The status column is clamped: a share of the width so it
                 // keeps its proportion in landscape, but never the half of a
                 // tablet, where it would be a poster with nothing on it.
-                val statusWidth = (maxWidth * 0.38f).coerceIn(280.dp, 400.dp)
+                // With a fold the status column ends a margin short of the hinge
+                // and the menu starts a margin past it, so neither is drawn over it.
+                val statusWidth = if (fold is Fold.Vertical) (fold.start - insetStart - 36.dp).coerceAtLeast(220.dp)
+                                  else (maxWidth * 0.38f).coerceIn(280.dp, 400.dp)
+                val paneGap = if (fold is Fold.Vertical) (fold.end - fold.start) + 24.dp else 24.dp
                 // Columns follow the width the menu actually gets, not the
                 // width of the window: the same phone in landscape and a
                 // tablet in portrait can have the same window and very
                 // different room left over here.
-                val menuWidth = maxWidth - statusWidth - 72.dp
+                val menuWidth = maxWidth - statusWidth - paneGap - 48.dp
                 val menuColumns = (menuWidth / 150.dp).toInt().coerceIn(2, 4)
                 Row(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
                     Column(
@@ -1435,7 +1470,7 @@ fun MainScreen(
                     ) {
                         statusPane()
                     }
-                    Spacer(modifier = Modifier.width(24.dp))
+                    Spacer(modifier = Modifier.width(paneGap))
                     Column(
                         modifier = Modifier
                             .weight(1f)

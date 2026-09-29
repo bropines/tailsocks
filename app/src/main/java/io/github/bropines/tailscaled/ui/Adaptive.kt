@@ -6,9 +6,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
@@ -45,3 +50,44 @@ fun Modifier.readableWidth(): Modifier =
     this.fillMaxWidth()
         .wrapContentWidth(Alignment.CenterHorizontally)
         .widthIn(max = ReadableContentWidth)
+
+/**
+ * A fold a layout should respect, in dp from the window's own edges.
+ *
+ * [Vertical] is a book-style foldable held open: two halves side by side, and
+ * whatever is drawn across the hinge is either split by it or hidden under it.
+ * [Horizontal] is the same device half open like a laptop — the tabletop
+ * posture — where the top half faces the user and the bottom lies flat.
+ */
+sealed interface Fold {
+    data class Vertical(val start: Dp, val end: Dp) : Fold
+    data class Horizontal(val top: Dp, val bottom: Dp) : Fold
+}
+
+/**
+ * The renderer cannot report a hinge, so a preview hands one in through this;
+ * the app never provides it.
+ */
+val LocalPreviewFold = staticCompositionLocalOf<Fold?> { null }
+
+/**
+ * The fold worth laying out around, if the window has one.
+ *
+ * Only a fold that actually separates the halves or hides something behind
+ * it counts: a foldable opened fully flat has a hinge, but a screen that
+ * crosses it reads as one surface and should be laid out as one. Every other
+ * device answers null, and so does the preview renderer unless a preview says
+ * otherwise through [LocalPreviewFold].
+ */
+@Composable
+fun rememberFold(): Fold? {
+    if (LocalInspectionMode.current) return LocalPreviewFold.current
+    val posture = currentWindowAdaptiveInfo().windowPosture
+    val density = LocalDensity.current
+    val hinge = posture.hingeList.firstOrNull { it.isSeparating || it.isOccluding } ?: return null
+    return with(density) {
+        if (hinge.isVertical) Fold.Vertical(hinge.bounds.left.toDp(), hinge.bounds.right.toDp())
+        else if (posture.isTabletop) Fold.Horizontal(hinge.bounds.top.toDp(), hinge.bounds.bottom.toDp())
+        else null
+    }
+}

@@ -2653,12 +2653,20 @@ fun SettingsScreen(
     // put and the right side follows it. Nothing to push or pop there, so none of
     // the transition or predictive-back machinery below is involved; back simply
     // leaves, as it does from the hub.
+    // A foldable held open like a book gets the two panes on its two halves
+    // whatever its width, with the hinge itself as the divider.
+    val fold = rememberFold()
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-    if (maxWidth >= 840.dp) {
+    if (maxWidth >= 840.dp || fold is Fold.Vertical) {
         val shown = openSection ?: settingsCategories.first().id
         Row(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-            Box(modifier = Modifier.width(340.dp).fillMaxHeight()) { settingsSurface(null, true) }
-            VerticalDivider()
+            if (fold is Fold.Vertical) {
+                Box(modifier = Modifier.width(fold.start).fillMaxHeight()) { settingsSurface(null, true) }
+                Spacer(modifier = Modifier.width(fold.end - fold.start))
+            } else {
+                Box(modifier = Modifier.width(340.dp).fillMaxHeight()) { settingsSurface(null, true) }
+                VerticalDivider()
+            }
             Box(modifier = Modifier.weight(1f).fillMaxHeight()) { settingsSurface(shown, false) }
         }
     } else

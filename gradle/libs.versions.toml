@@ -3,6 +3,8 @@ agp = "8.13.2"
 # Compose preview screenshot testing: renders @Preview functions on the build
 # machine, so a layout can be checked in any geometry without a device.
 screenshot = "0.0.1-alpha16"
+# Window posture: where a foldable's hinge is, and whether it is half open.
+material3-adaptive = "1.3.0"
 kotlin = "2.2.21"
 core-ktx = "1.17.0"
 appcompat = "1.7.1"
@@ -42,6 +44,7 @@ androidx-glance-material3 = { group = "androidx.glance", name = "glance-material
 androidx-appfunctions = { group = "androidx.appfunctions", name = "appfunctions", version.ref = "appfunctions" }
 androidx-appfunctions-compiler = { group = "androidx.appfunctions", name = "appfunctions-compiler", version.ref = "appfunctions" }
 
+androidx-material3-adaptive = { group = "androidx.compose.material3.adaptive", name = "adaptive", version.ref = "material3-adaptive" }
 screenshot-validation-api = { group = "com.android.tools.screenshot", name = "screenshot-validation-api", version.ref = "screenshot" }
 
 [plugins]

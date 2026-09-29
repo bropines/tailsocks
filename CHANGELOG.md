@@ -8,6 +8,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 - A layout for screens with width to spare — landscape, tablets, a folded-open foldable: the service and its warnings keep a column of their own on the left, the menu becomes a grid on the right, with as many columns as the space left over actually fits. Until now the same upright column simply grew wider and the menu cards stretched into slabs.
 - Settings on a wide window — a tablet, or a phone on its side — show the list of sections and the open section side by side, instead of a list the width of the display that opens one page at a time.
+- Foldables: held open like a book, the main screen and Settings put a pane on each half with the hinge as the seam, so nothing is drawn across it; half open like a laptop, the main screen shows the status on the upright half and the menu on the half lying flat.
 - Every list and form holds a readable width on a tablet: DNS, Files and Taildrive, Peers, Permissions, Serve, Network diagnostics, excluded apps, Settings, the first-start slides. A row's label and its switch used to sit at opposite edges of the screen with nothing between them. The console and the logs keep the full width, which monospace lines use.
 
 ### Changed
