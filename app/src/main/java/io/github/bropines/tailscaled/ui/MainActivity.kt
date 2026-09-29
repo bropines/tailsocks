@@ -528,8 +528,18 @@ fun MainScreen(
     // daemon and no native bridge: touching Appctr there loads gojni and fails.
     // In the app it is always false, so nothing below changes behaviour.
     val inPreview = androidx.compose.ui.platform.LocalInspectionMode.current
-    var proxyState by remember { mutableStateOf(if (!inPreview && ProxyState.isActualRunning(context)) "ACTIVE" else "STOPPED") }
-    var exitNodeIp by remember(activeAccount.id) { mutableStateOf(prefs.getString("exit_node_ip", "") ?: "") }
+    // A preview may hand in a whole state to draw; see LocalDemo.
+    val demo = LocalDemo.current
+    var proxyState by remember {
+        mutableStateOf(
+            when {
+                demo != null -> if (demo.running) "ACTIVE" else "STOPPED"
+                !inPreview && ProxyState.isActualRunning(context) -> "ACTIVE"
+                else -> "STOPPED"
+            }
+        )
+    }
+    var exitNodeIp by remember(activeAccount.id) { mutableStateOf(demo?.exitNodeIp ?: prefs.getString("exit_node_ip", "") ?: "") }
     // TunVpnService establishes a *full* tunnel exactly when an exit node is configured.
     // The old `tun_full_tunnel` pref was never written by anything and always read false,
     // so derive the indicator from the live exit-node state to keep the UI truthful.
@@ -678,7 +688,9 @@ fun MainScreen(
 
     DisposableEffect(prefs) {
         prefs.registerOnSharedPreferenceChangeListener(profilePrefsListener)
-        exitNodeIp = prefs.getString("exit_node_ip", "") ?: ""
+        // Runs as the effect is applied, before a preview is captured — it
+        // would overwrite the exit node a demo handed in.
+        if (demo == null) exitNodeIp = prefs.getString("exit_node_ip", "") ?: ""
         onDispose {
             prefs.unregisterOnSharedPreferenceChangeListener(profilePrefsListener)
         }

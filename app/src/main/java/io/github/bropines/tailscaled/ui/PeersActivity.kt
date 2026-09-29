@@ -61,10 +61,16 @@ class PeersActivity : ComponentActivity() {
 fun PeersScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    // In a preview the list comes from LocalDemo, parsed here and now: nothing
+    // started from LaunchedEffect would land before the picture is taken.
+    val demo = LocalDemo.current
+    val demoStatus = remember(demo) {
+        demo?.statusJson?.let { runCatching { AppJson.decodeFromString<StatusResponse>(it) }.getOrNull() }
+    }
     var isRefreshing by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
-    var selfPeer by remember { mutableStateOf<PeerData?>(null) }
-    var peersList by remember { mutableStateOf<List<PeerData>>(emptyList()) }
+    var selfPeer by remember { mutableStateOf<PeerData?>(demoStatus?.self) }
+    var peersList by remember { mutableStateOf(demoStatus?.let(::listablePeers) ?: emptyList()) }
     var searchQuery by remember { mutableStateOf("") }
     var selectedPeer by remember { mutableStateOf<PeerData?>(null) }
     var peerForFileDrop by remember { mutableStateOf<PeerData?>(null) }
@@ -76,7 +82,7 @@ fun PeersScreen(onBack: () -> Unit) {
     var peerVersions by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     // The daemon's raw answer per address, for as long as this screen is open. Cleared on a
     // reload: a figure measured before the list changed is not the figure now.
-    val peerPings = remember { mutableStateMapOf<String, String>() }
+    val peerPings = remember { mutableStateMapOf<String, String>().apply { demo?.pings?.let { putAll(it) } } }
     var pingingAll by remember { mutableStateOf(false) }
 
     val filteredPeers = remember(peersList, searchQuery) {
@@ -117,12 +123,7 @@ fun PeersScreen(onBack: () -> Unit) {
                     throw Exception(if (json.isNullOrBlank()) context.getString(R.string.peers_daemon_not_running) else json)
                 }
                 val status = AppJson.decodeFromString<StatusResponse>(json)
-                
-                val selfId = status.self?.id
-                val loadedPeers = status.peers?.values
-                    ?.filter { it.id != selfId && (!it.hostName.isNullOrBlank() || !it.dnsName.isNullOrBlank()) && it.shareeNode != true && it.hostName != "funnel-ingress-node" }
-                    ?.toList()
-                    ?.sortedByDescending { it.online == true } ?: emptyList()
+                val loadedPeers = listablePeers(status)
                 withContext(Dispatchers.Main) {
                     selfPeer = status.self
                     peersList = loadedPeers
@@ -144,7 +145,7 @@ fun PeersScreen(onBack: () -> Unit) {
         }
     }
 
-    LaunchedEffect(Unit) { loadPeers() }
+    LaunchedEffect(Unit) { if (demo == null) loadPeers() }
 
     PredictiveBackContainer(
         onBack = onBack,
@@ -299,4 +300,18 @@ private fun sendFileToPeer(context: Context, uri: Uri, peer: PeerData, scope: Co
             }
         } catch (e: Exception) { withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.peers_failed_format, e.message), Toast.LENGTH_LONG).show() } }
     }
+}
+
+/**
+ * The peers worth a row: not this device, not a node with no name at all, not
+ * a node shared in from another tailnet, and not Funnel's ingress; online ones
+ * first. One function for the live load and for a demo, so the two cannot
+ * disagree about what the list contains.
+ */
+internal fun listablePeers(status: StatusResponse): List<PeerData> {
+    val selfId = status.self?.id
+    return status.peers?.values
+        ?.filter { it.id != selfId && (!it.hostName.isNullOrBlank() || !it.dnsName.isNullOrBlank()) && it.shareeNode != true && it.hostName != "funnel-ingress-node" }
+        ?.sortedByDescending { it.online == true }
+        ?: emptyList()
 }

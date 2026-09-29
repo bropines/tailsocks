@@ -229,13 +229,6 @@ fun TailSocksTheme(
     var resolvedAmoled by remember { mutableStateOf(GlobalSettings.getBoolean(context, "amoled_mode", false)) }
     var resolvedLang by remember { mutableStateOf(GlobalSettings.getString(context, "app_locale", "sys")) }
  
-    // If explicit states are passed (e.g. inside Settings screen for real-time visual updates), use them
-    LaunchedEffect(appTheme, themePreset, dynamicColorEnabled, amoledModeEnabled) {
-        if (appTheme != null) resolvedTheme = appTheme
-        if (themePreset != null) resolvedPreset = themePreset
-        if (dynamicColorEnabled != null) resolvedDynamic = dynamicColorEnabled
-        if (amoledModeEnabled != null) resolvedAmoled = amoledModeEnabled
-    }
  
     // Shared preferences listener to instantly trigger updates on back press / background screens
     DisposableEffect(context) {
@@ -255,10 +248,15 @@ fun TailSocksTheme(
         }
     }
 
-    val actualAppTheme = resolvedTheme
-    val actualPreset = resolvedPreset
-    val actualDynamic = resolvedDynamic
-    val actualAmoled = resolvedAmoled
+    // Explicit values — Settings passes them so a change shows at once — win
+    // outright and from the first frame. They used to be copied into the
+    // resolved state from a LaunchedEffect, which runs after that frame: every
+    // screen opened with explicit values drew one frame in the stored theme
+    // and then switched.
+    val actualAppTheme = appTheme ?: resolvedTheme
+    val actualPreset = themePreset ?: resolvedPreset
+    val actualDynamic = dynamicColorEnabled ?: resolvedDynamic
+    val actualAmoled = amoledModeEnabled ?: resolvedAmoled
 
     // Determine dark mode
     val systemDark = isSystemInDarkTheme()
