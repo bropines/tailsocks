@@ -1,5 +1,5 @@
---- orig/cmd/tailscaled/tailscaled.go	2026-07-31 19:22:18.000000000 +0300
-+++ tailscale_src/cmd/tailscaled/tailscaled.go	2026-09-12 14:30:31.328380927 +0300
+--- orig/cmd/tailscaled/tailscaled.go
++++ tailscale_src/cmd/tailscaled/tailscaled.go
 @@ -48,6 +48,7 @@
  	"tailscale.com/net/dnsfallback"
  	"tailscale.com/net/netmon"
@@ -8,7 +8,19 @@
  	"tailscale.com/net/tsdial"
  	"tailscale.com/net/tstun"
  	"tailscale.com/paths"
-@@ -714,8 +715,11 @@
+@@ -466,6 +467,11 @@
+ 			return fmt.Errorf("netmon.New: %w", err)
+ 		}
+ 		sys.Set(netMon)
++		// TailSocks: netlink is closed to an app's processes, so this monitor
++		// runs on the ten-minute polling fallback and would notice a network
++		// change long after it mattered. The app knows at once and wakes it
++		// with a signal; see fix_android_netmon.go.
++		setAndroidNetMon(netMon)
+ 	}
+ 
+ 	var publicLogID logid.PublicID
+@@ -714,8 +720,11 @@
  	if err != nil {
  		return nil, fmt.Errorf("ipnlocal.NewLocalBackend: %w", err)
  	}
@@ -21,7 +33,7 @@
  			_, ok := lb.PeerForIP(ip)
  			return ok
  		}
-@@ -807,8 +811,11 @@
+@@ -807,8 +816,11 @@
  	sys.HealthTracker.Get().SetMetricsRegistry(sys.UserMetricsRegistry())
  
  	onlyNetstack = name == "userspace-networking"
@@ -34,7 +46,7 @@
  
  	if buildfeatures.HasBird && args.birdSocketPath != "" {
  		conf.BIRDSocket = args.birdSocketPath
-@@ -827,7 +834,11 @@
+@@ -827,7 +839,11 @@
  			}
  		}
  	} else {
@@ -47,7 +59,7 @@
  		if err != nil {
  			tstun.Diagnose(logf, name, err)
  			return false, fmt.Errorf("tstun.New(%q): %w", name, err)
-@@ -850,10 +861,16 @@
+@@ -850,10 +866,16 @@
  			netmon.SetTailscaleInterfaceProps(devName, 0)
  		}
  

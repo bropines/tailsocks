@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Fixed
+
+- The tunnel notices a network change again. The daemon runs as its own process, where netlink is closed to it, so its monitor fell back to a poll that Android deliberately leaves at ten minutes — upstream expects the app to wake it, which the app never did. A Wi-Fi drop that healed before the poll was therefore never noticed at all, and the tunnel sat on whatever path it had until a relay reconnect happened to fix it. The app now wakes the daemon the moment the network moves, tells it which interface carries the default route (without a name no change could ever count as major, so the sockets were never rebound), and the daemon reads its interfaces live instead of from the picture taken when it started. Measured on the device: before, nothing happened for thirteen minutes; now the rebind, the DNS reconfiguration and the relay reconnect all land within a second, in both directions.
+
 ## [4.4.4] - 2026-09-29
 
 ### Fixed

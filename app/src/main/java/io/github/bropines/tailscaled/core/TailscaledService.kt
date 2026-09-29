@@ -927,10 +927,28 @@ class TailscaledService : Service() {
             scheduleRootRoutingReapply("the default network went away")
         }
 
+        /** The active network's interface, as the platform names it. */
+        private fun reportDefaultRoute() {
+            val name = runCatching {
+                connectivityManager.getLinkProperties(connectivityManager.activeNetwork)?.interfaceName
+            }.getOrNull().orEmpty()
+            runCatching { Appctr.setDefaultRouteInterface(name) }
+        }
+
         private fun injectIfNeeded() {
-            if (!Appctr.isRunning()) return
             Thread {
                 try {
+                    // Which interface carries the default route. The daemon has
+                    // no way to learn this — netmon's Android backend takes it
+                    // from the app — and without it every change it sees counts
+                    // as minor, so it never rebinds its sockets or re-runs a
+                    // netcheck. Report it before the interface list: the daemon
+                    // is woken by the list and reads the name on the way in.
+                    reportDefaultRoute()
+                    // The interface list is only worth gathering for a daemon
+                    // that exists; the route name above is recorded either way,
+                    // and is handed to the next daemon when it starts.
+                    if (!Appctr.isRunning()) return@Thread
                     val interfaces = java.net.NetworkInterface.getNetworkInterfaces()
                     val arr = kotlinx.serialization.json.buildJsonArray {
                         if (interfaces != null) {

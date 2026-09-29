@@ -1,6 +1,7 @@
---- /dev/null	2026-09-06 21:05:22.741199070 +0300
-+++ tailscale_src/cmd/tailscaled/fix_android_netmon.go	2026-09-07 17:34:06.957296885 +0300
-@@ -0,0 +1,120 @@
+--- /dev/null	2026-09-28 04:11:42.578445164 +0300
++++ tailscale_src/cmd/tailscaled/fix_android_netmon.go	2026-09-30 00:22:15.455424658 +0300
+@@ -0,0 +1,165 @@
++//go:build android
 +// +build android
 +
 +package main
@@ -9,12 +10,22 @@
 +	"encoding/json"
 +	"net"
 +	"os"
++	"os/signal"
++	"sync/atomic"
++	"syscall"
 +
 +	"github.com/wlynxg/anet"
 +	"tailscale.com/hostinfo"
 +	"tailscale.com/net/netmon"
 +	"tailscale.com/tailcfg"
 +)
++
++// androidNetMon is this daemon's network monitor, handed over by startup so
++// that the signal handler below can wake it.
++var androidNetMon atomic.Pointer[netmon.Monitor]
++
++// setAndroidNetMon is called once, from tailscaled's own startup.
++func setAndroidNetMon(m *netmon.Monitor) { androidNetMon.Store(m) }
 +
 +func init() {
 +	// What the daemon tells the coordination server about this device.
@@ -51,73 +62,107 @@
 +		hi.OS = "linux"
 +	})
 +
++	// What the daemon reports as its interfaces.
++	//
++	// Live first: anet reads them itself and works here even though netlink is
++	// closed to app processes, and only live data can differ from one call to
++	// the next — which is what makes a change detectable at all. The snapshot
++	// the app passed at launch is the fallback for the Androids where anet
++	// cannot answer; being fixed at exec, it can never report a change, so it
++	// is a starting picture and not a source of truth.
 +	netmon.RegisterInterfaceGetter(func() ([]netmon.Interface, error) {
-+		// 1. Try to get state from environment variable (injected by appctr)
-+		if envState := os.Getenv("TS_NET_STATE"); envState != "" {
-+			var list []struct {
-+				Name      string   `json:"name"`
-+				Addresses []string `json:"addresses"`
-+				Up        bool     `json:"up"`
-+				MTU       int      `json:"mtu"`
-+			}
-+			if err := json.Unmarshal([]byte(envState), &list); err == nil && len(list) > 0 {
-+				ret := make([]netmon.Interface, 0, len(list))
-+				for _, iface := range list {
-+					if !iface.Up {
-+						continue
-+					}
-+					ni := netmon.Interface{
-+						Interface: &net.Interface{
-+							Name:  iface.Name,
-+							MTU:   iface.MTU,
-+							Flags: net.FlagUp,
-+						},
-+					}
-+					for _, addr := range iface.Addresses {
-+						ip := net.ParseIP(addr)
-+						if ip != nil {
-+							// On Android, we don't always know the mask, use /32 or /128
-+							mask := net.CIDRMask(32, 32)
-+							if ip.To4() == nil {
-+								mask = net.CIDRMask(128, 128)
-+							}
-+							ni.AltAddrs = append(ni.AltAddrs, &net.IPNet{IP: ip, Mask: mask})
-+						}
-+					}
-+					if len(ni.AltAddrs) > 0 {
-+						ret = append(ret, ni)
-+					}
-+				}
-+				if len(ret) > 0 {
-+					return ret, nil
-+				}
++		if ifs := interfacesFromAnet(); len(ifs) > 0 {
++			return ifs, nil
++		}
++		if ifs := interfacesFromLaunchState(); len(ifs) > 0 {
++			return ifs, nil
++		}
++		// Neither source answered. An empty list beats an error, which would
++		// break netcheck outright.
++		return []netmon.Interface{}, nil
++	})
++
++	// The app knows when the network moved; this daemon does not. Upstream
++	// leaves Android's polling fallback at ten minutes for exactly this
++	// reason — it expects the app to wake the monitor — and the official
++	// client does that in-process. Ours runs the daemon as a child, so the
++	// nudge arrives as a signal from appctr.InjectNetworkState.
++	wake := make(chan os.Signal, 1)
++	signal.Notify(wake, syscall.SIGUSR1)
++	go func() {
++		for range wake {
++			if m := androidNetMon.Load(); m != nil {
++				m.InjectEvent()
 +			}
 +		}
++	}()
++}
 +
-+		// 2. Fallback to anet (might fail with netlinkrib permission denied)
-+		ifs, err := anet.Interfaces()
++// interfacesFromAnet reads the interfaces from the system. Returns nothing at
++// all if that is not permitted, which is what the launch snapshot is for.
++func interfacesFromAnet() []netmon.Interface {
++	ifs, err := anet.Interfaces()
++	if err != nil {
++		return nil
++	}
++	ret := make([]netmon.Interface, len(ifs))
++	for i := range ifs {
++		addrs, err := anet.InterfaceAddrsByInterface(&ifs[i])
 +		if err != nil {
-+			// CRITICAL: On Android 10+ netlink is blocked. 
-+			// Returning empty list is better than erroring out and breaking netcheck.
-+			return []netmon.Interface{}, nil 
++			// Keep the interface; an address we cannot read is not a reason to
++			// forget that it exists.
++			ret[i] = netmon.Interface{Interface: &ifs[i]}
++			continue
 +		}
++		ret[i] = netmon.Interface{Interface: &ifs[i], AltAddrs: addrs}
++	}
++	return ret
++}
 +
-+		ret := make([]netmon.Interface, len(ifs))
-+		for i := range ifs {
-+			addrs, err := anet.InterfaceAddrsByInterface(&ifs[i])
-+			if err != nil {
-+				// Continue with empty addresses for this interface if we can't get them
-+				ret[i] = netmon.Interface{
-+					Interface: &ifs[i],
-+				}
++// interfacesFromLaunchState parses TS_NET_STATE, the picture the app took when
++// it started this daemon.
++func interfacesFromLaunchState() []netmon.Interface {
++	envState := os.Getenv("TS_NET_STATE")
++	if envState == "" {
++		return nil
++	}
++	var list []struct {
++		Name      string   `json:"name"`
++		Addresses []string `json:"addresses"`
++		Up        bool     `json:"up"`
++		MTU       int      `json:"mtu"`
++	}
++	if err := json.Unmarshal([]byte(envState), &list); err != nil {
++		return nil
++	}
++	ret := make([]netmon.Interface, 0, len(list))
++	for _, iface := range list {
++		if !iface.Up {
++			continue
++		}
++		ni := netmon.Interface{
++			Interface: &net.Interface{
++				Name:  iface.Name,
++				MTU:   iface.MTU,
++				Flags: net.FlagUp,
++			},
++		}
++		for _, addr := range iface.Addresses {
++			ip := net.ParseIP(addr)
++			if ip == nil {
 +				continue
 +			}
-+			ret[i] = netmon.Interface{
-+				Interface: &ifs[i],
-+				AltAddrs:  addrs,
++			// The app does not send masks; a host route is close enough for
++			// telling one state from another.
++			mask := net.CIDRMask(32, 32)
++			if ip.To4() == nil {
++				mask = net.CIDRMask(128, 128)
 +			}
++			ni.AltAddrs = append(ni.AltAddrs, &net.IPNet{IP: ip, Mask: mask})
 +		}
-+
-+		return ret, nil
-+	})
++		if len(ni.AltAddrs) > 0 {
++			ret = append(ret, ni)
++		}
++	}
++	return ret
 +}
