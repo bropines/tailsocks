@@ -1440,4 +1440,32 @@
     <string name="aside_ten">Ten holds. Technically a habit.</string>
     <string name="aside_fortytwo">Forty-two. The answer is here, the question has been lost.</string>
     <string name="aside_hundred">One hundred holds. There would be a suggestion to go and do something useful, but we both know.</string>
+    <string name="settings_socks5_auth_needs_both">Fill in both — one alone is ignored and the proxy stays open</string>
+    <!-- Connection state and health (4.5.0) -->
+    <string name="health_relay_unreachable">No connection to relays</string>
+    <string name="health_relay_timeout">Relay not responding</string>
+    <string name="health_relay_region">Relay region unavailable</string>
+    <string name="health_coord_unreachable">Coordination server unreachable</string>
+    <string name="health_coord_timeout">Coordination server not responding</string>
+    <string name="health_tls_failed">Secure connection failed</string>
+    <string name="health_network_down">No network</string>
+    <string name="health_udp_unavailable">UDP unavailable</string>
+    <string name="health_network_error">Network error</string>
+    <string name="health_login">Sign-in needed</string>
+    <string name="health_more">+%1$d more</string>
+    <string name="health_action_reconnect">Reconnect</string>
+    <string name="health_action_bypass">Bypass</string>
+    <string name="health_reconnecting">Reconnecting…</string>
+    <string name="summary_online">%1$d of %2$d online</string>
+    <string name="summary_relay">Relay %1$s</string>
+    <string name="main_status_connecting">Connecting</string>
+    <string name="main_status_connecting_desc">Waiting for the tailnet map</string>
+    <string name="main_status_degraded">Connection problem</string>
+    <string name="main_status_degraded_desc">%1$s • Tap to stop</string>
+    <string name="main_status_needs_login">Sign-in needed</string>
+    <string name="main_status_needs_login_desc">Sign in below • Tap to stop</string>
+    <string name="main_status_state_on">On</string>
+    <string name="main_status_state_off">Off</string>
+    <string name="main_status_action_stop">Stop</string>
+    <string name="main_status_action_start">Start</string>
 </resources>

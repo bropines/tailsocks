@@ -30,6 +30,10 @@ data class DemoData(
     val netcheckJson: String? = null,
     /** Log lines, as the log store renders them. */
     val logLines: List<String> = emptyList(),
+    /** The daemon's backend state — "Running", "Starting", "NeedsLogin"… */
+    val backendState: String = "Running",
+    /** Health warnings, as appctr's GetHealthWarningsJSON returns them. */
+    val healthJson: String? = null,
 )
 
 val LocalDemo = staticCompositionLocalOf<DemoData?> { null }

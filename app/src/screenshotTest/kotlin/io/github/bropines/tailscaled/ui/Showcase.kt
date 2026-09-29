@@ -111,3 +111,37 @@ fun SettingsShowcase() = Showcase {
         currentAmoledMode = true, onAmoledModeChange = {}
     )
 }
+
+private val relayWarning = """
+    [{"Code": "no-derp-connection", "Title": "No DERP connection",
+      "Text": "Tailscale could not connect to any relay server. Check your internet connection.",
+      "Severity": "medium", "ImpactsConnectivity": true, "BrokenSinceMs": 0}]
+""".trimIndent()
+
+@Composable
+private fun ShowcaseWith(data: DemoData, content: @Composable () -> Unit) {
+    TailSocksTheme(appTheme = "dark", themePreset = "emerald", dynamicColorEnabled = false, amoledModeEnabled = true) {
+        CompositionLocalProvider(LocalDemo provides data) { content() }
+    }
+}
+
+@PreviewTest
+@Preview(name = "state-degraded", device = "spec:width=411dp,height=891dp,dpi=420")
+@Composable
+fun MainDegradedShowcase() = ShowcaseWith(DemoTailnet.data.copy(healthJson = relayWarning)) {
+    MainScreen(showAccountSwitcher = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) })
+}
+
+@PreviewTest
+@Preview(name = "state-connecting", device = "spec:width=411dp,height=891dp,dpi=420")
+@Composable
+fun MainConnectingShowcase() = ShowcaseWith(DemoTailnet.data.copy(backendState = "Starting")) {
+    MainScreen(showAccountSwitcher = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) })
+}
+
+@PreviewTest
+@Preview(name = "state-stopped", device = "spec:width=411dp,height=891dp,dpi=420")
+@Composable
+fun MainStoppedShowcase() = ShowcaseWith(DemoTailnet.data.copy(running = false, exitNodeIp = null)) {
+    MainScreen(showAccountSwitcher = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) })
+}

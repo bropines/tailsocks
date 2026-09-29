@@ -103,6 +103,11 @@ private val settingsCategories = listOf(
 )
 
 class SettingsActivity : ComponentActivity() {
+    companion object {
+        /** Open on this section instead of the list, e.g. "bypass" from a health banner. */
+        const val EXTRA_OPEN_SECTION = "open_section"
+    }
+
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(wrapContextWithLocale(newBase))
     }
@@ -124,6 +129,7 @@ class SettingsActivity : ComponentActivity() {
             ) {
                 SettingsScreen(
                     onBack = { finish() },
+                    initialSection = intent?.getStringExtra(EXTRA_OPEN_SECTION),
                     currentTheme = appTheme,
                     onThemeChange = { 
                         appTheme = it
@@ -243,7 +249,8 @@ fun SettingsScreen(
     currentDynamicColor: Boolean,
     onDynamicColorChange: (Boolean) -> Unit,
     currentAmoledMode: Boolean,
-    onAmoledModeChange: (Boolean) -> Unit
+    onAmoledModeChange: (Boolean) -> Unit,
+    initialSection: String? = null
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -254,7 +261,7 @@ fun SettingsScreen(
     // open section (see settingsCategories). rememberSaveable, because the App
     // Language row calls recreate() and a plain remember would drop the user
     // back to the hub mid-edit.
-    var openSection by rememberSaveable { mutableStateOf<String?>(null) }
+    var openSection by rememberSaveable { mutableStateOf(initialSection) }
     // Scroll positions of the two levels, kept outside the surfaces that draw them —
     // see ScrollAnchor. Without this the hub the finger uncovers during a back gesture is
     // a fresh LazyColumn at the top, and so is the one the pop lands on: a category low in
@@ -1602,6 +1609,17 @@ fun SettingsScreen(
             SettingsEditItem(stringResource(R.string.settings_socks5_address_title), socks5, Icons.Default.Language, onAction = { generateRandomLoopbackAddress() }, actionIcon = Icons.Default.Casino) { socks5 = it; saveGlobalPref("socks5", it) }
             SettingsEditItem(stringResource(R.string.settings_socks5_username_title), socks5User, Icons.Default.Person, onAction = { generateRandomString(8) }, actionIcon = Icons.Default.Casino) { socks5User = it; saveGlobalPref("socks5_user", it) }
             SettingsEditItem(stringResource(R.string.settings_socks5_password_title), socks5Pass, Icons.Default.Password, onAction = { generateRandomString(12) }, actionIcon = Icons.Default.Casino) { socks5Pass = it; saveGlobalPref("socks5_pass", it) }
+            // Authentication takes both fields or neither, in every part of the
+            // app; one alone is ignored, and saying so here beats a proxy that
+            // quietly accepts anyone while the user believes it is locked.
+            if (socks5User.isBlank() != socks5Pass.isBlank()) {
+                Text(
+                    stringResource(R.string.settings_socks5_auth_needs_both),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                )
+            }
             Spacer(Modifier.height(12.dp))
             if (!lanAccessEnabled) {
                 OutlinedButton(onClick = { copySagerNetLink() }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {

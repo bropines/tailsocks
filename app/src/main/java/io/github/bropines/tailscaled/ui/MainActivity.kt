@@ -72,6 +72,10 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.window.Dialog
@@ -540,6 +544,22 @@ fun MainScreen(
         )
     }
     var exitNodeIp by remember(activeAccount.id) { mutableStateOf(demo?.exitNodeIp ?: prefs.getString("exit_node_ip", "") ?: "") }
+    // What the daemon says about itself beyond "the service is running": its
+    // backend state, the health warnings worth showing, and a summary of the
+    // tailnet. The service state above cannot tell "connected" from "stuck
+    // starting" or "up, but no relay reachable" — these can.
+    var daemonBackend by remember { mutableStateOf(demo?.backendState ?: "") }
+    var shownWarnings by remember {
+        mutableStateOf(visibleWarnings(parseHealthWarnings(demo?.healthJson), System.currentTimeMillis()))
+    }
+    var connectionSummary by remember {
+        mutableStateOf(
+            demo?.statusJson?.let { json ->
+                runCatching { summarize(AppJson.decodeFromString<StatusResponse>(json), demo.exitNodeIp ?: "") }.getOrNull()
+            }
+        )
+    }
+    var reconnectingRelays by remember { mutableStateOf(false) }
     // TunVpnService establishes a *full* tunnel exactly when an exit node is configured.
     // The old `tun_full_tunnel` pref was never written by anything and always read false,
     // so derive the indicator from the live exit-node state to keep the UI truthful.
@@ -586,12 +606,20 @@ fun MainScreen(
     LaunchedEffect(Unit) {
         var urlDetected = false
         var lastAvatarSync = 0L
+        var lastSummaryAt = 0L
         var loggedOutSeconds = 0
         while (true) {
             val isProcessAlive = try { appctr.Appctr.isRunning() } catch (e: Exception) { false }
             val backendState = if (isProcessAlive) {
                 try { appctr.Appctr.getBackendState() } catch (e: Exception) { "Error" }
             } else "Stopped"
+            daemonBackend = backendState
+            shownWarnings = if (isProcessAlive) {
+                visibleWarnings(
+                    parseHealthWarnings(runCatching { appctr.Appctr.getHealthWarningsJSON() }.getOrNull()),
+                    System.currentTimeMillis()
+                )
+            } else emptyList()
 
             if (isProcessAlive && backendState == "Running") {
                 val wasLoggedIn = prefs.getBoolean("was_logged_in", false)
@@ -643,6 +671,24 @@ fun MainScreen(
 
                 val lastErr = try { appctr.Appctr.getLastError() } catch (e: Exception) { "" }
                 if (lastErr == "410_GONE") show410Warning = true
+
+                // The summary under the card: a status read every 10 s, off the
+                // main thread, only while the backend is actually running.
+                val summaryNow = System.currentTimeMillis()
+                if (backendState == "Running" && summaryNow - lastSummaryAt > 10_000) {
+                    lastSummaryAt = summaryNow
+                    val ipForExit = exitNodeIp
+                    scope.launch(Dispatchers.IO) {
+                        val built = runCatching {
+                            val json = appctr.Appctr.getStatusFromAPI()
+                            if (json.isBlank() || json.startsWith("Error")) null
+                            else summarize(AppJson.decodeFromString<StatusResponse>(json), ipForExit)
+                        }.getOrNull()
+                        withContext(Dispatchers.Main) { connectionSummary = built }
+                    }
+                } else if (backendState != "Running") {
+                    connectionSummary = null
+                }
 
                 // Background avatar sync
                 val now = System.currentTimeMillis()
@@ -1315,7 +1361,7 @@ fun MainScreen(
                                 when {
                                     exitNodeInert -> stringResource(R.string.main_exit_node_inert_desc, exitNodeIp)
                                     exitNodePartial -> stringResource(R.string.main_exit_node_partial_desc, exitNodeIp)
-                                    exitNodeActive -> stringResource(R.string.main_exit_node_routed_desc, exitNodeIp)
+                                    exitNodeActive -> stringResource(R.string.main_exit_node_routed_desc, connectionSummary?.exitNodeName ?: exitNodeIp)
                                     else -> stringResource(R.string.main_exit_node_none_desc)
                                 },
                                 style = MaterialTheme.typography.bodySmall,
@@ -1332,8 +1378,21 @@ fun MainScreen(
                 }
             }
 
+            // The card says what is true: the service may be up while the
+            // tailnet is not — still waiting for its map, signed out, or cut
+            // off from every relay — and each of those reads differently.
+            val serviceUp = proxyState == "ACTIVE" || proxyState == "CONNECTION_ISSUE" ||
+                (proxyState == "LOGGED_OUT" && !inPreview && ProxyState.isActualRunning())
+            val cardState = when {
+                proxyState == "LOGGED_OUT" && serviceUp -> "NEEDS_LOGIN"
+                proxyState == "CONNECTION_ISSUE" -> "DEGRADED"
+                proxyState == "ACTIVE" && daemonBackend == "Starting" -> "CONNECTING"
+                proxyState == "ACTIVE" && warningsDegradeConnection(shownWarnings) -> "DEGRADED"
+                else -> proxyState
+            }
             StatusCard(
-                state = if (proxyState == "CONNECTION_ISSUE" || (proxyState == "LOGGED_OUT" && ProxyState.isActualRunning())) "ACTIVE" else proxyState,
+                state = cardState,
+                issueTitle = shownWarnings.firstOrNull()?.let { healthTitle(it) },
                 isProcessing = isProcessing,
                 isTunEnabled = isTunEnabled,
                 isFullTunnel = isFullTunnel,
@@ -1365,6 +1424,36 @@ fun MainScreen(
                     isProcessing = true
                     val intent = Intent(context, TailscaledService::class.java).apply { action = "START_ACTION" }
                     ContextCompat.startForegroundService(context, intent)
+                }
+            }
+
+            if (serviceUp && shownWarnings.isNotEmpty() && cardState != "NEEDS_LOGIN") {
+                Spacer(modifier = Modifier.height(12.dp))
+                HealthBanner(
+                    warnings = shownWarnings,
+                    reconnecting = reconnectingRelays,
+                    onReconnectRelays = {
+                        reconnectingRelays = true
+                        haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
+                        scope.launch(Dispatchers.IO) {
+                            val err = runCatching { appctr.Appctr.reconnectRelays() }.getOrElse { it.message ?: "" }
+                            withContext(Dispatchers.Main) {
+                                reconnectingRelays = false
+                                if (!err.isNullOrBlank()) Toast.makeText(context, err, Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    },
+                    onOpenBypass = {
+                        context.startActivity(
+                            Intent(context, SettingsActivity::class.java).putExtra(SettingsActivity.EXTRA_OPEN_SECTION, "bypass")
+                        )
+                    }
+                )
+            }
+            if (cardState == "ACTIVE" && statusAside == null) {
+                connectionSummary?.let { summary ->
+                    Spacer(modifier = Modifier.height(12.dp))
+                    ConnectionSummaryRow(summary)
                 }
             }
 
@@ -2245,6 +2334,7 @@ fun MainScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun StatusCard(
     state: String,
@@ -2254,33 +2344,61 @@ fun StatusCard(
     isRootEnabled: Boolean = false,
     isYieldedToForeignVpn: Boolean = false,
     isSharedWithForeignVpn: Boolean = false,
+    /** For DEGRADED: the problem, in a few words, shown as the subtitle. */
+    issueTitle: String? = null,
     /** Shown in place of the card's own subtitle while it is set. */
     aside: String? = null,
     onLongPress: () -> Unit = {},
     onToggle: () -> Unit
 ) {
-    val backgroundColor = when (state) {
-        "ACTIVE" -> MaterialTheme.colorScheme.primaryContainer
-        "STARTING" -> MaterialTheme.colorScheme.tertiaryContainer
-        else -> MaterialTheme.colorScheme.surfaceContainerHigh
+    // Six states, because the service being up says little about the tailnet:
+    // STOPPED, STARTING (the service), CONNECTING (daemon up, no map yet),
+    // ACTIVE, DEGRADED (up, but warnings say traffic is affected) and
+    // NEEDS_LOGIN. The colours move between them instead of jumping.
+    val scheme = MaterialTheme.colorScheme
+    val on = state != "STOPPED"
+    // Progress reads calm (secondary), a problem or a pending sign-in warm
+    // (tertiary): the two must not look alike at a glance.
+    val targetBackground = when (state) {
+        "ACTIVE" -> scheme.primaryContainer
+        "STARTING", "CONNECTING" -> scheme.secondaryContainer
+        "DEGRADED", "NEEDS_LOGIN" -> scheme.tertiaryContainer
+        else -> scheme.surfaceContainerHigh
     }
-    val contentColor = when (state) {
-        "ACTIVE" -> MaterialTheme.colorScheme.onPrimaryContainer
-        "STARTING" -> MaterialTheme.colorScheme.onTertiaryContainer
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    val targetContent = when (state) {
+        "ACTIVE" -> scheme.onPrimaryContainer
+        "STARTING", "CONNECTING" -> scheme.onSecondaryContainer
+        "DEGRADED", "NEEDS_LOGIN" -> scheme.onTertiaryContainer
+        else -> scheme.onSurfaceVariant
     }
+    val backgroundColor by animateColorAsState(targetBackground, label = "status_bg")
+    val contentColor by animateColorAsState(targetContent, label = "status_fg")
+    val haptics = LocalHapticFeedback.current
+    val shape = RoundedCornerShape(28.dp)
+    val stateWord = stringResource(if (on) R.string.main_status_state_on else R.string.main_status_state_off)
+    val actionWord = stringResource(if (on) R.string.main_status_action_stop else R.string.main_status_action_start)
 
     Surface(
-        shape = RoundedCornerShape(28.dp),
+        shape = shape,
         color = backgroundColor,
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 130.dp)
             .animateContentSize()
-            .alpha(if (isProcessing) 0.6f else 1f)
+            // Clipped before the click, so the ripple follows the rounded card
+            // instead of spilling out of it as a rectangle.
+            .clip(shape)
+            .semantics {
+                role = Role.Switch
+                stateDescription = stateWord
+            }
             .combinedClickable(
                 enabled = !isProcessing,
-                onClick = onToggle,
+                onClickLabel = actionWord,
+                onClick = {
+                    haptics.performHapticFeedback(if (on) HapticFeedbackType.ToggleOff else HapticFeedbackType.ToggleOn)
+                    onToggle()
+                },
                 onLongClick = onLongPress
             ),
         tonalElevation = 4.dp
@@ -2292,52 +2410,46 @@ fun StatusCard(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            if (state == "ACTIVE" && isTunEnabled) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = null,
-                        tint = contentColor,
-                        modifier = Modifier.size(32.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Icon(
-                        imageVector = Icons.Default.VpnKey,
-                        contentDescription = null,
-                        tint = contentColor,
-                        modifier = Modifier.size(28.dp)
-                    )
+            val busy = isProcessing || state == "STARTING" || state == "CONNECTING"
+            AnimatedContent(targetState = if (busy) "BUSY" else state, label = "status_icon") { shown ->
+                Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+                    when (shown) {
+                        "BUSY" -> LoadingIndicator(color = contentColor, modifier = Modifier.size(40.dp))
+                        "ACTIVE" -> Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.CheckCircle, null, tint = contentColor, modifier = Modifier.size(32.dp))
+                            if (isTunEnabled && !isRootEnabled) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Icon(Icons.Default.VpnKey, null, tint = contentColor, modifier = Modifier.size(26.dp))
+                            }
+                        }
+                        "DEGRADED" -> Icon(Icons.Default.WarningAmber, null, tint = contentColor, modifier = Modifier.size(32.dp))
+                        "NEEDS_LOGIN" -> Icon(Icons.AutoMirrored.Filled.Login, null, tint = contentColor, modifier = Modifier.size(32.dp))
+                        else -> Icon(Icons.Default.PowerSettingsNew, null, tint = contentColor, modifier = Modifier.size(32.dp))
+                    }
                 }
-            } else {
-                Icon(
-                    imageVector = when(state) {
-                        "ACTIVE" -> Icons.Default.CheckCircle
-                        "STARTING" -> Icons.Default.Refresh
-                        else -> Icons.Default.CheckCircle
-                    },
-                    contentDescription = null,
-                    tint = contentColor,
-                    modifier = Modifier.size(32.dp)
-                )
             }
             Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = when(state) {
-                    "ACTIVE" -> when {
-                        isRootEnabled -> "${stringResource(R.string.main_status_active)} + Root"
-                        isTunEnabled -> "${stringResource(R.string.main_status_active)} + TUN"
-                        else -> stringResource(R.string.main_status_active)
-                    }
-                    "STARTING" -> stringResource(R.string.main_status_starting)
-                    else -> stringResource(R.string.status_stopped)
-                },
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = contentColor
-            )
+            val title = when (state) {
+                "ACTIVE" -> when {
+                    isRootEnabled -> "${stringResource(R.string.main_status_active)} + Root"
+                    isTunEnabled -> "${stringResource(R.string.main_status_active)} + TUN"
+                    else -> stringResource(R.string.main_status_active)
+                }
+                "STARTING" -> stringResource(R.string.main_status_starting)
+                "CONNECTING" -> stringResource(R.string.main_status_connecting)
+                "DEGRADED" -> stringResource(R.string.main_status_degraded)
+                "NEEDS_LOGIN" -> stringResource(R.string.main_status_needs_login)
+                else -> stringResource(R.string.status_stopped)
+            }
+            AnimatedContent(targetState = title, label = "status_title") { t ->
+                Text(
+                    text = t,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = contentColor,
+                    textAlign = TextAlign.Center
+                )
+            }
             Spacer(modifier = Modifier.height(4.dp))
             if (aside != null) {
                 // The line is typed out rather than scrolled. A copy of the whole text sits
@@ -2382,10 +2494,15 @@ fun StatusCard(
                         else -> stringResource(R.string.main_status_active_desc)
                     }
                     state == "STARTING" -> stringResource(R.string.main_status_starting_desc)
+                    state == "CONNECTING" -> stringResource(R.string.main_status_connecting_desc)
+                    state == "DEGRADED" -> stringResource(R.string.main_status_degraded_desc, issueTitle ?: stringResource(R.string.main_status_degraded))
+                    state == "NEEDS_LOGIN" -> stringResource(R.string.main_status_needs_login_desc)
                     else -> stringResource(R.string.tap_to_start)
                 },
                 textAlign = TextAlign.Center,
-                modifier = Modifier.alpha(0.6f),
+                // 0.8, not 0.6: the subtitle carries the mode and the problem,
+                // and at 0.6 it fell below readable contrast on the container.
+                modifier = Modifier.alpha(0.8f),
                 color = contentColor
             )
         }

@@ -1440,4 +1440,32 @@
     <string name="aside_ten">Десятое нажатие. Формально это уже привычка.</string>
     <string name="aside_fortytwo">Сорок два. Ответ есть, вопрос потерян.</string>
     <string name="aside_hundred">Сто нажатий. Тут бы предложить заняться делом, но мы оба всё понимаем.</string>
+    <string name="settings_socks5_auth_needs_both">Нужны оба поля — одно игнорируется, и прокси остаётся открытым</string>
+    <!-- Connection state and health (4.5.0) -->
+    <string name="health_relay_unreachable">Нет связи с реле</string>
+    <string name="health_relay_timeout">Реле не отвечает</string>
+    <string name="health_relay_region">Регион реле недоступен</string>
+    <string name="health_coord_unreachable">Координатор недоступен</string>
+    <string name="health_coord_timeout">Координатор не отвечает</string>
+    <string name="health_tls_failed">Не удалось установить защищённое соединение</string>
+    <string name="health_network_down">Нет сети</string>
+    <string name="health_udp_unavailable">UDP недоступен</string>
+    <string name="health_network_error">Сетевая ошибка</string>
+    <string name="health_login">Нужен вход</string>
+    <string name="health_more">ещё %1$d</string>
+    <string name="health_action_reconnect">Переподключить</string>
+    <string name="health_action_bypass">Обход</string>
+    <string name="health_reconnecting">Переподключаю…</string>
+    <string name="summary_online">%1$d из %2$d в сети</string>
+    <string name="summary_relay">Реле %1$s</string>
+    <string name="main_status_connecting">Подключение</string>
+    <string name="main_status_connecting_desc">Жду карту сети</string>
+    <string name="main_status_degraded">Проблема со связью</string>
+    <string name="main_status_degraded_desc">%1$s • Нажмите, чтобы остановить</string>
+    <string name="main_status_needs_login">Нужен вход</string>
+    <string name="main_status_needs_login_desc">Войдите ниже • Нажмите, чтобы остановить</string>
+    <string name="main_status_state_on">Включено</string>
+    <string name="main_status_state_off">Выключено</string>
+    <string name="main_status_action_stop">Остановить</string>
+    <string name="main_status_action_start">Запустить</string>
 </resources>
