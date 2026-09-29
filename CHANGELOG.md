@@ -4,6 +4,14 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ## [Unreleased]
 
+### Added
+
+- A layout for screens with width to spare — landscape, tablets, a folded-open foldable: the service and its warnings keep a column of their own on the left, the menu becomes a grid on the right, with as many columns as the space left over actually fits. Until now the same upright column simply grew wider and the menu cards stretched into slabs.
+
+### Changed
+
+- Coming back after the network does. Where a mobile link stops passing traffic without anything else changing — the address and the interface stay exactly as they were — the daemon has nothing to react to and waits out its own relay backoff, long after the link is usable again. Android's verdict that the network reaches the internet is now the signal: on the way back the daemon is woken, and if it is still reporting the relays unreachable, those dead connections are dropped and a fresh netcheck asked for. It is an event, not a poll: nothing runs while the network is fine, and no more than one such recovery every twenty seconds. What it cannot do is rescue a link that is down — nothing on the phone can.
+
 ### Fixed
 
 - The tunnel notices a network change again. The daemon runs as its own process, where netlink is closed to it, so its monitor fell back to a poll that Android deliberately leaves at ten minutes — upstream expects the app to wake it, which the app never did. A Wi-Fi drop that healed before the poll was therefore never noticed at all, and the tunnel sat on whatever path it had until a relay reconnect happened to fix it. The app now wakes the daemon the moment the network moves, tells it which interface carries the default route (without a name no change could ever count as major, so the sockets were never rebound), and the daemon reads its interfaces live instead of from the picture taken when it started. Measured on the device: before, nothing happened for thirteen minutes; now the rebind, the DNS reconfiguration and the relay reconnect all land within a second, in both directions.

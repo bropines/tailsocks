@@ -920,6 +920,28 @@ class TailscaledService : Service() {
             refreshHandler.postDelayed(networkNotifyRunnable, 1500)
             scheduleRootRoutingReapply("the default network changed")
         }
+        // Android's own verdict on whether this network reaches the internet.
+        // Worth tracking because the worst case changes nothing else: a cell
+        // that chokes under a tethered laptop keeps its interface and its
+        // address, so there is no link event of any kind, and the daemon waits
+        // out its relay backoff long after the link is back.
+        @Volatile private var networkValidated = true
+
+        override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+            val validated = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+            // The common case is a capability update that changes nothing we
+            // care about — signal strength, metering — and it must stay free.
+            if (validated == networkValidated) return
+            if (network != connectivityManager.activeNetwork) return
+            networkValidated = validated
+            if (!validated) {
+                Log.i(TAG, "The network stopped reaching the internet")
+                return
+            }
+            Log.i(TAG, "The network reaches the internet again")
+            Thread { runCatching { Appctr.networkBecameUsable() } }.start()
+        }
+
         override fun onLost(network: Network) {
             Log.d(TAG, "Network Lost")
             injectIfNeeded()

@@ -54,6 +54,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.animation.core.Animatable
@@ -1153,15 +1154,12 @@ fun MainScreen(
             )
         }
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 24.dp)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Spacer(modifier = Modifier.height(12.dp))
+        // The screen is two things: what the service is doing, and where to go
+        // next. Stacked on a phone held upright; side by side as soon as there
+        // is width for it, which is landscape and every tablet — before this
+        // the same column simply grew wider, and eight menu cards stretched
+        // into slabs.
+        val statusPane: @Composable ColumnScope.() -> Unit = {
 
             if (!isBatteryOptimizationsIgnored) {
                 Surface(
@@ -1383,47 +1381,86 @@ fun MainScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+        }
 
-            Row(modifier = Modifier.fillMaxWidth()) {
-                MenuCard(title = stringResource(R.string.menu_console), icon = Icons.Default.PlayArrow, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                    context.startActivity(Intent(context, ConsoleActivity::class.java))
+        val menuPane: @Composable (Int, androidx.compose.ui.unit.Dp) -> Unit = { columns, cardHeight ->
+            MenuGrid(
+                columns = columns,
+                cardHeight = cardHeight,
+                entries = listOf(
+                    MenuEntry(stringResource(R.string.menu_console), Icons.Default.PlayArrow) { context.startActivity(Intent(context, ConsoleActivity::class.java)) },
+                    MenuEntry(stringResource(R.string.menu_peers), Icons.Default.Share) { context.startActivity(Intent(context, PeersActivity::class.java)) },
+                    MenuEntry(stringResource(R.string.menu_logs), Icons.AutoMirrored.Filled.List) { context.startActivity(Intent(context, LogsActivity::class.java)) },
+                    MenuEntry(stringResource(R.string.menu_files), Icons.Default.Folder) { context.startActivity(Intent(context, FilesActivity::class.java)) },
+                    MenuEntry(stringResource(R.string.menu_dns), Icons.Default.Language) { context.startActivity(Intent(context, DnsActivity::class.java)) },
+                    MenuEntry(stringResource(R.string.menu_netcheck), Icons.Default.Refresh) { context.startActivity(Intent(context, NetcheckActivity::class.java)) },
+                    MenuEntry(stringResource(R.string.menu_settings), Icons.Default.Settings) { context.startActivity(Intent(context, SettingsActivity::class.java)) },
+                    MenuEntry(stringResource(R.string.menu_serve), Icons.Default.Public) { context.startActivity(Intent(context, ServeActivity::class.java)) }
+                )
+            )
+        }
+
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            val wideEnoughForTwoPanes = maxWidth >= 600.dp
+            // Landscape on a phone leaves about 390dp of height, so the cards
+            // give some of it back; upright there is room to spare.
+            val cardHeight = if (maxHeight < 440.dp) 84.dp else 96.dp
+            if (wideEnoughForTwoPanes) {
+                // The status column is clamped: a share of the width so it
+                // keeps its proportion in landscape, but never the half of a
+                // tablet, where it would be a poster with nothing on it.
+                val statusWidth = (maxWidth * 0.38f).coerceIn(280.dp, 400.dp)
+                // Columns follow the width the menu actually gets, not the
+                // width of the window: the same phone in landscape and a
+                // tablet in portrait can have the same window and very
+                // different room left over here.
+                val menuWidth = maxWidth - statusWidth - 72.dp
+                val menuColumns = (menuWidth / 150.dp).toInt().coerceIn(2, 4)
+                Row(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
+                    Column(
+                        modifier = Modifier
+                            .width(statusWidth)
+                            .fillMaxHeight()
+                            .verticalScroll(rememberScrollState()),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        statusPane()
+                    }
+                    Spacer(modifier = Modifier.width(24.dp))
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        // Three columns are only worth it once a card would not
+                        // be cramped; below that two read better than three.
+                        menuPane(menuColumns, cardHeight)
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
                 }
-                MenuCard(title = stringResource(R.string.menu_peers), icon = Icons.Default.Share, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
-                    context.startActivity(Intent(context, PeersActivity::class.java))
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 24.dp)
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    statusPane()
+                    Spacer(modifier = Modifier.height(32.dp))
+                    menuPane(2, cardHeight)
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
             }
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(modifier = Modifier.fillMaxWidth()) {
-                MenuCard(title = stringResource(R.string.menu_logs), icon = Icons.AutoMirrored.Filled.List, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                    context.startActivity(Intent(context, LogsActivity::class.java))
-                }
-                MenuCard(title = stringResource(R.string.menu_files), icon = Icons.Default.Folder, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
-                    context.startActivity(Intent(context, FilesActivity::class.java))
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(modifier = Modifier.fillMaxWidth()) {
-                MenuCard(title = stringResource(R.string.menu_dns), icon = Icons.Default.Language, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                    context.startActivity(Intent(context, DnsActivity::class.java))
-                }
-                MenuCard(title = stringResource(R.string.menu_netcheck), icon = Icons.Default.Refresh, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
-                    context.startActivity(Intent(context, NetcheckActivity::class.java))
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(modifier = Modifier.fillMaxWidth()) {
-                MenuCard(title = stringResource(R.string.menu_settings), icon = Icons.Default.Settings, modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                    context.startActivity(Intent(context, SettingsActivity::class.java))
-                }
-                MenuCard(title = stringResource(R.string.menu_serve), icon = Icons.Default.Public, modifier = Modifier.weight(1f).padding(start = 8.dp)) {
-                    context.startActivity(Intent(context, ServeActivity::class.java))
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 
@@ -2304,6 +2341,42 @@ fun StatusCard(
     }
 }
 
+/** One destination on the main screen. */
+data class MenuEntry(val title: String, val icon: ImageVector, val onClick: () -> Unit)
+
+/**
+ * The destinations, [columns] to a row.
+ *
+ * The cards are given a height instead of taking one from their content: a row
+ * of them used to grow as wide as the screen and stay as short as the text,
+ * which is what made landscape look like a stretched portrait. A row that comes
+ * up short is padded with empty weight, so the last card is the width of the
+ * others and not the width of the row.
+ */
+@Composable
+fun MenuGrid(columns: Int, entries: List<MenuEntry>, cardHeight: Dp = 96.dp, modifier: Modifier = Modifier) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        entries.chunked(columns).forEachIndexed { rowIndex, row ->
+            if (rowIndex > 0) Spacer(modifier = Modifier.height(16.dp))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                row.forEachIndexed { i, entry ->
+                    if (i > 0) Spacer(modifier = Modifier.width(16.dp))
+                    MenuCard(
+                        title = entry.title,
+                        icon = entry.icon,
+                        modifier = Modifier.weight(1f).height(cardHeight),
+                        onClick = entry.onClick
+                    )
+                }
+                repeat(columns - row.size) {
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun MenuCard(title: String, icon: ImageVector, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Surface(
@@ -2312,8 +2385,13 @@ fun MenuCard(title: String, icon: ImageVector, modifier: Modifier = Modifier, on
         modifier = modifier.clickable { onClick() }
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            // Fills what it is given: in the grid that is a fixed height, and
+            // the icon and its label sit in the middle of the card rather than
+            // at the top of it. Where the height is free, this is the size of
+            // the content, exactly as before.
+            modifier = Modifier.fillMaxSize().padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
             Icon(imageVector = icon, contentDescription = title, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
             Spacer(modifier = Modifier.height(8.dp))

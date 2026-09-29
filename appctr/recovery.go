@@ -1,0 +1,87 @@
+package appctr
+
+import (
+	"log/slog"
+	"strings"
+	"sync"
+	"syscall"
+	"time"
+)
+
+// The shortest gap between two relay kicks. A link that flaps — which is what
+// a congested cell does — would otherwise have us tearing down relay
+// connections faster than they can be established, which is the opposite of
+// recovering.
+const relayKickInterval = 20 * time.Second
+
+var (
+	recoveryMu   sync.Mutex
+	lastKickedAt time.Time
+)
+
+// NetworkBecameUsable is called when Android says the network it is on can
+// reach the internet again — the platform's own verdict, not ours.
+//
+// This is the case no interface change can describe: the phone keeps its
+// address and its interface, the cell simply stops passing traffic and starts
+// again some minutes later. The daemon has nothing to react to, so it waits
+// out its own backoff — a relay reconnect is attempted every ten to fifteen
+// seconds, each attempt allowed ten to fail — and the home relay cannot even
+// be re-chosen while the control plane is unreachable. The result is that the
+// tunnel comes back well after the network did.
+//
+// So when the platform says the path is good again we wake the daemon's
+// monitor, and if it is still telling us the relays are unreachable, we break
+// those dead connections and ask for a fresh netcheck. This cannot rescue a
+// link that is down — nothing on the phone can — it only removes the waiting
+// once the link is up.
+//
+// It costs nothing to leave on: it runs on a system callback that fires when
+// the platform re-validates a network, does nothing unless the daemon is
+// complaining, and does nothing twice within [relayKickInterval]. There is no
+// timer and no polling anywhere in this path.
+func NetworkBecameUsable() {
+	stateMu.Lock()
+	proc := cmd
+	stateMu.Unlock()
+	if proc == nil || proc.Process == nil {
+		return
+	}
+
+	// Free, and worth doing whether or not the rest applies: the monitor
+	// re-reads the interfaces and notices anything that moved with the link.
+	_ = proc.Process.Signal(syscall.SIGUSR1)
+
+	if !relaysAreStuck() {
+		return
+	}
+
+	recoveryMu.Lock()
+	if time.Since(lastKickedAt) < relayKickInterval {
+		recoveryMu.Unlock()
+		return
+	}
+	lastKickedAt = time.Now()
+	recoveryMu.Unlock()
+
+	slog.Info("Network is usable again and the relays are not, reconnecting them")
+	if _, err := doLocalRequest("POST", "/localapi/v0/debug?action=break-derp-conns", nil); err != nil {
+		slog.Debug("Could not drop the dead relay connections", "err", err)
+		return
+	}
+	if _, err := doLocalRequest("POST", "/localapi/v0/debug?action=restun", nil); err != nil {
+		slog.Debug("Could not ask for a fresh netcheck", "err", err)
+	}
+}
+
+// relaysAreStuck reports whether the daemon is currently complaining about the
+// relays. The codes come from tsconst/health.go; they are raised only after
+// the condition has held for a few seconds, so a passing blip does not qualify.
+func relaysAreStuck() bool {
+	for _, w := range GetBusState().Health {
+		if strings.Contains(w.Code, "derp") {
+			return true
+		}
+	}
+	return false
+}
