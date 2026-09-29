@@ -6,6 +6,8 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Fixed
 
+- Android 10 and older: the app was killed the moment a network appeared. The check for whether a VPN is our own asked `NetworkCapabilities` for its owner uid behind a gate of API 29, but that method arrived in API 30, and the resulting error was thrown on the framework's own callback thread, where nothing catches. ([#11](https://github.com/bropines/tailsocks/issues/11))
+- Two more calls that would have thrown on the Android versions the previous release re-opened: the diagnostics report asked for a long version code (API 28) and the quick-toggle activity started the service the API 26 way. Both are now asked for only where they exist; `lint` no longer reports a single call above the minimum the app claims to support.
 - The served SOCKS5 proxy stops taking the whole daemon down with it: an accept error now backs off and keeps serving instead of ending the server, which the daemon treats as fatal. A client that connects and then says nothing is dropped after ten seconds rather than holding a descriptor for the life of the process.
 
 ### Changed

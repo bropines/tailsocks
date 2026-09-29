@@ -42,8 +42,15 @@ object Diagnostics {
             else @Suppress("DEPRECATION") pm.getInstallerPackageName(context.packageName)
         }.getOrNull() ?: "sideloaded"
         val core = runCatching { Appctr.getCoreVersion() }.getOrDefault("unknown")
+        // longVersionCode arrived in API 28; below it the report would have
+        // thrown instead of being written, on the very devices whose reports
+        // are worth the most.
+        val code = info?.let {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) it.longVersionCode
+            else @Suppress("DEPRECATION") it.versionCode.toLong()
+        } ?: 0L
         return """
-            App: ${info?.versionName ?: "unknown"} (code ${info?.longVersionCode ?: 0}, ${BuildConfig.BUILD_TYPE})
+            App: ${info?.versionName ?: "unknown"} (code $code, ${BuildConfig.BUILD_TYPE})
             Core: $core
             Installed by: $installer
         """.trimIndent()

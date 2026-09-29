@@ -196,10 +196,15 @@
         </receiver>
         <!-- AppLocalesMetadataHolderService for backward-compatible app-specific language settings -->
         <!-- Jetpack AppFunctions Service (Gemini On-Device AI Integration) -->
+        <!-- BIND_APP_FUNCTION_SERVICE exists from API 36. Below it the platform
+             has no such permission and never binds the service, which is the
+             behaviour we want; tools:targetApi says so rather than leaving lint
+             to call it an error. -->
         <service
             android:name=".appfunctions.TailSocksAppFunctionService"
             android:exported="true"
-            android:permission="android.permission.BIND_APP_FUNCTION_SERVICE">
+            android:permission="android.permission.BIND_APP_FUNCTION_SERVICE"
+            tools:targetApi="36">
             <!-- The AppSearch apps-indexer only picks up functions whose service
                  declares the schema and the generated v2 metadata asset. Without
                  these two properties the service binds but nothing is indexed, so

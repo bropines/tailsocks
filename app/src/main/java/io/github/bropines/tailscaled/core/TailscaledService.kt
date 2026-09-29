@@ -1025,9 +1025,14 @@ class TailscaledService : Service() {
      * below that, and where it is withheld, the TUN service's own run flag
      * answers the same question. In Root Mode that service never runs, so
      * nothing is filtered out there.
+     *
+     * The gate is API 30, where getOwnerUid() was made public. It used to read
+     * 29, and on Android 10 the call that the gate had just allowed threw
+     * NoSuchMethodError on ConnectivityThread — a fatal one, since that thread
+     * belongs to the framework and nothing catches for it (issue #11).
      */
     private fun isOwnVpnNetwork(caps: NetworkCapabilities): Boolean {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             val owner = caps.ownerUid
             if (owner != android.os.Process.INVALID_UID) return owner == android.os.Process.myUid()
         }

@@ -8,6 +8,7 @@ import io.github.bropines.tailscaled.models.*
 
 import android.app.Activity
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 
 class ToggleActivity : Activity() {
@@ -21,7 +22,13 @@ class ToggleActivity : Activity() {
             intent.action = "START_ACTION"
         }
         
-        startForegroundService(intent)
+        // startForegroundService is API 26. Below it the plain start is the
+        // foreground start: the service promotes itself in onCreate either way.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
+        }
         finish()
     }
 }
