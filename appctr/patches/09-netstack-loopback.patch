@@ -1,5 +1,5 @@
---- orig/net/tstun/wrap.go	2026-07-31 19:22:18.000000000 +0300
-+++ tailscale_src/net/tstun/wrap.go	2026-09-06 23:54:16.298191686 +0300
+--- orig/net/tstun/wrap.go
++++ tailscale_src/net/tstun/wrap.go
 @@ -453,6 +453,21 @@
  	return t.tdev.File()
  }
@@ -22,8 +22,8 @@
  func (t *Wrapper) MTU() (int, error) {
  	return t.tdev.MTU()
  }
---- orig/wgengine/netstack/netstack.go	2026-07-31 19:22:18.000000000 +0300
-+++ tailscale_src/wgengine/netstack/netstack.go	2026-09-06 23:54:16.298490323 +0300
+--- orig/wgengine/netstack/netstack.go
++++ tailscale_src/wgengine/netstack/netstack.go
 @@ -946,6 +946,21 @@
  }
  
@@ -68,7 +68,7 @@
  	remoteAddress := &tcpip.FullAddress{
  		NIC:  nicID,
  		Addr: tcpip.AddrFromSlice(ipp.Addr().AsSlice()),
-@@ -1061,12 +1091,30 @@
+@@ -1061,19 +1091,42 @@
  			ns.logf("[v2] packet Write out: % x", stack.PayloadSince(pkt.NetworkHeader()).AsSlice())
  		}
  
@@ -104,7 +104,20 @@
  
  		// pkt has a non-zero refcount, so injection methods takes
  		// ownership of one count and will decrement on completion.
-@@ -1081,6 +1129,10 @@
+ 		if sendToHost {
+ 			if err := ns.tundev.InjectInboundPacketBuffer(pkt, inboundBuffs, inboundBuffsSizes); err != nil {
++				// Drop the packet, not the pump. This loop is the only
++				// consumer of the link endpoint's queue, so returning here
++				// silenced every outbound flow for the life of the daemon —
++				// one failed injection and the tunnel was mute with nothing
++				// to show for it. Shutdown still leaves by the context above.
+ 				ns.logf("netstack inject inbound: %v", err)
+-				return
++				continue
+ 			}
+ 		} else {
+ 			// Self-addressed packet: deliver back into gVisor directly
+@@ -1081,14 +1134,19 @@
  			// earmarked for the host. Neither the inbound path (fakeTUN Write is a
  			// no-op) nor the outbound path (WireGuard has no peer for our own IP)
  			// can handle these.
@@ -115,7 +128,17 @@
  			if ns.isSelfDst(pkt) {
  				ns.linkEP.DeliverLoopback(pkt)
  				continue
-@@ -1185,6 +1237,13 @@
+ 			}
+ 
+ 			if err := ns.tundev.InjectOutboundPacketBuffer(pkt); err != nil {
++				// As above: one packet lost, not every packet after it.
+ 				ns.logf("netstack inject outbound: %v", err)
+-				return
++				continue
+ 			}
+ 		}
+ 	}
+@@ -1185,6 +1243,13 @@
  	return ns.atomicIsLocalIPFunc.Load()(ip)
  }
  
