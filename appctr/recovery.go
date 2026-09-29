@@ -85,3 +85,49 @@ func relaysAreStuck() bool {
 	}
 	return false
 }
+
+// manualKickInterval spaces out kicks the user asks for with the button: short
+// enough that a second tap after a failed attempt works, long enough that
+// hammering it does not tear relay connections down faster than they form.
+const manualKickInterval = 5 * time.Second
+
+var lastManualKickAt time.Time
+
+// ReconnectRelays drops the daemon's relay connections and asks for a fresh
+// netcheck, unconditionally — the button behind a "relays unreachable"
+// warning. Where NetworkBecameUsable waits for the platform's word and for the
+// daemon to be complaining, this is the user saying "try again now". Returns
+// "" on success, or the reason it could not.
+func ReconnectRelays() string {
+	if !IsRunning() {
+		return errNotRunning.Error()
+	}
+	recoveryMu.Lock()
+	if time.Since(lastManualKickAt) < manualKickInterval {
+		recoveryMu.Unlock()
+		return ""
+	}
+	lastManualKickAt = time.Now()
+	lastKickedAt = lastManualKickAt
+	recoveryMu.Unlock()
+
+	slog.Info("Reconnecting the relays at the user's request")
+	if _, err := doLocalRequest("POST", "/localapi/v0/debug?action=break-derp-conns", nil); err != nil {
+		return err.Error()
+	}
+	if _, err := doLocalRequest("POST", "/localapi/v0/debug?action=restun", nil); err != nil {
+		return err.Error()
+	}
+	return ""
+}
+
+// LastRelayKickMs is when the relays were last reconnected, automatically or
+// by hand, in Unix milliseconds; 0 if never. For the diagnostics card.
+func LastRelayKickMs() int64 {
+	recoveryMu.Lock()
+	defer recoveryMu.Unlock()
+	if lastKickedAt.IsZero() {
+		return 0
+	}
+	return lastKickedAt.UnixMilli()
+}

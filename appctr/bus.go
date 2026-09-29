@@ -135,9 +135,12 @@ type BusNetMapDNS struct {
 // BusHealth mirrors health.State.
 type BusHealth struct {
 	Warnings map[string]struct {
-		WarnableCode string `json:"WarnableCode,omitempty"`
-		Title        string `json:"Title,omitempty"`
-		Text         string `json:"Text,omitempty"`
+		WarnableCode        string     `json:"WarnableCode,omitempty"`
+		Severity            string     `json:"Severity,omitempty"`
+		Title               string     `json:"Title,omitempty"`
+		Text                string     `json:"Text,omitempty"`
+		BrokenSince         *time.Time `json:"BrokenSince,omitempty"`
+		ImpactsConnectivity bool       `json:"ImpactsConnectivity,omitempty"`
 	} `json:"Warnings,omitempty"`
 }
 
@@ -174,11 +177,24 @@ type busStateSnapshot struct {
 	// Done entry anyway (send.go: SendFileNotify, then the deferred Delete).
 	// The last Done entry therefore stays here until resetBusState().
 	IncomingFiles []BusPartialFile
+	// Engine is the last engine status the daemon sent: live relays and live
+	// peers. Nil until the first one arrives.
+	Engine *BusEngineStatus
 }
 
+// BusHealthWarning is one of the daemon's health warnings, as the app shows
+// it. Text keeps its old meaning — the body, or the title when there is no
+// body — so existing readers are unchanged; the rest is what the app needs to
+// decide how loudly to say it: how serious, whether traffic is affected, and
+// how long it has been broken (a warning that has only just appeared is often
+// gone a second later, and is not worth a banner).
 type BusHealthWarning struct {
-	Code string
-	Text string
+	Code                string
+	Title               string `json:",omitempty"`
+	Text                string
+	Severity            string `json:",omitempty"` // "high", "medium" or "low"
+	ImpactsConnectivity bool   `json:",omitempty"`
+	BrokenSinceMs       int64  `json:",omitempty"` // Unix milliseconds; 0 when unknown
 }
 
 var (
@@ -471,6 +487,10 @@ func applyNotifyLocked(msg *BusNotify) {
 
 	// Health. Rebuilt whenever the daemon sends its health state, including an
 	// empty one: a warning that cleared used to stay in the snapshot forever.
+	if msg.Engine != nil {
+		e := *msg.Engine
+		busState.Engine = &e
+	}
 	if msg.Health != nil {
 		busState.Health = make([]BusHealthWarning, 0, len(msg.Health.Warnings))
 		for code, w := range msg.Health.Warnings {
@@ -482,7 +502,18 @@ func applyNotifyLocked(msg *BusNotify) {
 			if txt == "" {
 				txt = w.Title
 			}
-			busState.Health = append(busState.Health, BusHealthWarning{Code: c, Text: txt})
+			var since int64
+			if w.BrokenSince != nil {
+				since = w.BrokenSince.UnixMilli()
+			}
+			busState.Health = append(busState.Health, BusHealthWarning{
+				Code:                c,
+				Title:               w.Title,
+				Text:                txt,
+				Severity:            w.Severity,
+				ImpactsConnectivity: w.ImpactsConnectivity,
+				BrokenSinceMs:       since,
+			})
 		}
 		// Health is republished constantly; report only when the set changes.
 		codes := make([]string, 0, len(busState.Health))
@@ -635,4 +666,22 @@ func updateNodeCacheFromPeer(p *BusPeer) bool {
 		return true
 	}
 	return false
+}
+
+// GetEngineStatusJSON returns the daemon's last engine status — bytes,
+// live peers, live relay connections — as JSON, or "{}" before the first one.
+// A tunnel that is up with no live relay is the state the relay recovery and
+// the diagnostics card are about.
+func GetEngineStatusJSON() string {
+	busStateMu.RLock()
+	e := busState.Engine
+	busStateMu.RUnlock()
+	if e == nil {
+		return "{}"
+	}
+	b, err := json.Marshal(e)
+	if err != nil {
+		return "{}"
+	}
+	return string(b)
 }

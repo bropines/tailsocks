@@ -156,7 +156,12 @@ func tailscaledCmd(p pathControl, generation uint64, dnsFallbacks string, socksA
 	if taildropDir != "" {
 		c.Env = append(c.Env, "TS_TAILDROP_DIR="+taildropDir)
 	}
-	if socksUser != "" || socksPass != "" {
+	// Both or neither, everywhere: the served proxy, the TUN engine's client,
+	// the bridge's own DNS and Taildrive clients and Root mode all apply this
+	// one rule. They used to disagree — some needed one field, some both — so
+	// a username without a password made the server demand credentials that
+	// the TUN engine and Taildrive never sent.
+	if socksUser != "" && socksPass != "" {
 		c.Env = append(c.Env, "TS_SOCKS5_USER="+socksUser)
 		c.Env = append(c.Env, "TS_SOCKS5_PASS="+socksPass)
 	}

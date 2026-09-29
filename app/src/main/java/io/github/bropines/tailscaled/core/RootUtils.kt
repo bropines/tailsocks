@@ -551,7 +551,8 @@ object RootUtils {
         // The SOCKS5 password. Only the userspace path used to pass it, so a
         // Root Mode proxy — LAN-exposed or not — accepted anyone. The file is
         // root-owned 0600 and already carries the control-proxy password.
-        if (spec.socksUser.isNotEmpty() || spec.socksPass.isNotEmpty()) {
+        // Both or neither, as everywhere else (see appctr/daemon.go).
+        if (spec.socksUser.isNotEmpty() && spec.socksPass.isNotEmpty()) {
             env.append("export TS_SOCKS5_USER=${shQuote(spec.socksUser)}\n")
             env.append("export TS_SOCKS5_PASS=${shQuote(spec.socksPass)}\n")
         }

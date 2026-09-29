@@ -56,12 +56,12 @@ func startDNSProxy(ctx context.Context, listenAddr string, fallbacks []string, d
 		}
 	}
 
-	socks, user, _, _ := GConfig.get()
+	socks, user, pass, _ := GConfig.get()
 	slog.Info("DNS proxy listening",
 		"addr", listenAddr,
 		"reply_from", map[bool]string{true: "the address each query arrives at", false: "kernel default"}[p4 != nil],
 		"upstream_socks5", socks,
-		"socks5_auth", user != "",
+		"socks5_auth", user != "" && pass != "",
 		"fallbacks", strings.Join(fallbacks, ","),
 		"doh", dohUrl)
 
@@ -156,7 +156,7 @@ func getSplitDNSServers(domain string) []string {
 // the plain Dial is only the fallback for a dialer that does not.
 func socksDialContext(socks, user, pass string) (func(ctx context.Context, network, addr string) (net.Conn, error), error) {
 	var auth *proxy.Auth
-	if user != "" || pass != "" {
+	if user != "" && pass != "" { // both or neither; see tailscaledCmd
 		auth = &proxy.Auth{User: user, Password: pass}
 	}
 	dialer, err := proxy.SOCKS5("tcp", socks, auth, proxy.Direct)
@@ -173,7 +173,7 @@ func socksDialContext(socks, user, pass string) (func(ctx context.Context, netwo
 
 func forwardDNSviaSOCKS5(query []byte, socksAddr, user, pass, dnsServer string) ([]byte, error) {
 	var auth *proxy.Auth
-	if user != "" || pass != "" {
+	if user != "" && pass != "" { // both or neither; see tailscaledCmd
 		auth = &proxy.Auth{User: user, Password: pass}
 	}
 	dialer, err := proxy.SOCKS5("tcp", socksAddr, auth, proxy.Direct)

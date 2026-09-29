@@ -84,3 +84,6 @@ docs/TAILDROP_RU.md
 # Rendered preview references (./gradlew :app:updateDebugScreenshotTest
 # regenerates them); binary churn on every layout change is not worth keeping.
 app/src/screenshotTestDebug/
+
+# Agent worktrees (Claude Code) are scratch checkouts, never part of the tree.
+.claude/worktrees/
