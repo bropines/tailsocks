@@ -163,10 +163,13 @@ fun FirstStartScreen(onFinished: () -> Unit) {
                     .padding(paddingValues),
                 userScrollEnabled = false
             ) { page ->
+                // The whole page scrolls, so the slides fit a phone on its side;
+                // held to a readable width, so they do not sprawl on a tablet.
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
+                        .readableWidth()
                         .padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center

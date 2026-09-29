@@ -293,6 +293,8 @@ fun DnsScreen(onBack: () -> Unit) {
                 )
             }
         ) { padding ->
+            // Held to a readable width on a tablet; see ReadableWidth.
+            ReadableWidth {
             LazyColumn(
                 modifier = Modifier
                     .padding(padding)
@@ -633,6 +635,7 @@ fun DnsScreen(onBack: () -> Unit) {
 
                 if (loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
                 item { Spacer(Modifier.height(24.dp)) }
+            }
             }
         }
     }

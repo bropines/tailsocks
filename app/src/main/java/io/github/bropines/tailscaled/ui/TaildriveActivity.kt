@@ -102,7 +102,9 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
     }
     val shares = remember { mutableStateListOf<LocalShare>().apply { addAll(initialShares) } }
 
-    var hasStoragePermission by remember { mutableStateOf(checkStoragePermission(context)) }
+    // The preview renderer has no package manager to ask; see MainScreen.
+    val inPreview = androidx.compose.ui.platform.LocalInspectionMode.current
+    var hasStoragePermission by remember { mutableStateOf(!inPreview && checkStoragePermission(context)) }
     var isProxyEnabled by remember { mutableStateOf(prefs.getBoolean("taildrive_proxy_enabled", false)) }
     var proxyIp by remember { mutableStateOf(prefs.getString("taildrive_proxy_ip", "127.0.0.1") ?: "127.0.0.1") }
     var proxyPort by remember { mutableStateOf(prefs.getString("taildrive_proxy_port", "33445") ?: "33445") }
@@ -176,7 +178,7 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
+            if (event == Lifecycle.Event.ON_RESUME && !inPreview) {
                 hasStoragePermission = checkStoragePermission(context)
             }
         }
@@ -740,7 +742,10 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
                 }
             }
         ) { padding ->
+            // Held to a readable width on a tablet; see ReadableWidth.
+            ReadableWidth {
             mainContent(padding)
+            }
         }
     } else {
         Box(modifier = Modifier.fillMaxSize()) {

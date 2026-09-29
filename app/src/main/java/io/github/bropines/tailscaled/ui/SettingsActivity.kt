@@ -2547,7 +2547,10 @@ fun SettingsScreen(
     // parameter instead of reading `openSection` because the back gesture needs
     // two levels on screen at once — the section being dragged away, and the hub
     // coming back underneath it.
-    val settingsSurface: @Composable (String?) -> Unit = { section ->
+    // backable: whether a section shows the arrow that returns to the hub. Beside
+    // the hub, as the right pane of the wide layout, there is nothing to return
+    // to — the hub is already on screen — so the arrow would be a lie.
+    val settingsSurface: @Composable (String?, Boolean) -> Unit = { section, backable ->
         val openCategory = settingsCategories.firstOrNull { it.id == section }
         Scaffold(
             modifier = Modifier.fillMaxSize(),
@@ -2561,8 +2564,10 @@ fun SettingsScreen(
                         )
                     },
                     navigationIcon = {
-                        IconButton(onClick = { if (section != null) popSection() else onBack() }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back))
+                        if (section == null || backable) {
+                            IconButton(onClick = { if (section != null) popSection() else onBack() }) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back))
+                            }
                         }
                     }
                 )
@@ -2580,6 +2585,7 @@ fun SettingsScreen(
                             hubAnchor.offset = offset
                         }
                 }
+                ReadableWidth {
                 LazyColumn(
                     state = hubState,
                     modifier = Modifier
@@ -2597,6 +2603,7 @@ fun SettingsScreen(
                     }
                     item { Spacer(Modifier.height(32.dp)) }
                 }
+                }
             } else {
                 // Hoisted for the same reason as the hub's: the back container swaps its own
                 // structure the moment a pop lands, and a section that jumps back to the top
@@ -2605,6 +2612,7 @@ fun SettingsScreen(
                 LaunchedEffect(sectionScroll, section) {
                     snapshotFlow { sectionScroll.value }.collect { sectionAnchors[section] = it }
                 }
+                ReadableWidth {
                 Column(
                     modifier = Modifier
                         .padding(padding)
@@ -2627,6 +2635,7 @@ fun SettingsScreen(
                     }
                     Spacer(Modifier.height(32.dp))
                 }
+                }
             }
         }
     }
@@ -2639,6 +2648,20 @@ fun SettingsScreen(
     // The crossfade sits outside the back container, so that opening a section
     // still fades and each level keeps its own container: the one drawn for a
     // section installs the gesture, the one drawn for the hub does not.
+    // Wide windows — a tablet, a phone on its side — show the hub and a section
+    // at once, the way a settings screen reads on a large display: the list stays
+    // put and the right side follows it. Nothing to push or pop there, so none of
+    // the transition or predictive-back machinery below is involved; back simply
+    // leaves, as it does from the hub.
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+    if (maxWidth >= 840.dp) {
+        val shown = openSection ?: settingsCategories.first().id
+        Row(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+            Box(modifier = Modifier.width(340.dp).fillMaxHeight()) { settingsSurface(null, true) }
+            VerticalDivider()
+            Box(modifier = Modifier.weight(1f).fillMaxHeight()) { settingsSurface(shown, false) }
+        }
+    } else
     AnimatedContent(
         targetState = openSection,
         transitionSpec = {
@@ -2675,11 +2698,12 @@ fun SettingsScreen(
             // only: it is a second live copy of every category row, and a screen reader
             // reaches the hub through the one that lands.
             previousContent = {
-                Box(Modifier.fillMaxSize().clearAndSetSemantics { }) { settingsSurface(null) }
+                Box(Modifier.fillMaxSize().clearAndSetSemantics { }) { settingsSurface(null, true) }
             }
         ) {
-            settingsSurface(section)
+            settingsSurface(section, true)
         }
+    }
     }
 
     if (showProxyDialog) {

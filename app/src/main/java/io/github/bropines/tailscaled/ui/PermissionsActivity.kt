@@ -223,10 +223,14 @@ fun PermissionsScreen(onBack: () -> Unit) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    val alarmsState = remember(refreshTick) { exactAlarmsState(context) }
-    val batteryState = remember(refreshTick) { batteryOptimisationState(context) }
-    val notificationsState = remember(refreshTick) { notificationsState(context) }
-    val installState = remember(refreshTick) { installUnknownAppsState(context) }
+    // Each of these asks a system service, and the preview renderer has none
+    // of them (see MainScreen): there every row shows as unknown.
+    val inPreview = androidx.compose.ui.platform.LocalInspectionMode.current
+    fun probe(read: () -> PermState) = if (inPreview) PermState.UNKNOWN else read()
+    val alarmsState = remember(refreshTick) { probe { exactAlarmsState(context) } }
+    val batteryState = remember(refreshTick) { probe { batteryOptimisationState(context) } }
+    val notificationsState = remember(refreshTick) { probe { notificationsState(context) } }
+    val installState = remember(refreshTick) { probe { installUnknownAppsState(context) } }
 
     Scaffold(
         topBar = {
@@ -243,6 +247,8 @@ fun PermissionsScreen(onBack: () -> Unit) {
             )
         }
     ) { padding ->
+        // Held to a readable width on a tablet; see ReadableWidth.
+        ReadableWidth {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -327,6 +333,7 @@ fun PermissionsScreen(onBack: () -> Unit) {
             }
 
             Spacer(Modifier.height(16.dp))
+        }
         }
     }
 }

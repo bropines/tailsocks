@@ -188,11 +188,13 @@ fun PeersScreen(onBack: () -> Unit) {
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
                     placeholderText = stringResource(R.string.peers_search_placeholder),
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    modifier = Modifier.readableWidth().padding(horizontal = 16.dp, vertical = 8.dp)
                 )
             }
         }
     ) { padding ->
+        // Held to a readable width on a tablet; see ReadableWidth.
+        ReadableWidth {
         PullToRefreshBox(
             isRefreshing = isRefreshing,
             onRefresh = { loadPeers() },
@@ -268,6 +270,7 @@ fun PeersScreen(onBack: () -> Unit) {
                 onSendFileClick = { peer -> peerForFileDrop = peer; filePickerLauncher.launch("*/*") },
                 onSelectPeer = { peer -> selectedPeer = peer }
             )
+        }
         }
     }
 }

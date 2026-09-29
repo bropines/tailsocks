@@ -392,6 +392,8 @@ fun NetcheckScreen(onBack: () -> Unit) {
             )
         }
     ) { padding ->
+        // Held to a readable width on a tablet; see ReadableWidth.
+        ReadableWidth {
         Box(
             modifier = Modifier
                 .padding(padding)
@@ -681,6 +683,7 @@ fun NetcheckScreen(onBack: () -> Unit) {
                     }
                 }
             }
+        }
         }
     }
 }

@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotlinSerialization)
+    alias(libs.plugins.screenshot)
 }
 
 // Получаем версию из git через современные провайдеры Gradle
@@ -32,6 +33,12 @@ println("-> Build VersionName: v$baseVersion-$gitHash")
 val releaseKeystorePath: String? = System.getenv("KEYSTORE_FILE")
 
 android {
+    // Preview screenshot tests (src/screenshotTest): @Preview functions are
+    // rendered on the build machine in every geometry we declare — phone,
+    // landscape, an unfolded foldable, a tablet — so a layout can be judged
+    // without a device. Run ./gradlew :app:updateDebugScreenshotTest.
+    experimentalProperties["android.experimental.enableScreenshotTest"] = true
+
     namespace = "io.github.bropines.tailscaled"
     // compileSdk = 37 (не 36): core-ktx 1.17.0 требует как минимум 36
     compileSdk = 37
@@ -178,6 +185,8 @@ dependencies {
     ksp(libs.androidx.appfunctions.compiler)
     
     debugImplementation(libs.androidx.ui.tooling)
+    screenshotTestImplementation(libs.screenshot.validation.api)
+    screenshotTestImplementation(libs.androidx.ui.tooling)
 }
 
 ksp {

@@ -276,7 +276,7 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false) {
                         },
                         positionOffset = pagePosition,
                         modifier = Modifier
-                            .fillMaxWidth()
+                            .readableWidth()
                             .padding(horizontal = 24.dp, vertical = 6.dp),
                         height = 44.dp
                     )
@@ -302,7 +302,7 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false) {
                             },
                             positionOffset = dropSubOffset,
                             modifier = Modifier
-                                .fillMaxWidth()
+                                .readableWidth()
                                 .padding(horizontal = 24.dp, vertical = 4.dp),
                             height = 36.dp
                         )
@@ -321,6 +321,8 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false) {
                 }
             }
         ) { padding ->
+            // Held to a readable width on a tablet; see ReadableWidth.
+            ReadableWidth {
         PullToRefreshBox(
             isRefreshing = isLoading,
             onRefresh = { refreshData() },
@@ -407,7 +409,8 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false) {
                 }
             }
         }
-    }
+            }
+        }
 }
 }
 

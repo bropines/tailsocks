@@ -257,7 +257,11 @@ object GlobalSettings {
         val prefs = getPrefs(context)
         if (!prefs.contains("tun_excluded_apps")) {
             val defaultStr = DEFAULT_EXCLUDED_APPS.joinToString(",")
-            prefs.edit().putString("tun_excluded_apps", defaultStr).apply()
+            // Not chained: the preview renderer's editor returns null from
+            // putString, and this getter runs while a screen is composed.
+            val editor = prefs.edit()
+            editor.putString("tun_excluded_apps", defaultStr)
+            editor.apply()
             return DEFAULT_EXCLUDED_APPS
         }
         val raw = prefs.getString("tun_excluded_apps", "") ?: ""

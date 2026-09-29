@@ -524,7 +524,11 @@ fun MainScreen(
         }
     }
 
-    var proxyState by remember { mutableStateOf(if (ProxyState.isActualRunning(context)) "ACTIVE" else "STOPPED") }
+    // LocalInspectionMode is true only in the preview renderer, which has no
+    // daemon and no native bridge: touching Appctr there loads gojni and fails.
+    // In the app it is always false, so nothing below changes behaviour.
+    val inPreview = androidx.compose.ui.platform.LocalInspectionMode.current
+    var proxyState by remember { mutableStateOf(if (!inPreview && ProxyState.isActualRunning(context)) "ACTIVE" else "STOPPED") }
     var exitNodeIp by remember(activeAccount.id) { mutableStateOf(prefs.getString("exit_node_ip", "") ?: "") }
     // TunVpnService establishes a *full* tunnel exactly when an exit node is configured.
     // The old `tun_full_tunnel` pref was never written by anything and always read false,

@@ -200,6 +200,8 @@ fun TunExcludedAppsScreen(onBack: () -> Unit) {
                 )
             }
         ) { padding ->
+            // Held to a readable width on a tablet; see ReadableWidth.
+            ReadableWidth {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -265,7 +267,8 @@ fun TunExcludedAppsScreen(onBack: () -> Unit) {
                 }
             }
         }
-    }
+            }
+        }
     }
 }
 

@@ -747,6 +747,8 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null) {
                 }
             }
         ) { padding ->
+            // Held to a readable width on a tablet; see ReadableWidth.
+            ReadableWidth {
             PullToRefreshBox(
                 isRefreshing = isLoading,
                 onRefresh = { refresh() },
@@ -817,6 +819,7 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null) {
                         }
                     }
                 }
+            }
             }
         }
     }
