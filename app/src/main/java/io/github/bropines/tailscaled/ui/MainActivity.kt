@@ -584,6 +584,9 @@ fun MainScreen(
     var isExitNodesLoading by remember { mutableStateOf(false) }
 
     fun applyExitNode(id: String, ip: String) {
+        // The confirm haptic: choosing where all traffic goes is the one
+        // selection on this screen whose effect is not visible at once.
+        haptics.performHapticFeedback(HapticFeedbackType.Confirm)
         exitNodeIp = ip
         val editor = prefs.edit()
         editor.putString("exit_node_ip", ip)
@@ -1492,16 +1495,19 @@ fun MainScreen(
         }
 
         val menuPane: @Composable (Int, androidx.compose.ui.unit.Dp) -> Unit = { columns, cardHeight ->
+            // Icons say what is behind them: a terminal, devices, a DNS record,
+            // a network check. They used to be ▶ (reads as "start"), share, and
+            // a refresh arrow, with DNS and Serve both a globe.
             MenuGrid(
                 columns = columns,
                 cardHeight = cardHeight,
                 entries = listOf(
-                    MenuEntry(stringResource(R.string.menu_console), Icons.Default.PlayArrow) { context.startActivity(Intent(context, ConsoleActivity::class.java)) },
-                    MenuEntry(stringResource(R.string.menu_peers), Icons.Default.Share) { context.startActivity(Intent(context, PeersActivity::class.java)) },
+                    MenuEntry(stringResource(R.string.menu_console), Icons.Default.Terminal) { context.startActivity(Intent(context, ConsoleActivity::class.java)) },
+                    MenuEntry(stringResource(R.string.menu_peers), Icons.Default.Devices) { context.startActivity(Intent(context, PeersActivity::class.java)) },
                     MenuEntry(stringResource(R.string.menu_logs), Icons.AutoMirrored.Filled.List) { context.startActivity(Intent(context, LogsActivity::class.java)) },
                     MenuEntry(stringResource(R.string.menu_files), Icons.Default.Folder) { context.startActivity(Intent(context, FilesActivity::class.java)) },
-                    MenuEntry(stringResource(R.string.menu_dns), Icons.Default.Language) { context.startActivity(Intent(context, DnsActivity::class.java)) },
-                    MenuEntry(stringResource(R.string.menu_netcheck), Icons.Default.Refresh) { context.startActivity(Intent(context, NetcheckActivity::class.java)) },
+                    MenuEntry(stringResource(R.string.menu_dns), Icons.Default.Dns) { context.startActivity(Intent(context, DnsActivity::class.java)) },
+                    MenuEntry(stringResource(R.string.menu_netcheck), Icons.Default.NetworkCheck) { context.startActivity(Intent(context, NetcheckActivity::class.java)) },
                     MenuEntry(stringResource(R.string.menu_settings), Icons.Default.Settings) { context.startActivity(Intent(context, SettingsActivity::class.java)) },
                     MenuEntry(stringResource(R.string.menu_serve), Icons.Default.Public) { context.startActivity(Intent(context, ServeActivity::class.java)) }
                 )
@@ -2557,10 +2563,13 @@ fun MenuGrid(columns: Int, entries: List<MenuEntry>, cardHeight: Dp = 96.dp, mod
 
 @Composable
 fun MenuCard(title: String, icon: ImageVector, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    // Surface(onClick): the ripple is clipped to the rounded card. As a
+    // clickable modifier ahead of the shape it drew a rectangle past the corners.
     Surface(
+        onClick = onClick,
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surfaceContainer,
-        modifier = modifier.clickable { onClick() }
+        modifier = modifier
     ) {
         Column(
             // Fills what it is given: in the grid that is a fixed height, and
@@ -2678,7 +2687,7 @@ fun LoggedOutCard(
                     Icon(Icons.Default.Key, null, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(4.dp))
                     Text(
-                        text = if (showKeyInput) "Hide Key" else "Use Key",
+                        text = stringResource(if (showKeyInput) R.string.login_hide_key else R.string.login_use_key),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,

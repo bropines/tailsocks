@@ -51,7 +51,7 @@
     <string name="force_bg_subtitle">Try to restart service if killed</string>
 
     <!-- Logs -->
-    <string name="logs_title">System Logs</string>
+    <string name="logs_title">Logs</string>
     <string name="copy_logs">Copy all logs</string>
     <string name="share_logs">Share logs</string>
     <string name="clear_logs">Clear logs</string>
@@ -540,7 +540,7 @@
     <string name="settings_sagernet_copied">SagerNet link copied!</string>
 
     <!-- ======================== Console / Terminal ======================== -->
-    <string name="console_title">Tailscale Terminal</string>
+    <string name="console_title">Console</string>
     <string name="console_cd_toggle_wrap">Toggle Wrap</string>
     <string name="console_clear_desc">Clear</string>
     <string name="console_add_preset">+ Add</string>
@@ -555,7 +555,7 @@
     <string name="console_preset_insert">Insert</string>
 
     <!-- ======================== DNS Management ======================== -->
-    <string name="dns_title">DNS Management</string>
+    <string name="dns_title">DNS</string>
     <string name="dns_error_not_running">Tailscale is not running.\nStart the service on the main screen.</string>
     <string name="dns_error_parse_failed">Failed to parse DNS status.\n\nRaw output:\n%1$s</string>
     <string name="dns_status_unavailable">⚠ DNS Status Unavailable</string>
@@ -586,7 +586,7 @@
     <string name="dns_device_name">Device DNS name</string>
 
     <!-- ======================== Taildrop / Files ======================== -->
-    <string name="files_hub_title">TailFiles Hub</string>
+    <string name="files_hub_title">Files</string>
     <string name="files_cd_taildrive">Taildrive</string>
     <string name="files_tab_inbox">Inbox</string>
     <string name="files_tab_devices">Devices</string>
@@ -674,12 +674,12 @@
     <string name="menu_logs">Logs</string>
     <string name="menu_files">Files</string>
     <string name="menu_dns">DNS</string>
-    <string name="menu_netcheck">Netcheck</string>
+    <string name="menu_netcheck">Network check</string>
     <string name="menu_settings">Settings</string>
     <string name="menu_serve">Serve</string>
 
     <!-- ======================== Network Diagnostics ======================== -->
-    <string name="netcheck_title">Network Diagnostics</string>
+    <string name="netcheck_title">Network check</string>
     <string name="netcheck_report_copied">Report copied to clipboard</string>
     <string name="netcheck_analyzing">Analyzing connection…</string>
     <string name="netcheck_connection_health">--- CONNECTION HEALTH ---\n</string>
@@ -722,7 +722,7 @@
     <string name="netcheck_peers_online_none">0 / %1$d online</string>
 
     <!-- ======================== Peers / Network Devices ======================== -->
-    <string name="peers_title">Network Devices</string>
+    <string name="peers_title">Peers</string>
     <string name="peers_search_placeholder">Search by name, IP or OS…</string>
     <string name="peers_sending">Sending…</string>
     <string name="peers_sent">Sent!</string>
@@ -1460,4 +1460,6 @@
     <string name="settings_update_check_desc">Asks GitHub for a newer release each time the app opens. The About screen can always check by hand.</string>
     <string name="help_expand">Show more</string>
     <string name="help_collapse">Show less</string>
+    <string name="login_use_key">Use a key</string>
+    <string name="login_hide_key">Hide the key</string>
 </resources>

@@ -51,7 +51,7 @@
     <string name="force_bg_subtitle">Попытка перезапуска службы при завершении</string>
 
     <!-- Logs -->
-    <string name="logs_title">Системные логи</string>
+    <string name="logs_title">Логи</string>
     <string name="copy_logs">Копировать все логи</string>
     <string name="share_logs">Поделиться логами</string>
     <string name="clear_logs">Очистить логи</string>
@@ -540,7 +540,7 @@
     <string name="settings_sagernet_copied">Ссылка SagerNet скопирована!</string>
 
     <!-- ======================== Console / Terminal ======================== -->
-    <string name="console_title">Терминал Tailscale</string>
+    <string name="console_title">Консоль</string>
     <string name="console_cd_toggle_wrap">Перенос строк</string>
     <string name="console_clear_desc">Очистить</string>
     <string name="console_add_preset">+ Добавить</string>
@@ -555,7 +555,7 @@
     <string name="console_preset_insert">Вставить</string>
 
     <!-- ======================== DNS Management ======================== -->
-    <string name="dns_title">Управление DNS</string>
+    <string name="dns_title">DNS</string>
     <string name="dns_error_not_running">Tailscale не запущен.\nЗапустите службу на главном экране.</string>
     <string name="dns_error_parse_failed">Не удалось разобрать статус DNS.\n\nИсходный вывод:\n%1$s</string>
     <string name="dns_status_unavailable">⚠ Статус DNS недоступен</string>
@@ -586,7 +586,7 @@
     <string name="dns_device_name">DNS-имя устройства</string>
 
     <!-- ======================== Taildrop / Files ======================== -->
-    <string name="files_hub_title">Хаб TailFiles</string>
+    <string name="files_hub_title">Файлы</string>
     <string name="files_cd_taildrive">Taildrive</string>
     <string name="files_tab_inbox">Входящие</string>
     <string name="files_tab_devices">Устройства</string>
@@ -679,7 +679,7 @@
     <string name="menu_serve">Serve</string>
 
     <!-- ======================== Network Diagnostics ======================== -->
-    <string name="netcheck_title">Диагностика сети</string>
+    <string name="netcheck_title">Проверка сети</string>
     <string name="netcheck_report_copied">Отчет скопирован в буфер обмена</string>
     <string name="netcheck_analyzing">Анализ соединения…</string>
     <string name="netcheck_connection_health">--- СОСТОЯНИЕ СОЕДИНЕНИЯ ---\n</string>
@@ -722,7 +722,7 @@
     <string name="netcheck_peers_online_none">0 из %1$d в сети</string>
 
     <!-- ======================== Peers / Network Devices ======================== -->
-    <string name="peers_title">Устройства в сети</string>
+    <string name="peers_title">Узлы</string>
     <string name="peers_search_placeholder">Поиск по имени, IP или ОС…</string>
     <string name="peers_sending">Отправка…</string>
     <string name="peers_sent">Отправлено!</string>
@@ -1460,4 +1460,6 @@
     <string name="settings_update_check_desc">При каждом открытии спрашивает GitHub о новом релизе. Вручную проверить можно всегда — в «О приложении».</string>
     <string name="help_expand">Показать полностью</string>
     <string name="help_collapse">Свернуть</string>
+    <string name="login_use_key">Войти ключом</string>
+    <string name="login_hide_key">Скрыть ключ</string>
 </resources>
