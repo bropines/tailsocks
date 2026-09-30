@@ -1,0 +1,109 @@
+# Распространение: F-Droid, IzzyOnDroid, Obtainium
+
+*English version: [DISTRIBUTION.md](DISTRIBUTION.md)*
+
+Исследование от 2026-09-30; номера строк — по коммиту `730ff4e`. Что уже подготовлено:
+
+- `fastlane/metadata/android/{en-US,ru}/` — название, короткое и полное описание, `changelogs/README.txt` (как назвать файл списка изменений), `images/README.txt` (откуда брать скриншоты). Их читают и F-Droid, и IzzyOnDroid.
+- `fastlane/.gitignore` — корневой `.gitignore:68` игнорирует `*.txt`, без этого файла тексты не попадут в коммит.
+- [`distribution/io.github.bropines.tailscaled.yml`](distribution/io.github.bropines.tailscaled.yml) — черновик рецепта для fdroiddata, все допущения помечены `ASSUMPTION` / `OPEN` / `BLOCKER`.
+
+Полное описание честно говорит, что приложение при каждом запуске спрашивает GitHub о релизе. Когда проверка станет опциональной, эту фразу нужно убрать в обоих языках.
+
+## Итог
+
+| Канал | Вердикт | Что мешает | Работы |
+|---|---|---|---|
+| GitHub Releases | работает | — | — |
+| Obtainium | работает уже сейчас | ничего; хэш в имени APK лучше убрать | 15 минут на бейдж |
+| F-Droid, подпись F-Droid | реально | пять правок сборки и опциональная проверка обновлений | 1–2 дня + очередь ревью (недели) |
+| F-Droid, воспроизводимая сборка (подпись автора) | реально, но дорого | CI недетерминирован: пути, время, NDK, gomobile | ещё 2–4 дня, исход не гарантирован |
+| IzzyOnDroid | технически почти готов, по правилам — скорее отказ | политика против кода, написанного ИИ; AppFunctions | подавать ли — решение автора |
+
+Порядок: бейдж Obtainium сейчас → мелкие правки, полезные всем каналам (ниже, пункты 1, 5, 6, 8 и `dependenciesInfo`) → MR в F-Droid → воспроизводимая сборка отдельным заходом.
+
+## Obtainium
+
+Добавляется по ссылке на репозиторий. Опция *Attempt to filter APKs by CPU architecture* (`autoApkFilterByArch`, для новых приложений включена) ищет имя ABI в имени файла, поэтому из пяти APK релиза выбирается `…-arm64-v8a-…`. На x86 под `x86` попадает и `x86_64` — пользователь выберет сам. Версию Obtainium сравнивает по тегу (`v4.4.4`) с `versionName` (`v4.4.4-19dd52.release`) и отбрасывает косметику; простой `versionName`, равный тегу, надёжнее.
+
+Бейдж для README (картинку `assets/graphics/badge_obtainium.png` из репозитория Obtainium положить к себе — хотлинк они просят не делать):
+
+```markdown
+[<img src="docs/badge_obtainium.png" alt="Get it on Obtainium" height="48">](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/bropines/tailsocks)
+```
+
+По желанию — добавить конфиг в общий каталог https://apps.obtainium.imranr.dev (PR/issue в `ImranR98/apps.obtainium.imranr.dev`).
+
+## F-Droid (основной репозиторий)
+
+**Совместимость с политикой.** Лицензия BSD-3-Clause подходит. Весь `releaseRuntimeClasspath` проверен: AndroidX, Material, OkHttp, kotlinx, Guava и их зависимости, ни GMS, ни Firebase; сигнатуры несвободных библиотек сканера F-Droid (suss) ни с чем не совпали. В git нет собранных бинарников, кроме `gradle-wrapper.jar` (разрешён) и `wintun.dll` в подмодуле hev-socks5-tunnel (сканер `.dll` без бита исполнения не трогает).
+
+**Прецеденты.** Официальный Tailscale (`com.tailscale.ipn`) собирается в F-Droid: Go компилируется из исходников (srclib, bootstrap — `golang-go` из trixie-backports), модули Go качаются на шаге `build`, NDK закреплён. Анти-функция у него одна — *Tracking* за отправку отладочных логов; у нас она вырезана (`ts_omit_logtail`, `appctr/build.sh:111`; `TS_NO_LOGS_NO_SUPPORT=true`, `appctr/daemon.go:114`). sing-box (`io.nekohasekai.sfa`) — gomobile + Go из srclib + воспроизводимая сборка; SocksTun (`hev.sockstun`) — hev-socks5-tunnel, тоже воспроизводимый. Рецептов ByeDPI/ByeByeDPI в fdroiddata нет.
+
+**Анти-функции, которые могут повесить.**
+
+- *Tracking* — по определению F-Droid сюда входят «проверки обновлений без вашего ведома». `MainActivity.kt:230` при каждом запуске обращается к `api.github.com`. Снимается, если проверка станет опциональной (по умолчанию выключена).
+- *NonFreeNet* — на усмотрение ревьюера: сервер по умолчанию и консоль Admin API — проприетарный сервис Tailscale; первый заменяется своим Headscale (поле login server), вторая — нет. У `com.tailscale.ipn` этой метки нет, это аргумент.
+- Самообновление: политика запрещает скачивать исполняемый код без явного согласия. Скачивание у нас по кнопке в «О приложении» (`MainActivity.kt:1693`, `REQUEST_INSTALL_PACKAGES` в `AndroidManifest.xml:18`), но APK с GitHub не встанет поверх подписанного F-Droid. В клиенте F-Droid 2.0 анти-функции — это фильтры, а не запрет.
+
+**Что мешает сборке** (номер — для ссылок из рецепта):
+
+| # | Где | Что | Как чинить |
+|---|---|---|---|
+| 1 | `app/build.gradle.kts:340-366` | релиз не упаковывается без keystore, а F-Droid собирает неподписанный — сборка падает | свойство Gradle, например `-PallowUnsignedRelease` (в рецепте — `gradleprops`); пока — `sed` в рецепте |
+| 2 | `appctr/build.sh:64` | исходники Tailscale скачиваются `curl … \| tar` без проверки | sha256 рядом с `TAILSCALE_VERSION` или переменная `TS_TARBALL`; пока — `sed` + `sha256sum -c` в рецепте |
+| 3 | `appctr/build.sh:100` (+ `appctr/go.mod:3`, `.github/workflows/android.yml:49`) | `GOTOOLCHAIN=auto` скачивает бинарный Go 1.26.6 | `GOTOOLCHAIN=${GOTOOLCHAIN:-auto}`; в рецепте — srclib `go@go1.26.6` и `local` |
+| 4 | `.github/workflows/android.yml:74-75` | `gomobile@latest` и `gomobile init`, который ставит `gobind@latest` | ставить `gomobile` и `gobind` той версии, что в `appctr/go.mod`; `init` не нужен |
+| 5 | `app/build.gradle.kts:11-18`, `:62`, `:115` | `versionCode` = число коммитов + 502, `versionName` с хэшем — F-Droid не может ни предсказать версию, ни обновлять рецепт сам | `version.properties` (`VERSION_NAME=4.5.0`, `VERSION_CODE=4050000` — больше нынешних ~1500, коллизий нет); хэш — в `BuildConfig` для экрана «О приложении» |
+| 6 | `MainActivity.kt:230`, `:416-437` | тихая проверка обновлений | переключатель, по умолчанию выключен, с текстом «скачивается с github.com/bropines/tailsocks» |
+| 7 | `appctr/build.sh:109` | `go mod tidy` в дереве Tailscale дописывает `github.com/wlynxg/anet` той версии, что свежая на день сборки | закрепить `require` в патче 06, убрать `tidy` |
+| 8 | `app/src/main/jni/byedpi/` | вендорный ByeDPI (MIT) без LICENSE; `readme.md:298`, `:355` ссылаются на несуществующий `hufyhang/byedpi` | положить LICENSE из https://github.com/hufrea/byedpi, исправить ссылки |
+| 9 | `app/build.gradle.kts` (нет `ndkVersion`), `android.yml:103` | NDK нигде не закреплён: локально 28.2, в CI — первый найденный | один NDK в `ndkVersion`, в CI и в `build.sh` |
+
+Не блокер, но в рецепте есть обход: `jvmToolchain(17)` (`app/build.gradle.kts:136-138`) — на сборочном сервере Debian trixie с JDK 21, JDK 17 ставится из bookworm, как у SocksTun. ABI-сплиты делят один `versionCode`, поэтому F-Droid отдаст универсальный APK (~85 МБ); раздельные APK потребуют `versionCode` на каждый ABI.
+
+**Шаги.**
+
+1. Исправить 1, 5, 6, 8 (лучше и 2–4), выпустить релиз.
+2. Форкнуть https://gitlab.com/fdroid/fdroiddata, положить черновик в `metadata/io.github.bropines.tailscaled.yml`, поправить `versionName`/`versionCode`/`commit`, убрать ставшие ненужными `sed`.
+3. `fdroid lint`, `fdroid rewritemeta`, `fdroid build -v -l io.github.bropines.tailscaled` — локально или в GitLab CI форка.
+4. Открыть MR. Альтернатива — заявка в https://gitlab.com/fdroid/rfp/-/issues (медленнее). После слияния приложение появляется через 24–48 часов.
+
+Подпись F-Droid отличается от подписи релизов на GitHub: перейти между каналами можно только через удаление, а удаление стирает профили и ключи (спасает резервная копия). Это стоит написать в README.
+
+## Воспроизводимая сборка
+
+F-Droid собирает сам и сравнивает с APK автора; совпало — публикует APK автора. Тогда подпись одна на всех каналах, а для верификации Google (ниже) это единственный способ, при котором сборка из F-Droid пройдёт проверку. Что сейчас недетерминировано — проверено на `TailSocks-v4.4.4-arm64-v8a` из релиза:
+
+- `libtailscale.so` содержит 1859 абсолютных путей вида `/home/runner/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6…`: демон и CLI собираются без `-trimpath -buildvcs=false` (`appctr/build.sh:116-175`).
+- `libgojni.so` содержит время сборки (`v1.102.5-19dd52d-2026-09-29_174046`, `appctr/build.sh:181-182`, `:187`) и путь `/home/runner/work/tailsocks/tailsocks/appctr`: gomobile пишет абсолютные `replace` во временный `go.mod`, `-trimpath` их не убирает. Лечится только одинаковым путём сборки в CI и у F-Droid (сервер F-Droid собирает в `/home/vagrant/build/<appid>` — проверить).
+- `libhev-socks5-tunnel.so` содержит 17 путей из lwip: CI собирает C отдельным `ndk-build` (`android.yml:101-111`) без `-ffile-prefix-map`, который передаёт только Gradle (`app/build.gradle.kts:69`), а Gradle свой `ndkBuild` пропускает, если `.so` уже лежат (`:96-102`). Проще всего отдать сборку C Gradle и в CI.
+- NDK не закреплён (пункт 9).
+- В APK есть `DEPENDENCY_INFO_BLOCK` — блоб, зашифрованный ключом Google; F-Droid и IzzyOnDroid просят его отключить: `android { dependenciesInfo { includeInApk = false; includeInBundle = false } }`.
+- `assets/dexopt/baseline.prof` — известный источник расхождений; смотреть, когда уйдёт остальное.
+- Имена релизных файлов содержат хэш (`android.yml:226-228`), а `Binaries:` в рецепте умеет только `%v` и `%c`: нужен вид `TailSocks-v%v-universal-release.apk`.
+
+Отпечаток сертификата для `AllowedAPKSigningKeys` уже снят с релиза 4.4.4 и лежит в черновике. Стоит ли: да, если F-Droid вообще нужен.
+
+## IzzyOnDroid
+
+Технически почти готов: лицензия, релизы с тегом и APK, подпись релизным ключом (схема v2), не debuggable. Лимит — «около 30 МБ на приложение» и на один APK; при нескольких ABI Izzy берёт arm64-v8a (`ApkMatch: arm64-v8a`, 24,4 МБ — проходит; универсальный 85 МБ — нет). fastlane теперь есть. Нужно ещё: проверку обновлений сделать опциональной (самообновление терпят, только если оно выключено по умолчанию и названо, откуда качается) и убрать `DEPENDENCY_INFO_BLOCK`.
+
+Препятствие — политика. Цитаты из правил: «We are strongly opposed to apps which are fully or in part created by generative AI tools», «Vibe-coded apps will be rejected», «Apps acting as front-end for LLMs … or integrate with such services, will be rejected». Тексты документации допускаются, код — нет; о применении ИИ просят сообщить в заявке. В репозитории лежат `CLAUDE.md`, `agents.md`, `.skills/`, у 184 из 1000 коммитов трейлер `Co-Authored-By: Claude`, а 14 AppFunctions предназначены ассистентам вроде Gemini. Честная заявка, скорее всего, получит отказ; подавать ли — решать автору. Если подавать: issue в https://codeberg.org/IzzyOnDroid/repodata/issues, дальше проверка репозитория и APK на устройстве (VirusTotal, мониторинг сети), обновления подтягиваются ежедневно из релизов GitHub.
+
+## Верификация разработчиков Google (2026)
+
+- Август 2026 — API, аккаунты ограниченного распространения (до 20 устройств, без документа и взноса) и «продвинутый путь» для опытных пользователей. С 30 сентября 2026 (сегодня) на сертифицированных устройствах Бразилии, Индонезии, Сингапура и Таиланда ставятся только приложения проверенных разработчиков, в 2027 — по всему миру.
+- Установка через ADB остаётся. Продвинутый путь: режим разработчика, ожидание 24 часа, повторная аутентификация.
+- Регистрация — Android Developer Console: имя, адрес, возможно документ, взнос $25; владение приложением доказывается APK, подписанным своим ключом. Проверка привязана к имени пакета и ключу.
+- F-Droid (открытое письмо от 24.02.2026): «We unequivocally advise against signing up for this program, now or ever». F-Droid регистрироваться не будет, поэтому подписанные им APK в этих странах ставятся только продвинутым путём или через ADB.
+- IzzyOnDroid на главной: «The free Android world is under threat – and IzzyOnDroid with it» (ссылка на keepandroidopen.org). Izzy раздаёт APK, подписанные автором, так что их судьба — это регистрация автора.
+- Для TailSocks: основная аудитория (русская документация, обход DPI) вне первой волны; вопрос встанет в 2027. Если автор зарегистрирует пакет и ключ — GitHub, Obtainium, Izzy и воспроизводимая сборка в F-Droid ставятся как обычно, сборка с подписью F-Droid — нет. Если нет — во всех каналах нужен продвинутый путь. F-Droid просит не регистрироваться; решение за автором.
+
+## Источники
+
+- F-Droid: [Inclusion Policy](https://f-droid.org/docs/Inclusion_Policy/), [Anti-Features](https://f-droid.org/docs/Anti-Features/), [Reproducible Builds](https://f-droid.org/docs/Reproducible_Builds/), [Build Metadata Reference](https://f-droid.org/docs/Build_Metadata_Reference/), [Quick Start Guide](https://f-droid.org/docs/Submitting_to_F-Droid_Quick_Start_Guide/), [описания и графика](https://f-droid.org/docs/All_About_Descriptions_Graphics_and_Screenshots/), [форум: политика по ИИ (её нет)](https://forum.f-droid.org/t/does-f-droid-have-a-formal-policy-on-libre-ai/33279), [открытое письмо](https://f-droid.org/2026/02/24/open-letter-opposing-developer-verification.html)
+- Рецепты fdroiddata: [com.tailscale.ipn](https://gitlab.com/fdroid/fdroiddata/-/blob/master/metadata/com.tailscale.ipn.yml), [io.nekohasekai.sfa](https://gitlab.com/fdroid/fdroiddata/-/blob/master/metadata/io.nekohasekai.sfa.yml), [hev.sockstun](https://gitlab.com/fdroid/fdroiddata/-/blob/master/metadata/hev.sockstun.yml), [srclibs/go.yml](https://gitlab.com/fdroid/fdroiddata/-/blob/master/srclibs/go.yml)
+- IzzyOnDroid: [App Inclusion Policy](https://izzyondroid.org/docs/general/AppInclusionPolicy/), [New App Inclusions](https://izzyondroid.org/contributing/NewAppInclusions/), [Fastlane](https://izzyondroid.org/docs/general/Fastlane/), [YAML Metadata](https://izzyondroid.org/docs/general/YamlMetadata/), [FAQ](https://izzyondroid.org/faq/), [проверки APK](https://android.izzysoft.de/articles/named/iod-scan-apkchecks?lang=en)
+- Obtainium: [Deep Links](https://wiki.obtainium.imranr.dev/deep_links/), [каталог конфигов](https://apps.obtainium.imranr.dev/), `lib/services/apk_filter_service.dart` в [репозитории](https://github.com/ImranR98/Obtainium)
+- Google: [Android developer verification](https://developer.android.com/developer-verification), [The Hacker News, 2026-06](https://thehackernews.com/2026/06/google-sets-sept-30-deadline-for.html)

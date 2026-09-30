@@ -1,0 +1,165 @@
+# DRAFT fdroiddata recipe for TailSocks. Not submitted; it would go to
+# https://gitlab.com/fdroid/fdroiddata as metadata/io.github.bropines.tailscaled.yml
+#
+# Modelled on two recipes that build the same kinds of things:
+#   metadata/com.tailscale.ipn.yml   - official Tailscale app: Go toolchain built
+#                                       from source (srclib), Go modules fetched in
+#                                       the build step, NDK pinned.
+#   metadata/io.nekohasekai.sfa.yml  - sing-box: gomobile .aar, Go built from the
+#                                       `go` srclib, reproducible (Binaries +
+#                                       AllowedAPKSigningKeys).
+#   metadata/hev.sockstun.yml        - hev-socks5-tunnel via ndk-build, reproducible,
+#                                       installs JDK 17 from bookworm.
+#
+# Markers:
+#   ASSUMPTION - believed true, not verified by running `fdroid build`.
+#   OPEN       - needs a decision or a change in the TailSocks repository first.
+#   BLOCKER    - the build fails (or must not be merged) until this is fixed upstream.
+#
+# As written, this recipe builds v4.4.4 only if the prebuild sed lines below are
+# accepted by reviewers. F-Droid prefers upstream fixes over sed; the list of
+# upstream changes is in docs/DISTRIBUTION.md.
+
+# OPEN: the official Tailscale app carries only Tracking (for its debug-log
+# upload). TailSocks compiles that upload out (ts_omit_logtail, appctr/build.sh:111;
+# TS_NO_LOGS_NO_SUPPORT=true, appctr/daemon.go:114), so that one does not apply.
+AntiFeatures:
+  Tracking:
+    # BLOCKER-ish: F-Droid's definition names "update checks without your
+    # knowledge or permission". MainActivity.kt:230 calls api.github.com on every
+    # start. Drop this entry once the check is opt-in (off by default).
+    en-US: Asks GitHub for the latest release on every start, without asking first.
+  # OPEN: reviewer's call. The default coordination server and the whole Admin API
+  # console (api.tailscale.com) are Tailscale's proprietary service; a self-hosted
+  # Headscale server replaces the former (login server field), nothing replaces
+  # the latter. com.tailscale.ipn does NOT carry NonFreeNet, which is the
+  # precedent to cite if a reviewer proposes it.
+  # NonFreeNet:
+  #   en-US: Defaults to Tailscale's coordination server; the admin console works only with Tailscale's API.
+
+Categories:
+  - Connectivity
+  - VPN & Proxy
+License: BSD-3-Clause
+# ASSUMPTION: the vendored ByeDPI (MIT, https://github.com/hufrea/byedpi) and the
+# hev-socks5-tunnel submodule (MIT) do not change the declared licence, but the
+# vendored copy under app/src/main/jni/byedpi/ ships without its LICENSE file -
+# add it before submitting.
+AuthorName: bropines
+# OPEN: AuthorEmail - the author decides whether to publish one.
+SourceCode: https://github.com/bropines/tailsocks
+IssueTracker: https://github.com/bropines/tailsocks/issues
+Changelog: https://github.com/bropines/tailsocks/blob/HEAD/CHANGELOG.md
+Donate: https://boosty.to/pinus
+
+AutoName: TailSocks
+
+RepoType: git
+Repo: https://github.com/bropines/tailsocks.git
+# OPEN (reproducible builds): Binaries can only use %v (versionName) and %c
+# (versionCode). Today's asset names carry the commit hash
+# (TailSocks-v4.4.4-universal-19dd52-release.apk, .github/workflows/android.yml:228),
+# which neither placeholder gives. Enable after the assets are renamed, e.g.:
+# Binaries: https://github.com/bropines/tailsocks/releases/download/v%v/TailSocks-v%v-universal-release.apk
+
+Builds:
+  - versionName: v4.4.4-19dd52.release
+    # ^ fdroid build compares this with the APK. Today's name embeds the commit
+    #   hash (app/build.gradle.kts:62, :115), which no auto-update can predict.
+    #   OPEN: switch release builds to a plain versionName equal to the tag
+    #   (4.4.4), or this entry needs `novcheck: true` and hand edits every release.
+    versionCode: 1497
+    # ^ git commit count + 502 (app/build.gradle.kts:11-18); verified against the
+    #   v4.4.4 release APK. checkupdates cannot compute this - see UpdateCheckData.
+    commit: 19dd52d6a0fef508fa7d78ae86c1ad4f9d96756c
+    subdir: app
+    submodules: true
+    sudo:
+      - apt-get update
+      - apt-get install -y make patch curl
+      # Bootstrap compiler for building Go 1.26.x from source. Same line as
+      # com.tailscale.ipn; ASSUMPTION: trixie-backports carries a Go new enough
+      # to bootstrap 1.26 (needs >= 1.24.6).
+      - apt-get install -y -t trixie-backports golang-go
+      # app/build.gradle.kts:136-138 asks for a JDK 17 toolchain; trixie ships 21.
+      # Same workaround as hev.sockstun.yml. OPEN: or drop jvmToolchain(17).
+      - echo "deb https://deb.debian.org/debian bookworm main" > /etc/apt/sources.list.d/bookworm.list
+      - apt-get update
+      - apt-get install -y -t bookworm openjdk-17-jdk-headless
+      - update-java-alternatives -s java-1.17.0-openjdk-amd64
+    output: build/outputs/apk/release/app-universal-release-unsigned.apk
+    # ^ ABI splits are on (app/build.gradle.kts:87-94) and all five APKs share one
+    #   versionCode, so F-Droid ships the universal one (~85 MB). Per-ABI entries
+    #   need per-ABI versionCodes upstream first (OPEN).
+    srclibs:
+      # `go` srclib's Prepare sets GOTOOLCHAIN=local in go.env, so nothing is
+      # downloaded behind our back. Must equal the `go` line of appctr/go.mod
+      # and of Tailscale's go.mod (both 1.26.6 for v4.4.4) - bump together.
+      - go@go1.26.6
+    prebuild:
+      # ASSUMPTION: compileSdk 37 is not preinstalled on the buildserver.
+      - sdkmanager 'platforms;android-37'
+      # BLOCKER (upstream): the release build refuses to package without a
+      # keystore (app/build.gradle.kts:340-366), and F-Droid builds unsigned.
+      # The block runs to the end of the file, so cut from its first line.
+      # OPEN: replace with an upstream opt-out, e.g. -PallowUnsignedRelease via
+      # `gradleprops`, and delete this sed.
+      - sed -i -e '/^tasks.matching { it.name.startsWith("package")/,$d' build.gradle.kts
+      # BLOCKER (upstream): appctr/build.sh:64 pipes an unverified tarball from
+      # GitHub into tar. Point it at the copy the build step downloads and checks.
+      # OPEN: an upstream TS_TARBALL / checksum file would make this sed go away.
+      - sed -i -e 's|curl -sL "https://github.com/tailscale/tailscale/archive/refs/tags/${TS_VERSION}.tar.gz"|cat "$TS_TARBALL"|'
+        ../appctr/build.sh
+      # appctr/build.sh:100 sets GOTOOLCHAIN=auto, which would fetch a Go binary
+      # from proxy.golang.org. Force the toolchain built from the srclib.
+      - sed -i -e 's/^export GOTOOLCHAIN=auto$/export GOTOOLCHAIN=local/' ../appctr/build.sh
+    build:
+      - pushd $$go$$/src
+      - ./make.bash
+      - popd
+      - export PATH=$$go$$/bin:$HOME/go/bin:$PATH
+      - export GOTOOLCHAIN=local
+      - export ANDROID_HOME=$$SDK$$
+      - export ANDROID_NDK_HOME=$$NDK$$
+      # Tailscale source, pinned by appctr/TAILSCALE_VERSION (v1.102.5 at v4.4.4).
+      # sha256 computed 2026-09-30 from GitHub's archive endpoint.
+      # ASSUMPTION: GitHub keeps archive checksums stable (it has promised to
+      # since 2023). Alternative: a `tailscale` srclib (git, tag v1.102.5).
+      - export TS_TARBALL=$(pwd)/../appctr/tailscale.tar.gz
+      - curl -Lo $TS_TARBALL https://github.com/tailscale/tailscale/archive/refs/tags/v1.102.5.tar.gz
+      - echo "110b0d0586e981fccb83149d0ac4e7aac3c879fd372772b0dee1818f204893bc  $TS_TARBALL"
+        | sha256sum -c -
+      # gomobile and gobind pinned to the x/mobile version in appctr/go.mod.
+      # CI does `go install ...gomobile@latest && gomobile init`
+      # (.github/workflows/android.yml:74-75), and `gomobile init` installs
+      # gobind@latest - unpinned. `gomobile bind` only needs gobind on PATH.
+      - go install golang.org/x/mobile/cmd/gomobile@v0.0.0-20251126181937-5c265dc024c4
+      - go install golang.org/x/mobile/cmd/gobind@v0.0.0-20251126181937-5c265dc024c4
+      # Downloads Go modules (proxy.golang.org, verified against go.sum /
+      # sum.golang.org), patches Tailscale, builds libtailscale*.so for 4 ABIs and
+      # appctr.aar. Network in the build step is what com.tailscale.ipn does too.
+      # KNOWN ISSUE: build.sh:109 runs `go mod tidy` in the Tailscale tree, which
+      # adds github.com/wlynxg/anet at whatever version is newest that day - pin
+      # it inside a patch upstream.
+      - cd ../appctr
+      - bash build.sh
+    # ASSUMPTION: one NDK for both the Go/cgo build (build.sh via ANDROID_NDK_HOME)
+    # and Gradle's ndkBuild. AGP 8.13 picks its default NDK when ndkVersion is
+    # unset. OPEN: pin ndkVersion in app/build.gradle.kts and use the same NDK in
+    # CI (today CI takes whatever `find | head -1` returns, android.yml:103).
+    ndk: 27.0.12077973
+
+# Reproducible builds: keep commented until the upstream changes in
+# docs/DISTRIBUTION.md land and an F-Droid build is shown to match. Certificate
+# SHA-256 read from the v4.4.4 release APK with `apksigner verify --print-certs`.
+# AllowedAPKSigningKeys: 6be5bef7d0c51eb26863e6e5bb82b2980ae1e0fd0096c15524cf65a8bf9452cb
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags ^v\d+\.\d+\.\d+$
+# OPEN / BLOCKER for auto-updates: checkupdates reads versionCode from a file in
+# the tagged commit; a commit count cannot be read. Needs e.g. a version.properties
+# (VERSION_NAME=4.5.0, VERSION_CODE=...) that app/build.gradle.kts reads, as
+# sing-box does:
+# UpdateCheckData: version.properties|VERSION_CODE=(\d+)|.|VERSION_NAME=([\d.]+)
+CurrentVersion: v4.4.4-19dd52.release
+CurrentVersionCode: 1497

@@ -1,0 +1,34 @@
+TailSocks is an unofficial client for Tailscale networks (tailnets). It runs the Tailscale daemon in userspace-networking mode and gives your apps the tailnet through local SOCKS5 and HTTP proxies, so it does not take Android's VPN slot and runs next to another VPN, firewall or ad blocker. When you want system-wide routing, a VPN (TUN) mode is one switch away.
+
+It works with Tailscale's own coordination server and with a self-hosted Headscale server.
+
+<b>Networking</b>
+• Local SOCKS5 proxy (optional username and password) and HTTP proxy, optionally reachable from your local network
+• VPN (TUN) mode: full or split tunnel, per-app exclusions, and an opt-in native engine in which the daemon owns the tunnel
+• Exit nodes; MagicDNS and split DNS through a local DNS server, with a DNS-over-HTTPS fallback
+• Root mode (experimental): a kernel tailscale0 interface with policy routing that steps aside when another VPN app holds the VPN slot
+• Restricted networks: send coordination traffic through your own SOCKS5/HTTP proxy, or through the built-in ByeDPI against SNI-based DPI
+• Optional auto-reconnect, a watchdog for a killed service, and start after reboot
+
+<b>Services and files</b>
+• Taildrop: send and receive files, including from the share sheet
+• Taildrive: share folders and open the shares of other devices
+• Serve and Funnel, Tailscale Services (svc:)
+
+<b>Management</b>
+• Several accounts, each with its own state, keys and settings
+• A console for the Tailscale Admin API (devices, DNS, users, auth keys, ACLs), protected by a biometric lock
+• Encrypted backups and per-account export
+• Automation: token-protected broadcast intents for Tasker or MacroDroid, and Android AppFunctions on Android 16+
+• Home-screen widgets, a Quick Settings tile, network diagnostics (netcheck, DERP latency)
+• Material 3 with dynamic colour and AMOLED black; English and Russian
+
+<b>Network access</b>
+The app talks to the coordination server you choose (Tailscale's by default), to DERP relays and to your peers. The Tailscale Admin API is contacted only after you add an API token. Upload of debug logs to Tailscale is compiled out. Checking GitHub for a newer release on launch is a setting you can turn off; builds distributed through a store have it off.
+
+<b>Requirements</b>
+Android 7.0 or newer and an account on Tailscale or on a Headscale server. Root is optional.
+
+TailSocks is not affiliated with or endorsed by Tailscale Inc. Tailscale, Taildrop and Taildrive are trademarks of Tailscale Inc.
+
+Source code, documentation and issue tracker: https://github.com/bropines/tailsocks

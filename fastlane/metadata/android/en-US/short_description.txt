@@ -1,0 +1,1 @@
+Unofficial Tailscale client: local SOCKS5/HTTP proxy, optional VPN, root mode

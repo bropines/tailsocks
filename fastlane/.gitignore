@@ -1,0 +1,3 @@
+# The root .gitignore ignores *.txt everywhere; the store metadata below is
+# nothing but .txt files, so re-include them for this tree.
+!*.txt
