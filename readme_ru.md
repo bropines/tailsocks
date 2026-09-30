@@ -322,6 +322,7 @@ adb shell am broadcast -a io.github.bropines.tailscaled.action.DISCONNECT -n io.
 | **TUN Движок** | [heiher/hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel) — нативная библиотека трансляции SOCKS5 в TUN-интерфейс |
 | **Ядро Tailscale** | [Tailscale Inc.](https://github.com/tailscale/tailscale) — сетевой движок в пользовательском пространстве (`tsnet`) |
 | **ИИ Помощник** | [Google Gemini](https://gemini.google.com/) — разработка интерфейса, исследование LocalAPI и проектирование патчей |
+| **ИИ Помощник** | [Claude](https://claude.com/claude-code) от Anthropic, в Claude Code — исправления демона и моста (вход, реакция на смену сети, падения на Android 10), адаптивная вёрстка, скриншоты-превью без устройства и исследование каналов распространения |
 
 ---
 

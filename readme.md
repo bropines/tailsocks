@@ -320,6 +320,7 @@ On Android 16 and newer TailSocks exposes **14 AppFunctions** to on-device assis
 | **TUN Engine** | [heiher/hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel) — native SOCKS5-to-TUN implementation |
 | **Core Engine** | [Tailscale Inc.](https://github.com/tailscale/tailscale) — userspace networking engine (`tsnet`) |
 | **AI Assistant** | [Google Gemini](https://gemini.google.com/) — interface development, LocalAPI research, and patch engineering |
+| **AI Assistant** | [Claude](https://claude.com/claude-code) by Anthropic, in Claude Code — daemon and bridge fixes (login, network-change handling, the Android 10 crashes), the adaptive layouts, device-free preview screenshots, and the distribution research |
 
 ---
 
