@@ -45,9 +45,14 @@ Repo: https://github.com/bropines/tailsocks.git
 Builds:
   - versionName: 4.5.2
     versionCode: 4050200
-    commit: v4.5.2
+    # fdroiddata wants the full hash here, not the tag.
+    commit: 32da66591fb4f6a5a3c161e6a6d79b099f3e4ff0
     subdir: app
     submodules: true
+    # hev-socks5-tunnel carries wintun.dll for its Windows build; nothing here
+    # uses it, and the scanner flags it as a binary.
+    scandelete:
+      - app/src/main/jni/hev-socks5-tunnel/third-part/wintun
     sudo:
       - apt-get update
       - apt-get install -y make patch curl
