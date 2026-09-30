@@ -556,7 +556,6 @@
 
     <!-- ======================== DNS Management ======================== -->
     <string name="dns_title">DNS</string>
-    <string name="dns_error_not_running">Tailscale не запущен.\nЗапустите службу на главном экране.</string>
     <string name="dns_error_parse_failed">Не удалось разобрать статус DNS.\n\nИсходный вывод:\n%1$s</string>
     <string name="dns_status_unavailable">⚠ Статус DNS недоступен</string>
     <string name="dns_lookup_tool">Инструмент запросов DNS</string>

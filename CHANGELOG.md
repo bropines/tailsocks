@@ -6,6 +6,10 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Added
 
+- A live state card opens Settings → Diagnostics: process, intent, backend, health, relays, network, SOCKS5, TUN, recent errors; the issue report carries the same block.
+- A peer row shows how traffic reaches it — directly, through a DERP region or a peer relay — and an offline peer when it was last seen.
+- Peers, DNS, Serve and the admin console offer Start when the service is stopped, and reload once the daemon is up.
+- Empty lists say why: nothing matches the search, the tailnet holds only this device, no logs yet, nothing in the chosen category.
 - A setting for the update check on launch; the About screen still checks by hand.
 - A layout for screens with width to spare — landscape, tablets, a folded-open foldable: the service and its warnings keep a column of their own on the left, the menu becomes a grid on the right, with as many columns as the space left over actually fits. Until now the same upright column simply grew wider and the menu cards stretched into slabs.
 - Settings on a wide window — a tablet, or a phone on its side — show the list of sections and the open section side by side, instead of a list the width of the display that opens one page at a time.
