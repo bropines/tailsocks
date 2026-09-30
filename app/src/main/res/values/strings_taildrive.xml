@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Taildrive screen. Kept apart from strings.xml so the screen's text can change
+     without touching the shared file; Android merges every file under values/. -->
+<resources>
+    <string name="taildrive_enable_needs_access">No access to files yet — tap to allow</string>
+    <string name="taildrive_share_full_storage_desc">All of /storage/emulated/0, shared as “sdcard”</string>
+    <string name="taildrive_show_password">Show password</string>
+    <string name="taildrive_hide_password">Hide password</string>
+</resources>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Экран Taildrive; см. values/strings_taildrive.xml. -->
+<resources>
+    <string name="taildrive_enable_needs_access">Нет доступа к файлам — нажмите, чтобы разрешить</string>
+    <string name="taildrive_share_full_storage_desc">Вся память /storage/emulated/0 под именем «sdcard»</string>
+    <string name="taildrive_show_password">Показать пароль</string>
+    <string name="taildrive_hide_password">Скрыть пароль</string>
+</resources>

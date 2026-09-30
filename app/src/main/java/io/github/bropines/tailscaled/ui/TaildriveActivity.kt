@@ -28,15 +28,22 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -114,6 +121,8 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
         val pass = prefs.getString("taildrive_proxy_password", "") ?: ""
         mutableStateOf(pass)
     }
+    // One switch for the field and the URL card under it, which carries the same password.
+    var showPassword by rememberSaveable { mutableStateOf(false) }
 
     // Generate secure random password on first-time auth enable
     LaunchedEffect(isProxyEnabled, isProxyAuthEnabled) {
@@ -176,10 +185,17 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
 
     // Update permission status when returning to activity
     val lifecycleOwner = LocalLifecycleOwner.current
+    val focusManager = LocalFocusManager.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME && !inPreview) {
                 hasStoragePermission = checkStoragePermission(context)
+            }
+            // A proxy field applies when it loses focus, and hiding the keyboard
+            // does not take it away; switching apps to try the proxy should not
+            // leave the typed value unapplied.
+            if (event == Lifecycle.Event.ON_PAUSE) {
+                focusManager.clearFocus()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -283,9 +299,12 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(stringResource(R.string.taildrive_perm_required), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                            Spacer(Modifier.height(8.dp))
-                            Text(stringResource(R.string.taildrive_perm_desc), style = MaterialTheme.typography.bodyMedium)
-                            Spacer(Modifier.height(16.dp))
+                            Spacer(Modifier.height(4.dp))
+                            HelpText(
+                                stringResource(R.string.taildrive_perm_desc),
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            Spacer(Modifier.height(12.dp))
                             Button(
                                 onClick = {
                                     requestStoragePermission(context)
@@ -299,275 +318,203 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
                 }
             }
 
-            // Enable Toggle Row
+            // The switches, as rows in the style Settings uses. One item, so they
+            // stack at the rows' own spacing rather than at the list's.
             item {
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(stringResource(R.string.taildrive_enable_title), fontWeight = FontWeight.Bold)
-                            Text(
-                                stringResource(R.string.taildrive_enable_desc),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    // Shown as it is in effect, not as it is stored. Without
+                    // all-files access the server still runs, but the folders it
+                    // offers are closed to it, so an ON here promised what the
+                    // device was not doing. Tapping it then asks for the access,
+                    // which is what turning it on takes anyway.
+                    SettingsSwitchItem(
+                        title = stringResource(R.string.taildrive_enable_title),
+                        subtitle = stringResource(
+                            if (hasStoragePermission) R.string.taildrive_enable_desc
+                            else R.string.taildrive_enable_needs_access
+                        ),
+                        icon = Icons.Default.FolderShared,
+                        checked = isEnabled && hasStoragePermission
+                    ) { checked ->
+                        if (checked && !checkStoragePermission(context)) {
+                            requestStoragePermission(context)
+                        } else {
+                            isEnabled = checked
+                            prefs.edit().putBoolean("taildrive_enabled", checked).apply()
+                            triggerServiceSettingsUpdate(context)
                         }
-                        Switch(
-                            checked = isEnabled,
-                            onCheckedChange = { checked ->
-                                if (checked && !checkStoragePermission(context)) {
-                                    requestStoragePermission(context)
-                                } else {
-                                    isEnabled = checked
-                                    prefs.edit().putBoolean("taildrive_enabled", checked).apply()
-                                    triggerServiceSettingsUpdate(context)
-                                }
-                            }
-                        )
                     }
-                }
-            }
 
-            // Share Full Internal Storage Toggle Card
-            item {
-                var isFullStorageShared by remember {
-                    mutableStateOf(shares.any { it.path == "/storage/emulated/0" || it.path == "/storage/emulated/0/" })
-                }
-
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isFullStorageShared) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
-                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Icon(Icons.Default.SdCard, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
-                                Text(stringResource(R.string.taildrive_share_full_storage), fontWeight = FontWeight.Bold)
+                    // Read off the list itself, so deleting the "sdcard" share below
+                    // turns this off as well — a remembered copy kept it on.
+                    val isFullStorageShared = shares.any { isFullStoragePath(it.path) }
+                    SettingsSwitchItem(
+                        title = stringResource(R.string.taildrive_share_full_storage),
+                        subtitle = stringResource(R.string.taildrive_share_full_storage_desc),
+                        icon = Icons.Default.SdCard,
+                        checked = isFullStorageShared
+                    ) { checked ->
+                        if (checked) {
+                            if (!checkStoragePermission(context)) {
+                                requestStoragePermission(context)
                             }
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                "Stream entire internal memory (/storage/emulated/0) via Taildrive",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            if (!shares.any { isFullStoragePath(it.path) }) {
+                                shares.add(LocalShare("sdcard", "/storage/emulated/0"))
+                                saveShares(prefs, shares)
+                                triggerServiceSettingsUpdate(context)
+                            }
+                        } else {
+                            shares.removeAll { isFullStoragePath(it.path) }
+                            saveShares(prefs, shares)
+                            triggerServiceSettingsUpdate(context)
                         }
-                        Switch(
-                            checked = isFullStorageShared,
-                            onCheckedChange = { checked ->
-                                if (checked) {
-                                    if (!checkStoragePermission(context)) {
-                                        requestStoragePermission(context)
-                                    }
-                                    if (!shares.any { it.path == "/storage/emulated/0" || it.path == "/storage/emulated/0/" }) {
-                                        shares.add(LocalShare("sdcard", "/storage/emulated/0"))
-                                        saveShares(prefs, shares)
-                                        triggerServiceSettingsUpdate(context)
-                                    }
-                                    isFullStorageShared = true
-                                } else {
-                                    shares.removeAll { it.path == "/storage/emulated/0" || it.path == "/storage/emulated/0/" }
-                                    saveShares(prefs, shares)
-                                    triggerServiceSettingsUpdate(context)
-                                    isFullStorageShared = false
-                                }
-                            }
-                        )
                     }
-                }
-            }
 
-            // Enable TailDrive Proxy Card
-            item {
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                    // Local WebDAV proxy to the tailnet's shares
+                    SettingsSwitchItem(
+                        title = stringResource(R.string.taildrive_enable_proxy_title),
+                        subtitle = stringResource(R.string.taildrive_enable_proxy_desc),
+                        icon = Icons.Default.Lan,
+                        checked = isProxyEnabled
+                    ) { checked ->
+                        isProxyEnabled = checked
+                        prefs.edit().putBoolean("taildrive_proxy_enabled", checked).apply()
+                        triggerServiceSettingsUpdate(context)
+                    }
+
+                    if (isProxyEnabled) {
+                        Column(
+                            modifier = Modifier.padding(vertical = 4.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(stringResource(R.string.taildrive_enable_proxy_title), fontWeight = FontWeight.Bold)
-                                Text(
-                                    stringResource(R.string.taildrive_enable_proxy_desc),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                            ProxySettingField(
+                                value = proxyIp,
+                                label = stringResource(R.string.taildrive_proxy_ip),
+                                placeholder = "127.0.0.1",
+                                keyboardType = KeyboardType.Uri
+                            ) { ip ->
+                                proxyIp = ip
+                                prefs.edit().putString("taildrive_proxy_ip", ip).apply()
+                                triggerServiceSettingsUpdate(context)
                             }
-                            Switch(
-                                checked = isProxyEnabled,
-                                onCheckedChange = { checked ->
-                                    isProxyEnabled = checked
-                                    prefs.edit().putBoolean("taildrive_proxy_enabled", checked).apply()
-                                    triggerServiceSettingsUpdate(context)
+
+                            ProxySettingField(
+                                value = proxyPort,
+                                label = stringResource(R.string.taildrive_proxy_port),
+                                keyboardType = KeyboardType.Number,
+                                accept = { port ->
+                                    val cleanPort = port.filter { it.isDigit() }
+                                    val num = cleanPort.toIntOrNull()
+                                    cleanPort.takeIf { it.length <= 5 && (num == null || num <= 65535) }
                                 }
-                            )
+                            ) { port ->
+                                proxyPort = port
+                                prefs.edit().putString("taildrive_proxy_port", port).apply()
+                                triggerServiceSettingsUpdate(context)
+                            }
                         }
 
-                        if (isProxyEnabled) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                            Spacer(modifier = Modifier.height(12.dp))
+                        SettingsSwitchItem(
+                            title = stringResource(R.string.taildrive_require_auth),
+                            subtitle = stringResource(R.string.taildrive_require_auth_desc),
+                            icon = Icons.Default.Lock,
+                            checked = isProxyAuthEnabled
+                        ) { checked ->
+                            isProxyAuthEnabled = checked
+                            prefs.edit().putBoolean("taildrive_proxy_auth_enabled", checked).apply()
+                            triggerServiceSettingsUpdate(context)
+                        }
 
-                            // IP Input Field
-                            OutlinedTextField(
-                                value = proxyIp,
-                                onValueChange = { ip ->
-                                    proxyIp = ip
-                                    prefs.edit().putString("taildrive_proxy_ip", ip).apply()
+                        if (isProxyAuthEnabled) {
+                            Column(
+                                modifier = Modifier.padding(vertical = 4.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                ProxySettingField(
+                                    value = proxyUsername,
+                                    label = stringResource(R.string.taildrive_username)
+                                ) { user ->
+                                    proxyUsername = user
+                                    prefs.edit().putString("taildrive_proxy_username", user).apply()
                                     triggerServiceSettingsUpdate(context)
-                                },
-                                label = { Text(stringResource(R.string.taildrive_proxy_ip)) },
-                                placeholder = { Text("127.0.0.1") },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth()
-                            )
+                                }
 
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            // Port Input Field
-                            OutlinedTextField(
-                                value = proxyPort,
-                                onValueChange = { port ->
-                                    val cleanPort = port.filter { it.isDigit() }
-                                    if (cleanPort.length <= 5) {
-                                        val num = cleanPort.toIntOrNull()
-                                        if (num == null || num <= 65535) {
-                                            proxyPort = cleanPort
-                                            prefs.edit().putString("taildrive_proxy_port", cleanPort).apply()
-                                            triggerServiceSettingsUpdate(context)
+                                ProxySettingField(
+                                    value = proxyPassword,
+                                    label = stringResource(R.string.taildrive_password),
+                                    keyboardType = KeyboardType.Password,
+                                    visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                                    trailingIcon = {
+                                        IconButton(onClick = { showPassword = !showPassword }) {
+                                            Icon(
+                                                if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                                contentDescription = stringResource(
+                                                    if (showPassword) R.string.taildrive_hide_password
+                                                    else R.string.taildrive_show_password
+                                                )
+                                            )
                                         }
                                     }
-                                },
-                                label = { Text(stringResource(R.string.taildrive_proxy_port)) },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                modifier = Modifier.fillMaxWidth()
-                            )
+                                ) { pass ->
+                                    proxyPassword = pass
+                                    prefs.edit().putString("taildrive_proxy_password", pass).apply()
+                                    triggerServiceSettingsUpdate(context)
+                                }
+                            }
+                        }
 
-                            Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
 
-                            // Require Authentication Row
+                        // Copyable URL Card. Built from the stored values, not the
+                        // ones still being typed: it names what the proxy serves.
+                        val hasCredentials = isProxyAuthEnabled && proxyUsername.isNotEmpty() && proxyPassword.isNotEmpty()
+                        val formattedUrl = remember(proxyIp, proxyPort, hasCredentials, proxyUsername, proxyPassword) {
+                            if (hasCredentials) {
+                                "http://$proxyUsername:$proxyPassword@$proxyIp:$proxyPort"
+                            } else {
+                                "http://$proxyIp:$proxyPort"
+                            }
+                        }
+                        // The password field hides the password; printing it in the
+                        // URL right under it would undo that. The copy stays whole.
+                        val shownUrl = if (hasCredentials && !showPassword) {
+                            "http://$proxyUsername:••••••••@$proxyIp:$proxyPort"
+                        } else formattedUrl
+                        val copyUrl = {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                            val clip = android.content.ClipData.newPlainText("WebDAV URL", formattedUrl)
+                            clipboard.setPrimaryClip(clip)
+                            Toast.makeText(context, context.getString(R.string.taildrive_copied_url), Toast.LENGTH_SHORT).show()
+                        }
+
+                        // The whole card copies, as its label says; the icon stays as
+                        // the visible and spoken affordance.
+                        Card(
+                            onClick = copyUrl,
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.padding(12.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                Alignment.CenterVertically
                             ) {
-                                // Same shape as the other switch rows here: the text
-                                // column takes the slack so the switch stays on screen.
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(stringResource(R.string.taildrive_require_auth), fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
+                                    Text(stringResource(R.string.taildrive_webdav_url_title), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                    Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        stringResource(R.string.taildrive_require_auth_desc),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        text = shownUrl,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
                                     )
                                 }
-                                Spacer(Modifier.width(12.dp))
-                                Switch(
-                                    checked = isProxyAuthEnabled,
-                                    onCheckedChange = { checked ->
-                                        isProxyAuthEnabled = checked
-                                        prefs.edit().putBoolean("taildrive_proxy_auth_enabled", checked).apply()
-                                        triggerServiceSettingsUpdate(context)
-                                    }
-                                )
-                            }
-
-                            if (isProxyAuthEnabled) {
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                OutlinedTextField(
-                                    value = proxyUsername,
-                                    onValueChange = { user ->
-                                        proxyUsername = user
-                                        prefs.edit().putString("taildrive_proxy_username", user).apply()
-                                        triggerServiceSettingsUpdate(context)
-                                    },
-                                    label = { Text(stringResource(R.string.taildrive_username)) },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                OutlinedTextField(
-                                    value = proxyPassword,
-                                    onValueChange = { pass ->
-                                        proxyPassword = pass
-                                        prefs.edit().putString("taildrive_proxy_password", pass).apply()
-                                        triggerServiceSettingsUpdate(context)
-                                    },
-                                    label = { Text(stringResource(R.string.taildrive_password)) },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            // Copyable URL Card
-                            val formattedUrl = remember(proxyIp, proxyPort, isProxyAuthEnabled, proxyUsername, proxyPassword) {
-                                if (isProxyAuthEnabled && proxyUsername.isNotEmpty() && proxyPassword.isNotEmpty()) {
-                                    "http://$proxyUsername:$proxyPassword@$proxyIp:$proxyPort"
-                                } else {
-                                    "http://$proxyIp:$proxyPort"
-                                }
-                            }
-
-                            Card(
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(12.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    Alignment.CenterVertically
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(stringResource(R.string.taildrive_webdav_url_title), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            text = formattedUrl,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                                        )
-                                    }
-                                    IconButton(
-                                        onClick = {
-                                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                                            val clip = android.content.ClipData.newPlainText("WebDAV URL", formattedUrl)
-                                            clipboard.setPrimaryClip(clip)
-                                            Toast.makeText(context, context.getString(R.string.taildrive_copied_url), Toast.LENGTH_SHORT).show()
-                                        }
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.ContentCopy,
-                                            contentDescription = stringResource(R.string.action_copy),
-                                            tint = MaterialTheme.colorScheme.onSecondaryContainer
-                                        )
-                                    }
+                                IconButton(onClick = copyUrl) {
+                                    Icon(
+                                        imageVector = Icons.Default.ContentCopy,
+                                        contentDescription = stringResource(R.string.action_copy),
+                                        tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
                                 }
                             }
                         }
@@ -764,6 +711,64 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
     }
 }
 }
+
+/**
+ * A proxy setting typed in place. Each value handed to [onCommit] restarts the
+ * drive proxy through a full settings apply — a pause, the routes, in TUN mode
+ * the tunnel — so applying per keystroke did that ten times for one address.
+ * The text is held here while it is typed and committed once: on Done, when the
+ * field loses focus, or when it leaves the screen. [accept] reshapes or, with
+ * null, refuses a keystroke.
+ */
+@Composable
+private fun ProxySettingField(
+    value: String,
+    label: String,
+    placeholder: String? = null,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+    trailingIcon: (@Composable () -> Unit)? = null,
+    accept: (String) -> String? = { it },
+    onCommit: (String) -> Unit
+) {
+    // Keyed on the stored value, so a change made elsewhere — the generated
+    // password — replaces the draft instead of hiding behind it.
+    var draft by remember(value) { mutableStateOf(value) }
+    // What was last handed out. A focused field that leaves the screen can lose
+    // focus and be disposed in the same pass; this keeps that to one apply.
+    val committed = remember(value) { CommittedText(value) }
+    val focusManager = LocalFocusManager.current
+    val commit = {
+        if (draft != committed.text) {
+            committed.text = draft
+            onCommit(draft)
+        }
+    }
+    val latestCommit by rememberUpdatedState(commit)
+    DisposableEffect(Unit) { onDispose { latestCommit() } }
+    OutlinedTextField(
+        value = draft,
+        onValueChange = { typed -> accept(typed)?.let { draft = it } },
+        label = { Text(label) },
+        placeholder = placeholder?.let { { Text(it) } },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(
+            keyboardType = keyboardType,
+            autoCorrectEnabled = false,
+            imeAction = ImeAction.Done
+        ),
+        keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+        visualTransformation = visualTransformation,
+        trailingIcon = trailingIcon,
+        modifier = Modifier
+            .fillMaxWidth()
+            .onFocusChanged { if (!it.isFocused) commit() }
+    )
+}
+
+private class CommittedText(var text: String)
+
+private fun isFullStoragePath(path: String) = path == "/storage/emulated/0" || path == "/storage/emulated/0/"
 
 private fun checkStoragePermission(context: Context): Boolean {
     return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
