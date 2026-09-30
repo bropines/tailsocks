@@ -820,7 +820,10 @@ class TailscaledService : Service() {
             waitingForNetwork = false
         }
         val status = if (waitingForNetwork) LiveStatus(CardState.WAITING_FOR_NETWORK)
-            else liveStatusOf(backendState, warnings, System.currentTimeMillis())
+            else liveStatusOf(
+                backendState, warnings, System.currentTimeMillis(),
+                dnsHasFallback = GlobalSettings.dnsHasFallback(this)
+            )
         postLiveCard(cardFor(status))
         return status.state
     }
@@ -2574,11 +2577,11 @@ internal fun coordinatorRefusedOs(warnings: List<HealthWarning>): Boolean =
  * and "sign in" would send the user to the wrong place. A refusal by the
  * coordination server leaves the backend in Starting, so it is checked first.
  */
-internal fun liveStatusOf(backendState: String, warnings: List<HealthWarning>, nowMs: Long): LiveStatus =
+internal fun liveStatusOf(backendState: String, warnings: List<HealthWarning>, nowMs: Long, dnsHasFallback: Boolean): LiveStatus =
     when (backendState) {
         "Running" -> {
             val shown = visibleWarnings(warnings, nowMs)
-            if (warningsDegradeConnection(shown)) LiveStatus(CardState.DEGRADED, shown.first())
+            if (warningsDegradeConnection(shown, dnsHasFallback)) LiveStatus(CardState.DEGRADED, shown.first())
             else LiveStatus(CardState.CONNECTED)
         }
         else -> when {

@@ -131,3 +131,47 @@ func LastRelayKickMs() int64 {
 	}
 	return lastKickedAt.UnixMilli()
 }
+
+// dnsRecheckInterval spaces out the queries that re-check a DNS warning.
+const dnsRecheckInterval = time.Minute
+
+var lastDNSRecheckAt time.Time
+
+// recheckDNSWarning asks the daemon's resolver one question while it is
+// reporting "DNS unavailable", at most once a minute.
+//
+// The daemon raises that warning when a query it forwarded timed out and
+// clears it on the next one that succeeds — it never looks again by itself.
+// In proxy mode few queries reach its resolver at all, so one bad spell (an
+// exit node's DoH out of reach from some network) left the warning, and the
+// "connection problem" on the card, standing for hours after the resolver was
+// fine again. The answer does not matter: a success clears the warning, a
+// failure renews it, and either way it says how things are now.
+//
+// Called from GetHealthWarningsJSON, which the card and the notification read
+// every few seconds; nothing runs while the warning is absent.
+func recheckDNSWarning(warnings []BusHealthWarning) {
+	stale := false
+	for _, w := range warnings {
+		if w.Code == "dns-forward-failing" {
+			stale = true
+			break
+		}
+	}
+	if !stale {
+		return
+	}
+	recoveryMu.Lock()
+	if time.Since(lastDNSRecheckAt) < dnsRecheckInterval {
+		recoveryMu.Unlock()
+		return
+	}
+	lastDNSRecheckAt = time.Now()
+	recoveryMu.Unlock()
+
+	go func() {
+		if _, err := doLocalRequest("GET", "/localapi/v0/dns-query?name=controlplane.tailscale.com&type=A", nil); err != nil {
+			slog.Debug("DNS re-check: the resolver still does not answer", "err", err)
+		}
+	}()
+}

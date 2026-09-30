@@ -221,6 +221,7 @@ func GetHealthWarningsJSON() string {
 	if len(warnings) == 0 {
 		return "[]"
 	}
+	recheckDNSWarning(warnings)
 	b, err := json.Marshal(warnings)
 	if err != nil {
 		return "[]"

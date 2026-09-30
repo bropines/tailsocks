@@ -1325,6 +1325,9 @@
     <string name="health_udp_unavailable">UDP недоступен</string>
     <string name="health_network_error">Сетевая ошибка</string>
     <string name="health_login">Нужен вход</string>
+    <string name="health_dns_unavailable">DNS Tailscale не отвечает</string>
+    <string name="health_dns_fallback_text">Пока отвечают запасные серверы; само соединение работает.</string>
+    <string name="health_dns_down_text">Пока он не ответит, сайты могут не открываться.</string>
     <string name="health_more">ещё %1$d</string>
     <string name="health_action_reconnect">Переподключить</string>
     <string name="health_action_bypass">Обход</string>

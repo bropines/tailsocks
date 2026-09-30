@@ -16,6 +16,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/net/dns/dnsmessage"
@@ -208,6 +209,20 @@ func forwardDNSviaSOCKS5(query []byte, socksAddr, user, pass, dnsServer string) 
 	return respBuf, nil
 }
 
+// When the daemon's resolver cannot reach its upstream — an exit node whose
+// DoH is out of reach from this network — every query waits out its timeout,
+// about five seconds, before the fallback answers: each new name a page needs
+// costs five seconds. After one public name took resolverSlow and still got no
+// answer, public names go straight to the fallback for resolverPause; then
+// the resolver is tried again. Tailnet names always ask it: they must never
+// go to a public server.
+const (
+	resolverSlow  = 2 * time.Second
+	resolverPause = 30 * time.Second
+)
+
+var resolverPausedUntil atomic.Int64 // Unix milliseconds
+
 func processDNSQuery(query []byte, fallbacks []string, dohUrl string) []byte {
 	var msg dnsmessage.Message
 	if err := msg.Unpack(query); err != nil || len(msg.Questions) == 0 {
@@ -295,11 +310,17 @@ func processDNSQuery(query []byte, fallbacks []string, dohUrl string) []byte {
 	}
 
 	// 3. Local API DNS Query (asks Tailscaled resolver for MagicDNS, Split DNS, Search Domains, and custom records)
+	// A public name skips it while the resolver is known not to answer; see
+	// resolverPausedUntil.
+	if !isMagicDNS && time.Now().UnixMilli() < resolverPausedUntil.Load() {
+		return tryFallbackDNS(query, fallbacks, dohUrl)
+	}
 	typeStr := "A"
 	if q.Type == dnsmessage.TypeAAAA {
 		typeStr = "AAAA"
 	}
 	path := fmt.Sprintf("/localapi/v0/dns-query?name=%s&type=%s", url.QueryEscape(domain), typeStr)
+	asked := time.Now()
 	data, err := doLocalRequest("GET", path, nil)
 	if err == nil {
 		var dnsResp struct{ Bytes []byte }
@@ -326,6 +347,11 @@ func processDNSQuery(query []byte, fallbacks []string, dohUrl string) []byte {
 	// A tailnet name that reached here has no answer; do not leak it publicly.
 	if isMagicDNS {
 		return packNoData(msg)
+	}
+
+	if time.Since(asked) >= resolverSlow {
+		resolverPausedUntil.Store(time.Now().Add(resolverPause).UnixMilli())
+		slog.Info("DNS proxy: the daemon's resolver is not answering; public names go to the fallback servers for a while", "domain", domain, "waited", time.Since(asked).Round(time.Millisecond))
 	}
 
 	// 4. Fallback (public names only)

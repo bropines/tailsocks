@@ -285,6 +285,16 @@ object GlobalSettings {
 
     /** TUN engine: "hev" (hev-socks5-tunnel, the default) or "native" (tailscaled owns the VpnService device). */
     fun getTunEngine(context: Context): String = getString(context, "tun_engine", "hev")
+
+    /**
+     * Whether DNS reaches Tailscale through the app's own DNS proxy, which
+     * answers from the fallback servers when Tailscale's resolver does not:
+     * proxy mode (AdGuard and the like point at it) and the hev TUN engine.
+     * Root routing and the native TUN engine hand the system's DNS to the
+     * daemon directly, so there a failing resolver is a failing connection.
+     */
+    fun dnsHasFallback(context: Context): Boolean =
+        !isRootModeEnabled(context) && !(isTunModeEnabled(context) && getTunEngine(context) == TunVpnService.ENGINE_NATIVE)
     fun setTunEngine(context: Context, engine: String) = setString(context, "tun_engine", engine)
 
     @Serializable

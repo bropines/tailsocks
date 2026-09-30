@@ -65,6 +65,15 @@ private val quietCodes = setOf(
 )
 
 /**
+ * Warnings about the daemon's own DNS resolver. A SOCKS5 or HTTP client's names
+ * never go through it (they resolve on the way out, through the exit node's DoH
+ * or the ordinary resolver), and what does — the app's DNS proxy — answers from
+ * the fallback servers when it fails. Only where the system's DNS goes to the
+ * daemon directly is it a connection problem; see GlobalSettings.dnsHasFallback.
+ */
+private val resolverCodes = setOf("dns-forward-failing")
+
+/**
  * A warning must have held for this long before it is shown. The daemon raises
  * and clears several of them within a second of any network change; a banner
  * that blinks in and out is worse than none.
@@ -85,9 +94,16 @@ fun visibleWarnings(all: List<HealthWarning>, nowMs: Long): List<HealthWarning> 
 
 private fun severityRank(s: String) = when (s) { "high" -> 0; "medium" -> 1; else -> 2 }
 
-/** Whether these warnings mean traffic is actually affected — the card then says so. */
-fun warningsDegradeConnection(visible: List<HealthWarning>): Boolean =
-    visible.any { it.impactsConnectivity || healthKindOf(it.code) in setOf(HealthKind.Relay, HealthKind.Coordination, HealthKind.Network) }
+/**
+ * Whether these warnings mean traffic is actually affected — the card then says
+ * so. [dnsHasFallback]: a failing resolver is only a notice where the app's DNS
+ * proxy stands in for it.
+ */
+fun warningsDegradeConnection(visible: List<HealthWarning>, dnsHasFallback: Boolean): Boolean =
+    visible.any {
+        if (dnsHasFallback && it.code in resolverCodes) false
+        else it.impactsConnectivity || healthKindOf(it.code) in setOf(HealthKind.Relay, HealthKind.Coordination, HealthKind.Network)
+    }
 
 @Composable
 fun healthTitle(w: HealthWarning): String = when (w.code) {
@@ -101,7 +117,15 @@ fun healthTitle(w: HealthWarning): String = when (w.code) {
     "no-udp4-bind" -> stringResource(R.string.health_udp_unavailable)
     "magicsock-receive-func-error" -> stringResource(R.string.health_network_error)
     "login-state" -> stringResource(R.string.health_login)
+    "dns-forward-failing" -> stringResource(R.string.health_dns_unavailable)
     else -> w.title.ifBlank { w.code }
+}
+
+/** The folded line under a title: the daemon's own text, or ours where we know better. */
+@Composable
+fun healthText(w: HealthWarning, dnsHasFallback: Boolean): String = when (w.code) {
+    "dns-forward-failing" -> stringResource(if (dnsHasFallback) R.string.health_dns_fallback_text else R.string.health_dns_down_text)
+    else -> w.text
 }
 
 private fun iconOf(kind: HealthKind): ImageVector = when (kind) {
@@ -122,6 +146,7 @@ private fun iconOf(kind: HealthKind): ImageVector = when (kind) {
 fun HealthBanner(
     warnings: List<HealthWarning>,
     reconnecting: Boolean,
+    dnsHasFallback: Boolean,
     onReconnectRelays: () -> Unit,
     onOpenBypass: () -> Unit,
     modifier: Modifier = Modifier,
@@ -151,8 +176,9 @@ fun HealthBanner(
                             fontWeight = FontWeight.SemiBold,
                             color = onColor
                         )
-                        if (w.text.isNotBlank() && w.text != w.title) {
-                            HelpText(w.text, lines = 1, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        val text = healthText(w, dnsHasFallback)
+                        if (text.isNotBlank() && text != w.title) {
+                            HelpText(text, lines = 1, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                     when (kind) {

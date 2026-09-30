@@ -12,6 +12,8 @@ All notable changes to the TailSocks project will be documented in this file. Th
 ### Fixed
 
 - Two builds of one commit could pull different versions of a network library the core depends on.
+- "DNS unavailable" no longer turns the card into a connection problem where the app's DNS proxy answers from the fallback servers; it clears once Tailscale's DNS answers again instead of lingering for hours.
+- While Tailscale's DNS does not answer, the DNS proxy stops waiting five seconds on every new name.
 
 ## [4.5.1] - 2026-09-30
 

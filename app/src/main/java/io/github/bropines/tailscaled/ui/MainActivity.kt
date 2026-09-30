@@ -506,6 +506,8 @@ fun MainScreen(
     // Root Mode routes through the kernel interface, not the VpnService, so the
     // card has to name it: "Active" alone reads as plain proxy mode.
     var isRootEnabled by remember { mutableStateOf(GlobalSettings.isRootModeEnabled(context)) }
+    // Whether a failing Tailscale resolver is a notice or a connection problem.
+    var dnsHasFallback by remember { mutableStateOf(GlobalSettings.dnsHasFallback(context)) }
     // Root Mode leaves the default route and the device's DNS to another VPN
     // when one holds the phone. The service records that; the card and the exit
     // node row read it here, so neither promises a tunnel that is not installed.
@@ -768,6 +770,7 @@ fun MainScreen(
                 showConnectionSummary = GlobalSettings.isConnectionSummaryShown(context)
                 isTunEnabled = GlobalSettings.isTunModeEnabled(context)
                 isRootEnabled = GlobalSettings.isRootModeEnabled(context)
+                dnsHasFallback = GlobalSettings.dnsHasFallback(context)
                 isRootYielded = GlobalSettings.isRootRoutingYielded(context)
                 isRootShared = GlobalSettings.isRootRoutingShared(context)
             }
@@ -1385,7 +1388,7 @@ fun MainScreen(
                 // devices — the notification already said so; the card said "Active".
                 proxyState == "ACTIVE" && daemonBackend == "NeedsMachineAuth" -> "NEEDS_APPROVAL"
                 proxyState == "ACTIVE" && daemonBackend == "Starting" -> "CONNECTING"
-                proxyState == "ACTIVE" && warningsDegradeConnection(shownWarnings) -> "DEGRADED"
+                proxyState == "ACTIVE" && warningsDegradeConnection(shownWarnings, dnsHasFallback) -> "DEGRADED"
                 else -> proxyState
             }
             StatusCard(
@@ -1430,6 +1433,7 @@ fun MainScreen(
                 HealthBanner(
                     warnings = shownWarnings,
                     reconnecting = reconnectingRelays,
+                    dnsHasFallback = dnsHasFallback,
                     onReconnectRelays = {
                         reconnectingRelays = true
                         haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)

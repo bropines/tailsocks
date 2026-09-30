@@ -1347,6 +1347,9 @@
     <string name="health_udp_unavailable">UDP unavailable</string>
     <string name="health_network_error">Network error</string>
     <string name="health_login">Sign-in needed</string>
+    <string name="health_dns_unavailable">Tailscale DNS not answering</string>
+    <string name="health_dns_fallback_text">Fallback servers answer meanwhile; the connection itself works.</string>
+    <string name="health_dns_down_text">Sites may not open until it answers.</string>
     <string name="health_more">+%1$d more</string>
     <string name="health_action_reconnect">Reconnect</string>
     <string name="health_action_bypass">Bypass</string>
