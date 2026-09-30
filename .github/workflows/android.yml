@@ -77,6 +77,17 @@ jobs:
           # the release matches it byte for byte. Everything else in the APK
           # was checked not to depend on the path.
           BUILD_DIR=/home/vagrant/build/io.github.bropines.tailscaled
+          # The NDK app/build.gradle.kts pins, for cgo and the external linker
+          # too. The runner exports ANDROID_NDK_HOME for its own default NDK
+          # (r27, clang 18), and the core used to be built with that: the
+          # first comparison with F-Droid's build (r28c, clang 19) differed in
+          # exactly the three Go libraries.
+          NDK_VER=$(sed -n 's/.*ndkVersion = "\(.*\)".*/\1/p' app/build.gradle.kts)
+          SDK=${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}
+          if [ ! -x "$SDK/ndk/$NDK_VER/ndk-build" ]; then
+            yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VER" > /dev/null
+          fi
+          export ANDROID_NDK_HOME="$SDK/ndk/$NDK_VER"
           sudo mkdir -p /home/vagrant/build
           sudo chown -R "$(id -u):$(id -g)" /home/vagrant
           cp -a "$GITHUB_WORKSPACE" "$BUILD_DIR"
