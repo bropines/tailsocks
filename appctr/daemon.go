@@ -102,6 +102,7 @@ func tailscaledCmd(p pathControl, generation uint64, dnsFallbacks string, socksA
 	netState := latestInterfaceState
 	defaultRoutePath = routePath
 	route := defaultRouteInterface
+	tz := timeZoneID
 	stateMu.Unlock()
 	if route != "" {
 		if err := os.WriteFile(routePath, []byte(route), 0o600); err != nil {
@@ -116,6 +117,9 @@ func tailscaledCmd(p pathControl, generation uint64, dnsFallbacks string, socksA
 		"TS_NET_STATE="+netState,
 		"TS_NETROUTE_FILE="+routePath,
 	)
+	if tz != "" {
+		c.Env = append(c.Env, "TZ="+tz)
+	}
 	if dnsFallbacks != "" {
 		c.Env = append(c.Env, "TS_DNS_FALLBACK="+dnsFallbacks)
 	} else {

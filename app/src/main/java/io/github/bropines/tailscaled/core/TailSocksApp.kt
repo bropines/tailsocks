@@ -1,6 +1,12 @@
 package io.github.bropines.tailscaled.core
 
 import android.app.Application
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import appctr.Appctr
+import java.util.TimeZone
 
 /**
  * Process-wide entry point.
@@ -16,5 +22,15 @@ class TailSocksApp : Application() {
         super.onCreate()
         ProxyState.init(this)
         ProfileHostinfo.migrateGlobalKey(this)
+        // Go cannot find the device's zone on its own, and the log stamps it
+        // writes would be UTC; kept current when the user travels.
+        applyTimeZone()
+        registerReceiver(object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) = applyTimeZone()
+        }, IntentFilter(Intent.ACTION_TIMEZONE_CHANGED))
+    }
+
+    private fun applyTimeZone() {
+        runCatching { Appctr.setTimeZone(TimeZone.getDefault().id) }
     }
 }

@@ -221,7 +221,10 @@ func logWithFilter(text string) {
 			// A client that closed before saying anything: a port probe (the
 			// diagnostics card makes one), a browser tab closed mid-connect.
 			// Nothing to act on, and "failed" made the log file it as an error.
+			// Older cores said EOF; since 1.102 the greeting parser says it
+			// "could not read packet header".
 			strings.Contains(lower, "socks5: client connection failed: eof") ||
+			strings.Contains(lower, "socks5: client connection failed: could not read packet header") ||
 			strings.Contains(lower, "logtail") {
 			return
 		}

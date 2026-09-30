@@ -229,9 +229,13 @@ object Diagnostics {
     /**
      * What the daemon logs when a client connects to its SOCKS5 port and leaves before
      * the greeting, which is exactly what [probeSocks] does. It carries "failed", so the
-     * log marks it ERROR; shown here it would be the card reporting on itself.
+     * log marks it ERROR; shown here it would be the card reporting on itself. Older
+     * cores said EOF; 1.102 says the greeting's header could not be read.
      */
-    private const val PROBE_ECHO = "client connection failed: EOF"
+    private val PROBE_ECHOES = listOf(
+        "client connection failed: EOF",
+        "client connection failed: could not read packet header",
+    )
 
     /**
      * Reads the live state. Blocking — a socket check, and the backend state can take a
@@ -319,11 +323,19 @@ object Diagnostics {
     /** A log buffer entry, as GetLogsJSON writes it. */
     @Serializable
     private class LogRecord(
+        @SerialName("unix") val unix: Long = 0L,
         @SerialName("timestamp") val timestamp: String = "",
         @SerialName("level") val level: String = "",
         @SerialName("category") val category: String = "",
         @SerialName("message") val message: String = "",
     )
+
+    /**
+     * An entry's time of day in the device's zone, as the card's own "Live at" is. The
+     * entry's own stamp is formatted by Go, which is UTC until it has been told the zone.
+     */
+    private fun localTime(r: LogRecord): String =
+        if (r.unix > 0) SimpleDateFormat("HH:mm:ss", Locale.US).format(Date(r.unix)) else r.timestamp
 
     /**
      * The newest ERROR lines of the Go buffer: by level, as the daemon's lines are marked,
@@ -335,9 +347,9 @@ object Diagnostics {
         val all = runCatching { AppJson.decodeFromString<List<LogRecord>>(json) }.getOrDefault(emptyList())
         return all.asReversed().asSequence()
             .filter { it.level == "ERROR" || it.category == "ERROR" }
-            .filterNot { PROBE_ECHO in it.message }
+            .filterNot { line -> PROBE_ECHOES.any { it in line.message } }
             .take(ERROR_LINES)
-            .map { ErrorLine(it.timestamp, it.category, it.message.lineSequence().first()) }
+            .map { ErrorLine(localTime(it), it.category, it.message.lineSequence().first()) }
             .toList()
     }
 

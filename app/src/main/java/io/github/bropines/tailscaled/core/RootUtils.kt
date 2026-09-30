@@ -532,6 +532,9 @@ object RootUtils {
         env.append("export TS_LOGS_DIR=${shQuote(logsDir)}\n")
         env.append("export TS_NO_LOGS_NO_SUPPORT=${shQuote("true")}\n")
         env.append("export TS_AUTH_ONCE=${shQuote("true")}\n")
+        // Go finds no /etc/localtime on Android: without TZ the daemon's log file is
+        // UTC, and the Logs screen, which reads its stamps as local time, misplaces it.
+        env.append("export TZ=${shQuote(java.util.TimeZone.getDefault().id)}\n")
         // Must match the addresses excluded from the DNS redirect in
         // applyTailscale0Routing, otherwise the daemon's bootstrap queries are
         // redirected into MagicDNS before MagicDNS can answer anything.
