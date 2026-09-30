@@ -1392,6 +1392,9 @@ fun MainScreen(
             val cardState = when {
                 proxyState == "LOGGED_OUT" && serviceUp -> "NEEDS_LOGIN"
                 proxyState == "CONNECTION_ISSUE" -> "DEGRADED"
+                // Signed in, but the tailnet requires an admin to approve new
+                // devices — the notification already said so; the card said "Active".
+                proxyState == "ACTIVE" && daemonBackend == "NeedsMachineAuth" -> "NEEDS_APPROVAL"
                 proxyState == "ACTIVE" && daemonBackend == "Starting" -> "CONNECTING"
                 proxyState == "ACTIVE" && warningsDegradeConnection(shownWarnings) -> "DEGRADED"
                 else -> proxyState
@@ -2378,13 +2381,13 @@ fun StatusCard(
     val targetBackground = when (state) {
         "ACTIVE" -> scheme.primaryContainer
         "STARTING", "CONNECTING" -> scheme.secondaryContainer
-        "DEGRADED", "NEEDS_LOGIN" -> scheme.tertiaryContainer
+        "DEGRADED", "NEEDS_LOGIN", "NEEDS_APPROVAL" -> scheme.tertiaryContainer
         else -> scheme.surfaceContainerHigh
     }
     val targetContent = when (state) {
         "ACTIVE" -> scheme.onPrimaryContainer
         "STARTING", "CONNECTING" -> scheme.onSecondaryContainer
-        "DEGRADED", "NEEDS_LOGIN" -> scheme.onTertiaryContainer
+        "DEGRADED", "NEEDS_LOGIN", "NEEDS_APPROVAL" -> scheme.onTertiaryContainer
         else -> scheme.onSurfaceVariant
     }
     val backgroundColor by animateColorAsState(targetBackground, label = "status_bg")
@@ -2440,6 +2443,7 @@ fun StatusCard(
                         }
                         "DEGRADED" -> Icon(Icons.Default.WarningAmber, null, tint = contentColor, modifier = Modifier.size(32.dp))
                         "NEEDS_LOGIN" -> Icon(Icons.AutoMirrored.Filled.Login, null, tint = contentColor, modifier = Modifier.size(32.dp))
+                        "NEEDS_APPROVAL" -> Icon(Icons.Default.HourglassTop, null, tint = contentColor, modifier = Modifier.size(32.dp))
                         else -> Icon(Icons.Default.PowerSettingsNew, null, tint = contentColor, modifier = Modifier.size(32.dp))
                     }
                 }
@@ -2455,6 +2459,7 @@ fun StatusCard(
                 "CONNECTING" -> stringResource(R.string.main_status_connecting)
                 "DEGRADED" -> stringResource(R.string.main_status_degraded)
                 "NEEDS_LOGIN" -> stringResource(R.string.main_status_needs_login)
+                "NEEDS_APPROVAL" -> stringResource(R.string.notif_awaiting_approval)
                 else -> stringResource(R.string.status_stopped)
             }
             AnimatedContent(targetState = title, label = "status_title") { t ->
@@ -2513,6 +2518,7 @@ fun StatusCard(
                     state == "CONNECTING" -> stringResource(R.string.main_status_connecting_desc)
                     state == "DEGRADED" -> stringResource(R.string.main_status_degraded_desc, issueTitle ?: stringResource(R.string.main_status_degraded))
                     state == "NEEDS_LOGIN" -> stringResource(R.string.main_status_needs_login_desc)
+                    state == "NEEDS_APPROVAL" -> stringResource(R.string.notif_awaiting_approval_text)
                     else -> stringResource(R.string.tap_to_start)
                 },
                 textAlign = TextAlign.Center,
