@@ -15,7 +15,7 @@ A few conventions:
 
 ## Setting the project up (maintainer, once)
 
-1. **Create the project** on hosted.weblate.org → *Add new translation project*, under the free **Libre** plan (for public, libre-licensed projects). Slug: `tailsocks`.
+1. **Create the project** on hosted.weblate.org → *Add new translation project*. Name `TailSocks`, slug `tailsocks`, website the GitHub repository. Translation licence: **BSD-3-Clause**, the code's own — the default, Proprietary, rules out the free Libre plan. The project starts in a trial; once it exists, ask for the **Libre** plan (public, libre-licensed projects) from its billing page.
 2. **Main component**, *From version control*:
    - Repository: `https://github.com/bropines/tailsocks.git`, branch `main`.
    - Push: choose *GitHub pull request* (Hosted Weblate pushes to its own fork and opens PRs; nothing needs write access to this repository).

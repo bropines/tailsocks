@@ -15,7 +15,7 @@ TailSocks переводится на [Hosted Weblate](https://hosted.weblate.or
 
 ## Настройка проекта (сопровождающему, один раз)
 
-1. **Создать проект** на hosted.weblate.org → *Add new translation project*, по бесплатному плану **Libre** (для открытых проектов со свободной лицензией). Слаг: `tailsocks`.
+1. **Создать проект** на hosted.weblate.org → *Add new translation project*. Название `TailSocks`, слаг `tailsocks`, сайт — репозиторий на GitHub. Лицензия перевода: **BSD-3-Clause**, та же, что у кода, — стоящая по умолчанию Proprietary закрывает бесплатный план Libre. Проект начинается в пробном периоде; когда он создан, попросите план **Libre** (для открытых проектов со свободной лицензией) на его странице оплаты.
 2. **Основной компонент**, *From version control*:
    - Репозиторий: `https://github.com/bropines/tailsocks.git`, ветка `main`.
    - Отправка: *GitHub pull request* (Hosted Weblate пушит в свой форк и открывает PR; прав на запись в этот репозиторий ему не нужно).
