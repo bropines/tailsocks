@@ -44,7 +44,6 @@ import android.content.Context
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.CheckCircle
@@ -294,9 +293,9 @@ fun DnsScreen(onBack: () -> Unit) {
     ) {
         Scaffold(
             topBar = {
-                TopAppBar(
-                    title = { Text(stringResource(R.string.dns_title)) },
-                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back)) } },
+                AppTopBar(
+                    title = stringResource(R.string.dns_title),
+                    onBack = onBack,
                     actions = { IconButton(onClick = { refresh(doFlush = false) }) { Icon(Icons.Default.Refresh, stringResource(R.string.action_refresh)) } }
                 )
             }
@@ -350,7 +349,7 @@ fun DnsScreen(onBack: () -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
                         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
-                        shape = RoundedCornerShape(8.dp)
+                        shape = MaterialTheme.shapes.small
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Row(
@@ -375,7 +374,7 @@ fun DnsScreen(onBack: () -> Unit) {
                                 Button(
                                     onClick = { runLocalDnsTest() },
                                     enabled = !isTestingLocal,
-                                    shape = RoundedCornerShape(8.dp),
+                                    shape = MaterialTheme.shapes.small,
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                                     modifier = Modifier.height(36.dp)
                                 ) {
@@ -406,7 +405,7 @@ fun DnsScreen(onBack: () -> Unit) {
                                 }
                                 Surface(
                                     color = (if (isSuccess) androidx.compose.ui.graphics.Color(0xFF4CAF50) else MaterialTheme.colorScheme.error).copy(alpha = 0.12f),
-                                    shape = RoundedCornerShape(6.dp),
+                                    shape = MaterialTheme.shapes.small,
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Text(
@@ -443,7 +442,7 @@ fun DnsScreen(onBack: () -> Unit) {
                                 Spacer(Modifier.width(8.dp))
                                 FilledIconButton(
                                     onClick = { performQuery(queryDomain) },
-                                    shape = RoundedCornerShape(10.dp),
+                                    shape = MaterialTheme.shapes.medium,
                                     modifier = Modifier.size(height = 40.dp, width = 50.dp)
                                 ) {
                                     if (isQuerying) {
@@ -497,7 +496,7 @@ fun DnsScreen(onBack: () -> Unit) {
                                     val magicActive = data.tailnet?.enabled ?: false
                                     Surface(
                                         color = (if (magicActive) androidx.compose.ui.graphics.Color(0xFF4CAF50) else MaterialTheme.colorScheme.outline).copy(alpha = 0.12f),
-                                        shape = RoundedCornerShape(6.dp)
+                                        shape = MaterialTheme.shapes.small
                                     ) {
                                         Text(
                                             text = if (magicActive) stringResource(R.string.dns_magic_enabled) else stringResource(R.string.dns_magic_disabled),
@@ -531,7 +530,7 @@ fun DnsScreen(onBack: () -> Unit) {
                                                 clipboard.setPrimaryClip(ClipData.newPlainText("SelfName", name))
                                                 Toast.makeText(context, context.getString(R.string.dns_domain_copied), Toast.LENGTH_SHORT).show()
                                             },
-                                            shape = RoundedCornerShape(8.dp),
+                                            shape = MaterialTheme.shapes.small,
                                             color = MaterialTheme.colorScheme.surface,
                                             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
                                             modifier = Modifier.fillMaxWidth()
@@ -554,7 +553,7 @@ fun DnsScreen(onBack: () -> Unit) {
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
                                 border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
-                                shape = RoundedCornerShape(8.dp)
+                                shape = MaterialTheme.shapes.small
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
                                     Text(stringResource(R.string.dns_split_route), color = MaterialTheme.colorScheme.outline, fontSize = 11.sp, fontWeight = FontWeight.Bold)
@@ -578,7 +577,7 @@ fun DnsScreen(onBack: () -> Unit) {
                                         
                                         Spacer(Modifier.height(6.dp))
                                         Surface(
-                                            shape = RoundedCornerShape(8.dp),
+                                            shape = MaterialTheme.shapes.small,
                                             color = MaterialTheme.colorScheme.surface,
                                             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
                                             modifier = Modifier.fillMaxWidth()

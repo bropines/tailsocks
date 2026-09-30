@@ -18,7 +18,6 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -50,7 +49,7 @@ import appctr.Appctr
 @Composable
 fun SettingsCard(title: String, content: @Composable ColumnScope.() -> Unit) {
     Card(
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
         ),
@@ -126,7 +125,7 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         maxLines = 1,
-                        shape = RoundedCornerShape(10.dp),
+                        shape = MaterialTheme.shapes.medium,
                         trailingIcon = {
                             IconButton(onClick = {
                                 val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -230,7 +229,7 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
                     }
                     Spacer(Modifier.height(16.dp))
 
-                    OutlinedTextField(value = host, onValueChange = { host = it }, label = { Text(strSettingsControlProxyHost) }, modifier = Modifier.fillMaxWidth(), singleLine = true, maxLines = 1, shape = RoundedCornerShape(10.dp))
+                    OutlinedTextField(value = host, onValueChange = { host = it }, label = { Text(strSettingsControlProxyHost) }, modifier = Modifier.fillMaxWidth(), singleLine = true, maxLines = 1, shape = MaterialTheme.shapes.medium)
                     OutlinedTextField(
                         value = port,
                         onValueChange = { newValue ->
@@ -246,12 +245,12 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         maxLines = 1,
-                        shape = RoundedCornerShape(10.dp),
+                        shape = MaterialTheme.shapes.medium,
                         placeholder = { Text(if (type == "SOCKS5") "1080" else "8080") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                     )
-                    OutlinedTextField(value = user, onValueChange = { user = it }, label = { Text(strSettingsControlProxyUsername) }, modifier = Modifier.fillMaxWidth(), singleLine = true, maxLines = 1, shape = RoundedCornerShape(10.dp))
-                    OutlinedTextField(value = pass, onValueChange = { pass = it }, label = { Text(strSettingsControlProxyPassword) }, modifier = Modifier.fillMaxWidth(), singleLine = true, maxLines = 1, shape = RoundedCornerShape(10.dp))
+                    OutlinedTextField(value = user, onValueChange = { user = it }, label = { Text(strSettingsControlProxyUsername) }, modifier = Modifier.fillMaxWidth(), singleLine = true, maxLines = 1, shape = MaterialTheme.shapes.medium)
+                    OutlinedTextField(value = pass, onValueChange = { pass = it }, label = { Text(strSettingsControlProxyPassword) }, modifier = Modifier.fillMaxWidth(), singleLine = true, maxLines = 1, shape = MaterialTheme.shapes.medium)
 
                     Spacer(Modifier.height(12.dp))
 
@@ -263,7 +262,7 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
                             Toast.makeText(context, context.getString(R.string.settings_proxy_copied), Toast.LENGTH_SHORT).show()
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = MaterialTheme.shapes.medium
                     ) {
                         Icon(Icons.Default.Share, null)
                         Spacer(Modifier.width(8.dp))
@@ -302,7 +301,7 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
                     label = { Text(strSettingsProxyPresetNameLabel) },
                     singleLine = true,
                     maxLines = 1,
-                    shape = RoundedCornerShape(10.dp),
+                    shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.fillMaxWidth()
                 )
             },
@@ -348,9 +347,9 @@ fun SettingsClickableItem(
     val help = remember(subtitle) { mutableStateOf(false) }
     val haptics = LocalHapticFeedback.current
     Surface(
-        shape = RoundedCornerShape(12.dp),
+        shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (enabled) 0.3f else 0.1f),
-        modifier = Modifier.padding(vertical = 4.dp).clip(RoundedCornerShape(12.dp)).combinedClickable(
+        modifier = Modifier.padding(vertical = 4.dp).clip(MaterialTheme.shapes.medium).combinedClickable(
             onClick = { if (enabled) onClick() },
             onLongClick = { haptics.performHapticFeedback(HapticFeedbackType.LongPress); help.value = !help.value }
         )
@@ -451,9 +450,9 @@ fun SettingsSwitchItem(
     val help = remember(subtitle) { mutableStateOf(false) }
     val haptics = LocalHapticFeedback.current
     Surface(
-        shape = RoundedCornerShape(12.dp),
+        shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (enabled) 0.3f else 0.1f),
-        modifier = Modifier.padding(vertical = 4.dp).clip(RoundedCornerShape(12.dp)).combinedClickable(
+        modifier = Modifier.padding(vertical = 4.dp).clip(MaterialTheme.shapes.medium).combinedClickable(
             onClick = { if (enabled) onCheckedChange(!checked) },
             onLongClick = { haptics.performHapticFeedback(HapticFeedbackType.LongPress); help.value = !help.value }
         )
@@ -500,9 +499,9 @@ fun SettingsEditItem(
     val haptics = LocalHapticFeedback.current
     if (showHelp) SettingsHelpDialog(title, description.ifEmpty { placeholder.ifEmpty { notSet } }) { showHelp = false }
     Surface(
-        shape = RoundedCornerShape(12.dp),
+        shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (enabled) 0.3f else 0.15f),
-        modifier = Modifier.padding(vertical = 4.dp).clip(RoundedCornerShape(12.dp)).combinedClickable(
+        modifier = Modifier.padding(vertical = 4.dp).clip(MaterialTheme.shapes.medium).combinedClickable(
             onClick = { if (enabled) showDialog = true },
             onLongClick = {
                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -537,7 +536,7 @@ fun SettingsEditItem(
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         maxLines = 1,
-                        shape = RoundedCornerShape(10.dp),
+                        shape = MaterialTheme.shapes.medium,
                         label = { if (placeholder.isNotEmpty()) Text(ctx.getString(R.string.settings_field_example, placeholder)) },
                         placeholder = { if (placeholder.isNotEmpty()) Text(placeholder) },
                         trailingIcon = if (onAction != null && actionIcon != null) {
@@ -639,7 +638,7 @@ fun SettingsExitNodeItem(
                 withContext(Dispatchers.Main) { isLoading = false }
             }
         },
-        shape = RoundedCornerShape(12.dp),
+        shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
         modifier = Modifier.padding(vertical = 4.dp)
     ) {
@@ -692,7 +691,7 @@ fun SettingsExitNodeItem(
                     ) {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
+                            shape = MaterialTheme.shapes.large,
                             border = androidx.compose.foundation.BorderStroke(
                                 1.dp,
                                 MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
@@ -712,7 +711,7 @@ fun SettingsExitNodeItem(
                                             .fillMaxWidth()
                                             .padding(horizontal = 16.dp, vertical = 6.dp)
                                             .clickable { applyExitNode("", ""); showDialog = false },
-                                        shape = RoundedCornerShape(14.dp),
+                                        shape = MaterialTheme.shapes.medium,
                                         border = androidx.compose.foundation.BorderStroke(
                                             1.dp,
                                             if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
@@ -782,7 +781,7 @@ fun SettingsExitNodeItem(
                                             .fillMaxWidth()
                                             .padding(horizontal = 16.dp, vertical = 6.dp)
                                             .clickable { applyExitNode(node.id ?: "", node.getPrimaryIp()); showDialog = false },
-                                        shape = RoundedCornerShape(14.dp),
+                                        shape = MaterialTheme.shapes.medium,
                                         border = androidx.compose.foundation.BorderStroke(
                                             1.dp,
                                             if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)

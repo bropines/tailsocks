@@ -25,7 +25,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -480,13 +479,9 @@ fun NetcheckScreen(onBack: () -> Unit) {
     ) {
         Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.netcheck_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
-                    }
-                },
+            AppTopBar(
+                title = stringResource(R.string.netcheck_title),
+                onBack = onBack,
                 actions = {
                     result?.let { shown ->
                         IconButton(onClick = { copyToClipboard(shown.textReport) }) {
@@ -554,7 +549,7 @@ fun NetcheckScreen(onBack: () -> Unit) {
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             Button(
                                 onClick = { startServiceThenDiagnose() },
-                                shape = RoundedCornerShape(12.dp),
+                                shape = MaterialTheme.shapes.medium,
                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                             ) {
                                 Icon(Icons.Default.PlayArrow, contentDescription = null)
@@ -563,7 +558,7 @@ fun NetcheckScreen(onBack: () -> Unit) {
                             }
                             OutlinedButton(
                                 onClick = { runDiagnostics() },
-                                shape = RoundedCornerShape(12.dp)
+                                shape = MaterialTheme.shapes.medium
                             ) {
                                 Icon(Icons.Default.Refresh, contentDescription = null)
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -637,7 +632,7 @@ fun NetcheckScreen(onBack: () -> Unit) {
                                                      else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f))
                                         .compositeOver(MaterialTheme.colorScheme.background)
                                 ),
-                                shape = RoundedCornerShape(16.dp),
+                                shape = MaterialTheme.shapes.large,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Row(
@@ -699,7 +694,7 @@ fun NetcheckScreen(onBack: () -> Unit) {
                         // Protocol capabilities Card
                         item {
                             Card(
-                                shape = RoundedCornerShape(16.dp),
+                                shape = MaterialTheme.shapes.large,
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                             ) {
@@ -764,7 +759,7 @@ fun NetcheckScreen(onBack: () -> Unit) {
                         if (derpLatencies.isNotEmpty()) {
                             item {
                                 Card(
-                                    shape = RoundedCornerShape(16.dp),
+                                    shape = MaterialTheme.shapes.large,
                                     modifier = Modifier.fillMaxWidth(),
                                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                                 ) {
@@ -915,7 +910,7 @@ fun DerpLatencyRow(item: DerpLatencyItem) {
                     Spacer(modifier = Modifier.width(8.dp))
                     Surface(
                         color = MaterialTheme.colorScheme.primaryContainer,
-                        shape = RoundedCornerShape(4.dp)
+                        shape = MaterialTheme.shapes.small
                     ) {
                         // labelSmall is 11sp; the 8sp this badge had was below legible.
                         Text(
@@ -948,7 +943,7 @@ fun DerpLatencyRow(item: DerpLatencyItem) {
                 modifier = Modifier
                     .width(70.dp)
                     .height(4.dp)
-                    .clip(RoundedCornerShape(2.dp))
+                    .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
             ) {
                 val fraction = (item.latencyMs / 300.0).coerceIn(0.05, 1.0).toFloat()

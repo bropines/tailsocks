@@ -17,7 +17,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -120,7 +119,7 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
                 Spacer(Modifier.width(8.dp))
                 Surface(
                     onClick = { accountMenuExpanded = true },
-                    shape = RoundedCornerShape(12.dp),
+                    shape = MaterialTheme.shapes.medium,
                     color = Color.Transparent,
                     border = androidx.compose.foundation.BorderStroke(
                         1.5.dp,
@@ -191,7 +190,7 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
             ) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.large,
                     border = androidx.compose.foundation.BorderStroke(
                         1.dp,
                         MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
@@ -228,7 +227,7 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
     }
 
     if (isSending) Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(0.5f)), contentAlignment = Alignment.Center) {
-        Card(shape = RoundedCornerShape(16.dp)) {
+        Card(shape = MaterialTheme.shapes.large) {
             Column(modifier = Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 LoadingIndicator(); Spacer(Modifier.height(20.dp))
                 Text(stringResource(R.string.share_sending), fontWeight = FontWeight.Bold)

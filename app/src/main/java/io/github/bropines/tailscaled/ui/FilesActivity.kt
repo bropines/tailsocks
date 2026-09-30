@@ -22,7 +22,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
@@ -249,14 +248,10 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false) {
         Scaffold(
             topBar = {
                 Column {
-                    TopAppBar(
-                        title = {
-                            Column {
-                                Text(stringResource(R.string.files_hub_title))
-                                Text(activeAccount.name, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                            }
-                        },
-                        navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back)) } },
+                    AppTopBar(
+                        title = stringResource(R.string.files_hub_title),
+                        subtitle = activeAccount.name,
+                        onBack = onBack,
                         actions = {
                             IconButton(onClick = { refreshData() }) { Icon(Icons.Default.Refresh, stringResource(R.string.action_refresh)) }
                         }
@@ -364,7 +359,7 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false) {
             }
             if (isSavingFile) LinearProgressIndicator(Modifier.fillMaxWidth())
             if (isSendingFile) Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(0.3f)), contentAlignment = Alignment.Center) {
-                Card(shape = RoundedCornerShape(16.dp)) {
+                Card(shape = MaterialTheme.shapes.large) {
                     Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) { 
                         LoadingIndicator(); Spacer(Modifier.height(16.dp)); Text(stringResource(R.string.files_sending)); Text(sendProgressText, style = MaterialTheme.typography.bodySmall) 
                     }

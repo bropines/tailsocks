@@ -20,7 +20,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 - The main card says what the tailnet is doing — stopped, starting, connecting, connected, a connection problem, sign-in needed, waiting for approval — instead of "Active" whenever the service runs.
 - A banner under the card names the problem and offers its fix: reconnect the relays, or open the DPI bypass.
-- A summary under a connected card: this device and its address, peers online, the exit node, the home relay.
+- A summary under a connected card: this device and its address, peers online, the exit node, the home relay; Settings → Appearance can turn it off.
 - The exit node is shown by name, not by address.
 - The notification says the same as the card, in the app's language.
 - Network check shows the home relay and its latency instead of guessing a traffic mode; Start waits for the daemon.
@@ -28,6 +28,9 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Choices in Share, the console history and the admin console open as bottom sheets.
 - Permissions show their state as an icon, missing ones first, and offer Open only where it helps.
 - Menu icons and screen titles match what they open.
+- Every screen shares one top bar: the same title size, the account or count under it in one style, one label for Back.
+- Corners come in three sizes instead of eleven.
+- Translations to other languages go through Hosted Weblate.
 - Folded explanations open on a tap on the text, not only on the small ⓘ.
 - Coming back after the network does. Where a mobile link stops passing traffic without anything else changing — the address and the interface stay exactly as they were — the daemon has nothing to react to and waits out its own relay backoff, long after the link is usable again. Android's verdict that the network reaches the internet is now the signal: on the way back the daemon is woken, and if it is still reporting the relays unreachable, those dead connections are dropped and a fresh netcheck asked for. It is an event, not a poll: nothing runs while the network is fine, and no more than one such recovery every twenty seconds. What it cannot do is rescue a link that is down — nothing on the phone can.
 

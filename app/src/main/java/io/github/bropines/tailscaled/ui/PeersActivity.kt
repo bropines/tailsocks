@@ -188,8 +188,9 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "") {
         Scaffold(
             topBar = {
             Column {
-                TopAppBar(title = { Text(stringResource(R.string.peers_title)) },
-                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back)) } },
+                AppTopBar(
+                    title = stringResource(R.string.peers_title),
+                    onBack = onBack,
                     actions = {
                         // One round trip per node, a few at a time; the figures land in the
                         // rows as they arrive rather than all at the end.
@@ -215,7 +216,8 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "") {
                         IconButton(onClick = {
                             loadPeers()
                         }) { Icon(Icons.Default.Refresh, stringResource(R.string.action_refresh)) }
-                    })
+                    }
+                )
                 
                 // Nothing to search while the service is stopped.
                 if (!daemonStopped) {

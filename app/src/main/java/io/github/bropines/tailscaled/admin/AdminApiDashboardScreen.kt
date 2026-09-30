@@ -255,18 +255,10 @@ fun AdminApiDashboardScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { 
-                    Column {
-                        Text(stringResource(R.string.admin_console_title)) 
-                        Text(tailnet, fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
-                    }
-                },
+            AppTopBar(
+                title = stringResource(R.string.admin_console_title),
+                subtitle = tailnet,
+                onBack = onBack,
                 actions = {
                     IconButton(onClick = { refreshTab(pagerState.currentPage, force = true) }) {
                         Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.admin_cd_refresh))

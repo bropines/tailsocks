@@ -15,7 +15,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
@@ -157,36 +156,10 @@ fun TunExcludedAppsScreen(onBack: () -> Unit) {
     ) {
         Scaffold(
             topBar = {
-                TopAppBar(
-                    // A single-line bar has room for two short lines and no more:
-                    // the settings row's full description wrapped the title onto a
-                    // second line and pushed itself out of the bar entirely.
-                    title = {
-                        Column {
-                            Text(
-                                text = stringResource(R.string.title_activity_tun_excluded_apps),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 18.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Text(
-                                text = stringResource(R.string.tun_excluded_apps_count, excluded.value.size),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = {
-                            // Also auto-save on back for safety
-                            saveAndExit()
-                        }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                        }
-                    },
+                AppTopBar(
+                    title = stringResource(R.string.title_activity_tun_excluded_apps),
+                    subtitle = stringResource(R.string.tun_excluded_apps_count, excluded.value.size),
+                    onBack = { saveAndExit() },
                     actions = {
                         TextButton(
                             onClick = { saveAndExit() },
@@ -275,7 +248,7 @@ fun TunExcludedAppsScreen(onBack: () -> Unit) {
 @Composable
 private fun AppExclusionCard(app: AppItem, isExcluded: Boolean, onToggle: () -> Unit) {
     Card(
-        shape = RoundedCornerShape(12.dp),
+        shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(
             containerColor = if (isExcluded) 
                 MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)
@@ -300,13 +273,13 @@ private fun AppExclusionCard(app: AppItem, isExcluded: Boolean, onToggle: () -> 
                     contentDescription = null,
                     modifier = Modifier
                         .size(40.dp)
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(MaterialTheme.shapes.small)
                 )
             } else {
                 Box(
                     Modifier
                         .size(40.dp)
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(MaterialTheme.shapes.small)
                         .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center
                 ) {

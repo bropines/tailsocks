@@ -341,6 +341,7 @@ fun TailSocksTheme(
         ) {
             MaterialTheme(
                 colorScheme = colorScheme,
+                shapes = AppShapes,
                 content = content
             )
         }
@@ -351,6 +352,7 @@ fun TailSocksTheme(
         ) {
             MaterialTheme(
                 colorScheme = colorScheme,
+                shapes = AppShapes,
                 content = content
             )
         }

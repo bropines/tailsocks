@@ -19,7 +19,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -114,7 +113,7 @@ fun ProxySettingsDialog(
                         placeholder = { Text(strAdminProxySocks5HostPlaceholder) },
                         singleLine = true,
                         maxLines = 1,
-                        shape = RoundedCornerShape(10.dp),
+                        shape = MaterialTheme.shapes.medium,
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
@@ -133,7 +132,7 @@ fun ProxySettingsDialog(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
                         maxLines = 1,
-                        shape = RoundedCornerShape(10.dp),
+                        shape = MaterialTheme.shapes.medium,
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
@@ -142,7 +141,7 @@ fun ProxySettingsDialog(
                         label = { Text(strAdminProxyUsername) },
                         singleLine = true,
                         maxLines = 1,
-                        shape = RoundedCornerShape(10.dp),
+                        shape = MaterialTheme.shapes.medium,
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
@@ -151,7 +150,7 @@ fun ProxySettingsDialog(
                         label = { Text(strAdminProxyPassword) },
                         singleLine = true,
                         maxLines = 1,
-                        shape = RoundedCornerShape(10.dp),
+                        shape = MaterialTheme.shapes.medium,
                         modifier = Modifier.fillMaxWidth()
                     )
                 } else if (proxyMode == "LOCAL_SOCKS5") {
@@ -212,7 +211,7 @@ fun formatExpires(isoTime: String?): String {
 fun CopyableDetailBlock(label: String, value: String) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
+        shape = MaterialTheme.shapes.small,
         color = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(modifier = Modifier.padding(12.dp)) {

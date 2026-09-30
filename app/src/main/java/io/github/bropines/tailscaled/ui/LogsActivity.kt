@@ -604,11 +604,9 @@ fun LogsScreen(onBack: () -> Unit) {
         Scaffold(
             topBar = {
                 Column {
-                    TopAppBar(
-                        title = { Text(stringResource(R.string.logs_title)) },
-                        navigationIcon = {
-                            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
-                        },
+                    AppTopBar(
+                        title = stringResource(R.string.logs_title),
+                        onBack = onBack,
                         actions = {
                             IconButton(onClick = {
                                 coroutineScope.launch(Dispatchers.IO) {

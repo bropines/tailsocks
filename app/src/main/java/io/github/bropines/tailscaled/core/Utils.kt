@@ -312,7 +312,7 @@ fun CompactTextField(
     keyboardActions: androidx.compose.foundation.text.KeyboardActions = androidx.compose.foundation.text.KeyboardActions.Default,
     leadingIcon: (@Composable () -> Unit)? = null,
     trailingIcon: (@Composable () -> Unit)? = null,
-    shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(10.dp)
+    shape: androidx.compose.ui.graphics.Shape = MaterialTheme.shapes.medium
 ) {
     OutlinedTextField(
         value = value,
@@ -424,7 +424,7 @@ fun CompactSearchBar(
                             unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
                             focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
                         ),
-                        shape = RoundedCornerShape(10.dp)
+                        shape = MaterialTheme.shapes.medium
                     )
                 },
                 contentPadding = PaddingValues(start = 12.dp, top = 0.dp, end = 8.dp, bottom = 0.dp)
@@ -673,7 +673,7 @@ fun SlidingSegmentedChips(
     BoxWithConstraints(
         modifier = modifier
             .height(height)
-            .clip(RoundedCornerShape(16.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
     ) {
         val totalWidth = maxWidth
@@ -687,7 +687,7 @@ fun SlidingSegmentedChips(
                 .width(itemWidth)
                 .fillMaxHeight()
                 .padding(2.dp)
-                .clip(RoundedCornerShape(14.dp))
+                .clip(MaterialTheme.shapes.medium)
                 .background(activeBgColor)
         )
 
@@ -779,7 +779,7 @@ fun ScrollableSlidingSegmentedChips(
         state = listState,
         modifier = modifier
             .height(height)
-            .clip(RoundedCornerShape(16.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
             .padding(3.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -807,7 +807,7 @@ fun ScrollableSlidingSegmentedChips(
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(MaterialTheme.shapes.medium)
                     .background(bgColor)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },

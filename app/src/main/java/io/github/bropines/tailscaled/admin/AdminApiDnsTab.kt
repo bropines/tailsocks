@@ -11,7 +11,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -90,7 +89,7 @@ fun DnsTabContent(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .clip(MaterialTheme.shapes.small)
                                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
                                     .padding(start = 12.dp, top = 4.dp, bottom = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -127,7 +126,7 @@ fun DnsTabContent(
                         singleLine = true,
                         maxLines = 1,
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp)
+                        shape = MaterialTheme.shapes.small
                     )
                     Button(
                         onClick = {
@@ -136,7 +135,7 @@ fun DnsTabContent(
                                 newNs = ""
                             }
                         },
-                        shape = RoundedCornerShape(8.dp)
+                        shape = MaterialTheme.shapes.small
                     ) {
                         Text(stringResource(R.string.action_add))
                     }
@@ -147,7 +146,7 @@ fun DnsTabContent(
                     onClick = { onApplyNameservers(nsListState.toList()) },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = listChanged,
-                    shape = RoundedCornerShape(12.dp)
+                    shape = MaterialTheme.shapes.medium
                 ) {
                     Icon(Icons.Default.Done, null)
                     Spacer(Modifier.width(8.dp))
@@ -169,7 +168,7 @@ fun DnsTabContent(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .clip(MaterialTheme.shapes.small)
                                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
                                     .padding(start = 12.dp, top = 4.dp, bottom = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -198,7 +197,7 @@ fun DnsTabContent(
                     singleLine = true,
                     maxLines = 1,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp)
+                    shape = MaterialTheme.shapes.small
                 )
 
                 OutlinedTextField(
@@ -209,7 +208,7 @@ fun DnsTabContent(
                     singleLine = true,
                     maxLines = 1,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp)
+                    shape = MaterialTheme.shapes.small
                 )
 
                 Button(
@@ -226,7 +225,7 @@ fun DnsTabContent(
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = MaterialTheme.shapes.medium
                 ) {
                     Icon(Icons.Default.Add, null)
                     Spacer(Modifier.width(8.dp))
@@ -248,7 +247,7 @@ fun DnsTabContent(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .clip(MaterialTheme.shapes.small)
                                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
                                     .padding(start = 12.dp, top = 4.dp, bottom = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -284,7 +283,7 @@ fun DnsTabContent(
                         singleLine = true,
                         maxLines = 1,
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp)
+                        shape = MaterialTheme.shapes.small
                     )
                     Button(
                         onClick = {
@@ -293,7 +292,7 @@ fun DnsTabContent(
                                 newSearchPath = ""
                             }
                         },
-                        shape = RoundedCornerShape(8.dp)
+                        shape = MaterialTheme.shapes.small
                     ) {
                         Text(stringResource(R.string.action_add))
                     }
@@ -304,7 +303,7 @@ fun DnsTabContent(
                     onClick = { onApplySearchPaths(searchPathsState.toList()) },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = pathsChanged,
-                    shape = RoundedCornerShape(12.dp)
+                    shape = MaterialTheme.shapes.medium
                 ) {
                     Icon(Icons.Default.Done, null)
                     Spacer(Modifier.width(8.dp))
@@ -333,7 +332,7 @@ fun DnsTabContent(
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = MaterialTheme.shapes.medium
                 ) {
                     Icon(Icons.Default.OpenInBrowser, null)
                     Spacer(Modifier.width(8.dp))

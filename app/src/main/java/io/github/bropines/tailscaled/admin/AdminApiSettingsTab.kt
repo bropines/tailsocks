@@ -9,7 +9,6 @@ import io.github.bropines.tailscaled.ui.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.OpenInBrowser
@@ -318,7 +317,7 @@ fun TailnetSettingsTabContent(
             },
             modifier = Modifier.fillMaxWidth(),
             enabled = hasChanges,
-            shape = RoundedCornerShape(12.dp)
+            shape = MaterialTheme.shapes.medium
         ) {
             Icon(Icons.Default.Done, null)
             Spacer(Modifier.width(8.dp))

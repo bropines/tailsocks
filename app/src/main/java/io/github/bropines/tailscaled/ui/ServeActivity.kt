@@ -22,7 +22,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -732,15 +731,13 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null) {
     ) {
         Scaffold(
             topBar = {
-                TopAppBar(
-                    title = { Text(stringResource(R.string.serve_title)) },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back)) }
-                    },
+                AppTopBar(
+                    title = stringResource(R.string.serve_title),
+                    onBack = onBack,
                     actions = {
                         IconButton(onClick = { refresh() }) { Icon(Icons.Default.Refresh, stringResource(R.string.action_refresh)) }
                         Box {
-                            IconButton(onClick = { menuOpen = true }) { Icon(Icons.Default.MoreVert, contentDescription = null) }
+                            IconButton(onClick = { menuOpen = true }) { Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.action_more)) }
                             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.serve_cd_export_cert)) },
@@ -986,9 +983,6 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null) {
 // Pieces
 // ---------------------------------------------------------------------------------------------
 
-private val SERVE_CARD_SHAPE = RoundedCornerShape(24.dp)
-private val RULE_CARD_SHAPE = RoundedCornerShape(20.dp)
-
 @Composable
 private fun SectionHeading(text: String) {
     Text(
@@ -1008,7 +1002,7 @@ private fun NodeCard(caps: ServeCapabilities, context: Context, onCopy: (String)
     var expanded by remember { mutableStateOf(GlobalSettings.getBoolean(context, NODE_CARD_EXPANDED_PREF, false)) }
     val scheme = MaterialTheme.colorScheme
     Card(
-        shape = SERVE_CARD_SHAPE,
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = scheme.surfaceContainerLow),
         onClick = {
             expanded = !expanded
@@ -1166,7 +1160,7 @@ private fun ServiceHeading(
             // Surface(onClick), so the ripple keeps to the corners.
             Surface(
                 onClick = onToggleLog,
-                shape = RoundedCornerShape(12.dp),
+                shape = MaterialTheme.shapes.medium,
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
                 modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
             ) {
@@ -1226,7 +1220,7 @@ private fun CapabilityRow(icon: ImageVector, label: String, value: String, ok: B
 @Composable
 private fun EmptyRulesCard(context: Context) {
     Card(
-        shape = SERVE_CARD_SHAPE,
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
         Column(
@@ -1253,7 +1247,7 @@ private fun EmptyRulesCard(context: Context) {
 /** A small label: audience, protocol, off. */
 @Composable
 private fun Tag(text: String, container: Color, content: Color) {
-    Surface(shape = RoundedCornerShape(6.dp), color = container) {
+    Surface(shape = MaterialTheme.shapes.small, color = container) {
         Text(
             text,
             style = MaterialTheme.typography.labelSmall,
@@ -1280,10 +1274,10 @@ private fun RuleCard(
     val scheme = MaterialTheme.colorScheme
     val iconContainer = if (rule.funnel) scheme.tertiaryContainer else scheme.secondaryContainer
     val iconTint = if (rule.funnel) scheme.onTertiaryContainer else scheme.onSecondaryContainer
-    val iconShape: Shape = if (rule.funnel) CircleShape else RoundedCornerShape(10.dp)
+    val iconShape: Shape = if (rule.funnel) CircleShape else MaterialTheme.shapes.medium
     Card(
         onClick = onEdit,
-        shape = RULE_CARD_SHAPE,
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = if (rule.paused) scheme.surfaceContainerLow else scheme.surfaceContainerHigh)
     ) {
         Column(Modifier.padding(start = 14.dp, top = 12.dp, end = 4.dp, bottom = 12.dp)) {
@@ -1391,7 +1385,7 @@ private fun SwitchRow(label: String, checked: Boolean, enabled: Boolean = true, 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(MaterialTheme.shapes.medium)
             .clickable(enabled = enabled) { onChange(!checked) }
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -1534,7 +1528,7 @@ private fun RuleEditorSheet(
                 singleLine = kind != RuleKind.TEXT,
                 isError = !targetOk && target.isNotEmpty(),
                 supportingText = if (!targetOk) { { Text(context.getString(R.string.serve_editor_target_required)) } } else null,
-                shape = RoundedCornerShape(12.dp),
+                shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -1551,7 +1545,7 @@ private fun RuleEditorSheet(
                         else -> null
                     },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.fillMaxWidth()
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1632,7 +1626,7 @@ private fun RuleEditorSheet(
                                     else context.getString(R.string.serve_service_note)
                                 )
                             },
-                            shape = RoundedCornerShape(12.dp),
+                            shape = MaterialTheme.shapes.medium,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -1653,7 +1647,7 @@ private fun RuleEditorSheet(
                             label = { Text(context.getString(R.string.serve_editor_path)) },
                             placeholder = { Text("/") },
                             singleLine = true,
-                            shape = RoundedCornerShape(12.dp),
+                            shape = MaterialTheme.shapes.medium,
                             modifier = Modifier.fillMaxWidth()
                         )
                         SwitchRow(

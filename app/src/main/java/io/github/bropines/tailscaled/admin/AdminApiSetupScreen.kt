@@ -1,6 +1,7 @@
 package io.github.bropines.tailscaled.admin
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.BuildConfig
+import io.github.bropines.tailscaled.ui.AppTopBar
 
 import io.github.bropines.tailscaled.core.*
 import io.github.bropines.tailscaled.models.*
@@ -11,7 +12,6 @@ import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -41,13 +41,9 @@ fun AdminApiNoTailnetScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.admin_setup_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.admin_cd_back))
-                    }
-                }
+            AppTopBar(
+                title = stringResource(R.string.admin_setup_title),
+                onBack = onBack
             )
         }
     ) { padding ->
@@ -90,7 +86,7 @@ fun AdminApiNoTailnetScreen(
                 placeholder = { Text(stringResource(R.string.admin_setup_tailnet_placeholder)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                shape = MaterialTheme.shapes.medium
             )
 
             Spacer(Modifier.height(16.dp))
@@ -104,7 +100,7 @@ fun AdminApiNoTailnetScreen(
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(48.dp),
-                shape = RoundedCornerShape(12.dp)
+                shape = MaterialTheme.shapes.medium
             ) {
                 Icon(Icons.Default.Check, null)
                 Spacer(Modifier.width(8.dp))
@@ -147,13 +143,9 @@ fun AdminApiSetupScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.admin_setup_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.admin_cd_back))
-                    }
-                }
+            AppTopBar(
+                title = stringResource(R.string.admin_setup_title),
+                onBack = onBack
             )
         }
     ) { padding ->
@@ -223,7 +215,7 @@ fun AdminApiSetupScreen(
                     placeholder = { Text(stringResource(R.string.admin_setup_token_placeholder)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = MaterialTheme.shapes.medium
                 )
             } else {
                 OutlinedTextField(
@@ -233,7 +225,7 @@ fun AdminApiSetupScreen(
                     placeholder = { Text(stringResource(R.string.admin_setup_client_id_placeholder)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = MaterialTheme.shapes.medium
                 )
 
                 OutlinedTextField(
@@ -243,14 +235,14 @@ fun AdminApiSetupScreen(
                     placeholder = { Text(stringResource(R.string.admin_setup_client_secret_placeholder)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = MaterialTheme.shapes.medium
                 )
             }
 
             // Advanced Proxy Settings Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
+                shape = MaterialTheme.shapes.medium,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
@@ -309,7 +301,7 @@ fun AdminApiSetupScreen(
                                 placeholder = { Text(stringResource(R.string.admin_proxy_socks5_host_placeholder)) },
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(8.dp)
+                                shape = MaterialTheme.shapes.small
                             )
                             Spacer(Modifier.height(8.dp))
                              OutlinedTextField(
@@ -328,7 +320,7 @@ fun AdminApiSetupScreen(
                                  keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                  singleLine = true,
                                  modifier = Modifier.fillMaxWidth(),
-                                 shape = RoundedCornerShape(8.dp)
+                                 shape = MaterialTheme.shapes.small
                              )
                             Spacer(Modifier.height(8.dp))
                             OutlinedTextField(
@@ -337,7 +329,7 @@ fun AdminApiSetupScreen(
                                 label = { Text(stringResource(R.string.admin_proxy_username_optional)) },
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(8.dp)
+                                shape = MaterialTheme.shapes.small
                             )
                             Spacer(Modifier.height(8.dp))
                             OutlinedTextField(
@@ -346,7 +338,7 @@ fun AdminApiSetupScreen(
                                 label = { Text(stringResource(R.string.admin_proxy_password_optional)) },
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(8.dp)
+                                shape = MaterialTheme.shapes.small
                             )
                         } else if (proxyMode == "LOCAL_SOCKS5") {
                             Spacer(Modifier.height(4.dp))
@@ -386,7 +378,7 @@ fun AdminApiSetupScreen(
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(48.dp),
-                shape = RoundedCornerShape(12.dp)
+                shape = MaterialTheme.shapes.medium
             ) {
                 Icon(Icons.Default.Save, null)
                 Spacer(Modifier.width(8.dp))

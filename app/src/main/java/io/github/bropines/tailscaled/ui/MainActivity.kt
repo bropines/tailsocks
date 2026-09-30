@@ -35,7 +35,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.verticalScroll
@@ -1147,7 +1146,7 @@ fun MainScreen(
                                     accountMenuExpanded = false
                                     showAddAccountDialog = true
                                 },
-                            shape = RoundedCornerShape(14.dp),
+                            shape = MaterialTheme.shapes.medium,
                             color = Color.Transparent
                         ) {
                             Row(
@@ -1186,25 +1185,10 @@ fun MainScreen(
 
         Scaffold(
             topBar = {
-            TopAppBar(
-                title = {
-                    Column(modifier = Modifier.clickable { accountMenuExpanded = true }) {
-                        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleMedium)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            // The account name is free text; weighted so the caret stays visible.
-                            Text(
-                                activeAccount.name,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f, fill = false)
-                            )
-                            Icon(Icons.Default.ArrowDropDown, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+            AppTopBar(
+                title = stringResource(R.string.app_name),
+                subtitle = activeAccount.name,
+                onTitleClick = { accountMenuExpanded = true },
                 actions = {
                     if (proxyState == "ACTIVE") {
                         IconButton(onClick = { 
@@ -1237,7 +1221,7 @@ fun MainScreen(
             if (!isBatteryOptimizationsIgnored) {
                 Surface(
                     color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.large,
                     modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp).clickable {
                         try {
                             val intent = Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
@@ -1265,7 +1249,7 @@ fun MainScreen(
             if (show410Warning) {
                 Surface(
                     color = MaterialTheme.colorScheme.errorContainer,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.large,
                     modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
                 ) {
                     Row(
@@ -1292,7 +1276,7 @@ fun MainScreen(
             if (proxyState == "ACTIVE" && (yieldedToForeignVpn || sharedWithForeignVpn)) {
                 Surface(
                     color = MaterialTheme.colorScheme.secondaryContainer,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.large,
                     modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
                 ) {
                     Row(
@@ -1328,7 +1312,7 @@ fun MainScreen(
                 val exitNodeActive = exitNodeIp.isNotEmpty() && !exitNodeInert
                 Surface(
                     color = if (exitNodeActive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.large,
                     modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp).clickable {
                         showExitNodeSheet = true
                         isExitNodesLoading = true
@@ -1752,7 +1736,7 @@ fun MainScreen(
                             if (isDownloading) {
                                 LinearProgressIndicator(
                                     progress = { if (downloadProgress > 0) downloadProgress / 100f else 0f },
-                                    modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp))
+                                    modifier = Modifier.fillMaxWidth().height(8.dp).clip(CircleShape)
                                 )
                                 Spacer(Modifier.height(6.dp))
                                 Text(
@@ -2166,7 +2150,7 @@ fun MainScreen(
                     ) {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
+                            shape = MaterialTheme.shapes.large,
                             border = androidx.compose.foundation.BorderStroke(
                                 1.dp,
                                 MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
@@ -2186,7 +2170,7 @@ fun MainScreen(
                                             .fillMaxWidth()
                                             .padding(horizontal = 16.dp, vertical = 6.dp)
                                             .clickable { applyExitNode("", ""); showExitNodeSheet = false },
-                                        shape = RoundedCornerShape(14.dp),
+                                        shape = MaterialTheme.shapes.medium,
                                         border = androidx.compose.foundation.BorderStroke(
                                             1.dp,
                                             if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
@@ -2259,7 +2243,7 @@ fun MainScreen(
                                             .fillMaxWidth()
                                             .padding(horizontal = 16.dp, vertical = 6.dp)
                                             .clickable { applyExitNode(node.id ?: "", node.getPrimaryIp()); showExitNodeSheet = false },
-                                        shape = RoundedCornerShape(14.dp),
+                                        shape = MaterialTheme.shapes.medium,
                                         border = androidx.compose.foundation.BorderStroke(
                                             1.dp,
                                             if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
@@ -2398,7 +2382,7 @@ fun StatusCard(
     val backgroundColor by animateColorAsState(targetBackground, label = "status_bg")
     val contentColor by animateColorAsState(targetContent, label = "status_fg")
     val haptics = LocalHapticFeedback.current
-    val shape = RoundedCornerShape(28.dp)
+    val shape = MaterialTheme.shapes.extraLarge
     val stateWord = stringResource(if (on) R.string.main_status_state_on else R.string.main_status_state_off)
     val actionWord = stringResource(if (on) R.string.main_status_action_stop else R.string.main_status_action_start)
 
@@ -2581,7 +2565,7 @@ fun MenuCard(title: String, icon: ImageVector, modifier: Modifier = Modifier, on
     // clickable modifier ahead of the shape it drew a rectangle past the corners.
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainer,
         modifier = modifier
     ) {
@@ -2623,7 +2607,7 @@ fun LoggedOutCard(
     var showKeyInput by remember { mutableStateOf(false) }
 
     Card(
-        shape = RoundedCornerShape(20.dp),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.15f)
         ),
@@ -2678,7 +2662,7 @@ fun LoggedOutCard(
                             }
                         },
                         modifier = Modifier.weight(1f).height(40.dp),
-                        shape = RoundedCornerShape(10.dp),
+                        shape = MaterialTheme.shapes.medium,
                         contentPadding = PaddingValues(horizontal = 4.dp)
                     ) {
                         Icon(Icons.AutoMirrored.Filled.Login, null, modifier = Modifier.size(14.dp))
@@ -2703,7 +2687,7 @@ fun LoggedOutCard(
                 OutlinedButton(
                     onClick = { showKeyInput = !showKeyInput },
                     modifier = Modifier.weight(1f).height(40.dp),
-                    shape = RoundedCornerShape(10.dp),
+                    shape = MaterialTheme.shapes.medium,
                     contentPadding = PaddingValues(horizontal = 4.dp)
                 ) {
                     Icon(Icons.Default.Key, null, modifier = Modifier.size(14.dp))
@@ -2743,7 +2727,7 @@ fun LoggedOutCard(
                             Toast.makeText(context, context.getString(R.string.main_key_saved_restarting), Toast.LENGTH_SHORT).show()
                         },
                         modifier = Modifier.fillMaxWidth().height(40.dp),
-                        shape = RoundedCornerShape(10.dp)
+                        shape = MaterialTheme.shapes.medium
                     ) {
                         Text(stringResource(R.string.main_submit_key), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
@@ -2757,7 +2741,7 @@ fun LoggedOutCard(
                 OutlinedButton(
                     onClick = onConfigureProxy,
                     modifier = Modifier.weight(1f).height(36.dp),
-                    shape = RoundedCornerShape(8.dp),
+                    shape = MaterialTheme.shapes.small,
                     contentPadding = PaddingValues(horizontal = 4.dp)
                 ) {
                     Icon(Icons.Default.Settings, null, modifier = Modifier.size(14.dp))
@@ -2772,7 +2756,7 @@ fun LoggedOutCard(
                         contentColor = MaterialTheme.colorScheme.onError
                     ),
                     modifier = Modifier.weight(1f).height(36.dp),
-                    shape = RoundedCornerShape(8.dp),
+                    shape = MaterialTheme.shapes.small,
                     contentPadding = PaddingValues(horizontal = 4.dp)
                 ) {
                     Icon(Icons.Default.Stop, null, modifier = Modifier.size(14.dp))
@@ -2790,7 +2774,7 @@ fun ConnectionIssueCard(
     onStop: () -> Unit
 ) {
     Card(
-        shape = RoundedCornerShape(20.dp),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)
         ),
@@ -2838,7 +2822,7 @@ fun ConnectionIssueCard(
                 Button(
                     onClick = onConfigureProxy,
                     modifier = Modifier.weight(1f).height(40.dp),
-                    shape = RoundedCornerShape(10.dp),
+                    shape = MaterialTheme.shapes.medium,
                     contentPadding = PaddingValues(horizontal = 4.dp)
                 ) {
                     Icon(Icons.Default.Settings, null, modifier = Modifier.size(14.dp))
@@ -2855,7 +2839,7 @@ fun ConnectionIssueCard(
                 OutlinedButton(
                     onClick = onStop,
                     modifier = Modifier.weight(1f).height(40.dp),
-                    shape = RoundedCornerShape(10.dp),
+                    shape = MaterialTheme.shapes.medium,
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
                     contentPadding = PaddingValues(horizontal = 4.dp)
                 ) {
@@ -3208,7 +3192,7 @@ private fun AccountRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(enabled = !editing, onClick = onClick),
-        shape = RoundedCornerShape(14.dp),
+        shape = MaterialTheme.shapes.medium,
         color = if (active) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
                 else Color.Transparent
     ) {
@@ -3263,7 +3247,7 @@ private fun AccountRow(
                     FilledTonalIconButton(
                         onClick = onRename,
                         modifier = Modifier.size(38.dp),
-                        shape = RoundedCornerShape(10.dp)
+                        shape = MaterialTheme.shapes.medium
                     ) {
                         Icon(
                             Icons.Default.Edit,
@@ -3275,7 +3259,7 @@ private fun AccountRow(
                         FilledTonalIconButton(
                             onClick = onDelete,
                             modifier = Modifier.size(38.dp),
-                            shape = RoundedCornerShape(10.dp),
+                            shape = MaterialTheme.shapes.medium,
                             colors = IconButtonDefaults.filledTonalIconButtonColors(
                                 containerColor = MaterialTheme.colorScheme.errorContainer,
                                 contentColor = MaterialTheme.colorScheme.onErrorContainer

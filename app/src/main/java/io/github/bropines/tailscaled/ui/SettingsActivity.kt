@@ -43,7 +43,6 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -897,7 +896,7 @@ fun SettingsScreen(
             OutlinedButton(
                 onClick = { showResetDialog = true },
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
+                shape = MaterialTheme.shapes.medium,
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
             ) {
                 Icon(Icons.Default.RestartAlt, null)
@@ -1225,7 +1224,7 @@ fun SettingsScreen(
             val accent = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
             val help = remember(desc) { mutableStateOf(false) }
             Card(
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(
                     containerColor = if (selected) accent.copy(alpha = 0.10f)
                                      else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
@@ -1364,7 +1363,7 @@ fun SettingsScreen(
                     .padding(bottom = 12.dp)
                     .background(
                         color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = MaterialTheme.shapes.medium
                     )
                     .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -1622,7 +1621,7 @@ fun SettingsScreen(
             }
             Spacer(Modifier.height(12.dp))
             if (!lanAccessEnabled) {
-                OutlinedButton(onClick = { copySagerNetLink() }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+                OutlinedButton(onClick = { copySagerNetLink() }, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium) {
                     Icon(Icons.Default.Share, null)
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.settings_sagernet_copy))
@@ -1637,13 +1636,13 @@ fun SettingsScreen(
                     modifier = Modifier.padding(start = 4.dp, bottom = 6.dp)
                 )
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { copySagerNetLink() }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)) {
+                    OutlinedButton(onClick = { copySagerNetLink() }, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)) {
                         Text(stringResource(R.string.settings_sagernet_copy_local), maxLines = 1, style = MaterialTheme.typography.labelLarge)
                     }
-                    OutlinedButton(onClick = { lanIp?.let { copySagerNetLink(it) } }, enabled = lanIp != null, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)) {
+                    OutlinedButton(onClick = { lanIp?.let { copySagerNetLink(it) } }, enabled = lanIp != null, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)) {
                         Text(stringResource(R.string.settings_lan_endpoint_lan), maxLines = 1, style = MaterialTheme.typography.labelLarge)
                     }
-                    OutlinedButton(onClick = { tailnetIp?.let { copySagerNetLink(it) } }, enabled = tailnetIp != null, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)) {
+                    OutlinedButton(onClick = { tailnetIp?.let { copySagerNetLink(it) } }, enabled = tailnetIp != null, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)) {
                         Text(stringResource(R.string.settings_lan_endpoint_tailnet), maxLines = 1, style = MaterialTheme.typography.labelLarge)
                     }
                 }
@@ -1747,7 +1746,7 @@ fun SettingsScreen(
                         .padding(top = 8.dp)
                         .background(
                             color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
-                            shape = RoundedCornerShape(8.dp)
+                            shape = MaterialTheme.shapes.small
                         )
                         .padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -1873,7 +1872,7 @@ fun SettingsScreen(
                     .padding(bottom = 12.dp)
                     .background(
                         color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f),
-                        shape = RoundedCornerShape(8.dp)
+                        shape = MaterialTheme.shapes.small
                     )
                     .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -2218,7 +2217,7 @@ fun SettingsScreen(
                 Button(
                     onClick = { showBackupPasswordDialog = true },
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = MaterialTheme.shapes.medium
                 ) {
                     Icon(Icons.Default.Archive, null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
@@ -2233,7 +2232,7 @@ fun SettingsScreen(
                 OutlinedButton(
                     onClick = { fullRestoreLauncher.launch("*/*") },
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = MaterialTheme.shapes.medium
                 ) {
                     Icon(Icons.Default.SettingsBackupRestore, null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
@@ -2257,7 +2256,7 @@ fun SettingsScreen(
                 Button(
                     onClick = { backupLauncher.launch("tailsocks_backup_${activeAccount.name}.json") },
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = MaterialTheme.shapes.medium
                 ) {
                     Icon(Icons.Default.Backup, null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
@@ -2272,7 +2271,7 @@ fun SettingsScreen(
                 OutlinedButton(
                     onClick = { restoreLauncher.launch("application/json") },
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = MaterialTheme.shapes.medium
                 ) {
                     Icon(Icons.Default.SettingsBackupRestore, null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
@@ -2338,7 +2337,7 @@ fun SettingsScreen(
                             GlobalSettings.setAutomationSecret(context, token)
                         },
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = MaterialTheme.shapes.medium
                     ) {
                         Icon(Icons.Default.Casino, null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
@@ -2360,7 +2359,7 @@ fun SettingsScreen(
                         },
                         enabled = automationSecret.isNotEmpty(),
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = MaterialTheme.shapes.medium
                     ) {
                         Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
@@ -2512,7 +2511,7 @@ fun SettingsScreen(
                     routingDump?.let { dump ->
                         Spacer(Modifier.height(8.dp))
                         Surface(
-                            shape = RoundedCornerShape(8.dp),
+                            shape = MaterialTheme.shapes.small,
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -2598,21 +2597,11 @@ fun SettingsScreen(
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             topBar = {
-                TopAppBar(
-                    title = {
-                        Text(
-                            if (openCategory != null) stringResource(openCategory.titleRes)
-                            else stringResource(R.string.settings_title),
-                            fontWeight = FontWeight.Bold
-                        )
-                    },
-                    navigationIcon = {
-                        if (section == null || backable) {
-                            IconButton(onClick = { if (section != null) popSection() else onBack() }) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back))
-                            }
-                        }
-                    }
+                AppTopBar(
+                    title = if (openCategory != null) stringResource(openCategory.titleRes) else stringResource(R.string.settings_title),
+                    onBack = if (section == null || backable) {
+                        { if (section != null) popSection() else onBack() }
+                    } else null
                 )
             }
         ) { padding ->
@@ -2789,7 +2778,7 @@ fun SettingsScreen(
                         label = { Text(strSettingsPasswordLabel) },
                         singleLine = true,
                         maxLines = 1,
-                        shape = RoundedCornerShape(10.dp),
+                        shape = MaterialTheme.shapes.medium,
                         visualTransformation = if (isPasswordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
                         trailingIcon = {
                             IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
@@ -2844,7 +2833,7 @@ fun SettingsScreen(
                         label = { Text(strSettingsPasswordLabel) },
                         singleLine = true,
                         maxLines = 1,
-                        shape = RoundedCornerShape(10.dp),
+                        shape = MaterialTheme.shapes.medium,
                         visualTransformation = if (isPasswordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
                         trailingIcon = {
                             IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
@@ -2895,7 +2884,7 @@ private fun LanEndpoints(
     ) {
         for ((label, host) in networks) {
             Surface(
-                shape = RoundedCornerShape(12.dp),
+                shape = MaterialTheme.shapes.medium,
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
             ) {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)) {
@@ -2909,7 +2898,7 @@ private fun LanEndpoints(
                         )
                     } else {
                         Row(
-                            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { onCopy(host) },
+                            modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).clickable { onCopy(host) },
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(

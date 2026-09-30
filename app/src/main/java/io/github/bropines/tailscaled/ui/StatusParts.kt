@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Devices
@@ -133,7 +133,7 @@ fun HealthBanner(
     // one heavy slab rather than "here is what is wrong, and what to do".
     val accent = if (high) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary
     Surface(
-        shape = RoundedCornerShape(20.dp),
+        shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         modifier = modifier.fillMaxWidth().animateContentSize()
     ) {
@@ -241,7 +241,7 @@ fun ConnectionSummaryRow(summary: ConnectionSummary, modifier: Modifier = Modifi
 @Composable
 private fun SummaryPill(icon: ImageVector, text: String) {
     Surface(
-        shape = RoundedCornerShape(50),
+        shape = CircleShape,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
         Row(

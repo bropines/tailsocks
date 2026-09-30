@@ -29,7 +29,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material.icons.Icons
@@ -140,14 +139,14 @@ fun FirstStartScreen(onFinished: () -> Unit) {
                                         pagerState.animateScrollToPage(pagerState.currentPage + 1)
                                     }
                                 },
-                                shape = RoundedCornerShape(12.dp)
+                                shape = MaterialTheme.shapes.medium
                             ) {
                                 Text(stringResource(R.string.first_start_btn_next))
                             }
                         } else {
                             Button(
                                 onClick = onFinished,
-                                shape = RoundedCornerShape(12.dp)
+                                shape = MaterialTheme.shapes.medium
                             ) {
                                 Text(stringResource(R.string.first_start_btn_finish))
                             }
@@ -356,7 +355,7 @@ fun SlideHowItWorks() {
             )
 
             Card(
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (isRootMode) 0.2f else 0.4f)
                 ),
@@ -391,7 +390,7 @@ fun SlideHowItWorks() {
             }
 
             Card(
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
                 ),
@@ -506,7 +505,7 @@ fun SlideBypassSetup() {
             ).forEach { (mode, label) ->
                 val isSelected = bypassMode == mode
                 Card(
-                    shape = RoundedCornerShape(12.dp),
+                    shape = MaterialTheme.shapes.medium,
                     colors = CardDefaults.cardColors(
                         containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
                         else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
@@ -535,7 +534,7 @@ fun SlideBypassSetup() {
 
             if (bypassMode == "proxy") {
                 Card(
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.large,
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
                     ),
@@ -810,7 +809,7 @@ fun SlideLogin(profilePrefs: android.content.SharedPreferences) {
             }
 
             Card(
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
                 ),
@@ -888,7 +887,7 @@ fun SlidePermissions() {
         ) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotificationPermission) {
                 Card(
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.large,
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
                     ),
@@ -911,7 +910,7 @@ fun SlidePermissions() {
                             onClick = {
                                 launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
                             },
-                            shape = RoundedCornerShape(8.dp)
+                            shape = MaterialTheme.shapes.small
                         ) {
                             Text(stringResource(R.string.onboarding_perm_grant))
                         }
@@ -921,7 +920,7 @@ fun SlidePermissions() {
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !isBatteryIgnored) {
                 Card(
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.large,
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
                     ),
@@ -956,7 +955,7 @@ fun SlidePermissions() {
                                     Toast.makeText(context, context.getString(R.string.onboarding_perm_battery_error), Toast.LENGTH_SHORT).show()
                                 }
                             },
-                            shape = RoundedCornerShape(8.dp)
+                            shape = MaterialTheme.shapes.small
                         ) {
                             Text(stringResource(R.string.onboarding_perm_battery_configure))
                         }

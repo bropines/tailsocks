@@ -318,13 +318,9 @@ fun AdminApiMainScreen(onBack: () -> Unit) {
 private fun AdminApiWaitScreen(onBack: () -> Unit, content: @Composable () -> Unit) {
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.admin_console_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.admin_cd_back))
-                    }
-                }
+            AppTopBar(
+                title = stringResource(R.string.admin_console_title),
+                onBack = onBack
             )
         }
     ) { padding ->

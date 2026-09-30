@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="first_fragment_label">Главная</string>
-    <string name="back">Назад</string>
 
     <!-- Quick Settings tile -->
     <string name="tile_state_connecting">Подключение…</string>
@@ -99,6 +98,7 @@
     <string name="action_open">Открыть</string>
     <string name="action_send">Отправить</string>
     <string name="action_back">Назад</string>
+    <string name="action_more">Ещё</string>
     <string name="action_disconnect">Отключить</string>
     <string name="action_unlock">Разблокировать консоль</string>
     <string name="predictive_back_target_dashboard">Главный экран</string>
@@ -164,7 +164,6 @@
     <string name="admin_setup_token_required">Требуется API Access Token</string>
     <string name="admin_setup_oauth_required">Требуются Client ID и Client Secret</string>
     <string name="admin_setup_save_connect">Сохранить и подключить</string>
-    <string name="admin_cd_back">Назад</string>
 
     <!-- Admin: Proxy settings -->
     <string name="admin_proxy_settings_title">Настройки прокси API</string>

@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -95,7 +94,7 @@ fun AdminApiLogsTabContent(
                 placeholder = { Text(stringResource(R.string.admin_logs_search_placeholder), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 singleLine = true,
                 modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(8.dp),
+                shape = MaterialTheme.shapes.small,
                 leadingIcon = { Icon(Icons.Default.Search, null) }
             )
 
@@ -183,7 +182,7 @@ fun AuditLogCard(log: ApiAuditLogEntry) {
             Box(
                 modifier = Modifier
                     .size(36.dp)
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(MaterialTheme.shapes.small)
                     .background(actionColor.copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center
             ) {

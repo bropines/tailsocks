@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -56,7 +55,7 @@ fun WebhooksTabContent(
             Spacer(Modifier.width(12.dp))
             Button(
                 onClick = onCreateClick,
-                shape = RoundedCornerShape(8.dp),
+                shape = MaterialTheme.shapes.small,
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
             ) {
                 Icon(Icons.Default.Add, contentDescription = null)
@@ -102,7 +101,7 @@ fun WebhookRow(
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainer
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -110,7 +109,7 @@ fun WebhookRow(
                 Box(
                     modifier = Modifier
                         .size(36.dp)
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(MaterialTheme.shapes.small)
                         .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f)),
                     contentAlignment = Alignment.Center
                 ) {
@@ -146,7 +145,7 @@ fun WebhookRow(
                 OutlinedButton(
                     onClick = onTest,
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(8.dp),
+                    shape = MaterialTheme.shapes.small,
                     contentPadding = PaddingValues(vertical = 4.dp)
                 ) {
                     Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(16.dp))
@@ -157,7 +156,7 @@ fun WebhookRow(
                 Button(
                     onClick = { showDeleteConfirm = true },
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(8.dp),
+                    shape = MaterialTheme.shapes.small,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.errorContainer,
                         contentColor = MaterialTheme.colorScheme.onErrorContainer

@@ -26,7 +26,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -321,11 +321,9 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
             modifier = Modifier.imePadding(),
         topBar = {
             Column {
-                TopAppBar(
-                    title = { Text(stringResource(R.string.console_title)) },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
-                    },
+                AppTopBar(
+                    title = stringResource(R.string.console_title),
+                    onBack = onBack,
                     actions = {
                         IconButton(onClick = { softWrap = !softWrap }) { 
                             Icon(
@@ -409,7 +407,7 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
                         textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(onDone = { executeCmd(currentCommand) }),
-                        shape = RoundedCornerShape(24.dp),
+                        shape = CircleShape,
                         leadingIcon = {
                             IconButton(onClick = { historyMenuOpen = true }, enabled = commandHistory.isNotEmpty()) {
                                 Icon(Icons.Default.History, contentDescription = stringResource(R.string.console_cd_history))
@@ -544,7 +542,7 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
 @Composable
 private fun PresetChip(command: String, onClick: () -> Unit, onLongClick: () -> Unit) {
     Surface(
-        shape = RoundedCornerShape(8.dp),
+        shape = MaterialTheme.shapes.small,
         color = MaterialTheme.colorScheme.secondaryContainer,
         modifier = Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick)
     ) {

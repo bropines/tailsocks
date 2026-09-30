@@ -41,7 +41,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.material.icons.Icons
@@ -589,7 +588,7 @@ fun ExitNodeBadge(
     when (peer.exitNodeState()) {
         ExitNodeState.SELECTED -> Row(
             modifier = modifier
-                .clip(RoundedCornerShape(8.dp))
+                .clip(MaterialTheme.shapes.small)
                 .background(MaterialTheme.colorScheme.primary)
                 .padding(horizontal = if (showLabel) 8.dp else 5.dp, vertical = 3.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -615,7 +614,7 @@ fun ExitNodeBadge(
         ExitNodeState.OFFERED -> if (showLabel) {
             Row(
                 modifier = modifier
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(MaterialTheme.shapes.small)
                     .background(MaterialTheme.colorScheme.surfaceVariant)
                     .padding(horizontal = 8.dp, vertical = 3.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -747,7 +746,7 @@ internal fun PeerItem(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp)
             .semantics { stateDescription = spokenState },
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.large,
         color = if (isSelf) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer
     ) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -899,9 +898,9 @@ fun PeerShareItem(peer: PeerData, enabled: Boolean, taildrop: TaildropStatus = T
             .padding(horizontal = 16.dp, vertical = 6.dp)
             .alpha(if (refused) 0.55f else 1f)
             // Clipped first, so the ripple keeps to the card's corners.
-            .clip(RoundedCornerShape(14.dp))
+            .clip(MaterialTheme.shapes.medium)
             .clickable(enabled = enabled && !refused) { onClick() },
-        shape = RoundedCornerShape(14.dp),
+        shape = MaterialTheme.shapes.medium,
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
             MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
@@ -1499,7 +1498,7 @@ private fun PeerDetailsPage(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center,
                         modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(MaterialTheme.shapes.medium)
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                             .padding(horizontal = 12.dp, vertical = 6.dp)
                     ) {
@@ -1606,7 +1605,7 @@ private fun PeerDetailsPage(
                         // scale, and a fixed height cuts the second line off.
                         modifier = Modifier.fillMaxWidth().heightIn(min = 46.dp)
                             .semantics { if (taildropNote != null) stateDescription = taildropNote },
-                        shape = RoundedCornerShape(14.dp),
+                        shape = MaterialTheme.shapes.medium,
                         contentPadding = PaddingValues(horizontal = 8.dp)
                     ) {
                         Icon(
@@ -1772,8 +1771,6 @@ private fun PeerStatusChip(
 
 /** How far a card shrinks under the finger. */
 private const val PEER_CARD_PRESSED_SCALE = 0.97f
-/** The corner radius every card of the sheet shares. */
-private val PEER_CARD_SHAPE = RoundedCornerShape(20.dp)
 /** The side of the shaped box a card's icon sits in. */
 private val PEER_CARD_ICON_BOX = 40.dp
 
@@ -1821,7 +1818,7 @@ private fun PeerSheetCard(
         disabledContentColor = contentColor
     )
     if (onClick == null) {
-        Card(modifier = modifier, shape = PEER_CARD_SHAPE, colors = colors, content = content)
+        Card(modifier = modifier, shape = MaterialTheme.shapes.large, colors = colors, content = content)
     } else {
         val interaction = remember { MutableInteractionSource() }
         Card(
@@ -1829,7 +1826,7 @@ private fun PeerSheetCard(
             enabled = enabled,
             interactionSource = interaction,
             modifier = modifier.pressScale(interaction),
-            shape = PEER_CARD_SHAPE,
+            shape = MaterialTheme.shapes.large,
             colors = colors,
             content = content
         )
@@ -2199,7 +2196,7 @@ private fun PeerDetailRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+            .clip(MaterialTheme.shapes.medium)
             .then(
                 if (copyable) Modifier.clickable(onClickLabel = strings.copy) { onCopy(row) }
                 else Modifier
@@ -2265,7 +2262,7 @@ fun FileCard(file: TaildropFile, onOpen: () -> Unit, onSave: () -> Unit, onDelet
     val sizeStr = formatFileSize(file.Size)
     val ext = file.Name.substringAfterLast('.', "").lowercase()
 
-    ElevatedCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+    ElevatedCard(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             FileIcon(ext)
             Spacer(Modifier.width(16.dp))
@@ -2278,7 +2275,7 @@ fun FileCard(file: TaildropFile, onOpen: () -> Unit, onSave: () -> Unit, onDelet
         Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.End) {
             TextButton(onClick = onDelete, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text(stringResource(R.string.action_delete)) }
             TextButton(onClick = onSave) { Text(stringResource(R.string.action_save)) }
-            Button(onClick = onOpen, shape = RoundedCornerShape(12.dp)) { Text(stringResource(R.string.action_open)) }
+            Button(onClick = onOpen, shape = MaterialTheme.shapes.medium) { Text(stringResource(R.string.action_open)) }
         }
     }
 }
@@ -2302,7 +2299,7 @@ fun FileIcon(extension: String) {
         "zip", "rar", "7z" -> Icons.Default.FolderZip to Color(0xFF9C27B0)
         else -> Icons.AutoMirrored.Filled.InsertDriveFile to Color(0xFF607D8B)
     }
-    Box(Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(color.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(48.dp).clip(MaterialTheme.shapes.medium).background(color.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
         Icon(icon, null, tint = color, modifier = Modifier.size(28.dp))
     }
 }

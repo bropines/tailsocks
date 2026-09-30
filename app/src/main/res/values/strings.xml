@@ -2,7 +2,6 @@
 <resources>
     <string name="app_name" translatable="false">TailSocks</string>
     <string name="first_fragment_label">Home</string>
-    <string name="back">Back</string>
 
     <!-- Quick Settings tile -->
     <string name="tile_state_connecting">Connecting…</string>
@@ -100,6 +99,7 @@
     <string name="action_open">Open</string>
     <string name="action_send">Send</string>
     <string name="action_back">Back</string>
+    <string name="action_more">More options</string>
     <string name="predictive_back_target_dashboard">Dashboard</string>
     <string name="predictive_back_target_settings">Settings</string>
     <string name="predictive_back_target_files_hub">Files Hub</string>
@@ -166,7 +166,6 @@
     <string name="admin_setup_token_required">API Access Token is required</string>
     <string name="admin_setup_oauth_required">Client ID and Client Secret are required</string>
     <string name="admin_setup_save_connect">Save &amp; Connect</string>
-    <string name="admin_cd_back">Back</string>
 
     <!-- Admin: Proxy settings -->
     <string name="admin_proxy_settings_title">API Proxy Settings</string>

@@ -27,7 +27,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.ImeAction
@@ -294,7 +293,7 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
                 item {
                     Card(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                        shape = RoundedCornerShape(16.dp),
+                        shape = MaterialTheme.shapes.large,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
@@ -492,7 +491,7 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
                         Card(
                             onClick = copyUrl,
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = MaterialTheme.shapes.medium,
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
@@ -549,7 +548,7 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
             } else {
                 items(shares) { share ->
                     Card(
-                        shape = RoundedCornerShape(12.dp),
+                        shape = MaterialTheme.shapes.medium,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
@@ -667,18 +666,10 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
     if (onBack != null) {
         Scaffold(
             topBar = {
-                TopAppBar(
-                    title = {
-                        Column {
-                            Text(stringResource(R.string.taildrive_title))
-                            Text(activeAccount.name, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                        }
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back))
-                        }
-                    }
+                AppTopBar(
+                    title = stringResource(R.string.taildrive_title),
+                    subtitle = activeAccount.name,
+                    onBack = onBack
                 )
             },
             floatingActionButton = {

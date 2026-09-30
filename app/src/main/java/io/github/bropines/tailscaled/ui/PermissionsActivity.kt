@@ -16,7 +16,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -152,7 +151,7 @@ fun AutostartAskDialog(onAnswered: () -> Unit) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(MaterialTheme.shapes.small)
                         .clickable { neverAgain = !neverAgain }
                         .padding(vertical = 2.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -170,7 +169,7 @@ fun AutostartAskDialog(onAnswered: () -> Unit) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(MaterialTheme.shapes.small)
                         .clickable {
                             answer()
                             context.startActivity(Intent(context, PermissionsActivity::class.java))
@@ -336,16 +335,9 @@ fun PermissionsScreen(onBack: () -> Unit) {
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.perm_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.action_back)
-                        )
-                    }
-                }
+            AppTopBar(
+                title = stringResource(R.string.perm_title),
+                onBack = onBack
             )
         }
     ) { padding ->
@@ -408,7 +400,7 @@ private fun PermissionRow(entry: PermEntry) {
     val canOpen = state != PermState.NOT_APPLICABLE
     val help = remember(explanation) { mutableStateOf(false) }
     val haptics = LocalHapticFeedback.current
-    val shape = RoundedCornerShape(12.dp)
+    val shape = MaterialTheme.shapes.medium
     Surface(
         shape = shape,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
