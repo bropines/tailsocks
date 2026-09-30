@@ -12,31 +12,33 @@
   <a href="readme.md">English</a> | <strong>Русский</strong>
 </p>
 
-<p align="center">
-  <a href="https://github.com/bropines/tailsocks/releases/latest"><img src="https://img.shields.io/github/v/release/bropines/tailsocks?style=for-the-badge&logo=github&logoColor=white&label=Latest%20Release&color=2ea44f" alt="Последний Релиз" /></a>
-  <a href="https://github.com/bropines/tailsocks/releases"><img src="https://img.shields.io/github/downloads/bropines/tailsocks/total?style=for-the-badge&logo=android&logoColor=white&label=Downloads&color=3ddc84" alt="Загрузки" /></a>
-  <a href="https://github.com/tailscale/tailscale/releases/tag/v1.102.5"><img src="https://img.shields.io/badge/Tailscale_Core-v1.102.5-blue?style=for-the-badge&logo=tailscale&logoColor=white" alt="Ядро Tailscale" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-BSD_3--Clause-orange?style=for-the-badge" alt="Лицензия" /></a>
-  <a href="https://hosted.weblate.org/engage/tailsocks/"><img src="https://img.shields.io/weblate/progress/tailsocks?server=https%3A%2F%2Fhosted.weblate.org&style=for-the-badge&logo=weblate&logoColor=white&label=Translated" alt="Статус перевода" /></a>
-</p>
+<table align="center">
+  <tr>
+    <th>Релиз</th>
+    <th>Загрузки</th>
+    <th>Ядро Tailscale</th>
+    <th>Лицензия</th>
+    <th>Перевод</th>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://github.com/bropines/tailsocks/releases/latest"><img src="https://img.shields.io/github/v/release/bropines/tailsocks?style=for-the-badge&logo=github&logoColor=white&label=&color=2ea44f" alt="Релиз" /></a></td>
+    <td align="center"><a href="https://github.com/bropines/tailsocks/releases"><img src="https://img.shields.io/github/downloads/bropines/tailsocks/total?style=for-the-badge&logo=android&logoColor=white&label=&color=3ddc84" alt="Загрузки" /></a></td>
+    <td align="center"><a href="https://github.com/tailscale/tailscale/releases/tag/v1.102.5"><img src="https://img.shields.io/badge/v1.102.5-blue?style=for-the-badge&logo=tailscale&logoColor=white" alt="Ядро Tailscale" /></a></td>
+    <td align="center"><a href="LICENSE"><img src="https://img.shields.io/badge/BSD_3--Clause-orange?style=for-the-badge" alt="Лицензия" /></a></td>
+    <td align="center"><a href="https://hosted.weblate.org/engage/tailsocks/"><img src="https://img.shields.io/weblate/progress/tailsocks?server=https%3A%2F%2Fhosted.weblate.org&style=for-the-badge&logo=weblate&logoColor=white&label=" alt="Перевод" /></a></td>
+  </tr>
+</table>
 
-<p align="center">
-  <a href="https://github.com/bropines/tailsocks/releases/latest">
-    <img src="https://img.shields.io/badge/⬇_Download_APK-Release-2ea44f?style=for-the-badge&logo=android&logoColor=white" alt="Скачать Release APK" />
-  </a>
-  &nbsp;
-  <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/bropines/tailsocks">
-    <img src="https://img.shields.io/badge/Установить_через-Obtainium-7b5cf5?style=for-the-badge" alt="Установить через Obtainium" />
-  </a>
-  &nbsp;
-  <a href="https://boosty.to/pinus">
-    <img src="https://img.shields.io/badge/❤️_Поддержать-Boosty-f15f2c?style=for-the-badge" alt="Поддержать на Boosty" />
-  </a>
-  &nbsp;
-  <a href="https://github.com/bropines/tailsocks/releases">
-    <img src="https://img.shields.io/badge/⬇_Все_Релизы-GitHub-24292e?style=for-the-badge&logo=github&logoColor=white" alt="Все Релизы" />
-  </a>
-</p>
+<table align="center">
+  <tr>
+    <td align="center"><a href="https://github.com/bropines/tailsocks/releases/latest"><img src="https://img.shields.io/badge/⬇_Download_APK-Release-2ea44f?style=for-the-badge&logo=android&logoColor=white" alt="Скачать Release APK" /></a></td>
+    <td align="center"><a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/bropines/tailsocks"><img src="https://img.shields.io/badge/Установить_через-Obtainium-7b5cf5?style=for-the-badge" alt="Установить через Obtainium" /></a></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://github.com/bropines/tailsocks/releases"><img src="https://img.shields.io/badge/⬇_Все_Релизы-GitHub-24292e?style=for-the-badge&logo=github&logoColor=white" alt="Все Релизы" /></a></td>
+    <td align="center"><a href="https://boosty.to/pinus"><img src="https://img.shields.io/badge/❤️_Поддержать-Boosty-f15f2c?style=for-the-badge" alt="Поддержать на Boosty" /></a></td>
+  </tr>
+</table>
 
 <p align="center">
   <img src="docs/screenshots/ru/hero.webp" alt="TailSocks: главный экран, узлы и проверка сети" width="100%" />
