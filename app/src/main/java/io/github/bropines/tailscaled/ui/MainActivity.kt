@@ -2548,13 +2548,16 @@ fun MenuGrid(columns: Int, entries: List<MenuEntry>, cardHeight: Dp = 96.dp, mod
     Column(modifier = modifier.fillMaxWidth()) {
         entries.chunked(columns).forEachIndexed { rowIndex, row ->
             if (rowIndex > 0) Spacer(modifier = Modifier.height(16.dp))
-            Row(modifier = Modifier.fillMaxWidth()) {
+            // A minimum, not a fixed height: at a large system font the label
+            // needs more room, and the row grows to its tallest card so the
+            // cards in it stay the same height.
+            Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
                 row.forEachIndexed { i, entry ->
                     if (i > 0) Spacer(modifier = Modifier.width(16.dp))
                     MenuCard(
                         title = entry.title,
                         icon = entry.icon,
-                        modifier = Modifier.weight(1f).height(cardHeight),
+                        modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = cardHeight),
                         onClick = entry.onClick
                     )
                 }
@@ -2588,7 +2591,15 @@ fun MenuCard(title: String, icon: ImageVector, modifier: Modifier = Modifier, on
         ) {
             Icon(imageVector = icon, contentDescription = title, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
             Spacer(modifier = Modifier.height(8.dp))
-            Text(text = title, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, maxLines = 1, softWrap = false)
+            Text(
+                text = title,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
