@@ -108,7 +108,7 @@ fun DnsTabContent(
                                 )
                                 Spacer(Modifier.width(8.dp))
                                 IconButton(onClick = { nsListState.remove(ns) }) {
-                                    Icon(Icons.Default.Close, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+                                    Icon(Icons.Default.Close, stringResource(R.string.action_delete), tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
                                 }
                             }
                         }
@@ -180,7 +180,7 @@ fun DnsTabContent(
                                     Text(ns.joinToString(", "), fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 IconButton(onClick = { onUpdateSplitDns(domain, null) }) {
-                                    Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+                                    Icon(Icons.Default.Delete, stringResource(R.string.action_delete), tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
                                 }
                             }
                         }
@@ -265,7 +265,7 @@ fun DnsTabContent(
                                 )
                                 Spacer(Modifier.width(8.dp))
                                 IconButton(onClick = { searchPathsState.remove(path) }) {
-                                    Icon(Icons.Default.Close, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+                                    Icon(Icons.Default.Close, stringResource(R.string.action_delete), tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
                                 }
                             }
                         }

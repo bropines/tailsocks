@@ -541,7 +541,7 @@ fun SettingsEditItem(
                         label = { if (placeholder.isNotEmpty()) Text(ctx.getString(R.string.settings_field_example, placeholder)) },
                         placeholder = { if (placeholder.isNotEmpty()) Text(placeholder) },
                         trailingIcon = if (onAction != null && actionIcon != null) {
-                            { IconButton(onClick = { text = onAction() }) { Icon(actionIcon, null) } }
+                            { IconButton(onClick = { text = onAction() }) { Icon(actionIcon, ctx.getString(R.string.action_generate)) } }
                         } else null
                     )
                     if (suggestions.isNotEmpty()) {

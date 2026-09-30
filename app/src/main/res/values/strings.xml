@@ -1461,4 +1461,7 @@
     <string name="help_collapse">Show less</string>
     <string name="login_use_key">Use a key</string>
     <string name="login_hide_key">Hide the key</string>
+    <string name="settings_diag_socket_path">Socket path</string>
+    <string name="settings_diag_log_file">Log file</string>
+    <string name="settings_diag_no_output">(no output)</string>
 </resources>

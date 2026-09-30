@@ -33,6 +33,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Fixed
 
+- Screen readers name every icon button, and the last English labels in Diagnostics are translated.
 - Android 7 showed Android Studio's template robot as the app icon.
 - SOCKS5 credentials take both fields or neither everywhere; a username alone broke TUN and Taildrive.
 - ByeDPI's library is 16 KB page aligned; on a 16 KB device it did not load.

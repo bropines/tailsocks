@@ -2447,14 +2447,14 @@ fun SettingsScreen(
                 }
 
                 CopyablePathItem(
-                    label = "Socket Path",
+                    label = stringResource(R.string.settings_diag_socket_path),
                     path = socketPath,
                     context = context
                 )
 
                 Spacer(Modifier.height(8.dp))
                 CopyablePathItem(
-                    label = "Log File",
+                    label = stringResource(R.string.settings_diag_log_file),
                     path = logPath,
                     context = context
                 )
@@ -2484,7 +2484,7 @@ fun SettingsScreen(
                             isDumping = true
                             scope.launch {
                                 val dump = withContext(Dispatchers.IO) { RootUtils.dumpRoutingState(context) }
-                                routingDump = dump.ifBlank { "(no output)" }
+                                routingDump = dump.ifBlank { context.getString(R.string.settings_diag_no_output) }
                                 isDumping = false
                             }
                         },

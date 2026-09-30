@@ -1461,4 +1461,7 @@
     <string name="help_collapse">Свернуть</string>
     <string name="login_use_key">Войти ключом</string>
     <string name="login_hide_key">Скрыть ключ</string>
+    <string name="settings_diag_socket_path">Путь к сокету</string>
+    <string name="settings_diag_log_file">Файл журнала</string>
+    <string name="settings_diag_no_output">(пусто)</string>
 </resources>

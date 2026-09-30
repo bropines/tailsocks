@@ -296,8 +296,8 @@ fun DnsScreen(onBack: () -> Unit) {
             topBar = {
                 TopAppBar(
                     title = { Text(stringResource(R.string.dns_title)) },
-                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) } },
-                    actions = { IconButton(onClick = { refresh(doFlush = false) }) { Icon(Icons.Default.Refresh, null) } }
+                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back)) } },
+                    actions = { IconButton(onClick = { refresh(doFlush = false) }) { Icon(Icons.Default.Refresh, stringResource(R.string.action_refresh)) } }
                 )
             }
         ) { padding ->
