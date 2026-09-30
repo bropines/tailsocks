@@ -563,6 +563,10 @@ fun MainScreen(
         )
     }
     var reconnectingRelays by remember { mutableStateOf(false) }
+    // Off for anyone who prefers the screen as it was: on a phone of the
+    // right size everything, menu included, fits without scrolling, and the
+    // summary's extra rows push the last menu row off it.
+    var showConnectionSummary by remember { mutableStateOf(GlobalSettings.isConnectionSummaryShown(context)) }
     // TunVpnService establishes a *full* tunnel exactly when an exit node is configured.
     // The old `tun_full_tunnel` pref was never written by anything and always read false,
     // so derive the indicator from the live exit-node state to keep the UI truthful.
@@ -762,6 +766,7 @@ fun MainScreen(
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                showConnectionSummary = GlobalSettings.isConnectionSummaryShown(context)
                 isTunEnabled = GlobalSettings.isTunModeEnabled(context)
                 isRootEnabled = GlobalSettings.isRootModeEnabled(context)
                 isRootYielded = GlobalSettings.isRootRoutingYielded(context)
@@ -1459,7 +1464,7 @@ fun MainScreen(
                     }
                 )
             }
-            if (cardState == "ACTIVE" && statusAside == null) {
+            if (cardState == "ACTIVE" && statusAside == null && showConnectionSummary) {
                 connectionSummary?.let { summary ->
                     Spacer(modifier = Modifier.height(12.dp))
                     ConnectionSummaryRow(summary)

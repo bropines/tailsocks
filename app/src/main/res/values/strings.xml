@@ -1464,4 +1464,6 @@
     <string name="settings_diag_socket_path">Socket path</string>
     <string name="settings_diag_log_file">Log file</string>
     <string name="settings_diag_no_output">(no output)</string>
+    <string name="settings_connection_summary_title">Connection summary</string>
+    <string name="settings_connection_summary_desc">Device, peers online, exit node and relay under the status card. Off keeps the main screen to a single screenful.</string>
 </resources>

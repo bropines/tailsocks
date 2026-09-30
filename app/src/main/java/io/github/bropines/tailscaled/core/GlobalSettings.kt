@@ -445,6 +445,9 @@ object GlobalSettings {
     /** Show the changelog dialog once after the app has been updated. */
     fun isShowChangelogAfterUpdate(context: Context): Boolean = getBoolean(context, "show_changelog_after_update", true)
     fun setShowChangelogAfterUpdate(context: Context, enabled: Boolean) = setBoolean(context, "show_changelog_after_update", enabled)
+    /** The row under a connected status card: device, peers online, exit node, relay. */
+    fun isConnectionSummaryShown(context: Context): Boolean = getBoolean(context, "show_connection_summary", true)
+    fun setConnectionSummaryShown(context: Context, shown: Boolean) = setBoolean(context, "show_connection_summary", shown)
     /** Ask GitHub for a newer release on launch; see UPDATE_CHECK_DEFAULT. */
     fun isUpdateCheckOnLaunch(context: Context): Boolean =
         getBoolean(context, "update_check_on_launch", io.github.bropines.tailscaled.BuildConfig.UPDATE_CHECK_DEFAULT)
@@ -503,7 +506,7 @@ object GlobalSettings {
         "root_mode_enabled", "root_tun_enabled", "root_kill_daemon_on_stop", "root_dns_redirect",
         "root_vpn_bypass",
         // Appearance
-        "app_theme", "theme_preset", "dynamic_color", "amoled_mode", "show_changelog_after_update", "update_check_on_launch"
+        "app_theme", "theme_preset", "dynamic_color", "amoled_mode", "show_changelog_after_update", "update_check_on_launch", "show_connection_summary"
     )
 
     /** The exportable subset of the global preferences, as stored. */

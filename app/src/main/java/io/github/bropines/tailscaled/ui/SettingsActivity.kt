@@ -2183,6 +2183,16 @@ fun SettingsScreen(
                 GlobalSettings.setShowChangelogAfterUpdate(context, it)
                 showChangelogAfterUpdate = it
             }
+            var connectionSummaryShown by remember { mutableStateOf(GlobalSettings.isConnectionSummaryShown(context)) }
+            SettingsSwitchItem(
+                stringResource(R.string.settings_connection_summary_title),
+                stringResource(R.string.settings_connection_summary_desc),
+                Icons.Default.Summarize,
+                connectionSummaryShown
+            ) {
+                GlobalSettings.setConnectionSummaryShown(context, it)
+                connectionSummaryShown = it
+            }
             var updateCheckOnLaunch by remember { mutableStateOf(GlobalSettings.isUpdateCheckOnLaunch(context)) }
             SettingsSwitchItem(
                 stringResource(R.string.settings_update_check_title),

@@ -1464,4 +1464,6 @@
     <string name="settings_diag_socket_path">Путь к сокету</string>
     <string name="settings_diag_log_file">Файл журнала</string>
     <string name="settings_diag_no_output">(пусто)</string>
+    <string name="settings_connection_summary_title">Сводка подключения</string>
+    <string name="settings_connection_summary_desc">Устройство, узлы в сети, выходной узел и реле под карточкой статуса. Выключите, чтобы главный экран умещался целиком.</string>
 </resources>
