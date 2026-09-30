@@ -59,6 +59,11 @@ Builds:
       - apt-get update
       - apt-get install -y -t bookworm openjdk-17-jdk-headless
       - update-java-alternatives -s java-1.17.0-openjdk-amd64
+    # After the build commands (the Go core, below), Gradle assembles the
+    # release; without this line fdroid looks for the APK straight away (the
+    # third run built the whole core and stopped there).
+    gradle:
+      - yes
     gradleprops:
       # Package the release unsigned (F-Droid signs it) and without the GitHub
       # updater: no check, no download, no REQUEST_INSTALL_PACKAGES.
