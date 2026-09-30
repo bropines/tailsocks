@@ -38,21 +38,73 @@ class TailscaledService : Service() {
         const val MAIN_NOTIF_ID = 1
         private const val MAIN_CHANNEL_ID = "tailscaled_channel"
 
-        /** "Active" becomes "Active · TUN" while the tunnel is up, so one card tells both. */
-        fun statusText(context: Context, status: String): String =
-            if (TunVpnService.isRunning && status == "Active") "$status · TUN" else status
+        /**
+         * What the card says right now, as last posted; null while no service
+         * holds it. Every update is compared against it, so a tick that reads
+         * the same state as the one before costs no notify at all.
+         */
+        @Volatile private var shownCard: NotificationCard? = null
+        private val cardLock = Any()
 
+        /** The app's resources in the language chosen in Settings, per language. */
+        @Volatile private var localizedCache: Pair<String, Context>? = null
+
+        /**
+         * Kept for TunVpnService, which still names the card it joins "Active".
+         * The card decides what it says now; see [buildStatusNotification].
+         */
+        @Suppress("UNUSED_PARAMETER")
+        fun statusText(context: Context, status: String): String = status
+
+        /**
+         * The card for a service that goes foreground on [MAIN_NOTIF_ID] —
+         * TunVpnService does. It shows what the main service last put there, so
+         * the tunnel coming up does not overwrite "Connecting…" with a word of
+         * its own, and the "nothing changed" check stays true to what is on
+         * screen. [status] is that caller's legacy word and is not shown; before
+         * the main service has said anything the card names the tunnel.
+         */
+        @Suppress("UNUSED_PARAMETER")
         fun buildStatusNotification(context: Context, status: String): Notification {
+            val card = shownCard ?: localized(context).let {
+                NotificationCard(it.getString(R.string.app_name), it.getString(R.string.tun_notif_active))
+            }
+            return renderCard(context, card)
+        }
+
+        private fun renderCard(context: Context, card: NotificationCard): Notification {
+            val res = localized(context)
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                nm.createNotificationChannel(NotificationChannel(MAIN_CHANNEL_ID, "Tailscale Service", NotificationManager.IMPORTANCE_LOW))
+                nm.createNotificationChannel(NotificationChannel(MAIN_CHANNEL_ID, res.getString(R.string.notif_channel_status), NotificationManager.IMPORTANCE_LOW))
             }
             val pendingIntent = PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             val stopIntent = Intent(context, TailscaledService::class.java).apply { action = "STOP_ACTION" }
             val stopPendingIntent = PendingIntent.getService(context, 0, stopIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             return NotificationCompat.Builder(context, MAIN_CHANNEL_ID)
-                .setContentTitle("TailSocks").setContentText(status).setSmallIcon(android.R.drawable.ic_secure).setOngoing(true).setContentIntent(pendingIntent)
-                .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", stopPendingIntent).build()
+                .setContentTitle(card.title).setContentText(card.text).setSmallIcon(android.R.drawable.ic_secure).setOngoing(true).setContentIntent(pendingIntent)
+                .addAction(android.R.drawable.ic_menu_close_clear_cancel, res.getString(R.string.notif_action_stop), stopPendingIntent).build()
+        }
+
+        /**
+         * Resources in the language picked in Settings (`app_locale`).
+         *
+         * Activities get it from wrapContextWithLocale, but a service has no such
+         * hook, and that helper also moves the process default locale and asks
+         * the framework to store the choice — side effects a notification has no
+         * business causing. The platform per-app locale alone is not enough
+         * either: HyperOS accepts it and stores nothing, so the card would come
+         * out in the system language under an app shown in another. Only the
+         * configuration half is repeated here.
+         */
+        private fun localized(context: Context): Context {
+            val lang = GlobalSettings.getString(context, "app_locale", "sys")
+            if (lang == "sys") return context
+            localizedCache?.let { (cachedLang, ctx) -> if (cachedLang == lang) return ctx }
+            val base = context.applicationContext ?: context
+            val config = android.content.res.Configuration(base.resources.configuration)
+            config.setLocale(java.util.Locale.forLanguageTag(lang))
+            return base.createConfigurationContext(config).also { localizedCache = lang to it }
         }
         const val ACTION_STATUS_CHANGED = "io.github.bropines.tailscaled.STATUS_CHANGED"
         const val ALIAS_STATUS_CHANGED = "io.github.bropines.tailscaled.STATUS"
@@ -207,10 +259,33 @@ class TailscaledService : Service() {
 
     /** Delayed "network is back" notification refresh. Held as a named Runnable
      *  posted on refreshHandler so onDestroy can cancel it — a throwaway Handler's
-     *  callback could otherwise fire after the service was torn down. */
+     *  callback could otherwise fire after the service was torn down. The card is
+     *  read from the daemon rather than set to "connected": a network coming
+     *  back says nothing about whether the relays are reachable again. */
     private val networkNotifyRunnable = Runnable {
-        if (Appctr.isRunning()) updateNotification("Active")
+        Thread { refreshLiveCard() }.start()
     }
+
+    /**
+     * No default network since the last onLost. The card says so instead of
+     * reading the daemon, which keeps reporting Running for a while after the
+     * link is gone — the old card said "Waiting for network…" until the network
+     * returned, and the tick must not talk over that.
+     */
+    @Volatile private var waitingForNetwork = false
+
+    /** Until when the card is re-read quickly after a start; see followCardAfterStart. */
+    @Volatile private var cardFollowUntil = 0L
+    private val cardFollowRunning = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    /**
+     * The exit node's name for the "Connected" line, by address. Resolving it
+     * takes the status with every peer in it, which is not something to pull
+     * on every tick, so it is looked up once per exit node — again only if the
+     * last lookup found no name, and then at most once a minute.
+     */
+    @Volatile private var exitNodeNameCache: Pair<String, String?>? = null
+    @Volatile private var exitNodeNameFetchedAt = 0L
 
     /** Coalescing window for routing re-checks; see scheduleRootRoutingReapply. */
     private val rootRoutingReapplyDelayMs = 800L
@@ -261,8 +336,10 @@ class TailscaledService : Service() {
         val backendState = if (isRunning) {
             try { Appctr.getBackendState() } catch (e: Exception) { "" }
         } else ""
+        // An in-memory copy of the bus snapshot, so reading it every tick is free.
+        val healthWarnings = readHealthWarnings(isRunning)
 
-        checkCoordinatorOsRefusal(isRunning, backendState)
+        checkCoordinatorOsRefusal(isRunning, backendState, healthWarnings)
 
         // First Running state of this run: the netmap (and with it drive:share)
         // is in, so register Taildrive shares now if the start deferred it.
@@ -343,6 +420,9 @@ class TailscaledService : Service() {
         if (checkConnectionHealth(isRunning, backendState)) {
             interval = 5000L
         }
+
+        // After the health check: a recovery it just started owns the card.
+        publishLiveCard(isRunning, backendState, healthWarnings)
 
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         if (isRunning && powerManager.isInteractive) {
@@ -689,24 +769,199 @@ class TailscaledService : Service() {
      * with no peers and an empty CapMap, and says so only in a health warning.
      * Measured on 2026-09-07 after "Report the real OS" was turned on for a
      * node registered as Linux. Without this the app just said "connecting"
-     * forever; now it says what happened, once per outage.
+     * forever; now it says what happened, once per outage. The card says it
+     * for as long as the refusal lasts: liveStatusOf reads the same warning.
      */
-    private fun checkCoordinatorOsRefusal(isRunning: Boolean, backendState: String) {
+    private fun checkCoordinatorOsRefusal(isRunning: Boolean, backendState: String, warnings: List<HealthWarning>) {
         if (!isRunning || backendState == "Running") {
             coordinatorOsRefusalReported = false
             return
         }
         if (coordinatorOsRefusalReported) return
-        val warnings = try { Appctr.getHealthWarningsJSON() } catch (e: Exception) { "[]" }
-        if (!warnings.contains("node OS changed since last connection")) return
+        if (!coordinatorRefusedOs(warnings)) return
         coordinatorOsRefusalReported = true
         Appctr.logAndroid(
             "ERROR", "CORE",
             "The coordination server refused this node: its reported OS changed since it was registered. " +
                 "Log out and log in again to register it anew, or turn \"Report the real OS\" back off."
         )
-        updateNotification(getString(R.string.coordinator_os_refused_short))
         ServiceWatchdog.noteCoordinatorRefusedOs(this)
+    }
+
+    /** The daemon's health warnings as the IPN bus last reported them; none without a daemon. */
+    private fun readHealthWarnings(isRunning: Boolean): List<HealthWarning> =
+        if (!isRunning) emptyList()
+        else parseHealthWarnings(runCatching { Appctr.getHealthWarningsJSON() }.getOrNull())
+
+    /**
+     * Reads the tailnet and brings the card in line with it. Off the main
+     * thread: the backend state can cost a LocalAPI round trip, and the
+     * exit node's name a status fetch. Returns what the card now says, or
+     * null when there was nothing to read yet or the card was not ours to set.
+     */
+    private fun refreshLiveCard(): CardState? {
+        val isRunning = runCatching { Appctr.isRunning() }.getOrDefault(false)
+        val backendState = if (isRunning) runCatching { Appctr.getBackendState() }.getOrDefault("") else ""
+        return publishLiveCard(isRunning, backendState, readHealthWarnings(isRunning))
+    }
+
+    /**
+     * The card for what the tick just read — the main screen's states, from
+     * the same backend state and the same settled warnings.
+     *
+     * Nothing is read while the daemon is not up: a start that has not
+     * launched it yet, a stop, a crash stand-down and an auto-reconnect each
+     * own the card while they run and say what they are doing.
+     */
+    private fun publishLiveCard(isRunning: Boolean, backendState: String, warnings: List<HealthWarning>): CardState? {
+        if (!isRunning || teardownStarted || autoRestartInFlight) return null
+        if (waitingForNetwork && runCatching { connectivityManager.activeNetwork != null }.getOrDefault(false)) {
+            // A missed onAvailable must not leave the card waiting for ever.
+            waitingForNetwork = false
+        }
+        val status = if (waitingForNetwork) LiveStatus(CardState.WAITING_FOR_NETWORK)
+            else liveStatusOf(backendState, warnings, System.currentTimeMillis())
+        postLiveCard(cardFor(status))
+        return status.state
+    }
+
+    /**
+     * Posts a card read from the daemon, through the main thread and only while
+     * no teardown has begun. A reading taken on a worker just before a stop
+     * could otherwise land after the stop took the card down, and put back an
+     * ongoing card that no service owns and nothing ever removes.
+     */
+    private fun postLiveCard(card: NotificationCard) {
+        // The common tick reads what is already shown; it need not wake the main thread.
+        if (card == shownCard) return
+        refreshHandler.post {
+            if (!teardownStarted && !autoRestartInFlight) showCard(card)
+        }
+    }
+
+    /**
+     * Re-reads the card every 1.5 s for the first half-minute of a start. The
+     * tick runs every 15 s by default, and "Connecting…" held that long over a
+     * tailnet the main screen already calls connected reads as a fault. It
+     * stops the moment the card leaves Connecting, and costs nothing after.
+     */
+    private fun followCardAfterStart() {
+        cardFollowUntil = System.currentTimeMillis() + 30_000L
+        if (!cardFollowRunning.compareAndSet(false, true)) return
+        Thread {
+            try {
+                while (!teardownStarted && System.currentTimeMillis() < cardFollowUntil) {
+                    Thread.sleep(1500L)
+                    val shown = refreshLiveCard()
+                    if (shown != null && shown != CardState.CONNECTING) break
+                }
+            } catch (_: InterruptedException) {
+            } finally {
+                cardFollowRunning.set(false)
+            }
+        }.start()
+    }
+
+    /** Posts [card] unless the card already says exactly that. */
+    private fun showCard(card: NotificationCard) {
+        synchronized(cardLock) {
+            if (card == shownCard) return
+            shownCard = card
+            notificationManager.notify(MAIN_NOTIF_ID, renderCard(this, card))
+        }
+    }
+
+    /** One of the service's own moves (starting, stopping, recovering) on the card. */
+    private fun updateNotification(state: CardState) = showCard(cardFor(LiveStatus(state)))
+
+    /** What the card says now, for a path that must re-enter the foreground without reading the daemon. */
+    private fun currentCardOrConnecting(): NotificationCard =
+        shownCard ?: cardFor(LiveStatus(CardState.CONNECTING))
+
+    /**
+     * The words for [status], in the app's language. The live states borrow the
+     * main screen's own strings wherever it has them, so the two never disagree.
+     * Only CONNECTED reaches past the resources — see connectedLine.
+     */
+    private fun cardFor(status: LiveStatus): NotificationCard {
+        val res = localized(this)
+        fun card(title: Int, text: Int? = null) =
+            NotificationCard(res.getString(title), text?.let { res.getString(it) })
+        return when (status.state) {
+            CardState.CONNECTED -> NotificationCard(res.getString(R.string.notif_connected), connectedLine(res))
+            CardState.CONNECTING -> card(R.string.notif_connecting, R.string.main_status_connecting_desc)
+            CardState.DEGRADED -> NotificationCard(
+                res.getString(R.string.main_status_degraded),
+                status.issue?.let { issueTitle(res, it) }
+            )
+            CardState.NEEDS_LOGIN -> card(R.string.main_status_needs_login, R.string.notif_needs_login_text)
+            CardState.AWAITING_APPROVAL -> card(R.string.notif_awaiting_approval, R.string.notif_awaiting_approval_text)
+            CardState.OS_REFUSED -> card(R.string.coordinator_os_refused_short, R.string.notif_os_refused_text)
+            CardState.WAITING_FOR_NETWORK -> card(R.string.notif_waiting_network, R.string.notif_waiting_network_text)
+            CardState.STARTING -> card(R.string.main_status_starting)
+            CardState.RESTARTING -> card(R.string.notif_restarting)
+            CardState.RECONNECTING -> card(R.string.notif_reconnecting, R.string.notif_reconnecting_text)
+            CardState.CONNECTION_LOST -> card(R.string.notif_connection_lost, R.string.notif_connection_lost_text)
+            CardState.ROOT_FAILED -> card(R.string.notif_root_failed)
+            CardState.STOPPING -> card(R.string.notif_stopping)
+        }
+    }
+
+    /**
+     * The line under "Connected": the exit node when one carries the traffic,
+     * otherwise how the tailnet reaches apps. Root Mode yielded to another VPN
+     * leaves a selected exit node carrying nothing, and the main screen says as
+     * much, so the card names the mode then instead.
+     */
+    private fun connectedLine(res: Context): String {
+        val account = AccountManager.getActiveAccount(this)
+        val exitNodeIp = getSharedPreferences("appctr_${account.id}", Context.MODE_PRIVATE)
+            .getString("exit_node_ip", "").orEmpty()
+        val root = GlobalSettings.isRootModeEnabled(this)
+        val exitNodeInert = root && GlobalSettings.isRootRoutingYielded(this) &&
+            !GlobalSettings.isRootRoutingShared(this)
+        if (exitNodeIp.isNotBlank() && !exitNodeInert) {
+            return res.getString(R.string.main_exit_node_routed_desc, exitNodeName(exitNodeIp) ?: exitNodeIp)
+        }
+        return when {
+            root -> res.getString(R.string.notif_mode_root)
+            TunVpnService.isRunning -> res.getString(R.string.notif_mode_tun)
+            else -> res.getString(R.string.notif_mode_proxy, GlobalSettings.getSocks5BindAddr(this))
+        }
+    }
+
+    /** The exit node's host name, as the main screen shows it; see exitNodeNameCache. */
+    private fun exitNodeName(ip: String): String? {
+        val now = System.currentTimeMillis()
+        exitNodeNameCache?.let { (cachedIp, name) ->
+            if (cachedIp == ip && (name != null || now - exitNodeNameFetchedAt < 60_000L)) return name
+        }
+        exitNodeNameFetchedAt = now
+        val name = runCatching {
+            val json = Appctr.getStatusJSON(true)
+            if (json.isNullOrBlank()) null
+            else summarize(AppJson.decodeFromString<StatusResponse>(json), ip).exitNodeName
+        }.getOrNull()
+        exitNodeNameCache = ip to name
+        return name
+    }
+
+    /** The banner's title for a warning (healthTitle), outside a composition. */
+    private fun issueTitle(res: Context, w: HealthWarning): String {
+        val id = when (w.code) {
+            "no-derp-connection", "no-derp-home" -> R.string.health_relay_unreachable
+            "derp-timed-out" -> R.string.health_relay_timeout
+            "derp-region-error" -> R.string.health_relay_region
+            "not-in-map-poll" -> R.string.health_coord_unreachable
+            "mapresponse-timeout" -> R.string.health_coord_timeout
+            "tls-connection-failed" -> R.string.health_tls_failed
+            "network-status" -> R.string.health_network_down
+            "no-udp4-bind" -> R.string.health_udp_unavailable
+            "magicsock-receive-func-error" -> R.string.health_network_error
+            "login-state" -> R.string.health_login
+            else -> null
+        }
+        return id?.let { res.getString(it) } ?: w.title.ifBlank { w.code }
     }
 
     /** Ticks spent without reaching a connected state while the user wants one.
@@ -775,7 +1030,7 @@ class TailscaledService : Service() {
         autoRestartInFlight = true
         Log.w(TAG, "$reason, restarting daemon (attempt $autoRestartsDone)")
         Appctr.logAndroid("WARN", "CORE", "$reason, restarting the daemon (attempt $autoRestartsDone)")
-        updateNotification("Reconnecting...")
+        updateNotification(CardState.RECONNECTING)
 
         val gen = lifecycleGeneration.get()
         // Published as the in-flight teardown so a START arriving meanwhile joins
@@ -844,7 +1099,7 @@ class TailscaledService : Service() {
         } catch (t: Throwable) {
             Log.e(TAG, "stopTunMode failed after a daemon crash, continuing teardown", t)
         }
-        updateNotification("Connection lost")
+        updateNotification(CardState.CONNECTION_LOST)
         ServiceWatchdog.noteDaemonCrashed(this)
 
         val gen = lifecycleGeneration.incrementAndGet()
@@ -912,6 +1167,7 @@ class TailscaledService : Service() {
 
         override fun onAvailable(network: Network) {
             Log.d(TAG, "Network Available")
+            waitingForNetwork = false
             injectIfNeeded()
             // Post through refreshHandler (not a throwaway Handler) so onDestroy
             // cancels this and it cannot fire after the service is gone; remove
@@ -945,7 +1201,8 @@ class TailscaledService : Service() {
         override fun onLost(network: Network) {
             Log.d(TAG, "Network Lost")
             injectIfNeeded()
-            if (Appctr.isRunning()) updateNotification("Waiting for network...")
+            waitingForNetwork = true
+            if (Appctr.isRunning()) postLiveCard(cardFor(LiveStatus(CardState.WAITING_FOR_NETWORK)))
             scheduleRootRoutingReapply("the default network went away")
         }
 
@@ -1349,35 +1606,43 @@ class TailscaledService : Service() {
      * branching or teardown — several branches used to reach stopMe(), whose
      * root teardown can take seconds, without ever calling it.
      */
-    private fun enterForeground(status: String) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(
-                1,
-                buildNotification(status),
-                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-            )
-        } else {
-            startForeground(1, buildNotification(status))
+    private fun enterForeground(card: NotificationCard) {
+        synchronized(cardLock) {
+            val notification = renderCard(this, card)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(
+                    1,
+                    notification,
+                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                )
+            } else {
+                startForeground(1, notification)
+            }
+            shownCard = card
         }
     }
+
+    private fun enterForeground(state: CardState) = enterForeground(cardFor(LiveStatus(state)))
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action
 
         if (intent == null && !ProxyState.isUserLetRunning(this)) {
-            enterForeground("Stopping...")
+            enterForeground(CardState.STOPPING)
             stopMe()
             return START_NOT_STICKY
         }
 
         if (action == "STOP_ACTION") {
-            enterForeground("Stopping...")
+            enterForeground(CardState.STOPPING)
             stopMe()
             return START_NOT_STICKY
         }
 
         if (action == "REFRESH_ACTION" || action == "APPLY_SETTINGS" || action == ACTION_APPLY_SETTINGS) {
-            enterForeground("Active")
+            // A settings change says nothing about the tailnet: keep what the
+            // card says, and let the tick change it if the change did.
+            enterForeground(currentCardOrConnecting())
             if (!ProxyState.isActualRunning(this)) {
                 // Nothing is running and the daemon is genuinely gone. Do not run
                 // the full stopMe() teardown here — it clears the user's
@@ -1429,7 +1694,7 @@ class TailscaledService : Service() {
         }
         
         if (action == "RESTART_ACTION") {
-            enterForeground("Restarting...")
+            enterForeground(CardState.RESTARTING)
             // A restart must not run through stopMe(): that calls stopSelf(), and
             // the daemon was then started again on a service the system was already
             // tearing down. Shut the daemon down in place and bring it back up.
@@ -1483,17 +1748,18 @@ class TailscaledService : Service() {
             // started nothing — and the teardown then killed the daemon under it.
             // Let the teardown finish (it no longer stops the service, see stopMe)
             // and start fresh afterwards.
-            enterForeground("Restarting...")
+            enterForeground(CardState.RESTARTING)
             Thread {
                 try { pendingStop.join(15_000) } catch (_: InterruptedException) {}
                 startTailscale()
             }.start()
         } else if (!Appctr.isRunning()) {
-            enterForeground("Starting...")
+            enterForeground(CardState.STARTING)
             startTailscale()
         } else {
-            enterForeground("Active")
-            updateNotification("Active")
+            // Already up (a second tap, the watchdog): the card stands, and the
+            // tick a second from now reads the daemon again.
+            enterForeground(currentCardOrConnecting())
         }
         
         refreshHandler.removeCallbacks(refreshRunnable)
@@ -1565,7 +1831,7 @@ class TailscaledService : Service() {
                         if (!ok) {
                             // Do not report "Active" for a daemon that never came up.
                             Log.e(TAG, "Root daemon failed to start, aborting service start")
-                            updateNotification("Root daemon failed to start")
+                            updateNotification(CardState.ROOT_FAILED)
                             stopMe()
                             return@Thread
                         }
@@ -1621,7 +1887,10 @@ class TailscaledService : Service() {
                     shutdownDaemon()
                     return@Thread
                 }
-                updateNotification("Active")
+                // Not "connected" yet: the daemon has only been launched. The card
+                // follows it on a thread of its own, so a slow LocalAPI answer
+                // cannot hold up the rest of the start.
+                followCardAfterStart()
                 applicationContext.sendBroadcast(Intent("START").setPackage(packageName))
                 forceAppWidgetUpdate(this@TailscaledService)
                 if (waitForDaemonReady()) {
@@ -1875,7 +2144,7 @@ class TailscaledService : Service() {
             // touching TunVpnService when its native library cannot be loaded.
             Log.e(TAG, "stopTunMode failed during stop, continuing teardown", t)
         }
-        updateNotification("Stopping...")
+        updateNotification(CardState.STOPPING)
 
         // Root teardown talks to `su` and can take seconds; doing that on the
         // caller's thread froze the UI whenever the tile or the notification
@@ -1980,10 +2249,6 @@ class TailscaledService : Service() {
         updateAllWidgets(this@TailscaledService)
         forceAppWidgetUpdate(this@TailscaledService)
     }
-    private fun updateNotification(status: String) =
-        notificationManager.notify(MAIN_NOTIF_ID, buildStatusNotification(this, statusText(this, status)))
-
-    private fun buildNotification(status: String): Notification = buildStatusNotification(this, statusText(this, status))
 
     private fun applyTagsAndRoutes(context: Context) {
         val activeAccount = AccountManager.getActiveAccount(context)
@@ -2264,8 +2529,62 @@ class TailscaledService : Service() {
         try { globalPrefs.unregisterOnSharedPreferenceChangeListener(rootRulePrefsListener) } catch (e: Exception) {}
         TaildropEvents.detach()
         if (wakeLock?.isHeld == true) wakeLock?.release()
+        // The card went with the service. Forgetting it lets the next start's
+        // first post through, and keeps a TUN service that comes up on its own
+        // from re-posting a card of a session that is over.
+        synchronized(cardLock) { shownCard = null }
         super.onDestroy()
     }
-    
+
     override fun onBind(intent: Intent?): IBinder? = null
 }
+
+/** One ongoing card: a headline, and the line under it (none for a bare transition). */
+internal data class NotificationCard(val title: String, val text: String?)
+
+/**
+ * What the card can say. The first six are read from the daemon and follow the
+ * main screen's status card (connected, connecting, a connection problem,
+ * sign-in); the rest are the service's own moves, set by the paths that make
+ * them.
+ */
+internal enum class CardState {
+    CONNECTED, CONNECTING, DEGRADED, NEEDS_LOGIN, AWAITING_APPROVAL, OS_REFUSED,
+    WAITING_FOR_NETWORK, STARTING, RESTARTING, RECONNECTING, CONNECTION_LOST, ROOT_FAILED, STOPPING,
+}
+
+/** A card state, with the warning a DEGRADED card names. */
+internal data class LiveStatus(val state: CardState, val issue: HealthWarning? = null)
+
+/**
+ * What the coordination server says when it refuses a node whose reported OS
+ * changed; it reaches the app only as the text of a health warning.
+ */
+private const val OS_REFUSAL_MARKER = "node OS changed since last connection"
+
+/** The coordination server refused this node because its OS changed (see checkCoordinatorOsRefusal). */
+internal fun coordinatorRefusedOs(warnings: List<HealthWarning>): Boolean =
+    warnings.any { OS_REFUSAL_MARKER in it.text || OS_REFUSAL_MARKER in it.title }
+
+/**
+ * The card's state for a running daemon, decided the way the main screen
+ * decides its own: Running is connected unless a settled warning says traffic
+ * is affected; Starting (and the brief NoState before it) is still connecting.
+ * NeedsMachineAuth has a card of its own, because "connecting" would never end
+ * and "sign in" would send the user to the wrong place. A refusal by the
+ * coordination server leaves the backend in Starting, so it is checked first.
+ */
+internal fun liveStatusOf(backendState: String, warnings: List<HealthWarning>, nowMs: Long): LiveStatus =
+    when (backendState) {
+        "Running" -> {
+            val shown = visibleWarnings(warnings, nowMs)
+            if (warningsDegradeConnection(shown)) LiveStatus(CardState.DEGRADED, shown.first())
+            else LiveStatus(CardState.CONNECTED)
+        }
+        else -> when {
+            coordinatorRefusedOs(warnings) -> LiveStatus(CardState.OS_REFUSED)
+            backendState == "NeedsLogin" -> LiveStatus(CardState.NEEDS_LOGIN)
+            backendState == "NeedsMachineAuth" -> LiveStatus(CardState.AWAITING_APPROVAL)
+            else -> LiveStatus(CardState.CONNECTING)
+        }
+    }

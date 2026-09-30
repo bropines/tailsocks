@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notif_channel_status">Состояние подключения</string>
+    <string name="notif_action_stop">Остановить</string>
+
+    <string name="notif_connected">Подключено</string>
+    <string name="notif_connecting">Подключение…</string>
+    <string name="notif_needs_login_text">Откройте TailSocks, чтобы войти</string>
+    <string name="notif_awaiting_approval">Жду одобрения</string>
+    <string name="notif_awaiting_approval_text">Одобрите это устройство в админ-консоли</string>
+    <string name="notif_os_refused_text">Выйдите и войдите снова или выключите «Сообщать настоящую ОС»</string>
+
+    <string name="notif_mode_root">Root-режим</string>
+    <string name="notif_mode_tun">Режим TUN</string>
+    <string name="notif_mode_proxy">SOCKS5 на %1$s</string>
+
+    <string name="notif_stopping">Остановка…</string>
+    <string name="notif_restarting">Перезапуск…</string>
+    <string name="notif_reconnecting">Переподключение…</string>
+    <string name="notif_reconnecting_text">Перезапускаю демон, чтобы вернуть связь</string>
+    <string name="notif_waiting_network">Жду сеть…</string>
+    <string name="notif_waiting_network_text">Подключусь, когда появится сеть</string>
+    <string name="notif_connection_lost">Связь потеряна</string>
+    <string name="notif_connection_lost_text">Демон неожиданно остановился</string>
+    <string name="notif_root_failed">Root-демон не запустился</string>
+</resources>
