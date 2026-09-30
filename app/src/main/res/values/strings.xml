@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name" translatable="false">TailSocks</string>
-    <string name="first_fragment_label">Home</string>
 
     <!-- Quick Settings tile -->
     <string name="tile_state_connecting">Connecting…</string>
@@ -10,56 +9,16 @@
     <!-- Main screen -->
     <string name="status_stopped">Stopped</string>
     <string name="status_running">Running</string>
-    <string name="action_start">Connect</string>
     <string name="action_stop">Disconnect</string>
     <string name="tap_to_start">Tap to start</string>
-    <string name="tap_to_stop">Tap to stop</string>
-
-    <!-- Menu items -->
-    <string name="desc_logs">View internal daemon output</string>
-    <string name="desc_settings">Auth key, Exit nodes, Routing</string>
-    <string name="about">About</string>
-
-    <!-- Settings Headers -->
-    <string name="cat_general">General</string>
-    <string name="cat_network">Network &amp; Routing</string>
-    <string name="cat_exit_node">Exit Node Settings</string>
-    <string name="cat_advanced">Advanced</string>
 
     <!-- Settings Items -->
 
-    <string name="auth_key">Auth Key</string>
-    <string name="socks5_addr">Socks5 Address</string>
-    <string name="ssh_addr">SSH Server Address</string>
-    <string name="hostname">Device Hostname</string>
-
-    <string name="sw_advertise_exit_node">Advertise Exit Node</string>
-    <string name="sw_advertise_exit_node_desc">Allow other devices to use this phone as VPN gateway</string>
-
-    <string name="exit_node_ip">Use Exit Node (IP)</string>
-    <string name="sw_allow_lan">Allow LAN Access</string>
-    <string name="sw_allow_lan_desc">Access local devices when using Exit Node</string>
-
-    <string name="sw_accept_routes_desc">Accept subnet routes advertised by others</string>
-
-    <string name="sw_accept_dns_desc">Use Tailscale magic DNS settings</string>
-
-    <string name="extra_args">Extra Arguments (Raw)</string>
     <string name="extra_args_desc">tailscale up flags, applied on top of what the app sets itself.\n• Supported: --accept-routes, --accept-dns, --shields-up, --ssh, --exit-node-allow-lan-access, --report-posture, --hostname, --login-server, --advertise-routes, --advertise-tags, --advertise-exit-node.\n• Negate with --no-flag or =false.\n• Any other flag is ignored and named in the logs.\n• Routes and tags set here are overwritten right after start by Advertise Routes and Advertise Tags — set them there.</string>
-
-    <string name="force_bg_subtitle">Try to restart service if killed</string>
 
     <!-- Logs -->
     <string name="logs_title">Logs</string>
-    <string name="copy_logs">Copy all logs</string>
-    <string name="share_logs">Share logs</string>
-    <string name="clear_logs">Clear logs</string>
     <string name="logs_copied">Logs copied to clipboard</string>
-    <string name="no_logs">No logs yet</string>
-
-    <!-- Dialogs -->
-    <string name="version_format">Version %1$s</string>
-    <string name="notification_title">Tailscaled is active</string>
 
     <!-- Widget Descriptions -->
     <string name="widget_desc_service">Start or stop the TailSocks proxy service</string>
@@ -73,7 +32,6 @@
     <string name="action_delete">Delete</string>
     <string name="action_add">Add</string>
     <string name="action_close">Close</string>
-    <string name="action_download">Download</string>
     <string name="action_github">GitHub</string>
     <string name="issue_report_action">Report a problem</string>
     <string name="issue_list_action">Open issues</string>
@@ -88,7 +46,6 @@
     <string name="action_clear">Clear</string>
     <string name="action_rename">Rename</string>
     <string name="action_confirm">Confirm</string>
-    <string name="action_apply">Apply</string>
     <string name="action_generate">Generate</string>
     <string name="action_revoke">Revoke</string>
     <string name="action_approve">Approve</string>
@@ -100,10 +57,6 @@
     <string name="action_send">Send</string>
     <string name="action_back">Back</string>
     <string name="action_more">More options</string>
-    <string name="predictive_back_target_dashboard">Dashboard</string>
-    <string name="predictive_back_target_settings">Settings</string>
-    <string name="predictive_back_target_files_hub">Files Hub</string>
-    <string name="predictive_back_target_exit">Close App</string>
     <string name="action_disconnect">Disconnect</string>
     <string name="action_unlock">Unlock Console</string>
 
@@ -158,11 +111,11 @@
     <string name="admin_setup_tab_token">Personal Token</string>
     <string name="admin_setup_tab_oauth">OAuth Client</string>
     <string name="admin_setup_token_label">API Access Token (tskey-api-…)</string>
-    <string name="admin_setup_token_placeholder">tskey-api-XXXXX</string>
+    <string name="admin_setup_token_placeholder" translatable="false">tskey-api-XXXXX</string>
     <string name="admin_setup_client_id_label">OAuth Client ID</string>
     <string name="admin_setup_client_id_placeholder">e.g. cKXXXXX</string>
     <string name="admin_setup_client_secret_label">OAuth Client Secret (tskey-client-…)</string>
-    <string name="admin_setup_client_secret_placeholder">tskey-client-XXXXX</string>
+    <string name="admin_setup_client_secret_placeholder" translatable="false">tskey-client-XXXXX</string>
     <string name="admin_setup_token_required">API Access Token is required</string>
     <string name="admin_setup_oauth_required">Client ID and Client Secret are required</string>
     <string name="admin_setup_save_connect">Save &amp; Connect</string>
@@ -242,7 +195,7 @@
     <string name="admin_device_tags_title">Edit Device Tags</string>
     <string name="admin_device_tags_available">Available ACL Tags:</string>
     <string name="admin_device_tags_custom_label">Custom Tags (comma separated)</string>
-    <string name="admin_device_tags_custom_placeholder">tag:server, tag:prod</string>
+    <string name="admin_device_tags_custom_placeholder" translatable="false">tag:server, tag:prod</string>
     <string name="admin_device_tags_prefix_hint">Tags must start with \'tag:\' prefix</string>
     <string name="admin_device_tags_update">Update Tags</string>
 
@@ -351,7 +304,7 @@
     <string name="admin_keys_preauth_title">Pre-authorized Key</string>
     <string name="admin_keys_preauth_desc">Skip admin device approval</string>
     <string name="admin_keys_tags_label">Apply Tags (comma separated)</string>
-    <string name="admin_keys_tags_placeholder">tag:server, tag:mobile</string>
+    <string name="admin_keys_tags_placeholder" translatable="false">tag:server, tag:mobile</string>
     <string name="admin_keys_tags_supporting">Optional. Requires tag owner definition in ACL</string>
 
     <!-- Admin: Logs tab -->
@@ -427,9 +380,6 @@
     <string name="admin_settings_ns_applied">Nameservers applied</string>
     <string name="admin_settings_search_applied">Search paths applied</string>
 
-    <!-- Admin: Components (proxy dialog shared) -->
-    <string name="admin_components_never_disabled">Never / Disabled</string>
-
     <!-- ======================== UI COMPONENTS ======================== -->
 
     <!-- PeerDetailsModal -->
@@ -439,7 +389,6 @@
     <string name="peer_ping_self_caption">Round trip to itself isn\'t measured</string>
     <string name="peer_cd_ping_card">Measure round trip to %1$s</string>
     <string name="peer_send_file">Send File</string>
-    <string name="peer_cd_copy">Copy</string>
     <string name="peer_copied">Copied</string>
     <string name="peer_cd_expanded">Expanded</string>
     <string name="peer_cd_collapsed">Collapsed</string>
@@ -483,10 +432,6 @@
     <string name="peer_exit_node_selected">Selected as exit node</string>
     <string name="peer_exit_node_offered">Available as exit node</string>
 
-    <!-- FileCard -->
-    <string name="file_action_delete">Delete</string>
-    <string name="file_action_save">Save</string>
-
     <!-- ======================== MainActivity ======================== -->
 
     <string name="main_account_name_label">Account Name</string>
@@ -511,7 +456,6 @@
     <string name="main_update_downloading">Downloading update… %d%%</string>
     <string name="main_update_installing">Opening installer…</string>
     <string name="main_update_grant_perm">Please grant permission to install app updates.</string>
-    <string name="main_update_no_apk">No APK release asset found in latest release.</string>
     <string name="main_update_up_to_date">App is up to date!</string>
     <string name="main_no_exit_nodes">No exit nodes available</string>
     <string name="main_select_exit_node">Select Exit Node</string>
@@ -520,8 +464,6 @@
     <string name="main_battery_warn_desc">TailSocks may be killed in the background. Tap to disable.</string>
     <string name="main_network_sync_title">Network Sync Warning</string>
     <string name="main_network_sync_desc">Initial machine map parsing may take 1-3 minutes due to network backoff. Please do not restart.</string>
-    <string name="main_login_required_title">Login Required</string>
-    <string name="main_login_required_desc">Tap to authenticate via browser</string>
 
     <!-- ======================== SettingsActivity ======================== -->
 
@@ -558,22 +500,15 @@
     <string name="dns_error_parse_failed">Failed to parse DNS status.\n\nRaw output:\n%1$s</string>
     <string name="dns_status_unavailable">⚠ DNS Status Unavailable</string>
     <string name="dns_lookup_tool">DNS Lookup Tool</string>
-    <string name="dns_lookup_placeholder">e.g. peer.ts.net or...</string>
+    <string name="dns_lookup_placeholder">e.g. peer.ts.net or google.com</string>
     <string name="dns_cd_query">Query</string>
     <string name="dns_config_status">Configuration Status</string>
-    <string name="dns_global_state">Global State</string>
-    <string name="dns_global_state_format">Active: %1$b\nMagicDNS: %2$b</string>
     <string name="dns_split_route">Split Route</string>
     <string name="dns_cd_copy_domain">Copy domain</string>
     <string name="dns_domain_copied">Domain copied</string>
-    <string name="dns_cd_copy_ips">Copy IPs</string>
     <string name="dns_ips_copied">IPs copied</string>
 
     <string name="dns_test_local_server_title">Local DNS Server</string>
-    <string name="dns_test_address_label">Proxy Address</string>
-    <string name="dns_test_status_untested">Not Tested</string>
-    <string name="dns_test_status_active">ACTIVE</string>
-    <string name="dns_test_status_error">ERROR</string>
     <string name="dns_test_btn">Test</string>
     <string name="dns_test_success_format">Success (Reply: %1$d bytes, ping: %2$d ms)</string>
     <string name="dns_test_failed_format">Failed: %1$s</string>
@@ -585,7 +520,6 @@
 
     <!-- ======================== Taildrop / Files ======================== -->
     <string name="files_hub_title">Files</string>
-    <string name="files_cd_taildrive" translatable="false">Taildrive</string>
     <string name="files_tab_inbox">Inbox</string>
     <string name="files_tab_devices">Devices</string>
     <string name="files_tab_history">History</string>
@@ -635,7 +569,7 @@
     <!-- ======================== Main Screen ======================== -->
     <string name="main_add_account_title">Add Account</string>
     <string name="main_add_account_authkey_label">Auth key — optional</string>
-    <string name="main_add_account_authkey_placeholder">tskey-auth-…</string>
+    <string name="main_add_account_authkey_placeholder" translatable="false">tskey-auth-…</string>
     <string name="main_add_account_authkey_hint">With a key the device registers itself on the first start; leave it empty to sign in through the browser.</string>
     <string name="main_rename_account_title">Rename Account</string>
     <string name="main_update_available_format">🚀 New TailSocks update available: %1$s</string>
@@ -798,7 +732,6 @@
     <string name="serve_svc_publish_action">Define and approve this node</string>
     <string name="serve_svc_publish_no_api">The Admin API is not set up for this tailnet. Set it up under Settings → Admin API, or define the service and approve this host in the admin console.</string>
     <string name="serve_svc_open_console">Open admin console</string>
-    <string name="serve_svc_publish_done">%1$s is defined and this node is approved as its host</string>
     <string name="serve_svc_publish_failed">Could not publish the service: %1$s</string>
     <string name="serve_svc_biometric_subtitle">Changing the tailnet through the Admin API</string>
     <string name="serve_menu_publish">Publish in the tailnet…</string>
@@ -843,7 +776,6 @@
     <string name="serve_export_save_file">Save to File</string>
     <string name="serve_cert_copied">Certificate copied to clipboard!</string>
     <string name="serve_export_copy_clipboard">Copy to Clipboard</string>
-    <string name="serve_funnel_port_error">Funnel only supports ports 443, 8443, 10000</string>
 
     <!-- ======================== Settings ======================== -->
     <string name="settings_title">Settings</string>
@@ -915,8 +847,6 @@
     <string name="settings_sect_lan">LAN Access</string>
     <string name="settings_lan_access_title">Expose proxies to local network</string>
     <string name="settings_lan_access_desc">Binds SOCKS5, HTTP proxy and local DNS to 127.0.0.1 only. Enable to let other devices on this network use them.</string>
-    <string name="settings_lan_access_active">Listening on all interfaces — reachable at %1$s</string>
-    <string name="settings_lan_access_tailnet">from the tailnet at %1$s</string>
     <string name="settings_lan_access_listening">Listening on all interfaces — the addresses are below.</string>
     <string name="settings_lan_endpoint_lan">Wi‑Fi / LAN</string>
     <string name="settings_lan_endpoint_tailnet">Tailnet</string>
@@ -939,7 +869,7 @@
     <string name="settings_control_proxy_disabled">Disabled</string>
     <string name="settings_sect_service_ad">Service Advertisements</string>
     <string name="settings_ad_tags_title">Advertise Tags</string>
-    <string name="settings_ad_tags_placeholder">tag:server, tag:mobile</string>
+    <string name="settings_ad_tags_placeholder" translatable="false">tag:server, tag:mobile</string>
     <string name="settings_ad_tags_desc">Request access control tags for this node</string>
     <string name="settings_applied_tags_label">Applied Tags: %1$s</string>
     <string name="settings_ad_routes_title">Advertise Routes</string>
@@ -958,7 +888,7 @@
     <string name="settings_detailed_logs_title">Detailed Logs</string>
     <string name="settings_detailed_logs_desc">Disable log filtering (noisy!)</string>
     <string name="settings_extra_args_title">Extra Arguments</string>
-    <string name="settings_extra_args_placeholder">--flag=val ...</string>
+    <string name="settings_extra_args_placeholder" translatable="false">--flag=val …</string>
     <string name="settings_sect_account_format">Account Settings: %1$s</string>
     <string name="settings_login_server_title">Login Server (Headscale)</string>
     <string name="settings_login_server_placeholder" translatable="false">https://controlplane.tailscale.com</string>
@@ -972,7 +902,7 @@
     <string name="settings_admin_tailnet_title">Tailnet Name</string>
     <string name="settings_admin_tailnet_placeholder">e.g. taila1b2.ts.net</string>
     <string name="settings_admin_token_title">API Access Token</string>
-    <string name="settings_admin_token_placeholder">tskey-api-...</string>
+    <string name="settings_admin_token_placeholder" translatable="false">tskey-api-…</string>
     <string name="settings_admin_tailnet_missing">Please set Tailnet Name first</string>
     <string name="settings_sect_adv_profile">Advanced Profile</string>
     <string name="settings_logout_reset_title">Log Out &amp; Reset Node</string>
@@ -1040,23 +970,11 @@
     <!-- Widgets -->
     <string name="widget_service_stop">Stop Service</string>
     <string name="widget_service_start">Start Service</string>
-    <string name="widget_exit_node_disable">Disable Exit Node</string>
-    <string name="widget_exit_node_enable">Enable Exit Node</string>
     <string name="widget_exit_node_inactive">Not active</string>
     <string name="widget_exit_node_title">Exit Node</string>
     <string name="widget_exit_node_format">Exit: %1$s</string>
-    <string name="widget_peers_format">Peers: %1$d / %2$d</string>
-    <string name="widget_service_stopped">Service stopped</string>
-    <string name="widget_serve_no_rules">No active rules</string>
-    <string name="widget_serve_rules_format">TCP: %1$d  Web: %2$d  Funnel: %3$d</string>
-    <string name="widget_serve_api_error">Serve API Error</string>
-    <string name="widget_serve_purge">Purge All Rules</string>
-    <string name="widget_serve_open">Open Serve</string>
-    <string name="widget_toast_not_running">TailSocks is not running</string>
     <string name="widget_toast_exit_disabled">Exit Node disabled</string>
     <string name="widget_toast_exit_routing_format">Routing via %1$s</string>
-    <string name="widget_toast_exit_select_first">Select Exit Node in App first</string>
-    <string name="widget_toast_serve_cleared">Serve &amp; Funnel cleared</string>
 
     <!-- TUN Mode -->
     <string name="tun_notif_active">VPN Tunnel is active</string>
@@ -1075,7 +993,6 @@
     <string name="settings_tun_ipv6_title">Route all IPv6 through the tunnel</string>
     <string name="settings_tun_ipv6_desc">Tailnet addresses always use the tunnel; this is about the rest of IPv6.\n• Turn on only if your exit node really carries IPv6.\n• Otherwise sites with an IPv6 address hang instead of falling back to IPv4.</string>
 
-    <string name="main_tun_active_title">TUN Mode Active</string>
     <string name="main_tun_full_tunnel_desc">All traffic is routed through the VPN</string>
     <string name="main_tun_split_tunnel_desc">Tailscale subnet traffic is routed through the VPN</string>
 
@@ -1093,12 +1010,7 @@
     <string name="main_logged_out_title">Authentication Required</string>
     <string name="main_logged_out_desc">Your TailSocks node is not logged in. If you are in a restricted network, configure DPI Bypass or Proxy before logging in.</string>
     <string name="main_logged_out_btn_login">Log In</string>
-    <string name="main_logged_out_btn_proxy">Configure Bypass / Proxy</string>
-    <string name="main_logged_out_btn_stop">Stop Daemon</string>
-    <string name="main_logged_out_fallback_tip">Alternative: You can also enter an Auth Key or OAuth Client credentials in the Profile tab of Settings.</string>
-    <string name="main_logged_out_authkey_label">Auth Key (tskey-auth-...)</string>
-    <string name="main_logged_out_btn_authkey">Log In with Key</string>
-
+    <string name="main_logged_out_authkey_label">Auth Key (tskey-auth-…)</string>
 
     <string name="first_start_welcome_title">Welcome to TailSocks</string>
     <string name="first_start_welcome_desc">A lightweight and efficient client for Tailscale network. Ready to connect your devices easily.</string>
@@ -1125,12 +1037,9 @@
     <string name="first_start_bypass_mode_bbd">ByeByeDPI (built-in DPI bypass)</string>
     <string name="first_start_bypass_mode_proxy">Custom Proxy (HTTP/SOCKS5)</string>
     <string name="first_start_proxy_link_label">Proxy link (socks5://user:pass@ip:port)</string>
-    <string name="first_start_proxy_parse_btn">Paste</string>
     <string name="first_start_proxy_host_label">Proxy Host</string>
     <string name="first_start_proxy_port_label">Port</string>
-    <string name="first_start_authkey_label">Auth Key (tskey-auth-...)</string>
-    <string name="first_start_enable_bbd">Enable ByeByeDPI</string>
-    <string name="first_start_enable_bbd_desc">To bypass coordination server censorship</string>
+    <string name="first_start_authkey_label">Auth Key (tskey-auth-…)</string>
     <string name="settings_show_onboarding">Show Onboarding Screen</string>
     <string name="settings_show_onboarding_desc">Rerun the setup wizard and welcome screens</string>
     <string name="first_start_permissions_title">Permissions &amp; Services</string>
