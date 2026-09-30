@@ -218,6 +218,10 @@ func logWithFilter(text string) {
 			strings.Contains(lower, "netcheck") ||
 			strings.Contains(lower, "ratelimit") ||
 			strings.Contains(lower, "udp proxy: received") ||
+			// A client that closed before saying anything: a port probe (the
+			// diagnostics card makes one), a browser tab closed mid-connect.
+			// Nothing to act on, and "failed" made the log file it as an error.
+			strings.Contains(lower, "socks5: client connection failed: eof") ||
 			strings.Contains(lower, "logtail") {
 			return
 		}
