@@ -73,17 +73,17 @@
 
 ## Воспроизводимая сборка
 
-F-Droid собирает сам и сравнивает с APK автора; совпало — публикует APK автора. Тогда подпись одна на всех каналах, а для верификации Google (ниже) это единственный способ, при котором сборка из F-Droid пройдёт проверку. Что сейчас недетерминировано — проверено на `TailSocks-v4.4.4-arm64-v8a` из релиза:
+**Сделано и доказано.** 1 октября 2026 собственная сборка F-Droid коммита 1c82d1c (arm64, в CI форка fdroiddata) с перенесённой на неё подписью нашей сборки из GitHub CI прошла проверку `apksigcopier compare`: APK идентичны. F-Droid публикует наш APK с нашей подписью — переходить между GitHub и F-Droid можно без переустановки, и копия из F-Droid проходит проверку разработчика Google. В рецепте есть `AllowedAPKSigningKeys` и `binary:` для каждого ABI.
 
-- `libtailscale.so` содержит 1859 абсолютных путей вида `/home/runner/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6…`: демон и CLI собираются без `-trimpath -buildvcs=false` (`appctr/build.sh:116-175`).
-- `libgojni.so` содержит время сборки (`v1.102.5-19dd52d-2026-09-29_174046`, `appctr/build.sh:181-182`, `:187`) и путь `/home/runner/work/tailsocks/tailsocks/appctr`: gomobile пишет абсолютные `replace` во временный `go.mod`, `-trimpath` их не убирает. Лечится только одинаковым путём сборки в CI и у F-Droid (сервер F-Droid собирает в `/home/vagrant/build/<appid>` — проверить).
-- `libhev-socks5-tunnel.so` содержит 17 путей из lwip: CI собирает C отдельным `ndk-build` (`android.yml:101-111`) без `-ffile-prefix-map`, который передаёт только Gradle (`app/build.gradle.kts:69`), а Gradle свой `ndkBuild` пропускает, если `.so` уже лежат (`:96-102`). Проще всего отдать сборку C Gradle и в CI.
-- NDK не закреплён (пункт 9).
-- В APK есть `DEPENDENCY_INFO_BLOCK` — блоб, зашифрованный ключом Google; F-Droid и IzzyOnDroid просят его отключить: `android { dependenciesInfo { includeInApk = false; includeInBundle = false } }`.
-- `assets/dexopt/baseline.prof` — известный источник расхождений; смотреть, когда уйдёт остальное.
-- Имена релизных файлов содержат хэш (`android.yml:226-228`), а `Binaries:` в рецепте умеет только `%v` и `%c`: нужен вид `TailSocks-v%v-universal-release.apk`.
+Чего это стоило и что должно оставаться верным:
 
-Отпечаток сертификата для `AllowedAPKSigningKeys` уже снят с релиза 4.4.4 и лежит в черновике. Стоит ли: да, если F-Droid вообще нужен.
+- **Один APK для всех каналов.** Сборка GitHub и сборка F-Droid ничем не должны отличаться: обновлятор GitHub отключается во время работы, когда приложение поставил магазин (`UpdateChannel`), а не флагом сборки.
+- **Ядро на Go собирается в `/home/vagrant/build/io.github.bropines.tailscaled`** — пути сборки F-Droid, — потому что gomobile пишет абсолютный путь связываемого модуля в `libgojni.so` (директива replace в его собственном `go.mod`, до которой `-trimpath` не дотягивается). CI копирует туда checkout.
+- **Закреплённый NDK и для ядра.** `ANDROID_NDK_HOME` раннера по умолчанию (r27) завалил первое сравнение ровно на трёх Go-библиотеках.
+- **Ровно тот Go, что в `appctr/go.mod`** (`GOTOOLCHAIN=go1.26.6` в CI, srclib с `GOTOOLCHAIN=local` у F-Droid); `-buildvcs=false`, `-buildid=`, версия ядра со временем коммита.
+- **C-библиотеки собирает ndkBuild Gradle** с `-ffile-prefix-map` — и в CI, и у F-Droid.
+- **Только чистые сборки.** Инкрементальная сборка Kotlin отличается от чистой в `classes.dex`; CI и F-Droid всегда собирают начисто.
+- **Имена файлов релиза без хэша** (`TailSocks-v<версия>-<abi>-release.apk`), которые находит `%v` F-Droid.
 
 ## IzzyOnDroid
 

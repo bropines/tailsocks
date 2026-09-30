@@ -73,17 +73,17 @@ F-Droid's signature differs from the GitHub release signature: switching channel
 
 ## Reproducible build
 
-F-Droid builds the app itself and diffs it against the author's APK; on a match, it publishes the author's APK. That gives one signature across every channel, and for Google's developer verification (below) it's the only way an F-Droid build would pass the check. What's currently non-deterministic — checked against `TailSocks-v4.4.4-arm64-v8a` from the release:
+**Done, and proven.** On 2026-10-01 F-Droid's own build of commit 1c82d1c (arm64, in the fdroiddata fork's CI), with the signature of our GitHub CI build copied onto it, verified with `apksigcopier compare`: the two APKs are identical. F-Droid then publishes our APK, with our signature — users move between GitHub and F-Droid without reinstalling, and the F-Droid copy passes Google's developer verification. The recipe carries `AllowedAPKSigningKeys` and a `binary:` per ABI.
 
-- `libtailscale.so` contains 1,859 absolute paths like `/home/runner/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6…`: the daemon and CLI are built without `-trimpath -buildvcs=false` (`appctr/build.sh:116-175`).
-- `libgojni.so` embeds the build timestamp (`v1.102.5-19dd52d-2026-09-29_174046`, `appctr/build.sh:181-182`, `:187`) and the path `/home/runner/work/tailsocks/tailsocks/appctr`: gomobile writes absolute `replace` directives into a temporary `go.mod`, and `-trimpath` doesn't strip them. The only fix is matching build paths between CI and F-Droid (F-Droid's server builds under `/home/vagrant/build/<appid>` — needs checking).
-- `libhev-socks5-tunnel.so` contains 17 paths from lwip: CI builds the C side with a separate `ndk-build` (`android.yml:101-111`) that skips `-ffile-prefix-map`, which only Gradle passes (`app/build.gradle.kts:69`) — and Gradle skips its own `ndkBuild` step when the `.so` files already exist (`:96-102`). Simplest fix: let Gradle build the C side in CI too.
-- The NDK isn't pinned (item 9).
-- The APK carries a `DEPENDENCY_INFO_BLOCK` — a blob encrypted with a Google key; both F-Droid and IzzyOnDroid ask that it be disabled: `android { dependenciesInfo { includeInApk = false; includeInBundle = false } }`.
-- `assets/dexopt/baseline.prof` — a known source of diffs; worth checking once everything else is gone.
-- Release filenames embed a hash (`android.yml:226-228`), but the recipe's `Binaries:` only understands `%v` and `%c`: needs a pattern like `TailSocks-v%v-universal-release.apk`.
+What it took, and what must stay true:
 
-The certificate fingerprint for `AllowedAPKSigningKeys` has already been pulled from the 4.4.4 release and is sitting in the draft. Worth doing: yes, if F-Droid is wanted at all.
+- **One APK for every channel.** Nothing may differ between the GitHub build and F-Droid's: the GitHub updater is switched off at run time when a store installed the app (`UpdateChannel`), not by a build flag.
+- **The Go core is built in `/home/vagrant/build/io.github.bropines.tailscaled`** — F-Droid's build path — because gomobile writes the absolute path of the bound module into `libgojni.so` (a replace directive in its own `go.mod`, which `-trimpath` does not reach). CI copies the checkout there.
+- **The pinned NDK for the core too.** The runner's default `ANDROID_NDK_HOME` (r27) made the first comparison fail in exactly the three Go libraries.
+- **Exactly the Go of `appctr/go.mod`** (`GOTOOLCHAIN=go1.26.6` in CI, the srclib with `GOTOOLCHAIN=local` at F-Droid); `-buildvcs=false`, `-buildid=`, the core version stamped with the commit's time.
+- **The C libraries built by Gradle's ndkBuild** with `-ffile-prefix-map`, in CI as at F-Droid.
+- **Clean builds only.** An incremental Kotlin build differs from a clean one in `classes.dex`; CI and F-Droid always build clean.
+- **Release asset names without the hash** (`TailSocks-v<version>-<abi>-release.apk`), which F-Droid's `%v` can find.
 
 ## IzzyOnDroid
 
