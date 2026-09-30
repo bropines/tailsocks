@@ -2410,6 +2410,11 @@ fun SettingsScreen(
         val rootModeActive = GlobalSettings.isRootModeEnabled(context)
         val rootTunActive = GlobalSettings.isRootTunEnabled(context)
 
+        // First, because it is what this page is opened for when something is wrong:
+        // the state right now, before the switches that might explain it.
+        LiveDiagnosticsCard()
+        Spacer(Modifier.height(12.dp))
+
         SettingsCard(title = stringResource(R.string.settings_sect_flags_logs)) {
             SettingsSwitchItem(stringResource(R.string.settings_detailed_logs_title), stringResource(R.string.settings_detailed_logs_desc), Icons.Default.BugReport, detailedLogs) { detailedLogs = it; saveGlobalPref("detailed_logs", it) }
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))

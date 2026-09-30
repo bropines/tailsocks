@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The live state card at the top of Settings → Diagnostics. Kept apart from
+     strings.xml so work on it does not collide with edits there; Android merges
+     every file in values/. Values are short on purpose: they sit in one
+     monospace row each, next to a label. -->
+<resources>
+    <string name="diag_live_title">Live state</string>
+    <string name="diag_live_help">Refreshed every 2 s while this page is open; red marks what is wrong. Tap SOCKS5 to check the port again. Copy takes all of it, with the recent errors in full, for a bug report.</string>
+    <string name="diag_live_copy">Copy live state</string>
+    <string name="diag_live_copied">Live state copied</string>
+    <string name="diag_live_collecting">Collecting…</string>
+
+    <string name="diag_live_process">Process</string>
+    <string name="diag_live_intent">Intent</string>
+    <string name="diag_live_backend">Backend</string>
+    <string name="diag_live_health">Health</string>
+    <string name="diag_live_relays">Relays</string>
+    <string name="diag_live_traffic">Traffic</string>
+    <string name="diag_live_network">Network</string>
+    <string name="diag_live_socks" translatable="false">SOCKS5</string>
+    <string name="diag_live_http" translatable="false">HTTP</string>
+    <string name="diag_live_tun" translatable="false">TUN</string>
+    <string name="diag_live_errors">Errors</string>
+
+    <string name="diag_live_alive">alive</string>
+    <string name="diag_live_alive_up">alive · up %1$s</string>
+    <string name="diag_live_alive_attached">alive · attached %1$s</string>
+    <string name="diag_live_detached">alive · bridge not attached</string>
+    <string name="diag_live_not_running">not running</string>
+    <string name="diag_live_intent_value">want %1$s · is %2$s</string>
+    <string name="diag_live_on">on</string>
+    <string name="diag_live_off">off</string>
+    <string name="diag_live_none">none</string>
+    <string name="diag_live_relays_value">live %1$d · reconnected %2$s\u00A0ago</string>
+    <string name="diag_live_relays_never">live %1$d · never reconnected</string>
+    <string name="diag_live_no_engine">no engine status yet</string>
+    <string name="diag_live_traffic_value">peers %1$d · ↓%2$s ↑%3$s</string>
+    <string name="diag_live_validated">validated</string>
+    <string name="diag_live_not_validated">not\u00A0validated</string>
+    <string name="diag_live_no_network">no network</string>
+    <string name="diag_live_listening">listening</string>
+    <string name="diag_live_not_listening">not listening</string>
+    <string name="diag_live_taken">held by another app</string>
+    <string name="diag_live_checked">checked %1$s\u00A0ago</string>
+    <string name="diag_live_recheck">Check again</string>
+    <string name="diag_live_vpn_up">%1$s · VPN up</string>
+    <string name="diag_live_vpn_down">%1$s · VPN down</string>
+    <string name="diag_live_root_tun">root · kernel TUN</string>
+    <string name="diag_live_root_no_tun">root · no TUN</string>
+
+    <!-- The two largest units of a duration, e.g. "2h 14m". -->
+    <string name="diag_unit_d">%1$dd</string>
+    <string name="diag_unit_h">%1$dh</string>
+    <string name="diag_unit_m">%1$dm</string>
+    <string name="diag_unit_s">%1$ds</string>
+</resources>

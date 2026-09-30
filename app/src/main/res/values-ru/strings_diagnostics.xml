@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diag_live_title">Состояние сейчас</string>
+    <string name="diag_live_help">Обновляется раз в 2 с, пока открыта эта страница; красным — то, что не так. Нажмите на SOCKS5, чтобы проверить порт ещё раз. «Копировать» забирает всё это вместе с последними ошибками целиком — для отчёта об ошибке.</string>
+    <string name="diag_live_copy">Скопировать состояние</string>
+    <string name="diag_live_copied">Состояние скопировано</string>
+    <string name="diag_live_collecting">Собираю…</string>
+
+    <string name="diag_live_process">Процесс</string>
+    <string name="diag_live_intent">Намерение</string>
+    <string name="diag_live_backend">Бэкенд</string>
+    <string name="diag_live_health">Здоровье</string>
+    <string name="diag_live_relays">Реле</string>
+    <string name="diag_live_traffic">Трафик</string>
+    <string name="diag_live_network">Сеть</string>
+    <string name="diag_live_errors">Ошибки</string>
+
+    <string name="diag_live_alive">жив</string>
+    <string name="diag_live_alive_up">жив · работает %1$s</string>
+    <string name="diag_live_alive_attached">жив · подключён %1$s</string>
+    <string name="diag_live_detached">жив · мост не подключён</string>
+    <string name="diag_live_not_running">не запущен</string>
+    <string name="diag_live_intent_value">нужно: %1$s · есть: %2$s</string>
+    <string name="diag_live_on">вкл</string>
+    <string name="diag_live_off">выкл</string>
+    <string name="diag_live_none">нет</string>
+    <string name="diag_live_relays_value">живых %1$d · переподключены %2$s\u00A0назад</string>
+    <string name="diag_live_relays_never">живых %1$d · не переподключались</string>
+    <string name="diag_live_no_engine">статуса движка ещё нет</string>
+    <string name="diag_live_traffic_value">пиров %1$d · ↓%2$s ↑%3$s</string>
+    <string name="diag_live_validated">проверена</string>
+    <string name="diag_live_not_validated">не\u00A0проверена</string>
+    <string name="diag_live_no_network">сети нет</string>
+    <string name="diag_live_listening">слушает</string>
+    <string name="diag_live_not_listening">не слушает</string>
+    <string name="diag_live_taken">занят другим приложением</string>
+    <string name="diag_live_checked">проверено %1$s\u00A0назад</string>
+    <string name="diag_live_recheck">Проверить снова</string>
+    <string name="diag_live_vpn_up">%1$s · VPN поднят</string>
+    <string name="diag_live_vpn_down">%1$s · VPN не поднят</string>
+    <string name="diag_live_root_tun">root · TUN ядра</string>
+    <string name="diag_live_root_no_tun">root · без TUN</string>
+
+    <string name="diag_unit_d">%1$d\u00A0д</string>
+    <string name="diag_unit_h">%1$d\u00A0ч</string>
+    <string name="diag_unit_m">%1$d\u00A0мин</string>
+    <string name="diag_unit_s">%1$d\u00A0с</string>
+</resources>
