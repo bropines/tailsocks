@@ -5,7 +5,7 @@
 <h1 align="center">TailSocks</h1>
 
 <p align="center">
-  <strong>Advanced Tailscale Client for Android with Userspace Networking & Transparent TUN VPN</strong>
+  <strong>Unofficial Tailscale client for Android — a proxy, a VPN, or root routing</strong>
 </p>
 
 <p align="center">
@@ -15,13 +15,17 @@
 <p align="center">
   <a href="https://github.com/bropines/tailsocks/releases/latest"><img src="https://img.shields.io/github/v/release/bropines/tailsocks?style=for-the-badge&logo=github&logoColor=white&label=Latest%20Release&color=2ea44f" alt="Latest Release" /></a>
   <a href="https://github.com/bropines/tailsocks/releases"><img src="https://img.shields.io/github/downloads/bropines/tailsocks/total?style=for-the-badge&logo=android&logoColor=white&label=Downloads&color=3ddc84" alt="Downloads" /></a>
-  <a href="https://github.com/tailscale/tailscale/releases/tag/v1.102.1"><img src="https://img.shields.io/badge/Tailscale_Core-v1.102.1-blue?style=for-the-badge&logo=tailscale&logoColor=white" alt="Tailscale Core" /></a>
+  <a href="https://github.com/tailscale/tailscale/releases/tag/v1.102.5"><img src="https://img.shields.io/badge/Tailscale_Core-v1.102.5-blue?style=for-the-badge&logo=tailscale&logoColor=white" alt="Tailscale Core" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-BSD_3--Clause-orange?style=for-the-badge" alt="License" /></a>
 </p>
 
 <p align="center">
   <a href="https://github.com/bropines/tailsocks/releases/latest">
     <img src="https://img.shields.io/badge/⬇_Download_APK-Release-2ea44f?style=for-the-badge&logo=android&logoColor=white" alt="Download Release APK" />
+  </a>
+  &nbsp;
+  <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/bropines/tailsocks">
+    <img src="https://img.shields.io/badge/Get_it_on-Obtainium-7b5cf5?style=for-the-badge" alt="Get it on Obtainium" />
   </a>
   &nbsp;
   <a href="https://boosty.to/pinus">
@@ -33,11 +37,15 @@
   </a>
 </p>
 
+<p align="center">
+  <img src="docs/screenshots/en/hero.webp" alt="TailSocks: the main screen, peers and network check" width="100%" />
+</p>
+
 ---
 
-TailSocks is a high-performance Android client for [Tailscale](https://tailscale.com/) that operates in **userspace-networking mode** via `tsnet`. It provides a complete Tailscale environment — including [Taildrop™](https://tailscale.com/kb/1106/taildrop), [Exit Nodes](https://tailscale.com/kb/1103/exit-nodes), [Serve & Funnel](https://tailscale.com/kb/1242/tailscale-serve), and [Taildrive™](https://tailscale.com/kb/1369/taildrive) — without requiring Android's `VpnService` permission, enabling seamless coexistence with other VPN and firewall applications.
+TailSocks runs a full [Tailscale](https://tailscale.com/) node on your Android phone and lets you choose how it reaches the rest of the device: as a **local SOCKS5/HTTP proxy** that needs no VPN permission and coexists with any other VPN, as a **system-wide VPN** (TUN, split or full tunnel), or — on rooted devices — through a **real kernel interface** with policy routing. Everything Tailscale offers is there: [exit nodes](https://tailscale.com/kb/1103/exit-nodes), [MagicDNS](https://tailscale.com/kb/1081/magicdns), [Taildrop™](https://tailscale.com/kb/1106/taildrop), [Taildrive™](https://tailscale.com/kb/1369/taildrive), [Serve & Funnel](https://tailscale.com/kb/1242/tailscale-serve), several accounts, Headscale, and a built-in DPI bypass for the control plane where Tailscale is blocked.
 
-Optionally, TailSocks supports a **transparent TUN VPN mode** powered by the native [hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel) engine, providing full or split tunnel routing for system-wide connectivity.
+It tells you what is actually going on: whether the tailnet is connected, still connecting or cut off from its relays, which of your devices are reachable directly and which only through a relay — and offers the one action that helps.
 
 ---
 
@@ -81,9 +89,10 @@ Optionally, TailSocks supports a **transparent TUN VPN mode** powered by the nat
 
 | Feature | Description |
 |---------|-------------|
-| **Compact Dashboard** | High-density 2×4 grid — Console, Peers, Logs, Files, DNS, Netcheck, Settings, Serve. |
+| **Honest Dashboard** | A status card with six states — stopped, starting, connecting, connected, a connection problem, sign-in needed — a banner naming what is wrong with a one-tap fix (reconnect the relays, open the DPI bypass), and a summary of the tailnet: this device, how many peers are online, the exit node by name, the home relay. |
+| **Adaptive Layout** | Two panes wherever there is room — landscape, tablets, foldables (laid out around the hinge, including the half-open tabletop posture); lists and forms hold a readable width on large screens. |
 | **Material 3 Theming** | System, Light, Dark, AMOLED Black modes. 7 color presets + Material You dynamic colors. |
-| **Localization** | Crowdin-compatible i18n system. Russian language included. |
+| **Localization** | English and Russian, as standard Android string resources. |
 | **Home Screen Widgets** | Jetpack Glance widgets — Service Toggle, Exit Node, Stats Dashboard, Serve status. |
 | **Quick Settings Tile** | System Quick Settings tile with active profile display and account switching. |
 | **Network Diagnostics** | Native netcheck with DERP latency visualization, NAT type detection, and public IP reporting. |
@@ -93,69 +102,20 @@ Optionally, TailSocks supports a **transparent TUN VPN mode** powered by the nat
 
 ## 📸 Screenshots
 
-<details>
-<summary><strong>Interface Screenshots</strong></summary>
-
-<table width="100%">
+<table>
   <tr>
-    <td width="33%" align="center">
-      <strong>Main Dashboard</strong><br/>
-      <img width="100%" src="https://github.com/user-attachments/assets/9366761f-f7de-4802-96ea-269d49bfffd3" />
-    </td>
-    <td width="33%" align="center">
-      <strong>Account Switcher</strong><br/>
-      <img width="100%" src="https://github.com/user-attachments/assets/b91dfc72-774c-4ad1-8eb0-77bd076ce1e9" />
-    </td>
-    <td width="33%" align="center">
-      <strong>Peers List</strong><br/>
-      <img width="100%" src="https://github.com/user-attachments/assets/576774f6-8371-437b-b610-1555e1af12c0" />
-    </td>
+    <td width="25%" align="center"><img src="docs/screenshots/en/main.webp" alt="Connected" /><br/><sub>Connected, with a summary of the tailnet</sub></td>
+    <td width="25%" align="center"><img src="docs/screenshots/en/main-problem.webp" alt="Relay problem" /><br/><sub>What is wrong, and the one action that helps</sub></td>
+    <td width="25%" align="center"><img src="docs/screenshots/en/peers.webp" alt="Peers" /><br/><sub>Peers, pinged all at once</sub></td>
+    <td width="25%" align="center"><img src="docs/screenshots/en/netcheck.webp" alt="Network check" /><br/><sub>Home relay and DERP latencies</sub></td>
   </tr>
   <tr>
-    <td width="33%" align="center">
-      <strong>System Logs</strong><br/>
-      <img width="100%" src="https://github.com/user-attachments/assets/2056b039-201e-4f4a-b11f-5fdaaad38006" />
-    </td>
-    <td width="33%" align="center">
-      <strong>Taildrop™ (Incoming)</strong><br/>
-      <img width="100%" src="https://github.com/user-attachments/assets/7f92c77b-da1d-44d7-b082-5bca6c7f86ef" />
-    </td>
-    <td width="33%" align="center">
-      <strong>Taildrive™ Shares</strong><br/>
-      <img width="100%" src="https://github.com/user-attachments/assets/0985d06b-288f-4f08-b9ce-1919cbf91d59" />
-    </td>
-  </tr>
-  <tr>
-    <td width="33%" align="center">
-      <strong>DNS Management</strong><br/>
-      <img width="100%" src="https://github.com/user-attachments/assets/faea8000-94ae-4c55-b4be-8d577d5a5fa9" />
-    </td>
-    <td width="33%" align="center">
-      <strong>App Settings</strong><br/>
-      <img width="100%" src="https://github.com/user-attachments/assets/c4e59ea7-47e1-40c3-9d71-c35b0aa1d86a" />
-    </td>
-    <td width="33%" align="center">
-      <strong>Profile Settings</strong><br/>
-      <img width="100%" src="https://github.com/user-attachments/assets/38180ff1-fb2e-4aa4-8490-424696982f87" />
-    </td>
-  </tr>
-  <tr>
-    <td width="33%" align="center">
-      <strong>Network Diagnostics</strong><br/>
-      <img width="100%" src="https://github.com/user-attachments/assets/7b7c64d9-2a6f-4693-8b60-756159b7e96f" />
-    </td>
-    <td width="33%" align="center">
-      <strong>Serve & Funnel</strong><br/>
-      <img width="100%" src="https://github.com/user-attachments/assets/940bb4fe-da87-4d5c-a1df-4342b8d9ca03" />
-    </td>
-    <td width="33%" align="center">
-      <strong>Send via Taildrop™</strong><br/>
-      <img width="100%" src="https://github.com/user-attachments/assets/209669fb-803f-4e63-b0f2-3a13ac8d8840" />
-    </td>
+    <td colspan="2" align="center"><img src="docs/screenshots/en/settings-wide.webp" alt="Settings, two panes" /><br/><sub>Settings side by side on a wide screen</sub></td>
+    <td colspan="2" align="center"><img src="docs/screenshots/en/tablet.webp" alt="Tablet" /><br/><sub>Tablets and foldables get two panes</sub></td>
   </tr>
 </table>
 
-</details>
+<sub>Rendered from an invented tailnet by the app's own preview tests — see <a href="scripts/readme_shots.py"><code>scripts/readme_shots.py</code></a>.</sub>
 
 ---
 
@@ -201,7 +161,7 @@ TailSocks is built as a hybrid multi-layer system:
 
 ### Upstream Patches
 
-TailSocks maintains 16 minimal atomic patches in [`appctr/patches/`](appctr/patches/) to inject capabilities not exposed via LocalAPI:
+TailSocks maintains 20 minimal atomic patches in [`appctr/patches/`](appctr/patches/) to inject capabilities not exposed via LocalAPI:
 
 | Patch | Purpose |
 |-------|---------|
@@ -221,6 +181,10 @@ TailSocks maintains 16 minimal atomic patches in [`appctr/patches/`](appctr/patc
 | `14-dns-forwarder-netstack` | Dial tailnet resolvers through netstack, and rescue a query the exit node refuses |
 | `15-dnscache-static-hosts` | Honour `TS_STATIC_HOSTS` so a control proxy behind a hostname resolves |
 | `16-android-somark` | Mark the root daemon's own sockets so another VPN client cannot swallow them |
+| `17-android-tunfd-probe` | A probe that hands a duplicate of the VPN's TUN descriptor to a child daemon to see what it can do with it |
+| `18-android-vpn-tun` | `--tun=android-vpn`: the daemon runs the tunnel on the descriptor Android's VpnService opened (the native TUN engine) |
+| `19-android-vpn-netstack` | In that mode, dial peers through netstack and claim replies to the daemon's own flows |
+| `20-socks5-resilience` | Keep the served SOCKS5 proxy up: back off on accept errors, bound the handshake, ride out a relay reconnect |
 
 ---
 
@@ -231,7 +195,7 @@ TailSocks maintains 16 minimal atomic patches in [`appctr/patches/`](appctr/patc
 Grab the latest APK from the [Releases](https://github.com/bropines/tailsocks/releases/latest) page, or use the download buttons at the top of this README.
 
 > **Supported architectures:** `arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`  
-> **Minimum Android version:** 5.0 (API 21)
+> **Minimum Android version:** 7.0 (API 24)
 
 ### Build from Source
 

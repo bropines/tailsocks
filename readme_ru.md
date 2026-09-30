@@ -5,7 +5,7 @@
 <h1 align="center">TailSocks</h1>
 
 <p align="center">
-  <strong>Продвинутый Android-клиент для Tailscale с сетями в пользовательском пространстве (Userspace) и прозрачным TUN VPN</strong>
+  <strong>Неофициальный клиент Tailscale для Android — прокси, VPN или root-маршрутизация</strong>
 </p>
 
 <p align="center">
@@ -15,13 +15,17 @@
 <p align="center">
   <a href="https://github.com/bropines/tailsocks/releases/latest"><img src="https://img.shields.io/github/v/release/bropines/tailsocks?style=for-the-badge&logo=github&logoColor=white&label=Latest%20Release&color=2ea44f" alt="Последний Релиз" /></a>
   <a href="https://github.com/bropines/tailsocks/releases"><img src="https://img.shields.io/github/downloads/bropines/tailsocks/total?style=for-the-badge&logo=android&logoColor=white&label=Downloads&color=3ddc84" alt="Загрузки" /></a>
-  <a href="https://github.com/tailscale/tailscale/releases/tag/v1.102.1"><img src="https://img.shields.io/badge/Tailscale_Core-v1.102.1-blue?style=for-the-badge&logo=tailscale&logoColor=white" alt="Ядро Tailscale" /></a>
+  <a href="https://github.com/tailscale/tailscale/releases/tag/v1.102.5"><img src="https://img.shields.io/badge/Tailscale_Core-v1.102.5-blue?style=for-the-badge&logo=tailscale&logoColor=white" alt="Ядро Tailscale" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-BSD_3--Clause-orange?style=for-the-badge" alt="Лицензия" /></a>
 </p>
 
 <p align="center">
   <a href="https://github.com/bropines/tailsocks/releases/latest">
     <img src="https://img.shields.io/badge/⬇_Download_APK-Release-2ea44f?style=for-the-badge&logo=android&logoColor=white" alt="Скачать Release APK" />
+  </a>
+  &nbsp;
+  <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/bropines/tailsocks">
+    <img src="https://img.shields.io/badge/Установить_через-Obtainium-7b5cf5?style=for-the-badge" alt="Установить через Obtainium" />
   </a>
   &nbsp;
   <a href="https://boosty.to/pinus">
@@ -33,11 +37,15 @@
   </a>
 </p>
 
+<p align="center">
+  <img src="docs/screenshots/ru/hero.webp" alt="TailSocks: главный экран, узлы и проверка сети" width="100%" />
+</p>
+
 ---
 
-TailSocks — это высокопроизводительный клиент Android для [Tailscale](https://tailscale.com/), работающий в режиме **пользовательской сети (userspace-networking)** через `tsnet`. Приложение предоставляет полный стек возможностей Tailscale — включая [Taildrop™](https://tailscale.com/kb/1106/taildrop), [Exit Nodes](https://tailscale.com/kb/1103/exit-nodes), [Serve & Funnel](https://tailscale.com/kb/1242/tailscale-serve) и [Taildrive™](https://tailscale.com/kb/1369/taildrive) — без необходимости запрашивать системное разрешение Android `VpnService`. Это позволяет параллельно использовать другие VPN и фаерволы на устройстве.
+TailSocks запускает на Android-телефоне полноценный узел [Tailscale](https://tailscale.com/) и даёт выбрать, как он доступен остальному устройству: как **локальный SOCKS5/HTTP-прокси**, которому не нужно разрешение VPN и который уживается с любым другим VPN; как **системный VPN** (TUN, раздельный или полный туннель); или — на рутованных устройствах — через **настоящий сетевой интерфейс ядра** с policy routing. Всё, что умеет Tailscale, на месте: [выходные узлы](https://tailscale.com/kb/1103/exit-nodes), [MagicDNS](https://tailscale.com/kb/1081/magicdns), [Taildrop™](https://tailscale.com/kb/1106/taildrop), [Taildrive™](https://tailscale.com/kb/1369/taildrive), [Serve & Funnel](https://tailscale.com/kb/1242/tailscale-serve), несколько аккаунтов, Headscale и встроенный обход DPI для управляющего канала там, где Tailscale блокируют.
 
-Опционально TailSocks поддерживает режим **прозрачного системного TUN VPN** на базе нативного движка [hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel), обеспечивая полную или разделяемую маршрутизацию трафика на уровне всей системы.
+Приложение говорит, что происходит на самом деле: подключён ли тейлнет, ещё подключается или отрезан от реле, какие ваши устройства доступны напрямую, а какие только через реле, — и предлагает то единственное действие, которое поможет.
 
 ---
 
@@ -81,9 +89,10 @@ TailSocks — это высокопроизводительный клиент A
 
 | Функция | Описание |
 |---------|----------|
-| **Компактный Дашборд** | Высокоплотный сетчатый интерфейс 2×4 — Консоль, Узлы, Логи, Файлы, DNS, Netcheck, Настройки, Serve. |
+| **Честный главный экран** | Карточка статуса с шестью состояниями — остановлено, запуск, подключение, подключено, проблема со связью, нужен вход, — баннер, который называет проблему и даёт исправить её одним нажатием (переподключить реле, открыть обход DPI), и сводка тейлнета: это устройство, сколько узлов в сети, выходной узел по имени, домашнее реле. |
+| **Адаптивная вёрстка** | Две панели везде, где есть место: горизонтальная ориентация, планшеты, раскладушки (с учётом шарнира, в том числе полураскрытая поза «ноутбуком»); на больших экранах списки и формы держат читаемую ширину. |
 | **Дизайн Material 3** | Системная, Светлая, Тёмная и AMOLED Black темы. 7 цветовых пресетов + динамические цвета Material You. |
-| **Локализация** | Crowdin-совместимая i18n система. Русский язык включен в комплект поставки. |
+| **Локализация** | Английский и русский, стандартными строковыми ресурсами Android. |
 | **Виджеты Рабочего Стола** | Виджеты Jetpack Glance — Переключатель службы, Выходной узел, Дашборд статистики, Статус Serve. |
 | **Плитка Быстрых Настроек** | Плитка в шторке Android с отображением активного профиля и быстрым переключением аккаунтов. |
 | **Сетевая Диагностика** | Нативный netcheck с визуализацией задержки DERP-серверов, определением типа NAT и публичного IP. |
@@ -93,69 +102,20 @@ TailSocks — это высокопроизводительный клиент A
 
 ## 📸 Скриншоты
 
-<details>
-<summary><strong>Скриншоты Интерфейса</strong></summary>
-
-<table width="100%">
+<table>
   <tr>
-    <td width="33%" align="center">
-      <strong>Главный Дашборд</strong><br/>
-      <img width="100%" src="https://github.com/user-attachments/assets/9366761f-f7de-4802-96ea-269d49bfffd3" />
-    </td>
-    <td width="33%" align="center">
-      <strong>Переключатель Аккаунтов</strong><br/>
-      <img width="100%" src="https://github.com/user-attachments/assets/b91dfc72-774c-4ad1-8eb0-77bd076ce1e9" />
-    </td>
-    <td width="33%" align="center">
-      <strong>Список Узлов (Peers)</strong><br/>
-      <img width="100%" src="https://github.com/user-attachments/assets/576774f6-8371-437b-b610-1555e1af12c0" />
-    </td>
+    <td width="25%" align="center"><img src="docs/screenshots/ru/main.webp" alt="Подключено" /><br/><sub>Подключено, со сводкой тейлнета</sub></td>
+    <td width="25%" align="center"><img src="docs/screenshots/ru/main-problem.webp" alt="Проблема с реле" /><br/><sub>Что не так — и что поможет</sub></td>
+    <td width="25%" align="center"><img src="docs/screenshots/ru/peers.webp" alt="Узлы" /><br/><sub>Узлы с пингом всех разом</sub></td>
+    <td width="25%" align="center"><img src="docs/screenshots/ru/netcheck.webp" alt="Проверка сети" /><br/><sub>Домашнее реле и задержки DERP</sub></td>
   </tr>
   <tr>
-    <td width="33%" align="center">
-      <strong>Системные Логи</strong><br/>
-      <img width="100%" src="https://github.com/user-attachments/assets/2056b039-201e-4f4a-b11f-5fdaaad38006" />
-    </td>
-    <td width="33%" align="center">
-      <strong>Taildrop™ (Входящие)</strong><br/>
-      <img width="100%" src="https://github.com/user-attachments/assets/7f92c77b-da1d-44d7-b082-5bca6c7f86ef" />
-    </td>
-    <td width="33%" align="center">
-      <strong>Ресурсы Taildrive™</strong><br/>
-      <img width="100%" src="https://github.com/user-attachments/assets/0985d06b-288f-4f08-b9ce-1919cbf91d59" />
-    </td>
-  </tr>
-  <tr>
-    <td width="33%" align="center">
-      <strong>Управление DNS</strong><br/>
-      <img width="100%" src="https://github.com/user-attachments/assets/faea8000-94ae-4c55-b4be-8d577d5a5fa9" />
-    </td>
-    <td width="33%" align="center">
-      <strong>Настройки Приложения</strong><br/>
-      <img width="100%" src="https://github.com/user-attachments/assets/c4e59ea7-47e1-40c3-9d71-c35b0aa1d86a" />
-    </td>
-    <td width="33%" align="center">
-      <strong>Настройки Профиля</strong><br/>
-      <img width="100%" src="https://github.com/user-attachments/assets/38180ff1-fb2e-4aa4-8490-424696982f87" />
-    </td>
-  </tr>
-  <tr>
-    <td width="33%" align="center">
-      <strong>Диагностика Сети</strong><br/>
-      <img width="100%" src="https://github.com/user-attachments/assets/7b7c64d9-2a6f-4693-8b60-756159b7e96f" />
-    </td>
-    <td width="33%" align="center">
-      <strong>Serve & Funnel</strong><br/>
-      <img width="100%" src="https://github.com/user-attachments/assets/940bb4fe-da87-4d5c-a1df-4342b8d9ca03" />
-    </td>
-    <td width="33%" align="center">
-      <strong>Отправка через Taildrop™</strong><br/>
-      <img width="100%" src="https://github.com/user-attachments/assets/209669fb-803f-4e63-b0f2-3a13ac8d8840" />
-    </td>
+    <td colspan="2" align="center"><img src="docs/screenshots/ru/settings-wide.webp" alt="Настройки в две панели" /><br/><sub>Настройки в две панели на широком экране</sub></td>
+    <td colspan="2" align="center"><img src="docs/screenshots/ru/tablet.webp" alt="Планшет" /><br/><sub>Планшеты и раскладушки — две панели</sub></td>
   </tr>
 </table>
 
-</details>
+<sub>Отрисовано из вымышленного тейлнета собственными превью-тестами приложения — см. <a href="scripts/readme_shots.py"><code>scripts/readme_shots.py</code></a>.</sub>
 
 ---
 
@@ -201,7 +161,7 @@ TailSocks построен как гибридная многослойная с
 
 ### Патчи Ядра (Upstream Patches)
 
-TailSocks поддерживает 16 минимальных атомарных патчей в директории [`appctr/patches/`](appctr/patches/) для внедрения возможностей, недоступных через стандартный LocalAPI:
+TailSocks поддерживает 20 минимальных атомарных патчей в директории [`appctr/patches/`](appctr/patches/) для внедрения возможностей, недоступных через стандартный LocalAPI:
 
 | Патч | Назначение |
 |------|------------|
@@ -221,6 +181,10 @@ TailSocks поддерживает 16 минимальных атомарных 
 | `14-dns-forwarder-netstack` | Запросы к резолверам внутри tailnet идут через netstack; спасение запроса, на который выходной узел ответил отказом |
 | `15-dnscache-static-hosts` | Учёт `TS_STATIC_HOSTS`, чтобы прокси управляющего сервера за именем хоста резолвился |
 | `16-android-somark` | Маркировка сокетов root-демона, чтобы их не перехватывал другой VPN-клиент |
+| `17-android-tunfd-probe` | Проба: копия TUN-дескриптора VPN передаётся дочернему демону, чтобы узнать, что он с ним может |
+| `18-android-vpn-tun` | `--tun=android-vpn`: демон ведёт туннель на дескрипторе, открытом VpnService (нативный движок TUN) |
+| `19-android-vpn-netstack` | В этом режиме связь с узлами идёт через netstack, а ответы на собственные соединения демона забирает он |
+| `20-socks5-resilience` | Отдаваемый SOCKS5-прокси не падает: пауза при ошибках accept, ограничение на рукопожатие, переживает переподключение реле |
 
 ---
 
@@ -231,7 +195,7 @@ TailSocks поддерживает 16 минимальных атомарных 
 Загрузите последний APK со страницы [Релизов](https://github.com/bropines/tailsocks/releases/latest) или используйте кнопки скачивания в начале данного README.
 
 > **Поддерживаемые архитектуры:** `arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`  
-> **Минимальная версия Android:** 5.0 (API 21)
+> **Минимальная версия Android:** 7.0 (API 24)
 
 ### Сборка из Исходников
 
