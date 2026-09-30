@@ -193,10 +193,6 @@
     <string name="admin_devices_count">%1$d devices</string>
     <string name="admin_devices_no_devices">No devices found</string>
     <string name="admin_devices_cd_sort">Sort Devices</string>
-    <string name="admin_devices_sort_name_az">Sort by Name (A-Z)</string>
-    <string name="admin_devices_sort_name_za">Sort by Name (Z-A)</string>
-    <string name="admin_devices_sort_last_seen">Sort by Last Seen</string>
-    <string name="admin_devices_sort_update">Sort by Update Available</string>
     <string name="admin_devices_status_expired">Expired</string>
     <string name="admin_devices_status_pending">Pending</string>
 
@@ -361,7 +357,6 @@
 
     <!-- Admin: Logs tab -->
     <string name="admin_logs_search_placeholder">Search audit logs…</string>
-    <string name="admin_logs_days_label">%1$d Days</string>
     <string name="admin_logs_events_found">%1$d audit events found</string>
     <string name="admin_logs_no_events">No audit log events found</string>
     <string name="admin_logs_actor_prefix">Actor: %1$s (%2$s)</string>
@@ -409,7 +404,6 @@
     <string name="admin_settings_key_expiry_title">Default Key Expiry</string>
     <string name="admin_settings_key_expiry_desc">Set the default expiration time for device keys in this tailnet. Value must be between 1 and 180 days.</string>
     <string name="admin_settings_duration_days">Duration (Days)</string>
-    <string name="admin_settings_days_option">%1$d Days</string>
     <string name="admin_settings_access_title">Access &amp; Approval Controls</string>
     <string name="admin_settings_device_approval_title">Device Approval Required</string>
     <string name="admin_settings_device_approval_desc">New devices must be approved by an administrator before they can join.</string>
@@ -686,15 +680,11 @@
 
     <!-- ======================== Network Diagnostics ======================== -->
     <string name="netcheck_title">Network Diagnostics</string>
-    <string name="netcheck_press_refresh">Press Refresh to run health diagnostics…</string>
     <string name="netcheck_report_copied">Report copied to clipboard</string>
     <string name="netcheck_analyzing">Analyzing connection…</string>
     <string name="netcheck_connection_health">--- CONNECTION HEALTH ---\n</string>
     <string name="netcheck_status">Status: %1$s\n</string>
     <string name="netcheck_tailscale_ip">Tailscale IP: %1$s\n</string>
-    <string name="netcheck_relay_node">Relay Node: %1$s\n</string>
-    <string name="netcheck_traffic_relay">Traffic Mode: 🔀 Via Relay (UDP might be restricted)\n</string>
-    <string name="netcheck_traffic_direct">Traffic Mode: 🚀 Direct P2P (UDP is working)\n</string>
     <string name="netcheck_running_diagnostics">\n--- RUNNING DIAGNOSTICS ---\n</string>
     <string name="netcheck_udp">UDP: %1$s\n</string>
     <string name="netcheck_ipv4">IPv4: %1$s\n</string>
@@ -711,8 +701,6 @@
     <string name="netcheck_connected">CONNECTED</string>
     <string name="netcheck_offline">OFFLINE</string>
     <string name="netcheck_ip_label">IP: %1$s</string>
-    <string name="netcheck_traffic_relay_desc">Traffic: Relay node (%1$s)</string>
-    <string name="netcheck_traffic_direct_desc">Traffic: Direct P2P connection</string>
     <string name="netcheck_testing_latency_desc">Testing network latency &amp; UDP traversal…</string>
     <string name="netcheck_sect_protocol">Protocol Capabilities</string>
     <string name="netcheck_udp_stun">UDP STUN Support</string>
@@ -1470,4 +1458,6 @@
     <string name="main_status_action_start">Start</string>
     <string name="settings_update_check_title">Check for updates on launch</string>
     <string name="settings_update_check_desc">Asks GitHub for a newer release each time the app opens. The About screen can always check by hand.</string>
+    <string name="help_expand">Show more</string>
+    <string name="help_collapse">Show less</string>
 </resources>

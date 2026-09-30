@@ -1,5 +1,6 @@
 package io.github.bropines.tailscaled.ui
 
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.*
 import io.github.bropines.tailscaled.models.*
@@ -385,7 +386,21 @@ fun HelpText(
 ) {
     var cut by remember(text) { mutableStateOf(false) }
     val open = expanded.value
-    Row(modifier = modifier.animateContentSize(), verticalAlignment = Alignment.Bottom) {
+    // The whole folded text is the tap target, not only the ⓘ: at 16dp the
+    // icon was a third of the minimum touch size, and "tap the explanation to
+    // read it" is what the fold promises. No ripple — it is text, not a button.
+    val expandLabel = stringResource(if (open) R.string.help_collapse else R.string.help_expand)
+    Row(
+        modifier = modifier
+            .animateContentSize()
+            .clickable(
+                enabled = cut || open,
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClickLabel = expandLabel
+            ) { expanded.value = !open },
+        verticalAlignment = Alignment.Bottom
+    ) {
         Text(
             text,
             style = style,
@@ -406,7 +421,6 @@ fun HelpText(
                 modifier = Modifier
                     .padding(start = 4.dp, bottom = 1.dp)
                     .size(16.dp)
-                    .clickable { expanded.value = !open }
             )
         }
     }

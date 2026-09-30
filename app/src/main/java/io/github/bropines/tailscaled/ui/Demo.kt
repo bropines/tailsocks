@@ -26,7 +26,10 @@ data class DemoData(
     /** The exit node in use, if any: its name and its address. */
     val exitNodeName: String? = null,
     val exitNodeIp: String? = null,
-    /** The netcheck report, as /localapi/v0/netcheck returns it. */
+    /**
+     * The netcheck answer as the bridge returns it — Appctr.getNetcheckFromAPI's
+     * {Report, DERPMeta} document; the daemon has no netcheck endpoint of its own.
+     */
     val netcheckJson: String? = null,
     /** Log lines, as the log store renders them. */
     val logLines: List<String> = emptyList(),

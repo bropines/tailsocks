@@ -193,10 +193,6 @@
     <string name="admin_devices_count">%1$d устройств</string>
     <string name="admin_devices_no_devices">Устройства не найдены</string>
     <string name="admin_devices_cd_sort">Сортировка устройств</string>
-    <string name="admin_devices_sort_name_az">Сортировать по имени (А-Я)</string>
-    <string name="admin_devices_sort_name_za">Сортировать по имени (Я-А)</string>
-    <string name="admin_devices_sort_last_seen">Сортировать по времени активности</string>
-    <string name="admin_devices_sort_update">Сортировать по доступности обновления</string>
     <string name="admin_devices_status_expired">Истёк</string>
     <string name="admin_devices_status_pending">Ожидание</string>
 
@@ -361,7 +357,6 @@
 
     <!-- Admin: Logs tab -->
     <string name="admin_logs_search_placeholder">Поиск по аудит-логам…</string>
-    <string name="admin_logs_days_label">%1$d дней</string>
     <string name="admin_logs_events_found">%1$d событий аудита</string>
     <string name="admin_logs_no_events">События аудита не найдены</string>
     <string name="admin_logs_actor_prefix">Актор: %1$s (%2$s)</string>
@@ -409,7 +404,6 @@
     <string name="admin_settings_key_expiry_title">Срок действия ключей по умолчанию</string>
     <string name="admin_settings_key_expiry_desc">Задайте срок действия ключей устройств в данном tailnet. Значение должно быть от 1 до 180 дней.</string>
     <string name="admin_settings_duration_days">Срок (дней)</string>
-    <string name="admin_settings_days_option">%1$d дней</string>
     <string name="admin_settings_access_title">Управление доступом и одобрением</string>
     <string name="admin_settings_device_approval_title">Обязательное одобрение устройств</string>
     <string name="admin_settings_device_approval_desc">Новые устройства должны быть одобрены администратором перед подключением.</string>
@@ -686,15 +680,11 @@
 
     <!-- ======================== Network Diagnostics ======================== -->
     <string name="netcheck_title">Диагностика сети</string>
-    <string name="netcheck_press_refresh">Нажмите кнопку обновления для запуска диагностики…</string>
     <string name="netcheck_report_copied">Отчет скопирован в буфер обмена</string>
     <string name="netcheck_analyzing">Анализ соединения…</string>
     <string name="netcheck_connection_health">--- СОСТОЯНИЕ СОЕДИНЕНИЯ ---\n</string>
     <string name="netcheck_status">Статус: %1$s\n</string>
     <string name="netcheck_tailscale_ip">IP-адрес Tailscale: %1$s\n</string>
-    <string name="netcheck_relay_node">Релейный узел: %1$s\n</string>
-    <string name="netcheck_traffic_relay">Режим трафика: 🔀 Через реле (UDP может быть ограничен)\n</string>
-    <string name="netcheck_traffic_direct">Режим трафика: 🚀 Прямой P2P (UDP работает)\n</string>
     <string name="netcheck_running_diagnostics">\n--- ЗАПУСК ДИАГНОСТИКИ ---\n</string>
     <string name="netcheck_udp">UDP: %1$s\n</string>
     <string name="netcheck_ipv4">IPv4: %1$s\n</string>
@@ -711,8 +701,6 @@
     <string name="netcheck_connected">ПОДКЛЮЧЕНО</string>
     <string name="netcheck_offline">ОТКЛЮЧЕНО</string>
     <string name="netcheck_ip_label">IP: %1$s</string>
-    <string name="netcheck_traffic_relay_desc">Трафик: через реле (%1$s)</string>
-    <string name="netcheck_traffic_direct_desc">Трафик: Прямое P2P-соединение</string>
     <string name="netcheck_testing_latency_desc">Тестирование задержки сети и прохождения UDP…</string>
     <string name="netcheck_sect_protocol">Поддержка протоколов</string>
     <string name="netcheck_udp_stun">Поддержка UDP STUN</string>
@@ -1470,4 +1458,6 @@
     <string name="main_status_action_start">Запустить</string>
     <string name="settings_update_check_title">Проверять обновления при запуске</string>
     <string name="settings_update_check_desc">При каждом открытии спрашивает GitHub о новом релизе. Вручную проверить можно всегда — в «О приложении».</string>
+    <string name="help_expand">Показать полностью</string>
+    <string name="help_collapse">Свернуть</string>
 </resources>
