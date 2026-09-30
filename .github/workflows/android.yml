@@ -134,6 +134,24 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
+      # The app's version is version.properties, not the tag; a release whose
+      # tag says one version and whose APK another would confuse every updater,
+      # F-Droid's first. The code must also follow the name's scheme.
+      - name: Check the tag against version.properties
+        if: github.ref_type == 'tag'
+        run: |
+          name=$(sed -n 's/^VERSION_NAME=//p' version.properties)
+          code=$(sed -n 's/^VERSION_CODE=//p' version.properties)
+          if [ "${{ github.ref_name }}" != "v$name" ]; then
+            echo "::error::Tag ${{ github.ref_name }} does not match VERSION_NAME=$name in version.properties"
+            exit 1
+          fi
+          IFS=. read -r major minor patch <<< "$name"
+          if [ "$code" != "$((major * 1000000 + minor * 10000 + patch * 100))" ]; then
+            echo "::error::VERSION_CODE=$code does not follow VERSION_NAME=$name (major*1000000 + minor*10000 + patch*100)"
+            exit 1
+          fi
+
       - name: Download Go Core Artifacts
         uses: actions/download-artifact@v4
         with:
@@ -210,7 +228,7 @@ jobs:
         run: |
           mkdir -p apks-separated
           GIT_HASH=$(git rev-parse --short=6 HEAD)
-          BASE_VER=$(git describe --tags --always --abbrev=0 | sed 's/^v//')
+          BASE_VER=$(sed -n 's/^VERSION_NAME=//p' version.properties)
           
           find app/build/outputs/apk -name "*.apk" -not -name "*unaligned*" | while read -r apk_file; do
             filename=$(basename "$apk_file")

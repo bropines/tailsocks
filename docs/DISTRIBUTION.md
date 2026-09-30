@@ -24,7 +24,7 @@ Order of work: the Obtainium badge now → small fixes useful to every channel (
 
 ## Obtainium
 
-Added by pointing Obtainium at the repository. The *Attempt to filter APKs by CPU architecture* option (`autoApkFilterByArch`, on by default for new apps) looks for an ABI name in the filename, so it picks `…-arm64-v8a-…` out of the release's five APKs. On x86 devices, `x86_64` also matches the `x86` filter, so the user picks manually. Obtainium compares the tag (`v4.4.4`) against `versionName` (`v4.4.4-19dd52.release`) and strips the cosmetic suffix; a plain `versionName` equal to the tag would be more reliable.
+Added by pointing Obtainium at the repository. The *Attempt to filter APKs by CPU architecture* option (`autoApkFilterByArch`, on by default for new apps) looks for an ABI name in the filename, so it picks `…-arm64-v8a-…` out of the release's five APKs. On x86 devices, `x86_64` also matches the `x86` filter, so the user picks manually. Obtainium compares the tag (`v4.5.2`) against `versionName`, which since 4.5.2 is the plain version (`4.5.2`).
 
 A badge for the README (save the image `assets/graphics/badge_obtainium.png` from the Obtainium repository locally — they ask that you not hotlink it):
 
@@ -42,11 +42,11 @@ Optionally, add a config to the shared catalog at https://apps.obtainium.imranr.
 
 **Anti-features that could stall this.**
 
-- *Tracking* — F-Droid's definition includes "update checks the user doesn't know about." `MainActivity.kt:230` calls `api.github.com` on every launch. Cleared once the check becomes opt-in (off by default).
+- *Tracking* — F-Droid's definition includes "update checks the user doesn't know about." Cleared: the F-Droid build (`-PselfUpdate=false`) has no update check at all, and elsewhere the launch check is a setting.
 - *NonFreeNet* — up to the reviewer: the default coordination server and the Admin API console are Tailscale's proprietary service; the former can be swapped for a self-hosted Headscale (the login-server field), the latter can't. `com.tailscale.ipn` doesn't carry this label, which is an argument in our favor.
-- Self-update: policy bans downloading executable code without explicit consent. Ours is behind a button in "About" (`MainActivity.kt:1693`, `REQUEST_INSTALL_PACKAGES` in `AndroidManifest.xml:18`), but a GitHub APK won't install over an F-Droid-signed one anyway. In the F-Droid 2.0 client, anti-features are filters, not a ban.
+- Self-update: policy bans downloading executable code. Cleared the same way: with `-PselfUpdate=false` the About screen has no check, download or install, and a release manifest removes `REQUEST_INSTALL_PACKAGES`.
 
-**What blocks the build** (numbered for cross-referencing from the recipe):
+**What blocked the build** (numbered for cross-referencing). **All nine are fixed as of 4.5.2**; the recipe in [`distribution/io.github.bropines.tailscaled.yml`](distribution/io.github.bropines.tailscaled.yml) needs no `sed`. Item 5 became `version.properties` (`VERSION_NAME=4.5.2`, `VERSION_CODE=4050200`, read by Gradle and by F-Droid's `UpdateCheckData`; the hash moved to `BuildConfig.GIT_HASH`); item 7 is pinned in `build.sh` to the anet version in `appctr/go.mod`.
 
 | # | Where | What | Fix |
 |---|---|---|---|
@@ -64,9 +64,9 @@ Not a blocker, but the recipe needs a workaround: `jvmToolchain(17)` (`app/build
 
 **Steps.**
 
-1. Fix items 1, 5, 6, 8 (ideally 2–4 too), cut a release.
+1. ~~Fix the items above and cut a release~~ — done in 4.5.2.
 2. Fork https://gitlab.com/fdroid/fdroiddata, drop the draft into `metadata/io.github.bropines.tailscaled.yml`, update `versionName`/`versionCode`/`commit`, and remove any `sed` steps that are no longer needed.
-3. Run `fdroid lint`, `fdroid rewritemeta`, `fdroid build -v -l io.github.bropines.tailscaled` — locally or in the fork's GitLab CI.
+3. Run `fdroid lint`, `fdroid rewritemeta`, `fdroid build -v -l io.github.bropines.tailscaled` — locally or in the fork's GitLab CI. `rewritemeta` drops the draft's comments; fdroiddata's CI wants its canonical form.
 4. Open an MR. Alternative: file a request at https://gitlab.com/fdroid/rfp/-/issues (slower). After the merge, the app shows up in 24–48 hours.
 
 F-Droid's signature differs from the GitHub release signature: switching channels means uninstalling first, and uninstalling wipes profiles and keys (a backup saves you). This is worth spelling out in the README.

@@ -63,7 +63,7 @@ KEY_ALIAS=... KEY_PASSWORD=... ./gradlew app:assembleRelease
 
 * **R8-минификация и сжатие ресурсов включены** (`isMinifyEnabled = true`, `isShrinkResources = true`). В проекте намеренно нет JSON через рефлексию: модели сериализуются `kotlinx.serialization` (`core/AppJson.kt`), ресурсы никогда не ищутся по динамическому имени, а сервис AppFunctions создаёт сгенерированные KSP классы `$Aggregated…_Impl` напрямую, а не через рефлексию, поэтому урезанная сборка не зависит от keep-правил для этих путей.
 * **Проверка JNI (`verifyReleaseNativeMethods`).** TUN-библиотека регистрирует Java-методы по имени внутри `JNI_OnLoad`; если R8 удалит хотя бы один `external fun`, `System.loadLibrary` упадёт в рантайме (однажды так и было — каждая остановка роняла приложение). Задача запускается автоматически после `minifyReleaseWithR8` и перед `assembleRelease` / `bundleRelease`: она собирает все `external fun` из `app/src/main/java`, проверяет, что каждый попал под keep-правило в `seeds.txt` R8 и что ни один native-член не значится в `usage.txt`, иначе сборка падает. Отдельно: `./gradlew :app:verifyReleaseNativeMethods` после релизной сборки. При ошибке правьте `app/proguard-rules.pro` — обычный `-keep` для `native <methods>` (не `-keepclasseswithmembernames`).
-* **Версионирование:** `versionCode` — число коммитов git плюс 500, `versionName` — `v<последний тег>-<6 символов хэша>` с суффиксами `.release` / `-dev`; в CI используйте `fetch-depth: 0`.
+* **Версионирование:** `versionName` и `versionCode` берутся из `version.properties` (`4.5.2` / `4050200`; отладочная сборка добавляет `-dev`); хэш коммита — `BuildConfig.GIT_HASH`. Сборщик, который сам обновляет приложение, добавляет `-PselfUpdate=false`.
 
 ---
 

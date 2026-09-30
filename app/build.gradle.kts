@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.kotlinAndroid)
@@ -7,28 +9,24 @@ plugins {
     alias(libs.plugins.screenshot)
 }
 
-// Получаем версию из git через современные провайдеры Gradle
-val gitVersionCode = providers.exec {
-    commandLine("git", "rev-list", "--count", "HEAD")
-    workingDir = rootDir
-// The offset was 500 until 2026-09-20, when a release built from a throwaway
-// branch reached the phone: its extra merge commits put its code one ahead of
-// main's, and Android refuses anything lower as a downgrade. 502 steps over it
-// and leaves room for the next time a side branch gets installed by mistake.
-}.standardOutput.asText.map { it.trim().toInt() + 502 }.getOrElse(502)
+// The version lives in version.properties, where a release bumps it and F-Droid
+// reads it. It used to be computed from git — the commit count for the code, the
+// last tag plus the hash for the name — which no outside builder could predict.
+val appVersion = Properties().apply {
+    rootProject.file("version.properties").inputStream().use { load(it) }
+}
+val appVersionName: String = appVersion.getProperty("VERSION_NAME")
+val appVersionCode: Int = appVersion.getProperty("VERSION_CODE").toInt()
 
-val baseVersion = providers.exec {
-    commandLine("git", "describe", "--tags", "--always", "--abbrev=0")
-    workingDir = rootDir
-}.standardOutput.asText.map { it.trim().removePrefix("v") }.getOrElse("1.7.1")
-
+// The commit, for the About screen and the diagnostics: two builds between
+// releases carry the same version and differ only here.
 val gitHash = providers.exec {
     commandLine("git", "rev-parse", "--short=6", "HEAD")
     workingDir = rootDir
 }.standardOutput.asText.map { it.trim() }.getOrElse("unknown")
 
-println("-> Build VersionCode: $gitVersionCode")
-println("-> Build VersionName: v$baseVersion-$gitHash")
+println("-> Build VersionCode: $appVersionCode")
+println("-> Build VersionName: $appVersionName ($gitHash)")
 
 val releaseKeystorePath: String? = System.getenv("KEYSTORE_FILE")
 
@@ -79,8 +77,9 @@ android {
         applicationId = "io.github.bropines.tailscaled"
         minSdk = 24
         targetSdk = 35
-        versionCode = gitVersionCode
-        versionName = "v$baseVersion-$gitHash"
+        versionCode = appVersionCode
+        versionName = appVersionName
+        buildConfigField("String", "GIT_HASH", "\"$gitHash\"")
 
         ndk {
             abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64"))
@@ -131,6 +130,19 @@ android {
         (project.findProperty("updateCheckDefault") ?: "true").toString()
     )
 
+    // Whether the app can update itself from GitHub at all: the launch check,
+    // the About screen's check, download and install, and the
+    // REQUEST_INSTALL_PACKAGES permission they need. F-Droid builds with
+    // -PselfUpdate=false: it delivers updates itself, its policy has an app
+    // download no executable code, and a GitHub APK would not install over its
+    // signature anyway. The permission goes through a release manifest that
+    // removes it.
+    val selfUpdate = (project.findProperty("selfUpdate") ?: "true").toString().toBoolean()
+    defaultConfig.buildConfigField("boolean", "SELF_UPDATE", selfUpdate.toString())
+    if (!selfUpdate) {
+        sourceSets["release"].manifest.srcFile("src/noSelfUpdate/AndroidManifest.xml")
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix = ".dev"
@@ -142,7 +154,6 @@ android {
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             buildConfigField("boolean", "IS_DEV", "false")
-            versionNameSuffix = ".release"
             
             // Deliberately left unsigned when no keystore is supplied.
             //

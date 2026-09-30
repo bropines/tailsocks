@@ -62,7 +62,7 @@ object Diagnostics {
             else @Suppress("DEPRECATION") it.versionCode.toLong()
         } ?: 0L
         return """
-            App: ${info?.versionName ?: "unknown"} (code $code, ${BuildConfig.BUILD_TYPE})
+            App: ${info?.versionName ?: "unknown"} (${BuildConfig.GIT_HASH}, code $code, ${BuildConfig.BUILD_TYPE})
             Core: $core
             Installed by: $installer
         """.trimIndent()

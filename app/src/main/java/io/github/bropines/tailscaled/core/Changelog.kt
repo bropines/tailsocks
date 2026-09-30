@@ -51,9 +51,9 @@ object Changelog {
         load(context).firstOrNull { !it.version.equals("unreleased", ignoreCase = true) }
 
     /**
-     * The running build's base version, e.g. `3.6.0` for `v3.6.0-abc123.release`.
-     * Used as the "already seen" key: the git hash and build-type suffix change
-     * on every commit and would otherwise re-show the dialog after each rebuild.
+     * The running build's base version: `4.5.2`, or `4.5.2` for a debug build's
+     * `4.5.2-dev` (and for `v3.6.0-abc123.release`, the format up to 4.5.1).
+     * Used as the "already seen" key, so a suffix never re-shows the dialog.
      */
     fun currentVersion(): String =
         io.github.bropines.tailscaled.BuildConfig.VERSION_NAME.removePrefix("v").substringBefore('-')

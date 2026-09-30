@@ -2,6 +2,17 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Changed
+
+- The version reads 4.5.2 instead of v4.5.2-hash.release; the commit is shown next to it in About and in the diagnostics.
+- A build without the GitHub updater, for F-Droid: no update check, no download, no permission to install packages.
+
+### Fixed
+
+- Two builds of one commit could pull different versions of a network library the core depends on.
+
 ## [4.5.1] - 2026-09-30
 
 ### Fixed

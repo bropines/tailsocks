@@ -131,11 +131,9 @@ KEY_ALIAS=... KEY_PASSWORD=... ./gradlew app:assembleRelease
 
 ## 📝 Versioning & CI/CD Integration
 
-* **CI/CD Checkout depth**: Always use `fetch-depth: 0` in GitHub Actions checkout steps when running Gradle builds, as Gradle uses `git describe` to derive the version code and name.
-* **Version Name Sanitation**: Version names follow these formats:
-  - Release builds: `v<version>-<6_char_hash>(release)` (e.g., `v3.1.4-081be9(release)`)
-  - Debug/Dev builds: `v<version>-<6_char_hash>-dev` (e.g., `v3.1.4-081be9-dev`)  
-  Always use `.replace(Regex("[^0-9.]"), "")` when parsing or comparing version name strings in Kotlin (e.g., `isVersionNewer` in `MainActivity.kt`) to strip non-numeric suffixes before splitting.
+* **The version is [`version.properties`](version.properties)**: `VERSION_NAME` and `VERSION_CODE` (major×1000000 + minor×10000 + patch×100). The release commit bumps both and is tagged `v<VERSION_NAME>`; CI refuses a tag that disagrees, and F-Droid reads the two lines from the tag to find updates. `versionName` is exactly `4.5.2` in a release and `4.5.2-dev` in a debug build; the commit is `BuildConfig.GIT_HASH`, shown in About and in the diagnostics. Builds up to 4.5.1 read `v4.5.1-c76dbb.release`, so version parsing in Kotlin (`isVersionNewer`) still drops a `v` prefix and everything after `-`.
+* **Self-update is a build property**: `-PselfUpdate=false` (F-Droid) removes the GitHub check, download and install, and `REQUEST_INSTALL_PACKAGES` through `app/src/noSelfUpdate/AndroidManifest.xml`. Anything new that fetches or installs an APK goes behind `BuildConfig.SELF_UPDATE`.
+* **CI/CD Checkout depth**: keep `fetch-depth: 0` in GitHub Actions checkouts: the tag check and the commit hash need the history.
 * **Changelog Rules**: Track changes in [`CHANGELOG.md`](CHANGELOG.md):
   - Always record new changes under a bumped version header (`## [X.Y.Z] - YYYY-MM-DD`). Do not append changes to an already released or tagged version header.
   - **One terse line per change.** An entry names *what* changed in one sentence of about twenty words at most, under Added / Changed / Fixed / Security. The *why*, the mechanism and the measurements belong in the commit message body — that is where a reader who wants them goes. CI copies the tagged section into the GitHub release notes verbatim, so a long entry is a long release page. Calibrate against the `[4.1.1]` section; the `[4.0.0]` and `[4.1.0]` sections are the style to avoid.

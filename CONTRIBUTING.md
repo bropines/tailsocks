@@ -185,11 +185,11 @@ The why and the details go into the commit message body, where anyone who
 wants them can read them. CI copies the tagged section into the GitHub release
 notes verbatim. Calibrate against the `[4.1.1]` section.
 
-**Versioning is derived, never typed.** Gradle computes `versionName` from
-`git describe --tags --always --abbrev=0` and `versionCode` from
-`git rev-list --count HEAD` + 500, so no file contains a version number to bump.
-A release is made by tagging `vX.Y.Z`; at that moment the `Unreleased` heading
-is renamed to `## [X.Y.Z] - YYYY-MM-DD`. That rename is load-bearing: CI builds
+**The version is written in one file.** `version.properties` holds
+`VERSION_NAME` and `VERSION_CODE` (major×1000000 + minor×10000 + patch×100);
+Gradle and F-Droid both read it. A release commit bumps both, renames the
+`Unreleased` heading to `## [X.Y.Z] - YYYY-MM-DD`, and is tagged `vX.Y.Z` — CI
+refuses a tag that disagrees with the file. That rename is load-bearing: CI builds
 the GitHub release notes by matching `## [<tag without the v>]` in
 `CHANGELOG.md`, and a tag with no matching heading ships an empty release.
 Tagging is the maintainer's job — send a pull request against `main` and leave
