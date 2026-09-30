@@ -68,17 +68,18 @@ ABI splits are on, so output is a universal APK plus one per ABI under
 
 Do not commit generated or private inputs: the `.so` binaries, `appctr/tmp/`,
 `appctr/tailscale_src/`, `appctr/orig/` and keystores are all git-ignored, and
-should stay that way. UI text is maintained by hand in this repository: add
-the string to `app/src/main/res/values/strings.xml` **and** its translation to
-`app/src/main/res/values-ru/strings.xml` in the same commit. Nothing regenerates
-the Russian locale — `.github/crowdin.yml` exists but no workflow uses it — and
-an untranslated Russian UI is treated as a defect, not as pending work.
+should stay that way. English and Russian UI text is maintained by hand in
+this repository: add the string to `app/src/main/res/values/strings.xml` (or the
+screen's own `strings_<area>.xml`) **and** its translation to `values-ru/` in
+the same commit; an untranslated Russian UI is treated as a defect, not as
+pending work. Every other language comes from Hosted Weblate as pull requests —
+see [`docs/TRANSLATING.md`](docs/TRANSLATING.md).
 
 ## 3. Daemon changes are patches, not edits
 
 `appctr/tailscale_src/` is **generated** and git-ignored: pristine upstream
 Tailscale with `appctr/patches/*.patch` applied in alphabetical order
-(`01-enable-socks-android` … `16-android-somark`, sixteen today).
+(`01-enable-socks-android` … `20-socks5-resilience`, twenty today).
 `appctr/orig/` holds the pristine copy the patches are diffed against. The
 source of truth is the patch files; the tree is scratch space.
 
