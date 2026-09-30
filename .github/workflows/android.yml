@@ -70,14 +70,32 @@ jobs:
 
       - name: Build AppCtr Core
         run: |
-          cd appctr
+          # Built where F-Droid builds, /home/vagrant/build/<applicationId>:
+          # gomobile writes the absolute path of the module it binds into
+          # libgojni.so (a replace directive in its own go.mod, which -trimpath
+          # does not reach), and F-Droid ships our APK only if its rebuild of
+          # the release matches it byte for byte. Everything else in the APK
+          # was checked not to depend on the path.
+          BUILD_DIR=/home/vagrant/build/io.github.bropines.tailscaled
+          sudo mkdir -p /home/vagrant/build
+          sudo chown -R "$(id -u):$(id -g)" /home/vagrant
+          cp -a "$GITHUB_WORKSPACE" "$BUILD_DIR"
+          cd "$BUILD_DIR/appctr"
+          # Exactly the Go of appctr/go.mod, as F-Droid's build uses (its srclib,
+          # GOTOOLCHAIN=local): "auto" would also switch a command to the newest
+          # patch release whenever a dependency asks for more, and the release
+          # must come out of the same compiler to be reproduced.
+          export GOTOOLCHAIN=go$(awk '$1 == "go" { print $2 }' go.mod)
           # Pinned to the x/mobile version appctr/go.mod requires, so a new
           # upstream gomobile cannot change the bridge between two builds.
           MOBILE_VER=$(awk '$1 == "golang.org/x/mobile" { print $2 }' go.mod)
           go install golang.org/x/mobile/cmd/gomobile@"$MOBILE_VER"
-          gomobile init
           go install golang.org/x/mobile/cmd/gobind@"$MOBILE_VER"
           bash build.sh
+          # Back into the workspace, where the upload step looks.
+          mkdir -p "$GITHUB_WORKSPACE/appctr/tmp" "$GITHUB_WORKSPACE/app/src/main/jniLibs"
+          cp "$BUILD_DIR/appctr/tmp/appctr.aar" "$GITHUB_WORKSPACE/appctr/tmp/"
+          cp -a "$BUILD_DIR/app/src/main/jniLibs/." "$GITHUB_WORKSPACE/app/src/main/jniLibs/"
 
       - name: Upload Go Core Artifacts
         uses: actions/upload-artifact@v4
@@ -87,46 +105,9 @@ jobs:
             app/src/main/jniLibs/
             appctr/tmp/appctr.aar
 
-  build-c:
-    name: Build C Native Libraries
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: "recursive"
-
-      - name: Setup ccache for NDK
-        uses: hendrikmuhs/ccache-action@v1.2
-        with:
-          key: ${{ runner.os }}-ndk-ccache-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-ndk-ccache-
-
-      - name: Build C Native Libraries (hev-socks5-tunnel & byedpi)
-        run: |
-          # The NDK app/build.gradle.kts pins (ndkVersion), installed if the
-          # runner image lacks it — not whichever ndk-build `find` meets first.
-          NDK_VER=28.2.13676358
-          SDK=${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}
-          if [ ! -x "$SDK/ndk/$NDK_VER/ndk-build" ]; then
-            yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VER" > /dev/null
-          fi
-          NDK_BUILD="$SDK/ndk/$NDK_VER/ndk-build"
-          echo "Using ndk-build at: $NDK_BUILD"
-          $NDK_BUILD -C app/src/main/jni NDK_LIBS_OUT=../jniLibs
-          ccache -s
-        env:
-          NDK_CCACHE: ccache
-
-      - name: Upload C Native Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: c-native-artifacts
-          path: app/src/main/jniLibs/
-
   build-apk:
     name: Build Android APK
-    needs: [build-go, build-c]
+    needs: [build-go]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -158,11 +139,17 @@ jobs:
           name: go-core-artifacts
           path: .
 
-      - name: Download C Native Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: c-native-artifacts
-          path: app/src/main/jniLibs
+      # The C libraries (hev-socks5-tunnel, ByeDPI) are built by Gradle's
+      # ndkBuild, as F-Droid builds them — with -ffile-prefix-map, so the
+      # APK does not depend on where the checkout is. A separate ndk-build
+      # without it used to make them here. The NDK is the one ndkVersion pins.
+      - name: Install the NDK
+        run: |
+          NDK_VER=$(sed -n 's/.*ndkVersion = "\(.*\)".*/\1/p' app/build.gradle.kts)
+          SDK=${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}
+          if [ ! -x "$SDK/ndk/$NDK_VER/ndk-build" ]; then
+            yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VER" > /dev/null
+          fi
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -222,7 +209,6 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           ANDROID_HOME: /usr/local/lib/android/sdk
-          NDK_CCACHE: ccache
 
       - name: Prepare APKs for upload
         run: |
@@ -255,8 +241,13 @@ jobs:
             out_dir="apks-separated/${abi}-${type}"
             mkdir -p "$out_dir"
             
+            # A release keeps a name F-Droid can predict from the version alone
+            # (its Binaries: pattern knows only %v); builds between releases
+            # carry the commit, since several of them share a version.
             if [ "$type" == "dev" ]; then
               cp "$apk_file" "$out_dir/TailSocks-v${BASE_VER}-${abi}-${GIT_HASH}-dev.apk"
+            elif [ "${{ github.ref_type }}" == "tag" ]; then
+              cp "$apk_file" "$out_dir/TailSocks-v${BASE_VER}-${abi}-release.apk"
             else
               cp "$apk_file" "$out_dir/TailSocks-v${BASE_VER}-${abi}-${GIT_HASH}-release.apk"
             fi

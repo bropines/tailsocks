@@ -30,6 +30,20 @@ println("-> Build VersionName: $appVersionName ($gitHash)")
 
 val releaseKeystorePath: String? = System.getenv("KEYSTORE_FILE")
 
+// The ABIs to build. A builder that packages one APK per ABI — F-Droid's
+// per-ABI entries — passes -PtargetAbi=<abi> and gets only that one, without
+// the universal APK; unset, all four and the universal one.
+val allAbis = listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+val targetAbi: String? = project.findProperty("targetAbi")?.toString()?.also {
+    require(it in allAbis) { "-PtargetAbi must be one of $allAbis, not $it" }
+}
+val builtAbis = targetAbi?.let { listOf(it) } ?: allAbis
+
+// Each ABI's APK has its own versionCode: VERSION_CODE plus 1 to 4, in the
+// digits version.properties leaves free, so a store can offer a device the APK
+// for its ABI. The universal APK keeps VERSION_CODE itself.
+val abiVersionOffset = mapOf("armeabi-v7a" to 1, "arm64-v8a" to 2, "x86" to 3, "x86_64" to 4)
+
 android {
     // Preview screenshot tests (src/screenshotTest): @Preview functions are
     // rendered on the build machine in every geometry we declare — phone,
@@ -81,8 +95,12 @@ android {
         versionName = appVersionName
         buildConfigField("String", "GIT_HASH", "\"$gitHash\"")
 
-        ndk {
-            abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64"))
+        // With one ABI the splits alone choose it: AGP refuses abiFilters
+        // beside ABI splits that have no universal APK.
+        if (targetAbi == null) {
+            ndk {
+                abiFilters.addAll(allAbis)
+            }
         }
         externalNativeBuild {
             ndkBuild {
@@ -108,8 +126,8 @@ android {
         abi {
             isEnable = true
             reset()
-            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
-            isUniversalApk = true
+            include(*builtAbis.toTypedArray())
+            isUniversalApk = targetAbi == null
         }
     }
 
@@ -190,6 +208,17 @@ android {
         }
         jniLibs {
             useLegacyPackaging = true
+        }
+    }
+}
+
+androidComponents {
+    onVariants { variant ->
+        variant.outputs.forEach { output ->
+            val abi = output.filters.firstOrNull {
+                it.filterType == com.android.build.api.variant.FilterConfiguration.FilterType.ABI
+            }?.identifier
+            output.versionCode.set(appVersionCode + (abiVersionOffset[abi] ?: 0))
         }
     }
 }

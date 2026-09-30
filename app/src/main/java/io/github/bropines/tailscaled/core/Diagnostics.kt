@@ -49,10 +49,7 @@ object Diagnostics {
     private fun versions(context: Context): String {
         val pm = context.packageManager
         val info = runCatching { pm.getPackageInfo(context.packageName, 0) }.getOrNull()
-        val installer = runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) pm.getInstallSourceInfo(context.packageName).installingPackageName
-            else @Suppress("DEPRECATION") pm.getInstallerPackageName(context.packageName)
-        }.getOrNull() ?: "sideloaded"
+        val installer = UpdateChannel.installer(context) ?: "sideloaded"
         val core = runCatching { Appctr.getCoreVersion() }.getOrDefault("unknown")
         // longVersionCode arrived in API 28; below it the report would have
         // thrown instead of being written, on the very devices whose reports

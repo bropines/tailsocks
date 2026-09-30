@@ -458,9 +458,14 @@ object GlobalSettings {
     /** The row under a connected status card: device, peers online, exit node, relay. */
     fun isConnectionSummaryShown(context: Context): Boolean = getBoolean(context, "show_connection_summary", true)
     fun setConnectionSummaryShown(context: Context, shown: Boolean) = setBoolean(context, "show_connection_summary", shown)
-    /** Ask GitHub for a newer release on launch; see UPDATE_CHECK_DEFAULT. */
+    /**
+     * Ask GitHub for a newer release on launch; see UPDATE_CHECK_DEFAULT. Never
+     * where the updater is off (UpdateChannel) — a store installed the app —
+     * whatever was stored before.
+     */
     fun isUpdateCheckOnLaunch(context: Context): Boolean =
-        getBoolean(context, "update_check_on_launch", io.github.bropines.tailscaled.BuildConfig.UPDATE_CHECK_DEFAULT)
+        UpdateChannel.selfUpdate(context) &&
+            getBoolean(context, "update_check_on_launch", io.github.bropines.tailscaled.BuildConfig.UPDATE_CHECK_DEFAULT)
     fun setUpdateCheckOnLaunch(context: Context, enabled: Boolean) = setBoolean(context, "update_check_on_launch", enabled)
 
     // -------------------------------------------------------------------------

@@ -2,6 +2,14 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Changed
+
+- Each ABI's APK has its own version code, and release file names no longer carry the commit.
+- Release builds are reproducible, so F-Droid can publish the same signed APK as the GitHub release.
+- The GitHub updater turns itself off when F-Droid or Play installed the app, instead of needing a separate build.
+
 ## [4.5.2] - 2026-10-01
 
 ### Changed

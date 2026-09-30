@@ -146,105 +146,59 @@ go mod tidy
 
 TAGS="ts_omit_systray,ts_omit_kube,ts_omit_aws,ts_omit_bird,ts_omit_qrcodes,ts_omit_desktop_sessions,ts_omit_dbus,ts_omit_networkmanager,ts_omit_resolved,ts_omit_sdnotify,ts_omit_tpm,ts_omit_logtail,ts_omit_synology,ts_omit_syspolicy,ts_omit_ssh,ts_omit_iptables,ts_omit_tap,ts_omit_linuxdnsfight,ts_omit_captiveportal,ts_omit_appconnectors,ts_omit_completion,ts_omit_completion_scripts,ts_omit_oauthkey,ts_omit_syslog,ts_omit_clientupdate,ts_omit_portlist,ts_omit_capture,ts_omit_debugportmapper,ts_omit_wakeonlan,ts_omit_relayserver,ts_omit_serviceclientprefs"
 
-echo "-> Compiling Daemon (Core) [ARM64]..."
-export CC="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang"
-export CGO_ENABLED=1
-GOOS=android GOARCH=arm64 go build -v \
-    -buildmode=pie \
-    -trimpath \
-    -tags "$TAGS" \
-    -ldflags="-s -w -checklinkname=0" \
-    -o tmp/libtailscale_arm64.so ./cmd/tailscaled
+# Everything below must come out byte for byte the same wherever it is built:
+# F-Droid rebuilds the release and ships our APK only if its build matches.
+# -trimpath drops the build paths; -buildvcs=false keeps git state out of the
+# binaries, since F-Droid edits the tree before building and Go would stamp it
+# "modified"; the core version carries the commit's time, not the clock's.
+export GOFLAGS=-buildvcs=false
 
-echo "-> Compiling CLI (Console) [ARM64]..."
-GOOS=android GOARCH=arm64 go build -v \
-    -buildmode=pie \
-    -trimpath \
-    -tags "$TAGS" \
-    -ldflags="-s -w -checklinkname=0" \
-    -o tmp/libtailscale_cli_arm64.so ./cmd/tailscale
+# TS_ABIS picks the ABIs to build, space-separated; all four by default.
+# F-Droid builds one APK per ABI and asks for just the one it is packaging.
+TS_ABIS=${TS_ABIS:-"armeabi-v7a arm64-v8a x86 x86_64"}
 
-echo "-> Compiling Daemon (Core) [ARM 32-bit]..."
-export CC="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang"
-export CGO_ENABLED=1
-GOOS=android GOARCH=arm GOARM=7 go build -v \
-    -buildmode=pie \
-    -trimpath \
-    -tags "$TAGS" \
-    -ldflags="-s -w -checklinkname=0" \
-    -o tmp/libtailscale_arm.so ./cmd/tailscaled
+# abi -> GOARCH, clang target, file suffix (gomobile takes android/<GOARCH>)
+abi_goarch()  { case $1 in armeabi-v7a) echo arm;; arm64-v8a) echo arm64;; x86) echo 386;; x86_64) echo amd64;; *) return 1;; esac; }
+abi_clang()   { case $1 in armeabi-v7a) echo armv7a-linux-androideabi21;; arm64-v8a) echo aarch64-linux-android21;; x86) echo i686-linux-android21;; x86_64) echo x86_64-linux-android21;; esac; }
+abi_suffix()  { case $1 in armeabi-v7a) echo arm;; arm64-v8a) echo arm64;; x86) echo x86;; x86_64) echo x86_64;; esac; }
 
-echo "-> Compiling CLI (Console) [ARM 32-bit]..."
-GOOS=android GOARCH=arm GOARM=7 go build -v \
-    -buildmode=pie \
-    -trimpath \
-    -tags "$TAGS" \
-    -ldflags="-s -w -checklinkname=0" \
-    -o tmp/libtailscale_cli_arm.so ./cmd/tailscale
-
-echo "-> Compiling Daemon (Core) [x86 32-bit]..."
-export CC="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/i686-linux-android21-clang"
-export CGO_ENABLED=1
-GOOS=android GOARCH=386 go build -v \
-    -buildmode=pie \
-    -trimpath \
-    -tags "$TAGS" \
-    -ldflags="-s -w -checklinkname=0" \
-    -o tmp/libtailscale_x86.so ./cmd/tailscaled
-
-echo "-> Compiling CLI (Console) [x86 32-bit]..."
-GOOS=android GOARCH=386 go build -v \
-    -buildmode=pie \
-    -trimpath \
-    -tags "$TAGS" \
-    -ldflags="-s -w -checklinkname=0" \
-    -o tmp/libtailscale_cli_x86.so ./cmd/tailscale
-
-echo "-> Compiling Daemon (Core) [x86_64 64-bit]..."
-export CC="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android21-clang"
-export CGO_ENABLED=1
-GOOS=android GOARCH=amd64 go build -v \
-    -buildmode=pie \
-    -trimpath \
-    -tags "$TAGS" \
-    -ldflags="-s -w -checklinkname=0" \
-    -o tmp/libtailscale_x86_64.so ./cmd/tailscaled
-
-echo "-> Compiling CLI (Console) [x86_64 64-bit]..."
-GOOS=android GOARCH=amd64 go build -v \
-    -buildmode=pie \
-    -trimpath \
-    -tags "$TAGS" \
-    -ldflags="-s -w -checklinkname=0" \
-    -o tmp/libtailscale_cli_x86_64.so ./cmd/tailscale
+GOMOBILE_TARGETS=""
+for ABI in $TS_ABIS; do
+    GOARCH_ABI=$(abi_goarch "$ABI") || { echo "Unknown ABI in TS_ABIS: $ABI" >&2; exit 1; }
+    SUFFIX=$(abi_suffix "$ABI")
+    GOMOBILE_TARGETS="${GOMOBILE_TARGETS:+$GOMOBILE_TARGETS,}android/$GOARCH_ABI"
+    export CC="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/$(abi_clang "$ABI")-clang"
+    export CGO_ENABLED=1
+    if [ "$GOARCH_ABI" = arm ]; then export GOARM=7; else unset GOARM; fi
+    for PART in "tailscaled:libtailscale" "tailscale:libtailscale_cli"; do
+        echo "-> Compiling ${PART%%:*} [$ABI]..."
+        GOOS=android GOARCH=$GOARCH_ABI go build -v \
+            -buildmode=pie \
+            -trimpath \
+            -tags "$TAGS" \
+            -ldflags="-s -w -buildid= -checklinkname=0" \
+            -o "tmp/${PART##*:}_${SUFFIX}.so" "./cmd/${PART%%:*}"
+    done
+done
 
 cd ..
 
 echo "[3/4] Building appctr.aar (Gomobile Bridge)..."
 GIT_HASH=$(git rev-parse --short=7 HEAD 2>/dev/null || echo "dev")
-BUILD_TIME=$(date -u +"%Y-%m-%d_%H%M%S")
+BUILD_TIME=$(TZ=UTC git log -1 --format=%cd --date=format-local:%Y-%m-%d_%H%M%S 2>/dev/null || echo "unknown")
 FULL_CORE_VER="${TS_VERSION}-${GIT_HASH}-${BUILD_TIME}"
 
 mkdir -p tmp
-unset CC
+unset CC GOARM
 go mod tidy
-gomobile bind -ldflags="-s -w -buildid= -checklinkname=0 -X appctr.coreVersion=${FULL_CORE_VER}" -trimpath -target="android/arm,android/arm64,android/386,android/amd64" -androidapi 21 -tags "$TAGS" -o tmp/appctr.aar -v .
+gomobile bind -ldflags="-s -w -buildid= -checklinkname=0 -X appctr.coreVersion=${FULL_CORE_VER}" -trimpath -target="$GOMOBILE_TARGETS" -androidapi 21 -tags "$TAGS" -o tmp/appctr.aar -v .
 
 echo "[4/4] Copying binaries to jniLibs..."
-mkdir -p ../app/src/main/jniLibs/arm64-v8a
-cp tailscale_src/tmp/libtailscale_arm64.so ../app/src/main/jniLibs/arm64-v8a/libtailscale.so
-cp tailscale_src/tmp/libtailscale_cli_arm64.so ../app/src/main/jniLibs/arm64-v8a/libtailscale_cli.so
-
-mkdir -p ../app/src/main/jniLibs/armeabi-v7a
-cp tailscale_src/tmp/libtailscale_arm.so ../app/src/main/jniLibs/armeabi-v7a/libtailscale.so
-cp tailscale_src/tmp/libtailscale_cli_arm.so ../app/src/main/jniLibs/armeabi-v7a/libtailscale_cli.so
-
-mkdir -p ../app/src/main/jniLibs/x86
-cp tailscale_src/tmp/libtailscale_x86.so ../app/src/main/jniLibs/x86/libtailscale.so
-cp tailscale_src/tmp/libtailscale_cli_x86.so ../app/src/main/jniLibs/x86/libtailscale_cli.so
-
-mkdir -p ../app/src/main/jniLibs/x86_64
-cp tailscale_src/tmp/libtailscale_x86_64.so ../app/src/main/jniLibs/x86_64/libtailscale.so
-cp tailscale_src/tmp/libtailscale_cli_x86_64.so ../app/src/main/jniLibs/x86_64/libtailscale_cli.so
+for ABI in $TS_ABIS; do
+    SUFFIX=$(abi_suffix "$ABI")
+    mkdir -p "../app/src/main/jniLibs/$ABI"
+    cp "tailscale_src/tmp/libtailscale_${SUFFIX}.so" "../app/src/main/jniLibs/$ABI/libtailscale.so"
+    cp "tailscale_src/tmp/libtailscale_cli_${SUFFIX}.so" "../app/src/main/jniLibs/$ABI/libtailscale_cli.so"
+done
 
 echo "✅ Done! Ready to assemble APK."

@@ -232,7 +232,7 @@ class MainActivity : ComponentActivity() {
         handleAppStartup()
         // A network request on every launch, so it is the user's to switch off
         // (and off by default where a store handles updates).
-        if (BuildConfig.SELF_UPDATE && GlobalSettings.isUpdateCheckOnLaunch(this)) checkForUpdatesSilent()
+        if (GlobalSettings.isUpdateCheckOnLaunch(this)) checkForUpdatesSilent()
         else kotlinx.coroutines.MainScope().launch(Dispatchers.IO) { pruneUpdateDownloads(this@MainActivity) }
         handleIntent(intent)
 
@@ -1733,8 +1733,8 @@ fun MainScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
 
-                            // A build that cannot update itself (F-Droid's) has no check to offer.
-                            if (BuildConfig.SELF_UPDATE) {
+                            // A copy a store keeps up to date has no GitHub check to offer.
+                            if (remember { UpdateChannel.selfUpdate(context) }) {
                                 Spacer(Modifier.height(12.dp))
 
                                 // Which version this is about stays on screen while it downloads:

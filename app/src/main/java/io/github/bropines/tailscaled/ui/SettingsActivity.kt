@@ -2192,7 +2192,7 @@ fun SettingsScreen(
                 GlobalSettings.setConnectionSummaryShown(context, it)
                 connectionSummaryShown = it
             }
-            if (io.github.bropines.tailscaled.BuildConfig.SELF_UPDATE) {
+            if (UpdateChannel.selfUpdate(context)) {
                 var updateCheckOnLaunch by remember { mutableStateOf(GlobalSettings.isUpdateCheckOnLaunch(context)) }
                 SettingsSwitchItem(
                     stringResource(R.string.settings_update_check_title),
