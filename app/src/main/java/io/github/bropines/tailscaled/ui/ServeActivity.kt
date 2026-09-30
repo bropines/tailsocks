@@ -41,6 +41,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -448,6 +449,11 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null) {
     var config by remember { mutableStateOf<ServeConfig?>(null) }
     var caps by remember { mutableStateOf(ServeCapabilities()) }
     var isLoading by remember { mutableStateOf(true) }
+    // The preview renderer has no daemon and no native bridge: there the demo, or its
+    // absence, says whether the service counts as running. In the app a load decides.
+    val inPreview = LocalInspectionMode.current
+    val demo = LocalDemo.current
+    var daemonStopped by remember { mutableStateOf(inPreview && demo?.running != true) }
     var healthMap by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
     var editor by remember { mutableStateOf<RuleEditorState?>(null) }
     var menuOpen by remember { mutableStateOf(false) }
@@ -586,8 +592,18 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null) {
     }
 
     fun refresh() {
+        if (inPreview) return
         isLoading = true
         scope.launch(Dispatchers.IO) {
+            // Stopped, the node card waited for a DNS name that could not come and the +
+            // opened an editor whose rule had no daemon to go to; now the screen says so.
+            if (!ProxyState.isActualRunning(context)) {
+                withContext(Dispatchers.Main) {
+                    daemonStopped = true
+                    isLoading = false
+                }
+                return@launch
+            }
             val statusJson = runCatching { Appctr.getStatusFromAPI() }.getOrDefault("")
             val newCaps = if (statusJson.isNotBlank() && !statusJson.contains("\"Error\""))
                 runCatching { capabilitiesOf(AppJson.decodeFromString<StatusResponse>(statusJson)) }.getOrNull()
@@ -597,6 +613,7 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null) {
                 runCatching { AppJson.decodeFromString<ServeConfig>(json) }.getOrNull()
             else null
             withContext(Dispatchers.Main) {
+                daemonStopped = false
                 if (newCaps != null) caps = newCaps
                 if (newConfig != null) config = newConfig
                 isLoading = false
@@ -632,7 +649,8 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null) {
         var attempts = 0
         while (!caps.loaded && attempts < 10) {
             kotlinx.coroutines.delay(3000)
-            if (!isLoading) refresh()
+            // A stopped service is waited for by the Start button, not by asking again.
+            if (!isLoading && !daemonStopped) refresh()
             attempts++
         }
     }
@@ -742,19 +760,25 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null) {
                 )
             },
             floatingActionButton = {
-                FloatingActionButton(onClick = { editor = RuleEditorState(emptyList(), newRuleTemplate()) }) {
-                    Icon(Icons.Default.Add, stringResource(R.string.serve_cd_add_rule))
+                // No rule can be written with the daemon down.
+                if (!daemonStopped) {
+                    FloatingActionButton(onClick = { editor = RuleEditorState(emptyList(), newRuleTemplate()) }) {
+                        Icon(Icons.Default.Add, stringResource(R.string.serve_cd_add_rule))
+                    }
                 }
             }
         ) { padding ->
             // Held to a readable width on a tablet; see ReadableWidth.
             ReadableWidth {
             PullToRefreshBox(
-                isRefreshing = isLoading,
+                isRefreshing = isLoading && !daemonStopped,
                 onRefresh = { refresh() },
                 modifier = Modifier.padding(padding).fillMaxSize()
             ) {
-                LazyColumn(
+                // In a list, so a pull still re-checks.
+                if (daemonStopped) LazyColumn(Modifier.fillMaxSize()) {
+                    item { DaemonStoppedState(onStarted = { refresh() }, modifier = Modifier.fillParentMaxSize()) }
+                } else LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -1139,10 +1163,12 @@ private fun ServiceHeading(
         }
         if (!log.isNullOrEmpty()) {
             // What the last publish did, one line per step; a tap folds it to its last line.
+            // Surface(onClick), so the ripple keeps to the corners.
             Surface(
+                onClick = onToggleLog,
                 shape = RoundedCornerShape(12.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
-                modifier = Modifier.fillMaxWidth().padding(top = 6.dp).clickable(onClick = onToggleLog)
+                modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
             ) {
                 Column(Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {

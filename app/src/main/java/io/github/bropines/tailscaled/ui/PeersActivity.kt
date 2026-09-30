@@ -21,12 +21,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.NetworkPing
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Devices
+import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import appctr.Appctr
@@ -58,20 +61,28 @@ class PeersActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PeersScreen(onBack: () -> Unit) {
+fun PeersScreen(onBack: () -> Unit, initialQuery: String = "") {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     // In a preview the list comes from LocalDemo, parsed here and now: nothing
     // started from LaunchedEffect would land before the picture is taken.
     val demo = LocalDemo.current
+    // The preview renderer has no daemon and no native bridge; there the demo, or its
+    // absence, decides whether the service counts as running.
+    val inPreview = LocalInspectionMode.current
     val demoStatus = remember(demo) {
         demo?.statusJson?.let { runCatching { AppJson.decodeFromString<StatusResponse>(it) }.getOrNull() }
     }
     var isRefreshing by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
+    // Set by a load that found the service down; the screen offers to start it then.
+    var daemonStopped by remember { mutableStateOf(inPreview && demo?.running != true) }
+    // Whether a load has come back at all, so an empty list before the first answer is
+    // not announced as an empty tailnet.
+    var loaded by remember { mutableStateOf(demoStatus != null) }
     var selfPeer by remember { mutableStateOf<PeerData?>(demoStatus?.self) }
     var peersList by remember { mutableStateOf(demoStatus?.let(::listablePeers) ?: emptyList()) }
-    var searchQuery by remember { mutableStateOf("") }
+    var searchQuery by remember { mutableStateOf(initialQuery) }
     var selectedPeer by remember { mutableStateOf<PeerData?>(null) }
     var peerForFileDrop by remember { mutableStateOf<PeerData?>(null) }
     // The Tailscale version of each node, by node id, as the Admin API reports it — the one
@@ -116,9 +127,17 @@ fun PeersScreen(onBack: () -> Unit) {
         
         coroutineScope.launch(Dispatchers.IO) {
             try {
-                // 2. Load peers status
+                // A stopped service is not an error to print: the screen offers to start it.
+                if (!ProxyState.isActualRunning(context)) {
+                    withContext(Dispatchers.Main) {
+                        daemonStopped = true
+                        loaded = true
+                        isRefreshing = false
+                    }
+                    return@launch
+                }
                 val json = Appctr.getStatusFromAPI()
-                
+
                 if (json.isNullOrBlank() || json.startsWith("Error")) {
                     throw Exception(if (json.isNullOrBlank()) context.getString(R.string.peers_daemon_not_running) else json)
                 }
@@ -127,6 +146,8 @@ fun PeersScreen(onBack: () -> Unit) {
                 withContext(Dispatchers.Main) {
                     selfPeer = status.self
                     peersList = loadedPeers
+                    daemonStopped = false
+                    loaded = true
                     isRefreshing = false
                 }
                 // After the list is up, not before: the first answer is an Admin API round
@@ -137,15 +158,26 @@ fun PeersScreen(onBack: () -> Unit) {
                 val versions = PeerVersionSource.versionsFor(context, listOfNotNull(status.self) + loadedPeers)
                 withContext(Dispatchers.Main) { peerVersions = versions }
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) { 
+                withContext(Dispatchers.Main) {
                     isRefreshing = false
+                    daemonStopped = false
+                    loaded = true
                     errorMsg = e.message ?: context.getString(R.string.peers_network_error)
                 }
             }
         }
     }
 
-    LaunchedEffect(Unit) { if (demo == null) loadPeers() }
+    LaunchedEffect(Unit) { if (demo == null && !inPreview) loadPeers() }
+
+    // What "last seen" is measured against: the clock at each load. A demo carries no clock,
+    // so there time stands at the newest stamp it holds — a render made next month reads as
+    // one made today.
+    val nowMillis = remember(peersList, selfPeer) {
+        if (demo == null) System.currentTimeMillis()
+        else (listOfNotNull(selfPeer) + peersList).mapNotNull { parseRfc3339Millis(it.lastSeen) }.maxOrNull()
+            ?: System.currentTimeMillis()
+    }
 
     PredictiveBackContainer(
         onBack = onBack,
@@ -176,7 +208,7 @@ fun PeersScreen(onBack: () -> Unit) {
                                     pingingAll = false
                                 }
                             },
-                            enabled = !pingingAll && !isRefreshing
+                            enabled = !pingingAll && !isRefreshing && !daemonStopped
                         ) {
                             Icon(Icons.Default.NetworkPing, stringResource(R.string.action_ping_all))
                         }
@@ -185,12 +217,15 @@ fun PeersScreen(onBack: () -> Unit) {
                         }) { Icon(Icons.Default.Refresh, stringResource(R.string.action_refresh)) }
                     })
                 
-                CompactSearchBar(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    placeholderText = stringResource(R.string.peers_search_placeholder),
-                    modifier = Modifier.readableWidth().padding(horizontal = 16.dp, vertical = 8.dp)
-                )
+                // Nothing to search while the service is stopped.
+                if (!daemonStopped) {
+                    CompactSearchBar(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholderText = stringResource(R.string.peers_search_placeholder),
+                        modifier = Modifier.readableWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
             }
         }
     ) { padding ->
@@ -201,25 +236,55 @@ fun PeersScreen(onBack: () -> Unit) {
             onRefresh = { loadPeers() },
             modifier = Modifier.padding(padding).fillMaxSize()
         ) {
-            if (errorMsg != null) {
+            if (daemonStopped) {
+                // In a list, so a pull still re-checks.
+                LazyColumn(Modifier.fillMaxSize()) {
+                    item { DaemonStoppedState(onStarted = { loadPeers() }, modifier = Modifier.fillParentMaxSize()) }
+                }
+            } else if (errorMsg != null) {
                 Column(Modifier.align(Alignment.Center).padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(errorMsg!!, color = MaterialTheme.colorScheme.error, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                     Spacer(Modifier.height(16.dp))
                     Button(onClick = { loadPeers() }) { Text(stringResource(R.string.action_retry)) }
                 }
             } else {
+                val searching = searchQuery.isNotBlank()
                 LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
                     if (visibleSelfPeer != null) {
                         item {
                             PeerItem(
                                 visibleSelfPeer,
                                 true,
-                                pingStateOf(peerPings[visibleSelfPeer.getPrimaryIp()])
+                                pingStateOf(peerPings[visibleSelfPeer.getPrimaryIp()]),
+                                nowMillis
                             ) { selectedPeer = visibleSelfPeer }
                         }
                     }
                     items(filteredPeers) { p ->
-                        PeerItem(p, false, pingStateOf(peerPings[p.getPrimaryIp()])) { selectedPeer = p }
+                        PeerItem(p, false, pingStateOf(peerPings[p.getPrimaryIp()]), nowMillis) { selectedPeer = p }
+                    }
+                    when {
+                        // Not even this device matched: say so, and offer the way back.
+                        searching && filteredPeers.isEmpty() && visibleSelfPeer == null -> item {
+                            EmptyState(
+                                icon = Icons.Default.SearchOff,
+                                text = stringResource(R.string.state_nothing_found),
+                                modifier = Modifier.fillParentMaxSize(),
+                                actionLabel = stringResource(R.string.state_clear_search),
+                                onAction = { searchQuery = "" }
+                            )
+                        }
+                        // Under this device's own row, so it takes a margin, not the page. Only
+                        // once this device has an address: before that — logged out, mid-login —
+                        // an empty list says nothing about who else is in the tailnet.
+                        !searching && loaded && peersList.isEmpty() &&
+                            !selfPeer?.tailscaleIPs.isNullOrEmpty() -> item {
+                            EmptyState(
+                                icon = Icons.Default.Devices,
+                                text = stringResource(R.string.state_peers_alone),
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 48.dp)
+                            )
+                        }
                     }
                 }
             }

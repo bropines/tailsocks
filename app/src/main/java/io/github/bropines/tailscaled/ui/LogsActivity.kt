@@ -427,7 +427,12 @@ fun LogsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     
+    // The preview renderer has no native bridge to read logs from: there the screen counts as
+    // loaded and empty, and draws the state it would with an empty buffer.
+    val inPreview = androidx.compose.ui.platform.LocalInspectionMode.current
     var allLogs by remember { mutableStateOf<List<LogEntry>>(emptyList()) }
+    // Whether a read has come back, so the empty state does not flash before the first one.
+    var loaded by remember { mutableStateOf(inPreview) }
     var selectedCategory by remember { mutableStateOf("ALL") }
     var searchQuery by remember { mutableStateOf("") }
     var unfolded by remember { mutableStateOf(emptySet<Long>()) }
@@ -526,6 +531,7 @@ fun LogsScreen(onBack: () -> Unit) {
 
             withContext(Dispatchers.Main) {
                 allLogs = logsList
+                loaded = true
                 if (manual) isRefreshing = false
             }
         }
@@ -560,6 +566,7 @@ fun LogsScreen(onBack: () -> Unit) {
     }
 
     LaunchedEffect(Unit) {
+        if (inPreview) return@LaunchedEffect
         while (true) {
             loadLogsData()
             delay(2000)
@@ -715,7 +722,36 @@ fun LogsScreen(onBack: () -> Unit) {
             onRefresh = { loadLogsData(true) },
             modifier = Modifier.fillMaxSize().padding(padding)
         ) {
-            SelectionContainer {
+            if (loaded && rows.isEmpty()) {
+                // In a list, so a pull still refreshes. A filter that hides everything says
+                // which one and offers to lift it; an empty buffer just says it is empty.
+                LazyColumn(Modifier.fillMaxSize()) {
+                    item {
+                        val fill = Modifier.fillParentMaxSize()
+                        when {
+                            allLogs.isNotEmpty() && searchQuery.isNotEmpty() -> EmptyState(
+                                icon = Icons.Default.SearchOff,
+                                text = stringResource(R.string.state_nothing_found),
+                                modifier = fill,
+                                actionLabel = stringResource(R.string.state_clear_search),
+                                onAction = { searchQuery = "" }
+                            )
+                            allLogs.isNotEmpty() && selectedCategory != "ALL" -> EmptyState(
+                                icon = Icons.Default.FilterAltOff,
+                                text = stringResource(R.string.state_logs_category_empty, selectedCategory),
+                                modifier = fill,
+                                actionLabel = stringResource(R.string.state_show_all),
+                                onAction = { selectedCategory = "ALL" }
+                            )
+                            else -> EmptyState(
+                                icon = Icons.Default.Description,
+                                text = stringResource(R.string.state_logs_empty),
+                                modifier = fill
+                            )
+                        }
+                    }
+                }
+            } else SelectionContainer {
                 LazyColumn(
                     state = listState,
                     // Room under the last line for the buttons, which otherwise cover the tail.

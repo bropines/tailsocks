@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="state_stopped_title">TailSocks остановлен</string>
+
+    <string name="state_nothing_found">Ничего не найдено</string>
+    <string name="state_clear_search">Сбросить поиск</string>
+    <string name="state_peers_alone">В tailnet только это устройство</string>
+
+    <string name="state_logs_empty">Логов пока нет</string>
+    <string name="state_logs_category_empty">В %1$s ничего нет</string>
+    <string name="state_show_all">Показать все</string>
+
+    <string name="state_admin_enter_tailnet">Указать tailnet вручную</string>
+
+    <string name="peer_path_direct">напрямую</string>
+    <string name="peer_path_peer_relay">реле-узел</string>
+    <string name="peer_via_peer_relay">Через реле-узел</string>
+
+    <string name="peer_state_relay_format">через реле %1$s</string>
+    <string name="peer_state_peer_relay">через реле-узел</string>
+    <string name="peer_state_last_seen_format">последний раз в сети %1$s</string>
+
+    <string name="ago_just_now">только что</string>
+    <string name="ago_minutes">%d мин назад</string>
+    <string name="ago_hours">%d ч назад</string>
+    <plurals name="ago_days">
+        <item quantity="one">%d день назад</item>
+        <item quantity="few">%d дня назад</item>
+        <item quantity="many">%d дней назад</item>
+        <item quantity="other">%d дня назад</item>
+    </plurals>
+    <string name="ago_months">%d мес. назад</string>
+    <plurals name="ago_years">
+        <item quantity="one">%d год назад</item>
+        <item quantity="few">%d года назад</item>
+        <item quantity="many">%d лет назад</item>
+        <item quantity="other">%d года назад</item>
+    </plurals>
+</resources>

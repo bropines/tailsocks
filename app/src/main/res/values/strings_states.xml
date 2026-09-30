@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Strings for the states a screen can be in besides "showing its data": the
+  service stopped, a list with nothing in it, a search that matches nothing;
+  and for the path and last-seen reading on a peer row. A file of its own so
+  it lands without touching strings.xml.
+-->
+<resources>
+    <!-- One line over the Start button on a screen that needs the daemon. -->
+    <string name="state_stopped_title">TailSocks is stopped</string>
+
+    <!-- Peers. -->
+    <string name="state_nothing_found">Nothing found</string>
+    <string name="state_clear_search">Clear search</string>
+    <string name="state_peers_alone">Only this device is in the tailnet</string>
+
+    <!-- Logs. %1$s is a category chip's name: ERROR, CORE, TAILSCALE… -->
+    <string name="state_logs_empty">No logs yet</string>
+    <string name="state_logs_category_empty">Nothing in %1$s</string>
+    <string name="state_show_all">Show all</string>
+
+    <!-- Admin Console, when the tailnet could not be read off a stopped daemon. -->
+    <string name="state_admin_enter_tailnet">Enter the tailnet by hand</string>
+
+    <!-- Peer row: how the traffic goes, after the address. A DERP relay shows
+         its region code instead, as the daemon reports it (fra, ams). -->
+    <string name="peer_path_direct">direct</string>
+    <string name="peer_path_peer_relay">peer relay</string>
+    <!-- The details sheet's route chip and card caption for a peer relay. -->
+    <string name="peer_via_peer_relay">Via peer relay</string>
+
+    <!-- The row as a screen reader states it: "Online, direct". -->
+    <string name="peer_state_relay_format">via relay %1$s</string>
+    <string name="peer_state_peer_relay">via peer relay</string>
+    <string name="peer_state_last_seen_format">last seen %1$s</string>
+
+    <!-- How long ago an offline peer was last seen. -->
+    <string name="ago_just_now">just now</string>
+    <string name="ago_minutes">%d min ago</string>
+    <string name="ago_hours">%d h ago</string>
+    <plurals name="ago_days">
+        <item quantity="one">%d day ago</item>
+        <item quantity="other">%d days ago</item>
+    </plurals>
+    <string name="ago_months">%d mo ago</string>
+    <plurals name="ago_years">
+        <item quantity="one">%d year ago</item>
+        <item quantity="other">%d years ago</item>
+    </plurals>
+</resources>

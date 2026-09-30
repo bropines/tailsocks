@@ -11,11 +11,13 @@ import android.os.Bundle
 import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.ui.Alignment
@@ -132,7 +134,18 @@ fun AdminApiMainScreen(onBack: () -> Unit) {
     val globalPrefs = remember { context.getSharedPreferences(AdminApiSettings.PREFS_NAME, Context.MODE_PRIVATE) }
 
     var resolvedTailnet by remember { mutableStateOf(profilePrefs.getString("last_known_tailnet", "") ?: "") }
-    var isLoadingSuffix by remember { mutableStateOf(true) }
+    // The tailnet's name is the one thing this console reads off the daemon; the Admin API
+    // itself is reached over the internet. So a stopped daemon holds nothing up once the
+    // name is known, and when it is not, the screen offers to start the daemon instead of
+    // spinning. The preview renderer has no daemon: there the demo, or its absence, decides.
+    val inPreview = LocalInspectionMode.current
+    val demo = LocalDemo.current
+    var daemonRunning by remember {
+        mutableStateOf(if (inPreview) demo?.running == true else ProxyState.isActualRunning(context))
+    }
+    var isLoadingSuffix by remember { mutableStateOf(daemonRunning && !inPreview) }
+    var suffixRound by remember { mutableIntStateOf(0) }
+    var enterTailnetByHand by remember { mutableStateOf(false) }
 
     // What is stored for this tailnet, read through the same seam the peer sheet's version
     // lookup reads it through (AdminApiSettings), then split into per-field state because the
@@ -152,8 +165,10 @@ fun AdminApiMainScreen(onBack: () -> Unit) {
     var proxyUser by remember(resolvedTailnet) { mutableStateOf(stored.proxyUser) }
     var proxyPass by remember(resolvedTailnet) { mutableStateOf(stored.proxyPass) }
 
-    // Fetch magicDnsSuffix from LocalAPI on start
-    LaunchedEffect(activeAccount.id) {
+    // Fetch magicDnsSuffix from LocalAPI on start, and again once the Start button below has
+    // brought the daemon up.
+    LaunchedEffect(activeAccount.id, suffixRound) {
+        if (!isLoadingSuffix) return@LaunchedEffect
         scope.launch(Dispatchers.IO) {
             try {
                 val pJson = appctr.Appctr.getStatusFromAPI()
@@ -183,8 +198,21 @@ fun AdminApiMainScreen(onBack: () -> Unit) {
     }
 
     if (isLoadingSuffix) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            LoadingIndicator()
+        AdminApiWaitScreen(onBack) { LoadingIndicator() }
+    } else if (resolvedTailnet.isBlank() && !daemonRunning && !enterTailnetByHand) {
+        AdminApiWaitScreen(onBack) {
+            DaemonStoppedState(
+                onStarted = {
+                    daemonRunning = true
+                    isLoadingSuffix = true
+                    suffixRound++
+                }
+            ) {
+                // The console itself needs no daemon; only this one name does.
+                TextButton(onClick = { enterTailnetByHand = true }, modifier = Modifier.padding(top = 8.dp)) {
+                    Text(stringResource(R.string.state_admin_enter_tailnet))
+                }
+            }
         }
     } else if (resolvedTailnet.isBlank()) {
         AdminApiNoTailnetScreen(
@@ -277,5 +305,29 @@ fun AdminApiMainScreen(onBack: () -> Unit) {
                 clientSecret = ""
             }
         )
+    }
+}
+
+/**
+ * The console's frame while it cannot show a console yet — the tailnet name still coming
+ * from the daemon, or the daemon stopped. It used to be a bare loader with no top bar, and
+ * with no way back but the system gesture.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AdminApiWaitScreen(onBack: () -> Unit, content: @Composable () -> Unit) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.admin_console_title)) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.admin_cd_back))
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Box(Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) { content() }
     }
 }

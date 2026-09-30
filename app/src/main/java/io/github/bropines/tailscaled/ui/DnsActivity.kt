@@ -42,8 +42,8 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
-import androidx.compose.foundation.clickable
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.PlayArrow
@@ -187,6 +187,11 @@ fun DnsScreen(onBack: () -> Unit) {
     var status by remember { mutableStateOf<DnsStatus?>(null) }
     var loading by remember { mutableStateOf(true) }
     var errorText by remember { mutableStateOf<String?>(null) }
+    // The preview renderer has no daemon and no native bridge: there the demo, or its
+    // absence, says whether the service counts as running. In the app a load decides.
+    val inPreview = LocalInspectionMode.current
+    val demo = LocalDemo.current
+    var daemonStopped by remember { mutableStateOf(inPreview && demo?.running != true) }
 
     var queryDomain by remember { mutableStateOf("") }
     var queryResult by remember { mutableStateOf<String?>(null) }
@@ -227,10 +232,12 @@ fun DnsScreen(onBack: () -> Unit) {
         loading = true
         errorText = null
         scope.launch(Dispatchers.IO) {
+            // Every tool on this screen goes through the daemon, so a stopped service gets
+            // the Start button in place of the screen, not an error card above dead tools.
             if (!ProxyState.isActualRunning(context)) {
                 withContext(Dispatchers.Main) {
                     status = null
-                    errorText = context.getString(R.string.dns_error_not_running)
+                    daemonStopped = true
                     loading = false
                 }
                 return@launch
@@ -239,6 +246,7 @@ fun DnsScreen(onBack: () -> Unit) {
             val parsed = if (json.isBlank()) null
                 else runCatching { AppJson.decodeFromString<DnsStatus>(json) }.getOrNull()
             withContext(Dispatchers.Main) {
+                daemonStopped = false
                 status = parsed
                 if (parsed == null) {
                     errorText = context.getString(R.string.dns_error_parse_failed, json)
@@ -276,7 +284,7 @@ fun DnsScreen(onBack: () -> Unit) {
         }
     }
 
-    LaunchedEffect(Unit) { refresh(doFlush = false) }
+    LaunchedEffect(Unit) { if (!inPreview) refresh(doFlush = false) }
 
     PredictiveBackContainer(
         onBack = onBack,
@@ -295,7 +303,12 @@ fun DnsScreen(onBack: () -> Unit) {
         ) { padding ->
             // Held to a readable width on a tablet; see ReadableWidth.
             ReadableWidth {
-            LazyColumn(
+            if (daemonStopped) {
+                DaemonStoppedState(
+                    onStarted = { refresh(doFlush = false) },
+                    modifier = Modifier.padding(padding).fillMaxSize()
+                )
+            } else LazyColumn(
                 modifier = Modifier
                     .padding(padding)
                     .padding(horizontal = 16.dp)
@@ -511,15 +524,17 @@ fun DnsScreen(onBack: () -> Unit) {
                                     Column(modifier = Modifier.fillMaxWidth()) {
                                         Text(stringResource(R.string.dns_device_name), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
                                         Spacer(Modifier.height(2.dp))
+                                        // Surface(onClick), so the ripple keeps to the corners.
                                         Surface(
-                                            shape = RoundedCornerShape(8.dp),
-                                            color = MaterialTheme.colorScheme.surface,
-                                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
-                                            modifier = Modifier.fillMaxWidth().clickable {
+                                            onClick = {
                                                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                                                 clipboard.setPrimaryClip(ClipData.newPlainText("SelfName", name))
                                                 Toast.makeText(context, context.getString(R.string.dns_domain_copied), Toast.LENGTH_SHORT).show()
-                                            }
+                                            },
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = MaterialTheme.colorScheme.surface,
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+                                            modifier = Modifier.fillMaxWidth()
                                         ) {
                                             Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                                                 Text(name, fontFamily = FontFamily.Monospace, fontSize = 12.sp, modifier = Modifier.weight(1f))

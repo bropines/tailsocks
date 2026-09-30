@@ -6,10 +6,12 @@ import io.github.bropines.tailscaled.admin.*
 import io.github.bropines.tailscaled.core.*
 import io.github.bropines.tailscaled.models.*
 
+import android.content.BroadcastReceiver
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
@@ -40,6 +42,8 @@ import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.InlineTextContent
+import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -73,7 +77,10 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.Placeholder
+import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.AnnotatedString
@@ -81,6 +88,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import appctr.Appctr
 import io.github.bropines.tailscaled.core.AppJson
@@ -95,6 +103,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -327,6 +336,7 @@ private fun peerCards(peer: PeerData, strings: PeerDetailsStrings, version: Stri
             PeerCard(group, lead.value, lead.label, lead.id in PEER_MONOSPACE_DETAILS, lead, rows - lead)
         }
         val curAddr = peer.curAddr?.takeIf { it.isNotEmpty() }
+        val peerRelay = peer.peerRelay?.takeIf { it.isNotEmpty() }
         val relay = peer.relay?.takeIf { it.isNotEmpty() }
         val card = when (group) {
             PeerDetailGroup.ADDRESSES -> leadRow(PeerDetailId.IPV4)
@@ -342,6 +352,9 @@ private fun peerCards(peer: PeerData, strings: PeerDetailsStrings, version: Stri
                 curAddr != null -> rows.first { it.id == PeerDetailId.CUR_ADDR }.let { lead ->
                     PeerCard(group, curAddr, strings.direct, true, lead, rows - lead)
                 }
+                // A peer relay has no row of its own to lead with; the relay row stays,
+                // since the home DERP region is still what the daemon reports there.
+                peerRelay != null -> PeerCard(group, peerRelay, strings.viaPeerRelay, true, null, rows)
                 relay != null -> rows.first { it.id == PeerDetailId.RELAY }.let { lead ->
                     PeerCard(group, relay, strings.routeRelay, false, lead, rows - lead)
                 }
@@ -635,15 +648,105 @@ fun ExitNodeBadge(
     }
 }
 
+/**
+ * How the row reads a peer's path, after its address. A direct endpoint wins over a relay
+ * the way it does in `tailscale status`: the daemon keeps Relay filled with the home DERP
+ * region even while the traffic goes direct, and it fills PeerRelay only while a peer relay
+ * carries it. An offline peer has no path worth naming; what it has is when it was last
+ * seen. This device gets nothing — its own row is not a connection.
+ */
+private sealed interface PeerRowPath {
+    data object Direct : PeerRowPath
+    data object PeerRelay : PeerRowPath
+    data class Relay(val region: String) : PeerRowPath
+    /** [ago] is null when the daemon never saw it, or said so in a stamp this cannot read. */
+    data class LastSeen(val ago: String?) : PeerRowPath
+    data object None : PeerRowPath
+}
+
+private fun peerRowPath(context: Context, peer: PeerData, isSelf: Boolean, nowMillis: Long): PeerRowPath = when {
+    isSelf -> PeerRowPath.None
+    peer.online != true -> PeerRowPath.LastSeen(parseRfc3339Millis(peer.lastSeen)?.let { agoText(context, it, nowMillis) })
+    !peer.curAddr.isNullOrEmpty() -> PeerRowPath.Direct
+    !peer.peerRelay.isNullOrEmpty() -> PeerRowPath.PeerRelay
+    !peer.relay.isNullOrEmpty() -> PeerRowPath.Relay(peer.relay)
+    else -> PeerRowPath.None
+}
+
+/**
+ * An RFC 3339 stamp as the daemon writes one (Go's time.Time: fractional seconds optional,
+ * "Z" or an offset) in epoch milliseconds; null for Go's zero time and anything unreadable.
+ * By hand rather than through java.time, which is API 26 and this app runs from 24.
+ */
+internal fun parseRfc3339Millis(stamp: String?): Long? {
+    if (stamp.isNullOrBlank() || stamp.startsWith("0001-01-01")) return null
+    val m = RFC3339.matchEntire(stamp.trim()) ?: return null
+    val base = runCatching {
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+            .apply { timeZone = TimeZone.getTimeZone("UTC") }
+            .parse(m.groupValues[1])?.time
+    }.getOrNull() ?: return null
+    val millis = m.groupValues[2].drop(1).padEnd(3, '0').take(3).toInt()
+    val zone = m.groupValues[3]
+    val offset = if (zone == "Z" || zone == "z") 0L else {
+        val sign = if (zone[0] == '-') -1 else 1
+        sign * (zone.substring(1, 3).toLong() * 60 + zone.substring(4, 6).toLong()) * 60_000L
+    }
+    return base + millis - offset
+}
+
+private val RFC3339 = Regex("""(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(\.\d+)?([Zz]|[+-]\d{2}:\d{2})""")
+
+/** "2 h ago", in the app's language: [context] must be the locale-wrapped one. */
+internal fun agoText(context: Context, thenMillis: Long, nowMillis: Long): String {
+    val res = context.resources
+    val minutes = ((nowMillis - thenMillis) / 60_000L).coerceAtLeast(0L)
+    val hours = minutes / 60
+    val days = hours / 24
+    return when {
+        minutes < 1 -> res.getString(R.string.ago_just_now)
+        hours < 1 -> res.getString(R.string.ago_minutes, minutes.toInt())
+        days < 1 -> res.getString(R.string.ago_hours, hours.toInt())
+        days < 60 -> res.getQuantityString(R.plurals.ago_days, days.toInt(), days.toInt())
+        days < 365 -> res.getString(R.string.ago_months, (days / 30).toInt())
+        else -> res.getQuantityString(R.plurals.ago_years, (days / 365).toInt(), (days / 365).toInt())
+    }
+}
+
+/**
+ * One peer in the list. [nowMillis] is what "last seen" is measured against; a caller that
+ * renders a demo pins it, so a preview does not age between two runs.
+ */
 @Composable
 internal fun PeerItem(
     peer: PeerData,
     isSelf: Boolean,
     ping: PeerPingState = PeerPingState.Idle,
+    nowMillis: Long = System.currentTimeMillis(),
     onClick: () -> Unit
 ) {
+    val context = LocalContext.current
+    val path = remember(peer, isSelf, nowMillis, context) { peerRowPath(context, peer, isSelf, nowMillis) }
+    // The green dot said "online" in colour alone; this says it in words, with the path.
+    val online = peer.online == true || isSelf
+    val spokenState = listOfNotNull(
+        stringResource(if (online) R.string.peer_status_online else R.string.peer_status_offline),
+        when (path) {
+            PeerRowPath.Direct -> stringResource(R.string.peer_path_direct)
+            PeerRowPath.PeerRelay -> stringResource(R.string.peer_state_peer_relay)
+            is PeerRowPath.Relay -> stringResource(R.string.peer_state_relay_format, path.region)
+            is PeerRowPath.LastSeen -> path.ago?.let { stringResource(R.string.peer_state_last_seen_format, it) }
+            PeerRowPath.None -> null
+        }
+    ).joinToString(", ")
+    // Surface(onClick) rather than a clickable on the modifier: there the ripple was drawn
+    // before the shape clipped anything, a rectangle spilling past the rounded corners.
     Surface(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).clickable { onClick() },
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .semantics { stateDescription = spokenState },
         shape = RoundedCornerShape(16.dp),
         color = if (isSelf) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer
     ) {
@@ -676,25 +779,7 @@ internal fun PeerItem(
                     modifier = Modifier.basicMarquee(iterations = Int.MAX_VALUE)
                 )
                 if (displayName != primaryIp) {
-                    // One line each, like the name above them: the tag list of an exit node
-                    // is long enough to wrap and make this row taller than its neighbours.
-                    // The latency rides on this line for the same reason — a chip of its own
-                    // would change the height of every row the moment a ping came back.
-                    val latency = when (ping) {
-                        is PeerPingState.Measured -> " · ${ping.latency}"
-                        PeerPingState.InFlight -> " · …"
-                        PeerPingState.Failed -> " · ✕"
-                        PeerPingState.Idle -> ""
-                    }
-                    Text(
-                        primaryIp + latency,
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 12.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        color = if (ping is PeerPingState.Measured) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    PeerAddressLine(primaryIp, path, ping)
                 }
                 if (!peer.tags.isNullOrEmpty()) {
                     Text(
@@ -715,12 +800,83 @@ internal fun PeerItem(
                 offeredLabel = stringResource(R.string.peer_exit_node_offered),
                 modifier = Modifier.padding(start = 8.dp)
             )
-            if (peer.online == true || isSelf) {
+            if (online) {
                 Box(Modifier.padding(start = 8.dp).size(10.dp).clip(CircleShape).background(PEER_ONLINE_GREEN))
             }
         }
     }
 }
+
+/**
+ * The address, the path and the latency on one line — each on this line and not on one of
+ * its own: the tag list of an exit node already makes a row taller than its neighbours, and
+ * a chip that appeared when a ping came back would change the height of every row at once.
+ * The latency sits outside the part that is cut short, so a narrow row loses the path
+ * before it loses the figure someone just asked for.
+ */
+@Composable
+private fun PeerAddressLine(address: String, path: PeerRowPath, ping: PeerPingState) {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val (pathIcon, pathLabel) = when (path) {
+        PeerRowPath.Direct -> Icons.Default.Lan to stringResource(R.string.peer_path_direct)
+        PeerRowPath.PeerRelay -> Icons.Default.DeviceHub to stringResource(R.string.peer_path_peer_relay)
+        is PeerRowPath.Relay -> Icons.Default.Router to path.region
+        is PeerRowPath.LastSeen -> Icons.Default.Schedule to path.ago
+        PeerRowPath.None -> null to null
+    }
+    val text = buildAnnotatedString {
+        append(address)
+        if (pathIcon != null && pathLabel != null) {
+            // The icon is the separator, and it is decoration — the word after it says the
+            // same — so a screen reader gets a blank in its place (an empty one is refused).
+            append(" ")
+            appendInlineContent(PEER_PATH_ICON, " ")
+            // Words in the text face, not the address's monospace: in monospace "direct"
+            // took a third more width and was the first thing cut on an exit node's row.
+            withStyle(SpanStyle(fontFamily = FontFamily.Default)) {
+                append(" ")
+                append(pathLabel)
+            }
+        }
+    }
+    val inline = if (pathIcon == null) emptyMap() else mapOf(
+        PEER_PATH_ICON to InlineTextContent(Placeholder(14.sp, 12.sp, PlaceholderVerticalAlign.TextCenter)) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterEnd) {
+                Icon(pathIcon, contentDescription = null, tint = muted, modifier = Modifier.size(12.dp))
+            }
+        }
+    )
+    val latency = when (ping) {
+        is PeerPingState.Measured -> " · ${ping.latency}"
+        PeerPingState.InFlight -> " · …"
+        PeerPingState.Failed -> " · ✕"
+        PeerPingState.Idle -> null
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text,
+            inlineContent = inline,
+            fontFamily = FontFamily.Monospace,
+            fontSize = 12.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            color = muted,
+            modifier = Modifier.weight(1f, fill = false)
+        )
+        if (latency != null) {
+            Text(
+                latency,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 12.sp,
+                maxLines = 1,
+                softWrap = false,
+                color = if (ping is PeerPingState.Measured) MaterialTheme.colorScheme.primary else muted
+            )
+        }
+    }
+}
+
+private const val PEER_PATH_ICON = "peerPath"
 
 /**
  * One row of a send picker. [taildrop] is the daemon's verdict on this peer: Blocked makes
@@ -742,6 +898,8 @@ fun PeerShareItem(peer: PeerData, enabled: Boolean, taildrop: TaildropStatus = T
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp)
             .alpha(if (refused) 0.55f else 1f)
+            // Clipped first, so the ripple keeps to the card's corners.
+            .clip(RoundedCornerShape(14.dp))
             .clickable(enabled = enabled && !refused) { onClick() },
         shape = RoundedCornerShape(14.dp),
         border = androidx.compose.foundation.BorderStroke(
@@ -849,6 +1007,8 @@ private data class PeerDetailsStrings(
     val direct: String,
     /** "Relay: %1$s", formatted in the page for the same reason as [pingResultFormat]. */
     val relayFormat: String,
+    /** The route chip, and the route card's caption, for traffic carried by a peer relay. */
+    val viaPeerRelay: String,
     val latency: String,
     /** The connection card's caption for a ping that came back with nothing. */
     val connPingFailed: String,
@@ -1042,6 +1202,7 @@ fun PeerDetailsModal(
         osUnknown = stringResource(R.string.peer_status_os_unknown),
         direct = stringResource(R.string.peer_status_direct),
         relayFormat = stringResource(R.string.peer_status_relay_format),
+        viaPeerRelay = stringResource(R.string.peer_via_peer_relay),
         latency = stringResource(R.string.peer_conn_latency),
         connPingFailed = stringResource(R.string.peer_conn_ping_failed),
         routeRelay = stringResource(R.string.peer_route_relay),
@@ -1548,12 +1709,14 @@ private fun PeerStatusStrip(
 
 /**
  * How the peer is being reached right now, as the daemon reports it: a direct endpoint if
- * there is a CurAddr, otherwise the DERP region carrying the traffic. A peer nothing has
+ * there is a CurAddr, a peer relay if there is a PeerRelay, otherwise the DERP region
+ * carrying the traffic — the list row reads it in the same order. A peer nothing has
  * talked to yet has neither, and then the strip says nothing rather than guessing — the
  * "Relay (DERP)" and "Current Addr" rows below still carry the raw fields.
  */
 private fun peerRoute(peer: PeerData, strings: PeerDetailsStrings): Pair<String, ImageVector>? = when {
     !peer.curAddr.isNullOrEmpty() -> strings.direct to Icons.Default.Lan
+    !peer.peerRelay.isNullOrEmpty() -> strings.viaPeerRelay to Icons.Default.DeviceHub
     !peer.relay.isNullOrEmpty() -> strings.relayFormat.format(peer.relay) to Icons.Default.Router
     else -> null
 }
@@ -2144,14 +2307,163 @@ fun FileIcon(extension: String) {
     }
 }
 
+/**
+ * A list with nothing in it: an icon, one line, and — when one thing would change that, such
+ * as clearing a search — the button that does it. [modifier] fills the screen by default; in
+ * a LazyColumn, where there is no height to fill, pass fillParentMaxSize() or a padding.
+ */
 @Composable
-fun EmptyState(icon: ImageVector, text: String) {
-    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+fun EmptyState(
+    icon: ImageVector,
+    text: String,
+    modifier: Modifier = Modifier.fillMaxSize(),
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null
+) {
+    Column(
+        modifier.padding(horizontal = 32.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
         Icon(icon, null, Modifier.size(64.dp), tint = MaterialTheme.colorScheme.outline)
         Spacer(Modifier.height(16.dp))
-        Text(text, color = MaterialTheme.colorScheme.outline, style = MaterialTheme.typography.bodyLarge)
+        Text(
+            text,
+            color = MaterialTheme.colorScheme.outline,
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center
+        )
+        if (actionLabel != null && onAction != null) {
+            Spacer(Modifier.height(16.dp))
+            FilledTonalButton(onClick = onAction) { Text(actionLabel) }
+        }
     }
 }
+
+/**
+ * What a screen that needs the daemon shows while the service is stopped, in place of the
+ * daemon's error text or a loader waiting for nothing: one line, and a Start button that
+ * starts the service from here instead of sending the user back to the main screen.
+ *
+ * [onStarted] runs once the daemon can answer, not when the service says START: that
+ * broadcast goes out as soon as the process is launched, while the backend is still
+ * Starting with no netmap, and a screen reloaded then would draw an empty tailnet. It also
+ * runs when the service is started from elsewhere — the tile, the notification — while this
+ * is on screen. [footer] takes a second way out where a screen has one.
+ */
+@Composable
+fun DaemonStoppedState(
+    onStarted: () -> Unit,
+    modifier: Modifier = Modifier.fillMaxSize(),
+    footer: @Composable ColumnScope.() -> Unit = {}
+) {
+    val context = LocalContext.current
+    val inPreview = androidx.compose.ui.platform.LocalInspectionMode.current
+    val scope = rememberCoroutineScope()
+    val currentOnStarted by rememberUpdatedState(onStarted)
+    var starting by remember { mutableStateOf(false) }
+    val waiter = remember { mutableStateOf<Job?>(null) }
+
+    fun awaitReady() {
+        starting = true
+        if (waiter.value?.isActive == true) return
+        waiter.value = scope.launch {
+            awaitDaemonAnswering()
+            currentOnStarted()
+        }
+    }
+
+    // The preview renderer has no service to hear from.
+    if (!inPreview) DisposableEffect(context) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(c: Context, intent: Intent) {
+                when (intent.action) {
+                    "STARTING" -> starting = true
+                    "START" -> awaitReady()
+                    // A start given up — su refused, a stop came in meanwhile.
+                    "STOP" -> { waiter.value?.cancel(); starting = false }
+                }
+            }
+        }
+        ContextCompat.registerReceiver(
+            context, receiver,
+            IntentFilter().apply { addAction("STARTING"); addAction("START"); addAction("STOP") },
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+        onDispose { runCatching { context.unregisterReceiver(receiver) } }
+    }
+
+    Column(
+        modifier.padding(horizontal = 32.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            Icons.Default.PowerSettingsNew,
+            contentDescription = null,
+            modifier = Modifier.size(48.dp),
+            tint = MaterialTheme.colorScheme.outline
+        )
+        Spacer(Modifier.height(16.dp))
+        Text(
+            stringResource(R.string.state_stopped_title),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(20.dp))
+        Button(
+            enabled = !starting,
+            onClick = {
+                // The same refusal the main screen's toggle makes: the service would start
+                // with nowhere to listen.
+                if (GlobalSettings.getString(context, "socks5", "127.0.0.1:48115").isBlank()) {
+                    Toast.makeText(context, context.getString(R.string.main_error_socks5_empty), Toast.LENGTH_LONG).show()
+                    return@Button
+                }
+                starting = true
+                scope.launch {
+                    // Up already — started a moment before this screen looked, say — and a
+                    // second start would announce nothing, so go straight to the waiting.
+                    val up = withContext(Dispatchers.IO) { runCatching { Appctr.isRunning() }.getOrDefault(false) }
+                    if (up) awaitReady()
+                    else ContextCompat.startForegroundService(
+                        context,
+                        Intent(context, TailscaledService::class.java).apply { action = "START_ACTION" }
+                    )
+                }
+            }
+        ) {
+            if (starting) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp,
+                    color = LocalContentColor.current
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.main_status_starting))
+            } else {
+                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.main_status_action_start))
+            }
+        }
+        footer()
+    }
+}
+
+/**
+ * Returns once the daemon's backend has left its starting states, or after 15 s: past that
+ * the screen loads anyway and shows what it finds. NeedsLogin ends the wait too — no waiting
+ * changes it, and the screen has something to say about it.
+ */
+private suspend fun awaitDaemonAnswering() = withContext(Dispatchers.IO) {
+    withTimeoutOrNull(15_000) {
+        while (runCatching { Appctr.getBackendState() }.getOrDefault("") in DAEMON_STARTING_STATES) delay(500)
+    }
+}
+
+private val DAEMON_STARTING_STATES = setOf("", "NoState", "Starting", "Error")
 
 fun openTaildropFile(context: Context, file: TaildropFile) {
     try {
