@@ -52,7 +52,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -186,6 +185,8 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
 
     val commandHistory = remember { mutableStateListOf<String>() }
     var historyMenuOpen by remember { mutableStateOf(false) }
+    /** A command was taken from the history: the field gets focus once the sheet is gone. */
+    var focusAfterHistory by remember { mutableStateOf(false) }
 
     var customPresets by remember { 
         mutableStateOf(prefs.getStringSet("commands", emptySet<String>())?.toList()?.sorted() ?: emptyList<String>()) 
@@ -358,8 +359,8 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
             // One row of preset chips and one input row. The history arrows used to
             // stand in a column beside the field and made this bar almost twice as
             // tall as the field; with the keyboard up the output had a third of the
-            // screen. History is now a menu on the field's leading icon, Run its
-            // trailing icon.
+            // screen. History is now a sheet behind the field's leading icon, Run
+            // its trailing icon.
             Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 8.dp) {
                 Column(modifier = Modifier.navigationBarsPadding()) {
                     LazyRow(
@@ -410,22 +411,8 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
                         keyboardActions = KeyboardActions(onDone = { executeCmd(currentCommand) }),
                         shape = RoundedCornerShape(24.dp),
                         leadingIcon = {
-                            Box {
-                                IconButton(onClick = { historyMenuOpen = true }, enabled = commandHistory.isNotEmpty()) {
-                                    Icon(Icons.Default.History, contentDescription = stringResource(R.string.console_cd_history))
-                                }
-                                DropdownMenu(expanded = historyMenuOpen, onDismissRequest = { historyMenuOpen = false }) {
-                                    commandHistory.asReversed().take(HISTORY_MENU_ITEMS).forEach { past ->
-                                        DropdownMenuItem(
-                                            text = { Text(past, fontFamily = FontFamily.Monospace, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                            onClick = {
-                                                historyMenuOpen = false
-                                                currentCommand = past
-                                                focusRequester.requestFocus()
-                                            }
-                                        )
-                                    }
-                                }
+                            IconButton(onClick = { historyMenuOpen = true }, enabled = commandHistory.isNotEmpty()) {
+                                Icon(Icons.Default.History, contentDescription = stringResource(R.string.console_cd_history))
                             }
                         },
                         trailingIcon = {
@@ -493,6 +480,31 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
             },
             dismissButton = { TextButton(onClick = { showAddPresetDialog = false }) { Text(strActionCancel) } }
         )
+    }
+
+    if (historyMenuOpen) {
+        // Resolved here, not in the sheet — see wrapContextWithLocale(). The
+        // same dozen as the menu offered, newest first.
+        val strHistoryTitle = stringResource(R.string.console_cd_history)
+        PickerSheet(
+            title = strHistoryTitle,
+            options = commandHistory.asReversed().take(HISTORY_MENU_ITEMS).map { PickerOption(it, it) },
+            onPick = { past ->
+                currentCommand = past
+                focusAfterHistory = true
+            },
+            onDismiss = { historyMenuOpen = false },
+            monospace = true
+        )
+    }
+    // The sheet is a window of its own and holds the input focus while it is up,
+    // so the field asks for it only after the sheet has left the composition —
+    // then the keyboard comes back for the command that was just put in it.
+    LaunchedEffect(historyMenuOpen, focusAfterHistory) {
+        if (!historyMenuOpen && focusAfterHistory) {
+            focusAfterHistory = false
+            focusRequester.requestFocus()
+        }
     }
 
     presetMenuFor?.let { preset ->

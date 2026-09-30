@@ -14,13 +14,10 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -121,93 +118,66 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
                     Icon(Icons.Default.Refresh, contentDescription = context.getString(R.string.action_refresh))
                 }
                 Spacer(Modifier.width(8.dp))
-                Box {
-                    Surface(
-                        onClick = { accountMenuExpanded = true },
-                        shape = RoundedCornerShape(12.dp),
-                        color = Color.Transparent,
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.5.dp,
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                Surface(
+                    onClick = { accountMenuExpanded = true },
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color.Transparent,
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.5.dp,
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                    )
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Icon(Icons.Default.AccountCircle, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(6.dp))
+                        // Free-text account name: capped, or the chip grows over
+                        // the sheet title and past its own caret.
+                        Text(
+                            currentAccount.name,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.widthIn(max = 120.dp)
                         )
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                        ) {
-                            Icon(Icons.Default.AccountCircle, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
-                            Spacer(Modifier.width(6.dp))
-                            // Free-text account name: capped, or the chip grows over
-                            // the sheet title and past its own caret.
-                            Text(
-                                currentAccount.name,
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.bodyMedium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.widthIn(max = 120.dp)
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Icon(Icons.Default.ArrowDropDown, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                    DropdownMenu(
-                        expanded = accountMenuExpanded,
-                        onDismissRequest = { accountMenuExpanded = false },
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier
-                            .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                            .border(
-                                1.dp,
-                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-                                RoundedCornerShape(16.dp)
-                            )
-                    ) {
-                        accounts.forEach { acc ->
-                            val isActive = acc.id == currentAccount.id
-                            DropdownMenuItem(
-                                text = { 
-                                    Text(
-                                        acc.name, 
-                                        fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                                    ) 
-                                },
-                                leadingIcon = {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(28.dp)
-                                            .clip(CircleShape)
-                                            .background(
-                                                if (isActive) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            if (isActive) Icons.Default.Check else Icons.Default.AccountCircle,
-                                            contentDescription = null,
-                                            tint = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
-                                },
-                                onClick = {
-                                    accountMenuExpanded = false
-                                    if (acc.id != currentAccount.id) {
-                                        AccountManager.setActiveAccount(context, acc.id)
-                                        currentAccount = acc
-                                        context.startService(Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" })
-                                    }
-                                },
-                                colors = MenuDefaults.itemColors(
-                                    textColor = MaterialTheme.colorScheme.onSurface,
-                                    leadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            )
-                        }
+                        Spacer(Modifier.width(4.dp))
+                        Icon(Icons.Default.ArrowDropDown, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                     }
                 }
+            }
+
+            if (accountMenuExpanded) {
+                // The same choice as the main screen's account switcher, so the same
+                // shape: a sheet over this one rather than a menu hanging off the chip.
+                // The server line tells apart two accounts that share a name. Read once
+                // per opening: it comes from each account's preferences, and this
+                // sheet recomposes with every line of send progress.
+                val accountOptions = remember(accounts) {
+                    accounts.map { acc ->
+                        PickerOption(
+                            value = acc,
+                            label = acc.name,
+                            icon = Icons.Default.AccountCircle,
+                            supporting = AccountManager.facts(context, acc.id).loginServer
+                        )
+                    }
+                }
+                PickerSheet(
+                    title = context.getString(R.string.accounts_sheet_title),
+                    options = accountOptions,
+                    selected = accounts.firstOrNull { it.id == currentAccount.id },
+                    onPick = { acc ->
+                        if (acc.id != currentAccount.id) {
+                            AccountManager.setActiveAccount(context, acc.id)
+                            currentAccount = acc
+                            context.startService(Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" })
+                        }
+                    },
+                    onDismiss = { accountMenuExpanded = false }
+                )
             }
 
             if (isLoadingPeers) Box(Modifier.fillMaxWidth().height(200.dp), Alignment.Center) { LoadingIndicator() }

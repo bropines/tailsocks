@@ -19,10 +19,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,7 +34,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
@@ -91,6 +96,28 @@ object OptionalPermissions {
 
 /** What the system can tell us about one optional permission. */
 private enum class PermState { GRANTED, DENIED, UNKNOWN, NOT_APPLICABLE }
+
+/**
+ * Where a row goes on the screen: what is missing first — the reason to open
+ * the screen at all — then what nobody can vouch for, then what is settled.
+ */
+private val PermState.urgency: Int
+    get() = when (this) {
+        PermState.DENIED -> 0
+        PermState.UNKNOWN -> 1
+        PermState.GRANTED, PermState.NOT_APPLICABLE -> 2
+    }
+
+/** One row: what it is, why it helps, what the system says, where to change it. */
+private class PermEntry(
+    /** Stable across reorders, so a row keeps its own unfolded note when it moves. */
+    val id: String,
+    val title: String,
+    val reason: String,
+    val icon: ImageVector,
+    val state: PermState,
+    val open: () -> Unit
+)
 
 /**
  * The ask itself: a modal, so it costs no dashboard space, and three answers, so
@@ -232,6 +259,81 @@ fun PermissionsScreen(onBack: () -> Unit) {
     val notificationsState = remember(refreshTick) { probe { notificationsState(context) } }
     val installState = remember(refreshTick) { probe { installUnknownAppsState(context) } }
 
+    // Declared in a fixed order and shown by urgency: a row granted on the system
+    // screen drops to the end on the way back, and what is left to do stays on top.
+    // The sort is stable, so rows with the same answer keep this order.
+    val entries = listOf(
+        PermEntry(
+            id = "autostart",
+            title = stringResource(R.string.perm_autostart_title),
+            reason = stringResource(R.string.perm_autostart_reason),
+            icon = Icons.Default.PowerSettingsNew,
+            // The OEM screens expose no API at all, so claiming either answer
+            // would be a guess; say so instead.
+            state = PermState.UNKNOWN
+        ) { openAutostartSettings(context) },
+        PermEntry(
+            id = "alarms",
+            title = stringResource(R.string.perm_alarms_title),
+            reason = stringResource(R.string.perm_alarms_reason),
+            icon = Icons.Default.Alarm,
+            state = alarmsState
+        ) {
+            openFirst(
+                context,
+                Intent(
+                    Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                    Uri.parse("package:${context.packageName}")
+                ),
+                appDetails(context)
+            )
+        },
+        PermEntry(
+            id = "battery",
+            title = stringResource(R.string.perm_battery_title),
+            reason = stringResource(R.string.perm_battery_reason),
+            icon = Icons.Default.BatteryAlert,
+            state = batteryState
+        ) {
+            openFirst(
+                context,
+                Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS),
+                appDetails(context)
+            )
+        },
+        PermEntry(
+            id = "notifications",
+            title = stringResource(R.string.perm_notifications_title),
+            reason = stringResource(R.string.perm_notifications_reason),
+            icon = Icons.Default.Notifications,
+            state = notificationsState
+        ) {
+            openFirst(
+                context,
+                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
+                appDetails(context)
+            )
+        },
+        PermEntry(
+            id = "install",
+            title = stringResource(R.string.perm_install_title),
+            reason = stringResource(R.string.perm_install_reason),
+            icon = Icons.Default.SystemUpdate,
+            state = installState
+        ) {
+            openFirst(
+                context,
+                Intent(
+                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:${context.packageName}")
+                ),
+                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES),
+                appDetails(context)
+            )
+        }
+    ).sortedBy { it.state.urgency }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -263,73 +365,8 @@ fun PermissionsScreen(onBack: () -> Unit) {
                 modifier = Modifier.padding(vertical = 12.dp)
             )
 
-            PermissionRow(
-                title = stringResource(R.string.perm_autostart_title),
-                reason = stringResource(R.string.perm_autostart_reason),
-                // The OEM screens expose no API at all, so claiming either answer
-                // would be a guess; say so instead.
-                state = PermState.UNKNOWN,
-                icon = Icons.Default.PowerSettingsNew
-            ) { openAutostartSettings(context) }
-
-            PermissionRow(
-                title = stringResource(R.string.perm_alarms_title),
-                reason = stringResource(R.string.perm_alarms_reason),
-                state = alarmsState,
-                icon = Icons.Default.Alarm
-            ) {
-                openFirst(
-                    context,
-                    Intent(
-                        Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
-                        Uri.parse("package:${context.packageName}")
-                    ),
-                    appDetails(context)
-                )
-            }
-
-            PermissionRow(
-                title = stringResource(R.string.perm_battery_title),
-                reason = stringResource(R.string.perm_battery_reason),
-                state = batteryState,
-                icon = Icons.Default.BatteryAlert
-            ) {
-                openFirst(
-                    context,
-                    Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS),
-                    appDetails(context)
-                )
-            }
-
-            PermissionRow(
-                title = stringResource(R.string.perm_notifications_title),
-                reason = stringResource(R.string.perm_notifications_reason),
-                state = notificationsState,
-                icon = Icons.Default.Notifications
-            ) {
-                openFirst(
-                    context,
-                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                        .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
-                    appDetails(context)
-                )
-            }
-
-            PermissionRow(
-                title = stringResource(R.string.perm_install_title),
-                reason = stringResource(R.string.perm_install_reason),
-                state = installState,
-                icon = Icons.Default.SystemUpdate
-            ) {
-                openFirst(
-                    context,
-                    Intent(
-                        Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                        Uri.parse("package:${context.packageName}")
-                    ),
-                    Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES),
-                    appDetails(context)
-                )
+            entries.forEach { entry ->
+                key(entry.id) { PermissionRow(entry) }
             }
 
             Spacer(Modifier.height(16.dp))
@@ -338,15 +375,19 @@ fun PermissionsScreen(onBack: () -> Unit) {
     }
 }
 
+/**
+ * One permission, in two lines. What the system says about it is a glyph at the
+ * row's end, so the answers read down one column; it has words only where a
+ * glyph cannot carry them — for TalkBack, and in the folded note of a row whose
+ * answer the system keeps to itself. "Open" stands only where something is left
+ * to do. A settled row still opens its system screen on a tap, without a button
+ * pulling the eye away from the rows that need one.
+ */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun PermissionRow(
-    title: String,
-    reason: String,
-    state: PermState,
-    icon: ImageVector,
-    onOpen: () -> Unit
-) {
-    val label = stringResource(
+private fun PermissionRow(entry: PermEntry) {
+    val state = entry.state
+    val stateLabel = stringResource(
         when (state) {
             PermState.GRANTED -> R.string.perm_state_granted
             PermState.DENIED -> R.string.perm_state_denied
@@ -354,43 +395,64 @@ private fun PermissionRow(
             PermState.NOT_APPLICABLE -> R.string.perm_state_na
         }
     )
-    val labelColor = when (state) {
-        PermState.GRANTED -> MaterialTheme.colorScheme.primary
-        PermState.DENIED -> MaterialTheme.colorScheme.error
-        else -> MaterialTheme.colorScheme.outline
+    // The reason is the one line in view. An answer the glyph cannot explain on
+    // its own goes on the next line, which folds away with the rest.
+    val explanation = when (state) {
+        PermState.UNKNOWN -> entry.reason + "\n" + stringResource(R.string.perm_unknown_note)
+        PermState.NOT_APPLICABLE -> entry.reason + "\n" + stateLabel
+        else -> entry.reason
     }
+    val openLabel = stringResource(R.string.perm_open)
+    val needsAction = state == PermState.DENIED || state == PermState.UNKNOWN
+    // Nothing to open where the permission does not exist on this Android.
+    val canOpen = state != PermState.NOT_APPLICABLE
+    val help = remember(explanation) { mutableStateOf(false) }
+    val haptics = LocalHapticFeedback.current
+    val shape = RoundedCornerShape(12.dp)
     Surface(
-        shape = RoundedCornerShape(12.dp),
+        shape = shape,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
+            .clip(shape)
+            // A long press unfolds the note, as on the settings rows.
+            .combinedClickable(
+                onClickLabel = if (canOpen) openLabel else null,
+                onClick = { if (canOpen) entry.open() else help.value = !help.value },
+                onLongClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    help.value = !help.value
+                }
+            )
     ) {
         ListItem(
-            headlineContent = { Text(title) },
-            supportingContent = {
-                Column {
-                    Text(
-                        reason,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        label,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = labelColor
-                    )
-                }
-            },
-            leadingContent = { Icon(icon, null, tint = MaterialTheme.colorScheme.primary) },
+            headlineContent = { Text(entry.title) },
+            supportingContent = { HelpText(explanation, lines = 1, expanded = help) },
+            leadingContent = { Icon(entry.icon, null, tint = MaterialTheme.colorScheme.primary) },
             trailingContent = {
-                if (state != PermState.NOT_APPLICABLE) {
-                    TextButton(onClick = onOpen) { Text(stringResource(R.string.perm_open)) }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (needsAction) {
+                        TextButton(onClick = entry.open) { Text(openLabel) }
+                    }
+                    PermStateIcon(state, stateLabel)
                 }
             },
             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
         )
     }
+}
+
+/** The answer as a glyph, tinted like the words it replaced; [description] is what TalkBack says. */
+@Composable
+private fun PermStateIcon(state: PermState, description: String) {
+    val (glyph, tint) = when (state) {
+        PermState.GRANTED -> Icons.Default.CheckCircle to MaterialTheme.colorScheme.primary
+        PermState.DENIED -> Icons.Default.Cancel to MaterialTheme.colorScheme.error
+        PermState.UNKNOWN -> Icons.AutoMirrored.Outlined.HelpOutline to MaterialTheme.colorScheme.outline
+        PermState.NOT_APPLICABLE -> Icons.Default.RemoveCircleOutline to MaterialTheme.colorScheme.outline
+    }
+    Icon(glyph, contentDescription = description, tint = tint, modifier = Modifier.size(24.dp))
 }
 
 /** Before Android 12 an exact alarm needs no permission at all. */

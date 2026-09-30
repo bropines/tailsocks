@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="pickers_days">
+        <item quantity="one">%d день</item>
+        <item quantity="few">%d дня</item>
+        <item quantity="many">%d дней</item>
+        <item quantity="other">%d дня</item>
+    </plurals>
+
+    <string name="pickers_logs_period_title">Период</string>
+
+    <string name="pickers_sort_name_az">По имени, А–Я</string>
+    <string name="pickers_sort_name_za">По имени, Я–А</string>
+    <string name="pickers_sort_last_seen">Сначала недавно активные</string>
+    <string name="pickers_sort_update">Сначала с обновлениями</string>
+
+    <string name="pickers_role_none">Никто</string>
+    <string name="pickers_role_admin">Администраторы</string>
+    <string name="pickers_role_member">Все участники</string>
+
+    <string name="perm_unknown_note">Android не сообщает приложениям, разрешено ли это, — проверьте на системном экране.</string>
+</resources>

@@ -46,10 +46,22 @@ fun AdminApiLogsTabContent(
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedActionFilter by remember { mutableStateOf("ALL") }
-    // A menu popup opens its own window whose LocalContext ignores the app
-    // locale, so its strings are resolved through this parent context instead —
-    // see wrapContextWithLocale().
+    // A sheet opens its own window whose LocalContext ignores the app locale, so
+    // its strings are resolved through this parent context instead — see
+    // wrapContextWithLocale().
     val ctx = LocalContext.current
+    fun daysLabel(days: Int): String = ctx.resources.getQuantityString(R.plurals.pickers_days, days, days)
+
+    var showRangePicker by remember { mutableStateOf(false) }
+    if (showRangePicker) {
+        PickerSheet(
+            title = ctx.getString(R.string.pickers_logs_period_title),
+            options = listOf(1, 3, 7, 14, 30).map { PickerOption(it, daysLabel(it)) },
+            selected = daysRange,
+            onPick = onDaysRangeChange,
+            onDismiss = { showRangePicker = false }
+        )
+    }
 
     val filteredLogs = remember(auditLogs, searchQuery, selectedActionFilter) {
         auditLogs.filter { log ->
@@ -78,34 +90,19 @@ fun AdminApiLogsTabContent(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                placeholder = { Text(stringResource(R.string.admin_logs_search_placeholder)) },
+                // One line, cut: «Поиск по аудит-логам…» wrapped beside the period
+                // button and made the field twice as tall as the row.
+                placeholder = { Text(stringResource(R.string.admin_logs_search_placeholder), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 singleLine = true,
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(8.dp),
                 leadingIcon = { Icon(Icons.Default.Search, null) }
             )
 
-            var expandedRangeDropdown by remember { mutableStateOf(false) }
-            Box {
-                OutlinedButton(onClick = { expandedRangeDropdown = true }) {
-                    Text(stringResource(R.string.admin_logs_days_label, daysRange))
-                    Spacer(Modifier.width(4.dp))
-                    Icon(Icons.Default.ArrowDropDown, null)
-                }
-                DropdownMenu(
-                    expanded = expandedRangeDropdown,
-                    onDismissRequest = { expandedRangeDropdown = false }
-                ) {
-                    listOf(1, 3, 7, 14, 30).forEach { days ->
-                        DropdownMenuItem(
-                            text = { Text(ctx.getString(R.string.admin_logs_days_label, days)) },
-                            onClick = {
-                                onDaysRangeChange(days)
-                                expandedRangeDropdown = false
-                            }
-                        )
-                    }
-                }
+            OutlinedButton(onClick = { showRangePicker = true }) {
+                Text(daysLabel(daysRange), maxLines = 1, softWrap = false)
+                Spacer(Modifier.width(4.dp))
+                Icon(Icons.Default.ArrowDropDown, null)
             }
         }
 

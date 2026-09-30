@@ -14,8 +14,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -42,9 +45,9 @@ fun TailnetSettingsTabContent(
         return
     }
 
-    // A menu popup opens its own window whose LocalContext ignores the app
-    // locale, so its strings are resolved through this parent context instead —
-    // see wrapContextWithLocale().
+    // A sheet opens its own window whose LocalContext ignores the app locale, so
+    // its strings are resolved through this parent context instead — see
+    // wrapContextWithLocale().
     val ctx = LocalContext.current
 
     var devicesApproval by remember(settings) { mutableStateOf(settings.devicesApprovalOn == true) }
@@ -56,6 +59,43 @@ fun TailnetSettingsTabContent(
     var regionalRouting by remember(settings) { mutableStateOf(settings.regionalRoutingOn == true) }
     var postureIdentityCollection by remember(settings) { mutableStateOf(settings.postureIdentityCollectionOn == true) }
     var allowedExternalJoinRole by remember(settings) { mutableStateOf(settings.usersRoleAllowedToJoinExternalTailnets ?: "admin") }
+
+    var showDurationPicker by remember { mutableStateOf(false) }
+    var showRolePicker by remember { mutableStateOf(false) }
+
+    // The API's own words, "none", "admin", "member", used to stand on the button
+    // in capitals; these say who that is. A value the API adds later still shows,
+    // as itself.
+    fun roleLabel(role: String): String = when (role) {
+        "none" -> ctx.getString(R.string.pickers_role_none)
+        "admin" -> ctx.getString(R.string.pickers_role_admin)
+        "member" -> ctx.getString(R.string.pickers_role_member)
+        else -> role
+    }
+    fun daysLabel(days: Int): String = ctx.resources.getQuantityString(R.plurals.pickers_days, days, days)
+
+    if (showDurationPicker) {
+        PickerSheet(
+            title = ctx.getString(R.string.admin_settings_key_expiry_title),
+            options = listOf(1, 7, 30, 90, 180).map { PickerOption(it, daysLabel(it)) },
+            selected = keyDurationDays,
+            onPick = { keyDurationDays = it },
+            onDismiss = { showDurationPicker = false }
+        )
+    }
+    if (showRolePicker) {
+        PickerSheet(
+            title = ctx.getString(R.string.admin_settings_allowed_role),
+            options = listOf(
+                PickerOption("none", roleLabel("none"), Icons.Default.Block),
+                PickerOption("admin", roleLabel("admin"), Icons.Default.AdminPanelSettings),
+                PickerOption("member", roleLabel("member"), Icons.Default.Group)
+            ),
+            selected = allowedExternalJoinRole,
+            onPick = { allowedExternalJoinRole = it },
+            onDismiss = { showRolePicker = false }
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -105,31 +145,14 @@ fun TailnetSettingsTabContent(
                     )
                     Spacer(Modifier.width(12.dp))
 
-                    var expandedDropdown by remember { mutableStateOf(false) }
-                    Box {
-                        OutlinedButton(onClick = { expandedDropdown = true }) {
-                            Text(
-                                stringResource(R.string.admin_settings_days_option, keyDurationDays),
-                                maxLines = 1,
-                                softWrap = false
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Icon(Icons.Default.ArrowDropDown, null)
-                        }
-                        DropdownMenu(
-                            expanded = expandedDropdown,
-                            onDismissRequest = { expandedDropdown = false }
-                        ) {
-                            listOf(1, 7, 30, 90, 180).forEach { days ->
-                                DropdownMenuItem(
-                                    text = { Text(ctx.getString(R.string.admin_settings_days_option, days)) },
-                                    onClick = {
-                                        keyDurationDays = days
-                                        expandedDropdown = false
-                                    }
-                                )
-                            }
-                        }
+                    OutlinedButton(onClick = { showDurationPicker = true }) {
+                        Text(
+                            daysLabel(keyDurationDays),
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Icon(Icons.Default.ArrowDropDown, null)
                     }
                 }
             }
@@ -255,31 +278,14 @@ fun TailnetSettingsTabContent(
                     )
                     Spacer(Modifier.width(12.dp))
 
-                    var expandedRoleDropdown by remember { mutableStateOf(false) }
-                    Box {
-                        OutlinedButton(onClick = { expandedRoleDropdown = true }) {
-                            Text(
-                                allowedExternalJoinRole.uppercase(),
-                                maxLines = 1,
-                                softWrap = false
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Icon(Icons.Default.ArrowDropDown, null)
-                        }
-                        DropdownMenu(
-                            expanded = expandedRoleDropdown,
-                            onDismissRequest = { expandedRoleDropdown = false }
-                        ) {
-                            listOf("none", "admin", "member").forEach { role ->
-                                DropdownMenuItem(
-                                    text = { Text(role.uppercase()) },
-                                    onClick = {
-                                        allowedExternalJoinRole = role
-                                        expandedRoleDropdown = false
-                                    }
-                                )
-                            }
-                        }
+                    OutlinedButton(onClick = { showRolePicker = true }) {
+                        Text(
+                            roleLabel(allowedExternalJoinRole),
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Icon(Icons.Default.ArrowDropDown, null)
                     }
                 }
             }

@@ -57,6 +57,27 @@ fun DevicesTabContent(
         }
     }
     
+    var expandedSortMenu by remember { mutableStateOf(false) }
+    val strSortTitle = stringResource(R.string.admin_devices_cd_sort)
+    if (expandedSortMenu) {
+        // Strings resolved in the parent composition — the sheet is its own
+        // window; see wrapContextWithLocale(). The current order is checked,
+        // which the menu never showed.
+        val options = listOf(
+            PickerOption("name", stringResource(R.string.pickers_sort_name_az), Icons.Default.SortByAlpha),
+            PickerOption("name_desc", stringResource(R.string.pickers_sort_name_za), Icons.Default.SortByAlpha),
+            PickerOption("last_seen", stringResource(R.string.pickers_sort_last_seen), Icons.Default.Schedule),
+            PickerOption("update", stringResource(R.string.pickers_sort_update), Icons.Default.SystemUpdate)
+        )
+        PickerSheet(
+            title = strSortTitle,
+            options = options,
+            selected = sortBy,
+            onPick = { sortBy = it },
+            onDismiss = { expandedSortMenu = false }
+        )
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier
@@ -70,41 +91,11 @@ fun DevicesTabContent(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.outline
             )
-            
-            var expandedSortMenu by remember { mutableStateOf(false) }
-            Box {
-                IconButton(onClick = { expandedSortMenu = true }) {
-                    Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = stringResource(R.string.admin_devices_cd_sort))
-                }
-                // Strings resolved in the parent composition — the menu is its own window; see wrapContextWithLocale().
-                val strAdminDevicesSortNameAz = stringResource(R.string.admin_devices_sort_name_az)
-                val strAdminDevicesSortNameZa = stringResource(R.string.admin_devices_sort_name_za)
-                val strAdminDevicesSortLastSeen = stringResource(R.string.admin_devices_sort_last_seen)
-                val strAdminDevicesSortUpdate = stringResource(R.string.admin_devices_sort_update)
-                DropdownMenu(
-                    expanded = expandedSortMenu,
-                    onDismissRequest = { expandedSortMenu = false }
-                ) {
-                    DropdownMenuItem(
-                        text = { Text(strAdminDevicesSortNameAz) },
-                        onClick = { sortBy = "name"; expandedSortMenu = false }
-                    )
-                    DropdownMenuItem(
-                        text = { Text(strAdminDevicesSortNameZa) },
-                        onClick = { sortBy = "name_desc"; expandedSortMenu = false }
-                    )
-                    DropdownMenuItem(
-                        text = { Text(strAdminDevicesSortLastSeen) },
-                        onClick = { sortBy = "last_seen"; expandedSortMenu = false }
-                    )
-                    DropdownMenuItem(
-                        text = { Text(strAdminDevicesSortUpdate) },
-                        onClick = { sortBy = "update"; expandedSortMenu = false }
-                    )
-                }
+            IconButton(onClick = { expandedSortMenu = true }) {
+                Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = strSortTitle)
             }
         }
-        
+
         if (sortedDevices.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(stringResource(R.string.admin_devices_no_devices), color = MaterialTheme.colorScheme.outline)
