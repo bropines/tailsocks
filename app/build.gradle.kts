@@ -101,6 +101,15 @@ android {
         }
     }
 
+    // Whether the app asks GitHub for a newer release on launch by default.
+    // True for the builds published here; a store that updates the app itself
+    // (F-Droid) builds with -PupdateCheckDefault=false, and the user can switch
+    // it either way in Settings.
+    defaultConfig.buildConfigField(
+        "boolean", "UPDATE_CHECK_DEFAULT",
+        (project.findProperty("updateCheckDefault") ?: "true").toString()
+    )
+
     buildTypes {
         debug {
             applicationIdSuffix = ".dev"

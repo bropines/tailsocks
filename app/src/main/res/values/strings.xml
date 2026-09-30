@@ -1468,4 +1468,6 @@
     <string name="main_status_state_off">Off</string>
     <string name="main_status_action_stop">Stop</string>
     <string name="main_status_action_start">Start</string>
+    <string name="settings_update_check_title">Check for updates on launch</string>
+    <string name="settings_update_check_desc">Asks GitHub for a newer release each time the app opens. The About screen can always check by hand.</string>
 </resources>

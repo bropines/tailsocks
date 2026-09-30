@@ -2183,6 +2183,16 @@ fun SettingsScreen(
                 GlobalSettings.setShowChangelogAfterUpdate(context, it)
                 showChangelogAfterUpdate = it
             }
+            var updateCheckOnLaunch by remember { mutableStateOf(GlobalSettings.isUpdateCheckOnLaunch(context)) }
+            SettingsSwitchItem(
+                stringResource(R.string.settings_update_check_title),
+                stringResource(R.string.settings_update_check_desc),
+                Icons.Default.SystemUpdate,
+                updateCheckOnLaunch
+            ) {
+                GlobalSettings.setUpdateCheckOnLaunch(context, it)
+                updateCheckOnLaunch = it
+            }
         }
     }
 

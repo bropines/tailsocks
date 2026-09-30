@@ -1468,4 +1468,6 @@
     <string name="main_status_state_off">Выключено</string>
     <string name="main_status_action_stop">Остановить</string>
     <string name="main_status_action_start">Запустить</string>
+    <string name="settings_update_check_title">Проверять обновления при запуске</string>
+    <string name="settings_update_check_desc">При каждом открытии спрашивает GitHub о новом релизе. Вручную проверить можно всегда — в «О приложении».</string>
 </resources>

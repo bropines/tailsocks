@@ -231,7 +231,10 @@ class MainActivity : ComponentActivity() {
         // install from an upgrade.
         if (savedInstanceState == null) checkWhatsNew()
         handleAppStartup()
-        checkForUpdatesSilent()
+        // A network request on every launch, so it is the user's to switch off
+        // (and off by default where a store handles updates).
+        if (GlobalSettings.isUpdateCheckOnLaunch(this)) checkForUpdatesSilent()
+        else kotlinx.coroutines.MainScope().launch(Dispatchers.IO) { pruneUpdateDownloads(this@MainActivity) }
         handleIntent(intent)
 
         setContent {
@@ -1779,7 +1782,14 @@ fun MainScreen(
                                                 }
                                                 return@Button
                                             }
-                                            val targetUrl = downloadUrl ?: "https://github.com/bropines/tailsocks/releases/latest/download/app-release.apk"
+                                            // No asset matched this device's ABI: send the user to the
+                                            // release page. The old fallback downloaded
+                                            // latest/download/app-release.apk, a file no release has had.
+                                            if (downloadUrl == null) {
+                                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/bropines/tailsocks/releases/latest")))
+                                                return@Button
+                                            }
+                                            val targetUrl = downloadUrl
                                             isDownloading = true
                                             downloadProgress = 0
                                             scope.launch(Dispatchers.IO) {
