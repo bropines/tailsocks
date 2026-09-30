@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Network diagnostics; see values/strings_netcheck.xml. -->
+<resources>
+    <string name="netcheck_home_derp">Домашний DERP: %1$s</string>
+    <string name="netcheck_home_derp_latency">Домашний DERP: %1$s · %2$d мс</string>
+    <string name="netcheck_no_home_derp">Нет домашнего DERP</string>
+    <string name="netcheck_no_home_derp_help">Когда прямого пути нет, узлы связываются с этим устройством через его домашнее реле. Без него работают только прямые соединения: серверы DERP недоступны по HTTPS или карта сети ещё не получена.</string>
+    <string name="netcheck_report_home_derp">Домашний DERP: %1$s\n</string>
+    <string name="netcheck_report_no_home_derp">Домашний DERP: ❌ нет (работают только прямые соединения)\n</string>
+    <string name="netcheck_starting_service">Запуск службы…</string>
+    <string name="netcheck_starting_service_desc">Диагностика начнётся, когда служба подключится.</string>
+    <string name="netcheck_service_stopped">Служба остановилась, так и не запустившись. Причина — в логах.</string>
+</resources>

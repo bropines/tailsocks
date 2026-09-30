@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Network diagnostics. Kept apart from strings.xml so work on this screen does
+     not collide with edits there; Android merges every file in values/. -->
+<resources>
+    <string name="netcheck_home_derp">Home DERP: %1$s</string>
+    <string name="netcheck_home_derp_latency">Home DERP: %1$s · %2$d ms</string>
+    <string name="netcheck_no_home_derp">No home DERP</string>
+    <string name="netcheck_no_home_derp_help">Peers reach this device through its home relay whenever a direct path fails. Without one only direct connections work: the DERP servers are unreachable over HTTPS, or the network map has not arrived yet.</string>
+    <string name="netcheck_report_home_derp">Home DERP: %1$s\n</string>
+    <string name="netcheck_report_no_home_derp">Home DERP: ❌ none (only direct connections work)\n</string>
+    <string name="netcheck_starting_service">Starting the service…</string>
+    <string name="netcheck_starting_service_desc">Diagnostics run once it is connected.</string>
+    <string name="netcheck_service_stopped">The service stopped instead of starting. The logs say why.</string>
+</resources>
