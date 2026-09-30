@@ -24,11 +24,8 @@
 # upload). TailSocks compiles that upload out (ts_omit_logtail, appctr/build.sh:111;
 # TS_NO_LOGS_NO_SUPPORT=true, appctr/daemon.go:114), so that one does not apply.
 AntiFeatures:
-  Tracking:
-    # BLOCKER-ish: F-Droid's definition names "update checks without your
-    # knowledge or permission". MainActivity.kt:230 calls api.github.com on every
-    # start. Drop this entry once the check is opt-in (off by default).
-    en-US: Asks GitHub for the latest release on every start, without asking first.
+  # Tracking no longer applies: the update check on launch is a setting, and this
+  # build turns it off by default (updateCheckDefault=false in gradleprops).
   # OPEN: reviewer's call. The default coordination server and the whole Admin API
   # console (api.tailscale.com) are Tailscale's proprietary service; a self-hosted
   # Headscale server replaces the former (login server field), nothing replaces
@@ -87,6 +84,11 @@ Builds:
       - apt-get update
       - apt-get install -y -t bookworm openjdk-17-jdk-headless
       - update-java-alternatives -s java-1.17.0-openjdk-amd64
+    gradleprops:
+      # Package the release unsigned — F-Droid signs it — and ship with the
+      # launch update check off (F-Droid delivers the updates).
+      - allowUnsignedRelease
+      - updateCheckDefault=false
     output: build/outputs/apk/release/app-universal-release-unsigned.apk
     # ^ ABI splits are on (app/build.gradle.kts:87-94) and all five APKs share one
     #   versionCode, so F-Droid ships the universal one (~85 MB). Per-ABI entries
@@ -99,20 +101,11 @@ Builds:
     prebuild:
       # ASSUMPTION: compileSdk 37 is not preinstalled on the buildserver.
       - sdkmanager 'platforms;android-37'
-      # BLOCKER (upstream): the release build refuses to package without a
-      # keystore (app/build.gradle.kts:340-366), and F-Droid builds unsigned.
-      # The block runs to the end of the file, so cut from its first line.
-      # OPEN: replace with an upstream opt-out, e.g. -PallowUnsignedRelease via
-      # `gradleprops`, and delete this sed.
-      - sed -i -e '/^tasks.matching { it.name.startsWith("package")/,$d' build.gradle.kts
-      # BLOCKER (upstream): appctr/build.sh:64 pipes an unverified tarball from
-      # GitHub into tar. Point it at the copy the build step downloads and checks.
-      # OPEN: an upstream TS_TARBALL / checksum file would make this sed go away.
-      - sed -i -e 's|curl -sL "https://github.com/tailscale/tailscale/archive/refs/tags/${TS_VERSION}.tar.gz"|cat "$TS_TARBALL"|'
-        ../appctr/build.sh
-      # appctr/build.sh:100 sets GOTOOLCHAIN=auto, which would fetch a Go binary
-      # from proxy.golang.org. Force the toolchain built from the srclib.
-      - sed -i -e 's/^export GOTOOLCHAIN=auto$/export GOTOOLCHAIN=local/' ../appctr/build.sh
+      # Upstream now covers what this block used to patch with sed:
+      #  - an unsigned release is allowed with -PallowUnsignedRelease (gradleprops);
+      #  - appctr/build.sh verifies the Tailscale archive against
+      #    appctr/TAILSCALE_SHA256 itself;
+      #  - appctr/build.sh keeps an existing GOTOOLCHAIN (exported as local below).
     build:
       - pushd $$go$$/src
       - ./make.bash
@@ -121,14 +114,10 @@ Builds:
       - export GOTOOLCHAIN=local
       - export ANDROID_HOME=$$SDK$$
       - export ANDROID_NDK_HOME=$$NDK$$
-      # Tailscale source, pinned by appctr/TAILSCALE_VERSION (v1.102.5 at v4.4.4).
-      # sha256 computed 2026-09-30 from GitHub's archive endpoint.
-      # ASSUMPTION: GitHub keeps archive checksums stable (it has promised to
-      # since 2023). Alternative: a `tailscale` srclib (git, tag v1.102.5).
-      - export TS_TARBALL=$(pwd)/../appctr/tailscale.tar.gz
-      - curl -Lo $TS_TARBALL https://github.com/tailscale/tailscale/archive/refs/tags/v1.102.5.tar.gz
-      - echo "110b0d0586e981fccb83149d0ac4e7aac3c879fd372772b0dee1818f204893bc  $TS_TARBALL"
-        | sha256sum -c -
+      # Tailscale source: appctr/build.sh downloads the tag named in
+      # appctr/TAILSCALE_VERSION and refuses it unless its sha256 matches
+      # appctr/TAILSCALE_SHA256. OPEN: F-Droid may prefer a `tailscale` srclib
+      # (git, tag v1.102.5) over a download during the build.
       # gomobile and gobind pinned to the x/mobile version in appctr/go.mod.
       # CI does `go install ...gomobile@latest && gomobile init`
       # (.github/workflows/android.yml:74-75), and `gomobile init` installs

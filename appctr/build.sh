@@ -125,7 +125,9 @@ mkdir -p tmp
 # Forcing `-go=1.23` here downgraded the module below what v1.102.1 needs
 # (generic type aliases, sync.WaitGroup.Go) and reverted it to the unpruned
 # module graph, changing transitive versions from what upstream pinned.
-export GOTOOLCHAIN=auto
+# An environment that already chose — GOTOOLCHAIN=local on an F-Droid builder,
+# which provides its own Go and allows no download — keeps its choice.
+export GOTOOLCHAIN=${GOTOOLCHAIN:-auto}
 
 # The patches add files that import modules upstream does not require — the
 # android netmon fix pulls in github.com/wlynxg/anet — so the module graph has

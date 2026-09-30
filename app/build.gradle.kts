@@ -42,6 +42,12 @@ android {
     namespace = "io.github.bropines.tailscaled"
     // compileSdk = 37 (не 36): core-ktx 1.17.0 требует как минимум 36
     compileSdk = 37
+    // The dependency metadata block in the APK is readable only by Google and
+    // tells the user nothing; F-Droid and IzzyOnDroid ask for it to be left out.
+    dependenciesInfo {
+        includeInApk = false
+    }
+
     // Pinned so every build — local, CI, an F-Droid builder — uses the same
     // NDK; otherwise AGP takes its own default and CI took whichever it found.
     ndkVersion = "28.2.13676358"
@@ -361,8 +367,13 @@ tasks.matching { it.name == "assembleRelease" || it.name == "bundleRelease" }.co
 // Refuse to package a release that nothing can sign, instead of emitting an
 // artifact that looks finished and turns out to be uninstallable or, worse,
 // signed with a throwaway key.
+// One deliberate exception: -PallowUnsignedRelease, for a builder that signs
+// the APK itself afterwards (F-Droid). It has to be asked for by name, so an
+// ordinary build still cannot slip out unsigned.
+val allowUnsignedRelease = project.hasProperty("allowUnsignedRelease")
 tasks.matching { it.name.startsWith("package") && it.name.endsWith("Release") }.configureEach {
     doFirst {
+        if (allowUnsignedRelease) return@doFirst
         val path = System.getenv("KEYSTORE_FILE")
             ?: throw GradleException(
                 """
