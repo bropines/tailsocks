@@ -17,6 +17,7 @@
   <a href="https://github.com/bropines/tailsocks/releases"><img src="https://img.shields.io/github/downloads/bropines/tailsocks/total?style=for-the-badge&logo=android&logoColor=white&label=Downloads&color=3ddc84" alt="Загрузки" /></a>
   <a href="https://github.com/tailscale/tailscale/releases/tag/v1.102.5"><img src="https://img.shields.io/badge/Tailscale_Core-v1.102.5-blue?style=for-the-badge&logo=tailscale&logoColor=white" alt="Ядро Tailscale" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-BSD_3--Clause-orange?style=for-the-badge" alt="Лицензия" /></a>
+  <a href="https://hosted.weblate.org/engage/tailsocks/"><img src="https://img.shields.io/weblate/progress/tailsocks?server=https%3A%2F%2Fhosted.weblate.org&style=for-the-badge&logo=weblate&logoColor=white&label=Translated" alt="Статус перевода" /></a>
 </p>
 
 <p align="center">
@@ -252,6 +253,7 @@ KEY_ALIAS=... KEY_PASSWORD=... ./gradlew app:assembleRelease
 | [Руководство по автосценариям Tasker](docs/AUTOMATION_RU.md) | Интеграция Intents для Tasker, MacroDroid, Automate и ADB |
 | [Планы разработки (Roadmap)](docs/ROADMAP_RU.md) | Запланированные функции и ближайшие цели |
 | [Как участвовать в разработке](CONTRIBUTING_RU.md) | Сборка, патчи и правила коммитов для первого pull request |
+| [Перевод](docs/TRANSLATING_RU.md) | Перевести приложение в браузере на Hosted Weblate |
 | [История изменений](CHANGELOG.md) | Полный журнал версий |
 
 ---

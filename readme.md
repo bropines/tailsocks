@@ -17,6 +17,7 @@
   <a href="https://github.com/bropines/tailsocks/releases"><img src="https://img.shields.io/github/downloads/bropines/tailsocks/total?style=for-the-badge&logo=android&logoColor=white&label=Downloads&color=3ddc84" alt="Downloads" /></a>
   <a href="https://github.com/tailscale/tailscale/releases/tag/v1.102.5"><img src="https://img.shields.io/badge/Tailscale_Core-v1.102.5-blue?style=for-the-badge&logo=tailscale&logoColor=white" alt="Tailscale Core" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-BSD_3--Clause-orange?style=for-the-badge" alt="License" /></a>
+  <a href="https://hosted.weblate.org/engage/tailsocks/"><img src="https://img.shields.io/weblate/progress/tailsocks?server=https%3A%2F%2Fhosted.weblate.org&style=for-the-badge&logo=weblate&logoColor=white&label=Translated" alt="Translation status" /></a>
 </p>
 
 <p align="center">
@@ -252,6 +253,7 @@ KEY_ALIAS=... KEY_PASSWORD=... ./gradlew app:assembleRelease
 | [Tasker & Automation Guide](docs/AUTOMATION.md) | Intent automation setup for Tasker, MacroDroid, Automate, and ADB |
 | [Roadmap](docs/ROADMAP.md) | Planned features and short-term goals |
 | [Contributing](CONTRIBUTING.md) | Build, patch and commit rules for your first pull request |
+| [Translating](docs/TRANSLATING.md) | Translate the app in the browser on Hosted Weblate |
 | [Changelog](CHANGELOG.md) | Full version history |
 
 ## 🌐 Restricted Regions & DPI Bypass

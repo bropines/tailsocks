@@ -18,7 +18,7 @@ TailSocks переводится на [Hosted Weblate](https://hosted.weblate.or
 1. **Создать проект** на hosted.weblate.org → *Add new translation project*. Название `TailSocks`, слаг `tailsocks`, сайт — репозиторий на GitHub. Лицензия перевода: **BSD-3-Clause**, та же, что у кода, — стоящая по умолчанию Proprietary закрывает бесплатный план Libre. Проект начинается в пробном периоде; когда он создан, попросите план **Libre** (для открытых проектов со свободной лицензией) на его странице оплаты.
 2. **Основной компонент**, *From version control*:
    - Репозиторий: `https://github.com/bropines/tailsocks.git`, ветка `main`.
-   - Отправка: *GitHub pull request* (Hosted Weblate пушит в свой форк и открывает PR; прав на запись в этот репозиторий ему не нужно).
+   - Система контроля версий: *GitHub pull request* («Запрос на принятие изменений в GitHub»). Затем примите предложение перенести компонент в **GitHub-приложение Hosted Weblate**: оно пушит ветки с переводами и открывает пулл-реквесты, так что в `main` ничего не попадает без просмотра.
    - Формат файлов: **Android String Resource**.
    - Маска файлов: `app/src/main/res/values-*/strings.xml`
    - Базовый файл: `app/src/main/res/values/strings.xml`
@@ -28,7 +28,7 @@ TailSocks переводится на [Hosted Weblate](https://hosted.weblate.or
    - Имя компонента: `{{ component }}`
    - Базовый файл: `app/src/main/res/values/{{ component }}.xml`, он же шаблон новых переводов.
    - Формат: Android String Resource.
-4. **Вебхук**, чтобы Weblate видел каждый пуш: *Settings → Webhooks → Add webhook* этого репозитория, адрес `https://hosted.weblate.org/hooks/github/`, тип `application/json`, только событие push.
+4. **Уведомления** о новых пушах приходят через GitHub-приложение. Только без него: *Settings → Webhooks → Add webhook* этого репозитория, адрес `https://hosted.weblate.org/hooks/github/`, тип `application/json`, только событие push.
 5. **Аддоны**, которые стоит включить: *Cleanup translation files* (убирает строки, удалённые из исходника) и *Squash Git commits* (один коммит на язык в каждом PR).
 6. **Бейдж** для README, когда проект появится:
 
