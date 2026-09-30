@@ -27,6 +27,9 @@ import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 @Preview(name = "phone-landscape", device = "spec:width=852dp,height=393dp,dpi=420")
 @Preview(name = "foldable-open", device = "spec:width=673dp,height=841dp,dpi=420")
 @Preview(name = "tablet", device = "spec:width=1280dp,height=800dp,dpi=240")
+// The author's Lenovo tablet, both ways: 800x1280 px at 213 dpi.
+@Preview(name = "tablet-small-portrait", device = "spec:width=600dp,height=960dp,dpi=213")
+@Preview(name = "tablet-small-landscape", device = "spec:width=960dp,height=600dp,dpi=213")
 annotation class Geometries
 
 private val sampleMenu = listOf(

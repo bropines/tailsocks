@@ -1219,7 +1219,9 @@ fun MainScreen(
         // is width for it, which is landscape and every tablet — before this
         // the same column simply grew wider, and eight menu cards stretched
         // into slabs.
-        val statusPane: @Composable ColumnScope.() -> Unit = {
+        // fillHeight: beside the menu, the card takes the height the status
+        // column has left, so the pair ends on one line (see the two-pane layout).
+        val statusPane: @Composable ColumnScope.(fillHeight: Boolean) -> Unit = { fillHeight ->
 
             if (!isBatteryOptimizationsIgnored) {
                 Surface(
@@ -1393,6 +1395,7 @@ fun MainScreen(
             }
             StatusCard(
                 state = cardState,
+                modifier = if (fillHeight) Modifier.weight(1f) else Modifier,
                 issueTitle = shownWarnings.firstOrNull()?.let { healthTitle(it) },
                 isProcessing = isProcessing,
                 isTunEnabled = isTunEnabled,
@@ -1521,12 +1524,19 @@ fun MainScreen(
             val fold = rememberFold()
             val insetStart = paddingValues.calculateStartPadding(androidx.compose.ui.platform.LocalLayoutDirection.current)
             val insetTop = paddingValues.calculateTopPadding()
-            val wideEnoughForTwoPanes = maxWidth >= 600.dp || fold is Fold.Vertical
+            // Two panes want width and a window lying on its side. Upright, a
+            // tablet's 600dp is one comfortable column; split in two it was a
+            // card and a grid floating in the middle of an empty screen (a
+            // Lenovo tablet, 600x960dp, 2026-09-30).
+            val wideEnoughForTwoPanes = fold is Fold.Vertical || (maxWidth >= 600.dp && maxWidth > maxHeight)
             // Landscape on a phone leaves about 390dp of height, so the cards
             // give some of it back; upright there is room to spare.
             val cardHeight = if (maxHeight < 440.dp) 84.dp else 96.dp
+            // A short window centres its panes, which then fill it anyway; a
+            // tall one starts them under the top bar, where the eye does.
+            val paneArrangement = if (maxHeight < 480.dp) Arrangement.Center else Arrangement.Top
             if (fold is Fold.Horizontal) {
-                val menuColumns = ((maxWidth - 48.dp) / 150.dp).toInt().coerceIn(2, 4)
+                val menuColumns = menuColumnsFor(maxWidth - 48.dp)
                 Column(modifier = Modifier.fillMaxSize()) {
                     Column(
                         modifier = Modifier
@@ -1537,7 +1547,7 @@ fun MainScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        statusPane()
+                        statusPane(false)
                     }
                     Spacer(modifier = Modifier.height(fold.bottom - fold.top))
                     Column(
@@ -1564,46 +1574,57 @@ fun MainScreen(
                 // tablet in portrait can have the same window and very
                 // different room left over here.
                 val menuWidth = maxWidth - statusWidth - paneGap - 48.dp
-                val menuColumns = (menuWidth / 150.dp).toInt().coerceIn(2, 4)
-                Row(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
-                    Column(
-                        modifier = Modifier
-                            .width(statusWidth)
-                            .fillMaxHeight()
-                            .verticalScroll(rememberScrollState()),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        statusPane()
-                    }
-                    Spacer(modifier = Modifier.width(paneGap))
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        // Three columns are only worth it once a card would not
-                        // be cramped; below that two read better than three.
-                        menuPane(menuColumns, cardHeight)
-                        Spacer(modifier = Modifier.height(12.dp))
-                    }
-                }
-            } else {
+                val menuColumns = menuColumnsFor(menuWidth)
+                // One row for the pair, as tall as the taller of the two. The
+                // card takes up whatever the status column has left, so beside
+                // a taller grid the column ends where the grid does — with the
+                // exit-node line above the card or without it — and a column
+                // that is already taller (banners, the summary) is left alone.
+                // Intrinsic heights, not a measurement: the preview renders
+                // one frame, and a measured height lands only on the second.
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 24.dp)
+                        .verticalScroll(rememberScrollState())
+                        .heightIn(min = maxHeight)
+                        .padding(horizontal = 24.dp),
+                    verticalArrangement = paneArrangement
+                ) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+                        Column(
+                            modifier = Modifier.width(statusWidth).fillMaxHeight(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            statusPane(true)
+                        }
+                        Spacer(modifier = Modifier.width(paneGap))
+                        Column(modifier = Modifier.weight(1f)) {
+                            menuPane(menuColumns, cardHeight)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+            } else {
+                // One column, held to a readable width on an upright tablet;
+                // on a phone that is the whole width and two menu columns.
+                val columnWidth = minOf(maxWidth, ReadableContentWidth)
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
                         .verticalScroll(rememberScrollState()),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    statusPane()
-                    Spacer(modifier = Modifier.height(32.dp))
-                    menuPane(2, cardHeight)
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Column(
+                        modifier = Modifier.width(columnWidth).padding(horizontal = 24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        statusPane(false)
+                        Spacer(modifier = Modifier.height(32.dp))
+                        menuPane(menuColumnsFor(columnWidth - 48.dp), cardHeight)
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
                 }
             }
         }
@@ -2363,6 +2384,7 @@ fun StatusCard(
     issueTitle: String? = null,
     /** Shown in place of the card's own subtitle while it is set. */
     aside: String? = null,
+    modifier: Modifier = Modifier,
     onLongPress: () -> Unit = {},
     onToggle: () -> Unit
 ) {
@@ -2396,7 +2418,7 @@ fun StatusCard(
     Surface(
         shape = shape,
         color = backgroundColor,
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .heightIn(min = 130.dp)
             .animateContentSize()
@@ -2539,6 +2561,17 @@ data class MenuEntry(val title: String, val icon: ImageVector, val onClick: () -
  * up short is padded with empty weight, so the last card is the width of the
  * others and not the width of the row.
  */
+/**
+ * How many menu columns [width] holds: as many cards of at least 100dp as fit
+ * with MenuGrid's 16dp gaps, between two and four, then down to a count that
+ * divides the [entries] evenly — eight cards as 4+4 or 2+2+2+2, never a row
+ * left with two cards and an empty hole.
+ */
+fun menuColumnsFor(width: Dp, entries: Int = 8): Int {
+    val fit = ((width + 16.dp) / 116.dp).toInt().coerceIn(2, 4)
+    return (fit downTo 2).firstOrNull { entries % it == 0 } ?: 2
+}
+
 @Composable
 fun MenuGrid(columns: Int, entries: List<MenuEntry>, cardHeight: Dp = 96.dp, modifier: Modifier = Modifier) {
     Column(modifier = modifier.fillMaxWidth()) {
