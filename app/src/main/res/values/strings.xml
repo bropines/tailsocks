@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">TailSocks</string>
+    <string name="app_name" translatable="false">TailSocks</string>
     <string name="first_fragment_label">Home</string>
     <string name="back">Back</string>
 
@@ -124,7 +124,7 @@
     <!-- Admin: Dashboard -->
     <string name="admin_console_title">Admin Console</string>
     <string name="admin_tab_devices">Devices</string>
-    <string name="admin_tab_dns">DNS</string>
+    <string name="admin_tab_dns" translatable="false">DNS</string>
     <string name="admin_tab_users">Users</string>
     <string name="admin_tab_services">Services</string>
     <string name="admin_tab_webhooks">Webhooks</string>
@@ -266,7 +266,7 @@
     <string name="admin_device_key_expiry_updated">Key expiry updated</string>
 
     <!-- Admin: DNS tab -->
-    <string name="admin_dns_magic_dns_title">MagicDNS</string>
+    <string name="admin_dns_magic_dns_title" translatable="false">MagicDNS</string>
     <string name="admin_dns_magic_dns_desc">Register DNS names for devices</string>
     <string name="admin_dns_global_ns_title">Global Nameservers</string>
     <string name="admin_dns_no_custom_ns">No custom nameservers configured</string>
@@ -374,7 +374,7 @@
     <string name="admin_webhooks_delete_text">Are you sure you want to delete this webhook endpoint? This cannot be undone.</string>
     <string name="admin_webhooks_add_title">Add Webhook Endpoint</string>
     <string name="admin_webhooks_url_label">Endpoint URL</string>
-    <string name="admin_webhooks_url_placeholder">https://example.com/webhook</string>
+    <string name="admin_webhooks_url_placeholder" translatable="false">https://example.com/webhook</string>
     <string name="admin_webhooks_subscribe_label">Subscribe to Events:</string>
     <string name="admin_webhooks_invalid_url">Please enter a valid URL (http/https)</string>
     <string name="admin_webhooks_no_events_selected">Please select at least one event</string>
@@ -458,7 +458,7 @@
     <string name="peer_route_relay">Via DERP relay</string>
     <string name="peer_route_none">No route yet</string>
     <!-- PeerDetailsModal: the capabilities card and the note under Send File. Codes are ipnstate.TaildropTargetStatus -->
-    <string name="peer_taildrop_caption">Taildrop</string>
+    <string name="peer_taildrop_caption" translatable="false">Taildrop</string>
     <string name="peer_taildrop_ok">Can receive files</string>
     <string name="peer_taildrop_blocked">Can\'t receive files</string>
     <string name="peer_taildrop_no_netmap">No network map yet</string>
@@ -555,7 +555,7 @@
     <string name="console_preset_insert">Insert</string>
 
     <!-- ======================== DNS Management ======================== -->
-    <string name="dns_title">DNS</string>
+    <string name="dns_title" translatable="false">DNS</string>
     <string name="dns_error_parse_failed">Failed to parse DNS status.\n\nRaw output:\n%1$s</string>
     <string name="dns_status_unavailable">⚠ DNS Status Unavailable</string>
     <string name="dns_lookup_tool">DNS Lookup Tool</string>
@@ -586,7 +586,7 @@
 
     <!-- ======================== Taildrop / Files ======================== -->
     <string name="files_hub_title">Files</string>
-    <string name="files_cd_taildrive">Taildrive</string>
+    <string name="files_cd_taildrive" translatable="false">Taildrive</string>
     <string name="files_tab_inbox">Inbox</string>
     <string name="files_tab_devices">Devices</string>
     <string name="files_tab_history">History</string>
@@ -672,10 +672,10 @@
     <string name="menu_peers">Peers</string>
     <string name="menu_logs">Logs</string>
     <string name="menu_files">Files</string>
-    <string name="menu_dns">DNS</string>
+    <string name="menu_dns" translatable="false">DNS</string>
     <string name="menu_netcheck">Network check</string>
     <string name="menu_settings">Settings</string>
-    <string name="menu_serve">Serve</string>
+    <string name="menu_serve" translatable="false">Serve</string>
 
     <!-- ======================== Network Diagnostics ======================== -->
     <string name="netcheck_title">Network check</string>
@@ -739,7 +739,7 @@
     <string name="serve_cap_cert">HTTPS certificate</string>
     <string name="serve_cap_cert_ok">Available for %1$s</string>
     <string name="serve_cap_cert_no">Not available: the node has no HTTPS capability</string>
-    <string name="serve_cap_funnel">Funnel</string>
+    <string name="serve_cap_funnel" translatable="false">Funnel</string>
     <string name="serve_cap_funnel_ok">Allowed on ports %1$s</string>
     <string name="serve_cap_funnel_no">Not allowed by the tailnet policy</string>
     <string name="serve_cap_services">Services (svc:)</string>
@@ -944,14 +944,14 @@
     <string name="settings_ad_tags_desc">Request access control tags for this node</string>
     <string name="settings_applied_tags_label">Applied Tags: %1$s</string>
     <string name="settings_ad_routes_title">Advertise Routes</string>
-    <string name="settings_ad_routes_placeholder">10.0.0.0/24, 192.168.1.0/24</string>
+    <string name="settings_ad_routes_placeholder" translatable="false">10.0.0.0/24, 192.168.1.0/24</string>
     <string name="settings_ad_routes_desc">Advertise local subnets into Tailnet</string>
     <string name="settings_dns_proxy_address_title">DNS Proxy Address</string>
     <string name="settings_sect_fallback_dns">Fallback DNS Servers</string>
     <string name="settings_dns_fallbacks_title">DNS Fallbacks</string>
-    <string name="settings_dns_fallbacks_placeholder">8.8.8.8:53,1.1.1.1:53</string>
+    <string name="settings_dns_fallbacks_placeholder" translatable="false">8.8.8.8:53,1.1.1.1:53</string>
     <string name="settings_doh_fallback_title">DoH Fallback URL</string>
-    <string name="settings_doh_fallback_placeholder">https://1.1.1.1/dns-query</string>
+    <string name="settings_doh_fallback_placeholder" translatable="false">https://1.1.1.1/dns-query</string>
     <string name="settings_sect_flags_logs">Flags &amp; Logs</string>
     <string name="settings_accept_routes_desc">Allow network to configure routes</string>
     <string name="settings_accept_dns_desc">Allow network to configure DNS</string>
@@ -962,7 +962,7 @@
     <string name="settings_extra_args_placeholder">--flag=val ...</string>
     <string name="settings_sect_account_format">Account Settings: %1$s</string>
     <string name="settings_login_server_title">Login Server (Headscale)</string>
-    <string name="settings_login_server_placeholder">https://controlplane.tailscale.com</string>
+    <string name="settings_login_server_placeholder" translatable="false">https://controlplane.tailscale.com</string>
     <string name="settings_auth_key_title">Auth Key</string>
     <string name="settings_exit_node_title">Exit Node</string>
     <string name="settings_sect_web">Web Interface</string>
@@ -1255,7 +1255,7 @@
     <string name="settings_cat_tunnel_desc">Proxy, VPN (TUN) or Root — how traffic leaves this device</string>
     <string name="settings_cat_proxies">Local proxies</string>
     <string name="settings_cat_proxies_desc">SOCKS5 and HTTP listeners, access from the local network</string>
-    <string name="settings_cat_dns">DNS</string>
+    <string name="settings_cat_dns" translatable="false">DNS</string>
     <string name="settings_cat_dns_desc">MagicDNS, DNS proxy and fallback servers</string>
     <string name="settings_cat_bypass">Censorship bypass</string>
     <string name="settings_cat_bypass_desc">Control plane proxy and ByeByeDPI</string>

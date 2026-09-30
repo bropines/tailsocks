@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">TailSocks</string>
     <string name="first_fragment_label">Главная</string>
     <string name="back">Назад</string>
 
@@ -124,7 +123,6 @@
     <!-- Admin: Dashboard -->
     <string name="admin_console_title">Админ-панель</string>
     <string name="admin_tab_devices">Устройства</string>
-    <string name="admin_tab_dns">DNS</string>
     <string name="admin_tab_users">Пользователи</string>
     <string name="admin_tab_services">Службы</string>
     <string name="admin_tab_webhooks">Webhooks</string>
@@ -266,7 +264,6 @@
     <string name="admin_device_key_expiry_updated">Настройка истечения ключа обновлена</string>
 
     <!-- Admin: DNS tab -->
-    <string name="admin_dns_magic_dns_title">MagicDNS</string>
     <string name="admin_dns_magic_dns_desc">Регистрация DNS-имён для устройств</string>
     <string name="admin_dns_global_ns_title">Глобальные DNS-серверы</string>
     <string name="admin_dns_no_custom_ns">Пользовательские DNS-серверы не настроены</string>
@@ -374,7 +371,6 @@
     <string name="admin_webhooks_delete_text">Вы уверены, что хотите удалить этот webhook-эндпоинт? Это действие невозможно отменить.</string>
     <string name="admin_webhooks_add_title">Добавить Webhook-эндпоинт</string>
     <string name="admin_webhooks_url_label">URL эндпоинта</string>
-    <string name="admin_webhooks_url_placeholder">https://example.com/webhook</string>
     <string name="admin_webhooks_subscribe_label">Подписка на события:</string>
     <string name="admin_webhooks_invalid_url">Введите корректный URL (http/https)</string>
     <string name="admin_webhooks_no_events_selected">Выберите хотя бы одно событие</string>
@@ -458,7 +454,6 @@
     <string name="peer_route_relay">Через реле DERP</string>
     <string name="peer_route_none">Маршрута ещё нет</string>
     <!-- PeerDetailsModal: карточка возможностей и пояснение под «Отправить файл». Коды — ipnstate.TaildropTargetStatus -->
-    <string name="peer_taildrop_caption">Taildrop</string>
     <string name="peer_taildrop_ok">Может принимать файлы</string>
     <string name="peer_taildrop_blocked">Не может принимать файлы</string>
     <string name="peer_taildrop_no_netmap">Карта сети ещё не получена</string>
@@ -555,7 +550,6 @@
     <string name="console_preset_insert">Вставить</string>
 
     <!-- ======================== DNS Management ======================== -->
-    <string name="dns_title">DNS</string>
     <string name="dns_error_parse_failed">Не удалось разобрать статус DNS.\n\nИсходный вывод:\n%1$s</string>
     <string name="dns_status_unavailable">⚠ Статус DNS недоступен</string>
     <string name="dns_lookup_tool">Инструмент запросов DNS</string>
@@ -586,7 +580,6 @@
 
     <!-- ======================== Taildrop / Files ======================== -->
     <string name="files_hub_title">Файлы</string>
-    <string name="files_cd_taildrive">Taildrive</string>
     <string name="files_tab_inbox">Входящие</string>
     <string name="files_tab_devices">Устройства</string>
     <string name="files_tab_history">История</string>
@@ -672,10 +665,8 @@
     <string name="menu_peers">Узлы</string>
     <string name="menu_logs">Логи</string>
     <string name="menu_files">Файлы</string>
-    <string name="menu_dns">DNS</string>
     <string name="menu_netcheck">Проверка сети</string>
     <string name="menu_settings">Настройки</string>
-    <string name="menu_serve">Serve</string>
 
     <!-- ======================== Network Diagnostics ======================== -->
     <string name="netcheck_title">Проверка сети</string>
@@ -739,7 +730,6 @@
     <string name="serve_cap_cert">HTTPS-сертификат</string>
     <string name="serve_cap_cert_ok">Доступен для %1$s</string>
     <string name="serve_cap_cert_no">Недоступен: у узла нет возможности HTTPS</string>
-    <string name="serve_cap_funnel">Funnel</string>
     <string name="serve_cap_funnel_ok">Разрешён на портах %1$s</string>
     <string name="serve_cap_funnel_no">Не разрешён политикой tailnet</string>
     <string name="serve_cap_services">Службы (svc:)</string>
@@ -944,14 +934,11 @@
     <string name="settings_ad_tags_desc">Запросить теги контроля доступа для этого узла</string>
     <string name="settings_applied_tags_label">Примененные теги: %1$s</string>
     <string name="settings_ad_routes_title">Анонсируемые маршруты</string>
-    <string name="settings_ad_routes_placeholder">10.0.0.0/24, 192.168.1.0/24</string>
     <string name="settings_ad_routes_desc">Анонсировать локальные подсети в Tailnet</string>
     <string name="settings_dns_proxy_address_title">Адрес DNS-прокси</string>
     <string name="settings_sect_fallback_dns">Резервные DNS-серверы</string>
     <string name="settings_dns_fallbacks_title">Резервные DNS</string>
-    <string name="settings_dns_fallbacks_placeholder">8.8.8.8:53,1.1.1.1:53</string>
     <string name="settings_doh_fallback_title">DoH URL резервного DNS</string>
-    <string name="settings_doh_fallback_placeholder">https://1.1.1.1/dns-query</string>
     <string name="settings_sect_flags_logs">Флаги и Логи</string>
     <string name="settings_accept_routes_desc">Разрешить сети настраивать маршруты</string>
     <string name="settings_accept_dns_desc">Разрешить сети настраивать DNS</string>
@@ -962,7 +949,6 @@
     <string name="settings_extra_args_placeholder">--flag=val ...</string>
     <string name="settings_sect_account_format">Настройки аккаунта: %1$s</string>
     <string name="settings_login_server_title">Сервер авторизации (Headscale)</string>
-    <string name="settings_login_server_placeholder">https://controlplane.tailscale.com</string>
     <string name="settings_auth_key_title">Ключ авторизации</string>
     <string name="settings_exit_node_title">Выходной узел (Exit Node)</string>
     <string name="settings_sect_web">Веб-интерфейс</string>
@@ -1255,7 +1241,6 @@
     <string name="settings_cat_tunnel_desc">Прокси, VPN (TUN) или Root — как трафик уходит с устройства</string>
     <string name="settings_cat_proxies">Локальные прокси</string>
     <string name="settings_cat_proxies_desc">SOCKS5 и HTTP на этом устройстве, доступ из локальной сети</string>
-    <string name="settings_cat_dns">DNS</string>
     <string name="settings_cat_dns_desc">MagicDNS, DNS-прокси и резервные серверы</string>
     <string name="settings_cat_bypass">Обход блокировок</string>
     <string name="settings_cat_bypass_desc">Прокси для control plane и ByeByeDPI</string>
