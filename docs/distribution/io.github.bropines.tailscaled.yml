@@ -75,7 +75,10 @@ Builds:
       # compileSdk 37 is published as "platforms;android-37.0" (the first CI run
       # failed on "android-37"); the build image carries only build-tools 31,
       # and AGP 8.13 builds with 35.0.0. Same form as com.luc4n3x.levyra.
-      - sdkmanager 'platforms;android-37.0' 'build-tools;35.0.0'
+      # gomobile bind wants a platform directory named android-<integer> for its
+      # android.jar and skips "android-37.0" (the second run failed there), so
+      # android-36 goes along for it.
+      - sdkmanager 'platforms;android-37.0' 'platforms;android-36' 'build-tools;35.0.0'
     build:
       - pushd $$go$$/src
       - ./make.bash
