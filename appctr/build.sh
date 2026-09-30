@@ -61,7 +61,35 @@ fi
 
 if [ ! -d "tailscale_src" ]; then
     echo "-> Downloading sources for ${TS_VERSION}..."
-    curl -sL "https://github.com/tailscale/tailscale/archive/refs/tags/${TS_VERSION}.tar.gz" | tar -xz
+    # The archive is checked against TAILSCALE_SHA256 before anything in it is
+    # used: the build patches and compiles whatever arrives, and piping curl into
+    # tar trusted it blindly. For a new version the hash is not there yet — the
+    # script prints what the archive hashes to; verify it, add the line, or rerun
+    # once with TS_TRUST_NEW_TARBALL=1 to record it.
+    TARBALL="tailscale-${TS_VERSION}.tar.gz"
+    curl -fsSL -o "$TARBALL" "https://github.com/tailscale/tailscale/archive/refs/tags/${TS_VERSION}.tar.gz"
+    ACTUAL_SHA=$(sha256sum "$TARBALL" | cut -d" " -f1)
+    EXPECTED_SHA=$(awk -v v="$TS_VERSION" '!/^#/ && $2 == v { print $1 }' TAILSCALE_SHA256 2>/dev/null)
+    if [ -z "$EXPECTED_SHA" ]; then
+        if [ "${TS_TRUST_NEW_TARBALL:-0}" = "1" ]; then
+            echo "$ACTUAL_SHA  $TS_VERSION" >> TAILSCALE_SHA256
+            echo "-> Recorded the ${TS_VERSION} archive hash in TAILSCALE_SHA256: $ACTUAL_SHA"
+        else
+            rm -f "$TARBALL"
+            echo "❌ No checksum for ${TS_VERSION} in appctr/TAILSCALE_SHA256. The archive hashes to:"
+            echo "   $ACTUAL_SHA  $TS_VERSION"
+            echo "   Verify it, then add that line (or rerun with TS_TRUST_NEW_TARBALL=1)."
+            exit 1
+        fi
+    elif [ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]; then
+        rm -f "$TARBALL"
+        echo "❌ The ${TS_VERSION} archive does not match TAILSCALE_SHA256:"
+        echo "   expected $EXPECTED_SHA"
+        echo "   got      $ACTUAL_SHA"
+        exit 1
+    fi
+    tar -xzf "$TARBALL"
+    rm -f "$TARBALL"
     mv tailscale-${TS_VERSION#v} tailscale_src
     echo "$TS_VERSION" > tailscale_src/.build_version
 
@@ -115,6 +143,7 @@ export CC="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64
 export CGO_ENABLED=1
 GOOS=android GOARCH=arm64 go build -v \
     -buildmode=pie \
+    -trimpath \
     -tags "$TAGS" \
     -ldflags="-s -w -checklinkname=0" \
     -o tmp/libtailscale_arm64.so ./cmd/tailscaled
@@ -122,6 +151,7 @@ GOOS=android GOARCH=arm64 go build -v \
 echo "-> Compiling CLI (Console) [ARM64]..."
 GOOS=android GOARCH=arm64 go build -v \
     -buildmode=pie \
+    -trimpath \
     -tags "$TAGS" \
     -ldflags="-s -w -checklinkname=0" \
     -o tmp/libtailscale_cli_arm64.so ./cmd/tailscale
@@ -131,6 +161,7 @@ export CC="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-
 export CGO_ENABLED=1
 GOOS=android GOARCH=arm GOARM=7 go build -v \
     -buildmode=pie \
+    -trimpath \
     -tags "$TAGS" \
     -ldflags="-s -w -checklinkname=0" \
     -o tmp/libtailscale_arm.so ./cmd/tailscaled
@@ -138,6 +169,7 @@ GOOS=android GOARCH=arm GOARM=7 go build -v \
 echo "-> Compiling CLI (Console) [ARM 32-bit]..."
 GOOS=android GOARCH=arm GOARM=7 go build -v \
     -buildmode=pie \
+    -trimpath \
     -tags "$TAGS" \
     -ldflags="-s -w -checklinkname=0" \
     -o tmp/libtailscale_cli_arm.so ./cmd/tailscale
@@ -147,6 +179,7 @@ export CC="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/i686-li
 export CGO_ENABLED=1
 GOOS=android GOARCH=386 go build -v \
     -buildmode=pie \
+    -trimpath \
     -tags "$TAGS" \
     -ldflags="-s -w -checklinkname=0" \
     -o tmp/libtailscale_x86.so ./cmd/tailscaled
@@ -154,6 +187,7 @@ GOOS=android GOARCH=386 go build -v \
 echo "-> Compiling CLI (Console) [x86 32-bit]..."
 GOOS=android GOARCH=386 go build -v \
     -buildmode=pie \
+    -trimpath \
     -tags "$TAGS" \
     -ldflags="-s -w -checklinkname=0" \
     -o tmp/libtailscale_cli_x86.so ./cmd/tailscale
@@ -163,6 +197,7 @@ export CC="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-
 export CGO_ENABLED=1
 GOOS=android GOARCH=amd64 go build -v \
     -buildmode=pie \
+    -trimpath \
     -tags "$TAGS" \
     -ldflags="-s -w -checklinkname=0" \
     -o tmp/libtailscale_x86_64.so ./cmd/tailscaled
@@ -170,6 +205,7 @@ GOOS=android GOARCH=amd64 go build -v \
 echo "-> Compiling CLI (Console) [x86_64 64-bit]..."
 GOOS=android GOARCH=amd64 go build -v \
     -buildmode=pie \
+    -trimpath \
     -tags "$TAGS" \
     -ldflags="-s -w -checklinkname=0" \
     -o tmp/libtailscale_cli_x86_64.so ./cmd/tailscale

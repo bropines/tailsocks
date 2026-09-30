@@ -42,6 +42,21 @@ android {
     namespace = "io.github.bropines.tailscaled"
     // compileSdk = 37 (не 36): core-ktx 1.17.0 требует как минимум 36
     compileSdk = 37
+    // Pinned so every build — local, CI, an F-Droid builder — uses the same
+    // NDK; otherwise AGP takes its own default and CI took whichever it found.
+    ndkVersion = "28.2.13676358"
+
+    // ./gradlew lintDebug -PlintNewApiOnly: fail on nothing but a call above
+    // minSdk. CI runs this on every build. Android 10 users met three such
+    // crashes in 4.4.3 that this check reports; the full lint run still has
+    // hundreds of style findings and is not a gate.
+    if (project.hasProperty("lintNewApiOnly")) {
+        lint {
+            checkOnly += "NewApi"
+            abortOnError = true
+            checkDependencies = false
+        }
+    }
 
     signingConfigs {
         create("release") {

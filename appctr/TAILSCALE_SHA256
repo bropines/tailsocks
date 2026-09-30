@@ -1,0 +1,4 @@
+# sha256 of the GitHub source archive for each Tailscale tag this tree has been
+# built from (refs/tags/<tag>.tar.gz). build.sh refuses an archive whose hash
+# does not match; see the comment there for adding a new version.
+110b0d0586e981fccb83149d0ac4e7aac3c879fd372772b0dee1818f204893bc  v1.102.5

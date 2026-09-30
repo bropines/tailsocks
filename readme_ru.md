@@ -297,7 +297,7 @@ KEY_ALIAS=... KEY_PASSWORD=... ./gradlew app:assembleRelease
 Для пользователей из регионов с ограничениями (где `controlplane.tailscale.com` блокируется или сбрасывается), TailSocks предлагает встроенный механизм обхода блокировок сервера координации:
 
 ### Обход DPI управляющего сервера (ByeDPI JNI)
-TailSocks включает нативную JNI-реализацию [ByeDPI](https://github.com/hufyhang/byedpi) непосредственно внутри процесса приложения. Это позволяет обходить аналитическую проверку пакетов по SNI (DPI) без запуска внешних бинарных процессов.
+TailSocks включает нативную JNI-реализацию [ByeDPI](https://github.com/hufrea/byedpi) непосредственно внутри процесса приложения. Это позволяет обходить аналитическую проверку пакетов по SNI (DPI) без запуска внешних бинарных процессов.
 * **Безопасность:** ByeDPI при каждом запуске привязывается к случайному loopback IP (например, `127.182.201.43`) и случайному порту в подсети `127.0.0.0/8`. Это защищает прокси от обнаружения другими приложениями через сканирование портов.
 * **Использование:** Включите **Обход DPI (ByeDPI)** в Настройки → Обход блокировок и настройте кастомные флаги ByeDPI (по умолчанию: `-s 1 -d split -r`).
 
@@ -354,7 +354,7 @@ adb shell am broadcast -a io.github.bropines.tailscaled.action.DISCONNECT -n io.
 |-|-|
 | **Приложение и Патчи** | [Bropines](https://github.com/bropines) — разработка приложения, архитектура и большинство патчей ядра |
 | **Первичные Android-патчи** | [Asutorufa](https://github.com/Asutorufa) — оригинальные [патчи](https://github.com/Asutorufa/tailscale) сети (`anet`) и мониторинга (`netmon`), послужившие отправной точкой |
-| **Обход DPI** | [hufyhang/byedpi](https://github.com/hufyhang/byedpi) — утилита обхода DPI через локальный HTTP/SOCKS5 прокси |
+| **Обход DPI** | [hufrea/byedpi](https://github.com/hufrea/byedpi) — утилита обхода DPI через локальный HTTP/SOCKS5 прокси |
 | **TUN Движок** | [heiher/hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel) — нативная библиотека трансляции SOCKS5 в TUN-интерфейс |
 | **Ядро Tailscale** | [Tailscale Inc.](https://github.com/tailscale/tailscale) — сетевой движок в пользовательском пространстве (`tsnet`) |
 | **ИИ Помощник** | [Google Gemini](https://gemini.google.com/) — разработка интерфейса, исследование LocalAPI и проектирование патчей |

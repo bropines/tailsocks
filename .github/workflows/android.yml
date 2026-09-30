@@ -71,8 +71,12 @@ jobs:
       - name: Build AppCtr Core
         run: |
           cd appctr
-          go install golang.org/x/mobile/cmd/gomobile@latest
+          # Pinned to the x/mobile version appctr/go.mod requires, so a new
+          # upstream gomobile cannot change the bridge between two builds.
+          MOBILE_VER=$(awk '$1 == "golang.org/x/mobile" { print $2 }' go.mod)
+          go install golang.org/x/mobile/cmd/gomobile@"$MOBILE_VER"
           gomobile init
+          go install golang.org/x/mobile/cmd/gobind@"$MOBILE_VER"
           bash build.sh
 
       - name: Upload Go Core Artifacts
@@ -100,10 +104,14 @@ jobs:
 
       - name: Build C Native Libraries (hev-socks5-tunnel & byedpi)
         run: |
-          NDK_BUILD=$(find $ANDROID_SDK_ROOT/ndk $ANDROID_NDK_ROOT /usr/local/lib/android/sdk/ndk -name ndk-build 2>/dev/null | head -n 1)
-          if [ -z "$NDK_BUILD" ]; then
-            NDK_BUILD="ndk-build"
+          # The NDK app/build.gradle.kts pins (ndkVersion), installed if the
+          # runner image lacks it — not whichever ndk-build `find` meets first.
+          NDK_VER=28.2.13676358
+          SDK=${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}
+          if [ ! -x "$SDK/ndk/$NDK_VER/ndk-build" ]; then
+            yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VER" > /dev/null
           fi
+          NDK_BUILD="$SDK/ndk/$NDK_VER/ndk-build"
           echo "Using ndk-build at: $NDK_BUILD"
           $NDK_BUILD -C app/src/main/jni NDK_LIBS_OUT=../jniLibs
           ccache -s
@@ -178,6 +186,13 @@ jobs:
               *) echo "command=app:assembleDebug app:assembleRelease" >> "$GITHUB_OUTPUT";;
             esac
           fi
+
+      - name: Check API levels (lint, NewApi only)
+        run: |
+          chmod +x gradlew
+          ./gradlew app:lintDebug -PlintNewApiOnly --stacktrace
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
 
       - name: Build APK
         run: |
