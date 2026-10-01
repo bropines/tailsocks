@@ -43,20 +43,26 @@ jobs:
         with:
           submodules: "recursive"
 
+      # One Go cache, keyed by what changes the bulk of it — modules, the
+      # Tailscale version, the patches — not by the commit. Saved per commit
+      # (2.5 GB a time) and again by setup-go's own cache (3.8 GB), it filled
+      # the repository's 10 GB and pushed Gradle's cache out before every run.
+      # The Go toolchain the build switches to lives in the module cache too.
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.23'
-          cache-dependency-path: appctr/go.sum
+          cache: false
 
-      - name: Setup Go Build Cache
+      - name: Go caches
         uses: actions/cache@v4
         with:
-          path: ~/.cache/go-build
-          key: ${{ runner.os }}-go-build-${{ hashFiles('appctr/go.sum') }}-${{ github.sha }}
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('appctr/go.sum', 'appctr/TAILSCALE_VERSION', 'appctr/patches/*.patch') }}
           restore-keys: |
-            ${{ runner.os }}-go-build-${{ hashFiles('appctr/go.sum') }}-
-            ${{ runner.os }}-go-build-
+            ${{ runner.os }}-go-
 
       - name: Verify Go Code Formatting
         run: |
@@ -167,7 +173,7 @@ jobs:
         with:
           java-version: "17"
           distribution: "temurin"
-          cache: gradle
+          # No cache here: setup-gradle below caches Gradle's home itself.
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
