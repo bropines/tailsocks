@@ -1,6 +1,8 @@
-# fdroiddata recipe for TailSocks, to go to https://gitlab.com/fdroid/fdroiddata
-# as metadata/io.github.bropines.tailscaled.yml — after `fdroid rewritemeta`,
-# which turns it into the canonical, comment-free form fdroiddata wants.
+# fdroiddata recipe for TailSocks, submitted on 2026-10-01 as
+# https://gitlab.com/fdroid/fdroiddata/-/merge_requests/50707 — in the canonical,
+# comment-free form `fdroid rewritemeta` makes of this file (fdroiddata's newer
+# rewritemeta also wraps each `binary:` URL onto its own line). Its pipeline
+# built all four ABIs of v4.5.3 and matched each to the release APK.
 #
 # Reproducible: F-Droid rebuilds each APK and, when it matches the GitHub
 # release byte for byte, publishes ours with our signature. Proven on 2026-10-01
@@ -44,7 +46,7 @@ Builds:
   - versionName: 4.5.3
     versionCode: 4050301
     # The full hash of the v4.5.3 tag (fdroiddata wants no tag names here).
-    commit: V453_COMMIT
+    commit: 60dfe8baf2b639fd69975adb1261b485b4406ce4
     subdir: app
     submodules: true
     sudo:
@@ -95,7 +97,7 @@ Builds:
   - versionName: 4.5.3
     versionCode: 4050302
     # The full hash of the v4.5.3 tag (fdroiddata wants no tag names here).
-    commit: V453_COMMIT
+    commit: 60dfe8baf2b639fd69975adb1261b485b4406ce4
     subdir: app
     submodules: true
     sudo:
@@ -146,7 +148,7 @@ Builds:
   - versionName: 4.5.3
     versionCode: 4050303
     # The full hash of the v4.5.3 tag (fdroiddata wants no tag names here).
-    commit: V453_COMMIT
+    commit: 60dfe8baf2b639fd69975adb1261b485b4406ce4
     subdir: app
     submodules: true
     sudo:
@@ -197,7 +199,7 @@ Builds:
   - versionName: 4.5.3
     versionCode: 4050304
     # The full hash of the v4.5.3 tag (fdroiddata wants no tag names here).
-    commit: V453_COMMIT
+    commit: 60dfe8baf2b639fd69975adb1261b485b4406ce4
     subdir: app
     submodules: true
     sudo:

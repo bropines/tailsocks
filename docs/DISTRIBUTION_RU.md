@@ -67,7 +67,7 @@
 1. ~~Исправить пункты выше и выпустить релиз~~ — сделано в 4.5.2.
 2. Форкнуть https://gitlab.com/fdroid/fdroiddata, положить черновик в `metadata/io.github.bropines.tailscaled.yml`, поправить `versionName`/`versionCode`/`commit`, убрать ставшие ненужными `sed`.
 3. `fdroid lint`, `fdroid rewritemeta`, `fdroid build -v -l io.github.bropines.tailscaled` — локально или в GitLab CI форка. `rewritemeta` выбрасывает комментарии черновика; CI fdroiddata требует его канонический вид.
-4. Открыть MR. Альтернатива — заявка в https://gitlab.com/fdroid/rfp/-/issues (медленнее). После слияния приложение появляется через 24–48 часов.
+4. Открыть MR — сделано: [fdroiddata!50707](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/50707), 1 октября 2026, v4.5.3, зелёный pipeline, все четыре ABI воспроизвели релиз. Альтернатива — заявка в https://gitlab.com/fdroid/rfp/-/issues (медленнее). После слияния приложение появляется через 24–48 часов.
 
 Подпись F-Droid отличается от подписи релизов на GitHub: перейти между каналами можно только через удаление, а удаление стирает профили и ключи (спасает резервная копия). Это стоит написать в README.
 

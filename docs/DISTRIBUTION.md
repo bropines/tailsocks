@@ -67,7 +67,7 @@ Not a blocker, but the recipe needs a workaround: `jvmToolchain(17)` (`app/build
 1. ~~Fix the items above and cut a release~~ — done in 4.5.2.
 2. Fork https://gitlab.com/fdroid/fdroiddata, drop the draft into `metadata/io.github.bropines.tailscaled.yml`, update `versionName`/`versionCode`/`commit`, and remove any `sed` steps that are no longer needed.
 3. Run `fdroid lint`, `fdroid rewritemeta`, `fdroid build -v -l io.github.bropines.tailscaled` — locally or in the fork's GitLab CI. `rewritemeta` drops the draft's comments; fdroiddata's CI wants its canonical form.
-4. Open an MR. Alternative: file a request at https://gitlab.com/fdroid/rfp/-/issues (slower). After the merge, the app shows up in 24–48 hours.
+4. Open an MR — done: [fdroiddata!50707](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/50707), 2026-10-01, v4.5.3, green pipeline with all four ABIs reproducing the release. Alternative: file a request at https://gitlab.com/fdroid/rfp/-/issues (slower). After the merge, the app shows up in 24–48 hours.
 
 F-Droid's signature differs from the GitHub release signature: switching channels means uninstalling first, and uninstalling wipes profiles and keys (a backup saves you). This is worth spelling out in the README.
 
