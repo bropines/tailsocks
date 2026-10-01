@@ -140,6 +140,14 @@ State as of 2026-09-20, after 4.3.0.
 - [ ] **Stable Material 3.** `1.5.0-alpha27` is in use for components 1.4.0 does not have, and it
       is still the latest — no stable release exists yet. When one appears it is one line in
       `gradle/libs.versions.toml`.
+- [x] **Update Tailscale to 1.104.0 (2026-10-01).** Go 1.27.1 with it. Fifteen of the twenty
+      patches applied as they were; 03, 10 and 20 only needed their context moved. Upstream now
+      does two things we patched: netstack's packet pump survives a failed injection and has its
+      own loopback queue, and the DNS forwarder reaches tailnet resolvers through netstack over
+      UDP — so 09 keeps only the fake-TUN routing and the bound dials, and 14 only TCP over
+      netstack and the DNS rescue. `feature/androidbin` and `feature/androiddns` do not apply to
+      our GOOS=android cgo daemon (both are switched off there by build tags) and are omitted;
+      so is the new `connreject` diagnostics. Next: tailcat as a library in the bridge (#10).
 - [x] **Update Tailscale (2026-09-25).** Pinned at `v1.102.5`, up from 1.102.1. All nineteen
       patches applied with `-F0`; two hunks landed at an offset (04 and 10), which the build
       allows, and nothing had to be re-fitted. It does not pull the dependency versions the

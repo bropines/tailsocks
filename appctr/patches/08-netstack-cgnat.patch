@@ -1,6 +1,6 @@
---- orig/cmd/tailscaled/tailscaled.go
-+++ tailscale_src/cmd/tailscaled/tailscaled.go
-@@ -48,6 +48,7 @@
+--- orig/cmd/tailscaled/tailscaled.go	2026-09-30 21:46:37.000000000 +0300
++++ tailscale_src/cmd/tailscaled/tailscaled.go	2026-10-01 17:23:14.122117519 +0300
+@@ -49,6 +49,7 @@
  	"tailscale.com/net/dnsfallback"
  	"tailscale.com/net/netmon"
  	"tailscale.com/net/netns"
@@ -8,7 +8,7 @@
  	"tailscale.com/net/tsdial"
  	"tailscale.com/net/tstun"
  	"tailscale.com/paths"
-@@ -466,6 +467,11 @@
+@@ -513,6 +514,11 @@
  			return fmt.Errorf("netmon.New: %w", err)
  		}
  		sys.Set(netMon)
@@ -20,7 +20,7 @@
  	}
  
  	var publicLogID logid.PublicID
-@@ -714,8 +720,11 @@
+@@ -768,8 +774,11 @@
  	if err != nil {
  		return nil, fmt.Errorf("ipnlocal.NewLocalBackend: %w", err)
  	}
@@ -33,7 +33,7 @@
  			_, ok := lb.PeerForIP(ip)
  			return ok
  		}
-@@ -807,8 +816,11 @@
+@@ -877,8 +886,11 @@
  	sys.HealthTracker.Get().SetMetricsRegistry(sys.UserMetricsRegistry())
  
  	onlyNetstack = name == "userspace-networking"
@@ -46,7 +46,7 @@
  
  	if buildfeatures.HasBird && args.birdSocketPath != "" {
  		conf.BIRDSocket = args.birdSocketPath
-@@ -827,7 +839,11 @@
+@@ -897,7 +909,11 @@
  			}
  		}
  	} else {
@@ -59,7 +59,7 @@
  		if err != nil {
  			tstun.Diagnose(logf, name, err)
  			return false, fmt.Errorf("tstun.New(%q): %w", name, err)
-@@ -850,10 +866,16 @@
+@@ -922,10 +938,16 @@
  			netmon.SetTailscaleInterfaceProps(devName, 0)
  		}
  

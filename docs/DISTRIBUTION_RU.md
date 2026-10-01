@@ -80,7 +80,7 @@
 - **Один APK для всех каналов.** Сборка GitHub и сборка F-Droid ничем не должны отличаться: обновлятор GitHub отключается во время работы, когда приложение поставил магазин (`UpdateChannel`), а не флагом сборки.
 - **Ядро на Go собирается в `/home/vagrant/build/io.github.bropines.tailscaled`** — пути сборки F-Droid, — потому что gomobile пишет абсолютный путь связываемого модуля в `libgojni.so` (директива replace в его собственном `go.mod`, до которой `-trimpath` не дотягивается). CI копирует туда checkout.
 - **Закреплённый NDK и для ядра.** `ANDROID_NDK_HOME` раннера по умолчанию (r27) завалил первое сравнение ровно на трёх Go-библиотеках.
-- **Ровно тот Go, что в `appctr/go.mod`** (`GOTOOLCHAIN=go1.26.6` в CI, srclib с `GOTOOLCHAIN=local` у F-Droid); `-buildvcs=false`, `-buildid=`, версия ядра со временем коммита.
+- **Ровно тот Go, что в `appctr/go.mod`** (`GOTOOLCHAIN=go1.27.1` в CI, srclib с `GOTOOLCHAIN=local` у F-Droid); `-buildvcs=false`, `-buildid=`, версия ядра со временем коммита.
 - **C-библиотеки собирает ndkBuild Gradle** с `-ffile-prefix-map` — и в CI, и у F-Droid.
 - **Только чистые сборки.** Инкрементальная сборка Kotlin отличается от чистой в `classes.dex`; CI и F-Droid всегда собирают начисто.
 - **Имена файлов релиза без хэша** (`TailSocks-v<версия>-<abi>-release.apk`), которые находит `%v` F-Droid.

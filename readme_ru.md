@@ -23,7 +23,7 @@
   <tr>
     <td align="center"><a href="https://github.com/bropines/tailsocks/releases/latest"><img src="https://img.shields.io/github/v/release/bropines/tailsocks?style=for-the-badge&logo=github&logoColor=white&label=&color=2ea44f" alt="Релиз" /></a></td>
     <td align="center"><a href="https://github.com/bropines/tailsocks/releases"><img src="https://img.shields.io/github/downloads/bropines/tailsocks/total?style=for-the-badge&logo=android&logoColor=white&label=&color=3ddc84" alt="Загрузки" /></a></td>
-    <td align="center"><a href="https://github.com/tailscale/tailscale/releases/tag/v1.102.5"><img src="https://img.shields.io/badge/v1.102.5-blue?style=for-the-badge&logo=tailscale&logoColor=white" alt="Ядро Tailscale" /></a></td>
+    <td align="center"><a href="https://github.com/tailscale/tailscale/releases/tag/v1.104.0"><img src="https://img.shields.io/badge/v1.104.0-blue?style=for-the-badge&logo=tailscale&logoColor=white" alt="Ядро Tailscale" /></a></td>
     <td align="center"><a href="LICENSE"><img src="https://img.shields.io/badge/BSD_3--Clause-orange?style=for-the-badge" alt="Лицензия" /></a></td>
     <td align="center"><a href="https://hosted.weblate.org/engage/tailsocks/"><img src="https://img.shields.io/weblate/progress/tailsocks?server=https%3A%2F%2Fhosted.weblate.org&style=for-the-badge&logo=weblate&logoColor=white&label=" alt="Перевод" /></a></td>
   </tr>

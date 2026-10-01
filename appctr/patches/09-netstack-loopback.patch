@@ -1,6 +1,6 @@
---- orig/net/tstun/wrap.go
-+++ tailscale_src/net/tstun/wrap.go
-@@ -453,6 +453,21 @@
+--- orig/net/tstun/wrap.go	2026-09-30 21:46:37.000000000 +0300
++++ tailscale_src/net/tstun/wrap.go	2026-10-01 17:24:14.448838108 +0300
+@@ -465,6 +465,20 @@
  	return t.tdev.File()
  }
  
@@ -18,13 +18,12 @@
 +	return false
 +}
 +
-+
  func (t *Wrapper) MTU() (int, error) {
  	return t.tdev.MTU()
  }
---- orig/wgengine/netstack/netstack.go
-+++ tailscale_src/wgengine/netstack/netstack.go
-@@ -946,6 +946,21 @@
+--- orig/wgengine/netstack/netstack.go	2026-09-30 21:46:37.000000000 +0300
++++ tailscale_src/wgengine/netstack/netstack.go	2026-10-01 17:24:14.452838107 +0300
+@@ -944,6 +944,21 @@
  }
  
  func (ns *Impl) DialContextTCP(ctx context.Context, ipp netip.AddrPort) (*gonet.TCPConn, error) {
@@ -46,7 +45,7 @@
  	remoteAddress := tcpip.FullAddress{
  		NIC:  nicID,
  		Addr: tcpip.AddrFromSlice(ipp.Addr().AsSlice()),
-@@ -983,6 +998,21 @@
+@@ -981,6 +996,21 @@
  }
  
  func (ns *Impl) DialContextUDP(ctx context.Context, ipp netip.AddrPort) (*gonet.UDPConn, error) {
@@ -68,77 +67,50 @@
  	remoteAddress := &tcpip.FullAddress{
  		NIC:  nicID,
  		Addr: tcpip.AddrFromSlice(ipp.Addr().AsSlice()),
-@@ -1061,19 +1091,42 @@
- 			ns.logf("[v2] packet Write out: % x", stack.PayloadSince(pkt.NetworkHeader()).AsSlice())
- 		}
+@@ -1019,11 +1049,21 @@
+ }
  
--		// In the normal case, netstack synthesizes the bytes for
--		// traffic which should transit back into WG and go to peers.
--		// However, some uses of netstack (presently, magic DNS)
--		// send traffic destined for the local device, hence must
--		// be injected 'inbound'.
-+		var src, dst netip.Addr
-+		switch v := pkt.Network().(type) {
-+		case header.IPv4:
-+			src = netip.AddrFrom4(v.SourceAddress().As4())
-+			dst = netip.AddrFrom4(v.DestinationAddress().As4())
-+		case header.IPv6:
-+			src = netip.AddrFrom16(v.SourceAddress().As16())
-+			dst = netip.AddrFrom16(v.DestinationAddress().As16())
-+		}
-+
-+		isDstLocal := ns.isLocalToNetstack(dst)
- 		sendToHost := ns.shouldSendToHost(pkt)
-+		if sendToHost && ns.tundev != nil && ns.tundev.IsFakeTUN() && (ns.isLocalToNetstack(src) || isDstLocal) {
-+			sendToHost = false
-+		}
-+
-+		if src == serviceIP || dst == serviceIP || src == serviceIPv6 || dst == serviceIPv6 {
-+			isFake := false
-+			if ns.tundev != nil {
-+				isFake = ns.tundev.IsFakeTUN()
-+			}
-+			ns.logf("netstack inject ts-service: src=%v dst=%v sendToHost=%v isSelfDst=%v isFake=%v",
-+				src, dst, sendToHost, ns.isSelfDst(pkt), isFake)
-+		}
- 
- 		// pkt has a non-zero refcount, so injection methods takes
- 		// ownership of one count and will decrement on completion.
- 		if sendToHost {
- 			if err := ns.tundev.InjectInboundPacketBuffer(pkt, inboundBuffs, inboundBuffsSizes); err != nil {
-+				// Drop the packet, not the pump. This loop is the only
-+				// consumer of the link endpoint's queue, so returning here
-+				// silenced every outbound flow for the life of the daemon —
-+				// one failed injection and the tunnel was mute with nothing
-+				// to show for it. Shutdown still leaves by the context above.
- 				ns.logf("netstack inject inbound: %v", err)
--				return
-+				continue
- 			}
- 		} else {
- 			// Self-addressed packet: deliver back into gVisor directly
-@@ -1081,14 +1134,19 @@
- 			// earmarked for the host. Neither the inbound path (fakeTUN Write is a
- 			// no-op) nor the outbound path (WireGuard has no peer for our own IP)
- 			// can handle these.
-+			if (ns.isSelfDst(pkt) || isDstLocal) && ns.tundev != nil && ns.tundev.IsFakeTUN() {
-+				ns.linkEP.DeliverLoopback(pkt)
-+				continue
-+			}
- 			if ns.isSelfDst(pkt) {
- 				ns.linkEP.DeliverLoopback(pkt)
- 				continue
- 			}
- 
- 			if err := ns.tundev.InjectOutboundPacketBuffer(pkt); err != nil {
-+				// As above: one packet lost, not every packet after it.
- 				ns.logf("netstack inject outbound: %v", err)
--				return
-+				continue
- 			}
- 		}
+ // outboundQueueForPacket is the [outboundQueueRouter] used by [linkEndpoint].
++//
++// TailSocks: with a fake TUN (userspace networking) there is no host to send
++// to — fakeTUN's Write is a no-op — so a packet from or to an address netstack
++// owns, which upstream earmarks for the host (MagicDNS and the Taildrive/
++// service IPs answered locally), is delivered back into gVisor instead.
+ func (ns *Impl) outboundQueueForPacket(pkt *stack.PacketBuffer) outboundQueue {
++	fakeTUN := ns.tundev != nil && ns.tundev.IsFakeTUN()
++	var src, dst netip.Addr
++	if fakeTUN {
++		src, dst = packetAddrs(pkt)
++	}
+ 	switch {
+-	case ns.shouldSendToHost(pkt):
++	case ns.shouldSendToHost(pkt) && !(fakeTUN && (ns.isLocalToNetstack(src) || ns.isLocalToNetstack(dst))):
+ 		return outboundToHost
+-	case ns.isSelfDst(pkt):
++	case ns.isSelfDst(pkt) || (fakeTUN && ns.isLocalToNetstack(dst)):
+ 		// Self-addressed packet: deliver back into gVisor directly
+ 		// via the link endpoint's dispatcher, but only if the packet is not
+ 		// earmarked for the host. Neither the inbound path (fakeTUN Write is a
+@@ -1035,6 +1075,18 @@
  	}
-@@ -1185,6 +1243,13 @@
+ }
+ 
++// packetAddrs returns a packet's source and destination addresses, or zero
++// values for a packet that is neither IPv4 nor IPv6.
++func packetAddrs(pkt *stack.PacketBuffer) (src, dst netip.Addr) {
++	switch v := pkt.Network().(type) {
++	case header.IPv4:
++		return netip.AddrFrom4(v.SourceAddress().As4()), netip.AddrFrom4(v.DestinationAddress().As4())
++	case header.IPv6:
++		return netip.AddrFrom16(v.SourceAddress().As16()), netip.AddrFrom16(v.DestinationAddress().As16())
++	}
++	return netip.Addr{}, netip.Addr{}
++}
++
+ // injectToWireGuard reads packets from the [outboundToWireGuard] [linkEndpoint]
+ // queue and injects them into tstun for eventual delivery to wireguard-go via
+ // [tun.Device.Read].
+@@ -1231,6 +1283,12 @@
  	return ns.atomicIsLocalIPFunc.Load()(ip)
  }
  
@@ -147,7 +119,6 @@
 +func (ns *Impl) isLocalToNetstack(ip netip.Addr) bool {
 +	return ns.isLocalIP(ip) || ip == serviceIP || ip == serviceIPv6 || ns.isVIPServiceIP(ip)
 +}
-+
 +
  // isVIPServiceIP reports whether ip is an IP address that's
  // assigned to a VIP service.

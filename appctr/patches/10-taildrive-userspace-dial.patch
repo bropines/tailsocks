@@ -1,5 +1,5 @@
---- orig/cmd/tailscaled/tailscaled_drive.go	2026-07-31 19:22:18.000000000 +0300
-+++ tailscale_src/cmd/tailscaled/tailscaled_drive.go	2026-09-06 23:54:16.301786232 +0300
+--- orig/cmd/tailscaled/tailscaled_drive.go	2026-09-30 21:46:37.000000000 +0300
++++ tailscale_src/cmd/tailscaled/tailscaled_drive.go	2026-10-01 17:23:14.137092410 +0300
 @@ -10,6 +10,7 @@
  	"fmt"
  
@@ -22,17 +22,17 @@
  	})
  	hookSetWgEnginConfigDrive.Set(func(conf *wgengine.Config, logf logger.Logf) {
  		conf.DriveForLocal = driveimpl.NewFileSystemForLocal(logf)
---- orig/cmd/tailscaled/tailscaled_windows.go	2026-07-31 19:22:18.000000000 +0300
-+++ tailscale_src/cmd/tailscaled/tailscaled_windows.go	2026-09-06 23:54:16.301974180 +0300
-@@ -49,6 +49,7 @@
+--- orig/cmd/tailscaled/tailscaled_windows.go	2026-09-30 21:46:37.000000000 +0300
++++ tailscale_src/cmd/tailscaled/tailscaled_windows.go	2026-10-01 17:25:05.208826935 +0300
+@@ -48,6 +48,7 @@
+ 	"tailscale.com/logpolicy"
  	"tailscale.com/net/dns"
  	"tailscale.com/net/netmon"
- 	"tailscale.com/net/tstun"
 +	"tailscale.com/net/tsdial"
+ 	"tailscale.com/net/tstun"
+ 	wintunconst "tailscale.com/tsconst/wintun"
  	"tailscale.com/tsd"
- 	"tailscale.com/types/logger"
- 	"tailscale.com/types/logid"
-@@ -341,7 +342,12 @@
+@@ -354,7 +355,12 @@
  	}
  	sys.Set(netMon)
  
@@ -46,10 +46,10 @@
  
  	publicLogID, _ := logid.ParsePublicID(logID)
  	err = startIPNServer(ctx, log.Printf, publicLogID, sys)
---- orig/ipn/ipnlocal/local_test.go	2026-07-31 19:22:18.000000000 +0300
-+++ tailscale_src/ipn/ipnlocal/local_test.go	2026-09-06 23:54:16.302521719 +0300
-@@ -5136,7 +5136,7 @@
- 				self.CapMap = tailcfg.NodeCapMap{tailcfg.NodeAttrsTaildriveShare: nil}
+--- orig/ipn/ipnlocal/local_test.go	2026-09-30 21:46:37.000000000 +0300
++++ tailscale_src/ipn/ipnlocal/local_test.go	2026-10-01 17:24:38.235313071 +0300
+@@ -5471,7 +5471,7 @@
+ 				self.CapMap = tailcfg.NodeCapMap{nodecap.TaildriveShare: nil}
  				nm.SelfNode = self.View()
  				b.currentNode().SetNetMap(nm)
 -				b.sys.Set(driveimpl.NewFileSystemForRemote(b.logf))

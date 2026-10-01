@@ -1,6 +1,6 @@
---- orig/net/dnscache/dnscache.go	2026-07-31 19:22:18.000000000 +0300
-+++ tailscale_src/net/dnscache/dnscache.go	2026-09-06 23:54:16.319903699 +0300
-@@ -13,8 +13,10 @@
+--- orig/net/dnscache/dnscache.go	2026-09-30 21:46:37.000000000 +0300
++++ tailscale_src/net/dnscache/dnscache.go	2026-10-01 17:23:14.174711520 +0300
+@@ -14,8 +14,10 @@
  	"log"
  	"net"
  	"net/netip"
@@ -11,7 +11,7 @@
  	"sync"
  	"sync/atomic"
  	"time"
-@@ -186,6 +188,43 @@
+@@ -237,6 +239,43 @@
  	debugLogging.Store(v)
  }
  
@@ -55,7 +55,7 @@
  // LookupIP returns the host's primary IP address (either IPv4 or
  // IPv6, but preferring IPv4) and optionally its IPv6 address, if
  // there is both IPv4 and IPv6.
-@@ -195,6 +234,13 @@
+@@ -246,6 +285,13 @@
  func (r *Resolver) LookupIP(ctx context.Context, host string) (ip, v6 netip.Addr, allIPs []netip.Addr, err error) {
  	if r.SingleHostStaticResult != nil {
  		if r.SingleHost != host {

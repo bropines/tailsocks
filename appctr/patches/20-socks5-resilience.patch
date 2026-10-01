@@ -1,6 +1,6 @@
---- orig/net/socks5/socks5.go
-+++ tailscale_src/net/socks5/socks5.go
-@@ -21,6 +21,7 @@
+--- orig/net/socks5/socks5.go	2026-09-30 21:46:37.000000000 +0300
++++ tailscale_src/net/socks5/socks5.go	2026-10-01 17:26:00.656584171 +0300
+@@ -22,6 +22,7 @@
  	"io"
  	"log"
  	"net"
@@ -8,7 +8,7 @@
  	"slices"
  	"strconv"
  	"time"
-@@ -88,6 +89,33 @@
+@@ -91,6 +92,33 @@
  	readTimeout = 5 * time.Second
  )
  
@@ -42,7 +42,7 @@
  // Server is a SOCKS5 proxy server.
  type Server struct {
  	// Logf optionally specifies the logger to use.
-@@ -123,11 +151,31 @@
+@@ -126,11 +154,31 @@
  // Serve accepts and handles incoming connections on the given listener.
  func (s *Server) Serve(ln net.Listener) error {
  	defer ln.Close()
@@ -74,8 +74,8 @@
 +		retryIn = 0
  		go func() {
  			defer c.Close()
- 			conn := &Conn{logf: s.Logf, clientConn: c, srv: s}
-@@ -156,6 +204,10 @@
+ 			conn := &Conn{clientConn: c, srv: s}
+@@ -168,6 +216,10 @@
  
  // Run starts the new connection.
  func (c *Conn) Run() error {
@@ -86,7 +86,7 @@
  	needAuth := c.srv.Username != "" || c.srv.Password != ""
  	authMethod := noAuthRequired
  	if needAuth {
-@@ -192,6 +244,7 @@
+@@ -211,6 +263,7 @@
  	}
  
  	c.request = req
@@ -94,7 +94,7 @@
  	switch req.command {
  	case connect:
  		return c.handleTCP()
-@@ -206,7 +259,7 @@
+@@ -225,7 +278,7 @@
  }
  
  func (c *Conn) handleTCP() error {

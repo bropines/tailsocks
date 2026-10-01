@@ -79,7 +79,7 @@ func GetNetcheckFromAPI() string {
 	// Map DERP regions information
 	derpMeta := make(map[int]DERPInfo)
 	for id, reg := range dm.Regions {
-		derpMeta[id] = DERPInfo{
+		derpMeta[int(id)] = DERPInfo{
 			Code: reg.RegionCode,
 			Name: reg.RegionName,
 		}
@@ -139,7 +139,7 @@ func netcheckText() string {
 		sb.WriteString("\t* Nearest DERP: [none]\n")
 	}
 	sb.WriteString("\t* DERP latency:\n")
-	rids := make([]int, 0, len(dm.Regions))
+	rids := make([]tailcfg.DERPRegionID, 0, len(dm.Regions))
 	for rid := range dm.Regions {
 		rids = append(rids, rid)
 	}

@@ -1,5 +1,5 @@
---- orig/net/dns/resolver/forwarder.go	2026-07-31 19:22:18.000000000 +0300
-+++ tailscale_src/net/dns/resolver/forwarder.go	2026-09-12 15:51:27.437158648 +0300
+--- orig/net/dns/resolver/forwarder.go	2026-09-30 21:46:37.000000000 +0300
++++ tailscale_src/net/dns/resolver/forwarder.go	2026-10-01 17:25:32.013864056 +0300
 @@ -37,12 +37,14 @@
  	"tailscale.com/net/netmon"
  	"tailscale.com/net/netx"
@@ -26,36 +26,25 @@
  }
  
  func (f *forwarder) probeLocks() {
-@@ -803,6 +809,16 @@
+@@ -979,6 +985,7 @@
  	if ipp.Addr().Is6() {
  		udpFam = "udp6"
  	}
 +
-+	// TailSocks: in userspace-networking mode a resolver that lives on a
-+	// tailnet IP (split DNS pointing at a peer) is unreachable through an OS
-+	// socket — the OS has no route into 100.64.0.0/10, so the query leaves
-+	// through the default interface and times out. Dial it through netstack,
-+	// the way every other user connection to a peer is made.
-+	if f.viaNetstack(ipp.Addr()) {
-+		return f.sendUDPNetstack(ctx, fq, ipp, udpFam)
-+	}
-+
  	conn, err := ln.ListenPacket(ctx, udpFam, ":0")
  	if err != nil {
  		f.logf("ListenPacket failed: %v", err)
-@@ -836,6 +852,64 @@
- 			return nil, err
- 		}
- 	}
-+	return f.finishUDPResponse(fq, out, n)
-+}
-+
-+// viaNetstack reports whether an upstream resolver at ip must be dialled
-+// through netstack: only in userspace-networking mode (UseNetstackForIP is set
-+// by cmd/tailscaled there and nil with a kernel TUN), for addresses that are a
-+// peer or behind a peer's subnet route, and never for the MagicDNS service IPs
-+// themselves — forwarding to those would loop back into this resolver. This
-+// applies to every userspace-networking tailscaled and tsnet, not just Android.
+@@ -987,6 +994,23 @@
+ 	return conn, nil
+ }
+ 
++// viaNetstack reports whether an upstream resolver at ip is reached through
++// netstack: only in userspace-networking mode (UseNetstackForIP is set by
++// cmd/tailscaled there and nil with a kernel TUN), for a peer or an address
++// behind a peer's subnet route, and never for the MagicDNS service IPs, which
++// would loop back into this resolver. UDP takes that path upstream (dialUDP);
++// TailSocks also sends DNS over TCP that way (sendTCP) and names it in the
++// rescue log (rescuePath).
 +func (f *forwarder) viaNetstack(ip netip.Addr) bool {
 +	if f.dialer == nil || f.dialer.UseNetstackForIP == nil {
 +		return false
@@ -66,49 +55,10 @@
 +	return f.dialer.UseNetstackForIP(ip)
 +}
 +
-+// sendUDPNetstack is sendUDP for a resolver on a tailnet address: the query is
-+// sent over a netstack UDP connection (tsdial.Dialer.UserDial ->
-+// NetstackDialUDP) instead of an OS socket that the OS cannot route.
-+func (f *forwarder) sendUDPNetstack(ctx context.Context, fq *forwardQuery, ipp netip.AddrPort, udpFam string) ([]byte, error) {
-+	c, err := f.dialer.UserDial(ctx, udpFam, ipp.String())
-+	if err != nil {
-+		return nil, err
-+	}
-+	defer c.Close()
-+
-+	fq.closeOnCtxDone.Add(c)
-+	defer fq.closeOnCtxDone.Remove(c)
-+
-+	if _, err := c.Write(fq.packet); err != nil {
-+		metricDNSFwdUDPErrorWrite.Add(1)
-+		if err := ctx.Err(); err != nil {
-+			return nil, err
-+		}
-+		return nil, err
-+	}
-+	metricDNSFwdUDPWrote.Add(1)
-+
-+	// The 1 extra byte is to detect packet truncation.
-+	out := make([]byte, maxResponseBytes+1)
-+	n, err := c.Read(out)
-+	if err != nil {
-+		if err := ctx.Err(); err != nil {
-+			return nil, err
-+		}
-+		metricDNSFwdUDPErrorRead.Add(1)
-+		return nil, err
-+	}
-+	return f.finishUDPResponse(fq, out, n)
-+}
-+
-+// finishUDPResponse validates and normalises a raw UDP reply of n bytes in
-+// out (truncation, transaction ID, rcode, TC bit, EDNS size) — shared by the
-+// OS-socket and the netstack paths.
-+func (f *forwarder) finishUDPResponse(fq *forwardQuery, out []byte, n int) ([]byte, error) {
- 	truncated := n > maxResponseBytes
- 	if truncated {
- 		n = maxResponseBytes
-@@ -943,7 +1017,14 @@
+ // netstackPacketConn presents a conn already connected to peer as a
+ // [nettype.PacketConn].
+ type netstackPacketConn struct {
+@@ -1060,7 +1084,14 @@
  	ctx, cancel := context.WithTimeout(ctx, tcpQueryTimeout)
  	defer cancel()
  
@@ -124,7 +74,7 @@
  	if err != nil {
  		return nil, err
  	}
-@@ -1061,6 +1142,19 @@
+@@ -1178,6 +1209,19 @@
  
  // resolvers returns the resolvers to use for domain.
  func (f *forwarder) resolvers(domain dnsname.FQDN) []resolverAndDelay {
@@ -144,7 +94,7 @@
  	f.mu.Lock()
  	routes := f.routes
  	cloudHostFallback := f.cloudHostFallback
-@@ -1076,10 +1170,10 @@
+@@ -1193,10 +1237,10 @@
  		// route, fall through to the next matching route. If the resolvers
  		// were configured to be empty allow resolved to be empty.
  		if len(resolved) > 0 || len(route.Resolvers) == 0 {
@@ -157,7 +107,7 @@
  }
  
  // GetUpstreamResolvers returns the resolvers that would be used to resolve
-@@ -1152,6 +1246,254 @@
+@@ -1269,6 +1313,254 @@
  	// ...
  }
  
@@ -412,7 +362,7 @@
  // forwardWithDestChan forwards the query to all upstream nameservers
  // and waits for the first response.
  //
-@@ -1196,8 +1538,15 @@
+@@ -1313,8 +1605,15 @@
  
  	clampEDNSSize(query.bs, maxResponseBytes)
  
@@ -429,7 +379,7 @@
  		if len(resolvers) == 0 {
  			// No upstream resolver for this name isn't a forwarder failure:
  			// it's split DNS / a name we weren't asked to handle. Count it
-@@ -1271,6 +1620,12 @@
+@@ -1388,6 +1687,12 @@
  	for {
  		select {
  		case v := <-resc:
@@ -442,7 +392,7 @@
  			select {
  			case <-ctx.Done():
  				metricDNSFwdErrorContext.Add(1)
-@@ -1321,6 +1676,18 @@
+@@ -1438,6 +1743,18 @@
  					}
  					res = packet{rcodeErr.res, query.family, query.addr}
  				}

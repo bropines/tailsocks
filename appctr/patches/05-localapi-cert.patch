@@ -1,5 +1,5 @@
---- orig/ipn/localapi/cert.go	2026-07-31 19:22:18.000000000 +0300
-+++ tailscale_src/ipn/localapi/cert.go	2026-09-06 23:54:16.287075834 +0300
+--- orig/ipn/localapi/cert.go	2026-09-30 21:46:37.000000000 +0300
++++ tailscale_src/ipn/localapi/cert.go	2026-10-01 17:23:14.109065326 +0300
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause
@@ -9,8 +9,8 @@
  
  package localapi
  
---- orig/ipn/localapi/disabled_stubs.go	2026-07-31 19:22:18.000000000 +0300
-+++ tailscale_src/ipn/localapi/disabled_stubs.go	2026-09-06 23:54:16.287276453 +0300
+--- orig/ipn/localapi/disabled_stubs.go	2026-09-30 21:46:37.000000000 +0300
++++ tailscale_src/ipn/localapi/disabled_stubs.go	2026-10-01 17:23:14.109182865 +0300
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause

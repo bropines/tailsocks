@@ -1,6 +1,6 @@
 diff -N -r -u -x '*.orig' -x '*.rej' orig/feature/taildrop/ext.go tailscale_src/feature/taildrop/ext.go
---- orig/feature/taildrop/ext.go	2026-07-31 19:22:18.000000000 +0300
-+++ tailscale_src/feature/taildrop/ext.go	2026-09-06 23:54:16.279508222 +0300
+--- orig/feature/taildrop/ext.go	2026-09-30 21:46:37.000000000 +0300
++++ tailscale_src/feature/taildrop/ext.go	2026-10-01 17:23:32.929671354 +0300
 @@ -4,6 +4,12 @@
  package taildrop
  
@@ -14,16 +14,16 @@ diff -N -r -u -x '*.orig' -x '*.rej' orig/feature/taildrop/ext.go tailscale_src/
  	"cmp"
  	"context"
  	"errors"
-@@ -29,6 +35,8 @@
+@@ -34,6 +40,8 @@
  	"tailscale.com/util/set"
  )
  
 +var renameMu sync.Mutex
 +
  func init() {
- 	ipnext.RegisterExtension("taildrop", newExtension)
- 
-@@ -38,6 +46,17 @@
+ 	if !feature.Register("taildrop") {
+ 		return
+@@ -50,6 +58,17 @@
  			osshare.SetFileSharingEnabled(false, logger.Discard)
  		})
  	}
@@ -41,7 +41,7 @@ diff -N -r -u -x '*.orig' -x '*.rej' orig/feature/taildrop/ext.go tailscale_src/
  }
  
  func newExtension(logf logger.Logf, b ipnext.SafeBackend) (ipnext.Extension, error) {
-@@ -47,6 +66,9 @@
+@@ -59,6 +78,9 @@
  		logf:       logger.WithPrefix(logf, "taildrop: "),
  	}
  	e.setPlatformDefaultDirectFileRoot()
@@ -51,7 +51,7 @@ diff -N -r -u -x '*.orig' -x '*.rej' orig/feature/taildrop/ext.go tailscale_src/
  	return e, nil
  }
  
-@@ -240,6 +262,13 @@
+@@ -252,6 +274,13 @@
  		return
  	}
  
@@ -65,7 +65,7 @@ diff -N -r -u -x '*.orig' -x '*.rej' orig/feature/taildrop/ext.go tailscale_src/
  	var n ipn.Notify
  
  	e.mu.Lock()
-@@ -435,3 +464,104 @@
+@@ -447,3 +476,104 @@
  
  	e.host.SendNotifyAsync(ipn.Notify{OutgoingFiles: outgoingFiles})
  }
@@ -171,7 +171,7 @@ diff -N -r -u -x '*.orig' -x '*.rej' orig/feature/taildrop/ext.go tailscale_src/
 +	return filepath.Join(dir, baseName), nil
 +}
 diff -N -r -u -x '*.orig' -x '*.rej' orig/feature/taildrop/fileops_fs.go tailscale_src/feature/taildrop/fileops_fs.go
---- orig/feature/taildrop/fileops_fs.go	2026-07-31 19:22:18.000000000 +0300
+--- orig/feature/taildrop/fileops_fs.go	2026-09-30 21:46:37.000000000 +0300
 +++ tailscale_src/feature/taildrop/fileops_fs.go	1970-01-01 03:00:00.000000000 +0300
 @@ -1,221 +0,0 @@
 -// Copyright (c) Tailscale Inc & contributors

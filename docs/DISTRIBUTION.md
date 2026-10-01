@@ -80,7 +80,7 @@ What it took, and what must stay true:
 - **One APK for every channel.** Nothing may differ between the GitHub build and F-Droid's: the GitHub updater is switched off at run time when a store installed the app (`UpdateChannel`), not by a build flag.
 - **The Go core is built in `/home/vagrant/build/io.github.bropines.tailscaled`** — F-Droid's build path — because gomobile writes the absolute path of the bound module into `libgojni.so` (a replace directive in its own `go.mod`, which `-trimpath` does not reach). CI copies the checkout there.
 - **The pinned NDK for the core too.** The runner's default `ANDROID_NDK_HOME` (r27) made the first comparison fail in exactly the three Go libraries.
-- **Exactly the Go of `appctr/go.mod`** (`GOTOOLCHAIN=go1.26.6` in CI, the srclib with `GOTOOLCHAIN=local` at F-Droid); `-buildvcs=false`, `-buildid=`, the core version stamped with the commit's time.
+- **Exactly the Go of `appctr/go.mod`** (`GOTOOLCHAIN=go1.27.1` in CI, the srclib with `GOTOOLCHAIN=local` at F-Droid); `-buildvcs=false`, `-buildid=`, the core version stamped with the commit's time.
 - **The C libraries built by Gradle's ndkBuild** with `-ffile-prefix-map`, in CI as at F-Droid.
 - **Clean builds only.** An incremental Kotlin build differs from a clean one in `classes.dex`; CI and F-Droid always build clean.
 - **Release asset names without the hash** (`TailSocks-v<version>-<abi>-release.apk`), which F-Droid's `%v` can find.
