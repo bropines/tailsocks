@@ -33,4 +33,5 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 --------------------------------------------------------------------------------
 ACKNOWLEDGMENTS:
 - Tailscale Core: https://github.com/tailscale/tailscale (Copyright 2020 Tailscale Inc.)
+- tailcat: https://github.com/tailscale/tailcat (BSD 3-Clause, Copyright Tailscale Inc. & contributors), built into the bridge for the Tailcat screen.
 - Community Patches: Inspired by the work of Asutorufa and other contributors.

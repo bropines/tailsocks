@@ -1692,6 +1692,21 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(12.dp))
 
+        // Tailcat: ports carried to tailcat servers, with no tailnet at all.
+        // A screen of its own (TailcatActivity), reached from here rather than
+        // from a tile on the main screen.
+        SettingsCard(title = stringResource(R.string.tailcat_title)) {
+            SettingsClickableItem(
+                title = stringResource(R.string.tailcat_title),
+                subtitle = stringResource(R.string.tailcat_settings_desc),
+                icon = Icons.Default.Pets
+            ) {
+                context.startActivity(Intent(context, TailcatActivity::class.java))
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
         // Last in the section on purpose: it is the one switch here that can
         // expose the listeners above to anyone on the same Wi-Fi.
         SettingsCard(title = stringResource(R.string.settings_sect_lan)) {

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tailcat_title" translatable="false">Tailcat</string>
+    <string name="tailcat_settings_desc">Local ports carried to tailcat servers, without a VPN or a Tailscale account</string>
+    <string name="tailcat_intro">Forwards ports on this device to a tailcat server over WireGuard — no VPN, no Tailscale account. Point an app at http://127.0.0.1:&lt;port&gt;. On the other machine, tailcat serve &lt;port&gt; prints the address to add here. Several connections run at once, one per server.</string>
+    <string name="tailcat_heading_connections">Connections</string>
+    <string name="tailcat_add">Add connection</string>
+    <string name="tailcat_new">New connection</string>
+    <string name="tailcat_edit">Edit connection</string>
+    <string name="tailcat_delete_confirm">Delete %1$s?</string>
+    <string name="tailcat_empty_title">No connections yet</string>
+    <string name="tailcat_empty_text">Run tailcat serve &lt;port&gt; on the machine you want to reach, then add the address it prints.</string>
+    <string name="tailcat_name">Name</string>
+    <string name="tailcat_name_default">Server %1$d</string>
+    <string name="tailcat_address">Server address</string>
+    <string name="tailcat_address_hint">The tc… address the server printed</string>
+    <string name="tailcat_show_address">Show address</string>
+    <string name="tailcat_hide_address">Hide address</string>
+    <string name="tailcat_ports">Ports</string>
+    <string name="tailcat_ports_hint">The server\'s port, e.g. 8080; local:remote to listen on another port here (18080:8080). Separate several with commas.</string>
+    <string name="tailcat_state_starting">Connecting…</string>
+    <string name="tailcat_state_forwarding">Forwarding</string>
+    <string name="tailcat_state_direct">Direct · %1$d ms</string>
+    <string name="tailcat_state_relay">Relay %1$s · %2$d ms</string>
+    <string name="tailcat_state_error">No answer: the server is off or does not allow this key</string>
+    <string name="tailcat_state_stopped">Stopped</string>
+    <string name="tailcat_active">%1$d open</string>
+    <string name="tailcat_output">Output</string>
+    <string name="tailcat_full_output">Full output</string>
+    <string name="tailcat_copy_all">Copy all</string>
+    <string name="tailcat_no_output">No output yet.</string>
+    <string name="tailcat_copy_local">Copy local address</string>
+    <string name="tailcat_client_key">Client key</string>
+    <string name="tailcat_client_key_desc">Without one, anyone holding a server\'s address can connect. Start each server with tailcat serve --allow=&lt;this key&gt; to let only this device in; the one key serves every connection.</string>
+    <string name="tailcat_client_key_none">No key yet: connections use a throwaway identity.</string>
+    <string name="tailcat_client_key_create">Create client key</string>
+    <string name="tailcat_client_key_replace">New key</string>
+    <string name="tailcat_client_key_replace_confirm">A new key replaces this one. Servers that allow only the old key will refuse this device until you update their --allow.</string>
+    <string name="tailcat_copy_key">Copy key</string>
+    <string name="tailcat_copy_command">Copy the serve command</string>
+    <string name="tailcat_copied">Copied</string>
+    <string name="tailcat_notif_title">Tailcat · %1$d running</string>
+    <string name="tailcat_notif_starting">Starting…</string>
+    <string name="tailcat_stop_all">Stop all</string>
+    <string name="tailcat_err_address">Not a tailcat address</string>
+    <string name="tailcat_err_ports">Port mapping: %1$s</string>
+    <string name="tailcat_err_port_clash">Port %1$d is already used by %2$s</string>
+    <string name="tailcat_cd_start">Start %1$s</string>
+    <string name="tailcat_cd_stop">Stop %1$s</string>
+</resources>

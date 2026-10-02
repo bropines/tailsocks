@@ -1,0 +1,50 @@
+--- orig/net/netmon/polling.go	2026-09-30 21:46:37.000000000 +0300
++++ tailscale_src/net/netmon/polling.go	2026-10-03 02:23:10.817837580 +0300
+@@ -56,6 +56,33 @@
+ 	return string(bytes.TrimSpace(vers)) == "Linux version 4.4.0 #1 SMP Sun Jan 10 15:06:54 PST 2016"
+ }
+ 
++// TailSocks: a way to wake every polling monitor in the process at once.
++//
++// On Android the polling interval is ten minutes, on the assumption that the
++// app calls InjectEvent on its monitor when the network moves. A monitor that
++// belongs to a library instead — tailcat's client, run inside the app — has
++// no handle to call that on, so it would not notice a Wi-Fi to cellular
++// switch for ten minutes. WakePollingMonitors makes each of them return from
++// Receive now; the Monitor then re-reads the interfaces as after a poll.
++var (
++	pollWakeMu sync.Mutex
++	pollWake   = make(chan struct{})
++)
++
++// WakePollingMonitors makes every polling monitor in this process poll now.
++func WakePollingMonitors() {
++	pollWakeMu.Lock()
++	close(pollWake)
++	pollWake = make(chan struct{})
++	pollWakeMu.Unlock()
++}
++
++func pollWakeChan() <-chan struct{} {
++	pollWakeMu.Lock()
++	defer pollWakeMu.Unlock()
++	return pollWake
++}
++
+ func (pm *pollingMon) Receive() (message, error) {
+ 	d := 10 * time.Second
+ 	if runtime.GOOS == "android" {
+@@ -71,10 +98,13 @@
+ 	}
+ 	timer := time.NewTimer(d)
+ 	defer timer.Stop()
++	wake := pollWakeChan()
+ 	for {
+ 		select {
+ 		case <-timer.C:
+ 			return unspecifiedMessage{}, nil
++		case <-wake:
++			return unspecifiedMessage{}, nil
+ 		case <-pm.stop:
+ 			return nil, errors.New("stopped")
+ 		}

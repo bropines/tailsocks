@@ -143,6 +143,13 @@ diff -u orig/cmd/tailscaled/netstack.go tailscale_src/cmd/tailscaled/netstack.go
 # dial gets long enough to ride out a DERP reconnect.
 diff -u orig/net/socks5/socks5.go tailscale_src/net/socks5/socks5.go > patches/20-socks5-resilience.patch || true
 
+# 21-netmon-wake-pollers.patch (net/netmon/polling.go)
+# WakePollingMonitors wakes every polling monitor in the process. tailcat's
+# client runs inside the app with a monitor of its own that nothing else can
+# reach, and on Android the poll is ten minutes; the bridge calls this when the
+# network moves.
+diff -u orig/net/netmon/polling.go tailscale_src/net/netmon/polling.go > patches/21-netmon-wake-pollers.patch || true
+
 # Guard: a zero-byte patch means a diff target moved or vanished and `|| true`
 # swallowed it — exactly how 08-netstack-cgnat was silently lost during the
 # v1.102.1 bump. Refuse to finish with any empty patch so it can never ship blank.

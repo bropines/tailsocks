@@ -82,6 +82,13 @@
             </intent-filter>
         </activity>
 
+        <activity android:name=".ui.TailcatActivity" android:exported="false" />
+        <service
+            android:name=".core.TailcatService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="tailcat port forwarding" />
+        </service>
         <service android:name=".core.TailscaledService" android:directBootAware="true" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="tailscale node service" />
         </service>

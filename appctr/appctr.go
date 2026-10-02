@@ -87,6 +87,9 @@ var GConfig GlobalConfig
 // netcheck. The name reaches the daemon through a file next to its state,
 // because it is another process and its environment is fixed at launch.
 func SetDefaultRouteInterface(name string) {
+	// The network monitors in this process — tailcat's — read the default
+	// route from here, as the official app's do.
+	setInProcessDefaultRoute(name)
 	stateMu.Lock()
 	if name == defaultRouteInterface {
 		stateMu.Unlock()
@@ -135,6 +138,8 @@ func InjectNetworkState(jsonState string) {
 			slog.Debug("Could not wake the daemon's network monitor", "err", err)
 		}
 	}
+	// And the monitors in this process: tailcat's clients run here.
+	tailcatNetworkChanged()
 }
 
 var cmd *exec.Cmd

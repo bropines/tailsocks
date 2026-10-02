@@ -80,3 +80,9 @@ func init() {
 		return ret, nil
 	})
 }
+
+// setInProcessDefaultRoute tells the network monitors of this process which
+// interface carries the default route; on Android netmon has no other source.
+func setInProcessDefaultRoute(name string) {
+	netmon.UpdateLastKnownDefaultRouteInterface(name)
+}
