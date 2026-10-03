@@ -42,6 +42,13 @@
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
             </intent-filter>
+            <!-- tailsocks:// links open a screen and nothing more (ui/DeepLinks.kt). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="tailsocks" />
+            </intent-filter>
         </activity>
 
         <activity android:name=".ui.SettingsActivity" android:exported="false" />

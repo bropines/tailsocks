@@ -96,6 +96,25 @@ adb shell am broadcast -a io.github.bropines.tailscaled.action.SET_BYEDPI -n io.
 
 ---
 
+## 🔗 Ссылки на экраны (`tailsocks://`)
+
+Ссылка `tailsocks://` открывает экран приложения и больше ничего не делает — токен не нужен, потому что ни одна ссылка не меняет настройки и ничего не запускает; это остаётся за действиями выше. `tailcat/add` только заполняет редактор нового подключения TailCat; сохраняет его пользователь.
+
+| Ссылка | Открывает |
+|---|---|
+| `tailsocks://serve` | Serve & Funnel |
+| `tailsocks://tailcat` | TailCat |
+| `tailsocks://tailcat/add?cmd=<адрес или команда подключения>` | новое подключение TailCat, уже заполненное (`cmd` в URL-кодировке) |
+| `tailsocks://logs?category=TAILCAT` | Логи на одной категории (`ALL`, `ERROR`, `CORE`, `TAILSCALE`, `TAILCAT`, …) |
+| `tailsocks://settings/<раздел>` | Настройки на разделе: `appearance`, `account`, `tunnel`, `proxies`, `dns`, `bypass`, `sharing`, `background`, `backup`, `automation`, `diagnostics` |
+| `tailsocks://peers`, `dns`, `netcheck`, `console`, `files`, `taildrive`, `permissions` | этот экран |
+
+```bash
+adb shell am start -a android.intent.action.VIEW -d 'tailsocks://logs?category=TAILCAT'
+```
+
+---
+
 ## 🔄 Поведение в фоне
 
 За поведение соединения, когда приложение не на переднем плане, отвечают три настройки — все в **Настройки → APP → Система и Резервное копирование**, если не указано иное:

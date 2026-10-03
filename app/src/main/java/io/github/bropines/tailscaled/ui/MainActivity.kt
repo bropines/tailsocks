@@ -298,6 +298,14 @@ class MainActivity : ComponentActivity() {
 
     private fun handleIntent(intent: Intent?, fromNewIntent: Boolean = false) {
         if (intent == null) return
+        // tailsocks:// links (DeepLinks): the screen opens on top of this one.
+        // The data is cleared so a recreation or a later onNewIntent does not
+        // open it again (singleTask).
+        if (intent.action == Intent.ACTION_VIEW && intent.data?.scheme == DeepLinks.SCHEME) {
+            val target = DeepLinks.intentFor(this, intent.data!!)
+            intent.data = null
+            if (target != null) startActivity(target)
+        }
         // Tap on the "the system would not let it back" notification. A start
         // made while an activity is coming to the foreground is never refused,
         // which is the entire reason this path exists. On a cold start

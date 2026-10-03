@@ -81,4 +81,5 @@
     <string name="tailcat_server_copy_command">Copy the connect command</string>
     <string name="tailcat_import">Paste</string>
     <string name="tailcat_import_none">No tailcat address on the clipboard</string>
+    <string name="tailcat_import_none_link">The link has no tailcat address</string>
 </resources>

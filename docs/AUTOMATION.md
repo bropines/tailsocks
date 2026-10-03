@@ -96,6 +96,25 @@ adb shell am broadcast -a io.github.bropines.tailscaled.action.SET_BYEDPI -n io.
 
 ---
 
+## 🔗 Links to screens (`tailsocks://`)
+
+A `tailsocks://` link opens a screen of the app and does nothing else — no token, because no link changes a setting or starts anything; that stays with the actions above. `tailcat/add` only fills in a new TailCat connection's editor; saving it is the user's tap.
+
+| Link | Opens |
+|---|---|
+| `tailsocks://serve` | Serve & Funnel |
+| `tailsocks://tailcat` | TailCat |
+| `tailsocks://tailcat/add?cmd=<address or connect command>` | a new TailCat connection, filled in (URL-encode `cmd`) |
+| `tailsocks://logs?category=TAILCAT` | Logs on one category (`ALL`, `ERROR`, `CORE`, `TAILSCALE`, `TAILCAT`, …) |
+| `tailsocks://settings/<section>` | Settings on a section: `appearance`, `account`, `tunnel`, `proxies`, `dns`, `bypass`, `sharing`, `background`, `backup`, `automation`, `diagnostics` |
+| `tailsocks://peers`, `dns`, `netcheck`, `console`, `files`, `taildrive`, `permissions` | that screen |
+
+```bash
+adb shell am start -a android.intent.action.VIEW -d 'tailsocks://logs?category=TAILCAT'
+```
+
+---
+
 ## 🔄 Background behaviour
 
 What happens to the connection when the app is not in the foreground is governed by three settings, all under **Settings → APP → System & Backup** unless noted:

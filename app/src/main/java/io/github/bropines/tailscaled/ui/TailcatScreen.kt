@@ -126,7 +126,7 @@ private const val INLINE_OUTPUT_LINES = 12
  * PR #9 by seffs.
  */
 @Composable
-fun TailcatScreen(onBack: () -> Unit, page: ServePage? = null) {
+fun TailcatScreen(onBack: () -> Unit, page: ServePage? = null, importText: String? = null) {
     val context = LocalContext.current
     val inPreview = LocalInspectionMode.current
     val clipboard = LocalClipboardManager.current
@@ -179,6 +179,20 @@ fun TailcatScreen(onBack: () -> Unit, page: ServePage? = null) {
     }
 
     if (!inPreview) LaunchedEffect(Unit) { withContext(Dispatchers.IO) { TailcatService.refreshStatuses() } }
+    // A tailsocks://tailcat/add link: a new connection's editor, filled in.
+    if (!inPreview && importText != null) LaunchedEffect(importText) {
+        val parsed = TailcatConnections.parseImport(importText)
+        if (parsed == null) {
+            Toast.makeText(context, context.getString(R.string.tailcat_import_none_link), Toast.LENGTH_SHORT).show()
+        } else {
+            editor = TailcatConnection(
+                name = context.getString(R.string.tailcat_name_default, connections.size + 1),
+                address = parsed.address,
+                ports = parsed.ports,
+                socks = parsed.socks ?: 0
+            )
+        }
+    }
     // The output of the open card, read while it is on screen.
     val watched = openId
     if (!inPreview && watched != null) LaunchedEffect(watched) {

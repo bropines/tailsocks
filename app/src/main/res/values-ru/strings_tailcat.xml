@@ -80,4 +80,5 @@
     <string name="tailcat_server_copy_command">Скопировать команду подключения</string>
     <string name="tailcat_import">Вставить</string>
     <string name="tailcat_import_none">В буфере нет адреса tailcat</string>
+    <string name="tailcat_import_none_link">В ссылке нет адреса tailcat</string>
 </resources>

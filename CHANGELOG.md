@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Added
+
+- `tailsocks://` links open a screen: Serve, TailCat, Logs on a category, a Settings section, and the rest; `tailsocks://tailcat/add?cmd=…` fills in a new TailCat connection.
+
 ## [4.6.0] - 2026-10-03
 
 ### Added

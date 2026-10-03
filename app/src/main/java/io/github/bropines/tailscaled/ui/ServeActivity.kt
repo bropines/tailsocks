@@ -77,11 +77,17 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 class ServeActivity : FragmentActivity() {
     companion object {
         private const val EXTRA_TAB = "tab"
+        private const val EXTRA_TAILCAT_IMPORT = "tailcat_import"
         private const val TAB_TAILCAT = 1
 
-        /** This screen on its Tailcat side, for the tailcat notification. */
-        fun tailcatIntent(context: Context): Intent =
+        /**
+         * This screen on its TailCat side, for the tailcat notification and
+         * tailsocks://tailcat links; with [importText] (an address or a connect
+         * command) it opens a new connection's editor filled in from it.
+         */
+        fun tailcatIntent(context: Context, importText: String? = null): Intent =
             Intent(context, ServeActivity::class.java).putExtra(EXTRA_TAB, TAB_TAILCAT)
+                .apply { if (importText != null) putExtra(EXTRA_TAILCAT_IMPORT, importText) }
     }
 
     override fun attachBaseContext(newBase: Context) {
@@ -91,9 +97,11 @@ class ServeActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val startTab = intent.getIntExtra(EXTRA_TAB, 0)
+        // Once: a recreated activity must not open the editor again.
+        val importText = if (savedInstanceState == null) intent.getStringExtra(EXTRA_TAILCAT_IMPORT) else null
         setContent {
             TailSocksTheme {
-                ServeHost(startTab = startTab, onBack = { finish() }, activity = this)
+                ServeHost(startTab = startTab, onBack = { finish() }, activity = this, tailcatImport = importText)
             }
         }
     }
@@ -112,7 +120,7 @@ class ServePage(val actions: MutableState<@Composable RowScope.() -> Unit>)
  * each screen a page of its own.
  */
 @Composable
-fun ServeHost(startTab: Int, onBack: () -> Unit, activity: FragmentActivity? = null) {
+fun ServeHost(startTab: Int, onBack: () -> Unit, activity: FragmentActivity? = null, tailcatImport: String? = null) {
     val pager = rememberPagerState(initialPage = startTab) { 2 }
     val scope = rememberCoroutineScope()
     val pages = remember { List(2) { ServePage(mutableStateOf({})) } }
@@ -145,7 +153,7 @@ fun ServeHost(startTab: Int, onBack: () -> Unit, activity: FragmentActivity? = n
                 modifier = Modifier.padding(padding).fillMaxSize()
             ) { i ->
                 if (i == 0) ServeScreen(onBack = onBack, activity = activity, page = pages[0])
-                else TailcatScreen(onBack = onBack, page = pages[1])
+                else TailcatScreen(onBack = onBack, page = pages[1], importText = tailcatImport)
             }
         }
     }
