@@ -60,7 +60,7 @@ Optionally, add a config to the shared catalog at https://apps.obtainium.imranr.
 | 8 | `app/src/main/jni/byedpi/` | vendored ByeDPI (MIT) with no LICENSE file; `readme.md:298`, `:355` link to a nonexistent `hufyhang/byedpi` | add the LICENSE from https://github.com/hufrea/byedpi, fix the links |
 | 9 | `app/build.gradle.kts` (no `ndkVersion`), `android.yml:103` | the NDK isn't pinned anywhere: 28.2 locally, whichever CI finds first | one NDK version, set in `ndkVersion`, in CI, and in `build.sh` |
 
-Not a blocker, but the recipe needs a workaround: `jvmToolchain(17)` (`app/build.gradle.kts:136-138`) — on the Debian trixie build server running JDK 21, JDK 17 is installed from bookworm, the same as SocksTun does. ABI splits share one `versionCode`, so F-Droid will ship a universal APK (~85 MB); per-ABI APKs would need a `versionCode` per ABI.
+Not a blocker: `jvmToolchain(17)` made the recipe install JDK 17 from bookworm on the Debian trixie build server, as SocksTun does; the reviewer asked for JDK 21. Since 4.6.0 Kotlin targets Java 17 bytecode from whichever JDK runs Gradle, and CI runs 21 — a JDK 17 and a JDK 21 build gave the same APK byte for byte; the 4.5.3 recipe swaps the toolchain line with a `sed` in `prebuild`. Each ABI has its own `versionCode` since 4.5.3, so F-Droid ships per-ABI APKs.
 
 **Steps.**
 

@@ -60,7 +60,7 @@
 | 8 | `app/src/main/jni/byedpi/` | вендорный ByeDPI (MIT) без LICENSE; `readme.md:298`, `:355` ссылаются на несуществующий `hufyhang/byedpi` | положить LICENSE из https://github.com/hufrea/byedpi, исправить ссылки |
 | 9 | `app/build.gradle.kts` (нет `ndkVersion`), `android.yml:103` | NDK нигде не закреплён: локально 28.2, в CI — первый найденный | один NDK в `ndkVersion`, в CI и в `build.sh` |
 
-Не блокер, но в рецепте есть обход: `jvmToolchain(17)` (`app/build.gradle.kts:136-138`) — на сборочном сервере Debian trixie с JDK 21, JDK 17 ставится из bookworm, как у SocksTun. ABI-сплиты делят один `versionCode`, поэтому F-Droid отдаст универсальный APK (~85 МБ); раздельные APK потребуют `versionCode` на каждый ABI.
+Не блокер: из-за `jvmToolchain(17)` рецепт ставил JDK 17 из bookworm на сборочный сервер Debian trixie, как у SocksTun; ревьюер попросил JDK 21. С 4.6.0 Kotlin собирает байткод Java 17 на любом JDK, которым запущен Gradle, а CI работает на 21 — сборки на JDK 17 и JDK 21 дали побайтно одинаковый APK; рецепт 4.5.3 заменяет строку тулчейна `sed`-ом в `prebuild`. У каждого ABI свой `versionCode` с 4.5.3, так что F-Droid раздаёт APK по ABI.
 
 **Шаги.**
 

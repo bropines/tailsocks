@@ -19,7 +19,8 @@
 #
 # Precedents: com.tailscale.ipn (Go from the srclib, modules fetched in the
 # build step), io.nekohasekai.sfa (gomobile, reproducible), hev.sockstun
-# (hev-socks5-tunnel, JDK 17 from bookworm), com.luc4n3x.levyra (android-37.0).
+# (hev-socks5-tunnel), com.luc4n3x.levyra (android-37.0). The buildserver's
+# JDK 21 builds it: since 4.6.0 nothing asks for 17 (see app/build.gradle.kts).
 #
 # OPEN, the reviewer's call: NonFreeNet — the default coordination server and
 # the admin console are Tailscale's service; a self-hosted Headscale replaces
@@ -54,11 +55,6 @@ Builds:
       - apt-get install -y make patch curl
       # Bootstrap compiler for building Go from source, as com.tailscale.ipn does.
       - apt-get install -y -t trixie-backports golang-go
-      # jvmToolchain(17) in app/build.gradle.kts; trixie ships 21.
-      - echo "deb https://deb.debian.org/debian bookworm main" > /etc/apt/sources.list.d/bookworm.list
-      - apt-get update
-      - apt-get install -y -t bookworm openjdk-17-jdk-headless
-      - update-java-alternatives -s java-1.17.0-openjdk-amd64
     # After the build commands (the Go core) Gradle assembles the APK.
     gradle:
       - yes
@@ -105,11 +101,6 @@ Builds:
       - apt-get install -y make patch curl
       # Bootstrap compiler for building Go from source, as com.tailscale.ipn does.
       - apt-get install -y -t trixie-backports golang-go
-      # jvmToolchain(17) in app/build.gradle.kts; trixie ships 21.
-      - echo "deb https://deb.debian.org/debian bookworm main" > /etc/apt/sources.list.d/bookworm.list
-      - apt-get update
-      - apt-get install -y -t bookworm openjdk-17-jdk-headless
-      - update-java-alternatives -s java-1.17.0-openjdk-amd64
     # After the build commands (the Go core) Gradle assembles the APK.
     gradle:
       - yes
@@ -156,11 +147,6 @@ Builds:
       - apt-get install -y make patch curl
       # Bootstrap compiler for building Go from source, as com.tailscale.ipn does.
       - apt-get install -y -t trixie-backports golang-go
-      # jvmToolchain(17) in app/build.gradle.kts; trixie ships 21.
-      - echo "deb https://deb.debian.org/debian bookworm main" > /etc/apt/sources.list.d/bookworm.list
-      - apt-get update
-      - apt-get install -y -t bookworm openjdk-17-jdk-headless
-      - update-java-alternatives -s java-1.17.0-openjdk-amd64
     # After the build commands (the Go core) Gradle assembles the APK.
     gradle:
       - yes
@@ -207,11 +193,6 @@ Builds:
       - apt-get install -y make patch curl
       # Bootstrap compiler for building Go from source, as com.tailscale.ipn does.
       - apt-get install -y -t trixie-backports golang-go
-      # jvmToolchain(17) in app/build.gradle.kts; trixie ships 21.
-      - echo "deb https://deb.debian.org/debian bookworm main" > /etc/apt/sources.list.d/bookworm.list
-      - apt-get update
-      - apt-get install -y -t bookworm openjdk-17-jdk-headless
-      - update-java-alternatives -s java-1.17.0-openjdk-amd64
     # After the build commands (the Go core) Gradle assembles the APK.
     gradle:
       - yes

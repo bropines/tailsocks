@@ -11,6 +11,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 ### Changed
 
 - Tailscale core 1.104.0.
+- Builds run on JDK 21; the APK is the same as with 17.
 
 ## [4.5.3] - 2026-10-01
 

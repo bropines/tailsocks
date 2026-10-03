@@ -168,10 +168,12 @@ jobs:
             yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VER" > /dev/null
           fi
 
-      - name: Set up JDK 17
+      # 21, as on F-Droid's buildserver (Debian trixie); the bytecode is Java 17's
+      # from either (app/build.gradle.kts), so the APK is the same byte for byte.
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
-          java-version: "17"
+          java-version: "21"
           distribution: "temurin"
           # No cache here: setup-gradle below caches Gradle's home itself.
 

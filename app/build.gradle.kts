@@ -192,8 +192,13 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    // Bytecode for Java 17, from whichever JDK runs Gradle (21 on CI and on
+    // F-Droid's buildserver): Android compilations put android.jar, not the
+    // JDK's classes, on the classpath, so the JDK does not change the output.
     kotlin {
-        jvmToolchain(17)
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        }
     }
 
 
