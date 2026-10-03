@@ -478,7 +478,7 @@ fun LogsScreen(onBack: () -> Unit, initialCategory: String = "ALL") {
         }
         list.add(SegmentedChipItem("OTHER", Icons.Default.Category, containerColor = Color(0xFFFFA726).copy(alpha = 0.25f), contentColor = Color(0xFFFB8C00)))
         if (showTailcat) {
-            list.add(SegmentedChipItem(TAILCAT_CATEGORY, Icons.Default.Pets, containerColor = Color(0xFF8D6E63).copy(alpha = 0.25f), contentColor = Color(0xFF8D6E63)))
+            list.add(SegmentedChipItem(TAILCAT_CATEGORY, Icons.Default.Pets, containerColor = Color(0xFFA1887F).copy(alpha = 0.25f), contentColor = Color(0xFFA1887F)))
         }
         if (includeLogcat) {
             list.add(SegmentedChipItem(LOGCAT_CATEGORY, Icons.Default.BugReport, containerColor = Color(0xFF26A69A).copy(alpha = 0.25f), contentColor = Color(0xFF26A69A)))
