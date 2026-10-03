@@ -410,6 +410,14 @@ private fun ConnectionCard(
     val scheme = MaterialTheme.colorScheme
     val failed = status?.state == "failed" || status?.state == "error"
     val forwarding = status?.state == "forwarding"
+    // Open connections, shown once one has lasted a second: a request that
+    // comes and goes in milliseconds would only make the tag blink.
+    val active = status?.active ?: 0
+    var shownActive by remember { mutableStateOf(0) }
+    LaunchedEffect(active) {
+        if (active > 0 && shownActive == 0) delay(1000)
+        shownActive = active
+    }
     val (container, tint) = when {
         failed -> scheme.errorContainer to scheme.onErrorContainer
         forwarding -> scheme.primaryContainer to scheme.onPrimaryContainer
@@ -454,7 +462,7 @@ private fun ConnectionCard(
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 TailcatConnections.specs(conn.ports).forEach { Tag(mappingLabel(it), scheme.surfaceVariant, scheme.onSurfaceVariant) }
-                if ((status?.active ?: 0) > 0) Tag(context.getString(R.string.tailcat_active, status!!.active), scheme.secondaryContainer, scheme.onSecondaryContainer)
+                if (shownActive > 0) Tag(context.getString(R.string.tailcat_active, shownActive), scheme.secondaryContainer, scheme.onSecondaryContainer)
             }
             if (open) {
                 Surface(

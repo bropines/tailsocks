@@ -24,6 +24,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -185,6 +186,28 @@ func (c *tcConn) logf(format string, args ...any) {
 	c.mu.Unlock()
 }
 
+// tcQuiet matches what tailcat's engine says that a card has no use for;
+// what stays is the link state, the relay, the server's answer, path and
+// endpoint changes, and errors.
+var tcQuiet = regexp.MustCompile(strings.Join([]string{
+	`^(\S+: )?\[v\d\] `,                                // verbose, which the CLI hides without --verbose
+	`RTMGRP failed, falling back to polling`,           // Android: no netlink groups
+	`failed to force-set UDP (read|write) buffer size`, // Android: no CAP_NET_ADMIN
+	`^NetworkMap: `,                                    // the whole netmap, node keys included
+	`^(Creating|Bringing|Clearing|Starting network monitor|Engine created|disco pub key|dns: |wgengine: Reconfig)`,
+	`^magicsock: (disco key|SetPrivateKey|new contact|adding connection|\d+ active derp conns)`,
+	`^ping\(|^wgengine: got TSMP pong`, // the path probes themselves
+}, "|"))
+
+// engineLogf is the tailcat client's log, minus tcQuiet.
+func (c *tcConn) engineLogf(format string, args ...any) {
+	msg := fmt.Sprintf(format, args...)
+	if tcQuiet.MatchString(msg) {
+		return
+	}
+	c.logf("%s", strings.TrimRight(msg, "\n"))
+}
+
 func (c *tcConn) notify() {
 	tcMu.Lock()
 	l := tcListener
@@ -238,7 +261,7 @@ func TailcatStart(id, addr, privateKey, mappings string) error {
 		c.lns = append(c.lns, ln)
 		c.listening = append(c.listening, ln.Addr().String())
 	}
-	c.cl = &tailcat.Client{Server: tailcat.Addr(strings.TrimSpace(addr)), Key: k, Logf: c.logf}
+	c.cl = &tailcat.Client{Server: tailcat.Addr(strings.TrimSpace(addr)), Key: k, Logf: c.engineLogf}
 	if cacheDir != "" {
 		c.cl.DERPMapCache = tcDirCache(filepath.Join(cacheDir, "derpmaps"))
 	}
