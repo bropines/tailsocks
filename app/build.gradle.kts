@@ -383,7 +383,8 @@ val verifyGoBridgeFresh by tasks.registering {
             logger.warn("-> Go bridge check: appctr/tmp/appctr.aar missing, falling back to appctr/appctr.aar")
             return@doLast
         }
-        val sources = (appctrDir.asFile.listFiles { f -> f.isFile && f.name.endsWith(".go") } ?: emptyArray()) +
+        // Tests are not in the APK; a new one must not fail a release.
+        val sources = (appctrDir.asFile.listFiles { f -> f.isFile && f.name.endsWith(".go") && !f.name.endsWith("_test.go") } ?: emptyArray()) +
             (appctrDir.dir("patches").asFile.listFiles { f -> f.isFile } ?: emptyArray())
         val newest = sources.maxByOrNull { it.lastModified() }
         if (newest != null && newest.lastModified() > aar.lastModified()) {
