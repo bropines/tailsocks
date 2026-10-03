@@ -2,7 +2,9 @@
 # https://gitlab.com/fdroid/fdroiddata/-/merge_requests/50707 — in the canonical,
 # comment-free form `fdroid rewritemeta` makes of this file (fdroiddata's newer
 # rewritemeta also wraps each `binary:` URL onto its own line). Its pipeline
-# built all four ABIs of v4.5.3 and matched each to the release APK.
+# built all four ABIs of v4.5.3 and matched each to the release APK; on
+# 2026-10-03 the MR moved to v4.6.1 (JDK 21, Go 1.27.1), verified the same way
+# (fork pipeline 2909425971).
 #
 # Reproducible: F-Droid rebuilds each APK and, when it matches the GitHub
 # release byte for byte, publishes ours with our signature. Proven on 2026-10-01
@@ -44,10 +46,10 @@ Repo: https://github.com/bropines/tailsocks.git
 AllowedAPKSigningKeys: 6be5bef7d0c51eb26863e6e5bb82b2980ae1e0fd0096c15524cf65a8bf9452cb
 
 Builds:
-  - versionName: 4.5.3
-    versionCode: 4050301
-    # The full hash of the v4.5.3 tag (fdroiddata wants no tag names here).
-    commit: 60dfe8baf2b639fd69975adb1261b485b4406ce4
+  - versionName: 4.6.1
+    versionCode: 4060101
+    # The full hash of the v4.6.1 tag (fdroiddata wants no tag names here).
+    commit: 0fc3c3f97c06af265075f48b44c933a50b09c20c
     subdir: app
     submodules: true
     sudo:
@@ -58,7 +60,8 @@ Builds:
     # After the build commands (the Go core) Gradle assembles the APK.
     gradle:
       - yes
-    binary: https://github.com/bropines/tailsocks/releases/download/v%v/TailSocks-v%v-armeabi-v7a-release.apk
+    binary: 
+      https://github.com/bropines/tailsocks/releases/download/v%v/TailSocks-v%v-armeabi-v7a-release.apk
     output: build/outputs/apk/release/app-armeabi-v7a-release-unsigned.apk
     srclibs:
       # Must equal the `go` line of appctr/go.mod; GOTOOLCHAIN=local below.
@@ -90,10 +93,10 @@ Builds:
       - allowUnsignedRelease
       - targetAbi=armeabi-v7a
 
-  - versionName: 4.5.3
-    versionCode: 4050302
-    # The full hash of the v4.5.3 tag (fdroiddata wants no tag names here).
-    commit: 60dfe8baf2b639fd69975adb1261b485b4406ce4
+  - versionName: 4.6.1
+    versionCode: 4060102
+    # The full hash of the v4.6.1 tag (fdroiddata wants no tag names here).
+    commit: 0fc3c3f97c06af265075f48b44c933a50b09c20c
     subdir: app
     submodules: true
     sudo:
@@ -104,7 +107,8 @@ Builds:
     # After the build commands (the Go core) Gradle assembles the APK.
     gradle:
       - yes
-    binary: https://github.com/bropines/tailsocks/releases/download/v%v/TailSocks-v%v-arm64-v8a-release.apk
+    binary: 
+      https://github.com/bropines/tailsocks/releases/download/v%v/TailSocks-v%v-arm64-v8a-release.apk
     output: build/outputs/apk/release/app-arm64-v8a-release-unsigned.apk
     srclibs:
       # Must equal the `go` line of appctr/go.mod; GOTOOLCHAIN=local below.
@@ -136,10 +140,10 @@ Builds:
       - allowUnsignedRelease
       - targetAbi=arm64-v8a
 
-  - versionName: 4.5.3
-    versionCode: 4050303
-    # The full hash of the v4.5.3 tag (fdroiddata wants no tag names here).
-    commit: 60dfe8baf2b639fd69975adb1261b485b4406ce4
+  - versionName: 4.6.1
+    versionCode: 4060103
+    # The full hash of the v4.6.1 tag (fdroiddata wants no tag names here).
+    commit: 0fc3c3f97c06af265075f48b44c933a50b09c20c
     subdir: app
     submodules: true
     sudo:
@@ -150,7 +154,8 @@ Builds:
     # After the build commands (the Go core) Gradle assembles the APK.
     gradle:
       - yes
-    binary: https://github.com/bropines/tailsocks/releases/download/v%v/TailSocks-v%v-x86-release.apk
+    binary: 
+      https://github.com/bropines/tailsocks/releases/download/v%v/TailSocks-v%v-x86-release.apk
     output: build/outputs/apk/release/app-x86-release-unsigned.apk
     srclibs:
       # Must equal the `go` line of appctr/go.mod; GOTOOLCHAIN=local below.
@@ -182,10 +187,10 @@ Builds:
       - allowUnsignedRelease
       - targetAbi=x86
 
-  - versionName: 4.5.3
-    versionCode: 4050304
-    # The full hash of the v4.5.3 tag (fdroiddata wants no tag names here).
-    commit: 60dfe8baf2b639fd69975adb1261b485b4406ce4
+  - versionName: 4.6.1
+    versionCode: 4060104
+    # The full hash of the v4.6.1 tag (fdroiddata wants no tag names here).
+    commit: 0fc3c3f97c06af265075f48b44c933a50b09c20c
     subdir: app
     submodules: true
     sudo:
@@ -196,7 +201,8 @@ Builds:
     # After the build commands (the Go core) Gradle assembles the APK.
     gradle:
       - yes
-    binary: https://github.com/bropines/tailsocks/releases/download/v%v/TailSocks-v%v-x86_64-release.apk
+    binary: 
+      https://github.com/bropines/tailsocks/releases/download/v%v/TailSocks-v%v-x86_64-release.apk
     output: build/outputs/apk/release/app-x86_64-release-unsigned.apk
     srclibs:
       # Must equal the `go` line of appctr/go.mod; GOTOOLCHAIN=local below.
@@ -237,5 +243,5 @@ VercodeOperation:
   - '%c + 2'
   - '%c + 3'
   - '%c + 4'
-CurrentVersion: 4.5.3
-CurrentVersionCode: 4050304
+CurrentVersion: 4.6.1
+CurrentVersionCode: 4060104
