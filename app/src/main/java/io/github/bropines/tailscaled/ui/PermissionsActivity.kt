@@ -419,7 +419,6 @@ private fun PermissionRow(entry: PermEntry) {
             )
     ) {
         ListItem(
-            headlineContent = { Text(entry.title) },
             supportingContent = { HelpText(explanation, lines = 1, expanded = help) },
             leadingContent = { Icon(entry.icon, null, tint = MaterialTheme.colorScheme.primary) },
             trailingContent = {
@@ -431,7 +430,7 @@ private fun PermissionRow(entry: PermEntry) {
                 }
             },
             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-        )
+        ) { Text(entry.title) }
     }
 }
 

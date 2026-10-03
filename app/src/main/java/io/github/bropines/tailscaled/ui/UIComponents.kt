@@ -1,5 +1,9 @@
 package io.github.bropines.tailscaled.ui
+import androidx.compose.ui.platform.Clipboard
+import androidx.compose.ui.platform.ClipEntry
+import kotlinx.coroutines.CoroutineScope
 import io.github.bropines.tailscaled.R
+import androidx.compose.material.icons.automirrored.filled.AltRoute
 import io.github.bropines.tailscaled.BuildConfig
 
 import io.github.bropines.tailscaled.admin.*
@@ -1095,7 +1099,7 @@ fun PeerDetailsModal(
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = rememberFullSheetState()
     // Keyed on the peer: the sheet deliberately stays composed across a peer change (see
     // swipeOffset below), so an unkeyed pingResult would show peer A's latency on peer B.
     var pingResult by remember(peer.id) { mutableStateOf<String?>(null) }
@@ -1572,7 +1576,7 @@ private fun PeerDetailsPage(
             val scope = rememberCoroutineScope()
             Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 10.dp)) {
                 TooltipBox(
-                    positionProvider = TooltipDefaults.rememberTooltipPositionProvider(),
+                    positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
                     tooltip = {
                         if (taildropNote != null) {
                             RichTooltip(
@@ -1869,7 +1873,7 @@ private fun PeerDetailGroup.iconShape(): Shape = when (this) {
  *  where the peer is known; this is everything else. */
 private fun PeerDetailGroup.icon(): ImageVector = when (this) {
     PeerDetailGroup.ADDRESSES -> Icons.Default.Lan
-    PeerDetailGroup.ROUTE -> Icons.Default.AltRoute
+    PeerDetailGroup.ROUTE -> Icons.AutoMirrored.Filled.AltRoute
     PeerDetailGroup.DEVICE -> Icons.Default.Devices
     PeerDetailGroup.CAPABILITIES -> Icons.Default.Verified
     PeerDetailGroup.TRAFFIC -> Icons.Default.SwapVert
@@ -2284,8 +2288,8 @@ fun FileCard(file: TaildropFile, onOpen: () -> Unit, onSave: () -> Unit, onDelet
 fun SentFileCard(entry: SentFileEntry) {
     val dateStr = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault()).format(Date(entry.timestamp))
     Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
-        ListItem(headlineContent = { Text(entry.name, fontWeight = FontWeight.Medium) }, supportingContent = { Text(stringResource(R.string.files_sent_to_format, entry.target, dateStr)) },
-            leadingContent = { Icon(Icons.AutoMirrored.Filled.Outbound, null, tint = MaterialTheme.colorScheme.primary) }, colors = ListItemDefaults.colors(containerColor = Color.Transparent))
+        ListItem(supportingContent = { Text(stringResource(R.string.files_sent_to_format, entry.target, dateStr)) },
+            leadingContent = { Icon(Icons.AutoMirrored.Filled.Outbound, null, tint = MaterialTheme.colorScheme.primary) }, colors = ListItemDefaults.colors(containerColor = Color.Transparent)) { Text(entry.name, fontWeight = FontWeight.Medium) }
     }
 }
 
@@ -2611,3 +2615,25 @@ private fun AnnotatedString.Builder.appendWithKeywords(
         }
     }
 }
+
+/**
+ * A modal sheet's state that opens all the way and hides, with no half-open
+ * stop — what every sheet in the app asks for. Material3 1.5 deprecated
+ * rememberFullSheetState() for this.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun rememberFullSheetState(): SheetState =
+    rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
+
+/**
+ * Puts [text] on the clipboard from a callback: LocalClipboard, which
+ * replaced LocalClipboardManager, is a suspend API.
+ */
+fun Clipboard.copyText(scope: CoroutineScope, text: String) {
+    scope.launch { setClipEntry(ClipEntry(ClipData.newPlainText("TailSocks", text))) }
+}
+
+/** The clipboard's text, or null when it holds none. */
+suspend fun Clipboard.readText(context: Context): String? =
+    getClipEntry()?.clipData?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString()

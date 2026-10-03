@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
@@ -82,7 +82,7 @@ val LocalPreviewFold = staticCompositionLocalOf<Fold?> { null }
 @Composable
 fun rememberFold(): Fold? {
     if (LocalInspectionMode.current) return LocalPreviewFold.current
-    val posture = currentWindowAdaptiveInfo().windowPosture
+    val posture = currentWindowAdaptiveInfoV2().windowPosture
     val density = LocalDensity.current
     val hinge = posture.hingeList.firstOrNull { it.isSeparating || it.isOccluding } ?: return null
     return with(density) {

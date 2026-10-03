@@ -940,6 +940,9 @@ fun SettingsScreen(
         val foreignVpnActive = remember(showTunWarningDialog) {
             runCatching {
                 val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+                // A one-off look when the dialog opens; allNetworks is deprecated
+                // only in favour of callbacks, which a dialog does not need.
+                @Suppress("DEPRECATION")
                 cm.allNetworks.any { n ->
                     cm.getNetworkCapabilities(n)?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) == true
                 } && !TunVpnService.isRunning

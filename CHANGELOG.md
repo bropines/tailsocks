@@ -8,6 +8,10 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 - `tailsocks://` links open a screen: Serve, TailCat, Logs on a category, a Settings section, and the rest; `tailsocks://tailcat/add?cmd=…` fills in a new TailCat connection.
 
+### Changed
+
+- Rows in Settings and Permissions leave their text a little more room.
+
 ## [4.6.0] - 2026-10-03
 
 ### Added

@@ -1032,7 +1032,7 @@ fun MainScreen(
     }
 
     if (accountMenuExpanded) {
-        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val sheetState = rememberFullSheetState()
         // Strings come from the parent context, not stringResource() — see wrapContextWithLocale().
         val sheetTitle = context.getString(R.string.accounts_sheet_title)
         val sheetHelp = context.getString(R.string.accounts_sheet_help)
@@ -2113,7 +2113,7 @@ fun MainScreen(
             // Without this the sheet opens half height and settles to its content a frame
             // later, which reads as a jump; the list also arrives after the spinner, so the
             // height it settles at is held from the start by the minimum below.
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            sheetState = rememberFullSheetState()
         ) {
             Column(
                 modifier = Modifier

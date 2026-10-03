@@ -1,5 +1,6 @@
 package io.github.bropines.tailscaled.ui
 import io.github.bropines.tailscaled.R
+import androidx.compose.material.icons.automirrored.filled.Notes
 import io.github.bropines.tailscaled.BuildConfig
 
 import io.github.bropines.tailscaled.admin.*
@@ -40,7 +41,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
@@ -475,7 +476,7 @@ private fun kindLabel(context: Context, kind: RuleKind): String = when (kind) {
 
 private fun kindIcon(kind: RuleKind): ImageVector = when (kind) {
     RuleKind.PROXY -> Icons.Default.SwapHoriz
-    RuleKind.TEXT -> Icons.Default.Notes
+    RuleKind.TEXT -> Icons.AutoMirrored.Filled.Notes
     RuleKind.REDIRECT -> Icons.AutoMirrored.Filled.OpenInNew
     RuleKind.TCP -> Icons.Default.Cable
     RuleKind.FILE -> Icons.Default.Folder
@@ -515,7 +516,7 @@ private fun newRuleTemplate(): ServeRule = ServeRule(
 fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: ServePage? = null) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val clipboard = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
 
     var config by remember { mutableStateOf<ServeConfig?>(null) }
     var caps by remember { mutableStateOf(ServeCapabilities()) }
@@ -791,7 +792,7 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
     }
 
     fun copyText(text: String) {
-        clipboard.setText(AnnotatedString(text))
+        clipboard.copyText(scope, text)
         Toast.makeText(context, context.getString(R.string.serve_link_copied), Toast.LENGTH_SHORT).show()
     }
 
@@ -1037,7 +1038,7 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
             dismissButton = {
                 TextButton(onClick = {
                     fetchCert { pem ->
-                        clipboard.setText(AnnotatedString(pem))
+                        clipboard.copyText(scope, pem)
                         Toast.makeText(context, context.getString(R.string.serve_cert_copied), Toast.LENGTH_SHORT).show()
                     }
                     showCertExportDialog = false
@@ -1490,7 +1491,7 @@ private fun RuleEditorSheet(
     onDismiss: () -> Unit,
     onSave: (List<ServeRule>, Boolean) -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = rememberFullSheetState()
     val isNew = state.isNew
     val initial = state.initial
 

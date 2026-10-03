@@ -63,7 +63,7 @@ class ShareActivity : ComponentActivity() {
 fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = rememberFullSheetState()
     
     var currentAccount by remember { mutableStateOf(AccountManager.getActiveAccount(context)) }
     val accounts = remember { AccountManager.getAccounts(context) }

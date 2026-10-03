@@ -177,7 +177,7 @@ fun UserDetailBottomSheet(
     onRestore: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = rememberFullSheetState()
     val configuration = LocalConfiguration.current
     val maxHeight = (configuration.screenHeightDp * 0.85f).dp
     // A dialog/sheet opens its own window whose LocalContext ignores the app

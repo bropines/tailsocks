@@ -64,7 +64,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -79,7 +78,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
@@ -129,7 +128,7 @@ private const val INLINE_OUTPUT_LINES = 12
 fun TailcatScreen(onBack: () -> Unit, page: ServePage? = null, importText: String? = null) {
     val context = LocalContext.current
     val inPreview = LocalInspectionMode.current
-    val clipboard = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
     var connections by remember { mutableStateOf(if (inPreview) emptyList() else TailcatConnections.load(context)) }
     val statuses by TailcatService.statuses.collectAsState()
     var publicKey by remember { mutableStateOf(if (inPreview) null else TailcatKey.public(context)) }
@@ -149,7 +148,7 @@ fun TailcatScreen(onBack: () -> Unit, page: ServePage? = null, importText: Strin
 
     fun reload() { connections = TailcatConnections.load(context) }
     fun copy(text: String) {
-        clipboard.setText(AnnotatedString(text))
+        clipboard.copyText(scope, text)
         Toast.makeText(context, context.getString(R.string.tailcat_copied), Toast.LENGTH_SHORT).show()
     }
     fun running(id: String) = statuses[id]?.let { it.state != "failed" } == true
@@ -597,8 +596,9 @@ private fun ConnectionEditorSheet(
     onSave: (TailcatConnection) -> Unit
 ) {
     val context = LocalContext.current
-    val clipboard = LocalClipboardManager.current
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val clipboard = LocalClipboard.current
+    val pasteScope = rememberCoroutineScope()
+    val sheetState = rememberFullSheetState()
     var name by remember { mutableStateOf(initial.name) }
     var address by remember { mutableStateOf(initial.address) }
     var ports by remember { mutableStateOf(initial.ports) }
@@ -651,13 +651,15 @@ private fun ConnectionEditorSheet(
                 // An address, or the commands a server's card copies: address,
                 // ports and proxy in one go.
                 TextButton(onClick = {
-                    val parsed = clipboard.getText()?.text?.let { TailcatConnections.parseImport(it) }
-                    if (parsed == null) {
-                        Toast.makeText(context, context.getString(R.string.tailcat_import_none), Toast.LENGTH_SHORT).show()
-                    } else {
-                        address = parsed.address
-                        if (parsed.ports.isNotEmpty()) ports = parsed.ports
-                        parsed.socks?.let { socks = it.toString() }
+                    pasteScope.launch {
+                        val parsed = clipboard.readText(context)?.let { TailcatConnections.parseImport(it) }
+                        if (parsed == null) {
+                            Toast.makeText(context, context.getString(R.string.tailcat_import_none), Toast.LENGTH_SHORT).show()
+                        } else {
+                            address = parsed.address
+                            if (parsed.ports.isNotEmpty()) ports = parsed.ports
+                            parsed.socks?.let { socks = it.toString() }
+                        }
                     }
                 }) {
                     Icon(Icons.Default.ContentPaste, null, modifier = Modifier.size(18.dp))
@@ -884,7 +886,7 @@ private fun ServerEditorSheet(
     onDismiss: () -> Unit,
     onSave: (TailcatServerConfig) -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = rememberFullSheetState()
     var ports by remember { mutableStateOf(initial.ports) }
     var exitNode by remember { mutableStateOf(initial.exitNode) }
     var allowed by remember { mutableStateOf(initial.allowed) }

@@ -376,7 +376,7 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false) {
                 onDismissRequest = { showPeerPicker = false },
                 // Opened at full height: a sheet that settles from half to full a frame
                 // after it appears reads as a jump.
-                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                sheetState = rememberFullSheetState(),
                 containerColor = MaterialTheme.colorScheme.surface
             ) {
                 Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {

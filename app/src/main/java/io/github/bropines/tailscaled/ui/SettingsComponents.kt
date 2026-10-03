@@ -355,12 +355,11 @@ fun SettingsClickableItem(
         )
     ) {
         ListItem(
-            headlineContent = { Text(title, color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline) },
             supportingContent = { HelpText(subtitle, color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.outline, expanded = help) },
             leadingContent = { Icon(icon, null, tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline) },
             trailingContent = { Icon(Icons.Default.ChevronRight, null, tint = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.outline) },
             colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
-        )
+        ) { Text(title, color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline) }
     }
 }
 
@@ -458,12 +457,11 @@ fun SettingsSwitchItem(
         )
     ) {
         ListItem(
-            headlineContent = { Text(title, color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline) },
             supportingContent = { HelpText(subtitle, color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.outline, expanded = help) },
             leadingContent = { Icon(icon, null, tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline) },
             trailingContent = { Switch(checked = checked, onCheckedChange = if (enabled) onCheckedChange else null, enabled = enabled) },
             colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
-        )
+        ) { Text(title, color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline) }
     }
 }
 
@@ -510,7 +508,6 @@ fun SettingsEditItem(
         )
     ) {
         ListItem(
-            headlineContent = { Text(title, color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)) },
             supportingContent = {
                 HelpText(
                     supporting,
@@ -522,7 +519,7 @@ fun SettingsEditItem(
             leadingContent = { Icon(icon, null, tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)) },
             trailingContent = if (!enabled) { { Icon(Icons.Default.Lock, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f), modifier = Modifier.size(18.dp)) } } else null,
             colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
-        )
+        ) { Text(title, color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)) }
     }
     if (showDialog) {
         AlertDialog(
@@ -643,11 +640,10 @@ fun SettingsExitNodeItem(
         modifier = Modifier.padding(vertical = 4.dp)
     ) {
         ListItem(
-            headlineContent = { Text(title) },
             supportingContent = { Text(if (currentIp.isEmpty()) "None" else currentIp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             leadingContent = { Icon(icon, null, tint = MaterialTheme.colorScheme.primary) },
             colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
-        )
+        ) { Text(title) }
     }
 
     if (showDialog) {
@@ -661,7 +657,7 @@ fun SettingsExitNodeItem(
         val strMainRouteTrafficDirectly = stringResource(R.string.main_route_traffic_directly)
         ModalBottomSheet(
             onDismissRequest = { showDialog = false },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            sheetState = rememberFullSheetState()
         ) {
             Column(
                 modifier = Modifier

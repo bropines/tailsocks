@@ -1,6 +1,7 @@
 package io.github.bropines.tailscaled.ui
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -132,7 +133,7 @@ private fun iconOf(kind: HealthKind): ImageVector = when (kind) {
     HealthKind.Relay -> Icons.Default.Hub
     HealthKind.Coordination -> Icons.Default.CloudOff
     HealthKind.Network -> Icons.Default.SignalWifiConnectedNoInternet4
-    HealthKind.Login -> Icons.Default.Login
+    HealthKind.Login -> Icons.AutoMirrored.Filled.Login
     HealthKind.Other -> Icons.Default.WarningAmber
 }
 

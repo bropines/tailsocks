@@ -1424,18 +1424,26 @@ class TailscaledService : Service() {
      */
     private fun startInterfaceWatch() {
         if (interfaceWatch != null) return
-        val watch = object : FileObserver(
-            "/sys/class/net",
-            FileObserver.CREATE or FileObserver.DELETE or
-                FileObserver.MOVED_TO or FileObserver.MOVED_FROM
-        ) {
-            override fun onEvent(event: Int, path: String?) {
-                val name = path ?: return
-                if (name == "tailscale0") return
-                val looksLikeTunnel = name.startsWith("tun") || name.startsWith("ppp") ||
-                    name.startsWith("wg") || name.startsWith("ipsec")
-                if (!looksLikeTunnel) return
-                refreshHandler.post { pollForeignVpnProbe() }
+        val mask = FileObserver.CREATE or FileObserver.DELETE or
+            FileObserver.MOVED_TO or FileObserver.MOVED_FROM
+        fun onNetEvent(path: String?) {
+            val name = path ?: return
+            if (name == "tailscale0") return
+            val looksLikeTunnel = name.startsWith("tun") || name.startsWith("ppp") ||
+                name.startsWith("wg") || name.startsWith("ipsec")
+            if (!looksLikeTunnel) return
+            refreshHandler.post { pollForeignVpnProbe() }
+        }
+        val dir = "/sys/class/net"
+        // The File constructor is API 29; the String one, deprecated there, is all 24–28 have.
+        val watch = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            object : FileObserver(java.io.File(dir), mask) {
+                override fun onEvent(event: Int, path: String?) = onNetEvent(path)
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            object : FileObserver(dir, mask) {
+                override fun onEvent(event: Int, path: String?) = onNetEvent(path)
             }
         }
         if (runCatching { watch.startWatching() }.isSuccess) {
@@ -1444,6 +1452,9 @@ class TailscaledService : Service() {
         }
     }
 
+    // allNetworks is deprecated for callbacks, which this service has as well;
+    // this is the one-off scan that seeds and re-checks what they report.
+    @Suppress("DEPRECATION")
     private fun refreshForeignVpnFromScan() {
         val present = runCatching {
             connectivityManager.allNetworks.any { network ->

@@ -1,6 +1,7 @@
 package io.github.bropines.tailscaled.admin
 
 import androidx.compose.foundation.background
+import io.github.bropines.tailscaled.ui.rememberFullSheetState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -128,7 +129,7 @@ fun ServiceDetailBottomSheet(
     allDevices: List<ApiDevice>,
     onDismiss: () -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = rememberFullSheetState()
     // A dialog/sheet opens its own window whose LocalContext ignores the app
     // locale, so its strings are resolved through this parent context instead —
     // see wrapContextWithLocale().

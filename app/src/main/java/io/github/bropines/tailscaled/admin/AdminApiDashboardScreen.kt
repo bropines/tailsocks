@@ -796,7 +796,7 @@ fun AdminApiDashboardScreen(
     }
 
     if (showKeysManagement) {
-        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val sheetState = rememberFullSheetState()
         // Strings resolved in the parent composition — see wrapContextWithLocale().
         val strAdminSettingsAuthKeysTitle = stringResource(R.string.admin_settings_auth_keys_title)
         val strActionClose = stringResource(R.string.action_close)
