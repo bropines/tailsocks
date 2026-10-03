@@ -1754,6 +1754,10 @@ class TailscaledService : Service() {
     private fun startTailscale() {
         acquireKeepAliveLock()
         taildriveAppliedWhileRunning = false
+        // What was switched on in Tailcat comes up with the core, whichever way
+        // it starts (button, boot, watchdog): while this start is still inside
+        // the window that let it start a foreground service.
+        TailcatService.resume(this)
         // Only a stop may abandon a start. teardownStarted is set by stopMe() and
         // cleared synchronously by START/RESTART/auto-reconnect before they start,
         // so it means "the most recent lifecycle command was a stop". The
@@ -2117,6 +2121,8 @@ class TailscaledService : Service() {
         // 15-minute watchdog bring the service back after a manual stop.
         ProxyState.setUserState(this, false)
         ServiceWatchdog.cancel(this)
+        // Tailcat stops with the core and keeps its switches for the next start.
+        TailcatService.suspend(this)
         // The user asked for this one, so there is no outage left to report.
         ServiceWatchdog.clearRevivalRefused(this)
         refreshHandler.removeCallbacks(refreshRunnable)

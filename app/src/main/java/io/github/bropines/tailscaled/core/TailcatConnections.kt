@@ -22,6 +22,11 @@ data class TailcatConnection(
      */
     val socksUser: String = "",
     val socksPass: String = "",
+    /**
+     * The card's switch, remembered: an enabled connection comes back up when
+     * the core starts (TailscaledService), and stops with it.
+     */
+    val enabled: Boolean = false,
 ) {
     /** What an app is given for the proxy, or null without one. */
     fun socksUrl(): String? = if (socks == 0) null else "socks5://$socksUser:$socksPass@127.0.0.1:$socks"
@@ -55,6 +60,11 @@ object TailcatConnections {
     }
 
     fun delete(context: Context, id: String) = save(context, load(context).filterNot { it.id == id })
+
+    fun setEnabled(context: Context, id: String, on: Boolean) =
+        save(context, load(context).map { if (it.id == id) it.copy(enabled = on) else it })
+
+    fun disableAll(context: Context) = save(context, load(context).map { it.copy(enabled = false) })
 
     /** The mapping specs in a ports field. */
     fun specs(ports: String): List<String> =
@@ -103,6 +113,70 @@ object TailcatConnections {
         data class Ports(val detail: String) : Problem
         data object Socks : Problem
         data class Clash(val port: Int, val name: String) : Problem
+    }
+}
+
+/** This device as a tailcat server (appctr/tailcat_server.go): what it serves, and to whom. */
+@Serializable
+data class TailcatServerConfig(
+    /** The card's switch, remembered, as [TailcatConnection.enabled]. */
+    val enabled: Boolean = false,
+    /** Ports on this device that clients reach, by commas. */
+    val ports: String = "",
+    /** Clients may go out through this device's network to any address. */
+    val exitNode: Boolean = false,
+    /** Anyone holding the address may connect, not only [allowed]. */
+    val allowAll: Boolean = false,
+    /** Client public keys ("nodekey:…"), one per line: the server's --allow. */
+    val allowed: String = "",
+) {
+    fun allowedKeys(): List<String> = allowed.split(',', ' ', '\n', '\t', '\r').map { it.trim() }.filter { it.isNotEmpty() }
+}
+
+/**
+ * The server's settings, a JSON object in the global preferences, and its
+ * identity: a key file in private storage whose relay region is fixed when
+ * it is made, so the address survives restarts. Neither is in the settings
+ * export, as with the connections.
+ */
+object TailcatServer {
+    private const val KEY = "tailcat_server"
+
+    fun load(context: Context): TailcatServerConfig {
+        val json = GlobalSettings.getString(context, KEY, "")
+        if (json.isEmpty()) return TailcatServerConfig()
+        return runCatching { AppJson.decodeFromString<TailcatServerConfig>(json) }.getOrDefault(TailcatServerConfig())
+    }
+
+    fun save(context: Context, config: TailcatServerConfig) =
+        GlobalSettings.setString(context, KEY, AppJson.encodeToString(config))
+
+    fun keyFile(context: Context): File = File(File(context.filesDir, "tailcat").apply { mkdirs() }, "server.json")
+
+    /** The server's tc… address, or null before it has an identity. */
+    fun address(context: Context): String? =
+        runCatching { Appctr.tailcatServerAddress(keyFile(context).absolutePath) }.getOrDefault("").ifEmpty { null }
+
+    /**
+     * Makes an identity, replacing any, and returns its address. Picks the
+     * nearest relay, so it needs the network; blocking, call off the main thread.
+     */
+    fun create(context: Context): String = Appctr.tailcatServerCreateKey(keyFile(context).absolutePath)
+
+    /** Why the server could not start with [config], or null. Checked by the bridge's parsers. */
+    fun problem(config: TailcatServerConfig): Problem? {
+        val ports = runCatching { Appctr.tailcatCheckServerPorts(config.ports) }.getOrDefault("?")
+        if (ports.isNotEmpty()) return Problem.Ports(ports)
+        val keys = runCatching { Appctr.tailcatCheckClientKeys(config.allowed) }.getOrDefault("?")
+        if (keys.isNotEmpty()) return Problem.Keys(keys)
+        if (config.ports.isBlank() && !config.exitNode) return Problem.Nothing
+        return null
+    }
+
+    sealed interface Problem {
+        data class Ports(val detail: String) : Problem
+        data class Keys(val detail: String) : Problem
+        data object Nothing : Problem
     }
 }
 

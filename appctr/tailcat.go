@@ -67,8 +67,8 @@ type tcMapping struct {
 }
 
 type tcConn struct {
+	tcLog
 	id     string
-	name   string // for the shared log
 	cl     *tailcat.Client
 	lns    []net.Listener
 	cancel context.CancelFunc
@@ -84,7 +84,6 @@ type tcConn struct {
 	latencyMs int
 	active    map[net.Conn]struct{}
 	served    int
-	log       []string
 }
 
 var (
@@ -183,25 +182,37 @@ func tcParseMappings(specs string) ([]tcMapping, error) {
 	return out, nil
 }
 
-func (c *tcConn) logf(format string, args ...any) { c.logAt("INFO", format, args...) }
+// tcLog is the output of a connection or of the server: kept for its card,
+// and put in the Logs screen's buffer (category TAILCAT) and in logcat under
+// its name.
+type tcLog struct {
+	name  string
+	logMu sync.Mutex
+	lines []string
+}
+
+func (l *tcLog) logf(format string, args ...any) { l.logAt("INFO", format, args...) }
 
 // warnf is logf for what went wrong: a server that does not answer, a dial
 // that failed.
-func (c *tcConn) warnf(format string, args ...any) { c.logAt("WARN", format, args...) }
+func (l *tcLog) warnf(format string, args ...any) { l.logAt("WARN", format, args...) }
 
-// logAt keeps a line for the card, and puts it in the Logs screen's buffer
-// and in logcat, by the connection's name.
-func (c *tcConn) logAt(level, format string, args ...any) {
+func (l *tcLog) logAt(level, format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
-	now := time.Now()
-	c.mu.Lock()
-	c.log = append(c.log, now.Format("15:04:05 ")+msg)
-	if len(c.log) > tcMaxLog {
-		c.log = c.log[len(c.log)-tcMaxLog:]
+	l.logMu.Lock()
+	l.lines = append(l.lines, time.Now().Format("15:04:05 ")+msg)
+	if len(l.lines) > tcMaxLog {
+		l.lines = l.lines[len(l.lines)-tcMaxLog:]
 	}
-	c.mu.Unlock()
-	LogAndroid(level, "TAILCAT", c.name+": "+msg)
-	fmt.Fprintf(os.Stdout, "tailcat %s: %s\n", c.name, msg)
+	l.logMu.Unlock()
+	LogAndroid(level, "TAILCAT", l.name+": "+msg)
+	fmt.Fprintf(os.Stdout, "tailcat %s: %s\n", l.name, msg)
+}
+
+func (l *tcLog) text() string {
+	l.logMu.Lock()
+	defer l.logMu.Unlock()
+	return strings.Join(l.lines, "\n")
 }
 
 // tcQuiet matches what tailcat's engine says that a card has no use for;
@@ -217,13 +228,13 @@ var tcQuiet = regexp.MustCompile(strings.Join([]string{
 	`^ping\(|^wgengine: got TSMP pong`, // the path probes themselves
 }, "|"))
 
-// engineLogf is the tailcat client's log, minus tcQuiet.
-func (c *tcConn) engineLogf(format string, args ...any) {
+// engineLogf is tailcat's own log, minus tcQuiet.
+func (l *tcLog) engineLogf(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
 	if tcQuiet.MatchString(msg) {
 		return
 	}
-	c.logf("%s", strings.TrimRight(msg, "\n"))
+	l.logf("%s", strings.TrimRight(msg, "\n"))
 }
 
 func (c *tcConn) notify() {
@@ -276,7 +287,7 @@ func TailcatStart(id, name, addr, privateKey, mappings string, socksPort int, so
 		}
 	}
 
-	c := &tcConn{id: id, name: name, active: map[net.Conn]struct{}{}, wake: make(chan struct{}, 1), state: "starting"}
+	c := &tcConn{tcLog: tcLog{name: name}, id: id, active: map[net.Conn]struct{}{}, wake: make(chan struct{}, 1), state: "starting"}
 	listen := func(addr string) (net.Listener, error) {
 		ln, err := net.Listen("tcp", addr)
 		if err != nil {
@@ -686,14 +697,13 @@ func TailcatLog(id string) string {
 	if c == nil {
 		return ""
 	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return strings.Join(c.log, "\n")
+	return c.text()
 }
 
-// tailcatNetworkChanged wakes the network monitors of every tailcat client —
-// they poll every ten minutes on Android otherwise — and has each connection
-// look at its path again. Called from InjectNetworkState.
+// tailcatNetworkChanged wakes the network monitors of every tailcat client
+// and of the server — they poll every ten minutes on Android otherwise — has
+// each connection look at its path again, and a server that could not start
+// try again. Called from InjectNetworkState.
 func tailcatNetworkChanged() {
 	netmon.WakePollingMonitors()
 	tcMu.Lock()
@@ -704,6 +714,7 @@ func tailcatNetworkChanged() {
 		}
 	}
 	tcMu.Unlock()
+	wakeServer()
 }
 
 // tcRecover keeps a bug in our own forwarding goroutines from taking the

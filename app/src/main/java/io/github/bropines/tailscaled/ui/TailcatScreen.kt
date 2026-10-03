@@ -32,7 +32,10 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.Pets
+import androidx.compose.material.icons.filled.Router
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.StopCircle
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Visibility
@@ -40,6 +43,7 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -62,6 +66,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -90,11 +95,16 @@ import io.github.bropines.tailscaled.core.PredictiveBackContainer
 import io.github.bropines.tailscaled.core.TailcatConnection
 import io.github.bropines.tailscaled.core.TailcatConnections
 import io.github.bropines.tailscaled.core.TailcatKey
+import io.github.bropines.tailscaled.core.TailcatServer
+import io.github.bropines.tailscaled.core.TailcatServerConfig
+import io.github.bropines.tailscaled.core.TailcatServerStatus
 import io.github.bropines.tailscaled.core.TailcatService
 import io.github.bropines.tailscaled.core.TailcatStatus
+import io.github.bropines.tailscaled.core.serverStateLine
 import io.github.bropines.tailscaled.core.stateLine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** How many output lines an open card shows; the rest is in Logs, under TAILCAT. */
@@ -122,6 +132,14 @@ fun TailcatScreen(onBack: () -> Unit, header: @Composable () -> Unit = {}) {
     var openId by remember { mutableStateOf<String?>(null) }
     var output by remember { mutableStateOf("") }
     var confirmNewKey by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val serverStatus by TailcatService.serverStatus.collectAsState()
+    var serverAddress by remember { mutableStateOf(if (inPreview) null else TailcatServer.address(context)) }
+    var serverConfig by remember { mutableStateOf(if (inPreview) TailcatServerConfig() else TailcatServer.load(context)) }
+    var creatingServer by remember { mutableStateOf(false) }
+    var editingServer by remember { mutableStateOf(false) }
+    var confirmNewAddress by remember { mutableStateOf(false) }
+    val serverOn = serverStatus?.let { it.state != "failed" } == true
 
     fun reload() { connections = TailcatConnections.load(context) }
     fun copy(text: String) {
@@ -130,6 +148,25 @@ fun TailcatScreen(onBack: () -> Unit, header: @Composable () -> Unit = {}) {
     }
     fun running(id: String) = statuses[id]?.let { it.state != "failed" } == true
     fun openLogs() = context.startActivity(LogsActivity.intent(context, TAILCAT_CATEGORY))
+    fun share(text: String) {
+        val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text)
+        context.startActivity(Intent.createChooser(send, context.getString(R.string.tailcat_share_address)))
+    }
+    /** Makes the server's identity, or a new one; a running server moves to it. */
+    fun createServerAddress() {
+        creatingServer = true
+        scope.launch {
+            val result = withContext(Dispatchers.IO) { runCatching { TailcatServer.create(context) } }
+            creatingServer = false
+            result.onSuccess { addr ->
+                serverAddress = addr
+                TailcatService.forgetServerFailure()
+                if (serverOn) TailcatService.startServer(context)
+            }.onFailure { e ->
+                Toast.makeText(context, context.getString(R.string.tailcat_server_create_failed, e.message ?: ""), Toast.LENGTH_LONG).show()
+            }
+        }
+    }
     fun openInBrowser(address: String) {
         runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("http://$address"))) }
             .onFailure { Toast.makeText(context, context.getString(R.string.tailcat_no_browser), Toast.LENGTH_SHORT).show() }
@@ -204,6 +241,26 @@ fun TailcatScreen(onBack: () -> Unit, header: @Composable () -> Unit = {}) {
                             onLogs = { openLogs() }
                         )
                     }
+                    item { SectionHeading(stringResource(R.string.tailcat_server_heading)) }
+                    item {
+                        ServerCard(
+                            address = serverAddress,
+                            config = serverConfig,
+                            status = serverStatus,
+                            on = serverOn,
+                            creating = creatingServer,
+                            onCreate = { createServerAddress() },
+                            onNewAddress = { confirmNewAddress = true },
+                            onSwitch = { on ->
+                                if (on) TailcatService.startServer(context) else TailcatService.stopServer(context)
+                                serverConfig = TailcatServer.load(context)
+                            },
+                            onEdit = { editingServer = true },
+                            onCopy = { copy(it) },
+                            onShare = { share(it) },
+                            onLogs = { openLogs() }
+                        )
+                    }
                 }
             }
         }
@@ -222,6 +279,35 @@ fun TailcatScreen(onBack: () -> Unit, header: @Composable () -> Unit = {}) {
                 // A running connection takes its new settings at once.
                 if (running(conn.id)) TailcatService.restart(context, conn.id)
             }
+        )
+    }
+
+    if (editingServer) {
+        ServerEditorSheet(
+            initial = serverConfig,
+            onDismiss = { editingServer = false },
+            onSave = { config ->
+                editingServer = false
+                TailcatServer.save(context, config)
+                serverConfig = config
+                TailcatService.forgetServerFailure()
+                // A running server takes its new settings at once.
+                if (serverOn) TailcatService.startServer(context)
+            }
+        )
+    }
+
+    if (confirmNewAddress) {
+        AlertDialog(
+            onDismissRequest = { confirmNewAddress = false },
+            title = { Text(stringResource(R.string.tailcat_server_new_address)) },
+            text = { Text(stringResource(R.string.tailcat_server_new_address_confirm)) },
+            confirmButton = {
+                TextButton(onClick = { confirmNewAddress = false; createServerAddress() }) {
+                    Text(stringResource(R.string.tailcat_server_new_address))
+                }
+            },
+            dismissButton = { TextButton(onClick = { confirmNewAddress = false }) { Text(stringResource(R.string.action_cancel)) } }
         )
     }
 
@@ -608,5 +694,226 @@ private fun ConnectionEditorSheet(
                 ) { Text(stringResource(R.string.action_save)) }
             }
         }
+    }
+}
+
+/**
+ * This phone as a tailcat server: first a way to make its address, then the
+ * address, what it serves and to whom, with its switch and actions in the open.
+ */
+@Composable
+private fun ServerCard(
+    address: String?,
+    config: TailcatServerConfig,
+    status: TailcatServerStatus?,
+    on: Boolean,
+    creating: Boolean,
+    onCreate: () -> Unit,
+    onNewAddress: () -> Unit,
+    onSwitch: (Boolean) -> Unit,
+    onEdit: () -> Unit,
+    onCopy: (String) -> Unit,
+    onShare: (String) -> Unit,
+    onLogs: () -> Unit
+) {
+    val context = LocalContext.current
+    val scheme = MaterialTheme.colorScheme
+    val failed = status?.state == "failed" || status?.state == "error"
+    val serving = status?.state == "serving"
+    val (container, tint) = when {
+        failed -> scheme.errorContainer to scheme.onErrorContainer
+        serving -> scheme.primaryContainer to scheme.onPrimaryContainer
+        else -> scheme.secondaryContainer to scheme.onSecondaryContainer
+    }
+    Card(
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = if (on) scheme.surfaceContainerHigh else scheme.surfaceContainerLow)
+    ) {
+        if (address == null) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconBox(Icons.Default.Router, scheme.secondaryContainer, scheme.onSecondaryContainer)
+                    Spacer(Modifier.width(12.dp))
+                    Text(stringResource(R.string.tailcat_server_title), style = MaterialTheme.typography.titleMedium)
+                }
+                HelpText(stringResource(R.string.tailcat_server_desc))
+                FilledTonalButton(onClick = onCreate, enabled = !creating) {
+                    if (creating) {
+                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.tailcat_server_creating))
+                    } else Text(stringResource(R.string.tailcat_server_create))
+                }
+            }
+            return@Card
+        }
+        val line = if (status != null) serverStateLine(context, status) else stringResource(R.string.tailcat_state_stopped)
+        Column(Modifier.padding(start = 14.dp, top = 12.dp, end = 4.dp, bottom = 12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconBox(Icons.Default.Router, container, tint, if (serving) CircleShape else MaterialTheme.shapes.medium)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.tailcat_server_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium)
+                    Text(
+                        line,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (failed) scheme.error else scheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+                Switch(
+                    checked = on,
+                    onCheckedChange = onSwitch,
+                    enabled = !creating,
+                    modifier = Modifier.padding(end = 6.dp).semantics {
+                        contentDescription = context.getString(if (on) R.string.tailcat_server_cd_stop else R.string.tailcat_server_cd_start)
+                    }
+                )
+            }
+            SelectionContainer {
+                Text(
+                    address,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    color = scheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp, end = 10.dp)
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.padding(end = 10.dp).horizontalScroll(rememberScrollState()),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                TailcatConnections.specs(config.ports).forEach { Tag(it, scheme.surfaceVariant, scheme.onSurfaceVariant) }
+                if (config.exitNode) Tag(stringResource(R.string.tailcat_server_tag_exit), scheme.tertiaryContainer, scheme.onTertiaryContainer)
+                val keys = config.allowedKeys().size
+                when {
+                    config.allowAll -> Tag(stringResource(R.string.tailcat_server_tag_anyone), scheme.errorContainer, scheme.onErrorContainer)
+                    keys == 0 -> Tag(stringResource(R.string.tailcat_server_tag_nobody), scheme.errorContainer, scheme.onErrorContainer)
+                    else -> Tag(stringResource(R.string.tailcat_server_tag_keys, keys), scheme.surfaceVariant, scheme.onSurfaceVariant)
+                }
+                if ((status?.active ?: 0) > 0) Tag(context.getString(R.string.tailcat_active, status!!.active), scheme.secondaryContainer, scheme.onSecondaryContainer)
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp, end = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CardAction(Icons.Default.Autorenew, stringResource(R.string.tailcat_server_new_address), onClick = onNewAddress)
+                Spacer(Modifier.weight(1f))
+                CardAction(Icons.Default.Terminal, stringResource(R.string.tailcat_full_output), onClick = onLogs)
+                CardAction(Icons.Default.Share, stringResource(R.string.tailcat_share_address), onClick = { onShare(address) })
+                CardAction(Icons.Default.ContentCopy, stringResource(R.string.tailcat_copy_address), onClick = { onCopy(address) })
+                CardAction(Icons.Default.Edit, stringResource(R.string.action_edit), onClick = onEdit)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ServerEditorSheet(
+    initial: TailcatServerConfig,
+    onDismiss: () -> Unit,
+    onSave: (TailcatServerConfig) -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var ports by remember { mutableStateOf(initial.ports) }
+    var exitNode by remember { mutableStateOf(initial.exitNode) }
+    var allowed by remember { mutableStateOf(initial.allowed) }
+    var allowAll by remember { mutableStateOf(initial.allowAll) }
+    fun edited() = initial.copy(ports = ports.trim(), exitNode = exitNode, allowed = allowed.trim(), allowAll = allowAll)
+    val problem = remember(ports, exitNode, allowed) { TailcatServer.problem(edited()) }
+    val portsError = (problem as? TailcatServer.Problem.Ports)?.detail
+    val keysError = (problem as? TailcatServer.Problem.Keys)?.detail
+
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 24.dp)
+                .imePadding()
+                .navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(stringResource(R.string.tailcat_server_edit), style = MaterialTheme.typography.titleLarge)
+            OutlinedTextField(
+                value = ports,
+                onValueChange = { ports = it },
+                label = { Text(stringResource(R.string.tailcat_ports)) },
+                placeholder = { Text("5555, 8080") },
+                singleLine = true,
+                isError = portsError != null,
+                supportingText = {
+                    Text(
+                        when {
+                            portsError != null -> stringResource(R.string.tailcat_err_ports, portsError)
+                            problem == TailcatServer.Problem.Nothing -> stringResource(R.string.tailcat_server_err_nothing)
+                            else -> stringResource(R.string.tailcat_server_ports_hint)
+                        }
+                    )
+                },
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier.fillMaxWidth()
+            )
+            SwitchRow(
+                title = stringResource(R.string.tailcat_server_exit_node),
+                help = stringResource(R.string.tailcat_server_exit_node_desc),
+                checked = exitNode,
+                onChange = { exitNode = it }
+            )
+            OutlinedTextField(
+                value = allowed,
+                onValueChange = { allowed = it },
+                label = { Text(stringResource(R.string.tailcat_server_allowed)) },
+                placeholder = { Text("nodekey:…") },
+                minLines = 2,
+                maxLines = 6,
+                enabled = !allowAll,
+                isError = keysError != null,
+                supportingText = {
+                    if (keysError != null) Text(stringResource(R.string.tailcat_server_err_keys, keysError))
+                    else HelpText(stringResource(R.string.tailcat_server_allowed_hint))
+                },
+                textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier.fillMaxWidth()
+            )
+            SwitchRow(
+                title = stringResource(R.string.tailcat_server_allow_all),
+                help = stringResource(R.string.tailcat_server_allow_all_desc),
+                checked = allowAll,
+                warning = true,
+                onChange = { allowAll = it }
+            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+                Spacer(Modifier.width(8.dp))
+                Button(onClick = { onSave(edited()) }, enabled = problem == null) { Text(stringResource(R.string.action_save)) }
+            }
+        }
+    }
+}
+
+/** A switch with its title and a folded explanation, for the server's editor. */
+@Composable
+private fun SwitchRow(title: String, help: String, checked: Boolean, warning: Boolean = false, onChange: (Boolean) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (warning && checked) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+            )
+            HelpText(help)
+        }
+        Switch(checked = checked, onCheckedChange = onChange)
     }
 }
