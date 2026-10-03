@@ -8,11 +8,15 @@ package appctr
 // path when NAT traversal works. No Tailscale account, no VpnService.
 //
 // Each connection here forwards local TCP ports on 127.0.0.1 to ports on one
-// tailcat server, the way `tailcat forward` does. It runs in the app process
+// tailcat server, the way `tailcat forward` does, and may run a SOCKS5 proxy
+// that dials through it, the way `tailcat socks` does. It runs in the app process
 // — not in the daemon, and independent of it — with its own WireGuard engine
 // and network monitor. That monitor finds the interfaces through the getter
 // netmon_android.go registers, and is woken on a network change through
 // netmon.WakePollingMonitors (patch 21), since nothing else can reach it.
+//
+// A connection's output is kept per connection for its card, and goes to the
+// Logs screen (category TAILCAT) and logcat as well.
 
 import (
 	"context"
@@ -33,6 +37,7 @@ import (
 
 	"github.com/tailscale/tailcat"
 	"tailscale.com/net/netmon"
+	"tailscale.com/net/socks5"
 	"tailscale.com/types/key"
 )
 
@@ -63,6 +68,7 @@ type tcMapping struct {
 
 type tcConn struct {
 	id     string
+	name   string // for the shared log
 	cl     *tailcat.Client
 	lns    []net.Listener
 	cancel context.CancelFunc
@@ -72,6 +78,7 @@ type tcConn struct {
 	mu        sync.Mutex
 	state     string // starting, forwarding, error
 	listening []string
+	socks     string // the SOCKS5 proxy's address, or ""
 	lastErr   string
 	path      string // "direct" or a relay's region code; "" before the first probe
 	latencyMs int
@@ -176,14 +183,25 @@ func tcParseMappings(specs string) ([]tcMapping, error) {
 	return out, nil
 }
 
-func (c *tcConn) logf(format string, args ...any) {
-	line := time.Now().Format("15:04:05 ") + fmt.Sprintf(format, args...)
+func (c *tcConn) logf(format string, args ...any) { c.logAt("INFO", format, args...) }
+
+// warnf is logf for what went wrong: a server that does not answer, a dial
+// that failed.
+func (c *tcConn) warnf(format string, args ...any) { c.logAt("WARN", format, args...) }
+
+// logAt keeps a line for the card, and puts it in the Logs screen's buffer
+// and in logcat, by the connection's name.
+func (c *tcConn) logAt(level, format string, args ...any) {
+	msg := fmt.Sprintf(format, args...)
+	now := time.Now()
 	c.mu.Lock()
-	c.log = append(c.log, line)
+	c.log = append(c.log, now.Format("15:04:05 ")+msg)
 	if len(c.log) > tcMaxLog {
 		c.log = c.log[len(c.log)-tcMaxLog:]
 	}
 	c.mu.Unlock()
+	LogAndroid(level, "TAILCAT", c.name+": "+msg)
+	fmt.Fprintf(os.Stdout, "tailcat %s: %s\n", c.name, msg)
 }
 
 // tcQuiet matches what tailcat's engine says that a card has no use for;
@@ -226,8 +244,11 @@ func (c *tcConn) set(f func(c *tcConn)) {
 
 // TailcatStart listens on every mapping — all of them or none — and forwards
 // each accepted connection to the tailcat server at addr. privateKey is a
-// "privkey:…" client key, or "" for a throwaway identity.
-func TailcatStart(id, addr, privateKey, mappings string) error {
+// "privkey:…" client key, or "" for a throwaway identity. A socksPort other
+// than 0 also runs a SOCKS5 proxy there (see serveSOCKS), behind socksUser and
+// socksPass when they are set; mappings may then be empty. name is how the
+// shared log names the connection.
+func TailcatStart(id, name, addr, privateKey, mappings string, socksPort int, socksUser, socksPass string) error {
 	tcMu.Lock()
 	_, running := tcConns[id]
 	cacheDir := tcCacheDir
@@ -238,9 +259,15 @@ func TailcatStart(id, addr, privateKey, mappings string) error {
 	if msg := TailcatCheckAddress(addr); msg != "" {
 		return errors.New(msg)
 	}
-	ms, err := tcParseMappings(mappings)
-	if err != nil {
-		return err
+	var ms []tcMapping
+	if strings.TrimSpace(mappings) != "" || socksPort == 0 {
+		var err error
+		if ms, err = tcParseMappings(mappings); err != nil {
+			return err
+		}
+	}
+	if socksPort < 0 || socksPort > 65535 {
+		return fmt.Errorf("%d: the SOCKS5 port is not a port", socksPort)
 	}
 	var k key.NodePrivate
 	if p := strings.TrimSpace(privateKey); p != "" {
@@ -249,17 +276,32 @@ func TailcatStart(id, addr, privateKey, mappings string) error {
 		}
 	}
 
-	c := &tcConn{id: id, active: map[net.Conn]struct{}{}, wake: make(chan struct{}, 1), state: "starting"}
-	for _, m := range ms {
-		ln, err := net.Listen("tcp", m.listen)
+	c := &tcConn{id: id, name: name, active: map[net.Conn]struct{}{}, wake: make(chan struct{}, 1), state: "starting"}
+	listen := func(addr string) (net.Listener, error) {
+		ln, err := net.Listen("tcp", addr)
 		if err != nil {
 			for _, l := range c.lns {
 				l.Close()
 			}
-			return fmt.Errorf("listen on %s: %w", m.listen, err)
+			return nil, fmt.Errorf("listen on %s: %w", addr, err)
 		}
 		c.lns = append(c.lns, ln)
+		return ln, nil
+	}
+	for _, m := range ms {
+		ln, err := listen(m.listen)
+		if err != nil {
+			return err
+		}
 		c.listening = append(c.listening, ln.Addr().String())
+	}
+	var socksLn net.Listener
+	if socksPort != 0 {
+		var err error
+		if socksLn, err = listen(net.JoinHostPort(tcBind, strconv.Itoa(socksPort))); err != nil {
+			return err
+		}
+		c.socks = socksLn.Addr().String()
 	}
 	c.cl = &tailcat.Client{Server: tailcat.Addr(strings.TrimSpace(addr)), Key: k, Logf: c.engineLogf}
 	if cacheDir != "" {
@@ -271,11 +313,15 @@ func TailcatStart(id, addr, privateKey, mappings string) error {
 	tcMu.Lock()
 	tcConns[id] = c
 	tcMu.Unlock()
-	slog.Info("Tailcat: connection started", "id", id, "listening", strings.Join(c.listening, ", "))
+	slog.Info("Tailcat: connection started", "id", id, "listening", strings.Join(c.listening, ", "), "socks", c.socks)
 
-	for i, ln := range c.lns {
+	for i, m := range ms {
 		c.wg.Add(1)
-		go c.accept(ctx, ln, ms[i])
+		go c.accept(ctx, c.lns[i], m)
+	}
+	if socksLn != nil {
+		c.wg.Add(1)
+		go c.serveSOCKS(ctx, socksLn, socksUser, socksPass)
 	}
 	c.wg.Add(1)
 	go c.watch(ctx)
@@ -304,7 +350,7 @@ func (c *tcConn) watch(ctx context.Context) {
 			c.set(func(c *tcConn) { c.state, c.lastErr = "forwarding", "" })
 			break
 		}
-		c.logf("the server did not answer: %v", err)
+		c.warnf("the server did not answer: %v", err)
 		why := tcWhy(err)
 		c.set(func(c *tcConn) { c.state, c.lastErr = "error", why })
 		if !c.sleep(ctx, tcRetryEvery) {
@@ -394,22 +440,12 @@ func (c *tcConn) accept(ctx context.Context, ln net.Listener, m tcMapping) {
 		if err != nil {
 			return
 		}
-		c.mu.Lock()
-		c.active[conn] = struct{}{}
-		c.served++
-		c.mu.Unlock()
-		c.notify()
+		c.track(conn)
 		c.wg.Add(1)
 		go func() {
 			defer c.wg.Done()
 			defer tcRecover("forward " + c.id)
-			defer func() {
-				c.mu.Lock()
-				delete(c.active, conn)
-				c.mu.Unlock()
-				conn.Close()
-				c.notify()
-			}()
+			defer c.untrack(conn)
 			var remote net.Conn
 			var err error
 			if m.target.IsValid() {
@@ -423,21 +459,158 @@ func (c *tcConn) accept(ctx context.Context, ln net.Listener, m tcMapping) {
 					if m.target.IsValid() {
 						to = m.target.String()
 					}
-					c.logf("%s -> %s: %v", conn.LocalAddr(), to, err)
-					why := tcWhy(err)
-					c.set(func(c *tcConn) { c.lastErr = why })
+					c.dialFailed(fmt.Sprintf("%s -> %s", conn.LocalAddr(), to), err)
 				}
 				return
 			}
-			c.mu.Lock()
-			up := c.state == "forwarding"
-			c.mu.Unlock()
-			if !up {
-				c.set(func(c *tcConn) { c.state, c.lastErr = "forwarding", "" })
-			}
+			c.dialed()
 			tailcat.ProxyConns(conn, remote)
 		}()
 	}
+}
+
+// track counts an accepted connection, for the card; untrack closes it and
+// lets it go. A stop closes whatever is still tracked.
+func (c *tcConn) track(conn net.Conn) {
+	c.mu.Lock()
+	c.active[conn] = struct{}{}
+	c.served++
+	c.mu.Unlock()
+	c.notify()
+}
+
+func (c *tcConn) untrack(conn net.Conn) {
+	c.mu.Lock()
+	delete(c.active, conn)
+	c.mu.Unlock()
+	conn.Close()
+	c.notify()
+}
+
+// dialed marks the connection forwarding once a dial through it worked, even
+// before the watcher's ping says so.
+func (c *tcConn) dialed() {
+	c.mu.Lock()
+	up := c.state == "forwarding"
+	c.mu.Unlock()
+	if !up {
+		c.set(func(c *tcConn) { c.state, c.lastErr = "forwarding", "" })
+	}
+}
+
+func (c *tcConn) dialFailed(what string, err error) {
+	c.warnf("%s: %v", what, err)
+	why := tcWhy(err)
+	c.set(func(c *tcConn) { c.lastErr = why })
+}
+
+// serveSOCKS runs a SOCKS5 proxy on ln that dials through the server, as
+// `tailcat socks <addr>` does (clientSOCKSMode in its cmd/tailcat), TCP and
+// UDP: the host "server.tailcat", or the server's own tc… address, means a
+// port on the server; any other host is reached through the server, which
+// must then run as an exit node (tailcat serve exit-node). Names are resolved
+// on this device.
+func (c *tcConn) serveSOCKS(ctx context.Context, ln net.Listener, user, pass string) {
+	defer c.wg.Done()
+	defer tcRecover("socks " + c.id)
+	ss := &socks5.Server{
+		Logf:     func(format string, args ...any) { c.logf("socks5: "+format, args...) },
+		Username: user,
+		Password: pass,
+		Dialer: func(_ context.Context, network, addr string) (net.Conn, error) {
+			// socks5 gives a dial 5 s, WireGuard's handshake retransmit
+			// interval, so one lost handshake packet would fail it; the CLI
+			// allows 15.
+			dctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+			defer cancel()
+			conn, err := c.dialSOCKS(dctx, network, addr)
+			if err != nil {
+				if ctx.Err() == nil {
+					c.dialFailed("socks5 "+network+" "+addr, err)
+				}
+				return nil, err
+			}
+			c.dialed()
+			return conn, nil
+		},
+	}
+	ss.Serve(tcTrackingListener{ln, c})
+}
+
+// dialSOCKS dials a SOCKS5 destination through the server; see serveSOCKS
+// and classifySOCKSAddr in tailcat's cmd/tailcat, which it follows.
+func (c *tcConn) dialSOCKS(ctx context.Context, network, addr string) (net.Conn, error) {
+	host, portStr, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, err
+	}
+	p, err := strconv.ParseUint(portStr, 10, 16)
+	if err != nil {
+		return nil, err
+	}
+	port := uint16(p)
+	if host == "" || host == "server.tailcat" || host == string(c.cl.Server) {
+		if network == "udp" {
+			return c.cl.DialUDPPort(ctx, port)
+		}
+		return c.cl.DialTCPPort(ctx, port)
+	}
+	if strings.HasPrefix(host, "tc") && !strings.Contains(host, ".") {
+		if _, err := tailcat.ParseAddr(tailcat.Addr(host)); err == nil {
+			return nil, errors.New("that is another tailcat server; this proxy reaches only its own")
+		}
+	}
+	ip, err := netip.ParseAddr(host)
+	if err != nil {
+		ips, err := net.DefaultResolver.LookupNetIP(ctx, "ip", host)
+		if err != nil {
+			return nil, err
+		}
+		if len(ips) == 0 {
+			return nil, fmt.Errorf("no addresses found for %q", host)
+		}
+		// IPv4 first: it rides the server's NAT64 mapping, and the server may
+		// have no IPv6.
+		ip = ips[0]
+		for _, a := range ips {
+			if a.Unmap().Is4() {
+				ip = a
+				break
+			}
+		}
+	}
+	ap := netip.AddrPortFrom(ip.Unmap(), port)
+	if network == "udp" {
+		return c.cl.DialUDP(ctx, ap)
+	}
+	return c.cl.DialTCP(ctx, ap)
+}
+
+// tcTrackingListener counts the SOCKS5 proxy's clients as accept counts the
+// forwarded ones; socks5.Server accepts them itself.
+type tcTrackingListener struct {
+	net.Listener
+	c *tcConn
+}
+
+func (l tcTrackingListener) Accept() (net.Conn, error) {
+	conn, err := l.Listener.Accept()
+	if err != nil {
+		return nil, err
+	}
+	l.c.track(conn)
+	return &tcTrackedConn{Conn: conn, c: l.c}, nil
+}
+
+type tcTrackedConn struct {
+	net.Conn
+	c    *tcConn
+	once sync.Once
+}
+
+func (t *tcTrackedConn) Close() error {
+	t.once.Do(func() { t.c.untrack(t.Conn) })
+	return nil
 }
 
 // TailcatStop closes a connection's listeners, its forwarded connections and
@@ -480,12 +653,13 @@ func TailcatStopAll() {
 }
 
 // TailcatStatusJSON describes every running connection:
-// {"<id>":{"state","listening","error","path","latencyMs","active","served"}}.
+// {"<id>":{"state","listening","socks","error","path","latencyMs","active","served"}}.
 // A connection that is not in it is stopped.
 func TailcatStatusJSON() string {
 	type st struct {
 		State     string   `json:"state"`
 		Listening []string `json:"listening"`
+		Socks     string   `json:"socks,omitempty"`
 		Error     string   `json:"error,omitempty"`
 		Path      string   `json:"path,omitempty"`
 		LatencyMs int      `json:"latencyMs,omitempty"`
@@ -496,7 +670,7 @@ func TailcatStatusJSON() string {
 	tcMu.Lock()
 	for id, c := range tcConns {
 		c.mu.Lock()
-		out[id] = st{c.state, c.listening, c.lastErr, c.path, c.latencyMs, len(c.active), c.served}
+		out[id] = st{c.state, c.listening, c.socks, c.lastErr, c.path, c.latencyMs, len(c.active), c.served}
 		c.mu.Unlock()
 	}
 	tcMu.Unlock()

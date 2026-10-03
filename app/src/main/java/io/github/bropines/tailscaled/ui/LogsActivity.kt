@@ -83,27 +83,40 @@ data class LogEntry(
 )
 
 class LogsActivity : ComponentActivity() {
+    companion object {
+        private const val EXTRA_CATEGORY = "category"
+
+        /** The Logs screen with one category picked, e.g. [TAILCAT_CATEGORY]. */
+        fun intent(context: Context, category: String): Intent =
+            Intent(context, LogsActivity::class.java).putExtra(EXTRA_CATEGORY, category)
+    }
+
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(wrapContextWithLocale(newBase))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val category = intent.getStringExtra(EXTRA_CATEGORY) ?: "ALL"
         setContent {
             TailSocksTheme {
-                LogsScreen(onBack = { finish() })
+                LogsScreen(onBack = { finish() }, initialCategory = category)
             }
         }
     }
 }
+
+/** What tailcat connections write, by name (appctr/tailcat.go); a chip only once there is some. */
+const val TAILCAT_CATEGORY = "TAILCAT"
 
 fun getDebugHeader(context: Context): String = Diagnostics.report(context) + "\n\n"
 
 /**
  * The category of the daemon's own lines: its stdout in Proxy mode (tagged by
  * the Go bridge), its file in Root Mode (parsed here). CORE is the app, ROOT
- * the app's Root Mode routing decisions, OTHER the DPI bypass. Clearing works
- * by this split: the daemon's lines, the app's, or everything.
+ * the app's Root Mode routing decisions, OTHER the DPI bypass, TAILCAT the
+ * tailcat connections. Clearing works by this split: the daemon's lines, the
+ * app's (tailcat's among them), or everything.
  */
 private const val DAEMON_CATEGORY = "TAILSCALE"
 
@@ -423,7 +436,7 @@ private fun clearRootDaemonLogFile(context: Context): Boolean {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LogsScreen(onBack: () -> Unit) {
+fun LogsScreen(onBack: () -> Unit, initialCategory: String = "ALL") {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     
@@ -433,7 +446,7 @@ fun LogsScreen(onBack: () -> Unit) {
     var allLogs by remember { mutableStateOf<List<LogEntry>>(emptyList()) }
     // Whether a read has come back, so the empty state does not flash before the first one.
     var loaded by remember { mutableStateOf(inPreview) }
-    var selectedCategory by remember { mutableStateOf("ALL") }
+    var selectedCategory by remember { mutableStateOf(initialCategory) }
     var searchQuery by remember { mutableStateOf("") }
     var unfolded by remember { mutableStateOf(emptySet<Long>()) }
     var clearMenuOpen by remember { mutableStateOf(false) }
@@ -448,7 +461,10 @@ fun LogsScreen(onBack: () -> Unit) {
     val listState = rememberLazyListState()
 
     val isRootMode = remember { GlobalSettings.isRootModeEnabled(context) }
-    val categoryItems = remember(isRootMode, includeLogcat) {
+    val showTailcat = remember(allLogs, selectedCategory) {
+        selectedCategory == TAILCAT_CATEGORY || allLogs.any { it.category == TAILCAT_CATEGORY }
+    }
+    val categoryItems = remember(isRootMode, includeLogcat, showTailcat) {
         val list = mutableListOf(
             SegmentedChipItem("ALL", Icons.AutoMirrored.Filled.List),
             SegmentedChipItem("ERROR", Icons.Default.Error, containerColor = Color(0xFFEF5350).copy(alpha = 0.25f), contentColor = Color(0xFFEF5350)),
@@ -461,6 +477,9 @@ fun LogsScreen(onBack: () -> Unit) {
             list.add(SegmentedChipItem("ROOT", Icons.Default.Terminal, containerColor = Color(0xFF9C27B0).copy(alpha = 0.25f), contentColor = Color(0xFF9C27B0)))
         }
         list.add(SegmentedChipItem("OTHER", Icons.Default.Category, containerColor = Color(0xFFFFA726).copy(alpha = 0.25f), contentColor = Color(0xFFFB8C00)))
+        if (showTailcat) {
+            list.add(SegmentedChipItem(TAILCAT_CATEGORY, Icons.Default.Pets, containerColor = Color(0xFF8D6E63).copy(alpha = 0.25f), contentColor = Color(0xFF8D6E63)))
+        }
         if (includeLogcat) {
             list.add(SegmentedChipItem(LOGCAT_CATEGORY, Icons.Default.BugReport, containerColor = Color(0xFF26A69A).copy(alpha = 0.25f), contentColor = Color(0xFF26A69A)))
         }

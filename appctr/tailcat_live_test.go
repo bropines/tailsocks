@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"golang.org/x/net/proxy"
 )
 
 // TestTailcatLive drives the bridge against a real `tailcat serve` and the
@@ -15,8 +17,9 @@ import (
 //
 //	TC_BIN=/path/to/tailcat go test -ldflags=-checklinkname=0 -run TestTailcatLive -v .
 //
-// It covers a server that starts after the client, forwarding, and a client
-// key the server's --allow leaves out. Something must answer HTTP on
+// It covers a server that starts after the client, forwarding, the SOCKS5
+// proxy and its password, the shared log, and a client key the server's
+// --allow leaves out. Something must answer HTTP on
 // 127.0.0.1:28000 (python3 -m http.server 28000 --bind 127.0.0.1).
 func TestTailcatLive(t *testing.T) {
 	bin := os.Getenv("TC_BIN")
@@ -81,7 +84,7 @@ func TestTailcatLive(t *testing.T) {
 	srv.Wait()
 
 	SetTailcatCacheDir(t.TempDir())
-	if err := TailcatStart("a", addr, priv, "18765:28000"); err != nil {
+	if err := TailcatStart("a", "a", addr, priv, "18765:28000", 18767, "u", "p"); err != nil {
 		t.Fatal(err)
 	}
 	defer TailcatStop("a")
@@ -96,8 +99,33 @@ func TestTailcatLive(t *testing.T) {
 	if got := get("18765"); !strings.HasPrefix(got, "200 ") {
 		t.Errorf("through the tunnel: %s", got)
 	}
+	viaSOCKS := func(user, pass string) string {
+		d, err := proxy.SOCKS5("tcp", "127.0.0.1:18767", &proxy.Auth{User: user, Password: pass}, proxy.Direct)
+		if err != nil {
+			return "ERR " + err.Error()
+		}
+		c := http.Client{Timeout: 20 * time.Second, Transport: &http.Transport{Dial: d.Dial}}
+		r, err := c.Get("http://server.tailcat:28000/")
+		if err != nil {
+			return "ERR " + err.Error()
+		}
+		defer r.Body.Close()
+		return r.Status
+	}
+	if got := viaSOCKS("u", "p"); !strings.HasPrefix(got, "200 ") {
+		t.Errorf("through SOCKS5: %s", got)
+	}
+	if got := viaSOCKS("u", "wrong"); strings.HasPrefix(got, "200 ") {
+		t.Errorf("SOCKS5 let a wrong password through")
+	}
+	if st := TailcatStatusJSON(); !strings.Contains(st, `"socks":"127.0.0.1:18767"`) {
+		t.Errorf("status without the proxy: %s", st)
+	}
+	if !strings.Contains(GetLogs(), "[TAILCAT] a: the server answered") {
+		t.Errorf("the shared log has no tailcat lines")
+	}
 
-	if err := TailcatStart("b", addr, TailcatGenerateClientKey(), "18766:28000"); err != nil {
+	if err := TailcatStart("b", "b", addr, TailcatGenerateClientKey(), "18766:28000", 0, "", ""); err != nil {
 		t.Fatal(err)
 	}
 	waitState("b", "error", 30*time.Second)

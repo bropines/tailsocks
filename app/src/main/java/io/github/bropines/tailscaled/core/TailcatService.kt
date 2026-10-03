@@ -18,7 +18,7 @@ import androidx.core.content.ContextCompat
 import appctr.Appctr
 import appctr.TailcatListener
 import io.github.bropines.tailscaled.R
-import io.github.bropines.tailscaled.ui.TailcatActivity
+import io.github.bropines.tailscaled.ui.ServeActivity
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,6 +34,8 @@ data class TailcatStatus(
     /** starting, forwarding, error; "failed" when it never started. */
     val state: String = "",
     val listening: List<String> = emptyList(),
+    /** The SOCKS5 proxy's address, or "" without one. */
+    val socks: String = "",
     val error: String = "",
     /** "direct", a relay's region code, or "" before the first probe. */
     val path: String = "",
@@ -44,8 +46,8 @@ data class TailcatStatus(
 
 /**
  * Keeps tailcat connections running (see appctr/tailcat.go): each forwards
- * ports on 127.0.0.1 to a tailcat server over WireGuard, with no VpnService
- * and no Tailscale account. Independent of [TailscaledService] — either runs
+ * ports on 127.0.0.1 to a tailcat server over WireGuard, and may run a SOCKS5
+ * proxy through it, with no VpnService and no Tailscale account. Independent of [TailscaledService] — either runs
  * without the other.
  *
  * The connections live in the bridge, in this process; the service keeps the
@@ -179,14 +181,17 @@ class TailcatService : Service() {
         val conn = TailcatConnections.get(this, id) ?: return
         failures.update { it - id }
         val runningIds = running.value.keys - id
-        val problem = TailcatConnections.problem(this, conn.address, conn.ports, except = id, running = runningIds)
-        val why = when (problem) {
+        val why = when (val problem = TailcatConnections.problem(this, conn, running = runningIds)) {
             is TailcatConnections.Problem.Address -> getString(R.string.tailcat_err_address)
             is TailcatConnections.Problem.Ports -> getString(R.string.tailcat_err_ports, problem.detail)
+            TailcatConnections.Problem.Socks -> getString(R.string.tailcat_err_socks)
             is TailcatConnections.Problem.Clash -> getString(R.string.tailcat_err_port_clash, problem.port, problem.name)
             null -> null
         } ?: runCatching {
-            Appctr.tailcatStart(id, conn.address.trim(), TailcatKey.private(this) ?: "", conn.ports)
+            Appctr.tailcatStart(
+                id, conn.name, conn.address.trim(), TailcatKey.private(this) ?: "", conn.ports,
+                conn.socks.toLong(), conn.socksUser, conn.socksPass
+            )
             null
         }.getOrElse { e -> e.message ?: e.javaClass.simpleName }
         if (why != null) {
@@ -241,7 +246,7 @@ class TailcatService : Service() {
         }
         val statuses = running.value
         val connections = TailcatConnections.load(this).filter { it.id in statuses }
-        fun ports(conn: TailcatConnection) = TailcatConnections.localPorts(conn.ports).joinToString(",") { ":$it" }
+        fun ports(conn: TailcatConnection) = TailcatConnections.localPorts(conn).sorted().joinToString(",") { ":$it" }
         val collapsed = if (connections.isEmpty()) getString(R.string.tailcat_notif_starting)
                         else connections.joinToString(" · ") { "${it.name} ${ports(it)}" }
         val style = NotificationCompat.InboxStyle()
@@ -250,7 +255,7 @@ class TailcatService : Service() {
             style.addLine("${conn.name} — ${stateLine(this, st)}")
         }
         val open = PendingIntent.getActivity(
-            this, 0, Intent(this, TailcatActivity::class.java),
+            this, 0, ServeActivity.tailcatIntent(this),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val stopAll = PendingIntent.getService(

@@ -1,10 +1,8 @@
 package io.github.bropines.tailscaled.ui
 
-import android.content.Context
-import android.os.Bundle
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -15,7 +13,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -96,40 +93,24 @@ import io.github.bropines.tailscaled.core.TailcatKey
 import io.github.bropines.tailscaled.core.TailcatService
 import io.github.bropines.tailscaled.core.TailcatStatus
 import io.github.bropines.tailscaled.core.stateLine
-import io.github.bropines.tailscaled.core.wrapContextWithLocale
-import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
+/** How many output lines an open card shows; the rest is in Logs, under TAILCAT. */
+private const val INLINE_OUTPUT_LINES = 12
+
 /**
- * Tailcat: local ports carried to tailcat servers (see TailcatService).
- * Laid out like Serve & Funnel — a card for this device's identity, then a
- * card per connection with its switch and its actions in the open.
+ * Tailcat: local ports and a SOCKS5 proxy carried to tailcat servers (see
+ * TailcatService), the second side of the Serve tile (ServeHost). Laid out
+ * like Serve & Funnel — a card for this device's identity, then a card per
+ * connection with its switch and its actions in the open.
  *
  * The connection list, the editor's checks and the output view come from
  * PR #9 by seffs.
  */
-class TailcatActivity : ComponentActivity() {
-    override fun attachBaseContext(newBase: Context) {
-        super.attachBaseContext(wrapContextWithLocale(newBase))
-    }
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContent {
-            TailSocksTheme {
-                TailcatScreen(onBack = { finish() })
-            }
-        }
-    }
-}
-
-/** How many output lines an open card shows; the rest is behind Full output. */
-private const val INLINE_OUTPUT_LINES = 12
-
 @Composable
-fun TailcatScreen(onBack: () -> Unit) {
+fun TailcatScreen(onBack: () -> Unit, header: @Composable () -> Unit = {}) {
     val context = LocalContext.current
     val inPreview = LocalInspectionMode.current
     val clipboard = LocalClipboardManager.current
@@ -138,7 +119,6 @@ fun TailcatScreen(onBack: () -> Unit) {
     var publicKey by remember { mutableStateOf(if (inPreview) null else TailcatKey.public(context)) }
     var editor by remember { mutableStateOf<TailcatConnection?>(null) }
     var deleting by remember { mutableStateOf<TailcatConnection?>(null) }
-    var fullOutputFor by remember { mutableStateOf<TailcatConnection?>(null) }
     var openId by remember { mutableStateOf<String?>(null) }
     var output by remember { mutableStateOf("") }
     var confirmNewKey by remember { mutableStateOf(false) }
@@ -149,10 +129,15 @@ fun TailcatScreen(onBack: () -> Unit) {
         Toast.makeText(context, context.getString(R.string.tailcat_copied), Toast.LENGTH_SHORT).show()
     }
     fun running(id: String) = statuses[id]?.let { it.state != "failed" } == true
+    fun openLogs() = context.startActivity(LogsActivity.intent(context, TAILCAT_CATEGORY))
+    fun openInBrowser(address: String) {
+        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("http://$address"))) }
+            .onFailure { Toast.makeText(context, context.getString(R.string.tailcat_no_browser), Toast.LENGTH_SHORT).show() }
+    }
 
     if (!inPreview) LaunchedEffect(Unit) { withContext(Dispatchers.IO) { TailcatService.refreshStatuses() } }
-    // The output of the open card or the full view, read while it is on screen.
-    val watched = fullOutputFor?.id ?: openId
+    // The output of the open card, read while it is on screen.
+    val watched = openId
     if (!inPreview && watched != null) LaunchedEffect(watched) {
         while (true) {
             output = withContext(Dispatchers.IO) { runCatching { Appctr.tailcatLog(watched) }.getOrDefault("") }
@@ -163,17 +148,20 @@ fun TailcatScreen(onBack: () -> Unit) {
     PredictiveBackContainer(onBack = onBack, popsInAppState = false) {
         Scaffold(
             topBar = {
-                AppTopBar(
-                    title = stringResource(R.string.tailcat_title),
-                    onBack = onBack,
-                    actions = {
-                        if (statuses.keys.any { running(it) }) {
-                            IconButton(onClick = { TailcatService.stopAll(context) }) {
-                                Icon(Icons.Default.StopCircle, stringResource(R.string.tailcat_stop_all))
+                Column {
+                    AppTopBar(
+                        title = stringResource(R.string.tailcat_title),
+                        onBack = onBack,
+                        actions = {
+                            if (statuses.keys.any { running(it) }) {
+                                IconButton(onClick = { TailcatService.stopAll(context) }) {
+                                    Icon(Icons.Default.StopCircle, stringResource(R.string.tailcat_stop_all))
+                                }
                             }
                         }
-                    }
-                )
+                    )
+                    header()
+                }
             },
             floatingActionButton = {
                 FloatingActionButton(onClick = {
@@ -211,8 +199,9 @@ fun TailcatScreen(onBack: () -> Unit) {
                             onSwitch = { on -> if (on) TailcatService.start(context, conn.id) else TailcatService.stop(context, conn.id) },
                             onEdit = { editor = conn },
                             onDelete = { deleting = conn },
-                            onCopyLocal = { copy(it) },
-                            onFullOutput = { fullOutputFor = conn }
+                            onCopy = { copy(it) },
+                            onOpen = { openInBrowser(it) },
+                            onLogs = { openLogs() }
                         )
                     }
                 }
@@ -265,26 +254,6 @@ fun TailcatScreen(onBack: () -> Unit) {
                 }
             },
             dismissButton = { TextButton(onClick = { confirmNewKey = false }) { Text(stringResource(R.string.action_cancel)) } }
-        )
-    }
-
-    fullOutputFor?.let { conn ->
-        AlertDialog(
-            onDismissRequest = { fullOutputFor = null },
-            title = { Text(conn.name) },
-            text = {
-                SelectionContainer {
-                    Text(
-                        output.ifEmpty { stringResource(R.string.tailcat_no_output) },
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 11.sp,
-                        lineHeight = 15.sp,
-                        modifier = Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())
-                    )
-                }
-            },
-            confirmButton = { TextButton(onClick = { copy(output) }) { Text(stringResource(R.string.tailcat_copy_all)) } },
-            dismissButton = { TextButton(onClick = { fullOutputFor = null }) { Text(stringResource(R.string.action_close)) } }
         )
     }
 }
@@ -370,12 +339,14 @@ private fun EmptyConnectionsCard() {
     }
 }
 
-/** A small label: a port mapping, how many connections are open. */
+/** A small label: a port mapping, the proxy, how many connections are open; some do something on a tap. */
 @Composable
-private fun Tag(text: String, container: Color, content: Color) {
-    Surface(shape = MaterialTheme.shapes.small, color = container) {
+private fun Tag(text: String, container: Color, content: Color, onClick: (() -> Unit)? = null) {
+    val label = @Composable {
         Text(text, style = MaterialTheme.typography.labelSmall, color = content, modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp))
     }
+    if (onClick != null) Surface(onClick = onClick, shape = MaterialTheme.shapes.small, color = container) { label() }
+    else Surface(shape = MaterialTheme.shapes.small, color = container) { label() }
 }
 
 @Composable
@@ -403,8 +374,9 @@ private fun ConnectionCard(
     onSwitch: (Boolean) -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onCopyLocal: (String) -> Unit,
-    onFullOutput: () -> Unit
+    onCopy: (String) -> Unit,
+    onOpen: (String) -> Unit,
+    onLogs: () -> Unit
 ) {
     val context = LocalContext.current
     val scheme = MaterialTheme.colorScheme
@@ -424,9 +396,13 @@ private fun ConnectionCard(
         else -> scheme.secondaryContainer to scheme.onSecondaryContainer
     }
     val line = if (status != null) stateLine(context, status) else stringResource(R.string.tailcat_state_stopped)
+    val specs = TailcatConnections.specs(conn.ports)
+    // Where each mapping listens: what the bridge reports, in the same order,
+    // or the port it asks for; "auto" has no port until it runs.
+    fun listenAt(i: Int, spec: String): String? = status?.listening?.getOrNull(i)
+        ?: (if (':' in spec) spec.substringBefore(':') else spec).toIntOrNull()?.takeIf { it > 0 }?.let { "127.0.0.1:$it" }
     // What an app is pointed at: the first port this connection listens on.
-    val local = status?.listening?.firstOrNull()
-        ?: TailcatConnections.localPorts(conn.ports).firstOrNull()?.let { "127.0.0.1:$it" }
+    val local = specs.indices.firstNotNullOfOrNull { listenAt(it, specs[it]) }
     Card(
         onClick = onToggleOpen,
         shape = MaterialTheme.shapes.large,
@@ -461,7 +437,15 @@ private fun ConnectionCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                TailcatConnections.specs(conn.ports).forEach { Tag(mappingLabel(it), scheme.surfaceVariant, scheme.onSurfaceVariant) }
+                // A tap opens the port in a browser, as `tailcat browse` does.
+                specs.forEachIndexed { i, spec ->
+                    val at = listenAt(i, spec)
+                    Tag(mappingLabel(spec), scheme.surfaceVariant, scheme.onSurfaceVariant, onClick = at?.let { { onOpen(it) } })
+                }
+                // A tap copies the proxy's address with its password, for the app it goes into.
+                conn.socksUrl()?.let { url ->
+                    Tag(stringResource(R.string.tailcat_socks_tag, conn.socks), scheme.tertiaryContainer, scheme.onTertiaryContainer, onClick = { onCopy(url) })
+                }
                 if (shownActive > 0) Tag(context.getString(R.string.tailcat_active, shownActive), scheme.secondaryContainer, scheme.onSecondaryContainer)
             }
             if (open) {
@@ -480,7 +464,7 @@ private fun ConnectionCard(
                             color = scheme.onSurfaceVariant
                         )
                         if (lines.size > INLINE_OUTPUT_LINES) {
-                            TextButton(onClick = onFullOutput, modifier = Modifier.align(Alignment.End)) { Text(stringResource(R.string.tailcat_full_output)) }
+                            TextButton(onClick = onLogs, modifier = Modifier.align(Alignment.End)) { Text(stringResource(R.string.tailcat_full_output)) }
                         }
                     }
                 }
@@ -493,8 +477,8 @@ private fun ConnectionCard(
             ) {
                 CardAction(Icons.Default.Delete, stringResource(R.string.action_delete), tint = scheme.error, onClick = onDelete)
                 Spacer(Modifier.weight(1f))
-                CardAction(Icons.Default.Terminal, stringResource(R.string.tailcat_full_output), onClick = onFullOutput)
-                if (local != null) CardAction(Icons.Default.ContentCopy, stringResource(R.string.tailcat_copy_local), onClick = { onCopyLocal("http://$local") })
+                CardAction(Icons.Default.Terminal, stringResource(R.string.tailcat_full_output), onClick = onLogs)
+                if (local != null) CardAction(Icons.Default.ContentCopy, stringResource(R.string.tailcat_copy_local), onClick = { onCopy("http://$local") })
                 CardAction(Icons.Default.Edit, stringResource(R.string.action_edit), onClick = onEdit)
             }
         }
@@ -514,19 +498,31 @@ private fun ConnectionEditorSheet(
     var name by remember { mutableStateOf(initial.name) }
     var address by remember { mutableStateOf(initial.address) }
     var ports by remember { mutableStateOf(initial.ports) }
+    var socks by remember { mutableStateOf(if (initial.socks == 0) "" else initial.socks.toString()) }
     // Hidden by default: knowing the address is what lets a client in.
     var showAddress by remember { mutableStateOf(isNew) }
 
-    val addressError = remember(address) {
-        if (address.isBlank()) null
-        else runCatching { Appctr.tailcatCheckAddress(address.trim()) }.getOrDefault("").ifEmpty { null }
+    /** The connection as the fields have it, with credentials once it has a proxy. */
+    fun edited(): TailcatConnection {
+        val port = socks.trim().toIntOrNull() ?: if (socks.isBlank()) 0 else -1
+        val withCreds = port > 0 && initial.socksUser.isEmpty()
+        return initial.copy(
+            name = name.trim(), address = address.trim(), ports = ports.trim(), socks = port,
+            socksUser = if (withCreds) generateSecureToken(8) else initial.socksUser,
+            socksPass = if (withCreds) generateSecureToken(16) else initial.socksPass
+        )
     }
-    val portsError = remember(ports) {
-        if (ports.isBlank()) null
-        else runCatching { Appctr.tailcatCheckMappings(ports) }.getOrDefault("").ifEmpty { null }
+    // Checked as the service checks before a start, against every other
+    // connection's ports, running or not.
+    val problem = remember(address, ports, socks) {
+        if (address.isBlank() || (ports.isBlank() && socks.isBlank())) null
+        else TailcatConnections.problem(context, edited())
     }
-    val clash = remember(ports) { TailcatConnections.clashes(context, ports, except = initial.id).firstOrNull() }
-    val canSave = name.isNotBlank() && address.isNotBlank() && ports.isNotBlank() && addressError == null && portsError == null && clash == null
+    val addressError = problem is TailcatConnections.Problem.Address
+    val portsError = (problem as? TailcatConnections.Problem.Ports)?.detail
+    val socksError = problem == TailcatConnections.Problem.Socks
+    val clash = problem as? TailcatConnections.Problem.Clash
+    val canSave = name.isNotBlank() && address.isNotBlank() && (ports.isNotBlank() || socks.isNotBlank()) && problem == null
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
@@ -563,8 +559,8 @@ private fun ConnectionEditorSheet(
                         )
                     }
                 },
-                isError = addressError != null,
-                supportingText = addressError?.let { { Text(stringResource(R.string.tailcat_err_address)) } },
+                isError = addressError,
+                supportingText = if (addressError) { { Text(stringResource(R.string.tailcat_err_address)) } } else null,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.fillMaxWidth()
@@ -580,7 +576,7 @@ private fun ConnectionEditorSheet(
                     Text(
                         when {
                             portsError != null -> stringResource(R.string.tailcat_err_ports, portsError)
-                            clash != null -> stringResource(R.string.tailcat_err_port_clash, clash.first, clash.second.name)
+                            clash != null -> stringResource(R.string.tailcat_err_port_clash, clash.port, clash.name)
                             else -> stringResource(R.string.tailcat_ports_hint)
                         }
                     )
@@ -588,11 +584,26 @@ private fun ConnectionEditorSheet(
                 shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.fillMaxWidth()
             )
+            OutlinedTextField(
+                value = socks,
+                onValueChange = { v -> socks = v.filter { it.isDigit() }.take(5) },
+                label = { Text(stringResource(R.string.tailcat_socks)) },
+                placeholder = { Text("1080") },
+                singleLine = true,
+                isError = socksError,
+                supportingText = {
+                    if (socksError) Text(stringResource(R.string.tailcat_err_socks))
+                    else HelpText(stringResource(R.string.tailcat_socks_hint))
+                },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier.fillMaxWidth()
+            )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
                 Spacer(Modifier.width(8.dp))
                 Button(
-                    onClick = { onSave(initial.copy(name = name.trim(), address = address.trim(), ports = ports.trim())) },
+                    onClick = { onSave(edited()) },
                     enabled = canSave
                 ) { Text(stringResource(R.string.action_save)) }
             }

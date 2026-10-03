@@ -6,7 +6,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Added
 
-- Tailcat: forward local ports to tailcat servers, without a VPN or a Tailscale account — Settings → Local proxies. Several connections at once, a client key for `--allow`, the path (direct or relay) on each card.
+- Tailcat: forward local ports to tailcat servers, or run a SOCKS5 proxy through one, without a VPN or a Tailscale account — the second side of the Serve tile. Several connections at once, a client key for `--allow`, the path (direct or relay) on each card, the output in Logs under TAILCAT.
 
 ### Changed
 

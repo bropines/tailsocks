@@ -7,14 +7,25 @@ import kotlinx.serialization.encodeToString
 import java.io.File
 import java.util.UUID
 
-/** One tailcat server and the local ports forwarded to it. */
+/** One tailcat server, the local ports forwarded to it, and its SOCKS5 proxy. */
 @Serializable
 data class TailcatConnection(
     val id: String = UUID.randomUUID().toString(),
     val name: String = "",
     val address: String = "",
     val ports: String = "",
-)
+    /** A SOCKS5 proxy on 127.0.0.1 that dials through the server; 0 for none. */
+    val socks: Int = 0,
+    /**
+     * The proxy's credentials, made with it: any app on the device can find an
+     * open proxy on localhost, as with the main SOCKS5.
+     */
+    val socksUser: String = "",
+    val socksPass: String = "",
+) {
+    /** What an app is given for the proxy, or null without one. */
+    fun socksUrl(): String? = if (socks == 0) null else "socks5://$socksUser:$socksPass@127.0.0.1:$socks"
+}
 
 /**
  * The configured tailcat connections, one JSON list in the global preferences.
@@ -55,24 +66,34 @@ object TailcatConnections {
         local.toIntOrNull()?.takeIf { it in 1..65535 }
     }.toSet()
 
-    /** The connections other than [except] that listen on one of [ports]' local ports. */
-    fun clashes(context: Context, ports: String, except: String?): List<Pair<Int, TailcatConnection>> {
-        val wanted = localPorts(ports)
-        return load(context).filter { it.id != except }.flatMap { other ->
-            localPorts(other.ports).intersect(wanted).map { it to other }
+    /** Every local port a connection listens on: its mappings' and its proxy's. */
+    fun localPorts(conn: TailcatConnection): Set<Int> =
+        localPorts(conn.ports) + listOfNotNull(conn.socks.takeIf { it in 1..65535 })
+
+    /** The connections other than [conn] that listen on one of its local ports. */
+    fun clashes(context: Context, conn: TailcatConnection): List<Pair<Int, TailcatConnection>> {
+        val wanted = localPorts(conn)
+        return load(context).filter { it.id != conn.id }.flatMap { other ->
+            localPorts(other).intersect(wanted).map { it to other }
         }
     }
 
     /**
-     * Why a connection could not start, or null. The address and the mappings
-     * are checked by the bridge, the same parser that starts them.
+     * Why a connection could not start, or null; [running] limits the clash
+     * check to the connections that hold their ports now. The address and the
+     * mappings are checked by the bridge, the same parser that starts them.
      */
-    fun problem(context: Context, address: String, ports: String, except: String?, running: Set<String>): Problem? {
-        val addr = runCatching { Appctr.tailcatCheckAddress(address.trim()) }.getOrDefault("?")
-        if (address.isBlank() || addr.isNotEmpty()) return Problem.Address(addr)
-        val mappings = runCatching { Appctr.tailcatCheckMappings(ports) }.getOrDefault("?")
-        if (mappings.isNotEmpty()) return Problem.Ports(mappings)
-        val clash = clashes(context, ports, except).firstOrNull { (_, other) -> other.id in running }
+    fun problem(context: Context, conn: TailcatConnection, running: Set<String>? = null): Problem? {
+        val addr = runCatching { Appctr.tailcatCheckAddress(conn.address.trim()) }.getOrDefault("?")
+        if (conn.address.isBlank() || addr.isNotEmpty()) return Problem.Address(addr)
+        // A proxy alone is a connection too; with neither, the bridge says "no port mappings".
+        if (conn.ports.isNotBlank() || conn.socks == 0) {
+            val mappings = runCatching { Appctr.tailcatCheckMappings(conn.ports) }.getOrDefault("?")
+            if (mappings.isNotEmpty()) return Problem.Ports(mappings)
+        }
+        if (conn.socks !in 0..65535) return Problem.Socks
+        if (conn.socks != 0 && conn.socks in localPorts(conn.ports)) return Problem.Clash(conn.socks, conn.name)
+        val clash = clashes(context, conn).firstOrNull { (_, other) -> running == null || other.id in running }
         if (clash != null) return Problem.Clash(clash.first, clash.second.name)
         return null
     }
@@ -80,6 +101,7 @@ object TailcatConnections {
     sealed interface Problem {
         data class Address(val detail: String) : Problem
         data class Ports(val detail: String) : Problem
+        data object Socks : Problem
         data class Clash(val port: Int, val name: String) : Problem
     }
 }

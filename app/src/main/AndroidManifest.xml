@@ -82,7 +82,6 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".ui.TailcatActivity" android:exported="false" />
         <service
             android:name=".core.TailcatService"
             android:exported="false"

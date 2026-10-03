@@ -33,7 +33,10 @@ fun ConsoleScreenPreview() = TailSocksTheme { ConsoleScreen(initialCmd = "", onB
 fun FilesScreenPreview() = TailSocksTheme { FilesScreen(onBack = {}) }
 
 @PreviewTest @Geometries @Composable
-fun ServeScreenPreview() = TailSocksTheme { ServeScreen(onBack = {}) }
+fun ServeScreenPreview() = TailSocksTheme { ServeHost(startTab = 0, onBack = {}) }
+
+@PreviewTest @Geometries @Composable
+fun TailcatScreenPreview() = TailSocksTheme { ServeHost(startTab = 1, onBack = {}) }
 
 @PreviewTest @Geometries @Composable
 fun TaildriveScreenPreview() = TailSocksTheme { TaildriveScreen(onBack = {}) }

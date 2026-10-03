@@ -30,6 +30,7 @@ import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -73,18 +74,51 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 // the Admin API behind the same biometric prompt as the console, and
 // BiometricPrompt wants one.
 class ServeActivity : FragmentActivity() {
+    companion object {
+        private const val EXTRA_TAB = "tab"
+        private const val TAB_TAILCAT = 1
+
+        /** This screen on its Tailcat side, for the tailcat notification. */
+        fun tailcatIntent(context: Context): Intent =
+            Intent(context, ServeActivity::class.java).putExtra(EXTRA_TAB, TAB_TAILCAT)
+    }
+
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(wrapContextWithLocale(newBase))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val startTab = intent.getIntExtra(EXTRA_TAB, 0)
         setContent {
             TailSocksTheme {
-                ServeScreen(onBack = { finish() }, activity = this)
+                ServeHost(startTab = startTab, onBack = { finish() }, activity = this)
             }
         }
     }
+}
+
+/**
+ * Serve & Funnel and Tailcat behind one tile, a switch under the title: both
+ * carry ports somewhere else — this node's to the tailnet and the internet,
+ * or this device's to tailcat servers. Each keeps its own screen.
+ */
+@Composable
+fun ServeHost(startTab: Int, onBack: () -> Unit, activity: FragmentActivity? = null) {
+    var tab by rememberSaveable { mutableIntStateOf(startTab) }
+    val switcher: @Composable () -> Unit = {
+        SlidingSegmentedChips(
+            items = listOf(
+                SegmentedChipItem(stringResource(R.string.serve_title), Icons.Default.Public),
+                SegmentedChipItem(stringResource(R.string.tailcat_title), Icons.Default.Pets)
+            ),
+            selectedIndex = tab,
+            onOptionSelected = { tab = it },
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+        )
+    }
+    if (tab == 0) ServeScreen(onBack = onBack, activity = activity, header = switcher)
+    else TailcatScreen(onBack = onBack, header = switcher)
 }
 
 /** Whether something answers on a rule's target, as a plain TCP connect with a 1 s deadline. */
@@ -440,7 +474,7 @@ private fun newRuleTemplate(): ServeRule = ServeRule(
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null) {
+fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, header: @Composable () -> Unit = {}) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
@@ -731,30 +765,33 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null) {
     ) {
         Scaffold(
             topBar = {
-                AppTopBar(
-                    title = stringResource(R.string.serve_title),
-                    onBack = onBack,
-                    actions = {
-                        IconButton(onClick = { refresh() }) { Icon(Icons.Default.Refresh, stringResource(R.string.action_refresh)) }
-                        Box {
-                            IconButton(onClick = { menuOpen = true }) { Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.action_more)) }
-                            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.serve_cd_export_cert)) },
-                                    leadingIcon = { Icon(Icons.Default.Lock, null) },
-                                    enabled = caps.dnsName.isNotEmpty() && caps.certDomains.isNotEmpty(),
-                                    onClick = { menuOpen = false; showCertExportDialog = true }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.serve_cd_clear_all), color = MaterialTheme.colorScheme.error) },
-                                    leadingIcon = { Icon(Icons.Default.DeleteSweep, null, tint = MaterialTheme.colorScheme.error) },
-                                    enabled = rules.isNotEmpty(),
-                                    onClick = { menuOpen = false; showClearDialog = true }
-                                )
+                Column {
+                    AppTopBar(
+                        title = stringResource(R.string.serve_title),
+                        onBack = onBack,
+                        actions = {
+                            IconButton(onClick = { refresh() }) { Icon(Icons.Default.Refresh, stringResource(R.string.action_refresh)) }
+                            Box {
+                                IconButton(onClick = { menuOpen = true }) { Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.action_more)) }
+                                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.serve_cd_export_cert)) },
+                                        leadingIcon = { Icon(Icons.Default.Lock, null) },
+                                        enabled = caps.dnsName.isNotEmpty() && caps.certDomains.isNotEmpty(),
+                                        onClick = { menuOpen = false; showCertExportDialog = true }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.serve_cd_clear_all), color = MaterialTheme.colorScheme.error) },
+                                        leadingIcon = { Icon(Icons.Default.DeleteSweep, null, tint = MaterialTheme.colorScheme.error) },
+                                        enabled = rules.isNotEmpty(),
+                                        onClick = { menuOpen = false; showClearDialog = true }
+                                    )
+                                }
                             }
                         }
-                    }
-                )
+                    )
+                    header()
+                }
             },
             floatingActionButton = {
                 // No rule can be written with the daemon down.
