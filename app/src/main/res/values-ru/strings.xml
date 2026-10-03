@@ -1,30 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
     <!-- Quick Settings tile -->
     <string name="tile_state_connecting">Подключение…</string>
     <string name="tile_state_disconnecting">Отключение…</string>
-
     <!-- Main screen -->
     <string name="status_stopped">Остановлено</string>
     <string name="status_running">Работает</string>
     <string name="action_stop">Отключить</string>
     <string name="tap_to_start">Нажмите для запуска</string>
-
     <!-- Settings Items -->
 
     <string name="extra_args_desc">Флаги tailscale up поверх настроек, которые приложение задаёт само.\n• Поддерживаются: --accept-routes, --accept-dns, --shields-up, --ssh, --exit-node-allow-lan-access, --report-posture, --hostname, --login-server, --advertise-routes, --advertise-tags, --advertise-exit-node.\n• Отрицание: --no-флаг или =false.\n• Остальные флаги игнорируются, каждый называется в логах.\n• Маршруты и теги отсюда почти сразу перезаписываются полями «Анонсируемые маршруты» и «Анонсируемые теги» — задавайте их там.</string>
-
     <!-- Logs -->
     <string name="logs_title">Логи</string>
     <string name="logs_copied">Логи скопированы в буфер обмена</string>
-
     <!-- Widget Descriptions -->
     <string name="widget_desc_service">Запустить или остановить прокси-сервис TailSocks</string>
     <string name="widget_desc_exit">Включить/выключить маршрутизацию через выходной узел</string>
     <string name="widget_desc_stats">Панель с статистикой подключения, узлами и трафиком</string>
     <string name="widget_desc_serve">Обзор активных правил Serve и Funnel</string>
-
     <!-- Common actions -->
     <string name="action_cancel">Отмена</string>
     <string name="action_save">Сохранить</string>
@@ -58,12 +52,10 @@
     <string name="action_more">Ещё</string>
     <string name="action_disconnect">Отключить</string>
     <string name="action_unlock">Разблокировать консоль</string>
-
     <!-- Common placeholders / empty states -->
     <string name="copied_to_clipboard">%1$s скопировано в буфер обмена!</string>
     <string name="error_generic">Ошибка: %1$s</string>
     <string name="cannot_open_browser">Невозможно открыть браузер</string>
-
     <!-- ======================== ADMIN PANEL ======================== -->
 
     <!-- Admin: Auth lock screen -->
@@ -72,7 +64,6 @@
     <string name="admin_biometric_title">Разблокировать админ-панель</string>
     <string name="admin_biometric_subtitle">Пройдите биометрическую аутентификацию</string>
     <string name="admin_cd_locked">Заблокировано</string>
-
     <!-- Admin: Dashboard -->
     <string name="admin_console_title">Админ-панель</string>
     <string name="admin_tab_devices">Устройства</string>
@@ -85,16 +76,13 @@
     <string name="admin_cd_refresh">Обновить</string>
     <string name="admin_cd_proxy_settings">Настройки прокси</string>
     <string name="admin_cd_disconnect_api">Отключить API</string>
-
     <!-- Admin: Disconnect dialog -->
     <string name="admin_disconnect_title">Отключить API?</string>
     <string name="admin_disconnect_text">Это удалит учётные данные API для данного tailnet (%1$s). Продолжить?</string>
-
     <!-- Admin: Generated key dialog -->
     <string name="admin_key_generated_title">Ключ успешно создан</string>
     <string name="admin_key_generated_text">Скопируйте этот ключ сейчас. Его нельзя будет посмотреть повторно:</string>
     <string name="admin_key_copy_close">Скопировать и закрыть</string>
-
     <!-- Admin: Setup screens -->
     <string name="admin_setup_title">Настройка Admin API</string>
     <string name="admin_setup_no_tailnet_title">Tailnet не обнаружен</string>
@@ -103,7 +91,6 @@
     <string name="admin_setup_tailnet_placeholder">например: taila1b2.ts.net</string>
     <string name="admin_setup_tailnet_required">Требуется доменное имя Tailnet</string>
     <string name="admin_setup_set_tailnet_name">Задать имя Tailnet</string>
-
     <string name="admin_setup_integration_title">Интеграция с Tailscale API</string>
     <string name="admin_setup_active_tailnet">Активный домен Tailnet</string>
     <string name="admin_setup_tab_token">Личный токен</string>
@@ -115,7 +102,6 @@
     <string name="admin_setup_token_required">Требуется API Access Token</string>
     <string name="admin_setup_oauth_required">Требуются Client ID и Client Secret</string>
     <string name="admin_setup_save_connect">Сохранить и подключить</string>
-
     <!-- Admin: Proxy settings -->
     <string name="admin_proxy_settings_title">Настройки прокси API</string>
     <string name="admin_proxy_config_title">Конфигурация прокси API</string>
@@ -136,14 +122,12 @@
     <string name="admin_proxy_local_desc">Использует внутренний SOCKS5-сервер. Запросы API проходят через активный VPN / выходной узел.</string>
     <string name="admin_proxy_local_desc_setup">Маршрутизирует API-запросы через активный Socks5-сервер. Полезно для работы через выходной узел.</string>
     <string name="admin_proxy_socks5_required">Требуются корректные хост и порт SOCKS5</string>
-
     <!-- Admin: Devices tab -->
     <string name="admin_devices_count">%1$d устройств</string>
     <string name="admin_devices_no_devices">Устройства не найдены</string>
     <string name="admin_devices_cd_sort">Сортировка устройств</string>
     <string name="admin_devices_status_expired">Истёк</string>
     <string name="admin_devices_status_pending">Ожидание</string>
-
     <!-- Admin: Device detail bottom sheet -->
     <string name="admin_device_btn_rename">Пере-вать</string>
     <string name="admin_device_btn_tags">Теги</string>
@@ -159,16 +143,13 @@
     <string name="admin_device_detail_authorization_approved">Одобрено</string>
     <string name="admin_device_detail_authorization_required">Требуется</string>
     <string name="admin_device_detail_tags">Теги</string>
-
     <!-- Admin: Device update banner -->
     <string name="admin_device_update_available">Доступно обновление</string>
     <string name="admin_device_update_desc">Текущая версия: %1$s. Для обновления используйте веб-консоль.</string>
     <string name="admin_device_update_desc_na">Текущая версия: Н/Д. Для обновления используйте веб-консоль.</string>
-
     <!-- Admin: Device key expiry card -->
     <string name="admin_device_disable_key_expiry">Отключить истечение ключа</string>
     <string name="admin_device_disable_key_expiry_desc">Предотвратить истечение ключа на этом конкретном устройстве.</string>
-
     <!-- Admin: Device routing card -->
     <string name="admin_device_routing_title">Маршрутизация и подсети</string>
     <string name="admin_device_no_routes">На этом устройстве не объявлены подсетевые маршруты или выходные узлы.</string>
@@ -176,33 +157,27 @@
     <string name="admin_device_exit_node_desc">Маршрутизировать интернет-трафик через это устройство.</string>
     <string name="admin_device_no_subnet_routes">Подсетевые маршруты не объявлены.</string>
     <string name="admin_device_advertised_subnets">Объявленные подсети</string>
-
     <!-- Admin: Device admin actions -->
     <string name="admin_device_authorize">Авторизовать узел</string>
     <string name="admin_device_deauthorize">Отозвать авторизацию</string>
     <string name="admin_device_expire_key">Аннулировать ключ сейчас</string>
     <string name="admin_device_delete">Удалить устройство</string>
-
     <!-- Admin: Device rename dialog -->
     <string name="admin_device_rename_title">Переименовать устройство</string>
     <string name="admin_device_rename_label">Новое базовое имя</string>
-
     <!-- Admin: Device tags dialog -->
     <string name="admin_device_tags_title">Редактировать теги устройства</string>
     <string name="admin_device_tags_available">Доступные ACL-теги:</string>
     <string name="admin_device_tags_custom_label">Пользовательские теги (через запятую)</string>
     <string name="admin_device_tags_prefix_hint">Теги должны начинаться с префикса \'tag:\'</string>
     <string name="admin_device_tags_update">Обновить теги</string>
-
     <!-- Admin: Device expire key confirm -->
     <string name="admin_device_expire_title">Аннулировать ключ устройства?</string>
     <string name="admin_device_expire_text">Это немедленно выведет данный узел из tailnet. Продолжить?</string>
     <string name="admin_device_expire_confirm">Аннулировать</string>
-
     <!-- Admin: Device delete confirm -->
     <string name="admin_device_delete_title">Удалить устройство?</string>
     <string name="admin_device_delete_text">Вы уверены, что хотите безвозвратно удалить это устройство? Это действие невозможно отменить.</string>
-
     <!-- Admin: Device toast messages -->
     <string name="admin_device_renamed">Устройство переименовано</string>
     <string name="admin_device_authorized">Устройство авторизовано</string>
@@ -211,7 +186,6 @@
     <string name="admin_device_deleted">Устройство удалено</string>
     <string name="admin_device_tags_updated">Теги устройства обновлены</string>
     <string name="admin_device_key_expiry_updated">Настройка истечения ключа обновлена</string>
-
     <!-- Admin: DNS tab -->
     <string name="admin_dns_magic_dns_desc">Регистрация DNS-имён для устройств</string>
     <string name="admin_dns_global_ns_title">Глобальные DNS-серверы</string>
@@ -233,7 +207,6 @@
     <string name="admin_dns_tailnet_name_title">Имя Tailnet</string>
     <string name="admin_dns_tailnet_name_desc">Переименование домена tailnet на пользовательское имя (например, *.ts.net). Это необходимо выполнять через консоль администратора Tailscale по соображениям безопасности.</string>
     <string name="admin_dns_rename_web">Переименовать Tailnet в веб-консоли</string>
-
     <!-- Admin: Users tab -->
     <string name="admin_users_no_users">Пользователи не найдены</string>
     <string name="admin_users_devices_label">устройств</string>
@@ -265,7 +238,6 @@
     <string name="admin_users_suspended">Пользователь заблокирован</string>
     <string name="admin_users_restored">Доступ пользователя восстановлен</string>
     <string name="admin_users_deleted">Пользователь удалён</string>
-
     <!-- Admin: Services tab -->
     <string name="admin_services_info">Службы определяются в консоли администратора или с экрана Serve &amp; Funnel при сохранении правила для службы. Здесь подтверждаются устройства, которые их хостят.</string>
     <string name="admin_services_no_services">Виртуальные службы не найдены</string>
@@ -278,7 +250,6 @@
     <string name="admin_services_hosting_devices">Размещающие устройства и одобрения</string>
     <string name="admin_services_no_hosts">Нет устройств, настроенных или запрашивающих размещение этой службы.</string>
     <string name="admin_services_host_level">Уровень: %1$s • Конфиг: %2$s</string>
-
     <!-- Admin: Keys tab -->
     <string name="admin_keys_no_active">Нет активных ключей</string>
     <string name="admin_keys_cd_generate">Создать ключ</string>
@@ -299,7 +270,6 @@
     <string name="admin_keys_preauth_desc">Пропустить одобрение устройства администратором</string>
     <string name="admin_keys_tags_label">Применить теги (через запятую)</string>
     <string name="admin_keys_tags_supporting">Необязательно. Требует определения владельца тега в ACL</string>
-
     <!-- Admin: Logs tab -->
     <string name="admin_logs_search_placeholder">Поиск по аудит-логам…</string>
     <string name="admin_logs_events_found">%1$d событий аудита</string>
@@ -308,7 +278,6 @@
     <string name="admin_logs_target_prefix">Цель: %1$s</string>
     <string name="admin_logs_origin_prefix">Источник: %1$s</string>
     <string name="admin_logs_action_type_format">%1$s (%2$s)</string>
-
     <!-- Admin: Webhooks tab -->
     <string name="admin_webhooks_title">Webhook-эндпоинты</string>
     <string name="admin_webhooks_add">Добавить эндпоинт</string>
@@ -325,7 +294,6 @@
     <string name="admin_webhooks_test_sent">Тестовый ping отправлен</string>
     <string name="admin_webhooks_deleted">Webhook удалён</string>
     <string name="admin_webhooks_added">Webhook добавлен</string>
-
     <!-- Admin: Web links tab -->
     <string name="admin_web_title">Безопасные веб-настройки</string>
     <string name="admin_web_desc">Следующие операции требуют повышенной безопасности и выполняются исключительно через официальную веб-панель управления Tailscale.</string>
@@ -341,7 +309,6 @@
     <string name="admin_web_apps_desc">Управление сторонними интеграциями (Slack, GitHub, VS Code, Heroku) для получения событий вашей сети.</string>
     <string name="admin_web_domain_title">Переименование домена</string>
     <string name="admin_web_domain_desc">Переименование домена Tailnet (изменение префикса *.ts.net) на уникальное имя.</string>
-
     <!-- Admin: Settings tab -->
     <string name="admin_settings_auth_keys_title">Auth-ключи</string>
     <string name="admin_settings_auth_keys_desc">Создание, просмотр и отзыв ключей аутентификации для данного Tailnet.</string>
@@ -371,7 +338,6 @@
     <string name="admin_settings_magic_dns_updated">MagicDNS обновлён</string>
     <string name="admin_settings_ns_applied">DNS-серверы применены</string>
     <string name="admin_settings_search_applied">Поисковые домены применены</string>
-
     <!-- ======================== UI COMPONENTS ======================== -->
 
     <!-- PeerDetailsModal -->
@@ -422,7 +388,6 @@
     <!-- PeerItem / PeerDetailsModal: метки выходного узла -->
     <string name="peer_exit_node_selected">Выбран как выходной узел</string>
     <string name="peer_exit_node_offered">Доступен как выходной узел</string>
-
     <!-- ======================== MainActivity ======================== -->
 
     <string name="main_account_name_label">Название аккаунта</string>
@@ -455,7 +420,6 @@
     <string name="main_battery_warn_desc">TailSocks может быть завершён в фоне. Нажмите для отключения.</string>
     <string name="main_network_sync_title">Предупреждение синхронизации сети</string>
     <string name="main_network_sync_desc">Первоначальный разбор карты сети может занять 1-3 минуты из-за сетевого отката. Пожалуйста, не перезапускайте.</string>
-
     <!-- ======================== SettingsActivity ======================== -->
 
     <string name="settings_logout_title">Выйти из Tailnet?</string>
@@ -470,7 +434,6 @@
     <string name="settings_field_example">Пример: %1$s</string>
     <string name="settings_suggested">Рекомендуется:</string>
     <string name="settings_sagernet_copied">Ссылка SagerNet скопирована!</string>
-
     <!-- ======================== Console / Terminal ======================== -->
     <string name="console_title">Консоль</string>
     <string name="console_cd_toggle_wrap">Перенос строк</string>
@@ -485,7 +448,6 @@
     <string name="console_copied">Вывод скопирован</string>
     <string name="console_preset_dialog_title">Шаблон</string>
     <string name="console_preset_insert">Вставить</string>
-
     <!-- ======================== DNS Management ======================== -->
     <string name="dns_error_parse_failed">Не удалось разобрать статус DNS.\n\nИсходный вывод:\n%1$s</string>
     <string name="dns_status_unavailable">⚠ Статус DNS недоступен</string>
@@ -497,7 +459,6 @@
     <string name="dns_cd_copy_domain">Копировать домен</string>
     <string name="dns_domain_copied">Домен скопирован</string>
     <string name="dns_ips_copied">IP скопированы</string>
-
     <string name="dns_test_local_server_title">Локальный DNS-сервер</string>
     <string name="dns_test_btn">Проверить</string>
     <string name="dns_test_success_format">Успешно (Ответ: %1$d б, пинг: %2$d мс)</string>
@@ -507,7 +468,6 @@
     <string name="dns_magic_disabled">ВЫКЛЮЧЕН</string>
     <string name="dns_network_domain">Домен сети</string>
     <string name="dns_device_name">DNS-имя устройства</string>
-
     <!-- ======================== Taildrop / Files ======================== -->
     <string name="files_hub_title">Файлы</string>
     <string name="files_tab_inbox">Входящие</string>
@@ -537,7 +497,6 @@
     <string name="action_refresh">Обновить</string>
     <string name="action_ping_all">Пинг всех</string>
     <string name="exit_node_fastest">Самый быстрый из измеренных</string>
-
     <!-- ======================== Logs Screen ======================== -->
     <string name="logs_saved">Логи сохранены</string>
     <string name="logs_dns_flushed">DNS-кэш очищен</string>
@@ -555,7 +514,6 @@
     <string name="logs_clear_app">Лог приложения</string>
     <string name="logs_clear_daemon">Лог демона</string>
     <string name="logs_clear_all">Всё</string>
-
     <!-- ======================== Main Screen ======================== -->
     <string name="main_add_account_title">Добавить аккаунт</string>
     <string name="main_add_account_authkey_label">Ключ авторизации — необязательно</string>
@@ -596,7 +554,6 @@
     <string name="menu_files">Файлы</string>
     <string name="menu_netcheck">Проверка сети</string>
     <string name="menu_settings">Настройки</string>
-
     <!-- ======================== Network Diagnostics ======================== -->
     <string name="netcheck_title">Проверка сети</string>
     <string name="netcheck_report_copied">Отчет скопирован в буфер обмена</string>
@@ -639,7 +596,6 @@
     <string name="netcheck_nat_varies_yes">Да (Симметричный NAT)</string>
     <string name="netcheck_peers_online_format">%1$d из %2$d в сети</string>
     <string name="netcheck_peers_online_none">0 из %1$d в сети</string>
-
     <!-- ======================== Peers / Network Devices ======================== -->
     <string name="peers_title">Узлы</string>
     <string name="peers_search_placeholder">Поиск по имени, IP или ОС…</string>
@@ -650,7 +606,6 @@
     <string name="peers_network_error">Ошибка сети</string>
     <string name="action_start_service">Запустить</string>
     <string name="action_retry">Повторить</string>
-
     <!-- ======================== Serve & Funnel ======================== -->
     <string name="serve_title">Serve &amp; Funnel</string>
     <string name="serve_node_card_title">Этот узел</string>
@@ -762,7 +717,6 @@
     <string name="serve_export_save_file">Сохранить в файл</string>
     <string name="serve_cert_copied">Сертификат скопирован в буфер обмена!</string>
     <string name="serve_export_copy_clipboard">Копировать в буфер</string>
-
     <!-- ======================== Settings ======================== -->
     <string name="settings_title">Настройки</string>
     <string name="settings_root_sect_title">Root-режим и системная служба (ЭКСПЕРИМЕНТАЛЬНО)</string>
@@ -777,7 +731,6 @@
     <string name="settings_root_routing_check">Проверить маршрутизацию</string>
     <string name="settings_root_script_reinstalled">Скрипт службы успешно переустановлен</string>
     <string name="settings_backup_saved">Резервная копия сохранена</string>
-
     <!-- Backup compatibility -->
     <string name="settings_restore_app_too_new">Бэкап создан в TailSocks %1$s — это новее установленной %2$s. Обновите приложение, прежде чем восстанавливать.</string>
     <string name="settings_restore_format_too_new">Формат бэкапа версии %1$d, эта сборка понимает до %2$d. Обновите приложение, прежде чем восстанавливать.</string>
@@ -818,7 +771,6 @@
     <string name="settings_taildrop_folder_default">Используется внутренняя папка приложения</string>
     <string name="settings_autostart_title">Автозапуск при загрузке</string>
     <string name="settings_autostart_desc">Запускать TailSocks при включении устройства</string>
-
     <!-- Connection recovery -->
     <string name="settings_auto_reconnect_title">Автопереподключение</string>
     <string name="settings_auto_reconnect_desc">Перезапускать демон, если соединение не поднялось или отвалилось. Ожидание вашего входа сбоем не считается.</string>
@@ -828,7 +780,6 @@
     <string name="settings_root_dns_redirect_title">Системный DNS через MagicDNS</string>
     <string name="settings_root_dns_redirect_desc">Направляет весь DNS устройства в MagicDNS. Выключите, если системный резолвер должен остаться за другим VPN или DNS-фильтром.</string>
     <string name="settings_sect_socks5">SOCKS5-прокси (внутренний)</string>
-
     <!-- LAN access -->
     <string name="settings_sect_lan">Доступ из локальной сети</string>
     <string name="settings_lan_access_title">Открыть прокси в локальную сеть</string>
@@ -954,7 +905,6 @@
     <string name="widget_exit_node_format">Выход: %1$s</string>
     <string name="widget_toast_exit_disabled">Выходной узел отключен</string>
     <string name="widget_toast_exit_routing_format">Маршрутизация через %1$s</string>
-
     <!-- TUN Mode -->
     <string name="tun_notif_active">VPN-туннель активен</string>
     <string name="settings_sect_tun_mode">Настройки режима TUN</string>
@@ -971,10 +921,8 @@
     <string name="settings_tun_native_desc">Туннелем управляет сам tailscaled, а не hev-socks5-tunnel.\n• MagicDNS и split DNS идут напрямую от демона; MTU 1280.\n• Смена движка, а также включение или выключение выходного узла перезапускают демона (несколько секунд).\n• Соединение должно подняться до старта TUN.</string>
     <string name="settings_tun_ipv6_title">Весь IPv6 через туннель</string>
     <string name="settings_tun_ipv6_desc">Адреса тейлнета идут через туннель всегда; речь об остальном IPv6.\n• Включайте, только если выходной узел действительно умеет IPv6.\n• Иначе сайты с адресом IPv6 будут висеть вместо отката на IPv4.</string>
-
     <string name="main_tun_full_tunnel_desc">Весь трафик направляется через VPN</string>
     <string name="main_tun_split_tunnel_desc">Трафик подсетей Tailscale направляется через VPN</string>
-
     <string name="settings_tab_byedpi">Обход DPI</string>
     <string name="settings_byedpi_enable">Включить обход ByeByeDPI</string>
     <string name="settings_byedpi_flags">Флаги ByeByeDPI</string>
@@ -985,12 +933,10 @@
     <string name="settings_proxy_import_error">Неверный формат ссылки прокси</string>
     <string name="settings_proxy_copy_btn">Копировать</string>
     <string name="settings_proxy_copied">Конфигурация прокси скопирована в буфер обмена!</string>
-
     <string name="main_logged_out_title">Требуется авторизация</string>
     <string name="main_logged_out_desc">Устройство не подключено к Tailscale. Если вы находитесь в заблокированной сети, настройте Обход DPI или Прокси перед входом.</string>
     <string name="main_logged_out_btn_login">Войти в аккаунт</string>
     <string name="main_logged_out_authkey_label">Ключ авторизации (tskey-auth-…)</string>
-
     <string name="first_start_welcome_title">Добро пожаловать в TailSocks</string>
     <string name="first_start_welcome_desc">Легкий и эффективный клиент для сети Tailscale. Готов к простому подключению ваших устройств.</string>
     <string name="first_start_how_title">Как это работает</string>
@@ -1003,7 +949,7 @@
     <string name="first_start_btn_back">Назад</string>
     <string name="first_start_btn_finish">Начать работу</string>
     <string name="first_start_key_oauth_hint_title">Вход по ключу или OAuth</string>
-    <string name="first_start_key_oauth_hint_desc">Если стандартный вход в браузере не открывается или кнопка входа по ключу не отображается на веб-странице (она может появляться не сразу), используйте Auth Key или OAuth. Их можно настроить в Настройках -> вкладка Профиль.</string>
+    <string name="first_start_key_oauth_hint_desc">Если стандартный вход в браузере не открывается или кнопка входа по ключу не отображается на веб-странице (она может появляться не сразу), используйте Auth Key или OAuth. Их можно настроить в Настройках -&gt; вкладка Профиль.</string>
     <string name="first_start_select_lang">Выберите язык интерфейса</string>
     <string name="first_start_mode_proxy_title">Режим Прокси (SOCKS5)</string>
     <string name="first_start_mode_proxy_desc">Работает в фоне без прав VPN. Экономит батарею, но требует настройки прокси в других приложениях.</string>
@@ -1023,7 +969,6 @@
     <string name="settings_show_onboarding_desc">Перезапустить процесс настройки и Onboarding при первом запуске</string>
     <string name="first_start_permissions_title">Разрешения и права</string>
     <string name="first_start_permissions_desc">Предоставьте необходимые системные разрешения для стабильной фоновой работы.</string>
-
     <string name="settings_proxy_preset_save_title">Сохранить пресет прокси</string>
     <string name="settings_proxy_preset_name_label">Название пресета</string>
     <string name="settings_proxy_preset_save_btn">Сохранить</string>
@@ -1031,12 +976,10 @@
     <string name="settings_byedpi_warning_override">Памятка: Включение ByeByeDPI заменит настройки Control Proxy (прокси панели управления) на свой собственный локальный прокси.</string>
     <string name="settings_byedpi_ipv6_disabled">Принудительный IPv4 (Отключить IPv6)</string>
     <string name="settings_byedpi_ipv6_disabled_desc">Принудительно направлять трафик ByeDPI только через IPv4 для предотвращения сброса соединений на IPv6-адресах.</string>
-
     <string name="main_conn_issue_title">Проблема с подключением</string>
     <string name="main_conn_issue_desc">Похоже, возникли проблемы с подключением к серверу. Если сервер координации заблокирован, настройте обход через собственный прокси или включите ByeByeDPI.</string>
     <string name="main_conn_issue_btn_proxy">Настроить прокси</string>
     <string name="main_logged_out_btn_stop_short">Остановить</string>
-
     <string name="onboarding_perm_notif_title">Разрешить Уведомления</string>
     <string name="onboarding_perm_grant">Выдать</string>
     <string name="onboarding_perm_battery_title">Игнорировать батарею</string>
@@ -1044,7 +987,6 @@
     <string name="onboarding_perm_battery_configure">Настроить</string>
     <string name="onboarding_perm_battery_toast">Найдите TailSocks и отключите оптимизацию</string>
     <string name="onboarding_perm_battery_error">Не удалось открыть настройки</string>
-
     <string name="settings_root_kill_daemon_title">Завершать Root-демон при остановке</string>
     <string name="settings_root_kill_daemon_desc">Отправлять сигнал завершения (SIGTERM/SIGKILL) процессу libtailscale.so при клике на кнопку «Отключить».</string>
     <string name="settings_root_warning_dialog_title">Внимание: Экспериментальный режим</string>
@@ -1052,7 +994,6 @@
     <string name="settings_root_warning_dialog_confirm">Понятно, включить</string>
     <string name="settings_root_warning_dialog_cancel">Отмена</string>
     <string name="settings_root_banner_warning">ЭКСПЕРИМЕНТАЛЬНЫЙ РЕЖИМ\nRoot-режим находится в стадии разработки. Автор bropines еще не все проверил и отлаживает этот режим.</string>
-
     <string name="settings_automation_title">Tasker и автоматизация</string>
     <string name="settings_automation_enable_title">Разрешить внешнюю автоматизацию</string>
     <string name="settings_automation_enable_desc">Фоновое управление через Broadcast Intents (Tasker, MacroDroid, ADB)</string>
@@ -1063,14 +1004,12 @@
     <string name="settings_automation_generate_token">Сгенерировать</string>
     <string name="settings_automation_copy_token">Копировать</string>
     <string name="settings_automation_token_copied">Токен скопирован в буфер обмена</string>
-
     <string name="settings_show_changelog_title">Показывать «Что нового» после обновления</string>
     <string name="settings_show_changelog_desc">Показывать список изменений один раз после обновления приложения</string>
     <string name="whats_new_title">Что нового в %1$s</string>
     <string name="whats_new_full_changelog">Полный список изменений</string>
     <string name="whats_new_unavailable">Не удалось загрузить список изменений.</string>
     <string name="main_about_whats_new">Что нового</string>
-
     <!-- Строки, ранее зашитые в Kotlin -->
     <string name="settings_root_mode_enabled_toast">Root-режим включён</string>
     <string name="settings_root_mode_disabled_toast">Root-режим выключен</string>
