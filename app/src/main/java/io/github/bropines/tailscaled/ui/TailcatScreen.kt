@@ -612,6 +612,9 @@ private fun ConnectionEditorSheet(
     val portsError = (problem as? TailcatConnections.Problem.Ports)?.detail
     val socksError = problem == TailcatConnections.Problem.Socks
     val clash = problem as? TailcatConnections.Problem.Clash
+    // A clash shows under the field whose port it is.
+    val socksClash = clash?.takeIf { it.port == socks.trim().toIntOrNull() }
+    val portsClash = clash?.takeIf { socksClash == null }
     val canSave = name.isNotBlank() && address.isNotBlank() && (ports.isNotBlank() || socks.isNotBlank()) && problem == null
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
@@ -683,12 +686,12 @@ private fun ConnectionEditorSheet(
                 label = { Text(stringResource(R.string.tailcat_ports)) },
                 placeholder = { Text("8080, 18080:80") },
                 singleLine = true,
-                isError = portsError != null || clash != null,
+                isError = portsError != null || portsClash != null,
                 supportingText = {
                     Text(
                         when {
                             portsError != null -> stringResource(R.string.tailcat_err_ports, portsError)
-                            clash != null -> stringResource(R.string.tailcat_err_port_clash, clash.port, clash.name)
+                            portsClash != null -> stringResource(R.string.tailcat_err_port_clash, portsClash.port, portsClash.name)
                             else -> stringResource(R.string.tailcat_ports_hint)
                         }
                     )
@@ -702,10 +705,13 @@ private fun ConnectionEditorSheet(
                 label = { Text(stringResource(R.string.tailcat_socks)) },
                 placeholder = { Text("1080") },
                 singleLine = true,
-                isError = socksError,
+                isError = socksError || socksClash != null,
                 supportingText = {
-                    if (socksError) Text(stringResource(R.string.tailcat_err_socks))
-                    else HelpText(stringResource(R.string.tailcat_socks_hint))
+                    when {
+                        socksError -> Text(stringResource(R.string.tailcat_err_socks))
+                        socksClash != null -> Text(stringResource(R.string.tailcat_err_port_clash, socksClash.port, socksClash.name))
+                        else -> HelpText(stringResource(R.string.tailcat_socks_hint))
+                    }
                 },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 shape = MaterialTheme.shapes.medium,
