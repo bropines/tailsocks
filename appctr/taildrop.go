@@ -197,7 +197,7 @@ type TaildropListener interface {
 	// forgets the transfer right after it, so a caller that only polls
 	// GetIncomingFilesJSON can miss it — react to Done here. An empty array
 	// would mean no transfer is in progress any more, but the bus does not
-	// deliver one under mask=4095 (see busStateSnapshot.IncomingFiles), so do
+	// deliver one under busWatchMask (see busStateSnapshot.IncomingFiles), so do
 	// not wait for it.
 	//
 	// Called from the bus goroutine with no Go locks held; do the UI work

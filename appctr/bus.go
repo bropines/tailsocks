@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -31,8 +32,14 @@ type BusNotify struct {
 	// Preferences
 	Prefs *BusPrefs `json:"Prefs,omitempty"`
 
-	// Full network map (sent on connect when NotifyInitialNetMap is set in mask)
+	// Full network map, from daemons before 1.104, which sent it on connect
+	// (NotifyInitialNetMap). 1.104 removed the field; InitialStatus replaces it.
 	NetMap *BusNetMap `json:"NetMap,omitempty"`
+
+	// The node's status on connect (NotifyInitialStatus), with every peer
+	// because the mask also asks for peer changes: the baseline that
+	// PeersChanged and SelfChange then update.
+	InitialStatus *BusStatus `json:"InitialStatus,omitempty"`
 
 	// Incremental peer updates
 	PeersChanged     []*BusPeer        `json:"PeersChanged,omitempty"`
@@ -116,6 +123,20 @@ type BusPeerPatch struct {
 	DERPHome *int            `json:"DERPHome,omitempty"`
 }
 
+// BusStatus mirrors the parts of ipnstate.Status the bus seeds from.
+type BusStatus struct {
+	Self           *BusPeer            `json:"Self,omitempty"`
+	TailscaleIPs   []string            `json:"TailscaleIPs,omitempty"`
+	MagicDNSSuffix string              `json:"MagicDNSSuffix,omitempty"`
+	CurrentTailnet *BusTailnet         `json:"CurrentTailnet,omitempty"`
+	Peer           map[string]*BusPeer `json:"Peer,omitempty"`
+}
+
+// BusTailnet mirrors ipnstate.TailnetStatus.
+type BusTailnet struct {
+	MagicDNSSuffix string `json:"MagicDNSSuffix,omitempty"`
+}
+
 // BusNetMap mirrors netmap.NetworkMap for DNS population.
 type BusNetMap struct {
 	MagicDNSSuffix string       `json:"MagicDNSSuffix,omitempty"`
@@ -171,7 +192,7 @@ type busStateSnapshot struct {
 	MagicDNSSuffix string
 	// IncomingFiles is the last non-nil Notify.IncomingFiles seen. It is NOT
 	// cleared when transfers finish: with NotifyRateLimit in the watch mask
-	// (mask=4095) an empty slice is not "notable" (ipn/ipnlocal/bus.go:244
+	// (busWatchMask) an empty slice is not "notable" (ipn/ipnlocal/bus.go:244
 	// needs len > 0) and mergeBoringNotifies never carries IncomingFiles, so an
 	// empty Notify never reaches us — and the daemon sends none after the final
 	// Done entry anyway (send.go: SendFileNotify, then the deferred Delete).
@@ -407,11 +428,22 @@ func startIPNBusListener(ctx context.Context, gen uint64) {
 
 // listenToBus opens the streaming LocalAPI connection and processes all Notify
 // messages until context cancellation or a fatal error.
+// busWatchMask is what the listener subscribes to (ipn.NotifyWatchOpt bits):
+// the initial state, prefs, engine updates, health, Taildrive shares,
+// outgoing files, suggested exit node and client version (bits 0–2, 4–7,
+// 9–11), then the initial status and peer changes with narrow patches (12,
+// 14, 15). Bits 3 (initial netmap) and 8 (rate limit) were dropped from
+// tailscaled 1.104, which refuses a subscription that asks for them —
+// "the NotifyRateLimit IPN bus subscription bit is no longer supported" —
+// and until this mask lost them the listener never connected at all: no
+// state, no health, the card stuck on a connection problem.
+const busWatchMask = 1<<0 | 1<<1 | 1<<2 | 1<<4 | 1<<5 | 1<<6 | 1<<7 | 1<<9 | 1<<10 | 1<<11 | 1<<12 | 1<<14 | 1<<15
+
 func listenToBus(ctx context.Context, tr *http.Transport) error {
 	client := http.Client{Transport: tr}
 
 	req, _ := http.NewRequestWithContext(ctx, "GET",
-		"http://local-tailscaled.sock/localapi/v0/watch-ipn-bus?mask=4095", nil)
+		"http://local-tailscaled.sock/localapi/v0/watch-ipn-bus?mask="+strconv.Itoa(busWatchMask), nil)
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
@@ -535,7 +567,33 @@ func applyNotifyLocked(msg *BusNotify) {
 		updateNodeCacheFromPeer(msg.SelfChange)
 	}
 
-	// Full NetMap
+	// The baseline on connect: self, its addresses, the MagicDNS suffix and
+	// every peer's name, for the MagicDNS cache.
+	if st := msg.InitialStatus; st != nil {
+		suffix := st.MagicDNSSuffix
+		if suffix == "" && st.CurrentTailnet != nil {
+			suffix = st.CurrentTailnet.MagicDNSSuffix
+		}
+		if suffix != "" {
+			setMagicDNSSuffix(strings.ToLower(strings.Trim(suffix, ".")))
+		}
+		nodes := 0
+		if st.Self != nil {
+			busState.Self = st.Self
+			busState.TailscaleIPs = st.TailscaleIPs
+			if updateNodeCacheFromPeer(st.Self) {
+				nodes++
+			}
+		}
+		for _, p := range st.Peer {
+			if updateNodeCacheFromPeer(p) {
+				nodes++
+			}
+		}
+		slog.Info("Bus: initial status", "nodes", nodes, "suffix", getMagicDNSSuffix())
+	}
+
+	// Full NetMap (daemons before 1.104)
 	if msg.NetMap != nil {
 		applyNetMapToDNSCache(msg.NetMap)
 		if msg.NetMap.SelfNode != nil {
@@ -555,7 +613,7 @@ func applyNotifyLocked(msg *BusNotify) {
 	}
 
 	// Incoming Taildrop transfers (direct mode). A nil field is "no update".
-	// An empty slice would mean "nothing in flight", but under mask=4095 it is
+	// An empty slice would mean "nothing in flight", but under busWatchMask it is
 	// never delivered (see busStateSnapshot.IncomingFiles), so in practice the
 	// snapshot only ever moves forward to the latest non-empty report.
 	if msg.IncomingFiles != nil {
