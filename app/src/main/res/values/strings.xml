@@ -608,7 +608,8 @@
     <string name="menu_dns" translatable="false">DNS</string>
     <string name="menu_netcheck">Network check</string>
     <string name="menu_settings">Settings</string>
-    <string name="menu_serve" translatable="false">Serve</string>
+    <string name="menu_serve" translatable="false">Serve &amp; TailCat</string>
+    <string name="serve_host_title" translatable="false">Serve &amp; TailCat</string>
 
     <!-- ======================== Network Diagnostics ======================== -->
     <string name="netcheck_title">Network check</string>

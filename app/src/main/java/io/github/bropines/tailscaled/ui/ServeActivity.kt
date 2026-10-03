@@ -30,7 +30,8 @@ import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -99,26 +100,55 @@ class ServeActivity : FragmentActivity() {
 }
 
 /**
- * Serve & Funnel and Tailcat behind one tile, a switch under the title: both
- * carry ports somewhere else — this node's to the tailnet and the internet,
- * or this device's to tailcat servers. Each keeps its own screen.
+ * A screen as a page of [ServeHost]: the host draws the title and the switch,
+ * and shows the page's top-bar actions while it is the current page.
+ */
+class ServePage(val actions: MutableState<@Composable RowScope.() -> Unit>)
+
+/**
+ * Serve & Funnel and TailCat behind one tile: both carry ports somewhere
+ * else — this node's to the tailnet and the internet, or this device's to
+ * and from tailcat. One title, a switch under it that follows a swipe, and
+ * each screen a page of its own.
  */
 @Composable
 fun ServeHost(startTab: Int, onBack: () -> Unit, activity: FragmentActivity? = null) {
-    var tab by rememberSaveable { mutableIntStateOf(startTab) }
-    val switcher: @Composable () -> Unit = {
-        SlidingSegmentedChips(
-            items = listOf(
-                SegmentedChipItem(stringResource(R.string.serve_title), Icons.Default.Public),
-                SegmentedChipItem(stringResource(R.string.tailcat_title), Icons.Default.Pets)
-            ),
-            selectedIndex = tab,
-            onOptionSelected = { tab = it },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
-        )
+    val pager = rememberPagerState(initialPage = startTab) { 2 }
+    val scope = rememberCoroutineScope()
+    val pages = remember { List(2) { ServePage(mutableStateOf({})) } }
+    PredictiveBackContainer(onBack = onBack, popsInAppState = false) {
+        Scaffold(
+            topBar = {
+                Column {
+                    AppTopBar(
+                        title = stringResource(R.string.serve_host_title),
+                        onBack = onBack,
+                        // Read here, so a page publishing its actions redraws only these.
+                        actions = { pages[pager.currentPage].actions.value(this) }
+                    )
+                    SlidingSegmentedChips(
+                        items = listOf(
+                            SegmentedChipItem(stringResource(R.string.serve_title), Icons.Default.Public),
+                            SegmentedChipItem(stringResource(R.string.tailcat_title), Icons.Default.Pets)
+                        ),
+                        selectedIndex = pager.currentPage,
+                        onOptionSelected = { scope.launch { pager.animateScrollToPage(it) } },
+                        positionOffset = pager.currentPage + pager.currentPageOffsetFraction,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                    )
+                }
+            }
+        ) { padding ->
+            HorizontalPager(
+                state = pager,
+                beyondViewportPageCount = 1,
+                modifier = Modifier.padding(padding).fillMaxSize()
+            ) { i ->
+                if (i == 0) ServeScreen(onBack = onBack, activity = activity, page = pages[0])
+                else TailcatScreen(onBack = onBack, page = pages[1])
+            }
+        }
     }
-    if (tab == 0) ServeScreen(onBack = onBack, activity = activity, header = switcher)
-    else TailcatScreen(onBack = onBack, header = switcher)
 }
 
 /** Whether something answers on a rule's target, as a plain TCP connect with a 1 s deadline. */
@@ -474,7 +504,7 @@ private fun newRuleTemplate(): ServeRule = ServeRule(
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, header: @Composable () -> Unit = {}) {
+fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: ServePage? = null) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
@@ -757,42 +787,35 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, header: 
         Toast.makeText(context, context.getString(R.string.serve_link_copied), Toast.LENGTH_SHORT).show()
     }
 
-    PredictiveBackContainer(
-        onBack = onBack,
-        // Back here only closes the Activity, so the container installs no callback and
-        // the platform animates across to the real screen underneath.
-        popsInAppState = false
-    ) {
-        Scaffold(
-            topBar = {
-                Column {
-                    AppTopBar(
-                        title = stringResource(R.string.serve_title),
-                        onBack = onBack,
-                        actions = {
-                            IconButton(onClick = { refresh() }) { Icon(Icons.Default.Refresh, stringResource(R.string.action_refresh)) }
-                            Box {
-                                IconButton(onClick = { menuOpen = true }) { Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.action_more)) }
-                                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.serve_cd_export_cert)) },
-                                        leadingIcon = { Icon(Icons.Default.Lock, null) },
-                                        enabled = caps.dnsName.isNotEmpty() && caps.certDomains.isNotEmpty(),
-                                        onClick = { menuOpen = false; showCertExportDialog = true }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.serve_cd_clear_all), color = MaterialTheme.colorScheme.error) },
-                                        leadingIcon = { Icon(Icons.Default.DeleteSweep, null, tint = MaterialTheme.colorScheme.error) },
-                                        enabled = rules.isNotEmpty(),
-                                        onClick = { menuOpen = false; showClearDialog = true }
-                                    )
-                                }
-                            }
-                        }
-                    )
-                    header()
+    // The top bar's actions: in a top bar of its own, or handed to ServeHost,
+    // which shows them while this page is the current one.
+    val actions: @Composable RowScope.() -> Unit = {
+                IconButton(onClick = { refresh() }) { Icon(Icons.Default.Refresh, stringResource(R.string.action_refresh)) }
+                Box {
+                    IconButton(onClick = { menuOpen = true }) { Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.action_more)) }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.serve_cd_export_cert)) },
+                            leadingIcon = { Icon(Icons.Default.Lock, null) },
+                            enabled = caps.dnsName.isNotEmpty() && caps.certDomains.isNotEmpty(),
+                            onClick = { menuOpen = false; showCertExportDialog = true }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.serve_cd_clear_all), color = MaterialTheme.colorScheme.error) },
+                            leadingIcon = { Icon(Icons.Default.DeleteSweep, null, tint = MaterialTheme.colorScheme.error) },
+                            enabled = rules.isNotEmpty(),
+                            onClick = { menuOpen = false; showClearDialog = true }
+                        )
+                    }
                 }
-            },
+    }
+    if (page != null) SideEffect { page.actions.value = actions }
+
+    val scaffold: @Composable () -> Unit = {
+        Scaffold(
+            topBar = { if (page == null) AppTopBar(title = stringResource(R.string.serve_title), onBack = onBack, actions = actions) },
+            // As a page the host's Scaffold has taken the system bars already.
+            contentWindowInsets = if (page != null) WindowInsets(0, 0, 0, 0) else ScaffoldDefaults.contentWindowInsets,
             floatingActionButton = {
                 // No rule can be written with the daemon down.
                 if (!daemonStopped) {
@@ -881,6 +904,10 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, header: 
             }
         }
     }
+    if (page != null) scaffold()
+    // Back here only closes the Activity, so the container installs no callback and
+    // the platform animates across to the real screen underneath.
+    else PredictiveBackContainer(onBack = onBack, popsInAppState = false) { scaffold() }
 
     editor?.let { state ->
         RuleEditorSheet(

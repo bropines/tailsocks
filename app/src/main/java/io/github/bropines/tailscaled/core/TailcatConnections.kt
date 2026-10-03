@@ -32,6 +32,9 @@ data class TailcatConnection(
     fun socksUrl(): String? = if (socks == 0) null else "socks5://$socksUser:$socksPass@127.0.0.1:$socks"
 }
 
+/** What a pasted address or tailcat command says about a connection; see [TailcatConnections.parseImport]. */
+data class TailcatImport(val address: String, val ports: String, val socks: Int?)
+
 /**
  * The configured tailcat connections, one JSON list in the global preferences.
  * Several run at once, one per server; they share the client key.
@@ -60,6 +63,42 @@ object TailcatConnections {
     }
 
     fun delete(context: Context, id: String) = save(context, load(context).filterNot { it.id == id })
+
+    /**
+     * Reads a tc… address out of pasted text and, when the text is a
+     * `tailcat forward` or `tailcat socks` command — what a server's card
+     * copies, one per line — the port mappings and the proxy's port. Null
+     * without a usable address.
+     */
+    fun parseImport(text: String): TailcatImport? {
+        var address: String? = null
+        val ports = mutableListOf<String>()
+        var socks: Int? = null
+        for (line in text.lines()) {
+            val tokens = line.trim().split(Regex("\\s+")).map { it.trim('"', '\'') }.filter { it.isNotEmpty() }
+            val here = tokens.firstOrNull { it.startsWith("tc") && runCatching { Appctr.tailcatCheckAddress(it) }.getOrDefault("?").isEmpty() }
+                ?: continue
+            if (address == null) address = here
+            if (here != address) continue
+            when {
+                "forward" in tokens -> tokens.dropWhile { it != here }.drop(1).filter { MAPPING.matches(it) }.forEach { ports += it }
+                "socks" in tokens -> {
+                    val i = tokens.indexOfFirst { it == "--listen" || it.startsWith("--listen=") }
+                    val listen = when {
+                        i < 0 -> null
+                        tokens[i].startsWith("--listen=") -> tokens[i].substringAfter('=')
+                        else -> tokens.getOrNull(i + 1)
+                    }
+                    // No --listen, or port 0, is "any free port" to the CLI; a card needs one.
+                    socks = listen?.substringAfterLast(':')?.toIntOrNull()?.takeIf { it in 1..65535 } ?: 1080
+                }
+            }
+        }
+        return address?.let { TailcatImport(it, ports.distinct().joinToString(", "), socks) }
+    }
+
+    /** A port mapping as `tailcat forward` takes it: port, local:remote, local:ip:port. */
+    private val MAPPING = Regex("""^\d+(:\d+)?$|^\d+:(\[[0-9a-fA-F:.]+]|[0-9.]+):\d+$""")
 
     fun setEnabled(context: Context, id: String, on: Boolean) =
         save(context, load(context).map { if (it.id == id) it.copy(enabled = on) else it })
@@ -162,6 +201,17 @@ object TailcatServer {
      * nearest relay, so it needs the network; blocking, call off the main thread.
      */
     fun create(context: Context): String = Appctr.tailcatServerCreateKey(keyFile(context).absolutePath)
+
+    /**
+     * What a computer runs to use this server, one command a line:
+     * `tailcat forward` for its ports, `tailcat socks` for its exit node. The
+     * import in a connection's editor reads the same lines back.
+     */
+    fun clientCommand(address: String, config: TailcatServerConfig): String = buildList {
+        val ports = TailcatConnections.specs(config.ports)
+        if (ports.isNotEmpty()) add("tailcat forward $address ${ports.joinToString(" ")}")
+        if (config.exitNode) add("tailcat socks --listen=127.0.0.1:1080 $address")
+    }.joinToString("\n").ifEmpty { address }
 
     /** Why the server could not start with [config], or null. Checked by the bridge's parsers. */
     fun problem(config: TailcatServerConfig): Problem? {

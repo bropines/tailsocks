@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="tailcat_title" translatable="false">Tailcat</string>
+    <string name="tailcat_title" translatable="false">TailCat</string>
     <string name="tailcat_intro">Forwards ports on this device to a tailcat server over WireGuard, and can run a SOCKS5 proxy through it — no VPN, no Tailscale account. Point an app at http://127.0.0.1:&lt;port&gt;, or at the proxy. On the other machine, tailcat serve &lt;port&gt; prints the address to add here; tailcat serve exit-node lets the proxy reach any address. Several connections run at once, one per server.</string>
     <string name="tailcat_heading_connections">Connections</string>
     <string name="tailcat_add">Add connection</string>
@@ -40,7 +40,7 @@
     <string name="tailcat_copy_key">Copy key</string>
     <string name="tailcat_copy_command">Copy the serve command</string>
     <string name="tailcat_copied">Copied</string>
-    <string name="tailcat_notif_title">Tailcat · %1$d running</string>
+    <string name="tailcat_notif_title">TailCat · %1$d running</string>
     <string name="tailcat_notif_starting">Starting…</string>
     <string name="tailcat_stop_all">Stop all</string>
     <string name="tailcat_err_address">Not a tailcat address</string>
@@ -76,6 +76,9 @@
     <string name="tailcat_server_tag_nobody">nobody allowed</string>
     <string name="tailcat_server_cd_start">Start the server</string>
     <string name="tailcat_server_cd_stop">Stop the server</string>
-    <string name="tailcat_share_address">Share address</string>
+    <string name="tailcat_share_address">Share the connect command</string>
     <string name="tailcat_copy_address">Copy address</string>
+    <string name="tailcat_server_copy_command">Copy the connect command</string>
+    <string name="tailcat_import">Paste</string>
+    <string name="tailcat_import_none">No tailcat address on the clipboard</string>
 </resources>

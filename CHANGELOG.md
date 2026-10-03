@@ -6,8 +6,8 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Added
 
-- Tailcat: forward local ports to tailcat servers, or run a SOCKS5 proxy through one, without a VPN or a Tailscale account — the second side of the Serve tile. Several connections at once, a client key for `--allow`, the path (direct or relay) on each card, the output in Logs under TAILCAT.
-- Tailcat server: this phone hands out its ports, or acts as an exit node, to tailcat clients it lets in by key; a fixed address. What was switched on in Tailcat starts and stops with the core.
+- Tailcat: forward local ports to tailcat servers, or run a SOCKS5 proxy through one, without a VPN or a Tailscale account — the Serve & TailCat tile, a swipe away from Serve & Funnel. Several connections at once, a client key for `--allow`, the path (direct or relay) on each card, the output in Logs under TAILCAT.
+- Tailcat server: this phone hands out its ports, or acts as an exit node, to tailcat clients it lets in by key; a fixed address, and a connect command to copy or share that another TailSocks pastes into a new connection. What was switched on in Tailcat starts and stops with the core.
 
 ### Changed
 

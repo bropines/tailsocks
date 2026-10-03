@@ -1508,7 +1508,7 @@ fun MainScreen(
                     MenuEntry(stringResource(R.string.menu_dns), Icons.Default.Dns) { context.startActivity(Intent(context, DnsActivity::class.java)) },
                     MenuEntry(stringResource(R.string.menu_netcheck), Icons.Default.NetworkCheck) { context.startActivity(Intent(context, NetcheckActivity::class.java)) },
                     MenuEntry(stringResource(R.string.menu_settings), Icons.Default.Settings) { context.startActivity(Intent(context, SettingsActivity::class.java)) },
-                    MenuEntry(stringResource(R.string.menu_serve), Icons.Default.Public) { context.startActivity(Intent(context, ServeActivity::class.java)) }
+                    MenuEntry(stringResource(R.string.menu_serve), Icons.Default.Public, Icons.Default.Pets) { context.startActivity(Intent(context, ServeActivity::class.java)) }
                 )
             )
         }
@@ -2550,7 +2550,8 @@ fun StatusCard(
 }
 
 /** One destination on the main screen. */
-data class MenuEntry(val title: String, val icon: ImageVector, val onClick: () -> Unit)
+/** A destination on the main screen; [icon2], when set, stands beside [icon] for a screen of two parts. */
+data class MenuEntry(val title: String, val icon: ImageVector, val icon2: ImageVector? = null, val onClick: () -> Unit)
 
 /**
  * The destinations, [columns] to a row.
@@ -2586,6 +2587,7 @@ fun MenuGrid(columns: Int, entries: List<MenuEntry>, cardHeight: Dp = 96.dp, mod
                     MenuCard(
                         title = entry.title,
                         icon = entry.icon,
+                        icon2 = entry.icon2,
                         modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = cardHeight),
                         onClick = entry.onClick
                     )
@@ -2600,7 +2602,7 @@ fun MenuGrid(columns: Int, entries: List<MenuEntry>, cardHeight: Dp = 96.dp, mod
 }
 
 @Composable
-fun MenuCard(title: String, icon: ImageVector, modifier: Modifier = Modifier, onClick: () -> Unit) {
+fun MenuCard(title: String, icon: ImageVector, modifier: Modifier = Modifier, icon2: ImageVector? = null, onClick: () -> Unit) {
     // Surface(onClick): the ripple is clipped to the rounded card. As a
     // clickable modifier ahead of the shape it drew a rectangle past the corners.
     Surface(
@@ -2618,7 +2620,10 @@ fun MenuCard(title: String, icon: ImageVector, modifier: Modifier = Modifier, on
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Icon(imageVector = icon, contentDescription = title, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Icon(imageVector = icon, contentDescription = title, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                if (icon2 != null) Icon(imageVector = icon2, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+            }
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = title,

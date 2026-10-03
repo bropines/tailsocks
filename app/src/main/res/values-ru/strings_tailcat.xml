@@ -39,7 +39,7 @@
     <string name="tailcat_copy_key">Скопировать ключ</string>
     <string name="tailcat_copy_command">Скопировать команду serve</string>
     <string name="tailcat_copied">Скопировано</string>
-    <string name="tailcat_notif_title">Tailcat · работает: %1$d</string>
+    <string name="tailcat_notif_title">TailCat · работает: %1$d</string>
     <string name="tailcat_notif_starting">Запуск…</string>
     <string name="tailcat_stop_all">Остановить все</string>
     <string name="tailcat_err_address">Это не адрес tailcat</string>
@@ -75,6 +75,9 @@
     <string name="tailcat_server_tag_nobody">никого не пускает</string>
     <string name="tailcat_server_cd_start">Запустить сервер</string>
     <string name="tailcat_server_cd_stop">Остановить сервер</string>
-    <string name="tailcat_share_address">Поделиться адресом</string>
+    <string name="tailcat_share_address">Поделиться командой подключения</string>
     <string name="tailcat_copy_address">Скопировать адрес</string>
+    <string name="tailcat_server_copy_command">Скопировать команду подключения</string>
+    <string name="tailcat_import">Вставить</string>
+    <string name="tailcat_import_none">В буфере нет адреса tailcat</string>
 </resources>

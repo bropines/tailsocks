@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,6 +35,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Autorenew
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.Router
 import androidx.compose.material.icons.filled.Share
@@ -55,6 +59,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -62,6 +67,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -120,7 +126,7 @@ private const val INLINE_OUTPUT_LINES = 12
  * PR #9 by seffs.
  */
 @Composable
-fun TailcatScreen(onBack: () -> Unit, header: @Composable () -> Unit = {}) {
+fun TailcatScreen(onBack: () -> Unit, page: ServePage? = null) {
     val context = LocalContext.current
     val inPreview = LocalInspectionMode.current
     val clipboard = LocalClipboardManager.current
@@ -182,24 +188,20 @@ fun TailcatScreen(onBack: () -> Unit, header: @Composable () -> Unit = {}) {
         }
     }
 
-    PredictiveBackContainer(onBack = onBack, popsInAppState = false) {
+    val actions: @Composable RowScope.() -> Unit = {
+        if (statuses.keys.any { running(it) } || serverOn) {
+            IconButton(onClick = { TailcatService.stopAll(context); serverConfig = TailcatServer.load(context) }) {
+                Icon(Icons.Default.StopCircle, stringResource(R.string.tailcat_stop_all))
+            }
+        }
+    }
+    if (page != null) SideEffect { page.actions.value = actions }
+
+    val scaffold: @Composable () -> Unit = {
         Scaffold(
-            topBar = {
-                Column {
-                    AppTopBar(
-                        title = stringResource(R.string.tailcat_title),
-                        onBack = onBack,
-                        actions = {
-                            if (statuses.keys.any { running(it) }) {
-                                IconButton(onClick = { TailcatService.stopAll(context) }) {
-                                    Icon(Icons.Default.StopCircle, stringResource(R.string.tailcat_stop_all))
-                                }
-                            }
-                        }
-                    )
-                    header()
-                }
-            },
+            topBar = { if (page == null) AppTopBar(title = stringResource(R.string.tailcat_title), onBack = onBack, actions = actions) },
+            // As a page the host's Scaffold has taken the system bars already.
+            contentWindowInsets = if (page != null) WindowInsets(0, 0, 0, 0) else ScaffoldDefaults.contentWindowInsets,
             floatingActionButton = {
                 FloatingActionButton(onClick = {
                     editor = TailcatConnection(name = context.getString(R.string.tailcat_name_default, connections.size + 1))
@@ -265,6 +267,7 @@ fun TailcatScreen(onBack: () -> Unit, header: @Composable () -> Unit = {}) {
             }
         }
     }
+    if (page != null) scaffold() else PredictiveBackContainer(onBack = onBack, popsInAppState = false) { scaffold() }
 
     editor?.let { initial ->
         ConnectionEditorSheet(
@@ -580,6 +583,7 @@ private fun ConnectionEditorSheet(
     onSave: (TailcatConnection) -> Unit
 ) {
     val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var name by remember { mutableStateOf(initial.name) }
     var address by remember { mutableStateOf(initial.address) }
@@ -621,7 +625,29 @@ private fun ConnectionEditorSheet(
                 .navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(stringResource(if (isNew) R.string.tailcat_new else R.string.tailcat_edit), style = MaterialTheme.typography.titleLarge)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(if (isNew) R.string.tailcat_new else R.string.tailcat_edit),
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f)
+                )
+                // An address, or the commands a server's card copies: address,
+                // ports and proxy in one go.
+                TextButton(onClick = {
+                    val parsed = clipboard.getText()?.text?.let { TailcatConnections.parseImport(it) }
+                    if (parsed == null) {
+                        Toast.makeText(context, context.getString(R.string.tailcat_import_none), Toast.LENGTH_SHORT).show()
+                    } else {
+                        address = parsed.address
+                        if (parsed.ports.isNotEmpty()) ports = parsed.ports
+                        parsed.socks?.let { socks = it.toString() }
+                    }
+                }) {
+                    Icon(Icons.Default.ContentPaste, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.tailcat_import))
+                }
+            }
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
@@ -720,6 +746,9 @@ private fun ServerCard(
     val scheme = MaterialTheme.colorScheme
     val failed = status?.state == "failed" || status?.state == "error"
     val serving = status?.state == "serving"
+    // Hidden, as in a connection's editor: with "let in anyone" the address
+    // is all a client needs.
+    var showAddress by remember { mutableStateOf(false) }
     val (container, tint) = when {
         failed -> scheme.errorContainer to scheme.onErrorContainer
         serving -> scheme.primaryContainer to scheme.onPrimaryContainer
@@ -772,17 +801,26 @@ private fun ServerCard(
                     }
                 )
             }
-            SelectionContainer {
-                Text(
-                    address,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp,
-                    lineHeight = 15.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    color = scheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp, end = 10.dp)
-                )
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+                SelectionContainer(Modifier.weight(1f)) {
+                    Text(
+                        if (showAddress) address else "tc" + "•".repeat(24),
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        color = scheme.onSurfaceVariant
+                    )
+                }
+                IconButton(onClick = { showAddress = !showAddress }, modifier = Modifier.padding(end = 6.dp)) {
+                    Icon(
+                        if (showAddress) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                        stringResource(if (showAddress) R.string.tailcat_hide_address else R.string.tailcat_show_address),
+                        modifier = Modifier.size(20.dp),
+                        tint = scheme.onSurfaceVariant
+                    )
+                }
             }
             Spacer(Modifier.height(8.dp))
             Row(
@@ -807,7 +845,11 @@ private fun ServerCard(
                 CardAction(Icons.Default.Autorenew, stringResource(R.string.tailcat_server_new_address), onClick = onNewAddress)
                 Spacer(Modifier.weight(1f))
                 CardAction(Icons.Default.Terminal, stringResource(R.string.tailcat_full_output), onClick = onLogs)
-                CardAction(Icons.Default.Share, stringResource(R.string.tailcat_share_address), onClick = { onShare(address) })
+                // The commands, not the bare address: a computer runs them as
+                // they are, another TailSocks imports them in a connection's editor.
+                val command = TailcatServer.clientCommand(address, config)
+                CardAction(Icons.Default.Share, stringResource(R.string.tailcat_share_address), onClick = { onShare(command) })
+                CardAction(Icons.Default.Code, stringResource(R.string.tailcat_server_copy_command), onClick = { onCopy(command) })
                 CardAction(Icons.Default.ContentCopy, stringResource(R.string.tailcat_copy_address), onClick = { onCopy(address) })
                 CardAction(Icons.Default.Edit, stringResource(R.string.action_edit), onClick = onEdit)
             }
