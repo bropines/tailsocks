@@ -17,7 +17,8 @@ import (
 //
 //	TC_BIN=/path/to/tailcat go test -ldflags=-checklinkname=0 -run TestTailcatLive -v .
 //
-// It covers a server that starts after the client, forwarding, the SOCKS5
+// It covers a server that starts after the client, forwarding, a server
+// that restarts under a running client, the SOCKS5
 // proxy and its password, the shared log, and a client key the server's
 // --allow leaves out. Something must answer HTTP on
 // 127.0.0.1:28000 (python3 -m http.server 28000 --bind 127.0.0.1).
@@ -91,13 +92,24 @@ func TestTailcatLive(t *testing.T) {
 	waitState("a", "error", 40*time.Second)
 
 	srv = serve()
-	defer srv.Process.Kill()
+	defer func() { srv.Process.Kill() }()
 	if a2 := waitAddr(); a2 != addr {
 		t.Fatalf("server address changed")
 	}
 	waitState("a", "forwarding", 45*time.Second)
 	if got := get("18765"); !strings.HasPrefix(got, "200 ") {
 		t.Errorf("through the tunnel: %s", got)
+	}
+
+	// The server restarts with the same key and remembers no client: the
+	// next dial registers again (dialRetry) and goes through.
+	srv.Process.Kill()
+	srv.Wait()
+	srv = serve()
+	waitAddr()
+	time.Sleep(3 * time.Second)
+	if got := get("18765"); !strings.HasPrefix(got, "200 ") {
+		t.Errorf("after the server restarted: %s", got)
 	}
 	viaSOCKS := func(user, pass string) string {
 		d, err := proxy.SOCKS5("tcp", "127.0.0.1:18767", &proxy.Auth{User: user, Password: pass}, proxy.Direct)

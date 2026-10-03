@@ -60,6 +60,10 @@ const tcPathProbeEvery = time.Minute
 // tcRetryEvery is how often a server that did not answer is asked again.
 const tcRetryEvery = 30 * time.Second
 
+// tcDialTimeout bounds one dial through the tunnel; two WireGuard handshake
+// retransmits fit in it.
+const tcDialTimeout = 12 * time.Second
+
 type tcMapping struct {
 	listen string         // 127.0.0.1:<port>
 	port   uint16         // a port on the server, or
@@ -419,6 +423,7 @@ func (c *tcConn) sleep(ctx context.Context, d time.Duration) bool {
 }
 
 func (c *tcConn) probePath(ctx context.Context) {
+	c.remeow(ctx)
 	pctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	pr, err := c.cl.DiscoPing(pctx)
@@ -457,13 +462,12 @@ func (c *tcConn) accept(ctx context.Context, ln net.Listener, m tcMapping) {
 			defer c.wg.Done()
 			defer tcRecover("forward " + c.id)
 			defer c.untrack(conn)
-			var remote net.Conn
-			var err error
-			if m.target.IsValid() {
-				remote, err = c.cl.DialTCP(ctx, m.target)
-			} else {
-				remote, err = c.cl.DialTCPPort(ctx, m.port)
-			}
+			remote, err := c.dialRetry(ctx, func(ctx context.Context) (net.Conn, error) {
+				if m.target.IsValid() {
+					return c.cl.DialTCP(ctx, m.target)
+				}
+				return c.cl.DialTCPPort(ctx, m.port)
+			})
 			if err != nil {
 				if ctx.Err() == nil {
 					to := strconv.Itoa(int(m.port))
@@ -478,6 +482,32 @@ func (c *tcConn) accept(ctx context.Context, ln net.Listener, m tcMapping) {
 			tailcat.ProxyConns(conn, remote)
 		}()
 	}
+}
+
+// remeow sends the client's registration to the server again. tailcat
+// registers a client once, on first use ("meow"), and a server that has
+// restarted since — same address, nothing remembered — drops its packets
+// until it gets another. Ping sends one on every call and, once the first
+// was acknowledged, returns without waiting; the server acks duplicates.
+func (c *tcConn) remeow(ctx context.Context) {
+	pctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	c.cl.Ping(pctx)
+}
+
+// dialRetry dials, and once more after registering again when the first try
+// fails: the server may have restarted and forgotten this client.
+func (c *tcConn) dialRetry(ctx context.Context, dial func(context.Context) (net.Conn, error)) (net.Conn, error) {
+	dctx, cancel := context.WithTimeout(ctx, tcDialTimeout)
+	conn, err := dial(dctx)
+	cancel()
+	if err == nil || ctx.Err() != nil {
+		return conn, err
+	}
+	c.remeow(ctx)
+	dctx, cancel = context.WithTimeout(ctx, tcDialTimeout)
+	defer cancel()
+	return dial(dctx)
 }
 
 // track counts an accepted connection, for the card; untrack closes it and
@@ -529,12 +559,10 @@ func (c *tcConn) serveSOCKS(ctx context.Context, ln net.Listener, user, pass str
 		Username: user,
 		Password: pass,
 		Dialer: func(_ context.Context, network, addr string) (net.Conn, error) {
-			// socks5 gives a dial 5 s, WireGuard's handshake retransmit
-			// interval, so one lost handshake packet would fail it; the CLI
-			// allows 15.
-			dctx, cancel := context.WithTimeout(ctx, 15*time.Second)
-			defer cancel()
-			conn, err := c.dialSOCKS(dctx, network, addr)
+			// Not socks5's context: it gives a dial 5 s, WireGuard's handshake
+			// retransmit interval, so one lost handshake packet would fail it
+			// (the CLI allows 15); dialRetry bounds each try itself.
+			conn, err := c.dialRetry(ctx, func(ctx context.Context) (net.Conn, error) { return c.dialSOCKS(ctx, network, addr) })
 			if err != nil {
 				if ctx.Err() == nil {
 					c.dialFailed("socks5 "+network+" "+addr, err)
