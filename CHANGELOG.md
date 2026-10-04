@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Changed
+
+- The login page opens in a browser tab over the app (Custom Tabs) and closes by itself once the login goes through.
+
 ## [4.6.1] - 2026-10-03
 
 ### Added

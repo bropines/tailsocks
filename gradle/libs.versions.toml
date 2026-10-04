@@ -19,11 +19,13 @@ activity-compose = "1.8.2"
 lifecycle-runtime-ktx = "2.7.0"
 navigation = "2.9.6"
 documentfile = "1.0.1"
+browser = "1.10.0"
 glance = "1.1.1"
 ksp = "2.2.21-2.0.4"
 appfunctions = "1.0.0-alpha10"
 
 [libraries]
+androidx-browser = { group = "androidx.browser", name = "browser", version.ref = "browser" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version = "1.7.3" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }

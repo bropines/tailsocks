@@ -1,4 +1,7 @@
 package io.github.bropines.tailscaled.ui
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
+import io.github.bropines.tailscaled.ui.theme.findActivity
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.BuildConfig
 import android.content.pm.PackageInstaller
@@ -641,6 +644,8 @@ fun MainScreen(
             } else emptyList()
 
             if (isProcessAlive && backendState == "Running") {
+                // A login opened in a Custom Tab is done: back over the tab.
+                context.findActivity()?.let { LoginTab.finished(it) }
                 val wasLoggedIn = prefs.getBoolean("was_logged_in", false)
                 if (!wasLoggedIn) {
                     prefs.edit().putBoolean("was_logged_in", true).apply()
@@ -2658,6 +2663,9 @@ fun LoggedOutCard(
     val profilePrefs = remember(activeAccount) { context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE) }
     var enteredKey by remember { mutableStateOf(profilePrefs.getString("authkey", "") ?: "") }
     var showKeyInput by remember { mutableStateOf(false) }
+    // The login tab wears the app's colours (LoginTab).
+    val tabToolbar = MaterialTheme.colorScheme.surface.toArgb()
+    val tabDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
 
     Card(
         shape = MaterialTheme.shapes.large,
@@ -2708,7 +2716,10 @@ fun LoggedOutCard(
                 if (loginUrl != null) {
                     Button(
                         onClick = {
-                            try {
+                            val activity = context.findActivity()
+                            if (activity != null) {
+                                LoginTab.open(activity, loginUrl, tabToolbar, tabDark)
+                            } else try {
                                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(loginUrl)))
                             } catch (e: Exception) {
                                 Toast.makeText(context, context.getString(R.string.cannot_open_browser), Toast.LENGTH_SHORT).show()

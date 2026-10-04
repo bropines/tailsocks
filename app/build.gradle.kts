@@ -249,6 +249,8 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.documentfile)
+    // Custom Tabs: the login page opens over the app (ui/LoginTab.kt).
+    implementation(libs.androidx.browser)
     implementation(libs.navigation.compose)
     
     implementation("androidx.compose.material:material-icons-extended:1.7.0")
