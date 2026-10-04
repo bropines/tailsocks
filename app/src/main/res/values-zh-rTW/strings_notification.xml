@@ -6,30 +6,4 @@
   problem, Sign-in needed, the health titles) the card reuses those, so the two
   never disagree; only what the card says and the screen does not lives here.
 --><resources>
-    <!-- The channel, as the system settings list it. -->
-    <string name="notif_channel_status"></string>
-    <!-- The one action on the card. -->
-    <string name="notif_action_stop"></string>
-    <!-- Live states, read from the daemon on the refresh tick. -->
-    <string name="notif_connected"></string>
-    <string name="notif_connecting"></string>
-    <string name="notif_needs_login_text"></string>
-    <string name="notif_awaiting_approval"></string>
-    <string name="notif_awaiting_approval_text"></string>
-    <string name="notif_os_refused_text"></string>
-    <!-- Under "Connected" when no exit node is in use: how the tailnet reaches apps. -->
-    <string name="notif_mode_root"></string>
-    <string name="notif_mode_tun"></string>
-    <!-- %1$s is the SOCKS5 listen address, e.g. 127.0.0.1:1055. -->
-    <string name="notif_mode_proxy"></string>
-    <!-- The service's own moves: starting, stopping, recovering. -->
-    <string name="notif_stopping"></string>
-    <string name="notif_restarting"></string>
-    <string name="notif_reconnecting"></string>
-    <string name="notif_reconnecting_text"></string>
-    <string name="notif_waiting_network"></string>
-    <string name="notif_waiting_network_text"></string>
-    <string name="notif_connection_lost"></string>
-    <string name="notif_connection_lost_text"></string>
-    <string name="notif_root_failed"></string>
-</resources>
+    </resources>
