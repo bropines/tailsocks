@@ -8,6 +8,10 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 - The login page opens in a browser tab over the app (Custom Tabs) and closes by itself once the login goes through.
 
+### Fixed
+
+- Settings and permission rows with a folded description could be pressed only at their edges: a tap on the text unfolded it. Now only the ⓘ unfolds there.
+
 ## [4.6.1] - 2026-10-03
 
 ### Added

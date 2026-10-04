@@ -1257,7 +1257,7 @@ fun SettingsScreen(
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
                         )
-                        HelpText(desc, expanded = help)
+                        HelpText(desc, expanded = help, inClickableRow = true)
                     }
                     RadioButton(
                         selected = selected,

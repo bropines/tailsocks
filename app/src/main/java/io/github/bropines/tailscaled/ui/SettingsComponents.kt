@@ -1,5 +1,6 @@
 package io.github.bropines.tailscaled.ui
 
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.*
@@ -355,7 +356,7 @@ fun SettingsClickableItem(
         )
     ) {
         ListItem(
-            supportingContent = { HelpText(subtitle, color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.outline, expanded = help) },
+            supportingContent = { HelpText(subtitle, color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.outline, expanded = help, inClickableRow = true) },
             leadingContent = { Icon(icon, null, tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline) },
             trailingContent = { Icon(Icons.Default.ChevronRight, null, tint = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.outline) },
             colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
@@ -365,10 +366,16 @@ fun SettingsClickableItem(
 
 /**
  * Explanatory text that starts folded: [lines] lines at most, an ⓘ at the end
- * when there is more. Tapping the ⓘ unfolds it in place; a parent may drive
+ * when there is more. Tapping unfolds it in place; a parent may drive
  * [expanded] itself, for instance from a long press on its row. Screens used to
  * carry whole paragraphs under every control; this keeps the first sentence in
  * view and the rest one tap away.
+ *
+ * On its own the whole folded text is the tap target. Inside a row that is a
+ * button itself, pass [inClickableRow]: then only the ⓘ unfolds — Compose
+ * widens a small clickable to the minimum touch size, so it is easy to hit —
+ * and a tap on the text is the row's. Taking the whole text there left the
+ * row a few pixels of its own to be pressed.
  */
 @Composable
 fun HelpText(
@@ -381,6 +388,7 @@ fun HelpText(
     textAlign: TextAlign? = null,
     lineHeight: TextUnit = TextUnit.Unspecified,
     expanded: MutableState<Boolean> = remember(text) { mutableStateOf(false) },
+    inClickableRow: Boolean = false,
 ) {
     var cut by remember(text) { mutableStateOf(false) }
     val open = expanded.value
@@ -388,15 +396,17 @@ fun HelpText(
     // icon was a third of the minimum touch size, and "tap the explanation to
     // read it" is what the fold promises. No ripple — it is text, not a button.
     val expandLabel = stringResource(if (open) R.string.help_collapse else R.string.help_expand)
+    val toggle = Modifier.clickable(
+        enabled = cut || open,
+        interactionSource = remember { MutableInteractionSource() },
+        indication = null,
+        onClickLabel = expandLabel,
+        role = Role.Button
+    ) { expanded.value = !open }
     Row(
         modifier = modifier
             .animateContentSize()
-            .clickable(
-                enabled = cut || open,
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClickLabel = expandLabel
-            ) { expanded.value = !open },
+            .then(if (inClickableRow) Modifier else toggle),
         verticalAlignment = Alignment.Bottom
     ) {
         Text(
@@ -418,6 +428,7 @@ fun HelpText(
                 tint = color.copy(alpha = 0.7f),
                 modifier = Modifier
                     .padding(start = 4.dp, bottom = 1.dp)
+                    .then(if (inClickableRow) toggle else Modifier)
                     .size(16.dp)
             )
         }
@@ -457,7 +468,7 @@ fun SettingsSwitchItem(
         )
     ) {
         ListItem(
-            supportingContent = { HelpText(subtitle, color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.outline, expanded = help) },
+            supportingContent = { HelpText(subtitle, color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.outline, expanded = help, inClickableRow = true) },
             leadingContent = { Icon(icon, null, tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline) },
             trailingContent = { Switch(checked = checked, onCheckedChange = if (enabled) onCheckedChange else null, enabled = enabled) },
             colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
@@ -513,7 +524,8 @@ fun SettingsEditItem(
                     supporting,
                     lines = if (showsDescription) 2 else 1,
                     color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                    expanded = help
+                    expanded = help,
+                    inClickableRow = true
                 )
             },
             leadingContent = { Icon(icon, null, tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)) },

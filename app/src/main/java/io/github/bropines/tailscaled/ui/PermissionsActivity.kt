@@ -419,7 +419,7 @@ private fun PermissionRow(entry: PermEntry) {
             )
     ) {
         ListItem(
-            supportingContent = { HelpText(explanation, lines = 1, expanded = help) },
+            supportingContent = { HelpText(explanation, lines = 1, expanded = help, inClickableRow = true) },
             leadingContent = { Icon(entry.icon, null, tint = MaterialTheme.colorScheme.primary) },
             trailingContent = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
