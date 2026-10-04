@@ -55,8 +55,8 @@ Builds:
     sudo:
       - apt-get update
       - apt-get install -y make patch curl
-      # Bootstrap compiler for building Go from source, as com.tailscale.ipn does.
-      - apt-get install -y -t trixie-backports golang-go
+      # Bootstrap compiler for building Go from source (see GOROOT_BOOTSTRAP).
+      - apt-get install -y -t trixie-backports golang-1.27-go
     # After the build commands (the Go core) Gradle assembles the APK.
     gradle:
       - yes
@@ -73,8 +73,12 @@ Builds:
     # #if defined(__MSYS__) and its headers are off the Android include path, so
     # the reviewer's call: delete it before the build rather than ignore it.
     scandelete:
-      - app/src/main/jni/hev-socks5-tunnel/third-part/wintun
+      - app/src/main/jni/hev-socks5-tunnel/third-part/wintun/bin/wintun.dll
     build:
+      # Only the bootstrap compiler for the go srclib; the toolchain it builds
+      # does not depend on it. golang-go in trixie-backports was left pointing
+      # at the removed golang-1.26-go on 2026-10-04.
+      - export GOROOT_BOOTSTRAP=/usr/lib/go-1.27
       - pushd $$go$$/src
       - ./make.bash
       - popd
@@ -104,8 +108,8 @@ Builds:
     sudo:
       - apt-get update
       - apt-get install -y make patch curl
-      # Bootstrap compiler for building Go from source, as com.tailscale.ipn does.
-      - apt-get install -y -t trixie-backports golang-go
+      # Bootstrap compiler for building Go from source (see GOROOT_BOOTSTRAP).
+      - apt-get install -y -t trixie-backports golang-1.27-go
     # After the build commands (the Go core) Gradle assembles the APK.
     gradle:
       - yes
@@ -122,8 +126,12 @@ Builds:
     # #if defined(__MSYS__) and its headers are off the Android include path, so
     # the reviewer's call: delete it before the build rather than ignore it.
     scandelete:
-      - app/src/main/jni/hev-socks5-tunnel/third-part/wintun
+      - app/src/main/jni/hev-socks5-tunnel/third-part/wintun/bin/wintun.dll
     build:
+      # Only the bootstrap compiler for the go srclib; the toolchain it builds
+      # does not depend on it. golang-go in trixie-backports was left pointing
+      # at the removed golang-1.26-go on 2026-10-04.
+      - export GOROOT_BOOTSTRAP=/usr/lib/go-1.27
       - pushd $$go$$/src
       - ./make.bash
       - popd
@@ -153,8 +161,8 @@ Builds:
     sudo:
       - apt-get update
       - apt-get install -y make patch curl
-      # Bootstrap compiler for building Go from source, as com.tailscale.ipn does.
-      - apt-get install -y -t trixie-backports golang-go
+      # Bootstrap compiler for building Go from source (see GOROOT_BOOTSTRAP).
+      - apt-get install -y -t trixie-backports golang-1.27-go
     # After the build commands (the Go core) Gradle assembles the APK.
     gradle:
       - yes
@@ -171,8 +179,12 @@ Builds:
     # #if defined(__MSYS__) and its headers are off the Android include path, so
     # the reviewer's call: delete it before the build rather than ignore it.
     scandelete:
-      - app/src/main/jni/hev-socks5-tunnel/third-part/wintun
+      - app/src/main/jni/hev-socks5-tunnel/third-part/wintun/bin/wintun.dll
     build:
+      # Only the bootstrap compiler for the go srclib; the toolchain it builds
+      # does not depend on it. golang-go in trixie-backports was left pointing
+      # at the removed golang-1.26-go on 2026-10-04.
+      - export GOROOT_BOOTSTRAP=/usr/lib/go-1.27
       - pushd $$go$$/src
       - ./make.bash
       - popd
@@ -202,8 +214,8 @@ Builds:
     sudo:
       - apt-get update
       - apt-get install -y make patch curl
-      # Bootstrap compiler for building Go from source, as com.tailscale.ipn does.
-      - apt-get install -y -t trixie-backports golang-go
+      # Bootstrap compiler for building Go from source (see GOROOT_BOOTSTRAP).
+      - apt-get install -y -t trixie-backports golang-1.27-go
     # After the build commands (the Go core) Gradle assembles the APK.
     gradle:
       - yes
@@ -220,8 +232,12 @@ Builds:
     # #if defined(__MSYS__) and its headers are off the Android include path, so
     # the reviewer's call: delete it before the build rather than ignore it.
     scandelete:
-      - app/src/main/jni/hev-socks5-tunnel/third-part/wintun
+      - app/src/main/jni/hev-socks5-tunnel/third-part/wintun/bin/wintun.dll
     build:
+      # Only the bootstrap compiler for the go srclib; the toolchain it builds
+      # does not depend on it. golang-go in trixie-backports was left pointing
+      # at the removed golang-1.26-go on 2026-10-04.
+      - export GOROOT_BOOTSTRAP=/usr/lib/go-1.27
       - pushd $$go$$/src
       - ./make.bash
       - popd
