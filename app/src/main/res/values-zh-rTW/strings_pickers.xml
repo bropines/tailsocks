@@ -4,20 +4,4 @@
   for the Permissions screen. A file of its own so it lands without touching
   strings.xml; Android merges every values/*.xml into one table.
 --><resources>
-    <!-- A number of days, for the audit-log period and the key-expiry picker. -->
-    <plurals name="pickers_days">
-    </plurals>
-    <!-- Audit logs: how far back to fetch. -->
-    <string name="pickers_logs_period_title"></string>
-    <!-- Admin devices: sort order. The sheet title already says "sort", so these do not. -->
-    <string name="pickers_sort_name_az"></string>
-    <string name="pickers_sort_name_za"></string>
-    <string name="pickers_sort_last_seen"></string>
-    <string name="pickers_sort_update"></string>
-    <!-- Tailnet settings: who may join other tailnets. The API values are none, admin, member. -->
-    <string name="pickers_role_none"></string>
-    <string name="pickers_role_admin"></string>
-    <string name="pickers_role_member"></string>
-    <!-- Permissions: the folded note under a row whose state the system does not report. -->
-    <string name="perm_unknown_note"></string>
-</resources>
+    </resources>
