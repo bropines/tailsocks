@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Network diagnostics. Kept apart from strings.xml so work on this screen does
      not collide with edits there; Android merges every file in values/. --><resources>
-    </resources>
+    <string name="netcheck_home_derp">歸屬 DERP ： %1$s</string>
+    <string name="netcheck_home_derp_latency">歸屬 DERP ： %1$s · %2$d ms</string>
+    <string name="netcheck_no_home_derp">無歸屬 DERP</string>
+    <string name="netcheck_report_home_derp">歸屬 DERP： %1$s\n</string>
+    <string name="netcheck_report_no_home_derp">歸屬 DERP：❌ 無（僅直連）\n</string>
+    <string name="netcheck_starting_service">正在啟動服務…</string>
+</resources>
