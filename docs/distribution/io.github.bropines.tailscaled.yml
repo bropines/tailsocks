@@ -68,12 +68,12 @@ Builds:
       - go@go1.27.1
     # compileSdk 37 is "android-37.0"; gomobile wants an android-<integer>
     # platform for its android.jar; AGP 8.13 builds with build-tools 35.
-    prebuild: sdkmanager 'platforms;android-37.0' 'platforms;android-36' 'build-tools;35.0.0'
-    # hev-socks5-tunnel's Windows build ships wintun.dll; its code is under
-    # #if defined(__MSYS__) and its headers are off the Android include path, so
-    # the reviewer's call: delete it before the build rather than ignore it.
-    scandelete:
-      - app/src/main/jni/hev-socks5-tunnel/third-part/wintun/bin/wintun.dll
+    prebuild:
+      - sdkmanager 'platforms;android-37.0' 'platforms;android-36' 'build-tools;35.0.0'
+      # hev-socks5-tunnel's Windows build ships wintun.dll; on Android its code
+      # is under #if defined(__MSYS__). The scanner flags the DLL only as a
+      # warning, which consults scanignore but never scandelete, so it goes here.
+      - rm src/main/jni/hev-socks5-tunnel/third-part/wintun/bin/wintun.dll
     build:
       # Only the bootstrap compiler for the go srclib; the toolchain it builds
       # does not depend on it. golang-go in trixie-backports was left pointing
@@ -121,12 +121,12 @@ Builds:
       - go@go1.27.1
     # compileSdk 37 is "android-37.0"; gomobile wants an android-<integer>
     # platform for its android.jar; AGP 8.13 builds with build-tools 35.
-    prebuild: sdkmanager 'platforms;android-37.0' 'platforms;android-36' 'build-tools;35.0.0'
-    # hev-socks5-tunnel's Windows build ships wintun.dll; its code is under
-    # #if defined(__MSYS__) and its headers are off the Android include path, so
-    # the reviewer's call: delete it before the build rather than ignore it.
-    scandelete:
-      - app/src/main/jni/hev-socks5-tunnel/third-part/wintun/bin/wintun.dll
+    prebuild:
+      - sdkmanager 'platforms;android-37.0' 'platforms;android-36' 'build-tools;35.0.0'
+      # hev-socks5-tunnel's Windows build ships wintun.dll; on Android its code
+      # is under #if defined(__MSYS__). The scanner flags the DLL only as a
+      # warning, which consults scanignore but never scandelete, so it goes here.
+      - rm src/main/jni/hev-socks5-tunnel/third-part/wintun/bin/wintun.dll
     build:
       # Only the bootstrap compiler for the go srclib; the toolchain it builds
       # does not depend on it. golang-go in trixie-backports was left pointing
@@ -174,12 +174,12 @@ Builds:
       - go@go1.27.1
     # compileSdk 37 is "android-37.0"; gomobile wants an android-<integer>
     # platform for its android.jar; AGP 8.13 builds with build-tools 35.
-    prebuild: sdkmanager 'platforms;android-37.0' 'platforms;android-36' 'build-tools;35.0.0'
-    # hev-socks5-tunnel's Windows build ships wintun.dll; its code is under
-    # #if defined(__MSYS__) and its headers are off the Android include path, so
-    # the reviewer's call: delete it before the build rather than ignore it.
-    scandelete:
-      - app/src/main/jni/hev-socks5-tunnel/third-part/wintun/bin/wintun.dll
+    prebuild:
+      - sdkmanager 'platforms;android-37.0' 'platforms;android-36' 'build-tools;35.0.0'
+      # hev-socks5-tunnel's Windows build ships wintun.dll; on Android its code
+      # is under #if defined(__MSYS__). The scanner flags the DLL only as a
+      # warning, which consults scanignore but never scandelete, so it goes here.
+      - rm src/main/jni/hev-socks5-tunnel/third-part/wintun/bin/wintun.dll
     build:
       # Only the bootstrap compiler for the go srclib; the toolchain it builds
       # does not depend on it. golang-go in trixie-backports was left pointing
@@ -227,12 +227,12 @@ Builds:
       - go@go1.27.1
     # compileSdk 37 is "android-37.0"; gomobile wants an android-<integer>
     # platform for its android.jar; AGP 8.13 builds with build-tools 35.
-    prebuild: sdkmanager 'platforms;android-37.0' 'platforms;android-36' 'build-tools;35.0.0'
-    # hev-socks5-tunnel's Windows build ships wintun.dll; its code is under
-    # #if defined(__MSYS__) and its headers are off the Android include path, so
-    # the reviewer's call: delete it before the build rather than ignore it.
-    scandelete:
-      - app/src/main/jni/hev-socks5-tunnel/third-part/wintun/bin/wintun.dll
+    prebuild:
+      - sdkmanager 'platforms;android-37.0' 'platforms;android-36' 'build-tools;35.0.0'
+      # hev-socks5-tunnel's Windows build ships wintun.dll; on Android its code
+      # is under #if defined(__MSYS__). The scanner flags the DLL only as a
+      # warning, which consults scanignore but never scandelete, so it goes here.
+      - rm src/main/jni/hev-socks5-tunnel/third-part/wintun/bin/wintun.dll
     build:
       # Only the bootstrap compiler for the go srclib; the toolchain it builds
       # does not depend on it. golang-go in trixie-backports was left pointing
