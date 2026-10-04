@@ -62,4 +62,30 @@
         <item>Between the tap and the packet there are eleven of our own checks, and the packet still makes it first.</item>
         <item>Read this far? The line is over. The tunnel is not.</item>
     </string-array>
+    <string name="menu_console">終端</string>
+    <string name="menu_logs">日誌</string>
+    <string name="menu_files">檔案</string>
+    <string name="menu_netcheck">網路檢查</string>
+    <string name="menu_settings">設定</string>
+    <string name="serve_menu_copy_link">複製連結</string>
+    <string name="serve_menu_pause">暫停</string>
+    <string name="menu_peers">裝置</string>
+    <string name="main_status_active">已啟動</string>
+    <string name="main_status_starting">啟動中…</string>
+    <string name="main_status_please_wait">請稍等…</string>
+    <string name="main_status_active_desc">服務正在運行 · 點擊暫停</string>
+    <string name="main_status_starting_desc">正在啟動背景服務…</string>
+    <string name="main_status_active_root_desc">正由系統級隧道 tailscale0 路由 · 點擊暫停</string>
+    <string name="main_status_degraded">連線有問題</string>
+    <string name="main_status_degraded_desc">%1$s · 點擊暫停</string>
+    <string name="main_status_needs_login">需要登入</string>
+    <string name="main_status_needs_login_desc">在下方登入 · 點擊暫停</string>
+    <string name="main_status_state_on">啟動</string>
+    <string name="main_status_state_off">關閉</string>
+    <string name="main_status_action_stop">停止</string>
+    <string name="main_status_action_start">開始</string>
+    <string name="main_status_connecting">正在連線</string>
+    <string name="main_status_connecting_desc">正在等待 tailnet 網路地圖</string>
+    <string name="main_status_active_root_yielded_desc">僅啟動 Tailnet — 另一個 VPN 在設備運行 · 點擊暫停</string>
+    <string name="main_status_active_root_shared_desc">將另一個 VPN 應用退出 · 點擊暫停</string>
 </resources>
