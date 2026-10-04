@@ -1,0 +1,1320 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false"></string>
+    <!-- Quick Settings tile -->
+    <string name="tile_state_connecting"></string>
+    <string name="tile_state_disconnecting"></string>
+    <!-- Main screen -->
+    <string name="status_stopped"></string>
+    <string name="status_running"></string>
+    <string name="action_stop"></string>
+    <string name="tap_to_start"></string>
+    <!-- Settings Items -->
+
+    <string name="extra_args_desc"></string>
+    <!-- Logs -->
+    <string name="logs_title"></string>
+    <string name="logs_copied"></string>
+    <!-- Widget Descriptions -->
+    <string name="widget_desc_service"></string>
+    <string name="widget_desc_exit"></string>
+    <string name="widget_desc_stats"></string>
+    <string name="widget_desc_serve"></string>
+    <!-- Common actions -->
+    <string name="action_cancel"></string>
+    <string name="action_save"></string>
+    <string name="action_delete"></string>
+    <string name="action_add"></string>
+    <string name="action_close"></string>
+    <string name="action_github"></string>
+    <string name="issue_report_action"></string>
+    <string name="issue_list_action"></string>
+    <string name="issue_report_title"></string>
+    <string name="issue_report_intro"></string>
+    <string name="issue_report_gathering"></string>
+    <string name="issue_report_copy"></string>
+    <string name="issue_report_share"></string>
+    <string name="issue_report_open"></string>
+    <string name="issue_report_copied"></string>
+    <string name="issue_report_template"></string>
+    <string name="action_clear"></string>
+    <string name="action_rename"></string>
+    <string name="action_confirm"></string>
+    <string name="action_generate"></string>
+    <string name="action_revoke"></string>
+    <string name="action_approve"></string>
+    <string name="action_suspend"></string>
+    <string name="action_restore"></string>
+    <string name="action_edit"></string>
+    <string name="action_copy"></string>
+    <string name="action_open"></string>
+    <string name="action_send"></string>
+    <string name="action_back"></string>
+    <string name="action_more"></string>
+    <string name="action_disconnect"></string>
+    <string name="action_unlock"></string>
+    <!-- Common placeholders / empty states -->
+    <string name="copied_to_clipboard"></string>
+    <string name="error_generic"></string>
+    <string name="cannot_open_browser"></string>
+    <!-- ======================== ADMIN PANEL ======================== -->
+
+    <!-- Admin: Auth lock screen -->
+    <string name="admin_locked_title"></string>
+    <string name="admin_locked_desc"></string>
+    <string name="admin_biometric_title"></string>
+    <string name="admin_biometric_subtitle"></string>
+    <string name="admin_cd_locked"></string>
+    <!-- Admin: Dashboard -->
+    <string name="admin_console_title"></string>
+    <string name="admin_tab_devices"></string>
+    <string name="admin_tab_dns" translatable="false"></string>
+    <string name="admin_tab_users"></string>
+    <string name="admin_tab_services"></string>
+    <string name="admin_tab_webhooks"></string>
+    <string name="admin_tab_logs"></string>
+    <string name="admin_tab_web_links"></string>
+    <string name="admin_tab_settings"></string>
+    <string name="admin_cd_refresh"></string>
+    <string name="admin_cd_proxy_settings"></string>
+    <string name="admin_cd_disconnect_api"></string>
+    <!-- Admin: Disconnect dialog -->
+    <string name="admin_disconnect_title"></string>
+    <string name="admin_disconnect_text"></string>
+    <!-- Admin: Generated key dialog -->
+    <string name="admin_key_generated_title"></string>
+    <string name="admin_key_generated_text"></string>
+    <string name="admin_key_copy_close"></string>
+    <!-- Admin: Setup screens -->
+    <string name="admin_setup_title"></string>
+    <string name="admin_setup_no_tailnet_title"></string>
+    <string name="admin_setup_no_tailnet_desc"></string>
+    <string name="admin_setup_tailnet_label"></string>
+    <string name="admin_setup_tailnet_placeholder"></string>
+    <string name="admin_setup_tailnet_required"></string>
+    <string name="admin_setup_set_tailnet_name"></string>
+    <string name="admin_setup_integration_title"></string>
+    <string name="admin_setup_active_tailnet"></string>
+    <string name="admin_setup_tab_token"></string>
+    <string name="admin_setup_tab_oauth"></string>
+    <string name="admin_setup_token_label"></string>
+    <string name="admin_setup_token_placeholder" translatable="false"></string>
+    <string name="admin_setup_client_id_label"></string>
+    <string name="admin_setup_client_id_placeholder"></string>
+    <string name="admin_setup_client_secret_label"></string>
+    <string name="admin_setup_client_secret_placeholder" translatable="false"></string>
+    <string name="admin_setup_token_required"></string>
+    <string name="admin_setup_oauth_required"></string>
+    <string name="admin_setup_save_connect"></string>
+    <!-- Admin: Proxy settings -->
+    <string name="admin_proxy_settings_title"></string>
+    <string name="admin_proxy_config_title"></string>
+    <string name="admin_proxy_mode_label"></string>
+    <string name="admin_proxy_control_plane"></string>
+    <string name="admin_proxy_direct"></string>
+    <string name="admin_proxy_local_socks5"></string>
+    <string name="admin_proxy_custom_socks5"></string>
+    <string name="admin_proxy_control_plane_desc"></string>
+    <string name="admin_proxy_socks5_host"></string>
+    <string name="admin_proxy_socks5_host_placeholder"></string>
+    <string name="admin_proxy_socks5_port"></string>
+    <string name="admin_proxy_socks5_port_placeholder"></string>
+    <string name="admin_proxy_username"></string>
+    <string name="admin_proxy_username_optional"></string>
+    <string name="admin_proxy_password"></string>
+    <string name="admin_proxy_password_optional"></string>
+    <string name="admin_proxy_local_desc"></string>
+    <string name="admin_proxy_local_desc_setup"></string>
+    <string name="admin_proxy_socks5_required"></string>
+    <!-- Admin: Devices tab -->
+    <string name="admin_devices_count"></string>
+    <string name="admin_devices_no_devices"></string>
+    <string name="admin_devices_cd_sort"></string>
+    <string name="admin_devices_status_expired"></string>
+    <string name="admin_devices_status_pending"></string>
+    <!-- Admin: Device detail bottom sheet -->
+    <string name="admin_device_btn_rename"></string>
+    <string name="admin_device_btn_tags"></string>
+    <string name="admin_device_detail_full_name"></string>
+    <string name="admin_device_detail_ip"></string>
+    <string name="admin_device_detail_os"></string>
+    <string name="admin_device_detail_os_unknown"></string>
+    <string name="admin_device_detail_owner"></string>
+    <string name="admin_device_detail_owner_na"></string>
+    <string name="admin_device_detail_key_expiry"></string>
+    <string name="admin_device_detail_key_expiry_disabled"></string>
+    <string name="admin_device_detail_authorization"></string>
+    <string name="admin_device_detail_authorization_approved"></string>
+    <string name="admin_device_detail_authorization_required"></string>
+    <string name="admin_device_detail_tags"></string>
+    <!-- Admin: Device update banner -->
+    <string name="admin_device_update_available"></string>
+    <string name="admin_device_update_desc"></string>
+    <string name="admin_device_update_desc_na"></string>
+    <!-- Admin: Device key expiry card -->
+    <string name="admin_device_disable_key_expiry"></string>
+    <string name="admin_device_disable_key_expiry_desc"></string>
+    <!-- Admin: Device routing card -->
+    <string name="admin_device_routing_title"></string>
+    <string name="admin_device_no_routes"></string>
+    <string name="admin_device_exit_node_label"></string>
+    <string name="admin_device_exit_node_desc"></string>
+    <string name="admin_device_no_subnet_routes"></string>
+    <string name="admin_device_advertised_subnets"></string>
+    <!-- Admin: Device admin actions -->
+    <string name="admin_device_authorize"></string>
+    <string name="admin_device_deauthorize"></string>
+    <string name="admin_device_expire_key"></string>
+    <string name="admin_device_delete"></string>
+    <!-- Admin: Device rename dialog -->
+    <string name="admin_device_rename_title"></string>
+    <string name="admin_device_rename_label"></string>
+    <!-- Admin: Device tags dialog -->
+    <string name="admin_device_tags_title"></string>
+    <string name="admin_device_tags_available"></string>
+    <string name="admin_device_tags_custom_label"></string>
+    <string name="admin_device_tags_custom_placeholder" translatable="false"></string>
+    <string name="admin_device_tags_prefix_hint"></string>
+    <string name="admin_device_tags_update"></string>
+    <!-- Admin: Device expire key confirm -->
+    <string name="admin_device_expire_title"></string>
+    <string name="admin_device_expire_text"></string>
+    <string name="admin_device_expire_confirm"></string>
+    <!-- Admin: Device delete confirm -->
+    <string name="admin_device_delete_title"></string>
+    <string name="admin_device_delete_text"></string>
+    <!-- Admin: Device toast messages -->
+    <string name="admin_device_renamed"></string>
+    <string name="admin_device_authorized"></string>
+    <string name="admin_device_deauthorized"></string>
+    <string name="admin_device_key_expired"></string>
+    <string name="admin_device_deleted"></string>
+    <string name="admin_device_tags_updated"></string>
+    <string name="admin_device_key_expiry_updated"></string>
+    <!-- Admin: DNS tab -->
+    <string name="admin_dns_magic_dns_title" translatable="false"></string>
+    <string name="admin_dns_magic_dns_desc"></string>
+    <string name="admin_dns_global_ns_title"></string>
+    <string name="admin_dns_no_custom_ns"></string>
+    <string name="admin_dns_ns_placeholder"></string>
+    <string name="admin_dns_apply_ns"></string>
+    <string name="admin_dns_split_title"></string>
+    <string name="admin_dns_no_split"></string>
+    <string name="admin_dns_add_split_route"></string>
+    <string name="admin_dns_domain_label"></string>
+    <string name="admin_dns_domain_placeholder"></string>
+    <string name="admin_dns_ns_list_label"></string>
+    <string name="admin_dns_ns_list_placeholder"></string>
+    <string name="admin_dns_domain_and_ns_required"></string>
+    <string name="admin_dns_search_domains_title"></string>
+    <string name="admin_dns_no_search_domains"></string>
+    <string name="admin_dns_search_domain_placeholder"></string>
+    <string name="admin_dns_apply_search"></string>
+    <string name="admin_dns_tailnet_name_title"></string>
+    <string name="admin_dns_tailnet_name_desc"></string>
+    <string name="admin_dns_rename_web"></string>
+    <!-- Admin: Users tab -->
+    <string name="admin_users_no_users"></string>
+    <string name="admin_users_devices_label"></string>
+    <string name="admin_users_change_role"></string>
+    <string name="admin_users_login_name"></string>
+    <string name="admin_users_display_name"></string>
+    <string name="admin_users_created_at"></string>
+    <string name="admin_users_role"></string>
+    <string name="admin_users_status"></string>
+    <string name="admin_users_type"></string>
+    <string name="admin_users_devices_owned"></string>
+    <string name="admin_users_approve"></string>
+    <string name="admin_users_restore"></string>
+    <string name="admin_users_suspend"></string>
+    <string name="admin_users_delete"></string>
+    <string name="admin_users_select_role_title"></string>
+    <string name="admin_users_confirm_role_title"></string>
+    <string name="admin_users_confirm_role_text"></string>
+    <string name="admin_users_approve_title"></string>
+    <string name="admin_users_approve_text"></string>
+    <string name="admin_users_suspend_title"></string>
+    <string name="admin_users_suspend_text"></string>
+    <string name="admin_users_restore_title"></string>
+    <string name="admin_users_restore_text"></string>
+    <string name="admin_users_delete_title"></string>
+    <string name="admin_users_delete_text"></string>
+    <string name="admin_users_role_updated"></string>
+    <string name="admin_users_approved"></string>
+    <string name="admin_users_suspended"></string>
+    <string name="admin_users_restored"></string>
+    <string name="admin_users_deleted"></string>
+    <!-- Admin: Services tab -->
+    <string name="admin_services_info"></string>
+    <string name="admin_services_no_services"></string>
+    <string name="admin_services_no_ip"></string>
+    <string name="admin_services_ip_addresses"></string>
+    <string name="admin_services_exposed_ports"></string>
+    <string name="admin_services_comment"></string>
+    <string name="admin_services_no_comment"></string>
+    <string name="admin_services_tags"></string>
+    <string name="admin_services_hosting_devices"></string>
+    <string name="admin_services_no_hosts"></string>
+    <string name="admin_services_host_level"></string>
+    <!-- Admin: Keys tab -->
+    <string name="admin_keys_no_active"></string>
+    <string name="admin_keys_cd_generate"></string>
+    <string name="admin_keys_revoke_title"></string>
+    <string name="admin_keys_revoke_text"></string>
+    <string name="admin_keys_id_prefix"></string>
+    <string name="admin_keys_expires_prefix"></string>
+    <string name="admin_keys_status_revoked"></string>
+    <string name="admin_keys_status_expired"></string>
+    <string name="admin_keys_cd_revoke"></string>
+    <string name="admin_keys_generate_title"></string>
+    <string name="admin_keys_desc_label"></string>
+    <string name="admin_keys_desc_placeholder"></string>
+    <string name="admin_keys_expiry_label"></string>
+    <string name="admin_keys_ephemeral_title"></string>
+    <string name="admin_keys_ephemeral_desc"></string>
+    <string name="admin_keys_preauth_title"></string>
+    <string name="admin_keys_preauth_desc"></string>
+    <string name="admin_keys_tags_label"></string>
+    <string name="admin_keys_tags_placeholder" translatable="false"></string>
+    <string name="admin_keys_tags_supporting"></string>
+    <!-- Admin: Logs tab -->
+    <string name="admin_logs_search_placeholder"></string>
+    <string name="admin_logs_events_found"></string>
+    <string name="admin_logs_no_events"></string>
+    <string name="admin_logs_actor_prefix"></string>
+    <string name="admin_logs_target_prefix"></string>
+    <string name="admin_logs_origin_prefix"></string>
+    <string name="admin_logs_action_type_format"></string>
+    <!-- Admin: Webhooks tab -->
+    <string name="admin_webhooks_title"></string>
+    <string name="admin_webhooks_add"></string>
+    <string name="admin_webhooks_no_webhooks"></string>
+    <string name="admin_webhooks_subscribed_events"></string>
+    <string name="admin_webhooks_test_ping"></string>
+    <string name="admin_webhooks_delete_title"></string>
+    <string name="admin_webhooks_delete_text"></string>
+    <string name="admin_webhooks_add_title"></string>
+    <string name="admin_webhooks_url_label"></string>
+    <string name="admin_webhooks_url_placeholder" translatable="false"></string>
+    <string name="admin_webhooks_subscribe_label"></string>
+    <string name="admin_webhooks_invalid_url"></string>
+    <string name="admin_webhooks_no_events_selected"></string>
+    <string name="admin_webhooks_test_sent"></string>
+    <string name="admin_webhooks_deleted"></string>
+    <string name="admin_webhooks_added"></string>
+    <!-- Admin: Web links tab -->
+    <string name="admin_web_title"></string>
+    <string name="admin_web_desc"></string>
+    <string name="admin_web_billing_title"></string>
+    <string name="admin_web_billing_desc"></string>
+    <string name="admin_web_idp_title"></string>
+    <string name="admin_web_idp_desc"></string>
+    <string name="admin_web_acl_title"></string>
+    <string name="admin_web_acl_desc"></string>
+    <string name="admin_web_lock_title"></string>
+    <string name="admin_web_lock_desc"></string>
+    <string name="admin_web_apps_title"></string>
+    <string name="admin_web_apps_desc"></string>
+    <string name="admin_web_domain_title"></string>
+    <string name="admin_web_domain_desc"></string>
+    <!-- Admin: Settings tab -->
+    <string name="admin_settings_auth_keys_title"></string>
+    <string name="admin_settings_auth_keys_desc"></string>
+    <string name="admin_settings_key_expiry_title"></string>
+    <string name="admin_settings_key_expiry_desc"></string>
+    <string name="admin_settings_duration_days"></string>
+    <string name="admin_settings_access_title"></string>
+    <string name="admin_settings_device_approval_title"></string>
+    <string name="admin_settings_device_approval_desc"></string>
+    <string name="admin_settings_user_approval_title"></string>
+    <string name="admin_settings_user_approval_desc"></string>
+    <string name="admin_settings_software_title"></string>
+    <string name="admin_settings_auto_updates_title"></string>
+    <string name="admin_settings_auto_updates_desc"></string>
+    <string name="admin_settings_network_title"></string>
+    <string name="admin_settings_flow_logging_title"></string>
+    <string name="admin_settings_flow_logging_desc"></string>
+    <string name="admin_settings_regional_routing_title"></string>
+    <string name="admin_settings_regional_routing_desc"></string>
+    <string name="admin_settings_posture_title"></string>
+    <string name="admin_settings_posture_desc"></string>
+    <string name="admin_settings_external_tailnets_title"></string>
+    <string name="admin_settings_external_tailnets_desc"></string>
+    <string name="admin_settings_allowed_role"></string>
+    <string name="admin_settings_apply"></string>
+    <string name="admin_settings_updated"></string>
+    <string name="admin_settings_magic_dns_updated"></string>
+    <string name="admin_settings_ns_applied"></string>
+    <string name="admin_settings_search_applied"></string>
+    <!-- ======================== UI COMPONENTS ======================== -->
+
+    <!-- PeerDetailsModal -->
+    <string name="peer_pinging"></string>
+    <string name="peer_ping_result"></string>
+    <string name="peer_ping_self"></string>
+    <string name="peer_ping_self_caption"></string>
+    <string name="peer_cd_ping_card"></string>
+    <string name="peer_send_file"></string>
+    <string name="peer_copied"></string>
+    <string name="peer_cd_expanded"></string>
+    <string name="peer_cd_collapsed"></string>
+    <!-- PeerDetailsModal: the status strip under the node name -->
+    <string name="peer_status_online"></string>
+    <string name="peer_status_offline"></string>
+    <string name="peer_status_os_unknown"></string>
+    <string name="peer_status_direct"></string>
+    <string name="peer_status_relay_format"></string>
+    <!-- PeerDetailsModal: the connection card (tap to ping) -->
+    <string name="peer_conn_latency"></string>
+    <string name="peer_conn_tap_to_measure"></string>
+    <string name="peer_conn_ping_failed"></string>
+    <!-- PeerDetailsModal: the route card -->
+    <string name="peer_route_relay"></string>
+    <string name="peer_route_none"></string>
+    <!-- PeerDetailsModal: the capabilities card and the note under Send File. Codes are ipnstate.TaildropTargetStatus -->
+    <string name="peer_taildrop_caption" translatable="false"></string>
+    <string name="peer_taildrop_ok"></string>
+    <string name="peer_taildrop_blocked"></string>
+    <string name="peer_taildrop_no_netmap"></string>
+    <string name="peer_taildrop_not_running"></string>
+    <string name="peer_taildrop_missing_cap"></string>
+    <string name="peer_taildrop_offline"></string>
+    <string name="peer_taildrop_no_peer_info"></string>
+    <string name="peer_taildrop_unsupported_os"></string>
+    <string name="peer_taildrop_no_peer_api"></string>
+    <string name="peer_taildrop_other_user"></string>
+    <!-- PeerDetailsModal: the traffic card -->
+    <string name="peer_traffic_total"></string>
+    <!-- PeerDetailsModal: headings of the cards -->
+    <string name="peer_group_addresses"></string>
+    <string name="peer_group_route"></string>
+    <string name="peer_group_connection"></string>
+    <string name="peer_group_device"></string>
+    <string name="peer_group_capabilities"></string>
+    <string name="peer_group_traffic"></string>
+    <string name="peer_group_timing"></string>
+    <string name="peer_group_other"></string>
+    <!-- PeerItem / PeerDetailsModal: exit node markers -->
+    <string name="peer_exit_node_selected"></string>
+    <string name="peer_exit_node_offered"></string>
+    <!-- ======================== MainActivity ======================== -->
+
+    <string name="main_account_name_label"></string>
+    <string name="main_new_name_label"></string>
+    <string name="main_switch_account_title"></string>
+    <string name="main_switch_account_text"></string>
+    <string name="main_restart_switch"></string>
+    <string name="main_about_title"></string>
+    <string name="main_app_version"></string>
+    <string name="main_core_version"></string>
+    <string name="main_new_version"></string>
+    <string name="main_license_text"></string>
+    <string name="main_dev_app"></string>
+    <string name="main_dev_patch"></string>
+    <string name="main_dev_anet_patch"></string>
+    <string name="main_dev_core"></string>
+    <string name="main_about_credits"></string>
+    <string name="main_check_updates"></string>
+    <string name="main_update_checking"></string>
+    <string name="main_update_download"></string>
+    <string name="main_update_install_cached"></string>
+    <string name="main_update_downloading"></string>
+    <string name="main_update_installing"></string>
+    <string name="main_update_grant_perm"></string>
+    <string name="main_update_up_to_date"></string>
+    <string name="main_no_exit_nodes"></string>
+    <string name="main_select_exit_node"></string>
+    <string name="main_exit_node_none"></string>
+    <string name="main_battery_warn_title"></string>
+    <string name="main_battery_warn_desc"></string>
+    <string name="main_network_sync_title"></string>
+    <string name="main_network_sync_desc"></string>
+    <!-- ======================== SettingsActivity ======================== -->
+
+    <string name="settings_logout_title"></string>
+    <string name="settings_logout_text"></string>
+    <string name="settings_amoled_black_desc"></string>
+    <string name="settings_backup_password_title"></string>
+    <string name="settings_backup_password_text"></string>
+    <string name="settings_restore_password_title"></string>
+    <string name="settings_restore_password_text"></string>
+    <string name="settings_password_label"></string>
+    <string name="settings_proxy_apply"></string>
+    <string name="settings_field_example"></string>
+    <string name="settings_suggested"></string>
+    <string name="settings_sagernet_copied"></string>
+    <!-- ======================== Console / Terminal ======================== -->
+    <string name="console_title"></string>
+    <string name="console_cd_toggle_wrap"></string>
+    <string name="console_clear_desc"></string>
+    <string name="console_add_preset"></string>
+    <string name="console_cd_history"></string>
+    <string name="console_placeholder"></string>
+    <string name="console_cd_run"></string>
+    <string name="console_new_preset_title"></string>
+    <string name="console_new_preset_label"></string>
+    <string name="console_cd_copy"></string>
+    <string name="console_copied"></string>
+    <string name="console_preset_dialog_title"></string>
+    <string name="console_preset_insert"></string>
+    <!-- ======================== DNS Management ======================== -->
+    <string name="dns_title" translatable="false"></string>
+    <string name="dns_error_parse_failed"></string>
+    <string name="dns_status_unavailable"></string>
+    <string name="dns_lookup_tool"></string>
+    <string name="dns_lookup_placeholder"></string>
+    <string name="dns_cd_query"></string>
+    <string name="dns_config_status"></string>
+    <string name="dns_split_route"></string>
+    <string name="dns_cd_copy_domain"></string>
+    <string name="dns_domain_copied"></string>
+    <string name="dns_ips_copied"></string>
+    <string name="dns_test_local_server_title"></string>
+    <string name="dns_test_btn"></string>
+    <string name="dns_test_success_format"></string>
+    <string name="dns_test_failed_format"></string>
+    <string name="dns_magic_status"></string>
+    <string name="dns_magic_enabled"></string>
+    <string name="dns_magic_disabled"></string>
+    <string name="dns_network_domain"></string>
+    <string name="dns_device_name"></string>
+    <!-- ======================== Taildrop / Files ======================== -->
+    <string name="files_hub_title"></string>
+    <string name="files_tab_inbox"></string>
+    <string name="files_tab_devices"></string>
+    <string name="files_tab_history"></string>
+    <string name="files_empty_inbox"></string>
+    <string name="files_empty_devices"></string>
+    <string name="files_empty_history"></string>
+    <string name="files_use_fab_to_send"></string>
+    <string name="files_sending"></string>
+    <string name="files_select_device"></string>
+    <string name="files_no_devices_found"></string>
+    <string name="files_saved"></string>
+    <string name="files_auto_save_failed"></string>
+    <string name="files_save_error"></string>
+    <string name="files_preparing_format"></string>
+    <string name="files_uploading"></string>
+    <string name="files_sent"></string>
+    <string name="files_error_format"></string>
+    <string name="files_failed_format"></string>
+    <string name="files_peer_no_id"></string>
+    <string name="share_failed_format"></string>
+    <!-- "File received" notification (TaildropEvents): its channel, title and "name from device" text -->
+    <string name="taildrop_notif_channel"></string>
+    <string name="taildrop_received_title"></string>
+    <string name="taildrop_received_from_format"></string>
+    <string name="action_refresh"></string>
+    <string name="action_ping_all"></string>
+    <string name="exit_node_fastest"></string>
+    <!-- ======================== Logs Screen ======================== -->
+    <string name="logs_saved"></string>
+    <string name="logs_dns_flushed"></string>
+    <string name="logs_cd_flush_dns"></string>
+    <string name="logs_cleared"></string>
+    <string name="logs_copied_tail"></string>
+    <string name="logs_root_clear_failed"></string>
+    <string name="logs_search_placeholder"></string>
+    <string name="logs_cd_jump_to_end"></string>
+    <string name="logs_cd_logcat"></string>
+    <string name="logs_expand_more"></string>
+    <string name="logs_collapse"></string>
+    <string name="logs_day_today"></string>
+    <string name="logs_day_yesterday"></string>
+    <string name="logs_clear_app"></string>
+    <string name="logs_clear_daemon"></string>
+    <string name="logs_clear_all"></string>
+    <!-- ======================== Main Screen ======================== -->
+    <string name="main_add_account_title"></string>
+    <string name="main_add_account_authkey_label"></string>
+    <string name="main_add_account_authkey_placeholder" translatable="false"></string>
+    <string name="main_add_account_authkey_hint"></string>
+    <string name="main_rename_account_title"></string>
+    <string name="main_update_available_format"></string>
+    <string name="main_refreshing_config"></string>
+    <string name="main_cannot_open_battery_settings"></string>
+    <string name="main_error_socks5_empty"></string>
+    <string name="main_check_failed_format"></string>
+    <string name="main_cd_refresh_config"></string>
+    <string name="main_cd_admin_api"></string>
+    <string name="main_cd_about_licenses"></string>
+    <string name="accounts_sheet_title"></string>
+    <string name="accounts_sheet_help"></string>
+    <string name="accounts_done"></string>
+    <string name="accounts_add"></string>
+    <string name="accounts_signed_in"></string>
+    <string name="accounts_never_signed_in"></string>
+    <string name="accounts_not_connected"></string>
+    <string name="accounts_badge_authkey"></string>
+    <string name="accounts_badge_honest"></string>
+    <string name="main_delete_account_confirm_title"></string>
+    <string name="main_delete_account_confirm_text"></string>
+    <string name="main_route_traffic_directly"></string>
+    <string name="main_status_active"></string>
+    <string name="main_status_starting"></string>
+    <string name="main_status_please_wait"></string>
+    <string name="main_status_active_desc"></string>
+    <string name="main_status_starting_desc"></string>
+    <string name="main_exit_node_none_label"></string>
+    <string name="main_traffic_routed"></string>
+    <string name="main_exit_node_none_desc"></string>
+    <string name="main_exit_node_routed_desc"></string>
+    <string name="menu_console"></string>
+    <string name="menu_peers"></string>
+    <string name="menu_logs"></string>
+    <string name="menu_files"></string>
+    <string name="menu_dns" translatable="false"></string>
+    <string name="menu_netcheck"></string>
+    <string name="menu_settings"></string>
+    <string name="menu_serve" translatable="false"></string>
+    <string name="serve_host_title" translatable="false"></string>
+    <!-- ======================== Network Diagnostics ======================== -->
+    <string name="netcheck_title"></string>
+    <string name="netcheck_report_copied"></string>
+    <string name="netcheck_analyzing"></string>
+    <string name="netcheck_connection_health"></string>
+    <string name="netcheck_status"></string>
+    <string name="netcheck_tailscale_ip"></string>
+    <string name="netcheck_running_diagnostics"></string>
+    <string name="netcheck_udp"></string>
+    <string name="netcheck_ipv4"></string>
+    <string name="netcheck_ipv6"></string>
+    <string name="netcheck_nat_mapping"></string>
+    <string name="netcheck_nearest_derp"></string>
+    <string name="netcheck_derp_latency"></string>
+    <string name="netcheck_peer_summary"></string>
+    <string name="netcheck_total_peers"></string>
+    <string name="netcheck_online_peers"></string>
+    <string name="netcheck_cd_copy_report"></string>
+    <string name="netcheck_cd_run_diagnostics"></string>
+    <string name="netcheck_hint"></string>
+    <string name="netcheck_connected"></string>
+    <string name="netcheck_offline"></string>
+    <string name="netcheck_ip_label"></string>
+    <string name="netcheck_testing_latency_desc"></string>
+    <string name="netcheck_sect_protocol"></string>
+    <string name="netcheck_udp_stun"></string>
+    <string name="netcheck_ipv4_conn"></string>
+    <string name="netcheck_ipv6_conn"></string>
+    <string name="netcheck_nat_varies"></string>
+    <string name="netcheck_peers_map"></string>
+    <string name="netcheck_sect_derp"></string>
+    <string name="netcheck_nearest_label"></string>
+    <string name="netcheck_nearest_format"></string>
+    <string name="netcheck_failed"></string>
+    <string name="netcheck_working"></string>
+    <string name="netcheck_blocked"></string>
+    <string name="netcheck_available"></string>
+    <string name="netcheck_unavailable"></string>
+    <string name="netcheck_nat_varies_no"></string>
+    <string name="netcheck_nat_varies_yes"></string>
+    <string name="netcheck_peers_online_format"></string>
+    <string name="netcheck_peers_online_none"></string>
+    <!-- ======================== Peers / Network Devices ======================== -->
+    <string name="peers_title"></string>
+    <string name="peers_search_placeholder"></string>
+    <string name="peers_sending"></string>
+    <string name="peers_sent"></string>
+    <string name="peers_failed_format"></string>
+    <string name="peers_daemon_not_running"></string>
+    <string name="peers_network_error"></string>
+    <string name="action_start_service"></string>
+    <string name="action_retry"></string>
+    <!-- ======================== Serve & Funnel ======================== -->
+    <string name="serve_title"></string>
+    <string name="serve_node_card_title"></string>
+    <string name="serve_node_expand"></string>
+    <string name="serve_node_collapse"></string>
+    <string name="serve_cap_cert"></string>
+    <string name="serve_cap_cert_ok"></string>
+    <string name="serve_cap_cert_no"></string>
+    <string name="serve_cap_funnel" translatable="false"></string>
+    <string name="serve_cap_funnel_ok"></string>
+    <string name="serve_cap_funnel_no"></string>
+    <string name="serve_cap_services"></string>
+    <string name="serve_cap_services_ok"></string>
+    <string name="serve_cap_services_no"></string>
+    <string name="serve_cap_unknown"></string>
+    <string name="serve_rules_heading"></string>
+    <string name="serve_service_heading"></string>
+    <string name="serve_service_note"></string>
+    <string name="serve_empty_title"></string>
+    <string name="serve_empty_text"></string>
+    <string name="serve_kind_proxy"></string>
+    <string name="serve_kind_text"></string>
+    <string name="serve_kind_redirect"></string>
+    <string name="serve_kind_tcp"></string>
+    <string name="serve_desc_proxy"></string>
+    <string name="serve_desc_text"></string>
+    <string name="serve_desc_redirect"></string>
+    <string name="serve_desc_tcp"></string>
+    <string name="serve_tag_public"></string>
+    <string name="serve_tag_tailnet"></string>
+    <string name="serve_health_ok"></string>
+    <string name="serve_health_bad"></string>
+    <string name="serve_menu_copy_link"></string>
+    <string name="serve_menu_pause"></string>
+    <string name="serve_menu_resume"></string>
+    <string name="serve_tag_paused"></string>
+    <string name="serve_resume_conflict"></string>
+    <string name="serve_editor_new"></string>
+    <string name="serve_editor_edit"></string>
+    <string name="serve_editor_what"></string>
+    <string name="serve_editor_target_proxy"></string>
+    <string name="serve_editor_target_text"></string>
+    <string name="serve_editor_target_redirect"></string>
+    <string name="serve_editor_target_tcp"></string>
+    <string name="serve_editor_port"></string>
+    <string name="serve_editor_who"></string>
+    <string name="serve_editor_public"></string>
+    <string name="serve_editor_public_anyone"></string>
+    <string name="serve_editor_public_no_cap"></string>
+    <string name="serve_editor_public_ports"></string>
+    <string name="serve_editor_public_tls"></string>
+    <string name="serve_editor_public_service"></string>
+    <string name="serve_editor_tailnet_only"></string>
+    <string name="serve_editor_scope"></string>
+    <string name="serve_editor_scope_node"></string>
+    <string name="serve_editor_scope_service"></string>
+    <string name="serve_editor_service_name"></string>
+    <string name="serve_editor_advanced"></string>
+    <string name="serve_editor_plain_http"></string>
+    <string name="serve_editor_proxy_protocol"></string>
+    <string name="serve_editor_target_required"></string>
+    <string name="serve_editor_port_invalid"></string>
+    <string name="serve_editor_conflict"></string>
+    <string name="serve_svc_publish_title"></string>
+    <string name="serve_svc_publish_text"></string>
+    <string name="serve_svc_publish_action"></string>
+    <string name="serve_svc_publish_no_api"></string>
+    <string name="serve_svc_open_console"></string>
+    <string name="serve_svc_publish_failed"></string>
+    <string name="serve_svc_biometric_subtitle"></string>
+    <string name="serve_menu_publish"></string>
+    <string name="serve_svc_status_published"></string>
+    <string name="serve_svc_status_unpublished"></string>
+    <string name="serve_svc_publish_button"></string>
+    <string name="serve_svc_update_button"></string>
+    <string name="serve_svc_log_title"></string>
+    <string name="serve_log_reading"></string>
+    <string name="serve_log_found"></string>
+    <string name="serve_log_not_found"></string>
+    <string name="serve_log_defining"></string>
+    <string name="serve_log_defined"></string>
+    <string name="serve_log_approving"></string>
+    <string name="serve_log_approved"></string>
+    <string name="serve_log_no_node_id"></string>
+    <string name="serve_log_error"></string>
+    <string name="serve_log_waiting"></string>
+    <string name="serve_log_published"></string>
+    <string name="serve_log_still_waiting"></string>
+    <string name="serve_editor_publish_after"></string>
+    <string name="serve_editor_service_required"></string>
+    <string name="serve_kind_file"></string>
+    <string name="serve_desc_file"></string>
+    <string name="serve_editor_path"></string>
+    <string name="serve_editor_insecure_backend"></string>
+    <string name="serve_editor_tls_tcp"></string>
+    <string name="serve_editor_proxy_protocol_none"></string>
+    <string name="serve_cert_saved"></string>
+    <string name="serve_save_failed_format"></string>
+    <string name="serve_error_format"></string>
+    <string name="serve_waiting_dns"></string>
+    <string name="serve_cd_export_cert"></string>
+    <string name="serve_cd_clear_all"></string>
+    <string name="serve_cd_add_rule"></string>
+    <string name="serve_link_copied"></string>
+    <string name="serve_clear_title"></string>
+    <string name="serve_clear_text"></string>
+    <string name="serve_clear_confirm"></string>
+    <string name="serve_export_title"></string>
+    <string name="serve_export_text_format"></string>
+    <string name="serve_export_save_file"></string>
+    <string name="serve_cert_copied"></string>
+    <string name="serve_export_copy_clipboard"></string>
+    <!-- ======================== Settings ======================== -->
+    <string name="settings_title"></string>
+    <string name="settings_root_sect_title"></string>
+    <string name="settings_root_enable_desc"></string>
+    <string name="settings_root_service_title"></string>
+    <string name="settings_root_service_desc"></string>
+    <string name="settings_root_cli_title"></string>
+    <string name="settings_root_cli_desc"></string>
+    <string name="settings_root_info_title"></string>
+    <string name="settings_root_disabled_general_note"></string>
+    <string name="settings_root_script_reinstall"></string>
+    <string name="settings_root_routing_check"></string>
+    <string name="settings_root_script_reinstalled"></string>
+    <string name="settings_backup_saved"></string>
+    <!-- Backup compatibility -->
+    <string name="settings_restore_app_too_new"></string>
+    <string name="settings_restore_format_too_new"></string>
+    <string name="settings_restore_wrong_package"></string>
+    <string name="settings_backup_failed_format"></string>
+    <string name="settings_restored_success"></string>
+    <string name="settings_restore_failed_format"></string>
+    <string name="settings_full_backup_saved"></string>
+    <string name="settings_full_backup_failed_format"></string>
+    <string name="settings_read_backup_failed"></string>
+    <string name="settings_full_restore_success"></string>
+    <string name="settings_full_restore_failed"></string>
+    <string name="settings_error_format"></string>
+    <string name="settings_logged_out"></string>
+    <string name="settings_logout_confirm"></string>
+    <string name="settings_sect_personalization"></string>
+    <string name="settings_theme_system"></string>
+    <string name="settings_theme_light"></string>
+    <string name="settings_theme_dark"></string>
+    <string name="settings_theme_title"></string>
+    <string name="settings_lang_title"></string>
+    <string name="settings_lang_sys"></string>
+    <string name="settings_lang_en"></string>
+    <string name="settings_lang_ru"></string>
+    <string name="settings_preset_default"></string>
+    <string name="settings_preset_lavender"></string>
+    <string name="settings_preset_emerald"></string>
+    <string name="settings_preset_sapphire"></string>
+    <string name="settings_preset_amber"></string>
+    <string name="settings_preset_monochrome"></string>
+    <string name="settings_preset_tokionight"></string>
+    <string name="settings_palette_title"></string>
+    <string name="settings_dynamic_color_title"></string>
+    <string name="settings_dynamic_color_desc"></string>
+    <string name="settings_amoled_black_title"></string>
+    <string name="settings_sect_storage"></string>
+    <string name="settings_taildrop_folder_title"></string>
+    <string name="settings_taildrop_folder_default"></string>
+    <string name="settings_autostart_title"></string>
+    <string name="settings_autostart_desc"></string>
+    <!-- Connection recovery -->
+    <string name="settings_auto_reconnect_title"></string>
+    <string name="settings_auto_reconnect_desc"></string>
+    <string name="settings_auto_reconnect_attempts_title"></string>
+    <string name="settings_watchdog_title"></string>
+    <string name="settings_watchdog_desc"></string>
+    <string name="settings_root_dns_redirect_title"></string>
+    <string name="settings_root_dns_redirect_desc"></string>
+    <string name="settings_sect_socks5"></string>
+    <!-- LAN access -->
+    <string name="settings_sect_lan"></string>
+    <string name="settings_lan_access_title"></string>
+    <string name="settings_lan_access_desc"></string>
+    <string name="settings_lan_access_listening"></string>
+    <string name="settings_lan_endpoint_lan"></string>
+    <string name="settings_lan_endpoint_tailnet"></string>
+    <string name="settings_lan_endpoint_none"></string>
+    <string name="settings_lan_copied"></string>
+    <string name="settings_lan_access_no_auth_warning"></string>
+    <string name="settings_socks5_address_title"></string>
+    <string name="settings_socks5_username_title"></string>
+    <string name="settings_socks5_password_title"></string>
+    <string name="settings_sagernet_copy"></string>
+    <string name="settings_sagernet_copy_for"></string>
+    <string name="settings_sagernet_copy_local"></string>
+    <string name="settings_sect_http"></string>
+    <string name="settings_http_enable_title"></string>
+    <string name="settings_http_enable_desc"></string>
+    <string name="settings_http_address_title"></string>
+    <string name="settings_http_desc"></string>
+    <string name="settings_sect_control_proxy"></string>
+    <string name="settings_control_proxy_enabled_format"></string>
+    <string name="settings_control_proxy_disabled"></string>
+    <string name="settings_sect_service_ad"></string>
+    <string name="settings_ad_tags_title"></string>
+    <string name="settings_ad_tags_placeholder" translatable="false"></string>
+    <string name="settings_ad_tags_desc"></string>
+    <string name="settings_applied_tags_label"></string>
+    <string name="settings_ad_routes_title"></string>
+    <string name="settings_ad_routes_placeholder" translatable="false"></string>
+    <string name="settings_ad_routes_desc"></string>
+    <string name="settings_dns_proxy_address_title"></string>
+    <string name="settings_sect_fallback_dns"></string>
+    <string name="settings_dns_fallbacks_title"></string>
+    <string name="settings_dns_fallbacks_placeholder" translatable="false"></string>
+    <string name="settings_doh_fallback_title"></string>
+    <string name="settings_doh_fallback_placeholder" translatable="false"></string>
+    <string name="settings_sect_flags_logs"></string>
+    <string name="settings_accept_routes_desc"></string>
+    <string name="settings_accept_dns_desc"></string>
+    <string name="settings_force_bg_desc"></string>
+    <string name="settings_detailed_logs_title"></string>
+    <string name="settings_detailed_logs_desc"></string>
+    <string name="settings_extra_args_title"></string>
+    <string name="settings_extra_args_placeholder" translatable="false"></string>
+    <string name="settings_sect_account_format"></string>
+    <string name="settings_login_server_title"></string>
+    <string name="settings_login_server_placeholder" translatable="false"></string>
+    <string name="settings_auth_key_title"></string>
+    <string name="settings_exit_node_title"></string>
+    <string name="settings_sect_web"></string>
+    <string name="settings_web_enable_title"></string>
+    <string name="settings_web_enable_desc"></string>
+    <string name="settings_web_address_title"></string>
+    <string name="settings_sect_admin_api"></string>
+    <string name="settings_admin_tailnet_title"></string>
+    <string name="settings_admin_tailnet_placeholder"></string>
+    <string name="settings_admin_token_title"></string>
+    <string name="settings_admin_token_placeholder" translatable="false"></string>
+    <string name="settings_admin_tailnet_missing"></string>
+    <string name="settings_sect_adv_profile"></string>
+    <string name="settings_logout_reset_title"></string>
+    <string name="settings_password_empty"></string>
+    <string name="settings_backup_action"></string>
+    <string name="settings_restore_action"></string>
+    <string name="settings_control_proxy_title"></string>
+    <string name="settings_control_proxy_enable"></string>
+    <string name="settings_control_proxy_type"></string>
+    <string name="settings_control_proxy_host"></string>
+    <string name="settings_control_proxy_port"></string>
+    <string name="settings_control_proxy_username"></string>
+    <string name="settings_control_proxy_password"></string>
+    <string name="settings_not_set"></string>
+    <string name="settings_local_api_error_format"></string>
+    <string name="settings_none"></string>
+    <string name="settings_exit_node_select"></string>
+    <string name="settings_exit_node_empty"></string>
+    <string name="share_title"></string>
+    <string name="share_files_count_format"></string>
+    <string name="share_sending"></string>
+    <!-- Taildrive Screen -->
+    <string name="taildrive_title"></string>
+    <string name="taildrive_cd_add"></string>
+    <string name="taildrive_perm_required"></string>
+    <string name="taildrive_perm_desc"></string>
+    <string name="taildrive_grant_perm"></string>
+    <string name="taildrive_enable_title"></string>
+    <string name="taildrive_enable_desc"></string>
+    <string name="taildrive_enable_proxy_title"></string>
+    <string name="taildrive_enable_proxy_desc"></string>
+    <string name="taildrive_proxy_ip"></string>
+    <string name="taildrive_proxy_port"></string>
+    <string name="taildrive_require_auth"></string>
+    <string name="taildrive_require_auth_desc"></string>
+    <string name="taildrive_username"></string>
+    <string name="taildrive_password"></string>
+    <string name="taildrive_webdav_url_title"></string>
+    <string name="taildrive_copied_url"></string>
+    <string name="taildrive_shared_folders"></string>
+    <string name="taildrive_disabled_msg"></string>
+    <string name="taildrive_empty_shares"></string>
+    <string name="taildrive_share_a_folder"></string>
+    <string name="taildrive_edit_title"></string>
+    <string name="taildrive_add_title"></string>
+    <string name="taildrive_share_name"></string>
+    <string name="taildrive_share_name_placeholder"></string>
+    <string name="taildrive_physical_path"></string>
+    <string name="taildrive_physical_path_placeholder"></string>
+    <string name="taildrive_err_fields_empty"></string>
+    <string name="taildrive_err_path_invalid"></string>
+    <string name="taildrive_err_name_exists"></string>
+    <string name="taildrive_err_resolve_path"></string>
+    <string name="taildrive_err_grant_storage"></string>
+    <string name="taildrive_unavailable_no_fileserver"></string>
+    <string name="taildrive_unavailable_forbidden"></string>
+    <string name="taildrive_unavailable_not_found"></string>
+    <string name="taildrive_unavailable_generic"></string>
+    <!-- Peer Details & UI Components -->
+    <string name="peer_details_prev"></string>
+    <string name="peer_details_next"></string>
+    <string name="files_sent_to_format"></string>
+    <string name="files_open_file_chooser"></string>
+    <string name="files_error_cant_open"></string>
+    <!-- Widgets -->
+    <string name="widget_service_stop"></string>
+    <string name="widget_service_start"></string>
+    <string name="widget_exit_node_inactive"></string>
+    <string name="widget_exit_node_title"></string>
+    <string name="widget_exit_node_format"></string>
+    <string name="widget_toast_exit_disabled"></string>
+    <string name="widget_toast_exit_routing_format"></string>
+    <!-- TUN Mode -->
+    <string name="tun_notif_active"></string>
+    <string name="settings_sect_tun_mode"></string>
+    <string name="settings_tun_excluded_cidrs_title"></string>
+    <string name="settings_tun_excluded_cidrs_desc"></string>
+    <string name="settings_tun_excluded_apps_title"></string>
+    <string name="settings_tun_excluded_apps_desc"></string>
+    <string name="title_activity_tun_excluded_apps"></string>
+    <string name="tun_apps_filter_all"></string>
+    <string name="tun_apps_filter_excluded"></string>
+    <string name="settings_tun_address_title"></string>
+    <string name="settings_tun_address_desc"></string>
+    <string name="settings_tun_native_title"></string>
+    <string name="settings_tun_native_desc"></string>
+    <string name="settings_tun_ipv6_title"></string>
+    <string name="settings_tun_ipv6_desc"></string>
+    <string name="main_tun_full_tunnel_desc"></string>
+    <string name="main_tun_split_tunnel_desc"></string>
+    <string name="settings_tab_byedpi"></string>
+    <string name="settings_byedpi_enable"></string>
+    <string name="settings_byedpi_flags"></string>
+    <string name="settings_byedpi_status_active"></string>
+    <string name="settings_byedpi_status_stopped"></string>
+    <string name="settings_byedpi_desc"></string>
+    <string name="settings_proxy_import"></string>
+    <string name="settings_proxy_import_error"></string>
+    <string name="settings_proxy_copy_btn"></string>
+    <string name="settings_proxy_copied"></string>
+    <string name="main_logged_out_title"></string>
+    <string name="main_logged_out_desc"></string>
+    <string name="main_logged_out_btn_login"></string>
+    <string name="main_logged_out_authkey_label"></string>
+    <string name="first_start_welcome_title"></string>
+    <string name="first_start_welcome_desc"></string>
+    <string name="first_start_how_title"></string>
+    <string name="first_start_how_desc"></string>
+    <string name="first_start_bypass_title"></string>
+    <string name="first_start_bypass_desc"></string>
+    <string name="first_start_login_title"></string>
+    <string name="first_start_login_desc"></string>
+    <string name="first_start_btn_next"></string>
+    <string name="first_start_btn_back"></string>
+    <string name="first_start_btn_finish"></string>
+    <string name="first_start_key_oauth_hint_title"></string>
+    <string name="first_start_key_oauth_hint_desc"></string>
+    <string name="first_start_select_lang"></string>
+    <string name="first_start_mode_proxy_title"></string>
+    <string name="first_start_mode_proxy_desc"></string>
+    <string name="first_start_mode_vpn_title"></string>
+    <string name="first_start_mode_vpn_desc"></string>
+    <string name="first_start_cp_warning_title"></string>
+    <string name="first_start_cp_warning_desc"></string>
+    <string name="first_start_cp_field_label"></string>
+    <string name="first_start_bypass_mode_none"></string>
+    <string name="first_start_bypass_mode_bbd"></string>
+    <string name="first_start_bypass_mode_proxy"></string>
+    <string name="first_start_proxy_link_label"></string>
+    <string name="first_start_proxy_host_label"></string>
+    <string name="first_start_proxy_port_label"></string>
+    <string name="first_start_authkey_label"></string>
+    <string name="settings_show_onboarding"></string>
+    <string name="settings_show_onboarding_desc"></string>
+    <string name="first_start_permissions_title"></string>
+    <string name="first_start_permissions_desc"></string>
+    <string name="settings_proxy_preset_save_title"></string>
+    <string name="settings_proxy_preset_name_label"></string>
+    <string name="settings_proxy_preset_save_btn"></string>
+    <string name="settings_proxy_preset_fill_fields_error"></string>
+    <string name="settings_byedpi_warning_override"></string>
+    <string name="settings_byedpi_ipv6_disabled"></string>
+    <string name="settings_byedpi_ipv6_disabled_desc"></string>
+    <string name="onboarding_perm_notif_title"></string>
+    <string name="onboarding_perm_grant"></string>
+    <string name="onboarding_perm_battery_title"></string>
+    <string name="onboarding_perm_battery_desc"></string>
+    <string name="onboarding_perm_battery_configure"></string>
+    <string name="onboarding_perm_battery_toast"></string>
+    <string name="onboarding_perm_battery_error"></string>
+    <string name="main_conn_issue_title"></string>
+    <string name="main_conn_issue_desc"></string>
+    <string name="main_conn_issue_btn_proxy"></string>
+    <string name="main_logged_out_btn_stop_short"></string>
+    <string name="settings_root_kill_daemon_title"></string>
+    <string name="settings_root_kill_daemon_desc"></string>
+    <string name="settings_root_warning_dialog_title"></string>
+    <string name="settings_root_warning_dialog_body"></string>
+    <string name="settings_root_warning_dialog_confirm"></string>
+    <string name="settings_root_warning_dialog_cancel"></string>
+    <string name="settings_root_banner_warning"></string>
+    <string name="settings_automation_title"></string>
+    <string name="settings_automation_enable_title"></string>
+    <string name="settings_automation_enable_desc"></string>
+    <string name="settings_automation_token_label"></string>
+    <string name="settings_automation_token_placeholder"></string>
+    <string name="settings_automation_no_token"></string>
+    <string name="settings_automation_token_active"></string>
+    <string name="settings_automation_generate_token"></string>
+    <string name="settings_automation_copy_token"></string>
+    <string name="settings_automation_token_copied"></string>
+    <string name="settings_show_changelog_title"></string>
+    <string name="settings_show_changelog_desc"></string>
+    <string name="whats_new_title"></string>
+    <string name="whats_new_full_changelog"></string>
+    <string name="whats_new_unavailable"></string>
+    <string name="main_about_whats_new"></string>
+    <!-- Strings that used to be hard-coded in Kotlin -->
+    <string name="settings_root_mode_enabled_toast"></string>
+    <string name="settings_root_mode_disabled_toast"></string>
+    <string name="settings_root_access_unavailable"></string>
+    <string name="settings_root_service_script_installed"></string>
+    <string name="settings_root_service_script_removed"></string>
+    <string name="settings_root_service_script_failed"></string>
+    <string name="settings_root_cli_installed"></string>
+    <string name="settings_root_cli_removed"></string>
+    <string name="settings_root_cli_failed"></string>
+    <string name="settings_root_daemon_status_label"></string>
+    <string name="settings_root_daemon_status_running"></string>
+    <string name="settings_root_daemon_status_stopped"></string>
+    <string name="settings_proxy_parsed_success"></string>
+    <string name="settings_proxy_clipboard_empty"></string>
+    <string name="settings_proxy_cd_paste_parse"></string>
+    <string name="settings_proxy_preset_add_chip"></string>
+    <string name="settings_copy_cd_format"></string>
+    <string name="main_submit_key"></string>
+    <string name="main_proxy_setup"></string>
+    <string name="main_key_saved_restarting"></string>
+    <string name="main_installer_failed_format"></string>
+    <string name="taildrop_saved_to_downloads_format"></string>
+    <string name="taildrop_save_failed_format"></string>
+    <string name="taildrop_file_deleted"></string>
+    <string name="taildrive_add_choose"></string>
+    <string name="taildrive_add_picker_title"></string>
+    <string name="taildrive_add_picker_desc"></string>
+    <string name="taildrive_add_manual_title"></string>
+    <string name="taildrive_add_manual_desc"></string>
+    <string name="taildrive_share_full_storage"></string>
+    <string name="dns_cd_test_server"></string>
+    <string name="dns_cd_copy_ip"></string>
+    <string name="admin_error_loading_keys_format"></string>
+    <string name="notif_channel_alerts"></string>
+    <string name="revive_refused_title"></string>
+    <string name="revive_refused_text"></string>
+    <string name="perm_ask_title"></string>
+    <string name="perm_ask_text"></string>
+    <string name="perm_ask_grant"></string>
+    <string name="perm_ask_later"></string>
+    <string name="perm_ask_never"></string>
+    <string name="perm_ask_all"></string>
+    <string name="perm_title"></string>
+    <string name="perm_intro"></string>
+    <string name="perm_open"></string>
+    <string name="perm_open_failed"></string>
+    <string name="perm_state_granted"></string>
+    <string name="perm_state_denied"></string>
+    <string name="perm_state_unknown"></string>
+    <string name="perm_state_na"></string>
+    <string name="perm_autostart_title"></string>
+    <string name="perm_autostart_reason"></string>
+    <string name="perm_alarms_title"></string>
+    <string name="perm_alarms_reason"></string>
+    <string name="perm_battery_title"></string>
+    <string name="perm_battery_reason"></string>
+    <string name="perm_notifications_title"></string>
+    <string name="perm_notifications_reason"></string>
+    <string name="perm_install_title"></string>
+    <string name="perm_install_reason"></string>
+    <string name="settings_permissions_title"></string>
+    <string name="settings_permissions_desc"></string>
+    <string name="settings_watchdog_exact_error"></string>
+    <!-- 4.0 settings restructure: hub categories -->
+    <string name="settings_cat_account"></string>
+    <string name="settings_cat_account_desc"></string>
+    <string name="settings_cat_tunnel"></string>
+    <string name="settings_cat_tunnel_desc"></string>
+    <string name="settings_cat_proxies"></string>
+    <string name="settings_cat_proxies_desc"></string>
+    <string name="settings_cat_dns" translatable="false"></string>
+    <string name="settings_cat_dns_desc"></string>
+    <string name="settings_cat_bypass"></string>
+    <string name="settings_cat_bypass_desc"></string>
+    <string name="settings_cat_sharing"></string>
+    <string name="settings_cat_sharing_desc"></string>
+    <string name="settings_cat_background"></string>
+    <string name="settings_cat_background_desc"></string>
+    <string name="settings_cat_appearance"></string>
+    <string name="settings_cat_appearance_desc"></string>
+    <string name="settings_cat_backup"></string>
+    <string name="settings_cat_backup_desc"></string>
+    <string name="settings_cat_automation"></string>
+    <string name="settings_cat_automation_desc"></string>
+    <string name="settings_cat_diagnostics"></string>
+    <string name="settings_cat_diagnostics_desc"></string>
+    <!-- 4.0 settings restructure: renamed labels (old names kept until every call site moves) -->
+    <string name="settings_keep_awake_title"></string>
+    <string name="settings_accept_subnet_routes_title"></string>
+    <string name="settings_magicdns_title"></string>
+    <string name="settings_device_name_title"></string>
+    <string name="settings_backup_full_title"></string>
+    <string name="settings_restore_full_title"></string>
+    <string name="settings_profile_export_title"></string>
+    <string name="settings_profile_import_title"></string>
+    <!-- 4.0 settings restructure: root native TUN (was hardcoded English) -->
+    <string name="settings_root_tun_title"></string>
+    <string name="settings_root_tun_desc_native"></string>
+    <string name="settings_root_tun_desc_proxy"></string>
+    <!-- 4.0 settings restructure: stage 3 row moves -->
+    <string name="settings_advertise_exit_node_title"></string>
+    <string name="settings_advertise_exit_node_desc"></string>
+    <string name="settings_sect_troubleshooting"></string>
+    <!-- 4.0 settings restructure: stage 4 tunnel-mode selector -->
+    <string name="settings_tunnel_mode_proxy"></string>
+    <string name="settings_tunnel_mode_vpn"></string>
+    <string name="settings_tunnel_mode_root"></string>
+    <string name="settings_tunnel_mode_proxy_desc"></string>
+    <string name="settings_tunnel_mode_vpn_desc"></string>
+    <string name="settings_tunnel_mode_root_desc"></string>
+    <!-- 4.0 settings restructure: stage 5 link rows -->
+    <string name="settings_sect_share_links"></string>
+    <string name="settings_link_taildrive_desc"></string>
+    <string name="settings_link_serve_desc"></string>
+    <string name="settings_sect_tools"></string>
+    <string name="settings_link_dns_desc"></string>
+    <string name="settings_link_admin_desc"></string>
+    <string name="settings_link_logs_desc"></string>
+    <string name="settings_link_console_desc"></string>
+    <string name="settings_link_netcheck_desc"></string>
+    <!-- 4.0 settings restructure: stage 6 card titles (a card must not repeat its page title) -->
+    <string name="settings_sect_resolver"></string>
+    <string name="settings_sect_service_perms"></string>
+    <string name="settings_sect_backup_files"></string>
+    <string name="settings_tun_uses_socks_title"></string>
+    <string name="settings_tun_uses_socks_desc"></string>
+    <string name="settings_tun_warning_title"></string>
+    <string name="settings_tun_warning_body"></string>
+    <string name="settings_tun_warning_body_busy"></string>
+    <string name="settings_tun_warning_confirm"></string>
+    <string name="main_status_active_root_desc"></string>
+    <string name="settings_root_vpn_bypass_title"></string>
+    <string name="settings_root_vpn_bypass_desc"></string>
+    <string name="tun_excluded_apps_count"></string>
+    <string name="tun_excluded_apps_not_installed"></string>
+    <!-- Root Mode next to another VPN: the sticky override and what a yield looks like -->
+    <string name="settings_root_take_device_title"></string>
+    <string name="settings_root_take_device_desc"></string>
+    <string name="settings_root_take_device_dialog_title"></string>
+    <string name="settings_root_take_device_dialog_body"></string>
+    <string name="settings_root_take_device_confirm"></string>
+    <string name="settings_root_yielded_banner"></string>
+    <string name="main_root_yielded_title"></string>
+    <string name="main_root_yielded_desc"></string>
+    <string name="main_status_active_root_yielded_desc"></string>
+    <string name="main_exit_node_inert_label"></string>
+    <string name="main_exit_node_inert_desc"></string>
+    <!-- Root Mode sharing the device: the other VPN bypasses some apps, we carry those -->
+    <string name="settings_root_shared_banner"></string>
+    <string name="settings_root_dns_shared_desc"></string>
+    <string name="main_root_shared_title"></string>
+    <string name="main_root_shared_desc"></string>
+    <string name="main_status_active_root_shared_desc"></string>
+    <string name="main_exit_node_partial_label"></string>
+    <string name="main_exit_node_partial_desc"></string>
+    <!-- What the daemon reports to the coordination server (patch 06 masquerade and its switch) -->
+    <string name="settings_honest_hostinfo_title"></string>
+    <string name="settings_honest_hostinfo_desc"></string>
+    <string name="settings_honest_hostinfo_dialog_title"></string>
+    <string name="settings_honest_hostinfo_dialog_body"></string>
+    <string name="settings_honest_hostinfo_create_profile"></string>
+    <string name="honest_hostinfo_os_linux"></string>
+    <string name="honest_hostinfo_os_android"></string>
+    <string name="honest_hostinfo_checkbox_desc"></string>
+    <!-- The daemon exited on its own; the user still wanted the connection -->
+    <string name="daemon_crashed_title"></string>
+    <string name="daemon_crashed_text"></string>
+    <!-- The coordination server refused the node because its reported OS changed -->
+    <string name="coordinator_os_refused_title"></string>
+    <string name="coordinator_os_refused_text"></string>
+    <string name="coordinator_os_refused_short"></string>
+    <!-- Long press on the status card. Decoration; nothing reads these back. -->
+    <string-array name="status_asides">
+        <item>100.64.0.0/10 — a whole country, and you are the only one living in it.</item>
+        <item>Every packet you send takes a shortcut you will never see.</item>
+        <item>The daemon has been awake this whole time. It does not mind.</item>
+        <item>Somewhere a DERP relay just took your traffic personally.</item>
+        <item>NAT traversal: two machines behind routers, both convinced the other one goes first.</item>
+        <item>No, it is not a VPN. It is the same argument you had last week.</item>
+        <item>A tailnet is a group chat where the members are computers and nobody types.</item>
+        <item>MagicDNS is not magic. Nobody has been brave enough to say so out loud.</item>
+        <item>Your phone is a node. It has been one for a while now. Congratulations.</item>
+        <item>This card has been pressed. Nothing else happened, which is the point of it.</item>
+        <item>Held down long enough to read this, which means the connection is not the thing keeping you here.</item>
+        <item>Somewhere between here and the exit node there are eleven hops, four of them belonging to companies you have never heard of, and every one of them is having a worse day than you.</item>
+        <item>The tunnel does not care whether you are watching. It carries whatever you hand it, in order, without comment, until the battery runs out or you press this card again.</item>
+        <item>Committed at 3:14 in the morning. Tests? You are the tests.</item>
+        <item>The developer is installing the release over the working app again. The service has made its peace with this.</item>
+        <item>Somewhere in the Downloads folder are eleven APKs of the same build. Every one of them will come in handy.</item>
+        <item>"Make it work" — three words that turned into a release and a half.</item>
+        <item>The app is not at fault. The Tailscale window on the other machine is simply closed. Verified at three in the morning.</item>
+        <item>The hedgehog is still in the fog. The horse is where it was. The bundle of jam is untouched.</item>
+        <item>You pressed and held. The daemon is holding too.</item>
+        <item>Nothing is ever pushed without the magic word. It is the one law observed around here.</item>
+        <item>Half of this code was written by one neural network and half by another. Occasionally they agree.</item>
+        <item>Every easter egg is a line in strings.xml that nobody bothered to review.</item>
+        <item>More patch releases than users. Both numbers are going up.</item>
+        <item>Battery at 89 percent, three in the morning, and you are still testing account switching.</item>
+        <item>Nodes in Amsterdam, Frankfurt, Helsinki and Moscow. You are on the sofa.</item>
+        <item>A DERP relay in Helsinki has no idea who you are. Just as well.</item>
+        <item>The packet left. The packet came back. The packet will tell you nothing.</item>
+        <item>The daemon tells the coordination server it is Linux. The server believes it. Everyone is happy.</item>
+        <item>Routing below netd is like rearranging the furniture in somebody else\'s flat while they sleep.</item>
+        <item>Stare at this card long enough and it starts staring back. It already has.</item>
+        <item>This space could carry an advertisement, except there is no advertisement, no manager, no monetisation plan and, frankly, no plan.</item>
+        <item>There are more checks for "what if the daemon died" in this app than in some marriages.</item>
+        <item>New build installed, service dead, tap to start. Every release begins with a small funeral.</item>
+        <item>Between you and this line: Compose, two coroutines, a local socket, a daemon written in Go, a patch held together by good intentions, and a person who decided at three in the morning that a long press had to do something.</item>
+        <item>The native engine has been ready since 4.2.0 and is still labelled experimental. So is everything else here.</item>
+        <item>The profile bio reads "Coder -_-". Exhaustive.</item>
+        <item>Employer: "Not a Company". The pay matches.</item>
+        <item>Sixty public repositories. Count the finished ones yourself.</item>
+        <item>The most starred repository is a config editor for xray. Not this one.</item>
+        <item>Somewhere there is a "working" implementation of tailscaled under termux. The quotes are the author\'s own.</item>
+        <item>An AmneziaWG client, a Tailscale client, another proxy on top. The internet is still the same internet.</item>
+        <item>Between an OCR library for Google Lens and a manga translator, there was still time for a VPN client.</item>
+        <item>In the Downloads folder, the manga directory sits next to the tailscaled logs. Priorities are in order.</item>
+        <item>Still learning Kotlin and Go, says the profile. The code agrees on both counts.</item>
+        <item>The Homebrew tap has zero stars. Somebody had to.</item>
+        <item>Somebody reimplemented the Windows 11 Snipping Tool OCR engine in Python. For no reason. That somebody wrote this app too.</item>
+        <item>Every issue starts with "which version". Now the report answers before the question.</item>
+        <item>The diagnostics carry no node names and no addresses. The jokes carry no guarantees.</item>
+        <item>Somewhere a bug report is being typed with no version, no device and no logs. Not from here, though.</item>
+        <item>Held again. The counter went up again. This is the whole feature.</item>
+        <item>The exit node picker now marks the fastest node. The slowest one is doing its best.</item>
+        <item>A tailnet of one device is still a tailnet. It is just a lonely one.</item>
+        <item>If the service died after an update, that was not the update. That was the manufacturer.</item>
+        <item>Battery optimisation is on, the service is dead, and the issue says "app closes itself".</item>
+        <item>The About screen draws a hedgehog in fog. Nobody asked for it. Nobody regrets it.</item>
+        <item>Four counters, zero of them leaving the phone. The most honest telemetry in the business.</item>
+        <item>Between the tap and the packet there are eleven of our own checks, and the packet still makes it first.</item>
+        <item>Read this far? The line is over. The tunnel is not.</item>
+    </string-array>
+    <!-- Counting lines: %1$d is a tally kept on the device and nowhere else. -->
+    <string name="aside_count_holds"></string>
+    <string name="aside_count_toggles"></string>
+    <string name="aside_count_pings"></string>
+    <string name="aside_count_switches"></string>
+    <string name="aside_first"></string>
+    <string name="aside_ten"></string>
+    <string name="aside_fortytwo"></string>
+    <string name="aside_hundred"></string>
+    <string name="settings_socks5_auth_needs_both"></string>
+    <!-- Connection state and health (4.5.0) -->
+    <string name="health_relay_unreachable"></string>
+    <string name="health_relay_timeout"></string>
+    <string name="health_relay_region"></string>
+    <string name="health_coord_unreachable"></string>
+    <string name="health_coord_timeout"></string>
+    <string name="health_tls_failed"></string>
+    <string name="health_network_down"></string>
+    <string name="health_udp_unavailable"></string>
+    <string name="health_network_error"></string>
+    <string name="health_login"></string>
+    <string name="health_dns_unavailable"></string>
+    <string name="health_dns_fallback_text"></string>
+    <string name="health_dns_down_text"></string>
+    <string name="health_more"></string>
+    <string name="health_action_reconnect"></string>
+    <string name="health_action_bypass"></string>
+    <string name="health_reconnecting"></string>
+    <string name="summary_online"></string>
+    <string name="summary_relay"></string>
+    <string name="main_status_connecting"></string>
+    <string name="main_status_connecting_desc"></string>
+    <string name="main_status_degraded"></string>
+    <string name="main_status_degraded_desc"></string>
+    <string name="main_status_needs_login"></string>
+    <string name="main_status_needs_login_desc"></string>
+    <string name="main_status_state_on"></string>
+    <string name="main_status_state_off"></string>
+    <string name="main_status_action_stop"></string>
+    <string name="main_status_action_start"></string>
+    <string name="settings_update_check_title"></string>
+    <string name="settings_update_check_desc"></string>
+    <string name="help_expand"></string>
+    <string name="help_collapse"></string>
+    <string name="login_use_key"></string>
+    <string name="login_hide_key"></string>
+    <string name="settings_diag_socket_path"></string>
+    <string name="settings_diag_log_file"></string>
+    <string name="settings_diag_no_output"></string>
+    <string name="settings_connection_summary_title"></string>
+    <string name="settings_connection_summary_desc"></string>
+</resources>
