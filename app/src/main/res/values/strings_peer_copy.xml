@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The peer's "Copy as…": the button in the details sheet, and a long press on a row of the list. -->
+    <string name="peer_copy_as">Copy as…</string>
+    <string name="peer_copy_as_title">Copy %1$s as…</string>
+    <!-- What each ready-to-paste form is, under the form itself. -->
+    <string name="peer_copy_short_name">MagicDNS name</string>
+    <string name="peer_copy_full_name">Full MagicDNS name</string>
+    <string name="peer_copy_ipv4">IPv4 address</string>
+    <string name="peer_copy_ipv6">IPv6 address</string>
+    <string name="peer_copy_ssh" translatable="false">SSH</string>
+    <string name="peer_copy_tailscale_ssh" translatable="false">Tailscale SSH</string>
+    <string name="peer_copy_web">Web</string>
+    <!-- %1$s is the program the peer reports on that port: nginx, jellyfin… -->
+    <string name="peer_copy_web_service">Web · %1$s</string>
+    <string name="peer_copy_ping">Ping</string>
+    <string name="peer_copy_tailscale_ping">Tailscale ping</string>
+</resources>

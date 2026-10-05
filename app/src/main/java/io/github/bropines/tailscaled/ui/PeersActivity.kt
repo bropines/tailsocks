@@ -85,6 +85,11 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "") {
     var searchQuery by remember { mutableStateOf(initialQuery) }
     var selectedPeer by remember { mutableStateOf<PeerData?>(null) }
     var peerForFileDrop by remember { mutableStateOf<PeerData?>(null) }
+    // The peer whose "Copy as…" is open — from a long press on its row, or from the details
+    // sheet's button, over that sheet. Its forms are built when it opens, never for the list.
+    var copyAsPeer by remember { mutableStateOf<PeerData?>(null) }
+    // Whether the tailnet resolves MagicDNS names, from the same status as the list.
+    var magicDns by remember { mutableStateOf(demoStatus?.let(MagicDnsNames::of) ?: MagicDnsNames.UNKNOWN) }
     // The Tailscale version of each node, by node id, as the Admin API reports it — the one
     // property the daemon's status does not carry for a peer. Resolved once per list load,
     // off the main thread, after the list is already on screen; the sheet reads the map and
@@ -146,6 +151,7 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "") {
                 withContext(Dispatchers.Main) {
                     selfPeer = status.self
                     peersList = loadedPeers
+                    magicDns = MagicDnsNames.of(status)
                     daemonStopped = false
                     loaded = true
                     isRefreshing = false
@@ -251,6 +257,7 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "") {
                 }
             } else {
                 val searching = searchQuery.isNotBlank()
+                val copyAsLabel = stringResource(R.string.peer_copy_as)
                 LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
                     if (visibleSelfPeer != null) {
                         item {
@@ -258,12 +265,21 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "") {
                                 visibleSelfPeer,
                                 true,
                                 pingStateOf(peerPings[visibleSelfPeer.getPrimaryIp()]),
-                                nowMillis
+                                nowMillis,
+                                onLongClick = { copyAsPeer = visibleSelfPeer },
+                                onLongClickLabel = copyAsLabel
                             ) { selectedPeer = visibleSelfPeer }
                         }
                     }
                     items(filteredPeers) { p ->
-                        PeerItem(p, false, pingStateOf(peerPings[p.getPrimaryIp()]), nowMillis) { selectedPeer = p }
+                        PeerItem(
+                            p,
+                            false,
+                            pingStateOf(peerPings[p.getPrimaryIp()]),
+                            nowMillis,
+                            onLongClick = { copyAsPeer = p },
+                            onLongClickLabel = copyAsLabel
+                        ) { selectedPeer = p }
                     }
                     when {
                         // Not even this device matched: say so, and offer the way back.
@@ -336,7 +352,17 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "") {
                 selfAddress = selfPeer?.tailscaleIPs?.firstOrNull(),
                 onDismiss = { selectedPeer = null },
                 onSendFileClick = { peer -> peerForFileDrop = peer; filePickerLauncher.launch("*/*") },
+                onCopyAsClick = { peer -> copyAsPeer = peer },
                 onSelectPeer = { peer -> selectedPeer = peer }
+            )
+        }
+
+        copyAsPeer?.let { p ->
+            PeerCopyAsSheet(
+                peer = p,
+                isSelf = p.id?.let { it == selfPeer?.id } ?: (p === selfPeer),
+                names = magicDns,
+                onDismiss = { copyAsPeer = null }
             )
         }
         }

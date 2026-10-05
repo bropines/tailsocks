@@ -32,6 +32,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -133,6 +134,9 @@ private const val PEER_SWIPE_RESISTANCE = 0.25f
 private const val PEER_SWIPE_SETTLE_THRESHOLD_PX = 0.5f
 /** How long a copied row shows its tick before going back to the copy icon. */
 private const val PEER_COPIED_ACK_MS = 1500L
+/** The largest font scale at which Send file and Copy as… still share a row. Android's next
+ *  step up is 1.5, where one word of either label no longer fits half a 360dp phone. */
+private const val PEER_ACTIONS_SIDE_BY_SIDE_MAX_FONT_SCALE = 1.3f
 
 /** Material's spatial spring, told what "finished" means in pixels. Every field but the
  *  threshold is the scheme's, so the motion is still the theme's and not this file's; a spec
@@ -718,7 +722,9 @@ internal fun agoText(context: Context, thenMillis: Long, nowMillis: Long): Strin
 
 /**
  * One peer in the list. [nowMillis] is what "last seen" is measured against; a caller that
- * renders a demo pins it, so a preview does not age between two runs.
+ * renders a demo pins it, so a preview does not age between two runs. [onLongClick], with
+ * [onLongClickLabel] for a screen reader's actions menu, is the peers screen's "Copy as…";
+ * a list without one (the Files hub) leaves both null.
  */
 @Composable
 internal fun PeerItem(
@@ -726,6 +732,8 @@ internal fun PeerItem(
     isSelf: Boolean,
     ping: PeerPingState = PeerPingState.Idle,
     nowMillis: Long = System.currentTimeMillis(),
+    onLongClick: (() -> Unit)? = null,
+    onLongClickLabel: String? = null,
     onClick: () -> Unit
 ) {
     val context = LocalContext.current
@@ -742,15 +750,23 @@ internal fun PeerItem(
             PeerRowPath.None -> null
         }
     ).joinToString(", ")
-    // Surface(onClick) rather than a clickable on the modifier: there the ripple was drawn
-    // before the shape clipped anything, a rectangle spilling past the rounded corners.
+    // Clipped before the click: a clickable on an unclipped modifier drew its ripple as a
+    // rectangle spilling past the rounded corners. Not Surface(onClick), which has no long
+    // press.
+    val shape = MaterialTheme.shapes.large
     Surface(
-        onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp)
+            .clip(shape)
+            .combinedClickable(
+                role = Role.Button,
+                onLongClickLabel = onLongClickLabel,
+                onLongClick = onLongClick,
+                onClick = onClick
+            )
             .semantics { stateDescription = spokenState },
-        shape = MaterialTheme.shapes.large,
+        shape = shape,
         color = if (isSelf) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer
     ) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -984,6 +1000,7 @@ private data class PeerDetailsStrings(
     val prevPeer: String,
     val nextPeer: String,
     val sendFile: String,
+    val copyAs: String,
     val tooltipDismiss: String,
     val pinging: String,
     /** "Ping: %1$s" — formatted in the page with String.format, not with stringResource:
@@ -1088,6 +1105,8 @@ fun PeerDetailsModal(
     selfAddress: String? = null,
     onDismiss: () -> Unit,
     onSendFileClick: (PeerData) -> Unit = {},
+    /** The peer's "Copy as…" picker, opened over this sheet. Null draws no button. */
+    onCopyAsClick: ((PeerData) -> Unit)? = null,
     /** Turn to a peer this sheet was handed. By the time this is called the page-turn has
      *  already carried that peer's content to the centre of the sheet. */
     onSelectPeer: (PeerData) -> Unit = {}
@@ -1187,6 +1206,7 @@ fun PeerDetailsModal(
         prevPeer = stringResource(R.string.peer_details_prev),
         nextPeer = stringResource(R.string.peer_details_next),
         sendFile = stringResource(R.string.peer_send_file),
+        copyAs = stringResource(R.string.peer_copy_as),
         tooltipDismiss = stringResource(R.string.action_close),
         pinging = stringResource(R.string.peer_pinging),
         pingResultFormat = stringResource(R.string.peer_ping_result),
@@ -1403,6 +1423,7 @@ fun PeerDetailsModal(
                     onPing = {},
                     onToggleGroup = onToggleGroup,
                     onSendFileClick = { onSendFileClick(incoming.peer) },
+                    onCopyAsClick = onCopyAsClick?.let { { it(incoming.peer) } },
                     // The arriving page's own neighbours, so its arrows are already right
                     // when it lands and nothing pops in after the motion ends.
                     onPrevPeer = turnTo(peerAt(step - 1)),
@@ -1430,6 +1451,7 @@ fun PeerDetailsModal(
                     scope.launch { pingResult = pingPeer(peer.getPrimaryIp()) }
                 },
                 onSendFileClick = { onSendFileClick(peer) },
+                onCopyAsClick = onCopyAsClick?.let { { it(peer) } },
                 onPrevPeer = turnTo(prevPage),
                 onNextPeer = turnTo(nextPage),
                 onCopyDetail = onCopyDetail,
@@ -1462,6 +1484,7 @@ private fun PeerDetailsPage(
     onPing: () -> Unit,
     onToggleGroup: (PeerDetailGroup) -> Unit,
     onSendFileClick: () -> Unit,
+    onCopyAsClick: (() -> Unit)?,
     onPrevPeer: (() -> Unit)?,
     onNextPeer: (() -> Unit)?,
     onCopyDetail: (PeerDetail) -> Unit,
@@ -1554,13 +1577,15 @@ private fun PeerDetailsPage(
             )
         }
 
-        // The one action left up here: the ping moved into the connection card, which is the
+        // The actions left up here: the ping moved into the connection card, which is the
         // thing it measures. Send file stays a button because it leaves the app. When the
         // daemon says the peer will not take a file the button is dead and the daemon's
         // reason stands beside it in the user's language — for a peer of another user's
         // that reason is an ACL grant, and the words say which one. A peer the control
         // plane calls offline keeps a live button under the same kind of note: the Online
         // bit lags, and a peer that woke a moment ago would otherwise show a dead button.
+        // Copy as… shares the row: it opens a picker over the sheet, which is no place for
+        // a card of its own, and the cards' copy icons copy one value each, not a command.
         item(key = "actions") {
             // The reason is a tooltip, not a standing line: it costs no height in the
             // sheet, and it appears at the moment a person presses the button and
@@ -1574,57 +1599,86 @@ private fun PeerDetailsPage(
             val refusedHere = taildrop is TaildropStatus.Blocked
             val tooltipState = rememberTooltipState(isPersistent = true)
             val scope = rememberCoroutineScope()
-            Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 10.dp)) {
-                TooltipBox(
-                    positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
-                    tooltip = {
-                        if (taildropNote != null) {
-                            RichTooltip(
-                                title = { Text(strings.sendFile) },
-                                action = {
-                                    TextButton(onClick = { scope.launch { tooltipState.dismiss() } }) {
-                                        Text(strings.tooltipDismiss)
+            // Each button takes its place from the layout below: side by side, or stacked.
+            // The Box is where that place lands — TooltipBox hands its own modifier to the
+            // anchor inside it, where a Row never sees a weight.
+            val sendButton: @Composable (Modifier) -> Unit = { place ->
+                Box(place) {
+                    TooltipBox(
+                        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
+                        tooltip = {
+                            if (taildropNote != null) {
+                                RichTooltip(
+                                    title = { Text(strings.sendFile) },
+                                    action = {
+                                        TextButton(onClick = { scope.launch { tooltipState.dismiss() } }) {
+                                            Text(strings.tooltipDismiss)
+                                        }
                                     }
-                                }
-                            ) { Text(taildropNote) }
-                        }
-                    },
-                    state = tooltipState,
-                    enableUserInput = false
-                ) {
-                    Button(
-                        onClick = {
-                            if (refusedHere) scope.launch { tooltipState.show() } else onSendFileClick()
+                                ) { Text(taildropNote) }
+                            }
                         },
-                        // Enabled even when refused: a disabled button swallows the tap,
-                        // and the tap is what the explanation hangs on. The dimmed
-                        // colours say it will not send.
-                        colors = if (refusedHere) {
-                            ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        state = tooltipState,
+                        enableUserInput = false
+                    ) {
+                        Button(
+                            onClick = {
+                                if (refusedHere) scope.launch { tooltipState.show() } else onSendFileClick()
+                            },
+                            // Enabled even when refused: a disabled button swallows the tap,
+                            // and the tap is what the explanation hangs on. The dimmed
+                            // colours say it will not send.
+                            colors = if (refusedHere) {
+                                ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            } else ButtonDefaults.buttonColors(),
+                            // heightIn rather than height: «Отправить файл» wraps at a large font
+                            // scale, and a fixed height cuts the second line off.
+                            modifier = Modifier.fillMaxWidth().fillMaxHeight().heightIn(min = 46.dp)
+                                .semantics { if (taildropNote != null) stateDescription = taildropNote },
+                            shape = MaterialTheme.shapes.medium,
+                            contentPadding = PaddingValues(horizontal = 8.dp)
+                        ) {
+                            Icon(
+                                if (refusedHere) Icons.Default.Info else Icons.AutoMirrored.Filled.Send,
+                                null,
+                                Modifier.size(18.dp)
                             )
-                        } else ButtonDefaults.buttonColors(),
-                        // heightIn rather than height: «Отправить файл» wraps at a large font
-                        // scale, and a fixed height cuts the second line off.
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 46.dp)
-                            .semantics { if (taildropNote != null) stateDescription = taildropNote },
+                            Spacer(Modifier.width(8.dp))
+                            PeerActionLabel(strings.sendFile)
+                        }
+                    }
+                }
+            }
+            val copyAsButton: (@Composable (Modifier) -> Unit)? = onCopyAsClick?.let { onClick ->
+                { place ->
+                    FilledTonalButton(
+                        onClick = onClick,
+                        modifier = place.heightIn(min = 46.dp),
                         shape = MaterialTheme.shapes.medium,
                         contentPadding = PaddingValues(horizontal = 8.dp)
                     ) {
-                        Icon(
-                            if (refusedHere) Icons.Default.Info else Icons.AutoMirrored.Filled.Send,
-                            null,
-                            Modifier.size(18.dp)
-                        )
+                        Icon(Icons.Default.ContentCopy, null, Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text(
-                            strings.sendFile,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        PeerActionLabel(strings.copyAs)
                     }
+                }
+            }
+            val actionsArea = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 10.dp)
+            // Stacked once half the sheet no longer holds one word of a label: side by side,
+            // a 2× font broke «Отправить» and «Копировать» in the middle.
+            if (copyAsButton != null && LocalDensity.current.fontScale > PEER_ACTIONS_SIDE_BY_SIDE_MAX_FONT_SCALE) {
+                Column(actionsArea, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    sendButton(Modifier.fillMaxWidth())
+                    copyAsButton(Modifier.fillMaxWidth())
+                }
+            } else {
+                // Intrinsic height, so the two stand equally tall when one label wraps.
+                Row(actionsArea.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    sendButton(Modifier.weight(1f).fillMaxHeight())
+                    copyAsButton?.invoke(Modifier.weight(1f).fillMaxHeight())
                 }
             }
         }
@@ -1655,6 +1709,19 @@ private fun PeerDetailsPage(
             )
         }
     }
+}
+
+/** A label of the action row. Two lines before it is cut: at half the sheet's width each,
+ *  «Отправить файл» and «Копировать как…» wrap from a large font scale on. */
+@Composable
+private fun PeerActionLabel(text: String) {
+    Text(
+        text,
+        fontWeight = FontWeight.SemiBold,
+        textAlign = TextAlign.Center,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis
+    )
 }
 
 /**

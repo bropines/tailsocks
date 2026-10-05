@@ -52,6 +52,9 @@ data class PickerOption<T>(
     val icon: ImageVector? = null,
     /** A second line, for when the label alone does not tell the rows apart. */
     val supporting: String? = null,
+    /** This one label is machine text — an address, a command — in a list that is not all
+     *  machine text; the sheet's own `monospace` sets the face for every row at once. */
+    val monospace: Boolean = false,
 )
 
 /**
@@ -70,6 +73,10 @@ data class PickerOption<T>(
  * No minimum height, unlike the exit-node picker: that one fills in after it
  * opens and was held at its final height so it would not jump, whereas every
  * list here is known before the sheet appears.
+ *
+ * [labelMaxLines] overrides how many lines a label may take — one for a
+ * command, two for words. A picker whose label is the very text the pick puts
+ * somewhere (the peer's "Copy as…") passes Int.MAX_VALUE: that text is never cut.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,13 +87,14 @@ fun <T> PickerSheet(
     onDismiss: () -> Unit,
     selected: T? = null,
     monospace: Boolean = false,
+    labelMaxLines: Int? = null,
 ) {
     // Opened half height, a sheet settles to its content a frame later and
     // reads as a jump.
     val sheetState = rememberFullSheetState()
     val scope = rememberCoroutineScope()
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        PickerSheetContent(title, options, selected, monospace) { value ->
+        PickerSheetContent(title, options, selected, monospace, labelMaxLines) { value ->
             onPick(value)
             scope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() }
         }
@@ -103,6 +111,7 @@ internal fun <T> PickerSheetContent(
     options: List<PickerOption<T>>,
     selected: T?,
     monospace: Boolean,
+    labelMaxLines: Int? = null,
     onRowClick: (T) -> Unit
 ) {
     // Past this the list scrolls under a title that stays put; a dozen rows
@@ -135,7 +144,8 @@ internal fun <T> PickerSheetContent(
                     option = option,
                     isSelected = choosesOne && option.value == selected,
                     choosesOne = choosesOne,
-                    monospace = monospace
+                    monospace = monospace,
+                    labelMaxLines = labelMaxLines
                 ) { onRowClick(option.value) }
             }
         }
@@ -148,6 +158,7 @@ private fun <T> PickerRow(
     isSelected: Boolean,
     choosesOne: Boolean,
     monospace: Boolean,
+    labelMaxLines: Int?,
     onClick: () -> Unit
 ) {
     val shape = MaterialTheme.shapes.medium
@@ -193,13 +204,14 @@ private fun <T> PickerRow(
                 Spacer(Modifier.width(12.dp))
             }
             Column(modifier = Modifier.weight(1f)) {
+                val machineText = monospace || option.monospace
                 Text(
                     option.label,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                    fontFamily = if (monospace) FontFamily.Monospace else null,
+                    fontFamily = if (machineText) FontFamily.Monospace else null,
                     // A command is one line, cut at its end; a label may take two.
-                    maxLines = if (monospace) 1 else 2,
+                    maxLines = labelMaxLines ?: if (machineText) 1 else 2,
                     overflow = TextOverflow.Ellipsis
                 )
                 option.supporting?.let {

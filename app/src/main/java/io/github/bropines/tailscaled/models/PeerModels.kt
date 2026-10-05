@@ -19,7 +19,16 @@ data class StatusResponse(
     @SerialName("User") val users: Map<String, UserProfile>? = null,
     @SerialName("MagicDNSSuffix") val magicDnsSuffix: String? = null,
     /** Domains this node can hold a TLS certificate for; empty when it has no HTTPS capability. */
-    @SerialName("CertDomains") val certDomains: List<String>? = null
+    @SerialName("CertDomains") val certDomains: List<String>? = null,
+    @SerialName("CurrentTailnet") val currentTailnet: TailnetStatus? = null
+)
+
+/** ipnstate.TailnetStatus, as far as a peer's copy forms care: whether its MagicDNS name is
+ *  something another device in the tailnet can resolve at all. */
+@Serializable
+data class TailnetStatus(
+    @SerialName("MagicDNSSuffix") val magicDnsSuffix: String? = null,
+    @SerialName("MagicDNSEnabled") val magicDnsEnabled: Boolean? = null
 )
 
 @Serializable
@@ -63,7 +72,10 @@ data class PeerData(
     @SerialName("Tags") val tags: List<String>? = null,
     /** Node capabilities from the netmap (`https`, `funnel`, `cap:advertise-services`,
      *  the funnel-ports URL…); the values are per-capability data or null. */
-    @SerialName("CapMap") val capMap: Map<String, JsonElement>? = null
+    @SerialName("CapMap") val capMap: Map<String, JsonElement>? = null,
+    /** The node's SSH host keys. Tailscale publishes them exactly when the node runs
+     *  Tailscale SSH (tailcfg.Hostinfo.TailscaleSSHEnabled). */
+    @SerialName("sshHostKeys") val sshHostKeys: List<String>? = null
 ) {
     fun getPrimaryIp(): String = tailscaleIPs?.firstOrNull() ?: "0.0.0.0"
 

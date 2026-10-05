@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="peer_copy_as">Копировать как…</string>
+    <string name="peer_copy_as_title">Копировать %1$s как…</string>
+    <string name="peer_copy_short_name">Имя MagicDNS</string>
+    <string name="peer_copy_full_name">Полное имя MagicDNS</string>
+    <string name="peer_copy_ipv4">Адрес IPv4</string>
+    <string name="peer_copy_ipv6">Адрес IPv6</string>
+    <string name="peer_copy_web">Веб</string>
+    <string name="peer_copy_web_service">Веб · %1$s</string>
+    <string name="peer_copy_ping">Пинг</string>
+    <string name="peer_copy_tailscale_ping">Пинг Tailscale</string>
+</resources>

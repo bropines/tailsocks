@@ -37,6 +37,9 @@ data class DemoData(
     val backendState: String = "Running",
     /** Health warnings, as appctr's GetHealthWarningsJSON returns them. */
     val healthJson: String? = null,
+    /** Whois answers by address, as /localapi/v0/whois returns them — what a peer's
+     *  "Copy as…" reads its advertised services from. */
+    val whois: Map<String, String> = emptyMap(),
 )
 
 val LocalDemo = staticCompositionLocalOf<DemoData?> { null }
