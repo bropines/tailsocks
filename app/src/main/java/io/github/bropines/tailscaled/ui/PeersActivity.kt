@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.NetworkPing
+import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.SearchOff
@@ -88,6 +89,8 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "") {
     // The peer whose "Copy as…" is open — from a long press on its row, or from the details
     // sheet's button, over that sheet. Its forms are built when it opens, never for the list.
     var copyAsPeer by remember { mutableStateOf<PeerData?>(null) }
+    /** Title and text of the QR code on screen, picked from "Copy as…". */
+    var peerQr by remember { mutableStateOf<Pair<String, String>?>(null) }
     // Whether the tailnet resolves MagicDNS names, from the same status as the list.
     var magicDns by remember { mutableStateOf(demoStatus?.let(MagicDnsNames::of) ?: MagicDnsNames.UNKNOWN) }
     // The Tailscale version of each node, by node id, as the Admin API reports it — the one
@@ -358,13 +361,28 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "") {
         }
 
         copyAsPeer?.let { p ->
+            val qrLabel = stringResource(R.string.qr_show)
             PeerCopyAsSheet(
                 peer = p,
                 isSelf = p.id?.let { it == selfPeer?.id } ?: (p === selfPeer),
                 names = magicDns,
-                onDismiss = { copyAsPeer = null }
+                onDismiss = { copyAsPeer = null },
+                extraOptions = { forms ->
+                    // What a camera on another device can use: the first web address the peer
+                    // serves, else its name, else its IPv4.
+                    val target = forms.firstOrNull { it.kind == PeerCopyKind.WEB }
+                        ?: forms.firstOrNull { it.kind == PeerCopyKind.FULL_NAME }
+                        ?: forms.firstOrNull { it.kind == PeerCopyKind.IPV4 }
+                    listOfNotNull(target?.let {
+                        PickerOption<() -> Unit>(
+                            value = { peerQr = p.getDisplayName() to it.text },
+                            label = qrLabel, icon = Icons.Default.QrCode2, supporting = it.text
+                        )
+                    })
+                }
             )
         }
+        peerQr?.let { (title, text) -> QrSheet(title = title, text = text, onDismiss = { peerQr = null }) }
         }
     }
 }
