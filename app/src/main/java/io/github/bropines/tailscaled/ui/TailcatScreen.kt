@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Pets
+import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Router
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.StopCircle
@@ -144,6 +145,9 @@ fun TailcatScreen(onBack: () -> Unit, page: ServePage? = null, importText: Strin
     var creatingServer by remember { mutableStateOf(false) }
     var editingServer by remember { mutableStateOf(false) }
     var confirmNewAddress by remember { mutableStateOf(false) }
+    /** The connection whose QR code is shown, or the server's. */
+    var qrConnection by remember { mutableStateOf<TailcatConnection?>(null) }
+    var serverQr by remember { mutableStateOf(false) }
     val serverOn = serverStatus?.let { it.state != "failed" } == true
 
     fun reload() { connections = TailcatConnections.load(context) }
@@ -253,6 +257,7 @@ fun TailcatScreen(onBack: () -> Unit, page: ServePage? = null, importText: Strin
                             onDelete = { deleting = conn },
                             onCopy = { copy(it) },
                             onOpen = { openInBrowser(it) },
+                            onQr = { qrConnection = conn },
                             onLogs = { openLogs() }
                         )
                     }
@@ -273,6 +278,7 @@ fun TailcatScreen(onBack: () -> Unit, page: ServePage? = null, importText: Strin
                             onEdit = { editingServer = true },
                             onCopy = { copy(it) },
                             onShare = { share(it) },
+                            onQr = { serverQr = true },
                             onLogs = { openLogs() }
                         )
                     }
@@ -310,6 +316,26 @@ fun TailcatScreen(onBack: () -> Unit, page: ServePage? = null, importText: Strin
                 // A running server takes its new settings at once.
                 if (serverOn) TailcatService.startServer(context)
             }
+        )
+    }
+
+    // The address is in both codes and under them: the card keeps it hidden,
+    // the sheet is what a tap on purpose opens.
+    qrConnection?.let { conn ->
+        QrSheet(
+            title = conn.name,
+            text = conn.command(),
+            help = stringResource(R.string.qr_tailcat_connection_help),
+            onDismiss = { qrConnection = null }
+        )
+    }
+    val qrAddress = serverAddress
+    if (serverQr && qrAddress != null) {
+        QrSheet(
+            title = stringResource(R.string.qr_tailcat_server_title),
+            text = TailcatServer.clientCommand(qrAddress, serverConfig),
+            help = stringResource(R.string.qr_tailcat_server_help),
+            onDismiss = { serverQr = false }
         )
     }
 
@@ -478,6 +504,7 @@ private fun ConnectionCard(
     onDelete: () -> Unit,
     onCopy: (String) -> Unit,
     onOpen: (String) -> Unit,
+    onQr: () -> Unit,
     onLogs: () -> Unit
 ) {
     val context = LocalContext.current
@@ -581,6 +608,8 @@ private fun ConnectionCard(
                 Spacer(Modifier.weight(1f))
                 CardAction(Icons.Default.Terminal, stringResource(R.string.tailcat_full_output), onClick = onLogs)
                 if (local != null) CardAction(Icons.Default.ContentCopy, stringResource(R.string.tailcat_copy_local), onClick = { onCopy("http://$local") })
+                // The connection for another device, as a server's card shares it.
+                CardAction(Icons.Default.QrCode2, stringResource(R.string.qr_show), onClick = onQr)
                 CardAction(Icons.Default.Edit, stringResource(R.string.action_edit), onClick = onEdit)
             }
         }
@@ -762,6 +791,7 @@ private fun ServerCard(
     onEdit: () -> Unit,
     onCopy: (String) -> Unit,
     onShare: (String) -> Unit,
+    onQr: () -> Unit,
     onLogs: () -> Unit
 ) {
     val context = LocalContext.current
@@ -865,15 +895,21 @@ private fun ServerCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 CardAction(Icons.Default.Autorenew, stringResource(R.string.tailcat_server_new_address), onClick = onNewAddress)
-                Spacer(Modifier.weight(1f))
-                CardAction(Icons.Default.Terminal, stringResource(R.string.tailcat_full_output), onClick = onLogs)
-                // The commands, not the bare address: a computer runs them as
-                // they are, another TailSocks imports them in a connection's editor.
-                val command = TailcatServer.clientCommand(address, config)
-                CardAction(Icons.Default.Share, stringResource(R.string.tailcat_share_address), onClick = { onShare(command) })
-                CardAction(Icons.Default.Code, stringResource(R.string.tailcat_server_copy_command), onClick = { onCopy(command) })
-                CardAction(Icons.Default.ContentCopy, stringResource(R.string.tailcat_copy_address), onClick = { onCopy(address) })
-                CardAction(Icons.Default.Edit, stringResource(R.string.action_edit), onClick = onEdit)
+                // Seven actions in all: on a narrow screen the right-hand ones
+                // scroll rather than push the last off the card.
+                Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
+                    Row(Modifier.horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
+                        CardAction(Icons.Default.Terminal, stringResource(R.string.tailcat_full_output), onClick = onLogs)
+                        // The commands, not the bare address: a computer runs them as
+                        // they are, another TailSocks imports them in a connection's editor.
+                        val command = TailcatServer.clientCommand(address, config)
+                        CardAction(Icons.Default.Share, stringResource(R.string.tailcat_share_address), onClick = { onShare(command) })
+                        CardAction(Icons.Default.QrCode2, stringResource(R.string.qr_show), onClick = onQr)
+                        CardAction(Icons.Default.Code, stringResource(R.string.tailcat_server_copy_command), onClick = { onCopy(command) })
+                        CardAction(Icons.Default.ContentCopy, stringResource(R.string.tailcat_copy_address), onClick = { onCopy(address) })
+                        CardAction(Icons.Default.Edit, stringResource(R.string.action_edit), onClick = onEdit)
+                    }
+                }
             }
         }
     }

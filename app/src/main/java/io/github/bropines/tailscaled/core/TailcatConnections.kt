@@ -30,6 +30,13 @@ data class TailcatConnection(
 ) {
     /** What an app is given for the proxy, or null without one. */
     fun socksUrl(): String? = if (socks == 0) null else "socks5://$socksUser:$socksPass@127.0.0.1:$socks"
+
+    /**
+     * This connection for another device, in the form a server's card shares:
+     * a computer runs it, a connection's editor imports it. The proxy goes
+     * without its credentials, which belong to this device.
+     */
+    fun command(): String = TailcatConnections.command(address, TailcatConnections.specs(ports), socks.takeIf { it > 0 })
 }
 
 /** What a pasted address or tailcat command says about a connection; see [TailcatConnections.parseImport]. */
@@ -96,6 +103,16 @@ object TailcatConnections {
         }
         return address?.let { TailcatImport(it, ports.distinct().joinToString(", "), socks) }
     }
+
+    /**
+     * What a computer runs to reach [address], one command a line:
+     * `tailcat forward` with [mappings], `tailcat socks` listening on [socks].
+     * [parseImport] reads the same lines back; with neither, the bare address.
+     */
+    fun command(address: String, mappings: List<String>, socks: Int?): String = buildList {
+        if (mappings.isNotEmpty()) add("tailcat forward $address ${mappings.joinToString(" ")}")
+        if (socks != null) add("tailcat socks --listen=127.0.0.1:$socks $address")
+    }.joinToString("\n").ifEmpty { address }
 
     /** A port mapping as `tailcat forward` takes it: port, local:remote, local:ip:port. */
     private val MAPPING = Regex("""^\d+(:\d+)?$|^\d+:(\[[0-9a-fA-F:.]+]|[0-9.]+):\d+$""")
@@ -207,11 +224,8 @@ object TailcatServer {
      * `tailcat forward` for its ports, `tailcat socks` for its exit node. The
      * import in a connection's editor reads the same lines back.
      */
-    fun clientCommand(address: String, config: TailcatServerConfig): String = buildList {
-        val ports = TailcatConnections.specs(config.ports)
-        if (ports.isNotEmpty()) add("tailcat forward $address ${ports.joinToString(" ")}")
-        if (config.exitNode) add("tailcat socks --listen=127.0.0.1:1080 $address")
-    }.joinToString("\n").ifEmpty { address }
+    fun clientCommand(address: String, config: TailcatServerConfig): String =
+        TailcatConnections.command(address, TailcatConnections.specs(config.ports), if (config.exitNode) 1080 else null)
 
     /** Why the server could not start with [config], or null. Checked by the bridge's parsers. */
     fun problem(config: TailcatServerConfig): Problem? {

@@ -532,6 +532,8 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
     var showClearDialog by remember { mutableStateOf(false) }
     var showCertExportDialog by remember { mutableStateOf(false) }
     var pendingCertData by remember { mutableStateOf("") }
+    /** A rule whose link is shown as a QR code, for another device's camera. */
+    var qrRule by remember { mutableStateOf<ServeRule?>(null) }
     /** A service whose tailnet-side definition and host approval are being offered. */
     var publishFor by remember { mutableStateOf<String?>(null) }
     var publishBusy by remember { mutableStateOf(false) }
@@ -870,6 +872,7 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
                                         context = context,
                                         onEdit = { editor = RuleEditorState(group.rules, group.first) },
                                         onCopy = { copyText(ruleUrl(group.first, caps)) },
+                                        onQr = { qrRule = group.first },
                                         onPublish = null,
                                         onPauseResume = { pauseOrResume(group) },
                                         onDelete = { deleteGroup(group) }
@@ -900,6 +903,7 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
                                         context = context,
                                         onEdit = { editor = RuleEditorState(group.rules, group.first) },
                                         onCopy = { copyText(ruleUrl(group.first, caps)) },
+                                        onQr = { qrRule = group.first },
                                         onPublish = if (group.first.paused) null else ({ publishFor = service }),
                                         onPauseResume = { pauseOrResume(group) },
                                         onDelete = { deleteGroup(group) }
@@ -949,6 +953,17 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
                     else if (adminSettings() == null) publishFor = service
                 }
             }
+        )
+    }
+
+    qrRule?.let { rule ->
+        // The same address answers on the tailnet and, with Funnel, on the internet;
+        // the line under the title says which of the two can open it.
+        QrSheet(
+            title = context.getString(R.string.qr_serve_title),
+            text = ruleUrl(rule, caps),
+            help = context.getString(if (rule.funnel) R.string.qr_serve_public_help else R.string.qr_serve_tailnet_help),
+            onDismiss = { qrRule = null }
         )
     }
 
@@ -1339,6 +1354,7 @@ private fun RuleCard(
     context: Context,
     onEdit: () -> Unit,
     onCopy: () -> Unit,
+    onQr: () -> Unit,
     onPublish: (() -> Unit)?,
     onPauseResume: () -> Unit,
     onDelete: () -> Unit
@@ -1431,6 +1447,11 @@ private fun RuleCard(
                 Spacer(Modifier.weight(1f))
                 if (onPublish != null) CardAction(Icons.Default.Hub, context.getString(R.string.serve_menu_publish), onClick = onPublish)
                 if (url.isNotEmpty()) CardAction(Icons.Default.ContentCopy, context.getString(R.string.serve_menu_copy_link), onClick = onCopy)
+                // A web link, for a phone's camera to open; a TCP address or a
+                // paused rule has nothing there to open.
+                if (url.isNotEmpty() && rule.kind != RuleKind.TCP && !rule.paused) {
+                    CardAction(Icons.Default.QrCode2, context.getString(R.string.qr_show), onClick = onQr)
+                }
                 CardAction(Icons.Default.Edit, context.getString(R.string.action_edit), onClick = onEdit)
             }
         }
