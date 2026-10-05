@@ -104,6 +104,7 @@ adb shell am broadcast -a io.github.bropines.tailscaled.action.SET_BYEDPI -n io.
 | Ссылка | Открывает |
 |---|---|
 | `tailsocks://serve` | Serve & Funnel |
+| `tailsocks://exitnode` | Выбор выходного узла на главном экране |
 | `tailsocks://tailcat` | TailCat |
 | `tailsocks://tailcat/add?cmd=<адрес или команда подключения>` | новое подключение TailCat, уже заполненное (`cmd` в URL-кодировке) |
 | `tailsocks://logs?category=TAILCAT` | Логи на одной категории (`ALL`, `ERROR`, `CORE`, `TAILSCALE`, `TAILCAT`, …) |

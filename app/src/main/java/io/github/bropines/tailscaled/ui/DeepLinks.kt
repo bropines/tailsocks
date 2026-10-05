@@ -11,6 +11,7 @@ import android.net.Uri
  * `tailcat/add` only fills in a connection's editor — saving is the user's tap.
  *
  *     tailsocks://serve                     Serve & Funnel
+ *     tailsocks://exitnode                  the exit-node picker on the main screen
  *     tailsocks://tailcat                   TailCat
  *     tailsocks://tailcat/add?cmd=…         a new TailCat connection from an
  *                                           address or a connect command
@@ -23,6 +24,9 @@ import android.net.Uri
  */
 object DeepLinks {
     const val SCHEME = "tailsocks"
+
+    /** The main screen's own: MainActivity opens its exit-node picker rather than a screen. */
+    const val EXIT_NODE = "exitnode"
 
     /** Settings sections a link may name; the ids SettingsActivity's list uses. */
     private val SETTINGS_SECTIONS = setOf(

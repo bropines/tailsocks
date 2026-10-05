@@ -2,6 +2,8 @@
 <resources>
     <string name="shortcut_toggle_short">Вкл / выкл</string>
     <string name="shortcut_toggle_long">Включить или выключить TailSocks</string>
+    <string name="shortcut_exit_node_short">Exit node</string>
+    <string name="shortcut_exit_node_long">Выбрать выходной узел</string>
     <string name="shortcut_tailcat_short">TailCat</string>
     <string name="shortcut_tailcat_long">Открыть TailCat</string>
     <string name="shortcut_send_file_short">Отправить</string>

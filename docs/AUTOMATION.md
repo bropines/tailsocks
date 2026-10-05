@@ -104,6 +104,7 @@ A `tailsocks://` link opens a screen of the app and does nothing else — no tok
 | Link | Opens |
 |---|---|
 | `tailsocks://serve` | Serve & Funnel |
+| `tailsocks://exitnode` | Exit node picker on the main screen |
 | `tailsocks://tailcat` | TailCat |
 | `tailsocks://tailcat/add?cmd=<address or connect command>` | a new TailCat connection, filled in (URL-encode `cmd`) |
 | `tailsocks://logs?category=TAILCAT` | Logs on one category (`ALL`, `ERROR`, `CORE`, `TAILSCALE`, `TAILCAT`, …) |

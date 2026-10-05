@@ -2,8 +2,8 @@
 <!-- Launcher shortcuts (long press on the icon). The debug build has its own copy (src/debug), for its .dev package: targetPackage takes no placeholder.
      Every launcher icon's alias in the manifest names this file; only the enabled one counts.
      On / off goes to ToggleActivity, which is not exported: only this app's own shortcut
-     reaches it. TailCat is the tailsocks://tailcat link, opened over the main screen, so
-     back leads there. Send file asks the system picker for files, then shows the share sheet. -->
+     reaches it. Exit node is tailsocks://exitnode, the main screen's own picker; TailCat
+     is the tailsocks://tailcat link, opened over the main screen, so back leads there. Send file asks the system picker for files, then shows the share sheet. -->
 <shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
     <shortcut
         android:shortcutId="toggle"
@@ -15,6 +15,18 @@
             android:action="android.intent.action.VIEW"
             android:targetPackage="io.github.bropines.tailscaled"
             android:targetClass="io.github.bropines.tailscaled.ui.ToggleActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="exit_node"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_exit_node"
+        android:shortcutShortLabel="@string/shortcut_exit_node_short"
+        android:shortcutLongLabel="@string/shortcut_exit_node_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="tailsocks://exitnode"
+            android:targetPackage="io.github.bropines.tailscaled"
+            android:targetClass="io.github.bropines.tailscaled.ui.MainActivity" />
     </shortcut>
     <shortcut
         android:shortcutId="tailcat"

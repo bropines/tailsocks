@@ -210,6 +210,8 @@ class MainActivity : ComponentActivity() {
     private val showChangelog = mutableStateOf(false)
     /** Non-null while an "add account" request from Settings waits for the screen; the value is the checkbox preset. */
     private val addAccountRequest = mutableStateOf<Boolean?>(null)
+    /** Set by tailsocks://exitnode (the launcher's Exit node shortcut): the screen opens its picker. */
+    private val exitNodeRequest = mutableStateOf(false)
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(wrapContextWithLocale(newBase))
@@ -241,7 +243,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             TailSocksTheme {
-                MainScreen(showAccountSwitcher, showChangelog, addAccountRequest)
+                MainScreen(showAccountSwitcher, showChangelog, addAccountRequest, exitNodeRequest)
             }
         }
     }
@@ -305,9 +307,10 @@ class MainActivity : ComponentActivity() {
         // The data is cleared so a recreation or a later onNewIntent does not
         // open it again (singleTask).
         if (intent.action == Intent.ACTION_VIEW && intent.data?.scheme == DeepLinks.SCHEME) {
-            val target = DeepLinks.intentFor(this, intent.data!!)
+            val uri = intent.data!!
             intent.data = null
-            if (target != null) startActivity(target)
+            if (uri.host == DeepLinks.EXIT_NODE) exitNodeRequest.value = true
+            else DeepLinks.intentFor(this, uri)?.let { startActivity(it) }
         }
         // Tap on the "the system would not let it back" notification. A start
         // made while an activity is coming to the foreground is never refused,
@@ -459,7 +462,8 @@ class MainActivity : ComponentActivity() {
 fun MainScreen(
     showAccountSwitcher: MutableState<Boolean>,
     showChangelog: MutableState<Boolean> = remember { mutableStateOf(false) },
-    addAccountRequest: MutableState<Boolean?> = remember { mutableStateOf(null) }
+    addAccountRequest: MutableState<Boolean?> = remember { mutableStateOf(null) },
+    exitNodeRequest: MutableState<Boolean> = remember { mutableStateOf(false) }
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -598,6 +602,27 @@ fun MainScreen(
     var showExitNodeSheet by remember { mutableStateOf(false) }
     var exitNodes by remember { mutableStateOf<List<PeerData>>(emptyList()) }
     var isExitNodesLoading by remember { mutableStateOf(false) }
+    fun openExitNodeSheet() {
+        showExitNodeSheet = true
+        isExitNodesLoading = true
+        scope.launch(Dispatchers.IO) {
+            try {
+                val pJson = appctr.Appctr.getStatusFromAPI()
+                if (!pJson.startsWith("Error") && pJson.isNotBlank()) {
+                    val status = AppJson.decodeFromString<StatusResponse>(pJson)
+                    val nodes = status.peers?.values?.filter { it.exitNodeOption == true }?.toList() ?: emptyList()
+                    withContext(Dispatchers.Main) { exitNodes = nodes }
+                }
+            } catch (e: Exception) {}
+            withContext(Dispatchers.Main) { isExitNodesLoading = false }
+        }
+    }
+    LaunchedEffect(exitNodeRequest.value) {
+        if (exitNodeRequest.value) {
+            exitNodeRequest.value = false
+            openExitNodeSheet()
+        }
+    }
 
     fun applyExitNode(id: String, ip: String) {
         // The confirm haptic: choosing where all traffic goes is the one
@@ -1331,21 +1356,7 @@ fun MainScreen(
                 Surface(
                     color = if (exitNodeActive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                     shape = MaterialTheme.shapes.large,
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp).clickable {
-                        showExitNodeSheet = true
-                        isExitNodesLoading = true
-                        scope.launch(Dispatchers.IO) {
-                            try {
-                                val pJson = appctr.Appctr.getStatusFromAPI()
-                                if (!pJson.startsWith("Error") && pJson.isNotBlank()) {
-                                    val status = AppJson.decodeFromString<StatusResponse>(pJson)
-                                    val nodes = status.peers?.values?.filter { it.exitNodeOption == true }?.toList() ?: emptyList()
-                                    withContext(Dispatchers.Main) { exitNodes = nodes }
-                                }
-                            } catch (e: Exception) {}
-                            withContext(Dispatchers.Main) { isExitNodesLoading = false }
-                        }
-                    }
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp).clickable { openExitNodeSheet() }
                 ) {
                     Row(
                         modifier = Modifier.padding(16.dp),
