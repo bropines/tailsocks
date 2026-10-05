@@ -41,11 +41,8 @@
         android:hasFragileUserData="true"
         tools:targetApi="34">
 
+        <!-- The launcher's entry is one of the activity-aliases below, not this activity. -->
         <activity android:name=".ui.MainActivity" android:exported="true" android:launchMode="singleTask">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
             </intent-filter>
@@ -57,6 +54,16 @@
                 <data android:scheme="tailsocks" />
             </intent-filter>
         </activity>
+
+        <!-- The launcher icons (core/AppIcons.kt): an alias of MainActivity per icon, and
+             exactly one enabled. The app switches them with setComponentEnabledSetting; a new
+             install shows the fox sock, the only one enabled here. Each carries the launcher
+             shortcuts (res/xml/shortcuts.xml): the system reads them from the enabled launcher
+             activity, so all must name them, under the same ids. -->
+        <activity-alias android:name=".ui.Launcher_fox_sock" android:targetActivity=".ui.MainActivity" android:exported="true" android:enabled="true" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round">
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity-alias>
 
         <activity android:name=".ui.SettingsActivity" android:exported="false" />
         <activity android:name=".ui.PermissionsActivity" android:exported="false" />

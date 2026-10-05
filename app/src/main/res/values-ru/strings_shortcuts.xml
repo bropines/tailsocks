@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_toggle_short">Вкл / выкл</string>
+    <string name="shortcut_toggle_long">Включить или выключить TailSocks</string>
+    <string name="shortcut_tailcat_short">TailCat</string>
+    <string name="shortcut_tailcat_long">Открыть TailCat</string>
+    <string name="shortcut_send_file_short">Отправить</string>
+    <string name="shortcut_send_file_long">Отправить файл через Taildrop</string>
+</resources>

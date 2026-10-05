@@ -2,4 +2,7 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <!-- Launcher shortcuts (core/AppShortcuts.kt): the brand purple on lavender. -->
+    <color name="shortcut_background">#FFEDE5FF</color>
+    <color name="shortcut_glyph">#FF5B3FB0</color>
 </resources>

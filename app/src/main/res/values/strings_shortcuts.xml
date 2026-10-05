@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Launcher shortcuts (ui/AppShortcuts.kt): short labels fit about 10 characters. -->
+    <string name="shortcut_toggle_short">On / off</string>
+    <string name="shortcut_toggle_long">Turn TailSocks on or off</string>
+    <string name="shortcut_tailcat_short">TailCat</string>
+    <string name="shortcut_tailcat_long">Open TailCat</string>
+    <string name="shortcut_send_file_short">Send file</string>
+    <string name="shortcut_send_file_long">Send a file with Taildrop</string>
+</resources>

@@ -521,7 +521,8 @@ object GlobalSettings {
         "root_mode_enabled", "root_tun_enabled", "root_kill_daemon_on_stop", "root_dns_redirect",
         "root_vpn_bypass",
         // Appearance
-        "app_theme", "theme_preset", "dynamic_color", "amoled_mode", "show_changelog_after_update", "update_check_on_launch", "show_connection_summary"
+        "app_theme", "theme_preset", "dynamic_color", "amoled_mode", "show_changelog_after_update", "update_check_on_launch", "show_connection_summary",
+        AppIcons.PREF
     )
 
     /** The exportable subset of the global preferences, as stored. */
@@ -546,6 +547,8 @@ object GlobalSettings {
             }
         }
         editor.apply()
+        // The launcher shows the restored icon now, not at the next start.
+        if (AppIcons.PREF in values) AppIcons.reconcile(context)
     }
 }
 

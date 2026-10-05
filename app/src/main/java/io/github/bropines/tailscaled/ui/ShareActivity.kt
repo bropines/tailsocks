@@ -13,6 +13,8 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.os.BundleCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -42,12 +44,35 @@ import java.io.File
 import java.io.FileOutputStream
 
 class ShareActivity : ComponentActivity() {
+    companion object {
+        /** The system file picker first, then the same sheet: the launcher's "Send file" shortcut. */
+        const val ACTION_PICK_AND_SEND = "io.github.bropines.tailscaled.action.PICK_AND_SEND"
+        private const val STATE_PICKED = "picked"
+    }
+
+    /** What the picker returned, kept across a recreation of the sheet. */
+    private var picked: ArrayList<Uri>? = null
+
+    private val pickFiles = registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
+        if (uris.isEmpty()) finish() else show(ArrayList(uris))
+    }
+
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(wrapContextWithLocale(newBase))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (intent.action == ACTION_PICK_AND_SEND) {
+            val restored = savedInstanceState?.let { BundleCompat.getParcelableArrayList(it, STATE_PICKED, Uri::class.java) }
+            when {
+                restored != null -> show(restored)
+                // A recreation while the picker is open gets its answer through
+                // pickFiles; launching again would open a second picker.
+                savedInstanceState == null -> pickFiles.launch("*/*")
+            }
+            return
+        }
         val fileUris = when (intent.action) {
             Intent.ACTION_SEND -> androidx.core.content.IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)?.let { listOf(it) }
             Intent.ACTION_SEND_MULTIPLE -> androidx.core.content.IntentCompat.getParcelableArrayListExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
@@ -55,6 +80,16 @@ class ShareActivity : ComponentActivity() {
         }
         if (fileUris.isNullOrEmpty()) { finish(); return }
         setContent { TailSocksTheme { ShareOverlay(fileUris = fileUris, onDismiss = { finish() }) } }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        picked?.let { outState.putParcelableArrayList(STATE_PICKED, it) }
+    }
+
+    private fun show(uris: ArrayList<Uri>) {
+        picked = uris
+        setContent { TailSocksTheme { ShareOverlay(fileUris = uris, onDismiss = { finish() }) } }
     }
 }
 

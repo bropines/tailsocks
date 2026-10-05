@@ -22,6 +22,8 @@ class TailSocksApp : Application() {
         super.onCreate()
         ProxyState.init(this)
         ProfileHostinfo.migrateGlobalKey(this)
+        // The launcher alias the icon preference names; binder calls, off the main thread.
+        Thread { AppIcons.reconcile(this) }.start()
         // Go cannot find the device's zone on its own, and the log stamps it
         // writes would be UTC; kept current when the user travels.
         applyTimeZone()

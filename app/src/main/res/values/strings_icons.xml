@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The launcher icon: its row and picker in Settings → Appearance, and the icons' names (core/AppIcons.kt). -->
+<resources>
+    <string name="icon_title">App icon</string>
+    <string name="icon_note">The launcher may take a few seconds to show the new icon. A home-screen icon or pinned shortcut of the old one can disappear: add it again.</string>
+
+    <!-- The picker's sections. -->
+    <string name="icon_group_classic">TailSocks</string>
+
+    <!-- The icons. -->
+    <string name="icon_fox_sock">Fox sock</string>
+</resources>
