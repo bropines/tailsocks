@@ -23,6 +23,9 @@ browser = "1.10.0"
 glance = "1.1.1"
 ksp = "2.2.21-2.0.4"
 appfunctions = "1.0.0-alpha10"
+# QR codes to show (ui/QrCode.kt): Nayuki's encoder, MIT, plain Java with no
+# dependencies and no reflection — nothing for R8 to keep, nothing non-free.
+qrcodegen = "1.8.0"
 
 [libraries]
 androidx-browser = { group = "androidx.browser", name = "browser", version.ref = "browser" }
@@ -45,6 +48,7 @@ androidx-glance-appwidget = { group = "androidx.glance", name = "glance-appwidge
 androidx-glance-material3 = { group = "androidx.glance", name = "glance-material3", version.ref = "glance" }
 androidx-appfunctions = { group = "androidx.appfunctions", name = "appfunctions", version.ref = "appfunctions" }
 androidx-appfunctions-compiler = { group = "androidx.appfunctions", name = "appfunctions-compiler", version.ref = "appfunctions" }
+qrcodegen = { group = "io.nayuki", name = "qrcodegen", version.ref = "qrcodegen" }
 
 androidx-material3-adaptive = { group = "androidx.compose.material3.adaptive", name = "adaptive", version.ref = "material3-adaptive" }
 screenshot-validation-api = { group = "com.android.tools.screenshot", name = "screenshot-validation-api", version.ref = "screenshot" }

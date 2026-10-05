@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- QR codes to show (ui/QrCode.kt) -->
+    <string name="qr_show">Показать QR-код</string>
+    <string name="qr_image">QR-код</string>
+    <string name="qr_too_long">Слишком длинно для QR-кода</string>
+    <string name="qr_share">Поделиться</string>
+    <string name="qr_copied">Скопировано</string>
+
+    <!-- TailCat -->
+    <string name="qr_tailcat_server_title">Подключиться к этому телефону</string>
+    <string name="qr_tailcat_server_help">Отсканируйте на другом устройстве. TailSocks примет эти строки кнопкой «Вставить» в редакторе нового подключения; компьютер выполнит их через tailcat CLI. Если сервер пускает всех, клиенту хватит одного адреса.</string>
+    <string name="qr_tailcat_connection_help">То же подключение на другом устройстве: отсканируйте и нажмите «Вставить» в редакторе нового подключения. Логин и пароль прокси останутся на этом телефоне.</string>
+
+    <!-- Serve -->
+    <string name="qr_serve_title">Открыть на другом устройстве</string>
+    <string name="qr_serve_tailnet_help">Откроется только на устройствах вашего tailnet.</string>
+    <string name="qr_serve_public_help">Публичная: откроется откуда угодно в интернете, через Funnel.</string>
+</resources>

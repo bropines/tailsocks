@@ -262,6 +262,8 @@ dependencies {
     ksp(libs.androidx.appfunctions.compiler)
     
     implementation(libs.androidx.material3.adaptive)
+    // QR codes for addresses and links, drawn by ui/QrCode.kt; display only.
+    implementation(libs.qrcodegen)
     debugImplementation(libs.androidx.ui.tooling)
     screenshotTestImplementation(libs.screenshot.validation.api)
     screenshotTestImplementation(libs.androidx.ui.tooling)
