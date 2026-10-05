@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [4.7.1] - 2026-10-05
+
+### Added
+
+- Settings → Appearance: interface scale, 80–120% of the system's size.
+
 ## [4.7.0] - 2026-10-05
 
 ### Added
