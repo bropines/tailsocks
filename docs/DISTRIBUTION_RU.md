@@ -36,7 +36,7 @@
 
 ## F-Droid (основной репозиторий)
 
-**Совместимость с политикой.** Лицензия BSD-3-Clause подходит. Весь `releaseRuntimeClasspath` проверен: AndroidX, Material, OkHttp, kotlinx, Guava и их зависимости, ни GMS, ни Firebase; сигнатуры несвободных библиотек сканера F-Droid (suss) ни с чем не совпали. В git нет собранных бинарников, кроме `gradle-wrapper.jar` (разрешён) и `wintun.dll` в подмодуле hev-socks5-tunnel (сканер `.dll` без бита исполнения не трогает).
+**Совместимость с политикой.** Лицензия BSD-3-Clause подходит. Весь `releaseRuntimeClasspath` проверен: AndroidX, Material, OkHttp, kotlinx, Guava, qrcodegen (MIT, чистая Java, добавлена 2026-10-05) и их зависимости, ни GMS, ни Firebase; сигнатуры несвободных библиотек сканера F-Droid (suss) ни с чем не совпали. В git нет собранных бинарников, кроме `gradle-wrapper.jar` (разрешён) и `wintun.dll` в подмодуле hev-socks5-tunnel (сканер `.dll` без бита исполнения не трогает).
 
 **Прецеденты.** Официальный Tailscale (`com.tailscale.ipn`) собирается в F-Droid: Go компилируется из исходников (srclib, bootstrap — `golang-go` из trixie-backports), модули Go качаются на шаге `build`, NDK закреплён. Анти-функция у него одна — *Tracking* за отправку отладочных логов; у нас она вырезана (`ts_omit_logtail`, `appctr/build.sh:111`; `TS_NO_LOGS_NO_SUPPORT=true`, `appctr/daemon.go:114`). sing-box (`io.nekohasekai.sfa`) — gomobile + Go из srclib + воспроизводимая сборка; SocksTun (`hev.sockstun`) — hev-socks5-tunnel, тоже воспроизводимый. Рецептов ByeDPI/ByeByeDPI в fdroiddata нет.
 

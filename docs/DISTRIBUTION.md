@@ -36,7 +36,7 @@ Optionally, add a config to the shared catalog at https://apps.obtainium.imranr.
 
 ## F-Droid (main repository)
 
-**Policy fit.** The BSD-3-Clause license qualifies. The whole `releaseRuntimeClasspath` has been checked: AndroidX, Material, OkHttp, kotlinx, Guava and their dependencies — no GMS, no Firebase; none of it matched the non-free-library signatures in F-Droid's scanner (suss). There are no prebuilt binaries in git besides `gradle-wrapper.jar` (allowed) and `wintun.dll` in the hev-socks5-tunnel submodule (the scanner leaves a non-executable `.dll` alone).
+**Policy fit.** The BSD-3-Clause license qualifies. The whole `releaseRuntimeClasspath` has been checked: AndroidX, Material, OkHttp, kotlinx, Guava, qrcodegen (MIT, pure Java, added 2026-10-05) and their dependencies — no GMS, no Firebase; none of it matched the non-free-library signatures in F-Droid's scanner (suss). There are no prebuilt binaries in git besides `gradle-wrapper.jar` (allowed) and `wintun.dll` in the hev-socks5-tunnel submodule (the scanner leaves a non-executable `.dll` alone).
 
 **Precedents.** The official Tailscale app (`com.tailscale.ipn`) already builds on F-Droid: Go is compiled from source (srclib, bootstrap via `golang-go` from trixie-backports), Go modules are fetched at the `build` step, and the NDK is pinned. It carries one anti-feature — *Tracking*, for uploading debug logs — which we've compiled out (`ts_omit_logtail`, `appctr/build.sh:111`; `TS_NO_LOGS_NO_SUPPORT=true`, `appctr/daemon.go:114`). sing-box (`io.nekohasekai.sfa`) uses gomobile + Go from srclib + a reproducible build; SocksTun (`hev.sockstun`) uses hev-socks5-tunnel and is also reproducible. There's no ByeDPI/ByeByeDPI recipe in fdroiddata.
 
