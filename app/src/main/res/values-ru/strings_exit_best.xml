@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="exit_best_title">Лучший выходной узел</string>
+    <string name="exit_best_asking">Спрашиваем Tailscale…</string>
+    <string name="exit_best_suggested_cd">Рекомендован Tailscale</string>
+
+    <string name="exit_best_not_running">Доступно после подключения</string>
+    <string name="exit_best_no_relay">Релеи ещё не измерены</string>
+    <string name="exit_best_none_recommended">Нет рекомендованных узлов в сети</string>
+    <string name="exit_best_failed">Tailscale не ответил</string>
+</resources>

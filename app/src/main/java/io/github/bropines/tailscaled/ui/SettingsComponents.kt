@@ -667,6 +667,15 @@ fun SettingsExitNodeItem(
         val strSettingsExitNodeEmpty = stringResource(R.string.settings_exit_node_empty)
         val strSettingsNone = stringResource(R.string.settings_none)
         val strMainRouteTrafficDirectly = stringResource(R.string.main_route_traffic_directly)
+        // The node Tailscale recommends, asked once the list is in; see the main screen's sheet.
+        val bestStrings = bestExitNodeStrings()
+        var bestExitNode by remember { mutableStateOf<ExitNodeSuggestion.Outcome?>(null) }
+        var bestAsked by remember { mutableIntStateOf(0) }
+        LaunchedEffect(isLoading, bestAsked) {
+            if (isLoading || exitNodes.isEmpty()) return@LaunchedEffect
+            bestExitNode = null
+            bestExitNode = fetchBestExitNode(exitNodes)
+        }
         ModalBottomSheet(
             onDismissRequest = { showDialog = false },
             sheetState = rememberFullSheetState()
@@ -712,6 +721,15 @@ fun SettingsExitNodeItem(
                                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                                 contentPadding = PaddingValues(bottom = 16.dp)
                             ) {
+                                item {
+                                    BestExitNodeRow(
+                                        outcome = bestExitNode,
+                                        strings = bestStrings,
+                                        onApply = { applyExitNode(it.id, it.ip); showDialog = false },
+                                        onRetry = { bestAsked++ }
+                                    )
+                                }
+
                                 item {
                                     val isSelected = currentIp.isEmpty()
                                     Card(
@@ -823,12 +841,19 @@ fun SettingsExitNodeItem(
                                             }
                                             Spacer(Modifier.width(16.dp))
                                             Column(Modifier.weight(1f)) {
+                                              Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Text(
                                                     node.getDisplayName(),
                                                     fontWeight = FontWeight.Bold,
                                                     fontSize = 15.sp,
+                                                    modifier = Modifier.weight(1f, fill = false),
                                                     color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                                 )
+                                                if (node.id != null && node.id == bestExitNode.suggestedId) {
+                                                    Spacer(Modifier.width(6.dp))
+                                                    SuggestedExitNodeMark(bestStrings.suggestedBy)
+                                                }
+                                              }
                                                 Text(
                                                     node.getPrimaryIp(),
                                                     style = MaterialTheme.typography.bodySmall,

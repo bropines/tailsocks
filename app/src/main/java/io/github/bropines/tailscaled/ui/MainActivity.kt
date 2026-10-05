@@ -2112,6 +2112,17 @@ fun MainScreen(
             }
             if (measured.size > 1) measured.minByOrNull { it.second }?.first else null
         }
+        // The node Tailscale itself recommends, asked once the list is in: the row at the
+        // top names it and the node's own row carries a mark. Held by the sheet, so a
+        // reopened sheet asks again — the answer follows the network.
+        val bestStrings = bestExitNodeStrings()
+        var bestExitNode by remember { mutableStateOf<ExitNodeSuggestion.Outcome?>(null) }
+        var bestAsked by remember { mutableIntStateOf(0) }
+        LaunchedEffect(isExitNodesLoading, bestAsked) {
+            if (isExitNodesLoading || exitNodes.isEmpty()) return@LaunchedEffect
+            bestExitNode = null
+            bestExitNode = fetchBestExitNode(exitNodes)
+        }
         // Strings come from the parent context, not stringResource() — see wrapContextWithLocale().
         ModalBottomSheet(
             onDismissRequest = { showExitNodeSheet = false },
@@ -2204,6 +2215,15 @@ fun MainScreen(
                                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                                 contentPadding = PaddingValues(bottom = 16.dp)
                             ) {
+                                item {
+                                    BestExitNodeRow(
+                                        outcome = bestExitNode,
+                                        strings = bestStrings,
+                                        onApply = { applyExitNode(it.id, it.ip); showExitNodeSheet = false },
+                                        onRetry = { bestAsked++ }
+                                    )
+                                }
+
                                 item {
                                     val isSelected = exitNodeIp.isEmpty()
                                     Card(
@@ -2339,6 +2359,10 @@ fun MainScreen(
                                                         tint = MaterialTheme.colorScheme.primary,
                                                         modifier = Modifier.size(15.dp)
                                                     )
+                                                }
+                                                if (node.id != null && node.id == bestExitNode.suggestedId) {
+                                                    Spacer(Modifier.width(6.dp))
+                                                    SuggestedExitNodeMark(bestStrings.suggestedBy)
                                                 }
                                               }
                                                 val latency = when (ping) {

@@ -53,6 +53,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 // ----------------------------------------------------------------
 // Action Parameter Keys
@@ -426,6 +427,21 @@ class ExitNodeToggleWidget : GlanceAppWidget() {
 
                     Spacer(GlanceModifier.height(6.dp))
 
+                    // Option 1: the node Tailscale recommends. Asked when tapped, not when
+                    // drawn: a widget is rendered on its own schedule and the answer moves.
+                    if (availableNodes.isNotEmpty()) {
+                        Button(
+                            text = "★ " + context.getString(R.string.exit_best_title),
+                            onClick = actionRunCallback<SelectBestExitNodeActionCallback>(),
+                            colors = ButtonDefaults.buttonColors(
+                                backgroundColor = GlanceTheme.colors.surfaceVariant,
+                                contentColor = GlanceTheme.colors.onSurfaceVariant
+                            ),
+                            modifier = GlanceModifier.fillMaxWidth().height(38.dp)
+                        )
+                        Spacer(GlanceModifier.height(6.dp))
+                    }
+
                     // Exit Node Items (up to 6 items in vertical list)
                     if (availableNodes.isEmpty()) {
                         Text(
@@ -623,5 +639,22 @@ class SelectExitNodeActionCallback : ActionCallback {
 
         refreshAllInstances(context)
         forceAppWidgetUpdate(context)
+    }
+}
+
+/**
+ * "Best exit node" on the widget: asks the daemon for its recommendation and selects that
+ * node exactly as its own button would; with none to be had, a toast says why.
+ */
+class SelectBestExitNodeActionCallback : ActionCallback {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        when (val best = withContext(Dispatchers.IO) { ExitNodeSuggestion.fetch() }) {
+            is ExitNodeSuggestion.Outcome.Suggested -> SelectExitNodeActionCallback().onAction(
+                context, glanceId, actionParametersOf(paramExitNodeId to best.id, paramExitNodeIp to best.ip)
+            )
+            is ExitNodeSuggestion.Outcome.Unavailable -> withContext(Dispatchers.Main) {
+                Toast.makeText(context, context.getString(bestExitNodeReasonRes(best.reason)), Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 }

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The "best exit node" entry of the exit-node pickers: the node tailscaled
+  recommends (LocalAPI suggest-exit-node), applied once. A file of its own so
+  it lands without touching strings.xml.
+-->
+<resources>
+    <string name="exit_best_title">Best exit node</string>
+    <!-- While the daemon is being asked. -->
+    <string name="exit_best_asking">Asking Tailscale…</string>
+    <!-- Content description of the mark beside the recommended node in the list. -->
+    <string name="exit_best_suggested_cd">Recommended by Tailscale</string>
+
+    <!-- Why there is no recommendation. One short line each. -->
+    <string name="exit_best_not_running">Available once connected</string>
+    <string name="exit_best_no_relay">Relays not measured yet</string>
+    <string name="exit_best_none_recommended">No recommended exit node online</string>
+    <string name="exit_best_failed">Tailscale did not answer</string>
+</resources>
