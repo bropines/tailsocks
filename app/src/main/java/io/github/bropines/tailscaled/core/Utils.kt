@@ -286,16 +286,25 @@ fun wrapContextWithLocale(context: Context): Context {
     // The wrapper stays on every version: the platform call above is advisory —
     // a ROM may accept it and store nothing — and without the wrapper the app
     // would then ignore the setting entirely.
-    return if (lang == "sys") {
-        context
-    } else {
+    // The interface scale rides on the same configuration: a density of its own,
+    // so every dp and sp in the activity — and the sheets and dialogs it opens,
+    // whose windows take its resources — grows or shrinks together. The base is
+    // the context handed in, which carries the system's density (the user's
+    // display size included), never a scaled one.
+    val scale = GlobalSettings.getUiScale(context)
+    if (lang == "sys" && scale == 100) return context
+    val config = android.content.res.Configuration(context.resources.configuration)
+    if (lang != "sys") {
         val locale = java.util.Locale.forLanguageTag(lang)
         java.util.Locale.setDefault(locale)
-        val config = android.content.res.Configuration(context.resources.configuration)
         config.setLocale(locale)
-        context.createConfigurationContext(config)
     }
+    if (scale != 100) config.densityDpi = scaledDensityDpi(config.densityDpi, scale)
+    return context.createConfigurationContext(config)
 }
+
+/** [systemDpi] at [percent] of its size: the density an activity gets for the interface scale. */
+fun scaledDensityDpi(systemDpi: Int, percent: Int): Int = (systemDpi * percent / 100f).roundToInt()
 
 @Composable
 fun CompactTextField(

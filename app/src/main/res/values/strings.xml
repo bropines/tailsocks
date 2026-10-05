@@ -813,6 +813,8 @@
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_dark">Dark</string>
     <string name="settings_theme_title">Interface Theme</string>
+    <string name="settings_ui_scale_title">Interface scale</string>
+    <string name="settings_ui_scale_desc">The whole app — text, buttons and spacing — larger or smaller than the system\'s display size. 100% follows the system.</string>
     <string name="settings_lang_title">App Language</string>
     <string name="settings_lang_sys">System</string>
     <string name="settings_lang_en">English</string>

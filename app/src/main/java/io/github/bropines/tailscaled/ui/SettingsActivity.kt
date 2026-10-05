@@ -2099,6 +2099,30 @@ fun SettingsScreen(
                 )
             }
 
+            // Interface scale (Chips row): a density of the app's own, applied by
+            // wrapContextWithLocale(); the screen is recreated to take it.
+            var currentScale by remember { mutableStateOf(GlobalSettings.getUiScale(context)) }
+            Spacer(Modifier.height(12.dp))
+            Column(Modifier.padding(bottom = 8.dp)) {
+                Text(stringResource(R.string.settings_ui_scale_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                HelpText(stringResource(R.string.settings_ui_scale_desc))
+                Spacer(Modifier.height(8.dp))
+                SlidingSegmentedChips(
+                    options = GlobalSettings.UI_SCALES.map { "$it%" },
+                    selectedIndex = GlobalSettings.UI_SCALES.indexOf(currentScale).coerceAtLeast(0),
+                    onOptionSelected = { idx ->
+                        val percent = GlobalSettings.UI_SCALES[idx]
+                        if (percent != currentScale) {
+                            currentScale = percent
+                            GlobalSettings.setUiScale(context, percent)
+                            context.findActivity()?.recreate()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    height = 38.dp
+                )
+            }
+
             // Theme preset selector (Color Circles)
             if (!currentDynamicColor || android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) {
                 Spacer(Modifier.height(12.dp))

@@ -19,6 +19,7 @@ object GlobalSettings {
     private const val KEY_CP_ENABLED = "cp_enabled"
     private const val KEY_APP_THEME = "app_theme"
     private const val KEY_THEME_PRESET = "theme_preset"
+    private const val KEY_UI_SCALE = "ui_scale"
     private const val KEY_DYNAMIC_COLOR = "dynamic_color"
 
     private fun getPrefs(context: Context) = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -232,6 +233,14 @@ object GlobalSettings {
 
     fun getThemePreset(context: Context): String = getString(context, KEY_THEME_PRESET, "default")
     fun setThemePreset(context: Context, preset: String) = setString(context, KEY_THEME_PRESET, preset)
+
+    /** The scales Settings offers for the whole interface, in percent of the system's density. */
+    val UI_SCALES = listOf(80, 90, 100, 110, 120)
+
+    /** The interface scale in percent; 100 when unset or not one of [UI_SCALES]. Stored as a string, as everything here is. */
+    fun getUiScale(context: Context): Int =
+        getString(context, KEY_UI_SCALE, "100").toIntOrNull()?.takeIf { it in UI_SCALES } ?: 100
+    fun setUiScale(context: Context, percent: Int) = setString(context, KEY_UI_SCALE, percent.toString())
 
     fun isDynamicColorEnabled(context: Context): Boolean = getBoolean(context, KEY_DYNAMIC_COLOR, true)
     fun setDynamicColorEnabled(context: Context, enabled: Boolean) = setBoolean(context, KEY_DYNAMIC_COLOR, enabled)
@@ -522,7 +531,7 @@ object GlobalSettings {
         "root_vpn_bypass",
         // Appearance
         "app_theme", "theme_preset", "dynamic_color", "amoled_mode", "show_changelog_after_update", "update_check_on_launch", "show_connection_summary",
-        AppIcons.PREF
+        "ui_scale", AppIcons.PREF
     )
 
     /** The exportable subset of the global preferences, as stored. */

@@ -798,6 +798,8 @@
     <string name="settings_theme_light">Светлая</string>
     <string name="settings_theme_dark">Темная</string>
     <string name="settings_theme_title">Тема оформления</string>
+    <string name="settings_ui_scale_title">Масштаб интерфейса</string>
+    <string name="settings_ui_scale_desc">Всё приложение — текст, кнопки и отступы — крупнее или мельче системного размера экрана. 100% — как в системе.</string>
     <string name="settings_lang_title">Язык приложения</string>
     <string name="settings_lang_sys">Системный</string>
     <string name="settings_lang_en">English</string>

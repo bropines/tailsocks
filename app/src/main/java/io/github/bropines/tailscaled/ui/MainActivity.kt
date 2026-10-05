@@ -291,6 +291,12 @@ class MainActivity : ComponentActivity() {
             recreate()
             return
         }
+        // The interface scale changed in Settings while this screen sat underneath.
+        val wantedDpi = scaledDensityDpi(applicationContext.resources.configuration.densityDpi, GlobalSettings.getUiScale(this))
+        if (resources.configuration.densityDpi != wantedDpi) {
+            recreate()
+            return
+        }
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
