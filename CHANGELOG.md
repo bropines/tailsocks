@@ -2,6 +2,20 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Added
+
+- Shortcuts on a long press of the app icon: On / off, Exit node, TailCat, Send file.
+- Best exit node: the node Tailscale recommends, at the top of the exit-node pickers and on the widget; Tasker and AppFunctions take `best`.
+- QR codes for TailCat's connect command and connections, for Serve links, and for a peer.
+- Peers: Copy as… — a peer's MagicDNS name, address, ssh command or web address, ready to paste (long press or the peer's sheet).
+- `tailsocks://exitnode` opens the exit-node picker.
+
+### Fixed
+
+- Tasker's SET_EXIT_NODE changes the daemon's exit node, not only the one shown; `none` clears it.
+
 ## [4.6.2] - 2026-10-04
 
 ### Changed

@@ -107,15 +107,10 @@ State as of 2026-09-20, after 4.3.0.
       has a default route and traffic leaves through the tunnel with a tailnet source address.
       Check the POCO, where the network is different; if it does not reproduce there either,
       strike the item.
-- [ ] **A peer's version without the Admin API.** What ships reads it from the Admin API and
-      therefore only works with a token configured. There is a source that needs neither: a
-      peer's `Hostinfo` rides on its node, `Hostinfo.IPNVersion` is the version, and
-      `/localapi/v0/whois?addr=` returns the node — already wrapped here as `WhoIsAddr`
-      (`appctr/api.go`). One check decides it, on any device with a daemon: call WhoIs for a
-      peer and see whether the coordinator ships `IPNVersion` to other nodes (it ships `OS`,
-      which the app already displays). If it does, the version comes from our own daemon with
-      no token and no request to the internet, and the Admin API stays for what the netmap does
-      not carry.
+- [x] **A peer's version without the Admin API — not possible (checked 2026-10-05).** WhoIs on
+      five peers of a Tailscale-hosted tailnet (Windows, Linux, macOS, Android): the
+      coordinator ships other nodes only `Hostname`, `OS`, `Services` and `sshHostKeys` of a
+      peer's `Hostinfo`, never `IPNVersion`. The version stays an Admin API feature.
 - Deferred, not implemented — recorded so they are not lost again:
   - A foreign tunnel restarting with a new netId: the ruleset signature keys on the netId, but this has never been observed on a device.
   - FBE phones: wait for user-0 CE storage before starting.
