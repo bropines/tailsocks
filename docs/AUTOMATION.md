@@ -36,7 +36,7 @@ Every intent must carry the token in one of the following string extras (checked
 | `io.github.bropines.tailscaled.action.TOGGLE` | `io.github.bropines.tailscaled.TOGGLE` | — | Starts if stopped, stops if running. |
 | `io.github.bropines.tailscaled.action.RESTART` | `io.github.bropines.tailscaled.RESTART` | — | Restarts the daemon in place. |
 | `io.github.bropines.tailscaled.action.GET_STATUS` | `io.github.bropines.tailscaled.GET_STATUS` | — | Refreshes the widgets / tile state. The resulting `STATUS_CHANGED` broadcast is not visible to other apps (see below). |
-| `io.github.bropines.tailscaled.action.SET_EXIT_NODE` | `io.github.bropines.tailscaled.SET_EXIT_NODE` | `exit_node` (String; alias `exit_node_ip`). Tailscale IP of the peer, or `none` / `disabled` / `off` to clear. | Sets the exit node of the active profile and applies it live if the daemon is running. |
+| `io.github.bropines.tailscaled.action.SET_EXIT_NODE` | `io.github.bropines.tailscaled.SET_EXIT_NODE` | `exit_node` (String; alias `exit_node_ip`). Tailscale IP of the peer, `best` for the exit node Tailscale recommends right now, or `none` / `disabled` / `off` to clear. | Sets the exit node of the active profile and applies it live if the daemon is running. `best` is resolved once, needs the daemon running, and leaves the exit node unchanged when there is no recommendation. |
 | `io.github.bropines.tailscaled.action.SWITCH_ACCOUNT` | `io.github.bropines.tailscaled.SWITCH_ACCOUNT` | `account` (String; aliases `account_id`, `account_name`). Profile ID or name, case-insensitive. | Switches the active profile; the daemon is restarted if it was running. Unknown names are logged and ignored. |
 | `io.github.bropines.tailscaled.action.SET_BYEDPI` | `io.github.bropines.tailscaled.SET_BYEDPI` | `enabled` (Boolean, optional), `flags` (String, optional) | Enables/disables the ByeDPI control-plane bypass and/or replaces its flags, then re-applies settings. |
 | `io.github.bropines.tailscaled.action.SET_TUN` | `io.github.bropines.tailscaled.SET_TUN` | `enabled` (Boolean, required) | Switches transparent TUN mode on or off and re-applies settings. Ignored without the `enabled` extra. |
@@ -82,8 +82,9 @@ adb shell am broadcast -a io.github.bropines.tailscaled.action.CONNECT -n io.git
 # Refresh the widgets / tile (the resulting STATUS_CHANGED broadcast stays inside the app)
 adb shell am broadcast -a io.github.bropines.tailscaled.action.GET_STATUS -n io.github.bropines.tailscaled/.core.TaskerReceiver --es secret YOUR_TOKEN
 
-# Set Exit Node / clear it
+# Set Exit Node / the recommended one / clear it
 adb shell am broadcast -a io.github.bropines.tailscaled.action.SET_EXIT_NODE -n io.github.bropines.tailscaled/.core.TaskerReceiver --es secret YOUR_TOKEN --es exit_node 100.64.0.1
+adb shell am broadcast -a io.github.bropines.tailscaled.action.SET_EXIT_NODE -n io.github.bropines.tailscaled/.core.TaskerReceiver --es secret YOUR_TOKEN --es exit_node best
 adb shell am broadcast -a io.github.bropines.tailscaled.action.SET_EXIT_NODE -n io.github.bropines.tailscaled/.core.TaskerReceiver --es secret YOUR_TOKEN --es exit_node none
 
 # Switch Profile
@@ -145,7 +146,7 @@ Functions run off the main thread. **All mutating functions obey the *Allow Exte
 | `connect(exitNodeIp)` | mutating | Starts the service, optionally selecting an exit node first; waits up to ~6 s and reports the observed state. |
 | `disconnect()` | mutating | Stops the service (final, like a manual Stop). |
 | `toggle()` | mutating | `disconnect()` if running, otherwise `connect("")`. |
-| `selectExitNode(exitNodeIp)` | mutating | Sets the exit node by Tailscale IP (`off` / `none` / empty clears it) and pushes it to the running daemon. |
+| `selectExitNode(exitNodeIp)` | mutating | Sets the exit node by Tailscale IP (`best` takes the one Tailscale recommends; `off` / `none` / empty clears it) and pushes it to the running daemon. |
 | `clearExitNode()` | mutating | Same as `selectExitNode("")`. |
 | `switchAccount(accountNameOrId)` | mutating | Switches the active profile by name or ID; restarts the daemon if it was running. |
 | `setByeDpi(enabled, flags)` | mutating | Enables/disables the ByeDPI bypass, optionally replacing its flags. |

@@ -36,7 +36,7 @@ TailSocks поддерживает полнофункциональное фон
 | `io.github.bropines.tailscaled.action.TOGGLE` | `io.github.bropines.tailscaled.TOGGLE` | — | Запускает, если остановлено; останавливает, если работает. |
 | `io.github.bropines.tailscaled.action.RESTART` | `io.github.bropines.tailscaled.RESTART` | — | Перезапускает демон на месте. |
 | `io.github.bropines.tailscaled.action.GET_STATUS` | `io.github.bropines.tailscaled.GET_STATUS` | — | Обновляет состояние виджетов / плитки. Итоговый broadcast `STATUS_CHANGED` не виден другим приложениям (см. ниже). |
-| `io.github.bropines.tailscaled.action.SET_EXIT_NODE` | `io.github.bropines.tailscaled.SET_EXIT_NODE` | `exit_node` (String; псевдоним `exit_node_ip`). Tailscale IP узла или `none` / `disabled` / `off` для сброса. | Устанавливает Exit Node активного профиля и применяет его «на лету», если демон запущен. |
+| `io.github.bropines.tailscaled.action.SET_EXIT_NODE` | `io.github.bropines.tailscaled.SET_EXIT_NODE` | `exit_node` (String; псевдоним `exit_node_ip`). Tailscale IP узла, `best` — узел, который Tailscale рекомендует сейчас, или `none` / `disabled` / `off` для сброса. | Устанавливает Exit Node активного профиля и применяет его «на лету», если демон запущен. `best` выбирается один раз, требует запущенного демона и ничего не меняет, если рекомендации нет. |
 | `io.github.bropines.tailscaled.action.SWITCH_ACCOUNT` | `io.github.bropines.tailscaled.SWITCH_ACCOUNT` | `account` (String; псевдонимы `account_id`, `account_name`). ID или имя профиля без учёта регистра. | Переключает активный профиль; демон перезапускается, если работал. Неизвестное имя пишется в лог и игнорируется. |
 | `io.github.bropines.tailscaled.action.SET_BYEDPI` | `io.github.bropines.tailscaled.SET_BYEDPI` | `enabled` (Boolean, опционально), `flags` (String, опционально) | Включает/выключает обход ByeDPI и/или заменяет его флаги, затем повторно применяет настройки. |
 | `io.github.bropines.tailscaled.action.SET_TUN` | `io.github.bropines.tailscaled.SET_TUN` | `enabled` (Boolean, обязателен) | Включает или выключает прозрачный TUN-режим и повторно применяет настройки. Без extra `enabled` игнорируется. |
@@ -82,8 +82,9 @@ adb shell am broadcast -a io.github.bropines.tailscaled.action.CONNECT -n io.git
 # Обновить виджеты / плитку (итоговый broadcast STATUS_CHANGED остаётся внутри приложения)
 adb shell am broadcast -a io.github.bropines.tailscaled.action.GET_STATUS -n io.github.bropines.tailscaled/.core.TaskerReceiver --es secret YOUR_TOKEN
 
-# Установка Exit Node / сброс
+# Установка Exit Node / рекомендованный узел / сброс
 adb shell am broadcast -a io.github.bropines.tailscaled.action.SET_EXIT_NODE -n io.github.bropines.tailscaled/.core.TaskerReceiver --es secret YOUR_TOKEN --es exit_node 100.64.0.1
+adb shell am broadcast -a io.github.bropines.tailscaled.action.SET_EXIT_NODE -n io.github.bropines.tailscaled/.core.TaskerReceiver --es secret YOUR_TOKEN --es exit_node best
 adb shell am broadcast -a io.github.bropines.tailscaled.action.SET_EXIT_NODE -n io.github.bropines.tailscaled/.core.TaskerReceiver --es secret YOUR_TOKEN --es exit_node none
 
 # Переключение профиля
@@ -145,7 +146,7 @@ TailSocks регистрирует в системе **14 AppFunctions** (`andro
 | `connect(exitNodeIp)` | изменение | Запускает службу, при необходимости предварительно выбрав Exit Node; ждёт до ~6 с и сообщает фактическое состояние. |
 | `disconnect()` | изменение | Останавливает службу (окончательно, как ручной Stop). |
 | `toggle()` | изменение | `disconnect()`, если работает, иначе `connect("")`. |
-| `selectExitNode(exitNodeIp)` | изменение | Устанавливает Exit Node по Tailscale IP (`off` / `none` / пустая строка сбрасывает) и передаёт его работающему демону. |
+| `selectExitNode(exitNodeIp)` | изменение | Устанавливает Exit Node по Tailscale IP (`best` берёт узел, рекомендованный Tailscale; `off` / `none` / пустая строка сбрасывает) и передаёт его работающему демону. |
 | `clearExitNode()` | изменение | То же, что `selectExitNode("")`. |
 | `switchAccount(accountNameOrId)` | изменение | Переключает активный профиль по имени или ID; перезапускает демон, если он работал. |
 | `setByeDpi(enabled, flags)` | изменение | Включает/выключает обход ByeDPI, при необходимости заменяя флаги. |

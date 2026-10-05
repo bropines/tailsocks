@@ -5,6 +5,11 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import androidx.core.content.ContextCompat
+import appctr.Appctr
+import io.github.bropines.tailscaled.models.StatusResponse
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class TaskerReceiver : BroadcastReceiver() {
     companion object {
@@ -84,10 +89,19 @@ class TaskerReceiver : BroadcastReceiver() {
                 TailscaledService.sendStatusBroadcast(context)
             }
             ACTION_SET_EXIT_NODE, ALIAS_SET_EXIT_NODE -> {
-                val exitNodeIp = intent.getStringExtra("exit_node")
+                val exitNode = intent.getStringExtra("exit_node")
                     ?: intent.getStringExtra("exit_node_ip")
                     ?: ""
-                handleSetExitNode(context, exitNodeIp)
+                // Resolving the node asks the daemon: off the main thread, with the
+                // broadcast held open until the choice is written.
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        handleSetExitNode(context, exitNode)
+                    } finally {
+                        pending.finish()
+                    }
+                }
             }
             ACTION_SWITCH_ACCOUNT, ALIAS_SWITCH_ACCOUNT -> {
                 val targetAccount = intent.getStringExtra("account")
@@ -122,14 +136,38 @@ class TaskerReceiver : BroadcastReceiver() {
         }
     }
 
+    /**
+     * Sets the active profile's exit node from a Tailscale IP, `best` (the node the daemon
+     * recommends, see [ExitNodeSuggestion]) or `none` / `disabled` / `off`. Both halves are
+     * written: the address the app shows and the StableID the daemon routes by — the settings
+     * sync sends only the latter, so an address written alone changed the screen, not the route.
+     */
     private fun handleSetExitNode(context: Context, rawExitNode: String) {
         try {
             val activeAccount = AccountManager.getActiveAccount(context)
             val profilePrefs = context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
-            val exitNodeIp = if (rawExitNode.equals("none", ignoreCase = true) || rawExitNode.equals("disabled", ignoreCase = true) || rawExitNode.equals("off", ignoreCase = true)) "" else rawExitNode.trim()
+            val value = rawExitNode.trim()
+            val (exitNodeId, exitNodeIp) = when {
+                value.isEmpty() || value.equals("none", ignoreCase = true) ||
+                    value.equals("disabled", ignoreCase = true) || value.equals("off", ignoreCase = true) -> "" to ""
+                value.equals("best", ignoreCase = true) -> when (val best = ExitNodeSuggestion.fetch()) {
+                    is ExitNodeSuggestion.Outcome.Suggested -> best.id to best.ip
+                    is ExitNodeSuggestion.Outcome.Unavailable -> {
+                        Log.w(TAG, "No recommended exit node (${best.reason}); the exit node is left as it was")
+                        return
+                    }
+                }
+                else -> resolveExitNodeId(value) to value
+            }
+            if (exitNodeIp.isNotEmpty() && exitNodeId.isEmpty()) {
+                Log.w(TAG, "No peer holds $exitNodeIp right now; it is stored, but the daemon gets no exit node")
+            }
 
-            profilePrefs.edit().putString("exit_node_ip", exitNodeIp).apply()
-            Log.d(TAG, "Updated Exit Node IP for account ${activeAccount.name} to '$exitNodeIp'")
+            profilePrefs.edit()
+                .putString("exit_node_ip", exitNodeIp)
+                .putString("exit_node_id", exitNodeId)
+                .apply()
+            Log.d(TAG, "Updated Exit Node for account ${activeAccount.name} to '$exitNodeIp' ($exitNodeId)")
 
             if (ProxyState.isActualRunning()) {
                 val serviceIntent = Intent(context, TailscaledService::class.java).apply {
@@ -169,6 +207,14 @@ class TaskerReceiver : BroadcastReceiver() {
         } catch (e: Exception) {
             Log.e(TAG, "Failed to switch account via intent: ${e.message}", e)
         }
+    }
+
+    /** The StableID of the peer holding [ip], or "" when the daemon cannot say. */
+    private fun resolveExitNodeId(ip: String): String = try {
+        val status = AppJson.decodeFromString<StatusResponse>(Appctr.getStatusFromAPI())
+        status.peers?.values?.firstOrNull { it.tailscaleIPs?.contains(ip) == true }?.id.orEmpty()
+    } catch (e: Exception) {
+        ""
     }
 
     /** Compares two secrets without leaking their length or content via timing. */
