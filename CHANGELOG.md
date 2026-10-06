@@ -2,6 +2,16 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [4.7.2] - 2026-10-07
+
+### Added
+
+- Twelve more app icons to pick in Settings → Appearance: classic, 8-bit, fox and TailCat, seasonal, discreet.
+
+### Fixed
+
+- This device's own sheet in Peers offered Send file, which ended in a 404 on a user-owned node; the button is dimmed there now.
+
 ## [4.7.1] - 2026-10-05
 
 ### Added
