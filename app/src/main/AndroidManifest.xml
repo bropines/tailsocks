@@ -131,6 +131,7 @@
                 android:resource="@xml/file_paths" />
         </provider>
         <activity android:name=".ui.DnsActivity" android:exported="false" />
+        <activity android:name=".ui.LicensesActivity" android:exported="false" />
         <activity android:name=".ui.ServeActivity" android:exported="false" />
         <activity android:name=".ui.ConsoleActivity" android:exported="false" android:windowSoftInputMode="adjustResize"/>
         <activity android:name=".ui.PeersActivity" android:exported="false" />

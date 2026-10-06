@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Open-source licenses (ui/LicensesActivity.kt), from About. -->
+<resources>
+    <string name="licenses_title">Open-source licenses</string>
+    <string name="licenses_count">%d components</string>
+    <string name="licenses_help">TailSocks is built on the open-source software listed here, each under its own license. Tap a component for its full license text and its project page.</string>
+    <string name="licenses_section_app">This app</string>
+    <string name="licenses_section_go">Go core: tailscaled, the CLI and the bridge</string>
+    <string name="licenses_section_android">Android libraries</string>
+    <string name="licenses_section_native">Native libraries</string>
+    <string name="licenses_section_other">Bundled with the above</string>
+    <string name="licenses_parts">%d libraries</string>
+    <string name="licenses_includes">Includes</string>
+    <string name="licenses_open_page">Project page</string>
+    <string name="licenses_load_failed">The license list could not be read.</string>
+</resources>

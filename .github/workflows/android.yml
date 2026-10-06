@@ -229,6 +229,12 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           ANDROID_HOME: /usr/local/lib/android/sdk
 
+      # The Open-source licenses screen lists what ships (scripts/licenses/generate.py).
+      # A dependency that changed without a regenerated list is flagged, not fatal.
+      - name: Check the license list
+        run: |
+          python3 scripts/licenses/generate.py --check || echo "::warning::app/src/main/assets/licenses.json no longer matches what ships: run scripts/licenses/generate.py"
+
       - name: Prepare APKs for upload
         run: |
           mkdir -p apks-separated

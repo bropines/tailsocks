@@ -2078,6 +2078,16 @@ fun MainScreen(
                         }
                     }
 
+                    // Ours in a line; everyone else's a tap away, with their full texts.
+                    OutlinedButton(
+                        onClick = { context.startActivity(Intent(context, LicensesActivity::class.java)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Icon(Icons.Default.Gavel, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(R.string.licenses_title), textAlign = TextAlign.Center)
+                    }
                     Text(
                         dlgLicense,
                         style = MaterialTheme.typography.bodySmall,

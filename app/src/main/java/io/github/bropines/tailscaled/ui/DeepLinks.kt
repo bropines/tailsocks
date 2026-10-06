@@ -17,7 +17,7 @@ import android.net.Uri
  *                                           address or a connect command
  *     tailsocks://logs?category=TAILCAT     Logs, on one category
  *     tailsocks://settings/<section>        Settings, on a section
- *     tailsocks://peers | dns | netcheck | console | files | taildrive | permissions
+ *     tailsocks://peers | dns | netcheck | console | files | taildrive | permissions | licenses
  *
  * MainActivity receives them (VIEW, scheme tailsocks) and opens the screen on
  * top of itself, so Back lands on the main screen.
@@ -55,6 +55,7 @@ object DeepLinks {
             "files" -> Intent(context, FilesActivity::class.java)
             "taildrive" -> Intent(context, TaildriveActivity::class.java)
             "permissions" -> Intent(context, PermissionsActivity::class.java)
+            "licenses" -> Intent(context, LicensesActivity::class.java)
             else -> null
         }
     }

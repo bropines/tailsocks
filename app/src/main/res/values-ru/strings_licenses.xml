@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="licenses_title">Лицензии открытого ПО</string>
+    <string name="licenses_count">Компонентов: %d</string>
+    <string name="licenses_help">TailSocks построен на открытом ПО из этого списка, у каждого компонента своя лицензия. Нажмите на компонент, чтобы прочитать полный текст лицензии и открыть страницу проекта.</string>
+    <string name="licenses_section_app">Само приложение</string>
+    <string name="licenses_section_go">Go-ядро: tailscaled, CLI и мост</string>
+    <string name="licenses_section_android">Библиотеки Android</string>
+    <string name="licenses_section_native">Нативные библиотеки</string>
+    <string name="licenses_section_other">Входит в состав компонентов выше</string>
+    <string name="licenses_parts">Библиотек: %d</string>
+    <string name="licenses_includes">Включает</string>
+    <string name="licenses_open_page">Страница проекта</string>
+    <string name="licenses_load_failed">Не удалось прочитать список лицензий.</string>
+</resources>
