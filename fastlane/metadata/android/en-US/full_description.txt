@@ -12,8 +12,9 @@ It works with Tailscale's own coordination server and with a self-hosted Headsca
 
 <b>Services and files</b>
 • Taildrop: send and receive files, including from the share sheet
-• Taildrive: share folders and open the shares of other devices
+• Taildrive: share folders and open the shares of other devices. The daemon reads a shared folder itself, so sharing one asks for All files access; nothing else does
 • Serve and Funnel, Tailscale Services (svc:)
+• TailCat: forward ports or run a SOCKS5 proxy through a tailcat server, with no VPN and no Tailscale account; the phone can serve its own ports too
 
 <b>Management</b>
 • Several accounts, each with its own state, keys and settings
@@ -24,7 +25,7 @@ It works with Tailscale's own coordination server and with a self-hosted Headsca
 • Material 3 with dynamic colour and AMOLED black; English and Russian
 
 <b>Network access</b>
-The app talks to the coordination server you choose (Tailscale's by default), to DERP relays and to your peers. The Tailscale Admin API is contacted only after you add an API token. Upload of debug logs to Tailscale is compiled out. Checking GitHub for a newer release on launch is a setting you can turn off; builds distributed through a store have it off.
+The app talks to the coordination server you choose (Tailscale's by default), to DERP relays and to your peers. Names outside the tailnet are resolved through 8.8.8.8 and 1.1.1.1, with Cloudflare's DNS-over-HTTPS (https://1.1.1.1/dns-query) as the fallback; all of them can be changed in Settings. TailCat, when you switch it on, fetches its relay map from tailcat.dev and connects through Tailscale's public DERP relays. The Tailscale Admin API is contacted only after you add an API token. Upload of debug logs to Tailscale is compiled out. Checking GitHub for a newer release on launch is a setting you can turn off; builds distributed through a store have it off.
 
 <b>Requirements</b>
 Android 7.0 or newer and an account on Tailscale or on a Headscale server. Root is optional.
