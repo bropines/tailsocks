@@ -1,0 +1,3 @@
+Idea: TailCat steals your socks: a ginger cat paw (cream beans) reaches up from the corner and grabs a tiny purple sock whose cuff copies the main icon's banding (#C7B0F8 / #B594FC / #9E78F0 with dark gaps).
+Converter: shapes are polygon paths (no arcs/transforms); the foreleg deliberately bleeds off the bottom-right edge and is cropped by the mask, everything else sits inside r=30. Fur gradient tops out at #FF9A55 (between the two flame stops) so the cream beans keep contrast.
+Themed icon is one evenodd path: beans cut out of the paw, cuff gaps cut out of the sock, a 1.7-unit gap separates sock and paw.

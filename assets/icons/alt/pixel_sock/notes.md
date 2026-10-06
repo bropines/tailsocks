@@ -1,0 +1,3 @@
+8-bit sibling of the main icon: a 20x20-pixel purple sock (lavender/purple/lavender cuff) with an orange fox tail flaming out of the heel and a cream tip, on a pixel mesh (octilinear node-and-edge network) over #0E0F19.
+Every shape is a fill-only `<path>` of axis-aligned rects on a 3-unit grid (36x36 cells over 108); one path per colour, 6 colours. Keep path order: the first path (#0B0A14) is the whole silhouette and forms the 1-px outline under the colours.
+monochrome: sock, tail and tip as separate pieces (cuff stripe and a diagonal cut before the tip are holes). Generated from ASCII maps by ../_src/gen.py (`python3 _src/gen.py sock-tail`).

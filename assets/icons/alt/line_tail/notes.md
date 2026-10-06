@@ -1,0 +1,3 @@
+Light Material You variant: a bold single-weight (6-unit) outline sock with one cuff stripe, and a flame-orange S-shaped tail swinging up out of the heel, on a pale-lavender gradient.
+Converter: the three foreground paths are strokes, not fills. Keep strokeWidth 6, round caps and joins, fillColor none; the tail stroke uses a userSpaceOnUse linear gradient (strokeColor via aapt:attr). Draw order: tail, then the sock outline, then the stripe.
+The purple is #7B55E6, a darker step than brand #9E78F0, because #9E78F0 is too weak on a light background. Monochrome is the same three strokes in #FFFFFF.

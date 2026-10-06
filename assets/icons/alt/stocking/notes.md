@@ -1,0 +1,3 @@
+Christmas stocking: the sock as a purple stocking (red heel and toe, knit snowflake, white fur cuff with holly); the fox has dived in and its tail flops out over the rim. Background is the brand mesh with snowflakes for nodes.
+Converter: plain paths, circles and userSpaceOnUse linear/radial gradients; all transforms are already baked into coordinates (no groups). Shapes are outlined by #0E0F19 halo strokes (stroke-linejoin round), as in the main icon; the shadow under the cuff uses fill-opacity 0.45; snowflakes are round-capped strokes.
+monochrome.svg is a single fill-rule="evenodd" path (stocking, cuff, holly and tail separated by gaps, snowflake carved out).

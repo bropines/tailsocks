@@ -36,6 +36,10 @@ object AppIcons {
     /** The picker's sections. */
     enum class Group(@StringRes val title: Int) {
         CLASSIC(R.string.icon_group_classic),
+        PIXEL(R.string.icon_group_pixel),
+        ANIMALS(R.string.icon_group_animals),
+        SEASONAL(R.string.icon_group_seasonal),
+        DISCREET(R.string.icon_group_discreet),
     }
 
     /** One icon: its alias's id, its name, and the two layers the picker draws it from. */
@@ -47,9 +51,25 @@ object AppIcons {
         @DrawableRes val foreground: Int,
     )
 
-    /** In the picker's order. Each id has an alias in the manifest and an ic_launcher_<id> mipmap. */
+    /**
+     * In the picker's order. Each id has an alias in the manifest and an ic_launcher_<id>
+     * mipmap (the default's is plain ic_launcher); the layers' SVG sources and the
+     * converter are in assets/icons/alt and assets/icons/tools.
+     */
     val ALL: List<Variant> = listOf(
         Variant("fox_sock", R.string.icon_fox_sock, Group.CLASSIC, R.drawable.ic_launcher_background, R.drawable.ic_launcher_foreground),
+        Variant("flat_curl", R.string.icon_flat_curl, Group.CLASSIC, R.drawable.ic_launcher_flat_curl_background, R.drawable.ic_launcher_flat_curl_foreground),
+        Variant("line_tail", R.string.icon_line_tail, Group.CLASSIC, R.drawable.ic_launcher_line_tail_background, R.drawable.ic_launcher_line_tail_foreground),
+        Variant("pixel_sock", R.string.icon_pixel_sock, Group.PIXEL, R.drawable.ic_launcher_pixel_sock_background, R.drawable.ic_launcher_pixel_sock_foreground),
+        Variant("pixel_fox", R.string.icon_pixel_fox, Group.PIXEL, R.drawable.ic_launcher_pixel_fox_background, R.drawable.ic_launcher_pixel_fox_foreground),
+        Variant("sleepy_fox", R.string.icon_sleepy_fox, Group.ANIMALS, R.drawable.ic_launcher_sleepy_fox_background, R.drawable.ic_launcher_sleepy_fox_foreground),
+        Variant("facet_fox", R.string.icon_facet_fox, Group.ANIMALS, R.drawable.ic_launcher_facet_fox_background, R.drawable.ic_launcher_facet_fox_foreground),
+        Variant("sock_thief", R.string.icon_sock_thief, Group.ANIMALS, R.drawable.ic_launcher_sock_thief_background, R.drawable.ic_launcher_sock_thief_foreground),
+        Variant("mesh_paw", R.string.icon_mesh_paw, Group.ANIMALS, R.drawable.ic_launcher_mesh_paw_background, R.drawable.ic_launcher_mesh_paw_foreground),
+        Variant("stocking", R.string.icon_stocking, Group.SEASONAL, R.drawable.ic_launcher_stocking_background, R.drawable.ic_launcher_stocking_foreground),
+        Variant("pumpkin", R.string.icon_pumpkin, Group.SEASONAL, R.drawable.ic_launcher_pumpkin_background, R.drawable.ic_launcher_pumpkin_foreground),
+        Variant("knit", R.string.icon_knit, Group.DISCREET, R.drawable.ic_launcher_knit_background, R.drawable.ic_launcher_knit_foreground),
+        Variant("hex_tile", R.string.icon_hex_tile, Group.DISCREET, R.drawable.ic_launcher_hex_tile_background, R.drawable.ic_launcher_hex_tile_foreground),
     )
 
     val DEFAULT: Variant = ALL.first { it.id == DEFAULT_ID }

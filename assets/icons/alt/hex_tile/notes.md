@@ -1,0 +1,3 @@
+Idea: a soft hexagonal tile cut from the main icon's node mesh: a faint pentagon web with one warm apricot node (the fox) and its halo. At launcher size it reads as a quiet hexagon with a dot.
+Converter: the tile path rounds its corners with arc (A) commands; mesh edges are stroked paths (width 2.5, round caps) plus circles; the halo is a circle with fill-opacity 0.15; two radialGradients (tile, warm node), both userSpaceOnUse.
+Monochrome is one evenodd path (the tile with the mesh carved out as grooves). It is deliberately bolder than the faint colour mesh, so don't derive it from the foreground.

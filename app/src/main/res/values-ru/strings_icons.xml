@@ -4,6 +4,22 @@
     <string name="icon_note">Лаунчер может показать новую иконку через несколько секунд. Иконка старой на рабочем столе или закреплённый ярлык могут пропасть — добавьте их заново.</string>
 
     <string name="icon_group_classic">TailSocks</string>
+    <string name="icon_group_pixel">8 бит</string>
+    <string name="icon_group_animals">Лиса и TailCat</string>
+    <string name="icon_group_seasonal">Сезонные</string>
+    <string name="icon_group_discreet">Неприметные</string>
 
     <string name="icon_fox_sock">Лисий носок</string>
+    <string name="icon_flat_curl">Завиток</string>
+    <string name="icon_line_tail">Контур</string>
+    <string name="icon_pixel_sock">8-битный носок</string>
+    <string name="icon_pixel_fox">8-битная лиса</string>
+    <string name="icon_sleepy_fox">Спящая лиса</string>
+    <string name="icon_facet_fox">Гранёная лиса</string>
+    <string name="icon_sock_thief">Похититель носков</string>
+    <string name="icon_mesh_paw">Лапка-сеть</string>
+    <string name="icon_stocking">Чулок</string>
+    <string name="icon_pumpkin">Носок-тыква</string>
+    <string name="icon_knit">Вязка</string>
+    <string name="icon_hex_tile">Шестигранник</string>
 </resources>

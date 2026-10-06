@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="108" height="108" viewBox="0 0 108 108">
+  <defs>
+    <radialGradient id="glow" gradientUnits="userSpaceOnUse" cx="54" cy="50" r="60">
+      <stop offset="0" stop-color="#1B1834"/>
+      <stop offset="1" stop-color="#0E0F19"/>
+    </radialGradient>
+  </defs>
+  <rect x="0" y="0" width="108" height="108" fill="#0E0F19"/>
+  <rect x="0" y="0" width="108" height="108" fill="url(#glow)"/>
+  <!-- mesh edges -->
+  <path d="M54 8 L34 12 M54 8 L74 12 M54 8 L44 22 M54 8 L66 20 M34 12 L16 24 M34 12 L44 22 M34 12 L36 30 M74 12 L92 24 M74 12 L66 20 M74 12 L74 32 M16 24 L26 36 M16 24 L8 50 M16 24 L36 30 M16 24 L4 6 M92 24 L82 36 M92 24 L100 52 M92 24 L74 32 M92 24 L104 8 M44 22 L66 20 M44 22 L36 30 M44 22 L46 40 M44 22 L62 38 M66 20 L74 32 M66 20 L62 38 M26 36 L8 50 M26 36 L20 56 M26 36 L36 30 M26 36 L46 40 M26 36 L40 62 M82 36 L100 52 M82 36 L88 58 M82 36 L74 32 M82 36 L62 38 M82 36 L68 60 M8 50 L20 56 M8 50 L12 74 M100 52 L88 58 M100 52 L96 76 M20 56 L12 74 M20 56 L30 66 M20 56 L40 62 M88 58 L96 76 M88 58 L78 68 M88 58 L68 60 M12 74 L24 85 M12 74 L30 66 M12 74 L6 98 M96 76 L80 82 M96 76 L86 96 M96 76 L78 68 M96 76 L102 100 M24 85 L22 94 M24 85 L42 98 M24 85 L30 66 M24 85 L6 98 M80 82 L86 96 M80 82 L64 100 M80 82 L54 90 M80 82 L78 68 M80 82 L54 70 M22 94 L42 98 M22 94 L6 98 M86 96 L64 100 M86 96 L102 100 M42 98 L64 100 M42 98 L54 90 M64 100 L54 90 M54 90 L54 70 M36 30 L46 40 M74 32 L62 38 M30 66 L40 62 M30 66 L54 70 M78 68 L68 60 M78 68 L54 70 M46 40 L62 38 M46 40 L40 62 M46 40 L68 60 M62 38 L68 60 M40 62 L68 60 M40 62 L54 70 M68 60 L54 70" fill="none" stroke="#4D4671" stroke-width="0.45" stroke-linecap="round"/>
+  <!-- mesh nodes: snowflakes and dots -->
+  <circle cx="54" cy="8" r="3.2" fill="#0E0F19"/>
+  <path d="M54 5.5 L54 10.5 M56.17 6.75 L51.83 9.25 M56.17 9.25 L51.83 6.75" fill="none" stroke="#E9E2FF" stroke-width="0.75" stroke-linecap="round"/>
+  <circle cx="54" cy="8" r="0.8" fill="#E9E2FF"/>
+  <circle cx="34" cy="12" r="1.25" fill="#9E78F0"/>
+  <circle cx="74" cy="12" r="1.25" fill="#9E78F0"/>
+  <circle cx="16" cy="24" r="3.2" fill="#0E0F19"/>
+  <path d="M16 21.5 L16 26.5 M18.17 22.75 L13.83 25.25 M18.17 25.25 L13.83 22.75" fill="none" stroke="#E9E2FF" stroke-width="0.75" stroke-linecap="round"/>
+  <circle cx="16" cy="24" r="0.8" fill="#E9E2FF"/>
+  <circle cx="92" cy="24" r="3.2" fill="#0E0F19"/>
+  <path d="M92 21.5 L92 26.5 M94.17 22.75 L89.83 25.25 M94.17 25.25 L89.83 22.75" fill="none" stroke="#E9E2FF" stroke-width="0.75" stroke-linecap="round"/>
+  <circle cx="92" cy="24" r="0.8" fill="#E9E2FF"/>
+  <circle cx="44" cy="22" r="3.2" fill="#0E0F19"/>
+  <path d="M44 19.5 L44 24.5 M46.17 20.75 L41.83 23.25 M46.17 23.25 L41.83 20.75" fill="none" stroke="#E9E2FF" stroke-width="0.75" stroke-linecap="round"/>
+  <circle cx="44" cy="22" r="0.8" fill="#E9E2FF"/>
+  <circle cx="66" cy="20" r="1.25" fill="#4D4671"/>
+  <circle cx="26" cy="36" r="3.2" fill="#0E0F19"/>
+  <path d="M26 33.5 L26 38.5 M28.17 34.75 L23.83 37.25 M28.17 37.25 L23.83 34.75" fill="none" stroke="#E9E2FF" stroke-width="0.75" stroke-linecap="round"/>
+  <circle cx="26" cy="36" r="0.8" fill="#E9E2FF"/>
+  <circle cx="82" cy="36" r="1.25" fill="#4D4671"/>
+  <circle cx="8" cy="50" r="1.25" fill="#9E78F0"/>
+  <circle cx="100" cy="52" r="1.25" fill="#9E78F0"/>
+  <circle cx="20" cy="56" r="1.25" fill="#4D4671"/>
+  <circle cx="88" cy="58" r="3.2" fill="#0E0F19"/>
+  <path d="M88 55.5 L88 60.5 M90.17 56.75 L85.83 59.25 M90.17 59.25 L85.83 56.75" fill="none" stroke="#E9E2FF" stroke-width="0.75" stroke-linecap="round"/>
+  <circle cx="88" cy="58" r="0.8" fill="#E9E2FF"/>
+  <circle cx="12" cy="74" r="1.25" fill="#9E78F0"/>
+  <circle cx="96" cy="76" r="1.25" fill="#9E78F0"/>
+  <circle cx="24" cy="85" r="3.2" fill="#0E0F19"/>
+  <path d="M24 82.5 L24 87.5 M26.17 83.75 L21.83 86.25 M26.17 86.25 L21.83 83.75" fill="none" stroke="#E9E2FF" stroke-width="0.75" stroke-linecap="round"/>
+  <circle cx="24" cy="85" r="0.8" fill="#E9E2FF"/>
+  <circle cx="80" cy="82" r="3.2" fill="#0E0F19"/>
+  <path d="M80 79.5 L80 84.5 M82.17 80.75 L77.83 83.25 M82.17 83.25 L77.83 80.75" fill="none" stroke="#E9E2FF" stroke-width="0.75" stroke-linecap="round"/>
+  <circle cx="80" cy="82" r="0.8" fill="#E9E2FF"/>
+  <circle cx="22" cy="94" r="1.25" fill="#9E78F0"/>
+  <circle cx="86" cy="96" r="1.25" fill="#9E78F0"/>
+  <circle cx="42" cy="98" r="3.2" fill="#0E0F19"/>
+  <path d="M42 95.5 L42 100.5 M44.17 96.75 L39.83 99.25 M44.17 99.25 L39.83 96.75" fill="none" stroke="#E9E2FF" stroke-width="0.75" stroke-linecap="round"/>
+  <circle cx="42" cy="98" r="0.8" fill="#E9E2FF"/>
+  <circle cx="64" cy="100" r="1.25" fill="#9E78F0"/>
+  <circle cx="54" cy="90" r="3.2" fill="#0E0F19"/>
+  <path d="M54 87.5 L54 92.5 M56.17 88.75 L51.83 91.25 M56.17 91.25 L51.83 88.75" fill="none" stroke="#E9E2FF" stroke-width="0.75" stroke-linecap="round"/>
+  <circle cx="54" cy="90" r="0.8" fill="#E9E2FF"/>
+  <circle cx="36" cy="30" r="1.25" fill="#9E78F0"/>
+  <circle cx="30" cy="66" r="1.25" fill="#4D4671"/>
+  <circle cx="78" cy="68" r="1.25" fill="#4D4671"/>
+  <circle cx="6" cy="98" r="1.25" fill="#4D4671"/>
+  <circle cx="102" cy="100" r="1.25" fill="#4D4671"/>
+  <circle cx="4" cy="6" r="1.25" fill="#4D4671"/>
+  <circle cx="104" cy="8" r="1.25" fill="#4D4671"/>
+  <circle cx="68" cy="60" r="1.25" fill="#4D4671"/>
+</svg>

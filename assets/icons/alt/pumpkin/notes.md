@@ -1,0 +1,3 @@
+Halloween: the sock as a jack-o'-lantern (pumpkin skin, carved face lit from inside, stem and leaf poking out of the dark-striped cuff); the fox tail becomes ghost-purple fox-fire. Background is the mesh spun into a cobweb with orange and purple nodes.
+Converter: plain paths, circles and userSpaceOnUse linear/radial gradients; the 8 deg tilt and the scaling are already baked into coordinates (no groups). The face glow is a stroke with stroke-opacity 0.28 under the carved holes; outlines are #0E0F19 halo strokes.
+monochrome.svg is a single fill-rule="evenodd" path (face and cuff stripes cut out as holes, tail tip split by a zigzag gap).

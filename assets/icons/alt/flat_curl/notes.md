@@ -1,0 +1,2 @@
+A flat white sock (the cuff split off by one cut-out stripe) with a crescent fox tail tucked behind the heel, shading from flame orange to a cream tip, on a vivid purple gradient.
+The tail shape already has a 2.6-unit gap cut along the heel and back of the leg (no mask needed), so the same two paths work as the monochrome layer. The sock path is fill-rule evenodd (fillType="evenOdd") for the stripe hole.

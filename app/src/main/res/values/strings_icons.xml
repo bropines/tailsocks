@@ -6,7 +6,23 @@
 
     <!-- The picker's sections. -->
     <string name="icon_group_classic">TailSocks</string>
+    <string name="icon_group_pixel">8-bit</string>
+    <string name="icon_group_animals">Fox and TailCat</string>
+    <string name="icon_group_seasonal">Seasonal</string>
+    <string name="icon_group_discreet">Discreet</string>
 
     <!-- The icons. -->
     <string name="icon_fox_sock">Fox sock</string>
+    <string name="icon_flat_curl">Flat curl</string>
+    <string name="icon_line_tail">Line tail</string>
+    <string name="icon_pixel_sock">8-bit sock</string>
+    <string name="icon_pixel_fox">8-bit fox</string>
+    <string name="icon_sleepy_fox">Sleepy fox</string>
+    <string name="icon_facet_fox">Facet fox</string>
+    <string name="icon_sock_thief">Sock thief</string>
+    <string name="icon_mesh_paw">Mesh paw</string>
+    <string name="icon_stocking">Stocking</string>
+    <string name="icon_pumpkin">Pumpkin sock</string>
+    <string name="icon_knit">Knit</string>
+    <string name="icon_hex_tile">Hex tile</string>
 </resources>
