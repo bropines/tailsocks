@@ -31,8 +31,8 @@ println("-> Build VersionName: $appVersionName ($gitHash)")
 val releaseKeystorePath: String? = System.getenv("KEYSTORE_FILE")
 
 // The ABIs to build. A builder that packages one APK per ABI — F-Droid's
-// per-ABI entries — passes -PtargetAbi=<abi> and gets only that one, without
-// the universal APK; unset, all four and the universal one.
+// per-ABI entries — passes -PtargetAbi=<abi> and gets that one (and a universal
+// APK holding the same single ABI, see splits); unset, all four and the universal one.
 val allAbis = listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
 val targetAbi: String? = project.findProperty("targetAbi")?.toString()?.also {
     require(it in allAbis) { "-PtargetAbi must be one of $allAbis, not $it" }
@@ -127,7 +127,14 @@ android {
             isEnable = true
             reset()
             include(*builtAbis.toTypedArray())
-            isUniversalApk = targetAbi == null
+            // Always, though F-Droid's -PtargetAbi build ships only its one ABI: the
+            // per-ABI APK must be made the same way in both builds. AGP's manifest
+            // merger moves every activity-alias to just after its target activity, which
+            // reverses a run of aliases; a split whose versionCode differs from the
+            // variant's is merged once more (reversed back) only when it is not the sole
+            // output. Without the universal APK beside it, F-Droid's armeabi-v7a APK had the
+            // launcher aliases in the opposite order to ours and 4.7.2 failed to verify.
+            isUniversalApk = true
         }
     }
 
