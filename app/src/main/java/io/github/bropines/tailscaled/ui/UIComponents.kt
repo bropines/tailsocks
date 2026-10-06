@@ -334,7 +334,7 @@ private class PeerCard(
  * nothing the daemon reported is lost behind the summary of it. A group with no rows is
  * dropped rather than drawn empty.
  */
-private fun peerCards(peer: PeerData, strings: PeerDetailsStrings, version: String?): List<PeerCard> {
+private fun peerCards(peer: PeerData, strings: PeerDetailsStrings, version: String?, isSelf: Boolean): List<PeerCard> {
     val details = peer.getDetailsList(tailscaleVersion = version)
     return PeerDetailGroup.entries.mapNotNull { group ->
         val rows = details.filter { (PEER_DETAIL_GROUP_OF[it.id] ?: PeerDetailGroup.OTHER) == group }
@@ -373,10 +373,10 @@ private fun peerCards(peer: PeerData, strings: PeerDetailsStrings, version: Stri
             // peer of another user's needs. "Offline" is short enough to stand as it is.
             PeerDetailGroup.CAPABILITIES -> PeerCard(
                 group,
-                when (val taildrop = taildropStatusOf(peer, strings)) {
+                when (val taildrop = peerTaildropStatus(peer, isSelf, strings)) {
                     TaildropStatus.Available -> strings.taildropOk
                     is TaildropStatus.Offline -> taildrop.reason
-                    is TaildropStatus.Blocked -> strings.taildropBlocked
+                    is TaildropStatus.Blocked -> if (isSelf) strings.taildropSelfShort else strings.taildropBlocked
                 },
                 strings.taildrop,
                 false,
@@ -454,6 +454,14 @@ fun taildropStatusOf(peer: PeerData, strings: TaildropReasonStrings): TaildropSt
     }
     return TaildropStatus.Blocked(reason)
 }
+
+/**
+ * The sheet's verdict. This device is never a target, whatever the daemon reports for it:
+ * since a user-owned node may send to its owner's other devices, Self comes with no refusal
+ * code, and a file sent to it ends in a 404 — the daemon's targets are the other devices.
+ */
+private fun peerTaildropStatus(peer: PeerData, isSelf: Boolean, strings: PeerDetailsStrings): TaildropStatus =
+    if (isSelf) TaildropStatus.Blocked(strings.taildropSelf) else taildropStatusOf(peer, strings)
 
 private fun taildropStatusOf(peer: PeerData, strings: PeerDetailsStrings): TaildropStatus =
     taildropStatusOf(
@@ -1049,6 +1057,9 @@ private data class PeerDetailsStrings(
     val taildropUnsupportedOs: String,
     val taildropNoPeerApi: String,
     val taildropOtherUser: String,
+    /** This device's own sheet: the card's verdict, and the reason under the dimmed button. */
+    val taildropSelfShort: String,
+    val taildropSelf: String,
     /** The traffic card's caption over the sum of both byte counters. */
     val trafficTotal: String,
     val groupAddresses: String,
@@ -1241,6 +1252,8 @@ fun PeerDetailsModal(
         taildropUnsupportedOs = stringResource(R.string.peer_taildrop_unsupported_os),
         taildropNoPeerApi = stringResource(R.string.peer_taildrop_no_peer_api),
         taildropOtherUser = stringResource(R.string.peer_taildrop_other_user),
+        taildropSelfShort = stringResource(R.string.peer_taildrop_self_short),
+        taildropSelf = stringResource(R.string.peer_taildrop_self),
         trafficTotal = stringResource(R.string.peer_traffic_total),
         groupAddresses = stringResource(R.string.peer_group_addresses),
         groupRoute = stringResource(R.string.peer_group_route),
@@ -1493,8 +1506,8 @@ private fun PeerDetailsPage(
     val peer = page.peer
     // A cache, not state: the cards only change when the page does (the peer, or the version
     // the Admin API answered for it), and during a turn this runs for two peers at once.
-    val cards = remember(page, strings) { peerCards(peer, strings, page.version) }
-    val taildrop = remember(peer, strings) { taildropStatusOf(peer, strings) }
+    val cards = remember(page, strings) { peerCards(peer, strings, page.version, page.isSelf) }
+    val taildrop = remember(page, strings) { peerTaildropStatus(peer, page.isSelf, strings) }
     // Everything scrolls together, header included. The header is some 300dp of identity
     // row, status strip, button and connection card, and the sheet is capped at 85% of the
     // screen: in landscape, or in portrait at a large font scale, a fixed header over a

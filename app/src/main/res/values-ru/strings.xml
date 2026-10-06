@@ -408,6 +408,8 @@
     <string name="peer_taildrop_unsupported_os">ОС устройства не поддерживает Taildrop</string>
     <string name="peer_taildrop_no_peer_api">Устройство не предоставляет peer API</string>
     <string name="peer_taildrop_other_user">Принадлежит другому пользователю или тегу. Taildrop между такими устройствами включить нельзя: демон ждёт две способности, которые выдаёт только сам Tailscale — панель отказывает любому имени в домене tailscale.com. Выход один: не вешать теги на личные устройства, а доступ давать по пользователю или autogroup.</string>
+    <string name="peer_taildrop_self_short">Это устройство</string>
+    <string name="peer_taildrop_self">Это устройство, на котором вы сейчас: файл отсюда уходит на другие ваши устройства, а не сюда.</string>
     <!-- PeerDetailsModal: карточка трафика -->
     <string name="peer_traffic_total">Передано</string>
     <!-- PeerDetailsModal: заголовки карточек -->
