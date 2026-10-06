@@ -112,7 +112,7 @@ KEY_ALIAS=... KEY_PASSWORD=... ./gradlew app:assembleRelease
   - **Top bar**: every screen uses `AppTopBar` ([`ui/AppTopBar.kt`](app/src/main/java/io/github/bropines/tailscaled/ui/AppTopBar.kt)) — title, optional one-line subtitle, back arrow, actions — never a bare `TopAppBar`.
   - **Corners**: three radii, from `MaterialTheme.shapes` ([`ui/theme/Shape.kt`](app/src/main/java/io/github/bropines/tailscaled/ui/theme/Shape.kt)): `small` (8.dp) for badges, tags and chips; `medium` (12.dp) for fields, buttons and rows inside a card or sheet; `large` (16.dp) for cards and banners on the screen background. Pills and bars take `CircleShape`. No literal `RoundedCornerShape(n.dp)`.
   - **Cards & Surfaces**: Extensively use `ElevatedCard` or `Surface` with `MaterialTheme.shapes.large` for list items and configuration containers.
-  - **Pull-To-Refresh**: Use Material 3's `PullToRefreshBox` with `rememberPullToRefreshState` for lists requiring manual sync (e.g., Peers list, Logs).
+  - **Pull-To-Refresh**: Use Material 3's `PullToRefreshBox` with `rememberPullToRefreshState` for lists requiring manual sync (e.g., Logs, Files). The Peers list is the exception: there a pull at the top brings out the search, and refresh is the top bar's button.
   - **Horizontal Pager**: Use `HorizontalPager` for tabbed views (e.g., Serve/Funnel/Logs in [`ServeActivity.kt`](app/src/main/java/io/github/bropines/tailscaled/ui/ServeActivity.kt)).
   - **Chip-Based Controls**: For mutually exclusive settings (e.g., Serve Mode [Web/TCP], Transport [HTTP/HTTPS]), use `FilterChip` organized in horizontally scrollable rows: `Row(horizontalArrangement = Arrangement.spacedBy(8.dp))`.
 

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Strings for the peers list's filter tabs and its search, which a pull at the
+  top of the list or the top bar's search button brings out. A file of its own
+  so it lands without touching strings.xml.
+-->
+<resources>
+    <!-- Tabs over the list; each is followed by how many devices it holds. -->
+    <string name="peers_tab_all">All</string>
+    <string name="peers_tab_online">Online</string>
+    <string name="peers_tab_offline">Offline</string>
+    <!-- Untagged devices of the user this device belongs to. -->
+    <string name="peers_tab_mine">Mine</string>
+    <string name="peers_tab_tagged">Tagged</string>
+    <string name="peers_tab_exit_nodes">Exit nodes</string>
+
+    <!-- The top bar's search button, as a screen reader names it. -->
+    <string name="peers_search_open">Search</string>
+    <string name="peers_search_close">Close search</string>
+</resources>

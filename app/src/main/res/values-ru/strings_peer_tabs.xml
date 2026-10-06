@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Peers list tabs, each followed by how many devices it holds -->
+    <string name="peers_tab_all">Все</string>
+    <string name="peers_tab_online">В сети</string>
+    <string name="peers_tab_offline">Не в сети</string>
+    <string name="peers_tab_mine">Мои</string>
+    <string name="peers_tab_tagged">С тегами</string>
+    <string name="peers_tab_exit_nodes">Выходные узлы</string>
+
+    <!-- The top bar's search button -->
+    <string name="peers_search_open">Поиск</string>
+    <string name="peers_search_close">Закрыть поиск</string>
+</resources>

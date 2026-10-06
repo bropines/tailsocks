@@ -25,7 +25,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
@@ -629,8 +629,41 @@ data class SegmentedChipItem(
     val title: String,
     val icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
     val containerColor: androidx.compose.ui.graphics.Color? = null,
-    val contentColor: androidx.compose.ui.graphics.Color? = null
+    val contentColor: androidx.compose.ui.graphics.Color? = null,
+    /** How many things the chip's filter holds, drawn after the title in a lighter face. */
+    val count: Int? = null
 )
+
+/** A chip's icon, title and count, the same in both chip rows. */
+@Composable
+private fun SegmentedChipLabel(item: SegmentedChipItem, isSelected: Boolean, contentColor: androidx.compose.ui.graphics.Color) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (item.icon != null) {
+            androidx.compose.material3.Icon(
+                imageVector = item.icon,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = contentColor
+            )
+        }
+        Text(
+            text = item.title,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+            fontSize = 13.sp,
+            color = contentColor
+        )
+        if (item.count != null) {
+            Text(
+                text = item.count.toString(),
+                fontSize = 12.sp,
+                color = contentColor.copy(alpha = 0.7f)
+            )
+        }
+    }
+}
 
 @JvmName("SlidingSegmentedChipsOptions")
 @Composable
@@ -716,33 +749,17 @@ fun SlidingSegmentedChips(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
-                        .clickable(
+                        .selectable(
+                            selected = isSelected,
                             interactionSource = remember { MutableInteractionSource() },
-                            indication = null
+                            indication = null,
+                            role = androidx.compose.ui.semantics.Role.Tab
                         ) {
                             onOptionSelected(index)
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (item.icon != null) {
-                            androidx.compose.material3.Icon(
-                                imageVector = item.icon,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = contentColor
-                            )
-                        }
-                        Text(
-                            text = item.title,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            fontSize = 13.sp,
-                            color = contentColor
-                        )
-                    }
+                    SegmentedChipLabel(item, isSelected, contentColor)
                 }
             }
         }
@@ -779,7 +796,9 @@ fun ScrollableSlidingSegmentedChips(
     modifier: Modifier = Modifier,
     height: Dp = 40.dp
 ) {
-    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    // Opened on the selected chip, so a screen that starts on a later one does not draw the
+    // row from its start and then slide across.
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState(initialFirstVisibleItemIndex = selectedIndex)
     LaunchedEffect(selectedIndex) {
         listState.animateScrollToItem(selectedIndex)
     }
@@ -818,34 +837,18 @@ fun ScrollableSlidingSegmentedChips(
                     .fillMaxHeight()
                     .clip(MaterialTheme.shapes.medium)
                     .background(bgColor)
-                    .clickable(
+                    .selectable(
+                        selected = isSelected,
                         interactionSource = remember { MutableInteractionSource() },
-                        indication = null
+                        indication = null,
+                        role = androidx.compose.ui.semantics.Role.Tab
                     ) {
                         onOptionSelected(index)
                     }
                     .padding(horizontal = 14.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (item.icon != null) {
-                        androidx.compose.material3.Icon(
-                            imageVector = item.icon,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = contentColor
-                        )
-                    }
-                    Text(
-                        text = item.title,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                        fontSize = 13.sp,
-                        color = contentColor
-                    )
-                }
+                SegmentedChipLabel(item, isSelected, contentColor)
             }
         }
     }

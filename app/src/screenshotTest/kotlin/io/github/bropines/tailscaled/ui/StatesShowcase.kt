@@ -78,6 +78,25 @@ fun PeersNoMatchShowcase() = States(DemoTailnet.data) { PeersScreen(onBack = {},
 @PreviewTest @StatesPhoneBothLanguages @Composable
 fun PeersAloneShowcase() = States(aloneTailnet) { PeersScreen(onBack = {}) }
 
+// The tabs, and the search a pull at the top brings out, working within the tab: Online,
+// searched by OS. The counts on the tabs are the search's hits in each.
+@PreviewTest @StatesPhoneBothLanguages @Composable
+fun PeersTabsSearchShowcase() = States(pathsTailnet) {
+    PeersScreen(onBack = {}, initialQuery = "linux", initialTab = PeerTab.ONLINE)
+}
+
+// A tab the search leaves empty keeps its place, with its 0 and the way back.
+@PreviewTest @StatesPhoneBothLanguages @Composable
+fun PeersTabNoMatchShowcase() = States(DemoTailnet.data) {
+    PeersScreen(onBack = {}, initialQuery = "exit", initialTab = PeerTab.OFFLINE)
+}
+
+// Without a search the field is folded away; the tab row stays.
+@PreviewTest @StatesPhoneBothLanguages @Composable
+fun PeersExitTabShowcase() = States(DemoTailnet.data) {
+    PeersScreen(onBack = {}, initialTab = PeerTab.EXIT_NODES)
+}
+
 // Stopped: one line and a Start button, the same on every screen that needs the daemon.
 @PreviewTest @StatesPhoneBothLanguages @Composable
 fun PeersStoppedShowcase() = States(stopped) { PeersScreen(onBack = {}) }
