@@ -58,6 +58,11 @@ if [ -d "tailscale_src" ] && [ "$(cat tailscale_src/.patch_stamp 2>/dev/null)" !
     echo "-> Patch set changed since tailscale_src was built. Forcing a clean re-patch."
     rm -rf tailscale_src
 fi
+# A tree unpacked before the commit was recorded (below) cannot stamp the version.
+if [ -d "tailscale_src" ] && [ ! -s tailscale_src/.commit ]; then
+    echo "-> tailscale_src predates the recorded upstream commit. Forcing a clean download."
+    rm -rf tailscale_src
+fi
 
 if [ ! -d "tailscale_src" ]; then
     echo "-> Downloading sources for ${TS_VERSION}..."
@@ -88,10 +93,14 @@ if [ ! -d "tailscale_src" ]; then
         echo "   got      $ACTUAL_SHA"
         exit 1
     fi
+    # git archive records the tag's commit in the tarball; the hash check above
+    # already vouches for it. It goes into the version the daemon reports.
+    TS_COMMIT=$(gzip -dc "$TARBALL" | git get-tar-commit-id)
     tar -xzf "$TARBALL"
     rm -f "$TARBALL"
     mv tailscale-${TS_VERSION#v} tailscale_src
     echo "$TS_VERSION" > tailscale_src/.build_version
+    echo "${TS_COMMIT:?the ${TS_VERSION} archive names no commit}" > tailscale_src/.commit
 
     echo "-> Applying atomic patches..."
     for p in patches/*.patch; do
@@ -120,6 +129,17 @@ echo "[2/4] Compiling binaries in PIE mode..."
 
 cd tailscale_src
 mkdir -p tmp
+
+# The version the daemon reports — `tailscale version`, the status, and the
+# admin console through Hostinfo. -buildvcs=false (below) leaves Go no VCS
+# information to derive one from, and without these stamps every build called
+# itself "1.104.0-ERR-BuildInfo". Shaped like Tailscale's own Android builds:
+# x.y.z-t<tailscale commit>-g<this repo's commit>. Both come from the commits
+# being built, never the clock, so a rebuild stamps the same.
+TS_COMMIT=$(cat .commit)
+APP_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "")
+TS_SHORT_VER=${TS_VERSION#v}
+VERSION_LDFLAGS="-X tailscale.com/version.shortStamp=${TS_SHORT_VER} -X tailscale.com/version.longStamp=${TS_SHORT_VER}-t${TS_COMMIT:0:9}${APP_COMMIT:+-g${APP_COMMIT:0:9}} -X tailscale.com/version.gitCommitStamp=${TS_COMMIT} -X tailscale.com/version.extraGitCommitStamp=${APP_COMMIT}"
 
 # Let GOTOOLCHAIN fetch whatever the upstream module's `go` directive requires.
 # Forcing `-go=1.23` here downgraded the module below what v1.102.1 needs
@@ -176,7 +196,7 @@ for ABI in $TS_ABIS; do
             -buildmode=pie \
             -trimpath \
             -tags "$TAGS" \
-            -ldflags="-s -w -buildid= -checklinkname=0" \
+            -ldflags="-s -w -buildid= -checklinkname=0 ${VERSION_LDFLAGS}" \
             -o "tmp/${PART##*:}_${SUFFIX}.so" "./cmd/${PART%%:*}"
     done
 done
@@ -191,7 +211,7 @@ FULL_CORE_VER="${TS_VERSION}-${GIT_HASH}-${BUILD_TIME}"
 mkdir -p tmp
 unset CC GOARM
 go mod tidy
-gomobile bind -ldflags="-s -w -buildid= -checklinkname=0 -X appctr.coreVersion=${FULL_CORE_VER}" -trimpath -target="$GOMOBILE_TARGETS" -androidapi 21 -tags "$TAGS" -o tmp/appctr.aar -v .
+gomobile bind -ldflags="-s -w -buildid= -checklinkname=0 -X appctr.coreVersion=${FULL_CORE_VER} ${VERSION_LDFLAGS}" -trimpath -target="$GOMOBILE_TARGETS" -androidapi 21 -tags "$TAGS" -o tmp/appctr.aar -v .
 
 echo "[4/4] Copying binaries to jniLibs..."
 for ABI in $TS_ABIS; do
