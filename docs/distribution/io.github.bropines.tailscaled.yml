@@ -5,7 +5,7 @@
 # built all four ABIs of v4.5.3 and matched each to the release APK; on
 # 2026-10-03 the MR moved to v4.6.1 (JDK 21, Go 1.27.1), verified the same way
 # (fork pipeline 2909425971); 2026-10-05 it moved to v4.6.2 at the reviewer's
-# request, the same day to v4.7.0 and v4.7.1, and 2026-10-07 to v4.7.2.
+# request, the same day to v4.7.0 and v4.7.1, and 2026-10-07 to v4.7.2 (failed: alias order, fixed in 4.7.3) and v4.7.3.
 #
 # Reproducible: F-Droid rebuilds each APK and, when it matches the GitHub
 # release byte for byte, publishes ours with our signature. Proven on 2026-10-01
@@ -47,10 +47,10 @@ Repo: https://github.com/bropines/tailsocks.git
 AllowedAPKSigningKeys: 6be5bef7d0c51eb26863e6e5bb82b2980ae1e0fd0096c15524cf65a8bf9452cb
 
 Builds:
-  - versionName: 4.7.2
-    versionCode: 4070201
-    # The full hash of the v4.7.2 tag (fdroiddata wants no tag names here).
-    commit: 6a104cd2093a337c1260f6e37a83d4b4d78486e9
+  - versionName: 4.7.3
+    versionCode: 4070301
+    # The full hash of the v4.7.3 tag (fdroiddata wants no tag names here).
+    commit: a42204f1cdc869e5206b5ceb81ef6e6fa34e0988
     subdir: app
     submodules: true
     sudo:
@@ -100,10 +100,10 @@ Builds:
       - allowUnsignedRelease
       - targetAbi=armeabi-v7a
 
-  - versionName: 4.7.2
-    versionCode: 4070202
-    # The full hash of the v4.7.2 tag (fdroiddata wants no tag names here).
-    commit: 6a104cd2093a337c1260f6e37a83d4b4d78486e9
+  - versionName: 4.7.3
+    versionCode: 4070302
+    # The full hash of the v4.7.3 tag (fdroiddata wants no tag names here).
+    commit: a42204f1cdc869e5206b5ceb81ef6e6fa34e0988
     subdir: app
     submodules: true
     sudo:
@@ -153,10 +153,10 @@ Builds:
       - allowUnsignedRelease
       - targetAbi=arm64-v8a
 
-  - versionName: 4.7.2
-    versionCode: 4070203
-    # The full hash of the v4.7.2 tag (fdroiddata wants no tag names here).
-    commit: 6a104cd2093a337c1260f6e37a83d4b4d78486e9
+  - versionName: 4.7.3
+    versionCode: 4070303
+    # The full hash of the v4.7.3 tag (fdroiddata wants no tag names here).
+    commit: a42204f1cdc869e5206b5ceb81ef6e6fa34e0988
     subdir: app
     submodules: true
     sudo:
@@ -206,10 +206,10 @@ Builds:
       - allowUnsignedRelease
       - targetAbi=x86
 
-  - versionName: 4.7.2
-    versionCode: 4070204
-    # The full hash of the v4.7.2 tag (fdroiddata wants no tag names here).
-    commit: 6a104cd2093a337c1260f6e37a83d4b4d78486e9
+  - versionName: 4.7.3
+    versionCode: 4070304
+    # The full hash of the v4.7.3 tag (fdroiddata wants no tag names here).
+    commit: a42204f1cdc869e5206b5ceb81ef6e6fa34e0988
     subdir: app
     submodules: true
     sudo:
@@ -268,5 +268,5 @@ VercodeOperation:
   - '%c + 2'
   - '%c + 3'
   - '%c + 4'
-CurrentVersion: 4.7.2
-CurrentVersionCode: 4070204
+CurrentVersion: 4.7.3
+CurrentVersionCode: 4070304
