@@ -2,6 +2,17 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Added
+
+- Peers: filter tabs (online, offline, mine, tagged, exit nodes) with counts; the search appears on a pull from the top, refresh is the top bar's button.
+- About → Open-source licenses: every component in the app with its license and full text.
+
+### Fixed
+
+- F-Droid can verify the per-ABI APKs again: 4.7.2's launcher icons came out in a different order in its build.
+
 ## [4.7.2] - 2026-10-07
 
 ### Added
