@@ -428,6 +428,20 @@ private const val TAILDROP_TARGET_NO_PEER_API = 8
 private const val TAILDROP_TARGET_OWNED_BY_OTHER_USER = 9
 
 /**
+ * The daemon's verdict with its one blind spot filled in. It answers Offline before it
+ * looks at the owner (feature/taildrop/ext.go), so an offline device of another user —
+ * or a tagged one, which belongs to "tagged-devices" — read as one that was merely
+ * offline, and a send to it would be refused even once it came back. Such a peer gets
+ * the refusal it will get online. A grant of the file-sharing-target capability can lift
+ * that for another user's device, but grants are not in the status: an offline device
+ * with one is shown as refused until it is online again.
+ */
+internal fun PeerData.withTaildropOwnership(selfUserId: Long?): PeerData =
+    if (taildropTarget == TAILDROP_TARGET_OFFLINE && selfUserId != null && userID != null && userID != selfUserId)
+        copy(taildropTarget = TAILDROP_TARGET_OWNED_BY_OTHER_USER)
+    else this
+
+/**
  * The daemon's verdict on sending this peer a file, translated. The code is what is read,
  * and every code the bundled daemon can emit has its own words here. NoFileSharingReason is
  * a field the daemon declares (ipn/ipnstate) but, in the tree this app builds, never fills:
@@ -527,8 +541,10 @@ fun taildropPickerRank(status: TaildropStatus): Int = when (status) {
  */
 fun taildropPickerPeers(status: StatusResponse, strings: TaildropReasonStrings): List<PeerData> {
     val selfId = status.self?.id
+    val selfUserId = status.self?.userID
     return status.peers?.values.orEmpty()
         .filter { (selfId == null || it.id != selfId) && (!it.hostName.isNullOrBlank() || !it.dnsName.isNullOrBlank()) && it.shareeNode != true && it.hostName != "funnel-ingress-node" }
+        .map { it.withTaildropOwnership(selfUserId) }
         .sortedWith(
             compareBy<PeerData> { taildropPickerRank(taildropStatusOf(it, strings)) }
                 .thenByDescending { it.online == true }

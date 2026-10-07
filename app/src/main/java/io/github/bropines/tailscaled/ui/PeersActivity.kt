@@ -523,8 +523,11 @@ private fun sendFileToPeer(context: Context, uri: Uri, peer: PeerData, scope: Co
  */
 internal fun listablePeers(status: StatusResponse): List<PeerData> {
     val selfId = status.self?.id
+    val selfUserId = status.self?.userID
     return status.peers?.values
         ?.filter { it.id != selfId && (!it.hostName.isNullOrBlank() || !it.dnsName.isNullOrBlank()) && it.shareeNode != true && it.hostName != "funnel-ingress-node" }
+        // The details sheet's Send file reads this verdict too.
+        ?.map { it.withTaildropOwnership(selfUserId) }
         ?.sortedByDescending { it.online == true }
         ?: emptyList()
 }
