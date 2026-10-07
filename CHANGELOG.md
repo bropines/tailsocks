@@ -2,7 +2,7 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
-## [Unreleased]
+## [4.7.4] - 2026-10-07
 
 ### Added
 
@@ -13,6 +13,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 ### Fixed
 
 - Console: the keyboard no longer shakes the screen.
+- Offline devices of another user or a tag are no longer offered as Taildrop targets.
 
 ## [4.7.3] - 2026-10-07
 
