@@ -2,6 +2,18 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Added
+
+- Files → TailDrop is one list — inbox, send to a device, history — so a swipe goes straight back to TailDrive; tapping a device sends to it.
+- The Taildrop history records sends (failures too) and received files with full details, and has search, filters and CSV export.
+- Console: JSON answers are laid out and their syntax coloured.
+
+### Fixed
+
+- Console: the keyboard no longer shakes the screen.
+
 ## [4.7.3] - 2026-10-07
 
 ### Added
