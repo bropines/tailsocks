@@ -44,6 +44,8 @@ data class DemoData(
     val taildropFilesJson: String? = null,
     /** The Taildrop history, as files/sent_history.json holds it (TaildropHistory). */
     val taildropHistoryJson: String? = null,
+    /** The default Taildrop folder, a tree URI as Settings stores it; null for none chosen. */
+    val taildropFolder: String? = null,
     /** TailCat's key, connections and server, with what the bridge reports for them. */
     val tailcat: DemoTailcat? = null,
 )

@@ -2359,12 +2359,24 @@ private fun PeerDetailRow(
 
 /**
  * A received file in the Taildrop inbox. [sender] is the device it came from, when the
- * history knows it (files received before it was logged have none).
+ * history knows it (files received before it was logged have none). [note] is one more
+ * line about it — where it was saved, or that saving it automatically failed ([noteIsError]).
+ * The date is left out while [TaildropFile.ModTime] is unknown.
  */
 @Composable
-fun FileCard(file: TaildropFile, onOpen: () -> Unit, onSave: () -> Unit, onDelete: () -> Unit, sender: String? = null) {
+fun FileCard(
+    file: TaildropFile,
+    onOpen: () -> Unit,
+    onSave: () -> Unit,
+    onDelete: () -> Unit,
+    sender: String? = null,
+    note: String? = null,
+    noteIsError: Boolean = false
+) {
     val locale = LocalConfiguration.current.locales[0]
-    val dateStr = remember(file.ModTime, locale) { SimpleDateFormat("d MMM, HH:mm", locale).format(Date(file.ModTime * 1000)) }
+    val dateStr = remember(file.ModTime, locale) {
+        file.ModTime.takeIf { it > 0 }?.let { SimpleDateFormat("d MMM, HH:mm", locale).format(Date(it * 1000)) }
+    }
     val sizeStr = formatFileSize(file.Size)
     val ext = file.Name.substringAfterLast('.', "").lowercase()
     val from = sender?.let { stringResource(R.string.taildrop_from_format, it) }
@@ -2382,6 +2394,16 @@ fun FileCard(file: TaildropFile, onOpen: () -> Unit, onSave: () -> Unit, onDelet
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
+                if (note != null) {
+                    Text(
+                        note,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (noteIsError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
             }
         }
         HorizontalDivider(Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)

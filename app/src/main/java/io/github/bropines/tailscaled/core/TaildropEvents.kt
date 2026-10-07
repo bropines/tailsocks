@@ -14,6 +14,7 @@ import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.models.PeerData
 import io.github.bropines.tailscaled.models.StatusResponse
 import io.github.bropines.tailscaled.models.TaildropDirection
+import io.github.bropines.tailscaled.models.TaildropFile
 import io.github.bropines.tailscaled.models.TaildropHistoryEntry
 import io.github.bropines.tailscaled.ui.FilesActivity
 import io.github.bropines.tailscaled.ui.parseRfc3339Millis
@@ -32,8 +33,10 @@ import java.io.File
  * transfer in flight) and a final one where the finished file carries
  * `Done=true` and `FinalPath`. The daemon drops the transfer right after that
  * notification, so the Done entry is seen exactly once; this object turns it
- * into a history entry, a broadcast (the Files hub re-reads the directory) and
- * a notification.
+ * into a history entry, a move into the default folder when one is chosen
+ * ([TaildropSave]), a broadcast (the Files hub re-reads the directory) and a
+ * notification — on a thread of its own in the service's process, so all of it
+ * happens with the app's screens closed.
  *
  * The listener is installed once by the service and survives daemon restarts on
  * the Go side (it is not part of the bridge's per-daemon resources).
@@ -113,6 +116,9 @@ object TaildropEvents {
         val senderName = sender?.getDisplayName()
         Log.i(TAG, "Received $name" + (senderName?.let { " from $it" } ?: ""))
         logReceived(context, f, finalPath, name, senderId, sender)
+        // With a default folder the file goes there before anyone is told: the inbox the
+        // broadcast refreshes and the notification both show where it ended up.
+        val saved = TaildropSave.moveToFolder(context, TaildropFile(Name = name, Size = File(finalPath).length(), Path = finalPath))
         context.sendBroadcast(
             Intent(ACTION_RECEIVED).setPackage(context.packageName)
                 .putExtra(EXTRA_NAME, name)
@@ -122,7 +128,7 @@ object TaildropEvents {
             Log.d(TAG, "Inbox on screen; skipping the notification for $name")
             return
         }
-        postNotification(context, name, finalPath, senderName)
+        postNotification(context, name, finalPath, senderName, saved)
     }
 
     /**
@@ -170,7 +176,12 @@ object TaildropEvents {
         else AppJson.decodeFromString<StatusResponse>(json).peers?.values?.firstOrNull { it.id == id }
     }.getOrNull()
 
-    private fun postNotification(context: Context, name: String, path: String, sender: String?) {
+    /**
+     * "File received": the file and its sender, and where it went when there is a default
+     * folder. A tap opens the saved copy in a viewer, or — a file kept in the inbox, or no
+     * app to view it — the Files screen.
+     */
+    private fun postNotification(context: Context, name: String, path: String, sender: String?, saved: TaildropSave.Result) {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             nm.createNotificationChannel(
@@ -178,15 +189,30 @@ object TaildropEvents {
             )
         }
         val id = NOTIF_BASE + (path.hashCode() and 0xFF)
-        val open = Intent(context, FilesActivity::class.java)
+        val files = Intent(context, FilesActivity::class.java)
             .putExtra(FilesActivity.EXTRA_OPEN_TAILDROP, true)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        val tap = PendingIntent.getActivity(context, id, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val text = if (sender != null) context.getString(R.string.taildrop_received_from_format, name, sender) else name
+        // The read grant travels with the tap, given in the app's name: the app holds the folder.
+        val view = (saved as? TaildropSave.Result.Saved)?.let { s ->
+            TaildropSave.viewIntent(s.uri, mimeTypeOf(s.name))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                .takeIf { it.resolveActivity(context.packageManager) != null }
+        }
+        val tap = PendingIntent.getActivity(context, id, view ?: files, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val received = if (sender != null) context.getString(R.string.taildrop_received_from_format, name, sender) else name
+        val where = when (saved) {
+            is TaildropSave.Result.Saved -> context.getString(
+                R.string.taildrop_saved_to_format,
+                if (saved.name == name) saved.folder else saved.folder + "/" + saved.name
+            )
+            is TaildropSave.Result.Failed -> context.getString(R.string.taildrop_notif_not_saved_format, saved.folder)
+            TaildropSave.Result.NoFolder -> null
+        }
+        val text = listOfNotNull(received, where).joinToString("\n")
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_download_done)
             .setContentTitle(context.getString(R.string.taildrop_received_title))
-            .setContentText(text)
+            .setContentText(received)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setContentIntent(tap)
             .setAutoCancel(true)

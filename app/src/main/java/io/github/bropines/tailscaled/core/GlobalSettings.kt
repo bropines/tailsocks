@@ -15,6 +15,7 @@ import kotlinx.serialization.decodeFromString
 object GlobalSettings {
     private const val PREFS_NAME = "tailsocks_global"
     private const val KEY_TAILDROP_ROOT_URI = "taildrop_root_uri"
+    private const val KEY_TAILDROP_FOLDER_HINT_DISMISSED = "taildrop_folder_hint_dismissed"
     private const val KEY_AUTO_START = "auto_start"
     private const val KEY_CP_ENABLED = "cp_enabled"
     private const val KEY_APP_THEME = "app_theme"
@@ -41,6 +42,10 @@ object GlobalSettings {
             } catch (e: Exception) {}
         }
     }
+
+    /** Whether the Files screen's "choose a folder" hint was closed. Install-local, not exported. */
+    fun isTaildropFolderHintDismissed(context: Context) = getPrefs(context).getBoolean(KEY_TAILDROP_FOLDER_HINT_DISMISSED, false)
+    fun setTaildropFolderHintDismissed(context: Context) = getPrefs(context).edit().putBoolean(KEY_TAILDROP_FOLDER_HINT_DISMISSED, true).apply()
 
     fun isAutoStartEnabled(context: Context) = getPrefs(context).getBoolean(KEY_AUTO_START, false)
     fun setAutoStartEnabled(context: Context, enabled: Boolean) = getPrefs(context).edit().putBoolean(KEY_AUTO_START, enabled).apply()

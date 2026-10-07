@@ -69,10 +69,25 @@ object TaildropHistory {
         insertByTime(list, numbered)
     }
 
-    /** A received file was saved; [savedTo] says where, in the words the user would know it by. */
-    fun markSaved(context: Context, file: TaildropFile, savedTo: String) = edit(context) { list ->
+    /**
+     * A received file was saved; [savedTo] says where, in the words the user would know it by.
+     * [savedUri] is the copy's document when it went into the default folder, which the app
+     * can open again later; a copy saved through the system's Save dialog has none.
+     */
+    fun markSaved(context: Context, file: TaildropFile, savedTo: String, savedUri: String? = null) = edit(context) { list ->
         val now = System.currentTimeMillis()
-        updateReceived(list, file) { it.copy(savedTo = savedTo, savedAt = now) }
+        updateReceived(list, file) { it.copy(savedTo = savedTo, savedAt = now, savedUri = savedUri, saveError = null) }
+    }
+
+    /** The automatic save of a received file failed, for [reason]; the file stayed in the inbox. */
+    fun markSaveFailed(context: Context, file: TaildropFile, reason: String) = edit(context) { list ->
+        updateReceived(list, file) { it.copy(saveError = reason) }
+    }
+
+    /** A saved file was hidden from the inbox. Found by value, as [remove] does; the file is not touched. */
+    fun dismiss(context: Context, entry: TaildropHistoryEntry) = edit(context) { list ->
+        val i = list.indexOf(entry)
+        if (i >= 0) list[i] = list[i].copy(dismissedAt = System.currentTimeMillis())
     }
 
     /** A received file was deleted from the inbox. */
@@ -128,7 +143,8 @@ object TaildropHistory {
                     e.source?.name?.lowercase(Locale.US),
                     e.savedTo,
                     time(e.savedAt),
-                    time(e.deletedAt)
+                    time(e.deletedAt),
+                    e.saveError
                 )
                 w.write(row.joinToString(",") { csvCell(it) })
                 w.write("\r\n")
@@ -154,7 +170,7 @@ object TaildropHistory {
         "time", "direction", "result", "file", "size_bytes", "mime", "sha256",
         "device", "device_id", "device_ip", "device_os", "route", "route_address",
         "duration_ms", "http_status", "attempt", "error", "source",
-        "saved_to", "saved_at", "deleted_at"
+        "saved_to", "saved_at", "deleted_at", "save_error"
     )
 
     /**

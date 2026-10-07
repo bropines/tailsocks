@@ -1,5 +1,6 @@
 package io.github.bropines.tailscaled.ui
 
+import android.net.Uri
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -17,8 +18,11 @@ import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.AppJson
 import io.github.bropines.tailscaled.core.TaildropHistory
 import io.github.bropines.tailscaled.models.StatusResponse
+import io.github.bropines.tailscaled.models.TaildropDirection
+import io.github.bropines.tailscaled.models.TaildropHistoryEntry
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 
 /*
  * The Taildrop page of the Files screen and its sheets, fed an invented tailnet with more
@@ -68,6 +72,7 @@ private object TaildropDemo {
     }
     """.trimIndent()
 
+    // No default folder: both files wait in the app.
     val filesJson = """
     [
       {"Name": "IMG_20261007_143205.jpg", "Size": 3481233, "ModTime": ${now / 1000 - 1800}, "Path": "/data/taildrop/IMG_20261007_143205.jpg"},
@@ -109,7 +114,51 @@ private object TaildropDemo {
     ]
     """.trimIndent()
 
-    val data get() = DemoData(statusJson = statusJson, taildropFilesJson = filesJson, taildropHistoryJson = historyJson)
+    /** The default folder of the states that have one: Download/Taildrop on the device's storage. */
+    private const val FOLDER = "content://com.android.externalstorage.documents/tree/primary%3ADownload%2FTaildrop"
+    private fun savedUri(name: String) = "$FOLDER/document/" + Uri.encode("primary:Download/Taildrop/$name")
+    private const val IMG = "IMG_20261007_143205.jpg"
+
+    // With a default folder, what the folder could not take waits: a file saved by hand
+    // before it was chosen and one whose move failed. No ModTime, as the bridge listed files
+    // up to 4.7.4: the dates come from the history.
+    val folderFilesJson = """
+    [
+      {"Name": "Quarterly report — final (2).pdf", "Size": 812345, "Path": "/data/taildrop/Quarterly report — final (2).pdf"},
+      {"Name": "contract-scan.pdf", "Size": 1532211, "Path": "/data/taildrop/contract-scan.pdf"}
+    ]
+    """.trimIndent()
+
+    /**
+     * [historyJson] as it reads with a default folder: the photo moved there, a voice memo
+     * saved under a free name, a scan the folder could not take, and an older file whose
+     * card was hidden.
+     */
+    val folderHistoryJson: String get() {
+        val moved = TaildropHistory.decode(historyJson).map {
+            if (it.name == IMG) it.copy(savedTo = "Download/Taildrop/$IMG", savedAt = it.timestamp + 1_000, savedUri = savedUri(IMG)) else it
+        }
+        fun received(name: String, from: String, id: String, at: Long, size: Long) = TaildropHistoryEntry(
+            name = name, peerName = from, peerId = id, timestamp = at, direction = TaildropDirection.RECEIVED,
+            size = size, path = "/data/taildrop/$name"
+        )
+        val more = listOf(
+            received("voice-memo.m4a", "galaxy-tab", "n10", now - 2 * 60 * MIN, 734_003).let {
+                it.copy(savedTo = "Download/Taildrop/voice-memo (1).m4a", savedAt = it.timestamp + 800, savedUri = savedUri("voice-memo (1).m4a"))
+            },
+            received("contract-scan.pdf", "desktop-home", "n1", now - 5 * 60 * MIN, 1_532_211)
+                .copy(saveError = "the folder cannot be read"),
+            received("flyer.png", "macbook-air", "n5", now - 2 * DAY, 402_113).let {
+                it.copy(savedTo = "Download/Taildrop/flyer.png", savedAt = it.timestamp + 500, savedUri = savedUri("flyer.png"), dismissedAt = it.timestamp + DAY)
+            }
+        )
+        return AppJson.encodeToString<List<TaildropHistoryEntry>>((moved + more).sortedByDescending { it.timestamp })
+    }
+
+    /** A default folder chosen. */
+    val data get() = DemoData(statusJson = statusJson, taildropFilesJson = folderFilesJson, taildropHistoryJson = folderHistoryJson, taildropFolder = FOLDER)
+    /** None chosen: received files wait in the app, and the inbox offers to choose one. */
+    val noFolder get() = DemoData(statusJson = statusJson, taildropFilesJson = filesJson, taildropHistoryJson = historyJson)
     val empty get() = DemoData(statusJson = statusJson, taildropFilesJson = "[]", taildropHistoryJson = "[]")
 }
 
@@ -134,8 +183,10 @@ private fun demoTargets(strings: TaildropReasonStrings) = taildropTargets(
     TaildropHistory.decode(TaildropDemo.historyJson)
 )
 
-// Inbox with two files, the Send section capped at six (recent targets first) with the
-// "All devices" row and the refused-devices line, the last five history entries.
+// A default folder chosen: the inbox holds the two files waiting (one saved by hand before,
+// one the folder could not take) over the two it took, the second under a free name. Then
+// the Send section capped at six (recent targets first) with the "All devices" row and the
+// refused-devices line, and the last five history entries.
 @PreviewTest @StatesPhoneBothLanguages @Composable
 fun TaildropPageShowcase() = TaildropShowcase(TaildropDemo.data) { FilesScreen(onBack = {}, openTaildrop = true) }
 
@@ -145,20 +196,43 @@ fun TaildropPageShowcase() = TaildropShowcase(TaildropDemo.data) { FilesScreen(o
 @Composable
 fun TaildropPageTallShowcase() = TaildropShowcase(TaildropDemo.data) { FilesScreen(onBack = {}, openTaildrop = true) }
 
-// Nothing received, nothing sent yet: each section says so in one line.
+// No default folder: both files wait in the app, and the inbox offers to choose a folder.
+@PreviewTest @StatesPhoneBothLanguages @Composable
+fun TaildropPageNoFolderShowcase() = TaildropShowcase(TaildropDemo.noFolder) { FilesScreen(onBack = {}, openTaildrop = true) }
+
+// Nothing received, nothing sent yet: each section says so in one line; the folder hint stays.
 @PreviewTest @StatesPhoneBothLanguages @Composable
 fun TaildropPageEmptyShowcase() = TaildropShowcase(TaildropDemo.empty) { FilesScreen(onBack = {}, openTaildrop = true) }
+
+// Settings → Sharing & access, no folder chosen: the folder row says what one would do.
+@PreviewTest @StatesPhoneBothLanguages @Composable
+fun TaildropSettingsFolderShowcase() = TaildropShowcase(TaildropDemo.empty) {
+    SettingsScreen(
+        onBack = {},
+        currentTheme = "dark", onThemeChange = {},
+        currentPreset = "emerald", onPresetChange = {},
+        currentDynamicColor = false, onDynamicColorChange = {},
+        currentAmoledMode = true, onAmoledModeChange = {},
+        initialSection = "sharing"
+    )
+}
 
 // A failed resend: HTTP status, error, attempt, hash, Share sheet as the source.
 @PreviewTest @StatesPhoneBothLanguages @Composable
 fun TaildropEntryFailedShowcase() = SheetShowcase {
-    TaildropEntryDetails(TaildropHistory.decode(TaildropDemo.historyJson)[1]) {}
+    TaildropEntryDetails(TaildropHistory.decode(TaildropDemo.historyJson).first { it.attempt == 2 }) {}
 }
 
 // A received file that was later saved: sender, route, duration and speed, where it went.
 @PreviewTest @StatesPhoneBothLanguages @Composable
 fun TaildropEntryReceivedShowcase() = SheetShowcase {
-    TaildropEntryDetails(TaildropHistory.decode(TaildropDemo.historyJson)[5]) {}
+    TaildropEntryDetails(TaildropHistory.decode(TaildropDemo.historyJson).first { it.savedTo != null }) {}
+}
+
+// A received file the default folder could not take: why, under On this phone.
+@PreviewTest @StatesPhoneBothLanguages @Composable
+fun TaildropEntrySaveFailedShowcase() = SheetShowcase {
+    TaildropEntryDetails(TaildropHistory.decode(TaildropDemo.folderHistoryJson).first { it.saveError != null }) {}
 }
 
 // A send logged by 4.7.3 or older: a name, a device, a date — and no empty rows.

@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -26,6 +27,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Devices
@@ -35,7 +39,9 @@ import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -46,6 +52,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
@@ -80,6 +87,7 @@ import io.github.bropines.tailscaled.models.TaildropHistoryEntry
 import io.github.bropines.tailscaled.models.TaildropRoute
 import io.github.bropines.tailscaled.models.TaildropSource
 import kotlinx.coroutines.launch
+import java.io.File
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -151,10 +159,46 @@ internal fun taildropTargets(
     return TaildropTargets(recent + rest, refused)
 }
 
-/** The received entry a file in the inbox came with, for its sender line. */
+/** Saved files the inbox shows below the waiting ones, newest first. */
+private const val SAVED_ROWS = 10
+
+/**
+ * The received entry a file in the inbox came with, for its sender line: by path, else by
+ * name — but not one the default folder took, whose file left the inbox under that name.
+ */
 private fun receivedEntryOf(file: TaildropFile, history: List<TaildropHistoryEntry>): TaildropHistoryEntry? {
     val live = history.filter { it.direction == TaildropDirection.RECEIVED && it.deletedAt == null }
-    return live.firstOrNull { it.path == file.Path } ?: live.firstOrNull { it.name == file.Name }
+    return live.firstOrNull { it.path == file.Path } ?: live.firstOrNull { it.name == file.Name && it.savedUri == null }
+}
+
+/**
+ * The inbox's files with a date each. The bridge's list carried no ModTime up to 4.7.4, so
+ * every card read "1 Jan, 03:00"; where it is missing, the arrival logged in the history
+ * stands in, then the file's own modification time. Reads the disk — not on the main thread.
+ */
+internal fun withReceivedTimes(files: List<TaildropFile>, history: List<TaildropHistoryEntry>): List<TaildropFile> =
+    files.map { f ->
+        if (f.ModTime > 0) f
+        else {
+            val millis = receivedEntryOf(f, history)?.timestamp ?: File(f.Path).lastModified()
+            if (millis > 0) f.copy(ModTime = millis / 1000) else f
+        }
+    }
+
+/**
+ * Received files the default folder took, for the inbox: saved there (they have a document
+ * to open), not hidden or deleted, and not still waiting in the app — a file the folder took
+ * whose original could not be removed is listed once, as a waiting file.
+ */
+internal fun taildropSavedEntries(files: List<TaildropFile>, history: List<TaildropHistoryEntry>): List<TaildropHistoryEntry> {
+    val waiting = files.mapNotNullTo(HashSet()) { receivedEntryOf(it, history) }
+    return history.asSequence()
+        .filter {
+            it.direction == TaildropDirection.RECEIVED && it.savedUri != null &&
+                it.dismissedAt == null && it.deletedAt == null && it !in waiting
+        }
+        .take(SAVED_ROWS)
+        .toList()
 }
 
 @Composable
@@ -166,6 +210,12 @@ internal fun TaildropPage(
     onOpenFile: (TaildropFile) -> Unit,
     onSaveFile: (TaildropFile) -> Unit,
     onDeleteFile: (TaildropFile) -> Unit,
+    onOpenSaved: (TaildropHistoryEntry) -> Unit,
+    onShowSavedInFolder: (TaildropHistoryEntry) -> Unit,
+    onHideSaved: (TaildropHistoryEntry) -> Unit,
+    showFolderHint: Boolean,
+    onChooseFolder: () -> Unit,
+    onDismissFolderHint: () -> Unit,
     onSendTo: (PeerData) -> Unit,
     onAllDevices: () -> Unit,
     onAllHistory: () -> Unit,
@@ -173,21 +223,40 @@ internal fun TaildropPage(
     modifier: Modifier = Modifier,
     nowMillis: Long = System.currentTimeMillis()
 ) {
+    val saved = remember(files, history) { taildropSavedEntries(files, history) }
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         // The bottom leaves the last row clear of the send button.
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        item(key = "inbox-head") { TaildropSectionHeading(stringResource(R.string.taildrop_section_inbox), files.size.takeIf { it > 0 }) }
-        if (files.isEmpty()) {
+        val inboxCount = files.size + saved.size
+        item(key = "inbox-head") { TaildropSectionHeading(stringResource(R.string.taildrop_section_inbox), inboxCount.takeIf { it > 0 }) }
+        if (inboxCount == 0) {
             if (loaded) item(key = "inbox-empty") { TaildropMutedLine(stringResource(R.string.files_empty_inbox), Icons.Default.Inbox) }
         } else {
+            // Waiting first: they are the ones asking for something.
             items(files, key = { "file:" + it.Path + it.Name }) { f ->
-                val sender = remember(f, history) { receivedEntryOf(f, history)?.peerName?.takeIf { it.isNotEmpty() } }
-                FileCard(f, { onOpenFile(f) }, { onSaveFile(f) }, { onDeleteFile(f) }, sender = sender)
+                val entry = remember(f, history) { receivedEntryOf(f, history) }
+                val note = when {
+                    entry?.savedTo != null -> stringResource(R.string.taildrop_saved_to_format, entry.savedTo)
+                    entry?.saveError != null -> stringResource(R.string.taildrop_save_failed)
+                    else -> null
+                }
+                FileCard(
+                    f, { onOpenFile(f) }, { onSaveFile(f) }, { onDeleteFile(f) },
+                    sender = entry?.peerName?.takeIf { it.isNotEmpty() },
+                    note = note,
+                    noteIsError = entry?.savedTo == null && entry?.saveError != null
+                )
+            }
+            // Keyed by position too: on the device's storage a document id is a path, so a
+            // copy saved under the name of one deleted earlier gets the same URI again.
+            itemsIndexed(saved, key = { i, e -> "saved:$i:" + e.savedUri }) { _, e ->
+                TaildropSavedCard(e, { onOpenSaved(e) }, { onShowSavedInFolder(e) }, { onHideSaved(e) })
             }
         }
+        if (showFolderHint && loaded) item(key = "inbox-folder-hint") { TaildropFolderHint(onChooseFolder, onDismissFolderHint) }
 
         item(key = "send-head") { TaildropSectionHeading(stringResource(R.string.taildrop_section_send), null) }
         if (targets.all.isEmpty()) {
@@ -290,6 +359,91 @@ private fun TaildropMoreRow(label: String, onClick: () -> Unit) {
     ) {
         Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+    }
+}
+
+/**
+ * A received file the default folder took: the name it was saved under, when it came and
+ * from whom, and where it is now. Open and Show in folder go to the saved copy; Hide takes
+ * the card off the inbox and leaves the file alone.
+ */
+@Composable
+internal fun TaildropSavedCard(entry: TaildropHistoryEntry, onOpen: () -> Unit, onShowInFolder: () -> Unit, onHide: () -> Unit) {
+    val savedTo = entry.savedTo.orEmpty()
+    // savedTo is "<folder>/<name>"; the name may have been made free with " (1)".
+    val name = savedTo.substringAfterLast('/').ifEmpty { entry.name }
+    val folder = savedTo.substringBeforeLast('/', "").ifEmpty { savedTo }
+    val locale = LocalConfiguration.current.locales[0]
+    // The waiting cards' format, so the two kinds read alike.
+    val date = remember(entry.timestamp, locale) { SimpleDateFormat("d MMM, HH:mm", locale).format(Date(entry.timestamp)) }
+    val from = entry.peerName.takeIf { it.isNotEmpty() }?.let { stringResource(R.string.taildrop_from_format, it) }
+
+    ElevatedCard(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            FileIcon(name.substringAfterLast('.', "").lowercase())
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
+                Text(name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    listOfNotNull(date, entry.size?.let(::formatFileSize), from).joinToString(" • "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.CheckCircle, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        stringResource(R.string.taildrop_saved_to_format, folder),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+        HorizontalDivider(Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+        Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.End) {
+            TextButton(onClick = onHide, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant)) {
+                Text(stringResource(R.string.taildrop_hide))
+            }
+            TextButton(onClick = onShowInFolder) { Text(stringResource(R.string.taildrop_show_in_folder)) }
+            Button(onClick = onOpen, shape = MaterialTheme.shapes.medium) { Text(stringResource(R.string.action_open)) }
+        }
+    }
+}
+
+/**
+ * While no default folder is chosen: that there could be one, and the picker for it. The
+ * explanation folds to two lines; the cross hides the hint for good.
+ */
+@Composable
+private fun TaildropFolderHint(onChoose: () -> Unit, onDismiss: () -> Unit) {
+    val onColor = MaterialTheme.colorScheme.onSecondaryContainer
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(Modifier.padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.CreateNewFolder, null, Modifier.size(20.dp), tint = onColor)
+                Spacer(Modifier.width(12.dp))
+                HelpText(
+                    stringResource(R.string.taildrop_folder_hint),
+                    modifier = Modifier.weight(1f).padding(vertical = 8.dp),
+                    color = onColor
+                )
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, stringResource(R.string.taildrop_folder_hint_dismiss), Modifier.size(18.dp), tint = onColor)
+                }
+            }
+            TextButton(onClick = onChoose, modifier = Modifier.align(Alignment.End)) {
+                Text(stringResource(R.string.taildrop_folder_hint_choose))
+            }
+        }
     }
 }
 
@@ -685,6 +839,7 @@ internal fun TaildropEntryDetails(entry: TaildropHistoryEntry, onDelete: () -> U
         entry.savedTo?.let { to ->
             DetailRow(stringResource(R.string.taildrop_details_saved_to), listOfNotNull(to, entry.savedAt?.let { short.format(Date(it)) }).joinToString(" · "))
         },
+        entry.saveError?.let { DetailRow(stringResource(R.string.taildrop_details_save_error), it, isError = true) },
         entry.deletedAt?.let { DetailRow(stringResource(R.string.taildrop_details_deleted), short.format(Date(it))) }
     )
 

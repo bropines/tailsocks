@@ -50,6 +50,15 @@ data class TaildropHistoryEntry(
     /** The folder and name a received file was last saved as, and when. */
     val savedTo: String? = null,
     val savedAt: Long? = null,
+    /**
+     * The saved copy as a document of the default Taildrop folder, which the app keeps a
+     * grant on: what Open and Show in folder use. Null for a copy saved anywhere else.
+     */
+    val savedUri: String? = null,
+    /** Why the automatic save into the default folder failed; the file then stayed in the inbox. */
+    val saveError: String? = null,
+    /** When a saved file was hidden from the inbox. The file itself is left alone. */
+    val dismissedAt: Long? = null,
     /** When a received file was deleted from the inbox. */
     val deletedAt: Long? = null
 ) {
@@ -77,6 +86,7 @@ enum class TaildropRoute {
     @SerialName("derp") DERP
 }
 
+/** A file in the inbox, as the bridge's waiting-files JSON lists it. [ModTime] is epoch seconds, 0 when unknown. */
 @Serializable
 data class TaildropFile(
     val Name: String = "",

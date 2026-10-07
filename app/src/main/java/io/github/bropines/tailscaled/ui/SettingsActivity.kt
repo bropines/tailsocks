@@ -1944,9 +1944,17 @@ fun SettingsScreen(
     // F. Sharing & access
     val sectionSharing: @Composable () -> Unit = {
         SettingsCard(title = stringResource(R.string.settings_sect_storage)) {
+            // The folder by the name the user knows it: a path on the device's storage
+            // straight from the URI, any other provider's folder name asked of it.
+            val folderLabel by produceState(taildropRootUri?.let(TaildropSave::quickFolderLabel), taildropRootUri) {
+                value = taildropRootUri?.let { uri ->
+                    TaildropSave.quickFolderLabel(uri) ?: withContext(Dispatchers.IO) { TaildropSave.folderLabel(context, uri) }
+                }
+            }
             SettingsClickableItem(
                 stringResource(R.string.settings_taildrop_folder_title),
-                taildropRootUri?.path ?: stringResource(R.string.settings_taildrop_folder_default),
+                if (taildropRootUri == null) stringResource(R.string.settings_taildrop_folder_none)
+                else stringResource(R.string.settings_taildrop_folder_set_format, folderLabel ?: "…"),
                 Icons.Default.Folder
             ) { folderPicker.launch(null) }
         }

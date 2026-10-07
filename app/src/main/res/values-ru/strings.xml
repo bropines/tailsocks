@@ -515,7 +515,6 @@
     <string name="files_empty_inbox">Нет входящих файлов</string>
     <string name="files_empty_history">История пуста</string>
     <string name="files_sending">Отправка…</string>
-    <string name="files_saved">Сохранено</string>
     <string name="files_auto_save_failed">Автосохранение не удалось: %1$s</string>
     <string name="files_save_error">Ошибка сохранения: %1$s</string>
     <string name="files_sent">Отправлено!</string>
@@ -808,7 +807,6 @@
     <string name="settings_amoled_black_title">AMOLED черный</string>
     <string name="settings_sect_storage">Хранилище</string>
     <string name="settings_taildrop_folder_title">Папка для Taildrop</string>
-    <string name="settings_taildrop_folder_default">Используется внутренняя папка приложения</string>
     <string name="settings_autostart_title">Автозапуск при загрузке</string>
     <string name="settings_autostart_desc">Запускать TailSocks при включении устройства</string>
 

@@ -78,4 +78,18 @@
     <string name="taildrop_speed_format">%1$s/с</string>
 
     <string name="taildrop_error_unreadable">Не удалось прочитать файл</string>
+
+    <string name="taildrop_saved_to_format">Сохранено в %1$s</string>
+    <string name="taildrop_show_in_folder">Показать в папке</string>
+    <string name="taildrop_hide">Скрыть</string>
+    <string name="taildrop_folder_unavailable_format">Нет приложения, которое открывает папки. Файл лежит в %1$s</string>
+    <string name="taildrop_save_failed">Не удалось сохранить автоматически, файл ждёт здесь</string>
+    <string name="taildrop_details_save_error">Не сохранено</string>
+    <string name="taildrop_notif_not_saved_format">Не удалось сохранить в %1$s, файл во входящих Taildrop</string>
+    <string name="taildrop_folder_hint">Выберите папку, и полученные файлы будут сохраняться туда сами. Без неё они ждут здесь, в приложении, пока вы их не сохраните.</string>
+    <string name="taildrop_folder_hint_choose">Выбрать папку</string>
+    <string name="taildrop_folder_hint_dismiss">Скрыть подсказку</string>
+    <string name="taildrop_folder_chosen_format">Полученные файлы будут сохраняться в %1$s</string>
+    <string name="settings_taildrop_folder_set_format">%1$s. Полученные файлы сохраняются сюда автоматически.</string>
+    <string name="settings_taildrop_folder_none">Не выбрана. Выберите её, и полученные файлы будут сохраняться туда автоматически. Без неё они остаются в приложении, пока вы их не сохраните.</string>
 </resources>

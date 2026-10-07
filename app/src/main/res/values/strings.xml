@@ -525,7 +525,6 @@
     <string name="files_empty_inbox">No incoming files</string>
     <string name="files_empty_history">No history yet</string>
     <string name="files_sending">Sending…</string>
-    <string name="files_saved">Saved</string>
     <string name="files_auto_save_failed">Auto-save failed: %1$s</string>
     <string name="files_save_error">Save error: %1$s</string>
     <string name="files_sent">Sent!</string>
@@ -823,7 +822,6 @@
     <string name="settings_amoled_black_title">AMOLED Black</string>
     <string name="settings_sect_storage">Storage</string>
     <string name="settings_taildrop_folder_title">Taildrop Storage Folder</string>
-    <string name="settings_taildrop_folder_default">Uses app internal folder</string>
     <string name="settings_autostart_title">Auto-start on Boot</string>
     <string name="settings_autostart_desc">Start TailSocks when device turns on</string>
 
