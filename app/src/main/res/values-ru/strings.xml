@@ -1112,6 +1112,8 @@
     <string name="aside_count_toggles">Сервис включали и выключали %1$d раз. Он помнит каждый.</string>
     <string name="aside_count_pings">«Пинг всех» нажат %1$d раз. Узлы уже узнают тебя по шагам.</string>
     <string name="aside_count_switches">Аккаунт меняли %1$d раз. Всё ещё не тот.</string>
+    <string name="aside_count_spins">Кота раскручивали %1$d раз. У И И А И.</string>
+    <string name="oiia_cd">Кот крутится под У И И А И</string>
     <string name="aside_first">Первый раз. Дальше хуже.</string>
     <string name="aside_ten">Десятое нажатие. Формально это уже привычка.</string>
     <string name="aside_fortytwo">Сорок два. Ответ есть, вопрос потерян.</string>

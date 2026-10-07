@@ -8,7 +8,7 @@ import io.github.bropines.tailscaled.R
  *
  * Some of them count: how often the card has been held, how often the service has been
  * turned on or off, how many times every node has been pinged at once, how many times the
- * account has changed. The counters live in a preference file of their own, nothing but
+ * account has changed, how many times the cat has been spun up. The counters live in a preference file of their own, nothing but
  * these lines ever reads them, and they leave the device in exactly one way — they do not.
  */
 object StatusAsides {
@@ -18,6 +18,7 @@ object StatusAsides {
     const val TOGGLES = "toggles"
     const val PINGS = "pings"
     const val SWITCHES = "switches"
+    const val SPINS = "spins"
 
     private fun prefs(context: Context) =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -61,5 +62,7 @@ object StatusAsides {
             ?.let { add(context.getString(R.string.aside_count_pings, it)) }
         count(context, SWITCHES).takeIf { it > 0 }
             ?.let { add(context.getString(R.string.aside_count_switches, it)) }
+        count(context, SPINS).takeIf { it > 1 }
+            ?.let { add(context.getString(R.string.aside_count_spins, it)) }
     }
 }

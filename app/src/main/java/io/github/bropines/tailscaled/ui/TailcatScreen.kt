@@ -33,7 +33,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -57,7 +56,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -316,9 +314,9 @@ fun TailcatScreen(onBack: () -> Unit, page: ServePage? = null, importText: Strin
             // As a page the host's Scaffold has taken the system bars already.
             contentWindowInsets = if (page != null) WindowInsets(0, 0, 0, 0) else ScaffoldDefaults.contentWindowInsets,
             floatingActionButton = {
-                FloatingActionButton(onClick = {
+                TailcatAddButton(onAdd = {
                     editor = TailcatConnection(name = context.getString(R.string.tailcat_name_default, connections.size + 1))
-                }) { Icon(Icons.Default.Add, stringResource(R.string.tailcat_add)) }
+                })
             }
         ) { padding ->
             val line = StaggeredGridItemSpan.FullLine
