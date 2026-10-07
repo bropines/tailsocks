@@ -41,6 +41,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -175,6 +176,9 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
     val cmdHistoryFile = remember { File(context.filesDir, "console_cmd_history.dat") }
 
     var outputText by remember { mutableStateOf(PROMPT) }
+    /** New output is on its way: the view goes to the tail even if it was scrolled up. */
+    var followOutput by remember { mutableStateOf(true) }
+    val followSlopPx = with(LocalDensity.current) { 48.dp.toPx() }
     val haptic = LocalHapticFeedback.current
     var currentCommand by remember { mutableStateOf("") }
     var isExecuting by remember { mutableStateOf(false) }
@@ -243,9 +247,21 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
     // animateScrollTo(maxValue) right after changing outputText used the maxValue
     // of the previous layout, so after a long command (netcheck) the view stopped
     // at the command's echo line with the output below the fold.
+    //
+    // A jump, not an animation: maxValue also moves on every frame of the keyboard
+    // sliding in or out, the viewport shrinking with it, and an animation restarted
+    // on each frame made the text shudder all the way. And only while the view is
+    // at the tail, or output has just arrived: earlier output scrolled up to read is
+    // no longer pulled down by the keyboard.
     LaunchedEffect(Unit) {
+        var lastMax = verticalScrollState.maxValue
         snapshotFlow { verticalScrollState.maxValue }.collect { max ->
-            verticalScrollState.animateScrollTo(max)
+            val atTail = verticalScrollState.value >= lastMax - followSlopPx
+            lastMax = max
+            if (atTail || followOutput) {
+                followOutput = false
+                verticalScrollState.scrollTo(max)
+            }
         }
     }
 
@@ -273,6 +289,7 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
             saveCommandHistory()
         }
         isExecuting = true
+        followOutput = true
 
         val isLocalAPI = cmd.startsWith("/")
         // The echo takes the idle prompt's line instead of adding one under it.
@@ -303,6 +320,7 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
                     append(PROMPT)
                 })
                 isExecuting = false
+                followOutput = true
                 currentCommand = ""
                 saveScrollback()
                 focusRequester.requestFocus()
@@ -441,17 +459,23 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
                     }
                 }
         ) {
-            Text(
-                text = styled,
-                fontFamily = FontFamily.Monospace,
-                fontSize = (14 * scale).sp,
-                softWrap = softWrap,
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .then(if (!softWrap) Modifier.horizontalScroll(horizontalScrollState) else Modifier)
                     .verticalScroll(verticalScrollState)
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-            )
+            ) {
+                // Inside the scroll, not filling it: as the scrolled node itself the
+                // text took the viewport's height as its minimum, so every frame of
+                // the keyboard animation measured up to 200 KB of text again.
+                Text(
+                    text = styled,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = (14 * scale).sp,
+                    softWrap = softWrap,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                )
+            }
         }
     }
 
