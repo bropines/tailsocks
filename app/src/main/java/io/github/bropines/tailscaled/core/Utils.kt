@@ -90,26 +90,6 @@ fun safeFileName(raw: String): String? {
     return base.takeUnless { it.isEmpty() || it == "." || it == ".." }
 }
 
-fun logSentFile(context: Context, fileName: String, targetName: String) {
-    try {
-        val historyFile = File(context.filesDir, "sent_history.json")
-
-        val history: MutableList<SentFileEntry> = if (historyFile.exists()) {
-            val text = historyFile.readText()
-            if (text.isBlank()) mutableListOf()
-            else runCatching { AppJson.decodeFromString<List<SentFileEntry>>(text).toMutableList() }
-                .getOrDefault(mutableListOf())
-        } else {
-            mutableListOf()
-        }
-
-        history.add(0, SentFileEntry(fileName, targetName, System.currentTimeMillis()))
-        if (history.size > 50) history.removeAt(history.size - 1)
-
-        historyFile.writeText(AppJson.encodeToString<List<SentFileEntry>>(history))
-    } catch (e: Exception) {}
-}
-
 /**
  * Opens the OEM "autostart" screen — the permission that decides whether the app
  * may be started in the background at all on MIUI/HyperOS and relatives, and the

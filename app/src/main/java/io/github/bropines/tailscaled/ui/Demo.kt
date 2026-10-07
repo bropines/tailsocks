@@ -40,6 +40,10 @@ data class DemoData(
     /** Whois answers by address, as /localapi/v0/whois returns them — what a peer's
      *  "Copy as…" reads its advertised services from. */
     val whois: Map<String, String> = emptyMap(),
+    /** The Taildrop inbox, as the bridge's waiting-files call returns it. */
+    val taildropFilesJson: String? = null,
+    /** The Taildrop history, as files/sent_history.json holds it (TaildropHistory). */
+    val taildropHistoryJson: String? = null,
 )
 
 val LocalDemo = staticCompositionLocalOf<DemoData?> { null }

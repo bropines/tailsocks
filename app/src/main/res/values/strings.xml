@@ -522,24 +522,13 @@
 
     <!-- ======================== Taildrop / Files ======================== -->
     <string name="files_hub_title">Files</string>
-    <string name="files_tab_inbox">Inbox</string>
-    <string name="files_tab_devices">Devices</string>
-    <string name="files_tab_history">History</string>
     <string name="files_empty_inbox">No incoming files</string>
-    <string name="files_empty_devices">No devices</string>
     <string name="files_empty_history">No history yet</string>
-    <string name="files_use_fab_to_send">Use FAB to send</string>
     <string name="files_sending">Sending…</string>
-    <string name="files_select_device">Select Device</string>
-    <string name="files_no_devices_found">No devices found</string>
     <string name="files_saved">Saved</string>
     <string name="files_auto_save_failed">Auto-save failed: %1$s</string>
     <string name="files_save_error">Save error: %1$s</string>
-    <string name="files_preparing_format">Preparing %1$s…</string>
-    <string name="files_uploading">Uploading…</string>
     <string name="files_sent">Sent!</string>
-    <string name="files_error_format">Error: %1$s</string>
-    <string name="files_failed_format">Failed: %1$s</string>
     <string name="files_peer_no_id">The daemon listed %1$s without a node ID, so there is nothing to address the file to. Refresh the list and try again</string>
     <string name="share_failed_format">Couldn\'t send %1$s: %2$s</string>
     <!-- "File received" notification (TaildropEvents): its channel, title and "name from device" text -->
@@ -969,7 +958,6 @@
     <!-- Peer Details & UI Components -->
     <string name="peer_details_prev">Previous</string>
     <string name="peer_details_next">Next</string>
-    <string name="files_sent_to_format">To: %1$s • %2$s</string>
     <string name="files_open_file_chooser">Open file</string>
     <string name="files_error_cant_open">Can\'t open: %1$s</string>
     <!-- Widgets -->

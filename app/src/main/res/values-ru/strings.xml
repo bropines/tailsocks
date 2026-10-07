@@ -512,24 +512,13 @@
 
     <!-- ======================== Taildrop / Files ======================== -->
     <string name="files_hub_title">Файлы</string>
-    <string name="files_tab_inbox">Входящие</string>
-    <string name="files_tab_devices">Устройства</string>
-    <string name="files_tab_history">История</string>
     <string name="files_empty_inbox">Нет входящих файлов</string>
-    <string name="files_empty_devices">Нет устройств</string>
     <string name="files_empty_history">История пуста</string>
-    <string name="files_use_fab_to_send">Используйте кнопку отправки</string>
     <string name="files_sending">Отправка…</string>
-    <string name="files_select_device">Выберите устройство</string>
-    <string name="files_no_devices_found">Устройства не найдены</string>
     <string name="files_saved">Сохранено</string>
     <string name="files_auto_save_failed">Автосохранение не удалось: %1$s</string>
     <string name="files_save_error">Ошибка сохранения: %1$s</string>
-    <string name="files_preparing_format">Подготовка %1$s…</string>
-    <string name="files_uploading">Загрузка…</string>
     <string name="files_sent">Отправлено!</string>
-    <string name="files_error_format">Ошибка: %1$s</string>
-    <string name="files_failed_format">Не удалось: %1$s</string>
     <string name="files_peer_no_id">Демон вернул %1$s без ID ноды — файл некому адресовать. Обновите список и попробуйте ещё раз</string>
     <string name="share_failed_format">Не удалось отправить %1$s: %2$s</string>
     <!-- Уведомление «Файл получен» (TaildropEvents): канал, заголовок и текст «имя от устройства» -->
@@ -947,7 +936,6 @@
     <!-- Peer Details & UI Components -->
     <string name="peer_details_prev">Предыдущий</string>
     <string name="peer_details_next">Следующий</string>
-    <string name="files_sent_to_format">Кому: %1$s • %2$s</string>
     <string name="files_open_file_chooser">Открыть файл</string>
     <string name="files_error_cant_open">Не удалось открыть: %1$s</string>
     <!-- Widgets -->

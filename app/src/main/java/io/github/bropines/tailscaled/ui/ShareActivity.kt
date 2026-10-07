@@ -40,8 +40,6 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
-import java.io.FileOutputStream
 
 class ShareActivity : ComponentActivity() {
     companion object {
@@ -274,45 +272,9 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
 
 /**
  * Sends every file in turn and returns one line per file that did not arrive, already in
- * the user's words, for the caller to show once the sheet is gone.
+ * the user's words, for the caller to show once the sheet is gone. Each attempt lands in
+ * the Taildrop history (sendTaildropFile).
  */
-private suspend fun sendFilesWithProgress(context: Context, uris: List<Uri>, peer: PeerData, onProgress: (String) -> Unit): List<String> {
-    val failures = mutableListOf<String>()
-    uris.forEachIndexed { i, uri ->
-        val originalName = getFileName(context, uri) ?: "file_${System.currentTimeMillis()}"
-        onProgress("${i + 1}/${uris.size}\n$originalName")
-        try {
-            // The daemon looks the peer up by StableNodeID alone (localapi file-put): a
-            // hostname or DNS name in its place is a guaranteed 404, so a peer that came
-            // without an ID is an error to report, not something to paper over.
-            val target = taildropTargetId(context, peer)
-            val outDir = File(context.cacheDir, "share_out").apply { mkdirs() }
-            val tmp = File(outDir, originalName)
-            context.contentResolver.openInputStream(uri)?.use { input -> tmp.outputStream().use { output -> input.copyTo(output); output.flush() } }
-            val res = Appctr.sendFileFromAPI(target, tmp.absolutePath)
-            tmp.delete()
-            // "OK" is the bridge's word for a 2xx from the peer itself; anything else starts
-            // with "Error" and carries the peer's HTTP status and body, or the local failure.
-            if (res == "OK") {
-                logSentFile(context, originalName, peer.getDisplayName())
-            } else {
-                val why = res.removePrefix("Error: ")
-                onProgress(context.getString(R.string.share_failed_format, originalName, why))
-                failures += context.getString(R.string.share_failed_format, originalName, why)
-            }
-        } catch (e: Exception) {
-            val why = e.message ?: e.javaClass.simpleName
-            onProgress(context.getString(R.string.share_failed_format, originalName, why))
-            failures += context.getString(R.string.share_failed_format, originalName, why)
-        }
-    }
-    return failures
-}
-
-/**
- * The StableNodeID sendFileFromAPI needs, or an exception with the message to show. Shared
- * by the three send sites (Share sheet, peer sheet, Files hub).
- */
-fun taildropTargetId(context: Context, peer: PeerData): String =
-    peer.id?.takeIf { it.isNotEmpty() }
-        ?: throw IllegalStateException(context.getString(R.string.files_peer_no_id, peer.getDisplayName()))
+private fun sendFilesWithProgress(context: Context, uris: List<Uri>, peer: PeerData, onProgress: (String) -> Unit): List<String> =
+    sendTaildropFiles(context, uris, peer, TaildropSource.SHARE, onProgress)
+        .mapNotNull { o -> o.error?.let { context.getString(R.string.share_failed_format, o.name, it) } }

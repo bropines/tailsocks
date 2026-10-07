@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Taildrop page of the Files screen — inbox, send-to-device list, history — and its
+  sheets. A file of its own so it lands without touching strings.xml; Android merges every
+  values/*.xml into one table.
+-->
+<resources>
+    <!-- Section headings on the Taildrop page. -->
+    <string name="taildrop_section_inbox">Inbox</string>
+    <string name="taildrop_section_send">Send to a device</string>
+    <string name="taildrop_section_history">History</string>
+
+    <!-- Send section. -->
+    <string name="taildrop_send_empty">No device can receive files right now</string>
+    <string name="taildrop_all_devices_format">All devices · %1$d</string>
+    <plurals name="taildrop_refused_more">
+        <item quantity="one">%d more device can\'t receive files</item>
+        <item quantity="other">%d more devices can\'t receive files</item>
+    </plurals>
+    <string name="taildrop_devices_no_match">No devices match</string>
+    <!-- Title of the device sheet after files were picked with the button. -->
+    <plurals name="taildrop_send_files_to">
+        <item quantity="one">Send %d file to…</item>
+        <item quantity="other">Send %d files to…</item>
+    </plurals>
+
+    <!-- History rows. -->
+    <string name="taildrop_all_history_format">All history · %1$d</string>
+    <string name="taildrop_to_format">To %1$s</string>
+    <string name="taildrop_from_format">From %1$s</string>
+    <string name="taildrop_unknown_device">an unknown device</string>
+    <string name="taildrop_result_sent">Sent</string>
+    <string name="taildrop_result_received">Received</string>
+    <string name="taildrop_result_failed">Failed</string>
+
+    <!-- History sheet. -->
+    <string name="taildrop_history_search">Search by file or device…</string>
+    <string name="taildrop_history_no_match">Nothing matches</string>
+    <string name="taildrop_filter_all">All</string>
+    <string name="taildrop_filter_sent">Sent</string>
+    <string name="taildrop_filter_received">Received</string>
+    <string name="taildrop_filter_failed">Failed</string>
+    <string name="taildrop_history_export">Export as CSV</string>
+    <string name="taildrop_history_export_chooser">Share the Taildrop history</string>
+    <string name="taildrop_history_export_failed_format">Couldn\'t export: %1$s</string>
+    <string name="taildrop_history_clear">Clear history</string>
+    <string name="taildrop_history_clear_title">Clear the history?</string>
+    <plurals name="taildrop_history_clear_text">
+        <item quantity="one">%d entry will be removed. The files themselves stay where they are.</item>
+        <item quantity="other">All %d entries will be removed. The files themselves stay where they are.</item>
+    </plurals>
+
+    <!-- Details sheet of one entry. -->
+    <string name="taildrop_entry_delete">Delete entry</string>
+    <string name="taildrop_details_file">File</string>
+    <string name="taildrop_details_device">Device</string>
+    <string name="taildrop_details_transfer">Transfer</string>
+    <string name="taildrop_details_on_phone">On this phone</string>
+    <string name="taildrop_details_size">Size</string>
+    <string name="taildrop_details_type">Type</string>
+    <string name="taildrop_details_sha256" translatable="false">SHA-256</string>
+    <string name="taildrop_details_name">Name</string>
+    <string name="taildrop_details_ip">Tailscale IP</string>
+    <string name="taildrop_details_os">OS</string>
+    <string name="taildrop_details_node_id">Node ID</string>
+    <string name="taildrop_details_time">Date</string>
+    <string name="taildrop_details_duration">Took</string>
+    <string name="taildrop_details_speed">Average speed</string>
+    <string name="taildrop_details_route">Route</string>
+    <string name="taildrop_details_attempt">Attempt</string>
+    <string name="taildrop_details_http">HTTP status</string>
+    <string name="taildrop_details_error">Error</string>
+    <string name="taildrop_details_source">Sent from</string>
+    <string name="taildrop_details_saved_to">Saved to</string>
+    <string name="taildrop_details_deleted">Deleted</string>
+    <string name="taildrop_route_direct_format">Direct · %1$s</string>
+    <string name="taildrop_route_peer_relay_format">Peer relay · %1$s</string>
+    <string name="taildrop_route_derp_format">DERP relay · %1$s</string>
+    <string name="taildrop_source_files">Files screen</string>
+    <string name="taildrop_source_share">Share sheet</string>
+    <string name="taildrop_source_peers">Peers screen</string>
+    <string name="taildrop_duration_seconds_format">%1$.1f s</string>
+    <string name="taildrop_duration_minutes_format">%1$d min %2$d s</string>
+    <string name="taildrop_speed_format">%1$s/s</string>
+    <string name="taildrop_value_with_time_format" translatable="false">%1$s · %2$s</string>
+
+    <!-- A send that could not even start. -->
+    <string name="taildrop_error_unreadable">The file could not be read</string>
+</resources>

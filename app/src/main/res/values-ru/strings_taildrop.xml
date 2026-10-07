@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="taildrop_section_inbox">Входящие</string>
+    <string name="taildrop_section_send">Отправить на устройство</string>
+    <string name="taildrop_section_history">История</string>
+
+    <string name="taildrop_send_empty">Сейчас ни одно устройство не может принять файл</string>
+    <string name="taildrop_all_devices_format">Все устройства · %1$d</string>
+    <plurals name="taildrop_refused_more">
+        <item quantity="one">Ещё %d устройство не может принимать файлы</item>
+        <item quantity="few">Ещё %d устройства не могут принимать файлы</item>
+        <item quantity="many">Ещё %d устройств не могут принимать файлы</item>
+        <item quantity="other">Ещё %d устройства не могут принимать файлы</item>
+    </plurals>
+    <string name="taildrop_devices_no_match">Ничего не найдено</string>
+    <plurals name="taildrop_send_files_to">
+        <item quantity="one">Отправить %d файл на…</item>
+        <item quantity="few">Отправить %d файла на…</item>
+        <item quantity="many">Отправить %d файлов на…</item>
+        <item quantity="other">Отправить %d файла на…</item>
+    </plurals>
+
+    <string name="taildrop_all_history_format">Вся история · %1$d</string>
+    <string name="taildrop_to_format">Кому: %1$s</string>
+    <string name="taildrop_from_format">От: %1$s</string>
+    <string name="taildrop_unknown_device">неизвестное устройство</string>
+    <string name="taildrop_result_sent">Отправлено</string>
+    <string name="taildrop_result_received">Получено</string>
+    <string name="taildrop_result_failed">Не отправлено</string>
+
+    <string name="taildrop_history_search">Поиск по файлу или устройству…</string>
+    <string name="taildrop_history_no_match">Ничего не найдено</string>
+    <string name="taildrop_filter_all">Все</string>
+    <string name="taildrop_filter_sent">Отправленные</string>
+    <string name="taildrop_filter_received">Полученные</string>
+    <string name="taildrop_filter_failed">Неудачные</string>
+    <string name="taildrop_history_export">Экспорт в CSV</string>
+    <string name="taildrop_history_export_chooser">Поделиться историей Taildrop</string>
+    <string name="taildrop_history_export_failed_format">Не удалось экспортировать: %1$s</string>
+    <string name="taildrop_history_clear">Очистить историю</string>
+    <string name="taildrop_history_clear_title">Очистить историю?</string>
+    <plurals name="taildrop_history_clear_text">
+        <item quantity="one">Будет удалена %d запись. Сами файлы останутся на месте.</item>
+        <item quantity="few">Будут удалены %d записи. Сами файлы останутся на месте.</item>
+        <item quantity="many">Будут удалены все %d записей. Сами файлы останутся на месте.</item>
+        <item quantity="other">Будут удалены все %d записи. Сами файлы останутся на месте.</item>
+    </plurals>
+
+    <string name="taildrop_entry_delete">Удалить запись</string>
+    <string name="taildrop_details_file">Файл</string>
+    <string name="taildrop_details_device">Устройство</string>
+    <string name="taildrop_details_transfer">Передача</string>
+    <string name="taildrop_details_on_phone">На этом телефоне</string>
+    <string name="taildrop_details_size">Размер</string>
+    <string name="taildrop_details_type">Тип</string>
+    <string name="taildrop_details_name">Имя</string>
+    <string name="taildrop_details_ip">IP в Tailscale</string>
+    <string name="taildrop_details_os">ОС</string>
+    <string name="taildrop_details_node_id">ID узла</string>
+    <string name="taildrop_details_time">Дата</string>
+    <string name="taildrop_details_duration">Заняло</string>
+    <string name="taildrop_details_speed">Средняя скорость</string>
+    <string name="taildrop_details_route">Маршрут</string>
+    <string name="taildrop_details_attempt">Попытка</string>
+    <string name="taildrop_details_http">HTTP-статус</string>
+    <string name="taildrop_details_error">Ошибка</string>
+    <string name="taildrop_details_source">Откуда отправлено</string>
+    <string name="taildrop_details_saved_to">Сохранено в</string>
+    <string name="taildrop_details_deleted">Удалено</string>
+    <string name="taildrop_route_direct_format">Напрямую · %1$s</string>
+    <string name="taildrop_route_peer_relay_format">Через реле-узел · %1$s</string>
+    <string name="taildrop_route_derp_format">Через реле DERP · %1$s</string>
+    <string name="taildrop_source_files">Экран «Файлы»</string>
+    <string name="taildrop_source_share">Меню «Поделиться»</string>
+    <string name="taildrop_source_peers">Экран «Узлы»</string>
+    <string name="taildrop_duration_seconds_format">%1$.1f с</string>
+    <string name="taildrop_duration_minutes_format">%1$d мин %2$d с</string>
+    <string name="taildrop_speed_format">%1$s/с</string>
+
+    <string name="taildrop_error_unreadable">Не удалось прочитать файл</string>
+</resources>

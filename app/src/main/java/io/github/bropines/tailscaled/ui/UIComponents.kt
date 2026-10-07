@@ -52,7 +52,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.automirrored.filled.Outbound
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.automirrored.filled.ArrowRightAlt
 import androidx.compose.material.icons.filled.*
@@ -147,7 +146,7 @@ private fun FiniteAnimationSpec<Float>.settlingInPixels(): FiniteAnimationSpec<F
     } ?: this
 /** The green of "this peer is up", shared by the list row, the share row, the identity chip
  *  and the status strip so the four cannot drift apart. */
-private val PEER_ONLINE_GREEN = Color(0xFF4CAF50)
+internal val PEER_ONLINE_GREEN = Color(0xFF4CAF50)
 /** And the grey of "it is not". Fixed rather than theme-derived for the same reason the green
  *  is: the identity chip's dot and the status strip's dot sit ten dp apart and say the same
  *  thing, so they must be the same colour in both schemes. */
@@ -403,7 +402,8 @@ private fun peerCards(peer: PeerData, strings: PeerDetailsStrings, version: Stri
 
 /** Whether the daemon will send this peer a file, and if not, why, in the user's words.
  *  Shared by the details sheet and both send pickers (Share sheet, Files hub), so what a
- *  picker offers is the same verdict the sheet shows beside its Send button. */
+ *  picker offers is the same verdict the sheet shows beside its Send button. The Files hub
+ *  lists only the devices a file can go to and counts the Blocked ones under its list. */
 sealed interface TaildropStatus {
     data object Available : TaildropStatus
     /** The control plane's Online bit for the peer is off. A note beside the button, not a
@@ -520,9 +520,10 @@ fun taildropPickerRank(status: TaildropStatus): Int = when (status) {
 /**
  * The peers a send picker lists, and their order. Drops this device, sharee nodes, Funnel's
  * ingress node and peers the daemon named by nothing (none of them is a place a file can
- * go); the rest are kept, including the peers the daemon refuses — a refused peer is drawn
- * disabled with the daemon's reason (see [PeerShareItem]) rather than silently missing, so a
- * device that is on the list but greyed out explains itself the way the details sheet does.
+ * go); the rest are kept, including the peers the daemon refuses — the Share sheet draws a
+ * refused peer disabled with the daemon's reason (see [PeerShareItem]) rather than silently
+ * missing, so a device that is on the list but greyed out explains itself the way the
+ * details sheet does; the Files hub (taildropTargets) leaves it off and says how many and why.
  */
 fun taildropPickerPeers(status: StatusResponse, strings: TaildropReasonStrings): List<PeerData> {
     val selfId = status.self?.id
@@ -2340,11 +2341,17 @@ private fun PeerDetailRow(
 
 // --- FILES ---
 
+/**
+ * A received file in the Taildrop inbox. [sender] is the device it came from, when the
+ * history knows it (files received before it was logged have none).
+ */
 @Composable
-fun FileCard(file: TaildropFile, onOpen: () -> Unit, onSave: () -> Unit, onDelete: () -> Unit) {
-    val dateStr = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault()).format(Date(file.ModTime * 1000))
+fun FileCard(file: TaildropFile, onOpen: () -> Unit, onSave: () -> Unit, onDelete: () -> Unit, sender: String? = null) {
+    val locale = LocalConfiguration.current.locales[0]
+    val dateStr = remember(file.ModTime, locale) { SimpleDateFormat("d MMM, HH:mm", locale).format(Date(file.ModTime * 1000)) }
     val sizeStr = formatFileSize(file.Size)
     val ext = file.Name.substringAfterLast('.', "").lowercase()
+    val from = sender?.let { stringResource(R.string.taildrop_from_format, it) }
 
     ElevatedCard(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -2352,7 +2359,13 @@ fun FileCard(file: TaildropFile, onOpen: () -> Unit, onSave: () -> Unit, onDelet
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
                 Text(file.Name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text("$dateStr • $sizeStr", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    listOfNotNull(dateStr, sizeStr, from).joinToString(" • "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
         HorizontalDivider(Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
@@ -2361,15 +2374,6 @@ fun FileCard(file: TaildropFile, onOpen: () -> Unit, onSave: () -> Unit, onDelet
             TextButton(onClick = onSave) { Text(stringResource(R.string.action_save)) }
             Button(onClick = onOpen, shape = MaterialTheme.shapes.medium) { Text(stringResource(R.string.action_open)) }
         }
-    }
-}
-
-@Composable
-fun SentFileCard(entry: SentFileEntry) {
-    val dateStr = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault()).format(Date(entry.timestamp))
-    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
-        ListItem(supportingContent = { Text(stringResource(R.string.files_sent_to_format, entry.target, dateStr)) },
-            leadingContent = { Icon(Icons.AutoMirrored.Filled.Outbound, null, tint = MaterialTheme.colorScheme.primary) }, colors = ListItemDefaults.colors(containerColor = Color.Transparent)) { Text(entry.name, fontWeight = FontWeight.Medium) }
     }
 }
 

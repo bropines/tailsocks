@@ -61,7 +61,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
 import kotlin.math.roundToInt
 
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -507,25 +506,12 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
 private fun sendFileToPeer(context: Context, uri: Uri, peer: PeerData, scope: CoroutineScope) {
     Toast.makeText(context, context.getString(R.string.peers_sending), Toast.LENGTH_SHORT).show()
     scope.launch(Dispatchers.IO) {
-        try {
-            // StableNodeID or nothing: the daemon matches file-put targets by ID alone, so a
-            // name here would only turn a missing ID into a 404 (see taildropTargetId).
-            val target = taildropTargetId(context, peer)
-            val originalName = getFileName(context, uri) ?: "file_${System.currentTimeMillis()}"
-            val outDir = File(context.cacheDir, "peer_out").apply { mkdirs() }
-            val tmp = File(outDir, originalName)
-            context.contentResolver.openInputStream(uri)?.use { i -> tmp.outputStream().use { o -> i.copyTo(o); o.flush() } }
-            val res = Appctr.sendFileFromAPI(target, tmp.absolutePath)
-            tmp.delete()
-            // "OK" is a 2xx from the peer; every failure starts with "Error" and carries the
-            // peer's HTTP status and body, or the local reason.
-            if (res == "OK") {
-                logSentFile(context, originalName, peer.getDisplayName())
-                withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.peers_sent), Toast.LENGTH_SHORT).show() }
-            } else {
-                withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.peers_failed_format, res.removePrefix("Error: ")), Toast.LENGTH_LONG).show() }
-            }
-        } catch (e: Exception) { withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.peers_failed_format, e.message), Toast.LENGTH_LONG).show() } }
+        // The shared routine: StableNodeID addressing, and the attempt in the Taildrop history.
+        val outcome = sendTaildropFile(context, uri, peer, TaildropSource.PEERS)
+        withContext(Dispatchers.Main) {
+            if (outcome.error == null) Toast.makeText(context, context.getString(R.string.peers_sent), Toast.LENGTH_SHORT).show()
+            else Toast.makeText(context, context.getString(R.string.peers_failed_format, outcome.error), Toast.LENGTH_LONG).show()
+        }
     }
 }
 

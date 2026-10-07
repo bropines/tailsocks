@@ -11,8 +11,12 @@ import androidx.core.app.NotificationCompat
 import appctr.Appctr
 import appctr.TaildropListener
 import io.github.bropines.tailscaled.R
+import io.github.bropines.tailscaled.models.PeerData
 import io.github.bropines.tailscaled.models.StatusResponse
+import io.github.bropines.tailscaled.models.TaildropDirection
+import io.github.bropines.tailscaled.models.TaildropHistoryEntry
 import io.github.bropines.tailscaled.ui.FilesActivity
+import io.github.bropines.tailscaled.ui.parseRfc3339Millis
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import java.io.File
@@ -28,7 +32,8 @@ import java.io.File
  * transfer in flight) and a final one where the finished file carries
  * `Done=true` and `FinalPath`. The daemon drops the transfer right after that
  * notification, so the Done entry is seen exactly once; this object turns it
- * into a broadcast (the Files hub re-reads the directory) and a notification.
+ * into a history entry, a broadcast (the Files hub re-reads the directory) and
+ * a notification.
  *
  * The listener is installed once by the service and survives daemon restarts on
  * the Go side (it is not part of the bridge's per-daemon resources).
@@ -71,9 +76,10 @@ object TaildropEvents {
     }
 
     /**
-     * True while FilesActivity is resumed on the Taildrop Inbox page (set by FilesScreen).
-     * The in-app broadcast still fires so the list refreshes; only the heads-up
-     * notification is skipped, since the user is already looking at the new file.
+     * True while FilesActivity is resumed on the Taildrop page, whose first section is the
+     * inbox (set by FilesScreen). The in-app broadcast still fires so the list refreshes;
+     * only the heads-up notification is skipped, since the user is already looking at the
+     * new file.
      */
     @Volatile var inboxVisible: Boolean = false
 
@@ -102,8 +108,11 @@ object TaildropEvents {
         val finalPath = f.FinalPath ?: return
         // The daemon may have renamed on collision ("photo (1).jpg"); the path is the truth.
         val name = File(finalPath).name
-        val sender = senderName(f.PartialPath)
-        Log.i(TAG, "Received $name" + (sender?.let { " from $it" } ?: ""))
+        val senderId = senderId(f.PartialPath)
+        val sender = senderId?.let { senderPeer(it) }
+        val senderName = sender?.getDisplayName()
+        Log.i(TAG, "Received $name" + (senderName?.let { " from $it" } ?: ""))
+        logReceived(context, f, finalPath, name, senderId, sender)
         context.sendBroadcast(
             Intent(ACTION_RECEIVED).setPackage(context.packageName)
                 .putExtra(EXTRA_NAME, name)
@@ -113,25 +122,53 @@ object TaildropEvents {
             Log.d(TAG, "Inbox on screen; skipping the notification for $name")
             return
         }
-        postNotification(context, name, finalPath, sender)
+        postNotification(context, name, finalPath, senderName)
+    }
+
+    /**
+     * The arrival in the Taildrop history, written before the broadcast so the Files screen
+     * that re-reads on it finds the entry. The duration runs from the daemon's Started to
+     * this Done notification, which the bus delivers within about a second of the rename.
+     */
+    private fun logReceived(context: Context, f: IncomingFile, finalPath: String, name: String, senderId: String?, sender: PeerData?) {
+        val now = System.currentTimeMillis()
+        val route = sender?.let(::taildropRouteOf)
+        TaildropHistory.record(
+            context,
+            TaildropHistoryEntry(
+                name = name,
+                peerName = sender?.getDisplayName() ?: "",
+                timestamp = now,
+                direction = TaildropDirection.RECEIVED,
+                size = File(finalPath).length().takeIf { it > 0 } ?: f.DeclaredSize.takeIf { it >= 0 },
+                mime = mimeTypeOf(name),
+                peerId = senderId,
+                peerIp = sender?.tailscaleIPs?.firstOrNull(),
+                peerOs = sender?.os?.takeIf { it.isNotEmpty() },
+                route = route?.first,
+                routeAddress = route?.second,
+                durationMs = parseRfc3339Millis(f.Started)?.let { now - it }?.takeIf { it >= 0 },
+                path = finalPath
+            )
+        )
     }
 
     /**
      * Who sent it, from the one place the bus states it: in direct mode the partial is
-     * named `<name>.<sender StableNodeID>.partial` (feature/taildrop/send.go). Resolved to
-     * a display name through /status; null when anything along the way is missing.
+     * named `<name>.<sender StableNodeID>.partial` (feature/taildrop/send.go).
      */
-    private fun senderName(partialPath: String?): String? {
+    private fun senderId(partialPath: String?): String? {
         val base = partialPath?.let { File(it).name } ?: return null
         if (!base.endsWith(".partial")) return null
-        val id = base.removeSuffix(".partial").substringAfterLast('.', "")
-        if (id.isEmpty()) return null
-        return runCatching {
-            val json = Appctr.getStatusFromAPI()
-            if (json.isBlank() || json.startsWith("Error")) null
-            else AppJson.decodeFromString<StatusResponse>(json).peers?.values?.firstOrNull { it.id == id }?.getDisplayName()
-        }.getOrNull()
+        return base.removeSuffix(".partial").substringAfterLast('.', "").takeIf { it.isNotEmpty() }
     }
+
+    /** The sender as /status has it; null when anything along the way is missing. */
+    private fun senderPeer(id: String): PeerData? = runCatching {
+        val json = Appctr.getStatusFromAPI()
+        if (json.isBlank() || json.startsWith("Error")) null
+        else AppJson.decodeFromString<StatusResponse>(json).peers?.values?.firstOrNull { it.id == id }
+    }.getOrNull()
 
     private fun postNotification(context: Context, name: String, path: String, sender: String?) {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager

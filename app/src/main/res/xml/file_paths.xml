@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Roots for ${applicationId}.fileprovider. Only two things are ever handed to
-    another app through it, so only two directories are declared:
+    Roots for ${applicationId}.fileprovider. Only three things are ever handed to
+    another app through it, so only three directories are declared:
 
       taildrop/ - files received over Taildrop, opened in a viewer app
                   (ui/UIComponents.kt openTaildropFile). They live in
@@ -9,6 +9,9 @@
       Download/ - the APK the in-app updater downloads into
                   getExternalFilesDir(DIRECTORY_DOWNLOADS) and hands to the
                   package installer (ui/MainActivity.kt launchApkInstaller).
+      exports/  - the Taildrop history as CSV, shared from the Files screen
+                  (core/TaildropHistory.kt exportCsv). cache/exports holds
+                  nothing but the latest export.
 
     These used to be three roots with path="." covering the whole files/, cache/
     and external-files directories, which meant a content:// URI could be minted
@@ -19,4 +22,5 @@
 <paths>
     <files-path name="taildrop" path="taildrop/" />
     <external-files-path name="updates" path="Download/" />
+    <cache-path name="exports" path="exports/" />
 </paths>
