@@ -61,7 +61,9 @@ func isTaildropListable(dir string, e os.DirEntry) bool {
 }
 
 // GetWaitingFiles scans the Taildrop directory and returns a JSON list of
-// received files: [{"Name","Size","Path"}], sorted by name like upstream's
+// received files: [{"Name","Size","ModTime","Path"}] (ModTime in Unix
+// seconds — without it the app dated every file 1 January 1970), sorted by
+// name like upstream's
 // WaitingFiles (retrieve.go:94). In-progress *.partial files, *.deleted markers
 // and dot-files are not listed (see isTaildropListable). Returns "[]" when the
 // directory cannot be read.
@@ -71,9 +73,10 @@ func GetWaitingFiles(dir string) string {
 		return "[]"
 	}
 	type fileInfo struct {
-		Name string `json:"Name"`
-		Size int64  `json:"Size"`
-		Path string `json:"Path"`
+		Name    string `json:"Name"`
+		Size    int64  `json:"Size"`
+		ModTime int64  `json:"ModTime"`
+		Path    string `json:"Path"`
 	}
 	files := make([]fileInfo, 0, len(entries))
 	for _, e := range entries {
@@ -85,9 +88,10 @@ func GetWaitingFiles(dir string) string {
 			continue
 		}
 		files = append(files, fileInfo{
-			Name: e.Name(),
-			Size: info.Size(),
-			Path: filepath.Join(dir, e.Name()),
+			Name:    e.Name(),
+			Size:    info.Size(),
+			ModTime: info.ModTime().Unix(),
+			Path:    filepath.Join(dir, e.Name()),
 		})
 	}
 	sort.Slice(files, func(i, j int) bool { return files[i].Name < files[j].Name })
