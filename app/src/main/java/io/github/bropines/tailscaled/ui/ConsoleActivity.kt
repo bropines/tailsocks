@@ -60,6 +60,9 @@ import androidx.core.view.WindowCompat
 import appctr.Appctr
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 import kotlinx.coroutines.Dispatchers
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -110,31 +113,122 @@ private fun formatElapsed(ms: Long): String =
     if (ms < 60_000) String.format(Locale.US, "%.1f s", ms / 1000.0)
     else String.format(Locale.US, "%d min %d s", ms / 60_000, (ms % 60_000) / 1000)
 
+/** The scrollback's colours: the theme's, resolved once per composition. */
+internal class ConsoleColors(
+    val prompt: Color, val error: Color, val dim: Color, val default: Color,
+    val jsonKey: Color, val jsonString: Color, val jsonNumber: Color,
+)
+
+/** An output larger than this is left plain: tens of thousands of spans would cost more than they show. */
+private const val MAX_HIGHLIGHTED_JSON = 100 * 1024
+
+/** Strict on purpose: AppJson is lenient and would take a line of log text for JSON. */
+private val StrictJson = Json
+
+@OptIn(ExperimentalSerializationApi::class)
+private val PrettyJson = Json { prettyPrint = true; prettyPrintIndent = "  " }
+
+/**
+ * A command's output as it goes into the scrollback: JSON that came on one long line
+ * (most LocalAPI answers) is laid out over lines, two spaces a level; anything else,
+ * and JSON already laid out, as it came.
+ */
+internal fun layOutJson(output: String): String {
+    val t = output.trim()
+    if (t.length < 80 || '\n' in t || !(t.startsWith("{") || t.startsWith("["))) return output
+    return runCatching { PrettyJson.encodeToString(JsonElement.serializer(), StrictJson.parseToJsonElement(t)) }
+        .getOrDefault(output)
+}
+
+private fun isJson(body: String): Boolean {
+    if (body.length > MAX_HIGHLIGHTED_JSON) return false
+    val t = body.trim()
+    val shaped = (t.startsWith("{") && t.endsWith("}")) || (t.startsWith("[") && t.endsWith("]"))
+    return shaped && runCatching { StrictJson.parseToJsonElement(t) }.isSuccess
+}
+
+/** A line that is the console's own, not a command's output: an echo or an elapsed mark. */
+private fun isMarker(line: String) = line.startsWith(PROMPT) || line.startsWith("# ")
+
 /**
  * Colours the scrollback so the commands stand out from what they printed:
  * prompt lines in the primary colour, `Error:` lines in the error colour, the
- * elapsed-time marks dimmed. The whole text is one String capped at 200 KB, so
- * this walks at most a few thousand lines and is remembered per text.
+ * elapsed-time marks dimmed. An output that is valid JSON as a whole — LocalAPI
+ * answers, `--json` — gets its syntax coloured: keys, strings, numbers and the
+ * literals each their own, the punctuation dimmed. The whole text is one String
+ * capped at 200 KB, so this walks at most a few thousand lines and is remembered
+ * per text.
  */
-private fun styleScrollback(text: String, prompt: Color, error: Color, dim: Color, default: Color): AnnotatedString =
+internal fun styleScrollback(text: String, c: ConsoleColors): AnnotatedString =
     buildAnnotatedString {
-        var start = 0
-        while (true) {
-            val nl = text.indexOf('\n', start)
-            val end = if (nl < 0) text.length else nl
-            val line = text.substring(start, end)
+        fun appendLine(line: String) {
             val style = when {
-                line.startsWith(PROMPT) -> SpanStyle(color = prompt, fontWeight = FontWeight.Bold)
-                line.startsWith("Error:") || line.startsWith("error:") -> SpanStyle(color = error)
-                line.startsWith("# ") -> SpanStyle(color = dim, fontStyle = FontStyle.Italic)
-                else -> SpanStyle(color = default)
+                line.startsWith(PROMPT) -> SpanStyle(color = c.prompt, fontWeight = FontWeight.Bold)
+                line.startsWith("Error:") || line.startsWith("error:") -> SpanStyle(color = c.error)
+                line.startsWith("# ") -> SpanStyle(color = c.dim, fontStyle = FontStyle.Italic)
+                else -> SpanStyle(color = c.default)
             }
             withStyle(style) { append(line) }
-            if (nl < 0) break
-            append('\n')
-            start = nl + 1
+        }
+        val lines = text.split('\n')
+        var i = 0
+        while (i < lines.size) {
+            if (isMarker(lines[i])) {
+                appendLine(lines[i])
+            } else {
+                // One command's output: every line up to the next echo or mark.
+                var j = i
+                while (j < lines.size && !isMarker(lines[j])) j++
+                val body = lines.subList(i, j).joinToString("\n")
+                if (isJson(body)) appendJson(body, c)
+                else for (k in i until j) { appendLine(lines[k]); if (k < j - 1) append('\n') }
+                i = j - 1
+            }
+            if (i < lines.lastIndex) append('\n')
+            i++
         }
     }
+
+/** [json], already known to be valid, with its tokens coloured; whitespace kept as it is. */
+private fun AnnotatedString.Builder.appendJson(json: String, c: ConsoleColors) {
+    val punct = SpanStyle(color = c.dim)
+    var i = 0
+    while (i < json.length) {
+        val ch = json[i]
+        when {
+            ch == '"' -> {
+                var j = i + 1
+                while (j < json.length && json[j] != '"') j += if (json[j] == '\\') 2 else 1
+                j = minOf(j + 1, json.length)
+                // A string followed by a colon is a key.
+                var k = j
+                while (k < json.length && json[k].isWhitespace()) k++
+                val isKey = k < json.length && json[k] == ':'
+                withStyle(SpanStyle(color = if (isKey) c.jsonKey else c.jsonString)) { append(json, i, j) }
+                i = j
+            }
+            ch == '-' || ch.isDigit() -> {
+                var j = i + 1
+                while (j < json.length && (json[j].isDigit() || json[j] in ".eE+-")) j++
+                withStyle(SpanStyle(color = c.jsonNumber)) { append(json, i, j) }
+                i = j
+            }
+            ch.isLetter() -> {
+                var j = i + 1
+                while (j < json.length && json[j].isLetter()) j++
+                withStyle(SpanStyle(color = c.jsonNumber, fontWeight = FontWeight.Bold)) { append(json, i, j) }
+                i = j
+            }
+            ch in "{}[]:," -> { withStyle(punct) { append(ch) }; i++ }
+            else -> {
+                var j = i + 1
+                while (j < json.length && json[j].isWhitespace()) j++
+                withStyle(SpanStyle(color = c.default)) { append(json, i, j) }
+                i = j
+            }
+        }
+    }
+}
 
 class ConsoleActivity : ComponentActivity() {
     override fun attachBaseContext(newBase: Context) {
@@ -312,7 +406,7 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
             val elapsed = SystemClock.elapsedRealtime() - started
             
             withContext(Dispatchers.Main) {
-                val body = result.trimEnd()
+                val body = layOutJson(result.trimEnd())
                 outputText = capScrollback(buildString {
                     append(outputText).append('\n')
                     if (body.isNotEmpty()) append(body).append('\n')
@@ -441,12 +535,15 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
             }
         }
     ) { padding ->
-        val promptColor = MaterialTheme.colorScheme.primary
-        val errorColor = MaterialTheme.colorScheme.error
-        val dimColor = MaterialTheme.colorScheme.outline
-        val defaultColor = MaterialTheme.colorScheme.onSurface
-        val styled = remember(outputText, promptColor, errorColor, dimColor, defaultColor) {
-            styleScrollback(outputText, promptColor, errorColor, dimColor, defaultColor)
+        val scheme = MaterialTheme.colorScheme
+        val colors = remember(scheme) {
+            ConsoleColors(
+                prompt = scheme.primary, error = scheme.error, dim = scheme.outline, default = scheme.onSurface,
+                jsonKey = scheme.primary, jsonString = scheme.tertiary, jsonNumber = scheme.secondary
+            )
+        }
+        val styled = remember(outputText, colors) {
+            styleScrollback(outputText, colors)
         }
         SelectionContainer(
             modifier = Modifier
