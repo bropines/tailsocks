@@ -2,6 +2,16 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Added
+
+- Taildrop: with a default folder set, received files are saved there right away; the inbox lists them with Open, Show in folder and Hide.
+
+### Fixed
+
+- Taildrop inbox cards show when a file arrived instead of 1 January.
+
 ## [4.7.4] - 2026-10-07
 
 ### Added
