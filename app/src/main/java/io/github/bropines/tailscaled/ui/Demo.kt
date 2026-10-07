@@ -44,6 +44,18 @@ data class DemoData(
     val taildropFilesJson: String? = null,
     /** The Taildrop history, as files/sent_history.json holds it (TaildropHistory). */
     val taildropHistoryJson: String? = null,
+    /** TailCat's key, connections and server, with what the bridge reports for them. */
+    val tailcat: DemoTailcat? = null,
+)
+
+/** What TailcatScreen reads from storage and from TailcatService, made up. */
+data class DemoTailcat(
+    val publicKey: String? = null,
+    val connections: List<io.github.bropines.tailscaled.core.TailcatConnection> = emptyList(),
+    val statuses: Map<String, io.github.bropines.tailscaled.core.TailcatStatus> = emptyMap(),
+    val serverAddress: String? = null,
+    val serverConfig: io.github.bropines.tailscaled.core.TailcatServerConfig = io.github.bropines.tailscaled.core.TailcatServerConfig(),
+    val serverStatus: io.github.bropines.tailscaled.core.TailcatServerStatus? = null,
 )
 
 val LocalDemo = staticCompositionLocalOf<DemoData?> { null }

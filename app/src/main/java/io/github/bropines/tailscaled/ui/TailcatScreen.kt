@@ -129,19 +129,23 @@ private const val INLINE_OUTPUT_LINES = 12
 fun TailcatScreen(onBack: () -> Unit, page: ServePage? = null, importText: String? = null) {
     val context = LocalContext.current
     val inPreview = LocalInspectionMode.current
+    // The preview renderer has no storage and no bridge: a demo, when there is one, stands in.
+    val demo = LocalDemo.current?.tailcat
     val clipboard = LocalClipboard.current
-    var connections by remember { mutableStateOf(if (inPreview) emptyList() else TailcatConnections.load(context)) }
-    val statuses by TailcatService.statuses.collectAsState()
-    var publicKey by remember { mutableStateOf(if (inPreview) null else TailcatKey.public(context)) }
+    var connections by remember { mutableStateOf(if (inPreview) demo?.connections.orEmpty() else TailcatConnections.load(context)) }
+    val liveStatuses by TailcatService.statuses.collectAsState()
+    val statuses = demo?.statuses ?: liveStatuses
+    var publicKey by remember { mutableStateOf(if (inPreview) demo?.publicKey else TailcatKey.public(context)) }
     var editor by remember { mutableStateOf<TailcatConnection?>(null) }
     var deleting by remember { mutableStateOf<TailcatConnection?>(null) }
     var openId by remember { mutableStateOf<String?>(null) }
     var output by remember { mutableStateOf("") }
     var confirmNewKey by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val serverStatus by TailcatService.serverStatus.collectAsState()
-    var serverAddress by remember { mutableStateOf(if (inPreview) null else TailcatServer.address(context)) }
-    var serverConfig by remember { mutableStateOf(if (inPreview) TailcatServerConfig() else TailcatServer.load(context)) }
+    val liveServerStatus by TailcatService.serverStatus.collectAsState()
+    val serverStatus = if (demo != null) demo.serverStatus else liveServerStatus
+    var serverAddress by remember { mutableStateOf(if (inPreview) demo?.serverAddress else TailcatServer.address(context)) }
+    var serverConfig by remember { mutableStateOf(if (inPreview) demo?.serverConfig ?: TailcatServerConfig() else TailcatServer.load(context)) }
     var creatingServer by remember { mutableStateOf(false) }
     var editingServer by remember { mutableStateOf(false) }
     var confirmNewAddress by remember { mutableStateOf(false) }
