@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="admin_cache_note_loading">Сохранённая копия от %1$s · обновляю…</string>
+    <string name="admin_cache_note_failed">Сохранённая копия от %1$s · обновить не удалось</string>
+    <string name="admin_cache_wait">Данные ещё обновляются. Повторите, когда список обновится.</string>
+    <string name="admin_cache_stale">Это сохранённая копия, обновить её не удалось. Потяните вниз, чтобы попробовать снова.</string>
+</resources>

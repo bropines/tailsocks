@@ -36,8 +36,10 @@ data class Loadable<T>(
     /** Items of the last list that could not be read. */
     val issues: List<DecodeIssue> = emptyList(),
     val loadedAt: Long = 0L,
+    /** [value] is the copy kept on this phone (ConsoleCache), not yet confirmed by the server. */
+    val fromDisk: Boolean = false,
 ) {
-    fun fresh(now: Long, maxAgeMs: Long): Boolean = value != null && error == null && now - loadedAt < maxAgeMs
+    fun fresh(now: Long, maxAgeMs: Long): Boolean = value != null && error == null && !fromDisk && now - loadedAt < maxAgeMs
 }
 
 enum class ConsolePhase {
@@ -165,6 +167,20 @@ data class ConsoleState(
     fun canWrite(area: AdminArea): Boolean = writeBlock == null && caps?.canWrite(area) != false
 
     fun canRead(area: AdminArea): Boolean = caps?.canRead(area) != false
+
+    /**
+     * What a change in [area] is planned from, while that is still the copy kept on this phone:
+     * no change is offered from it, only from what the server answered in this session.
+     */
+    fun fromDisk(area: AdminArea): Loadable<*>? = when (area) {
+        AdminArea.DEVICES, AdminArea.ROUTES -> devices
+        AdminArea.USERS -> users
+        AdminArea.AUTH_KEYS, AdminArea.OAUTH_KEYS, AdminArea.FEDERATED_KEYS -> keys
+        AdminArea.DNS -> dns
+        AdminArea.SETTINGS -> settings
+        AdminArea.SERVICES -> services
+        else -> null
+    }?.takeIf { it.fromDisk }
 
     /** The tabs this backend has: all of them until the capabilities say otherwise. */
     val tabs: List<ConsoleTab>

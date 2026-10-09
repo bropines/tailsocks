@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The copy of the console's lists kept on the phone, shown while the server is asked again. -->
+    <string name="admin_cache_note_loading">Saved copy from %1$s · refreshing…</string>
+    <string name="admin_cache_note_failed">Saved copy from %1$s · could not refresh</string>
+    <string name="admin_cache_wait">Still refreshing the saved copy. Try again once the list is updated.</string>
+    <string name="admin_cache_stale">This is the saved copy and it could not be refreshed. Pull down to try again.</string>
+</resources>

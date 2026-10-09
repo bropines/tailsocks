@@ -28,6 +28,7 @@ import io.github.bropines.tailscaled.admin.policy.PolicyConsole
 import io.github.bropines.tailscaled.admin.keys.KeysController
 import io.github.bropines.tailscaled.admin.headscale.HeadscaleConsole
 import io.github.bropines.tailscaled.admin.logs.AuditLogQuery
+import io.github.bropines.tailscaled.admin.logs.AuditLogReader
 import io.github.bropines.tailscaled.admin.services.ServiceChanges
 import io.github.bropines.tailscaled.admin.profile.AdminProfile
 import io.github.bropines.tailscaled.admin.profile.AdminProfiles
@@ -52,9 +53,13 @@ import io.github.bropines.tailscaled.core.wrapContextWithLocale
 import io.github.bropines.tailscaled.models.StatusResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -80,6 +85,9 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
         private set
     private var runner: SafeChangeRunner? = null
     private var capsJob: Job? = null
+    private var cacheJob: Job? = null
+    /** The session's first loads went out (they may, behind the unlock to view: nothing shows). */
+    private var started = false
     private var viewUnlocked = false
     /** What to do once a change applied (show a returned secret, reload a sheet), by change. */
     private val afterApply = mutableMapOf<PlannedChange, () -> Unit>()
@@ -87,6 +95,7 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
     private val onOutcome = mutableMapOf<PlannedChange, (ChangeOutcome) -> Unit>()
     private var messageSeq = 0L
     internal val audit = AdminAuditLog(AdminAuditLog.fileIn(app.filesDir))
+    private val cache = ConsoleCache.of(app.filesDir)
 
     val profiles = ConsoleProfiles(this)
     val policy = PolicyConsole(this)
@@ -130,6 +139,8 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun closeSession() {
         capsJob?.cancel()
+        cacheJob?.cancel()
+        started = false
         backend = null
         runner = null
     }
@@ -160,9 +171,33 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
                 rememberRefusals(profile, caps)
             }
         }
-        val log = withContext(Dispatchers.IO) { audit.records(profile.id) }
-        _state.update { it.copy(phase = phaseAfterLoad(), localLog = log) }
-        if (_state.value.phase == ConsolePhase.READY) start()
+        val (log, kept) = withContext(Dispatchers.IO) { audit.records(profile.id) to cache.read(profile.id) }
+        _state.update { ConsoleCache.seed(it.copy(phase = phaseAfterLoad(), localLog = log), kept) }
+        keepCopies(profile.id)
+        // Behind the unlock to view as well: the person is busy with the prompt, the lists arrive meanwhile.
+        if (_state.value.phase == ConsolePhase.READY || _state.value.phase == ConsolePhase.LOCKED) start()
+    }
+
+    /** Writes what the server answered to the profile's copy, a moment after it settles. */
+    private fun keepCopies(profileId: String) {
+        cacheJob = viewModelScope.launch {
+            _state.map { ConsoleCache.writeKey(it) }.distinctUntilChanged().collectLatest { key ->
+                if (key == null) return@collectLatest
+                delay(CACHE_WRITE_DELAY_MS)
+                val s = _state.value
+                if (s.active?.id != profileId) return@collectLatest
+                val snapshot = withContext(Dispatchers.Default) { ConsoleCache.snapshotOf(s) }
+                withContext(Dispatchers.IO) {
+                    runCatching { cache.write(profileId, snapshot) }.onFailure { Log.w(TAG, "console copy not saved: ${it.javaClass.simpleName}") }
+                }
+            }
+        }
+    }
+
+    /** Drops [profileId]'s copy: the profile is gone, or its credential or server changed. */
+    internal suspend fun forgetCopies(profileId: String) {
+        if (_state.value.active?.id == profileId) cacheJob?.cancel()
+        withContext(Dispatchers.IO) { cache.clear(profileId) }
     }
 
     private fun phaseAfterLoad(): ConsolePhase =
@@ -181,11 +216,15 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun start() {
         val b = backend ?: return
-        viewModelScope.launch {
-            runCatching { b.refreshCapabilities() }.onFailure { Log.i(TAG, "capabilities: ${it.message}") }
+        if (!started) {
+            started = true
+            viewModelScope.launch {
+                runCatching { b.refreshCapabilities() }.onFailure { Log.i(TAG, "capabilities: ${it.message}") }
+            }
+            loadSelf()
         }
-        loadSelf()
-        refresh(ConsoleTab.DEVICES)
+        // The first screen's lists: devices, users and keys.
+        refresh(ConsoleTab.ATTENTION)
     }
 
     // ------------------------------------------------------------------ the unlock to view
@@ -212,7 +251,8 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Loads what [tab] shows, unless it was loaded in the last minute and [force] is off. */
     fun refresh(tab: ConsoleTab, force: Boolean = false) {
-        if (_state.value.phase != ConsolePhase.READY) return
+        val phase = _state.value.phase
+        if (phase != ConsolePhase.READY && phase != ConsolePhase.LOCKED) return
         when (tab) {
             ConsoleTab.ATTENTION -> attention.refresh(force)
             ConsoleTab.DEVICES -> {
@@ -235,8 +275,7 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
             ConsoleTab.LOGS -> {
                 val query = _state.value.tailnetLogQuery
                 loadList(force, { it.tailnetLog }, { s, v -> s.copy(tailnetLog = v) }) {
-                    val (start, end) = query.range(System.currentTimeMillis())
-                    it.auditLog(start, end, query.filters())
+                    AuditLogReader.read(it, query, System.currentTimeMillis())
                 }
                 reloadLocalLog()
             }
@@ -329,7 +368,8 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
         if (current.loading || (!force && current.fresh(now, FRESH_MS))) return null
         _state.update { set(it, current.copy(loading = true)) }
         return viewModelScope.launch {
-            val result = runCatching { fetch(b) }
+            // Decoding a large tailnet's lists is not for the main thread.
+            val result = runCatching { withContext(Dispatchers.Default) { fetch(b) } }
             if (backend !== b) return@launch
             _state.update { s ->
                 val prev = get(s)
@@ -411,6 +451,12 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun propose(planned: PlannedChange, outcome: ((ChangeOutcome) -> Unit)? = null, after: (() -> Unit)? = null) {
         val r = runner ?: return
+        // Planned from the copy kept on the phone: its "before" may be days old. Not recorded —
+        // nothing was asked of the server; the fresh list is on its way.
+        _state.value.fromDisk(planned.change.kind.area)?.let { copy ->
+            say(text.getString(if (copy.loading || copy.error == null) R.string.admin_cache_wait else R.string.admin_cache_stale))
+            return
+        }
         val blocked = r.blockedBy(planned.change)
         if (blocked != null) {
             viewModelScope.launch {
@@ -595,6 +641,7 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
     companion object {
         private const val TAG = "AdminConsole"
         private const val FRESH_MS = 60_000L
+        private const val CACHE_WRITE_DELAY_MS = 1_500L
         private const val DAY_MS = 24L * 3600 * 1000
 
     }

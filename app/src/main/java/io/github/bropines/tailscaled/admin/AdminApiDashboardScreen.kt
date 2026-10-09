@@ -1,18 +1,23 @@
 package io.github.bropines.tailscaled.admin
 
+import android.content.Context
+import android.text.format.DateUtils
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.ManageAccounts
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -31,12 +36,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.admin.api.AdminArea
@@ -69,6 +76,8 @@ import io.github.bropines.tailscaled.ui.AppTopBar
 import io.github.bropines.tailscaled.ui.PickerOption
 import io.github.bropines.tailscaled.ui.PickerSheet
 import kotlinx.coroutines.launch
+import java.text.DateFormat
+import java.util.Date
 
 private const val PICK_ADD = "\u0000add"
 private const val PICK_EDIT = "\u0000edit"
@@ -118,7 +127,8 @@ fun AdminDashboard(
     var editingServiceName by rememberSaveable { mutableStateOf<String?>(null) }
     val hsState = vm?.headscale?.state?.collectAsState()?.value ?: headscaleDemo ?: HeadscaleUiState()
 
-    LaunchedEffect(pagerState.currentPage, tabs) { tabs.getOrNull(pagerState.currentPage)?.let { vm?.refresh(it) } }
+    // The page the pager came to rest on: a swipe or a jump across several tabs loads none of those in between.
+    LaunchedEffect(pagerState.settledPage, tabs) { tabs.getOrNull(pagerState.settledPage)?.let { vm?.refresh(it) } }
 
     val profile = state.active
     val selfNode = state.self.nodeId.takeIf { state.phoneInTailnet }
@@ -165,6 +175,7 @@ fun AdminDashboard(
                 )
                 null -> Unit
             }
+            tabs.getOrNull(pagerState.currentPage)?.let { loadableFor(state, it) }?.takeIf { it.fromDisk }?.let { CachedCopyNote(it) }
             HorizontalPager(state = pagerState, modifier = Modifier.weight(1f).fillMaxWidth()) { page ->
                 val tab = tabs[page]
                 PullToRefreshBox(
@@ -303,6 +314,40 @@ private fun loadableFor(state: ConsoleState, tab: ConsoleTab): Loadable<*>? = wh
     ConsoleTab.WEB -> null
     ConsoleTab.SETTINGS -> state.settings
     ConsoleTab.SERVER -> state.users
+}
+
+/** One line over a tab that still shows the copy kept on the phone: from when, and whether the server answered. */
+@Composable
+private fun CachedCopyNote(copy: Loadable<*>) {
+    val ctx = LocalContext.current
+    val failed = copy.error != null && !copy.loading
+    val at = remember(copy.loadedAt) { savedAt(ctx, copy.loadedAt) }
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            if (failed) Icons.Default.CloudOff else Icons.Default.History, null,
+            Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            ctx.getString(if (failed) R.string.admin_cache_note_failed else R.string.admin_cache_note_loading, at),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+/** The time alone for today, the date with it otherwise; in the app's language. */
+private fun savedAt(ctx: Context, at: Long): String {
+    val locale = ctx.resources.configuration.locales[0]
+    val today = DateUtils.isToday(at)
+    val fmt = if (today) DateFormat.getTimeInstance(DateFormat.SHORT, locale)
+    else DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, locale)
+    return fmt.format(Date(at))
 }
 
 @Composable

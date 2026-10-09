@@ -13,6 +13,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Admin console: Keys tab (key types, expiry warnings, OAuth clients, reveal with QR) and a Users tab with roles explained, invites and device sharing.
 - Admin console: a policy editor with server validation, diff, risk lint, a lock-out check, conflict-safe saving and revert; DNS, webhooks and tailnet settings completed.
 - Admin console: Headscale servers (0.25–0.30) with registration by QR code or link; the audit log filtered on the server with before → after; Services created, renamed and deleted.
+- Admin console keeps an encrypted copy of its lists and opens on it at once, refreshing in place; nothing is changed from the copy.
 
 ### Changed
 
@@ -21,6 +22,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 ### Fixed
 
 - Admin console: no crash on Android 9–10; webhooks, user approval and roles, and the keys list work against today's API.
+- Admin console loads much faster: device routes come with the list, the audit log a day at a time, only the tab you stop on.
 - The core learns which network carries the default route again, so it reconnects at once after Wi-Fi ↔ mobile data.
 
 ## [4.8.0] - 2026-10-09

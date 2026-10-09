@@ -64,6 +64,7 @@ class ConsoleProfiles internal constructor(private val vm: AdminConsoleViewModel
 
     fun delete(id: String) {
         vm.viewModelScope.launch {
+            vm.forgetCopies(id)
             withContext(Dispatchers.IO) {
                 AdminProfiles.vault(vm.app).removeProfile(id)
                 AdminProfiles.store(vm.app).remove(id)
@@ -158,6 +159,10 @@ class ConsoleProfiles internal constructor(private val vm: AdminConsoleViewModel
                     vm.update { it.copy(draft = d.copy(checking = false, error = problem.first, offerUnchecked = problem.second)) }
                     return@launch
                 }
+            }
+            // What another credential or server read is not this profile's to show any more.
+            if (existing != null && (credentialChanged || existing.backend != toSave.backend || existing.baseUrl != toSave.baseUrl || existing.tailnet != toSave.tailnet)) {
+                vm.forgetCopies(id)
             }
             val ok = withContext(Dispatchers.IO) {
                 runCatching {
