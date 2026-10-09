@@ -5,10 +5,10 @@ import android.content.ClipData
 import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.content.Context
-import android.content.ContextWrapper
 import android.os.Build
 import android.os.PersistableBundle
 import android.view.WindowManager
+import io.github.bropines.tailscaled.ui.theme.findActivity
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
@@ -66,15 +66,6 @@ private object SecureWindowCount {
             activity.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
         } else counts[activity] = n
     }
-}
-
-private fun Context.findActivity(): Activity? {
-    var c: Context? = this
-    while (c is ContextWrapper) {
-        if (c is Activity) return c
-        c = c.baseContext
-    }
-    return null
 }
 
 /** The FragmentActivity behind a Compose LocalContext, through the locale wrappers; the unlock prompt needs it. */

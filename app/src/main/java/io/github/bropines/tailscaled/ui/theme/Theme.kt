@@ -365,6 +365,9 @@ class LocaleContextWrapper(base: Context, private val activityContext: Context) 
     androidx.savedstate.SavedStateRegistryOwner,
     androidx.activity.result.ActivityResultRegistryOwner {
 
+    /** The activity this wrapper stands in for: its base is a configuration context, not the activity. */
+    val hostActivity: android.app.Activity? get() = activity
+
     private val activity: android.app.Activity? by lazy {
         var ctx = activityContext
         while (ctx is ContextWrapper) {
@@ -407,6 +410,9 @@ fun Context.findActivity(): android.app.Activity? {
         if (ctx is android.app.Activity) {
             return ctx
         }
+        // TailSocksTheme's LocalContext: its base chain ends at a configuration context, never
+        // at the activity, which it keeps aside — follow that instead.
+        if (ctx is LocaleContextWrapper) return ctx.hostActivity
         ctx = ctx.baseContext
     }
     return null
