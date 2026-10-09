@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The admin console's Keys and Users tabs: keys, OAuth clients, users, invites, device shares. -->
+<resources>
+    <!-- Keys tab -->
+    <string name="admin_k_tab">Ключи</string>
+    <string name="admin_k_none">Ключей нет</string>
+    <string name="admin_k_create_title">Новый ключ</string>
+    <string name="admin_k_create_auth_supporting">Для входа устройств в tailnet</string>
+    <string name="admin_k_create_client_supporting">Ключ с правами для скриптов</string>
+    <string name="admin_k_group_auth">Ключи авторизации</string>
+    <string name="admin_k_group_auth_help">С ними устройства входят в tailnet. Отзыв ключа не удаляет устройства, которые с ним вошли.</string>
+    <string name="admin_k_group_client">OAuth-клиенты</string>
+    <string name="admin_k_group_client_help">Ключи с ограниченными правами для скриптов и интеграций. Не истекают и выпускают токены на час.</string>
+    <string name="admin_k_group_federated">Федеративные идентичности</string>
+    <string name="admin_k_group_federated_help">CI и облачные сервисы входят по своему OIDC-токену; секрет нигде не хранится.</string>
+    <string name="admin_k_group_api">Токены API</string>
+    <string name="admin_k_group_api_help">Личные токены с правами владельца и часовые токены, которые выпускают OAuth-клиенты.</string>
+    <string name="admin_k_group_other">Прочие</string>
+    <string name="admin_k_group_other_help">Ключи типа, который приложение не знает.</string>
+    <string name="admin_k_this_console">Эта панель</string>
+    <string name="admin_k_revoke">Отозвать</string>
+    <string name="admin_k_created">Создан %1$s</string>
+    <string name="admin_k_revoked_at">Отозван %1$s</string>
+    <string name="admin_k_never_expires">Бессрочный</string>
+    <string name="admin_k_expired">Истёк %1$s</string>
+    <string name="admin_k_expires_soon">Скоро истекает: %1$s</string>
+    <string name="admin_k_expires">Истекает %1$s · %2$s</string>
+    <string name="admin_k_in">через %1$s</string>
+    <string name="admin_k_ago">%1$s назад</string>
+    <plurals name="admin_k_span_days">
+        <item quantity="one">%d день</item>
+        <item quantity="few">%d дня</item>
+        <item quantity="many">%d дней</item>
+        <item quantity="other">%d дня</item>
+    </plurals>
+    <plurals name="admin_k_span_hours">
+        <item quantity="one">%d час</item>
+        <item quantity="few">%d часа</item>
+        <item quantity="many">%d часов</item>
+        <item quantity="other">%d часа</item>
+    </plurals>
+    <plurals name="admin_k_span_minutes">
+        <item quantity="one">%d минуту</item>
+        <item quantity="few">%d минуты</item>
+        <item quantity="many">%d минут</item>
+        <item quantity="other">%d минуты</item>
+    </plurals>
+    <string name="admin_k_single_use">Одноразовый</string>
+    <string name="admin_k_ephemeral">Эфемерный</string>
+    <string name="admin_k_preauthorized">Без одобрения</string>
+
+    <!-- New auth key, new OAuth client -->
+    <string name="admin_k_create_auth_title">Новый ключ авторизации</string>
+    <string name="admin_k_create_client_title">Новый OAuth-клиент</string>
+    <string name="admin_k_create">Создать</string>
+    <string name="admin_k_desc_required">Описание (обязательно)</string>
+    <string name="admin_k_desc_placeholder">homelab servers</string>
+    <string name="admin_k_desc_too_long">Не больше %1$d символов.</string>
+    <string name="admin_k_desc_bad_chars">Только латинские буквы, цифры, пробелы и дефисы.</string>
+    <string name="admin_k_desc_missing">Нужно описание.</string>
+    <string name="admin_k_expiry">Срок действия</string>
+    <string name="admin_k_expiry_custom">Свой срок</string>
+    <string name="admin_k_expiry_days">Дней</string>
+    <string name="admin_k_expiry_days_range">От 1 до %1$d.</string>
+    <string name="admin_k_tags">Теги</string>
+    <string name="admin_k_tags_required">Теги (обязательно)</string>
+    <string name="admin_k_tags_help">Устройство с тегом принадлежит тегу, а не человеку. В чипах — теги, которые задаёт политика.</string>
+    <string name="admin_k_tags_scoped_help">Ключи, созданные OAuth-клиентом, должны нести его теги (%1$s) или теги, которыми те владеют.</string>
+    <string name="admin_k_client_tags_help">Эти теги получат устройства и ключи, созданные клиентом; обязательны, если ему можно менять устройства или ключи авторизации.</string>
+    <string name="admin_k_tags_loading">Читаю теги из политики…</string>
+    <string name="admin_k_tags_unreadable">Теги политики прочитать не удалось — введите их ниже. %1$s</string>
+    <string name="admin_k_tags_none">В tagOwners политики нет ни одного тега.</string>
+    <string name="admin_k_tags_other">Другие теги</string>
+    <string name="admin_k_tags_bad">Не тег: %1$s</string>
+    <string name="admin_k_create_client_help">Ключ для скриптов и интеграций: с ограниченными правами, принадлежит tailnet, не истекает. Давайте ему только нужные права.</string>
+    <string name="admin_k_scopes">Права</string>
+    <string name="admin_k_scope_off">Нет</string>
+    <string name="admin_k_scope_read">Чтение</string>
+    <string name="admin_k_scope_write">Запись</string>
+    <string name="admin_k_scope_all">Всё</string>
+    <string name="admin_k_scope_devices">Устройства</string>
+    <string name="admin_k_scope_routes">Маршруты</string>
+    <string name="admin_k_scope_posture">Атрибуты состояния</string>
+    <string name="admin_k_scope_device_invites">Общий доступ к устройствам</string>
+    <string name="admin_k_scope_auth_keys">Ключи авторизации</string>
+    <string name="admin_k_scope_oauth_keys">OAuth-клиенты</string>
+    <string name="admin_k_scope_api_tokens">Токены API</string>
+    <string name="admin_k_scope_federated">Федеративные идентичности</string>
+    <string name="admin_k_scope_policy">Политика доступа</string>
+    <string name="admin_k_scope_users">Пользователи</string>
+    <string name="admin_k_scope_webhooks">Webhooks</string>
+    <string name="admin_k_scope_audit_logs">Журнал изменений</string>
+    <string name="admin_k_scope_network_logs">Журнал соединений</string>
+    <string name="admin_k_scope_log_streaming">Выгрузка журналов</string>
+    <string name="admin_k_scope_feature_settings">Настройки функций</string>
+    <string name="admin_k_scope_networking_settings">Сетевые настройки</string>
+    <string name="admin_k_scope_account_settings">Настройки аккаунта</string>
+    <string name="admin_k_scope_services">Сервисы</string>
+
+    <!-- Key changes, as the safety gates show them -->
+    <string name="admin_k_create_auth_effect">С ним устройства входят в tailnet: %1$s; истекает через %2$s.</string>
+    <string name="admin_k_warn_reusable_preauth">Многоразовый и без одобрения: кто угодно с этим ключом добавит сколько угодно устройств без проверки, пока ключ не истечёт.</string>
+    <string name="admin_k_warn_untagged">Без тега добавленные им устройства принадлежат создателю ключа.</string>
+    <string name="admin_k_change_client_create">Создать OAuth-клиент</string>
+    <string name="admin_k_change_client_create_effect">Новый ключ с правами ниже. Его секрет покажется один раз.</string>
+    <string name="admin_k_warn_client_writes">Сможет менять: %1$s.</string>
+    <string name="admin_k_warn_client_never_expires">Он не истекает: работает, пока его не отзовут.</string>
+    <string name="admin_k_revoke_effect_credential">Он сразу перестаёт работать — для всего, что входит с ним.</string>
+    <string name="admin_k_warn_revoke_reusable">Многоразовый ключ часто стоит в CI или скриптах развёртывания: они перестанут добавлять устройства.</string>
+    <string name="admin_k_warn_revoke_client">Все интеграции на этом клиенте теряют доступ, выпущенные им токены перестают работать.</string>
+    <string name="admin_k_warn_revoke_federated">Сервисы, входящие с этой идентичностью (задачи CI, облако), теряют доступ.</string>
+    <string name="admin_k_warn_revoke_api">Скрипты и программы с этим токеном перестанут работать.</string>
+
+    <!-- The secret, shown once -->
+    <string name="admin_k_reveal_auth_title">Новый ключ авторизации</string>
+    <string name="admin_k_reveal_auth_text">С ним входят устройства; QR-код перенесёт его в камеру другого устройства.</string>
+    <string name="admin_k_reveal_client_title">Новый OAuth-клиент</string>
+    <string name="admin_k_reveal_client_text">ID клиента: %1$s. Ниже — секрет, с которым входит скрипт.</string>
+    <string name="admin_k_reveal_qr_description">QR-код секрета</string>
+    <string name="admin_k_reveal_qr_show">QR-код</string>
+    <string name="admin_k_reveal_qr_hide">Скрыть QR</string>
+    <string name="admin_k_reveal_share">Поделиться</string>
+
+    <!-- Users tab -->
+    <string name="admin_u_search">Поиск пользователей</string>
+    <string name="admin_u_search_clear">Очистить поиск</string>
+    <string name="admin_u_filter_role">Роль</string>
+    <string name="admin_u_filter_status">Статус</string>
+    <string name="admin_u_filter_any">Любой</string>
+    <string name="admin_u_none_match">Никто не подходит.</string>
+    <string name="admin_u_clear_filters">Сбросить фильтры</string>
+    <string name="admin_u_online">В сети</string>
+    <string name="admin_u_last_seen">Был(а) %1$s</string>
+    <string name="admin_u_type">Тип</string>
+    <string name="admin_u_devices">Устройства</string>
+    <string name="admin_u_presence">Активность</string>
+    <string name="admin_u_joined">В tailnet с</string>
+    <string name="admin_u_approve">Одобрить</string>
+    <string name="admin_u_change_role">Сменить роль</string>
+    <string name="admin_u_suspend">Заблокировать</string>
+    <string name="admin_u_restore">Разблокировать</string>
+    <string name="admin_u_delete">Удалить пользователя</string>
+    <string name="admin_u_role_pick">Роль: %1$s</string>
+    <string name="admin_u_cannot_write">Этот ключ не может менять пользователей.</string>
+    <string name="admin_u_lock_own">Это вы сами: пользователь, от имени которого работает ключ, или тот, под кем вошёл этот телефон. Tailscale не даёт токену менять своего же пользователя — сделайте это из другой учётной записи администратора.</string>
+    <string name="admin_u_lock_shared">Пользователь другого tailnet, с которым здесь поделились устройством. Его роль и статус задаёт его собственный tailnet; чтобы закрыть ему доступ, удалите приглашение к устройству.</string>
+    <string name="admin_u_lock_owner">Владелец меняется только передачей владения в веб-консоли.</string>
+    <string name="admin_u_owner_transfer">Роли «Владелец» здесь нет: владение передаётся в веб-консоли.</string>
+    <string name="admin_u_open_console">Открыть веб-консоль</string>
+
+    <string name="admin_u_role_owner_short">Администратор плюс оплата и сам tailnet</string>
+    <string name="admin_u_role_admin_short">Всё в веб-консоли</string>
+    <string name="admin_u_role_network_admin_short">Политика, DNS, сетевые настройки</string>
+    <string name="admin_u_role_it_admin_short">Пользователи и устройства</string>
+    <string name="admin_u_role_billing_admin_short">Оплата; остальное только чтение</string>
+    <string name="admin_u_role_auditor_short">Видит всё, ничего не меняет</string>
+    <string name="admin_u_role_member_short">Только пользуется tailnet</string>
+    <string name="admin_u_role_owner_help">Всё, что может администратор, плюс владение оплатой и удаление tailnet. Владелец один.</string>
+    <string name="admin_u_role_admin_help">Полный доступ к веб-консоли: устройства, пользователи, политика, настройки и оплата.</string>
+    <string name="admin_u_role_network_admin_help">Управляет политикой доступа, DNS и сетевыми настройками; пользователями и оплатой — нет.</string>
+    <string name="admin_u_role_it_admin_help">Управляет пользователями и устройствами; политику и сетевые настройки не меняет.</string>
+    <string name="admin_u_role_billing_admin_help">Управляет оплатой; остальную веб-консоль только читает.</string>
+    <string name="admin_u_role_auditor_help">Читает всю веб-консоль, включая журналы; ничего не меняет.</string>
+    <string name="admin_u_role_member_help">Пользуется tailnet; доступа к веб-консоли нет.</string>
+    <string name="admin_u_role_unknown_help">Роль, которую приложение не знает.</string>
+    <string name="admin_u_status_active_help">Появлялся в сети за последние 28 дней.</string>
+    <string name="admin_u_status_idle_help">Не появлялся больше 28 дней.</string>
+    <string name="admin_u_status_suspended_help">Не попадёт в tailnet, пока его не разблокируют.</string>
+    <string name="admin_u_status_needs_approval_help">Не войдёт в tailnet, пока его не одобрит администратор.</string>
+    <string name="admin_u_status_over_billing_limit_help">Не войдёт, пока в тарифе не прибавят пользователей.</string>
+    <string name="admin_u_status_unknown_help">Статус, который приложение не знает.</string>
+
+    <!-- User changes, as the safety gates show them -->
+    <string name="admin_u_change_role_effect">%1$s: %2$s</string>
+    <string name="admin_u_warn_role_up">Это даёт права администратора в веб-консоли.</string>
+    <string name="admin_u_warn_role_down">Это отнимает права администратора.</string>
+    <plurals name="admin_u_warn_suspend_devices">
+        <item quantity="one">Его %d устройство теряет доступ вместе с ним.</item>
+        <item quantity="few">Его %d устройства теряют доступ вместе с ним.</item>
+        <item quantity="many">Его %d устройств теряют доступ вместе с ним.</item>
+        <item quantity="other">Его %d устройства теряют доступ вместе с ним.</item>
+    </plurals>
+    <plurals name="admin_u_warn_delete_devices">
+        <item quantity="one">Его %d устройство удаляется вместе с ним.</item>
+        <item quantity="few">Его %d устройства удаляются вместе с ним.</item>
+        <item quantity="many">Его %d устройств удаляются вместе с ним.</item>
+        <item quantity="other">Его %d устройства удаляются вместе с ним.</item>
+    </plurals>
+
+    <!-- Invites to the tailnet -->
+    <string name="admin_u_invites">Приглашения</string>
+    <plurals name="admin_u_invites_open">
+        <item quantity="one">%d открыто</item>
+        <item quantity="few">%d открыто</item>
+        <item quantity="many">%d открыто</item>
+        <item quantity="other">%d открыто</item>
+    </plurals>
+    <string name="admin_u_invites_unavailable">Недоступно</string>
+    <string name="admin_u_invites_loading">Загрузка…</string>
+    <string name="admin_u_invites_title">Приглашения в tailnet</string>
+    <string name="admin_u_invites_help">Кто примет приглашение, войдёт в tailnet с его ролью. Принятые приглашения пропадают отсюда, а человек появляется среди пользователей.</string>
+    <string name="admin_u_invites_need_token">Приглашать можно только с личным токеном API: Tailscale разрешает приглашать людей и делиться устройствами только ключу пользователя, не OAuth-клиенту.</string>
+    <string name="admin_u_invites_none">Открытых приглашений нет.</string>
+    <string name="admin_u_invite_new">Пригласить</string>
+    <string name="admin_u_invite_create">Создать приглашение</string>
+    <string name="admin_u_invite_email">Email (необязательно)</string>
+    <string name="admin_u_invite_email_help">Без email вы получите ссылку и передадите её сами.</string>
+    <string name="admin_u_invite_email_bad">Это не похоже на адрес почты.</string>
+    <string name="admin_u_invite_link">Ссылка-приглашение</string>
+    <string name="admin_u_invite_link_only">Приглашение-ссылка %1$s</string>
+    <string name="admin_u_invite_sent">Отправлено %1$s</string>
+    <string name="admin_u_copy_link">Копировать ссылку</string>
+    <string name="admin_u_resend">Отправить снова</string>
+    <string name="admin_u_invite_delete">Удалить</string>
+    <string name="admin_u_reveal_invite_title">Ссылка-приглашение</string>
+    <string name="admin_u_reveal_invite_text">Кто откроет эту ссылку, войдёт в tailnet с ролью из приглашения. Отдайте её только тому, кому она предназначена.</string>
+    <string name="admin_u_change_invite_create">Пригласить в tailnet</string>
+    <string name="admin_u_change_invite_email_effect">Приглашение уйдёт на %1$s; приняв его, человек войдёт с ролью «%2$s».</string>
+    <string name="admin_u_change_invite_link_effect">Вы получите ссылку; кто её откроет, войдёт с ролью «%1$s».</string>
+    <string name="admin_u_warn_invite_role">Принявший получит роль «%1$s» в веб-консоли.</string>
+    <string name="admin_u_warn_invite_link">Принять приглашение может любой, у кого есть ссылка.</string>
+    <string name="admin_u_change_invite_resend">Повторить приглашение для %1$s</string>
+    <string name="admin_u_change_invite_resend_effect">Письмо уйдёт ещё раз; Tailscale разрешает это раз в минуту.</string>
+    <string name="admin_u_change_invite_delete">Удалить приглашение для %1$s</string>
+    <string name="admin_u_change_invite_delete_effect">Приглашение и его ссылка перестают работать, войти по нему больше нельзя.</string>
+
+    <!-- Device shares -->
+    <string name="admin_u_share_device">Поделиться</string>
+    <string name="admin_u_share_device_sub">Устройством, с кем-то извне</string>
+    <string name="admin_u_share_pick">Каким устройством поделиться</string>
+    <string name="admin_u_share_title">Поделиться: %1$s</string>
+    <string name="admin_u_share_help">Человек из другого tailnet получит доступ только к этому устройству, больше ни к чему. Приглашение — письмо или ссылка.</string>
+    <string name="admin_u_share_none">Ни с кем не поделено.</string>
+    <string name="admin_u_share_new">Новое приглашение</string>
+    <string name="admin_u_share_create">Создать приглашение</string>
+    <string name="admin_u_share_email_help">Без email вы получите ссылку и передадите её сами.</string>
+    <string name="admin_u_share_multi">Многоразовое</string>
+    <string name="admin_u_share_multi_help">Ссылку можно принять до 1000 раз, а не один.</string>
+    <string name="admin_u_share_exit">Можно как выходной узел</string>
+    <string name="admin_u_share_exit_help">Можно пускать свой трафик через это устройство, когда оно работает выходным узлом.</string>
+    <string name="admin_u_share_accepted">Принято</string>
+    <string name="admin_u_share_pending">Ещё не принято</string>
+    <string name="admin_u_share_created">Создано %1$s</string>
+    <string name="admin_u_share_delete">Удалить</string>
+    <string name="admin_u_reveal_share_title">Ссылка на %1$s</string>
+    <string name="admin_u_reveal_share_text">Кто откроет эту ссылку, получит устройство в свой tailnet. Отдайте её только тому, кому она предназначена.</string>
+    <string name="admin_u_change_share_create">Поделиться: %1$s</string>
+    <string name="admin_u_change_share_email_effect">Приглашение к этому устройству уйдёт на %1$s.</string>
+    <string name="admin_u_change_share_link_effect">Вы получите ссылку на это устройство, чтобы передать её.</string>
+    <string name="admin_u_warn_share_multi">Ссылку может принять до 1000 раз любой, у кого она есть.</string>
+    <string name="admin_u_warn_share_exit">Устройством можно будет пользоваться как выходным узлом.</string>
+    <string name="admin_u_change_share_delete">Удалить доступ к %1$s</string>
+    <string name="admin_u_change_share_delete_effect">Приглашение и его ссылка перестают работать.</string>
+    <string name="admin_u_warn_share_accepted">%1$s уже принял(а) его: удаление может закрыть доступ к устройству.</string>
+</resources>

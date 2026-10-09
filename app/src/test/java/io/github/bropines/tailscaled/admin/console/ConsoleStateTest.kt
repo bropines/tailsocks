@@ -28,7 +28,7 @@ class ConsoleStateTest {
             BackendKind.HEADSCALE_V2, CredentialKind.HEADSCALE_API_KEY,
             setOf(BackendFeature.DEVICES, BackendFeature.USERS, BackendFeature.KEYS, BackendFeature.POLICY),
         )
-        assertEquals(listOf(ConsoleTab.ATTENTION, ConsoleTab.DEVICES, ConsoleTab.POLICY, ConsoleTab.USERS), ConsoleState(caps = headscale).tabs)
+        assertEquals(listOf(ConsoleTab.ATTENTION, ConsoleTab.DEVICES, ConsoleTab.POLICY, ConsoleTab.USERS, ConsoleTab.KEYS), ConsoleState(caps = headscale).tabs)
     }
 
     @Test

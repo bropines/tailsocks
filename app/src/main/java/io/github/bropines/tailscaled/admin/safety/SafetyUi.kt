@@ -1,14 +1,18 @@
 package io.github.bropines.tailscaled.admin.safety
 
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -17,8 +21,12 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.ReportProblem
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -26,6 +34,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -34,6 +43,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,8 +53,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -58,6 +70,7 @@ import io.github.bropines.tailscaled.admin.secure.SensitiveClipboard
 import io.github.bropines.tailscaled.admin.secure.UnlockResult
 import io.github.bropines.tailscaled.admin.secure.findFragmentActivity
 import io.github.bropines.tailscaled.ui.HelpText
+import io.github.bropines.tailscaled.ui.QrCodeImage
 
 /**
  * Where a proposed change is in its gates. The console's ViewModel holds it; [SafetyHost]
@@ -304,52 +317,116 @@ fun ReadOnlyBanner(title: String, text: String, modifier: Modifier = Modifier, i
 }
 
 /**
- * A secret the server hands out once — a new auth key, a webhook's signing secret. Kept out of
- * screenshots, copied as sensitive, and closed only by its own button: a stray tap outside
- * used to throw away the only copy.
+ * A secret the server hands out once — a new auth key, an OAuth client's secret, a webhook's
+ * signing secret — or a link that admits whoever holds it ([once] false: it can be read again
+ * later). Kept out of screenshots, masked until asked, copied as sensitive, shareable, with a
+ * QR code when [qr] is set, and closed only by its own button: a stray tap outside used to
+ * throw away the only copy. Its words come from the console's context: the dialog's own window
+ * would answer in the system language.
  */
 @Composable
-fun SecretRevealDialog(title: String, text: String, secret: String, onDone: () -> Unit) {
+fun SecretRevealDialog(title: String, text: String, secret: String, qr: Boolean = false, once: Boolean = true, onDone: () -> Unit) {
     val ctx = LocalContext.current
+    val configuration = LocalConfiguration.current
+    val resources = LocalResources.current
     AlertDialog(
         onDismissRequest = {},
         properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false, securePolicy = SecureFlagPolicy.SecureOn),
         icon = { Icon(Icons.Default.Key, null) },
         title = { Text(title) },
-        text = { SecretRevealContent(title, text, secret) },
-        confirmButton = { Button(onClick = onDone) { Text(ctx.getString(R.string.admin2_secret_saved)) } },
+        text = {
+            CompositionLocalProvider(LocalContext provides ctx, LocalConfiguration provides configuration, LocalResources provides resources) {
+                SecretRevealContent(title, text, secret, qr = qr, once = once)
+            }
+        },
+        confirmButton = {
+            Button(onClick = onDone) { Text(ctx.getString(if (once) R.string.admin2_secret_saved else R.string.action_close)) }
+        },
     )
 }
 
-/** The reveal dialog's body, apart so a preview can draw it without a dialog window. */
+/**
+ * The reveal dialog's body, apart so a preview can draw it without a dialog window. The secret
+ * and its code stay hidden until shown: the screen may be in view of someone else.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun SecretRevealContent(label: String, text: String, secret: String) {
+fun SecretRevealContent(
+    label: String,
+    text: String,
+    secret: String,
+    qr: Boolean = false,
+    once: Boolean = true,
+    startShown: Boolean = false,
+) {
     val ctx = LocalContext.current
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    var shown by rememberSaveable { mutableStateOf(startShown) }
+    var qrShown by rememberSaveable { mutableStateOf(startShown && qr) }
+    Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(text, style = MaterialTheme.typography.bodyMedium)
-        Text(ctx.getString(R.string.admin2_secret_once), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-        Text(
-            secret,
-            fontFamily = FontFamily.Monospace,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.shapes.small)
-                .padding(10.dp),
-        )
-        OutlinedButton(
-            onClick = {
+        if (once) Text(ctx.getString(R.string.admin2_secret_once), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        Row(
+            Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.shapes.small).padding(start = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                if (shown) secret else maskSecret(secret),
+                fontFamily = FontFamily.Monospace,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f).padding(vertical = 10.dp),
+            )
+            IconButton(onClick = { shown = !shown }) {
+                Icon(
+                    if (shown) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                    contentDescription = ctx.getString(if (shown) R.string.admin2_secret_hide else R.string.admin2_secret_show),
+                )
+            }
+        }
+        if (qr && qrShown) {
+            QrCodeImage(
+                text = secret,
+                contentDescription = ctx.getString(R.string.admin_k_reveal_qr_description),
+                tooLong = ctx.getString(R.string.qr_too_long),
+                modifier = Modifier.fillMaxWidth().widthIn(max = 280.dp).align(Alignment.CenterHorizontally),
+            )
+        }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            OutlinedButton(onClick = {
                 SensitiveClipboard.copy(ctx, label, secret)
                 if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) {
                     android.widget.Toast.makeText(ctx, ctx.getString(R.string.admin2_secret_copied), android.widget.Toast.LENGTH_SHORT).show()
                 }
-            },
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Icon(Icons.Default.ContentCopy, null, Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(ctx.getString(R.string.admin2_secret_copy))
+            }) {
+                Icon(Icons.Default.ContentCopy, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(ctx.getString(R.string.admin2_secret_copy))
+            }
+            OutlinedButton(onClick = {
+                val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, secret)
+                ctx.startActivity(Intent.createChooser(send, label))
+            }) {
+                Icon(Icons.Default.Share, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(ctx.getString(R.string.admin_k_reveal_share))
+            }
+            if (qr) {
+                OutlinedButton(onClick = { qrShown = !qrShown }) {
+                    Icon(Icons.Default.QrCode2, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(ctx.getString(if (qrShown) R.string.admin_k_reveal_qr_hide else R.string.admin_k_reveal_qr_show))
+                }
+            }
         }
     }
+}
+
+/**
+ * [secret] with what makes it secret hidden: a Tailscale key keeps its "tskey-auth-<id>-" part,
+ * which names the key and grants nothing, and a link its address up to the last slash.
+ */
+fun maskSecret(secret: String): String {
+    val cut = maxOf(secret.lastIndexOf('-'), secret.lastIndexOf('/'))
+    val keep = if (cut in 1 until secret.length - 4) secret.substring(0, cut + 1) else ""
+    return keep + "\u2022".repeat(12)
 }

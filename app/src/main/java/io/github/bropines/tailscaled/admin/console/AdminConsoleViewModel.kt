@@ -25,6 +25,7 @@ import io.github.bropines.tailscaled.admin.api.UserListType
 import io.github.bropines.tailscaled.admin.api.UserRole
 import io.github.bropines.tailscaled.admin.attention.AttentionSession
 import io.github.bropines.tailscaled.admin.policy.PolicyConsole
+import io.github.bropines.tailscaled.admin.keys.KeysController
 import io.github.bropines.tailscaled.admin.profile.AdminProfile
 import io.github.bropines.tailscaled.admin.profile.AdminProfiles
 import io.github.bropines.tailscaled.admin.profile.MissingCredentialException
@@ -41,6 +42,7 @@ import io.github.bropines.tailscaled.admin.secure.AdminWriteGate
 import io.github.bropines.tailscaled.admin.secure.LockState
 import io.github.bropines.tailscaled.admin.secure.UnlockResult
 import io.github.bropines.tailscaled.admin.secure.ViewUnlock
+import io.github.bropines.tailscaled.admin.users.UsersController
 import io.github.bropines.tailscaled.core.AppJson
 import io.github.bropines.tailscaled.core.ProxyState
 import io.github.bropines.tailscaled.core.wrapContextWithLocale
@@ -88,6 +90,9 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
 
     /** The "Needs attention" home and the profile's background check. */
     val attention = AttentionSession(this)
+
+    val keysTab = KeysController(this)
+    val usersTab = UsersController(this)
 
     /**
      * Words in the app's chosen language: before Android 13 the Application's own resources
@@ -211,7 +216,11 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
             }
             ConsoleTab.DNS -> loadOne(force, { it.dns }, { s, v -> s.copy(dns = v) }) { it.dnsConfiguration() }
             ConsoleTab.POLICY -> policy.load(force)
-            ConsoleTab.USERS -> loadList(force, { it.users }, { s, v -> s.copy(users = v) }) { it.listUsers(UserListType.ALL) }
+            ConsoleTab.USERS -> {
+                loadList(force, { it.users }, { s, v -> s.copy(users = v) }) { it.listUsers(UserListType.ALL) }
+                usersTab.loadInvites(force)
+            }
+            ConsoleTab.KEYS -> keysTab.refresh(force)
             ConsoleTab.SERVICES -> {
                 loadList(force, { it.services }, { s, v -> s.copy(services = v) }) { it.listServices() }
                 if (_state.value.devices.value == null) refresh(ConsoleTab.DEVICES)
@@ -456,6 +465,9 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
             AdminArea.DEVICES, AdminArea.ROUTES ->
                 refresh(ConsoleTab.DEVICES, force = true)
             AdminArea.AUTH_KEYS -> refreshKeys()
+            AdminArea.OAUTH_KEYS, AdminArea.API_TOKENS, AdminArea.FEDERATED_KEYS -> refreshKeys()
+            // A device share's own callback reloads that device's invites.
+            AdminArea.DEVICE_INVITES -> Unit
             AdminArea.USERS -> refresh(ConsoleTab.USERS, force = true)
             AdminArea.DNS -> refresh(ConsoleTab.DNS, force = true)
             AdminArea.WEBHOOKS -> refresh(ConsoleTab.WEBHOOKS, force = true)

@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The admin console's Keys and Users tabs: keys, OAuth clients, users, invites, device shares. -->
+<resources>
+    <!-- Keys tab -->
+    <string name="admin_k_tab">Keys</string>
+    <string name="admin_k_none">No keys</string>
+    <string name="admin_k_create_title">New key</string>
+    <string name="admin_k_create_auth_supporting">Lets devices join the tailnet</string>
+    <string name="admin_k_create_client_supporting">A scoped credential for scripts</string>
+    <string name="admin_k_group_auth">Auth keys</string>
+    <string name="admin_k_group_auth_help">Devices join the tailnet with these. Revoking one leaves the devices it added in place.</string>
+    <string name="admin_k_group_client">OAuth clients</string>
+    <string name="admin_k_group_client_help">Scoped credentials for scripts and integrations. They never expire and mint one-hour tokens.</string>
+    <string name="admin_k_group_federated">Federated identities</string>
+    <string name="admin_k_group_federated_help">CI jobs and cloud workloads sign in with their own OIDC token; no secret is stored.</string>
+    <string name="admin_k_group_api">API tokens</string>
+    <string name="admin_k_group_api_help">Personal tokens with their owner\'s rights, and the one-hour tokens OAuth clients mint.</string>
+    <string name="admin_k_group_other">Other</string>
+    <string name="admin_k_group_other_help">Keys of a type this app does not know.</string>
+    <string name="admin_k_this_console">This console</string>
+    <string name="admin_k_revoke">Revoke</string>
+    <string name="admin_k_created">Created %1$s</string>
+    <string name="admin_k_revoked_at">Revoked %1$s</string>
+    <string name="admin_k_never_expires">Never expires</string>
+    <string name="admin_k_expired">Expired %1$s</string>
+    <string name="admin_k_expires_soon">Expires soon: %1$s</string>
+    <string name="admin_k_expires">Expires %1$s · %2$s</string>
+    <string name="admin_k_in">in %1$s</string>
+    <string name="admin_k_ago">%1$s ago</string>
+    <plurals name="admin_k_span_days">
+        <item quantity="one">%d day</item>
+        <item quantity="other">%d days</item>
+    </plurals>
+    <plurals name="admin_k_span_hours">
+        <item quantity="one">%d hour</item>
+        <item quantity="other">%d hours</item>
+    </plurals>
+    <plurals name="admin_k_span_minutes">
+        <item quantity="one">%d minute</item>
+        <item quantity="other">%d minutes</item>
+    </plurals>
+    <string name="admin_k_single_use">Single-use</string>
+    <string name="admin_k_ephemeral">Ephemeral</string>
+    <string name="admin_k_preauthorized">Pre-approved</string>
+
+    <!-- New auth key, new OAuth client -->
+    <string name="admin_k_create_auth_title">New auth key</string>
+    <string name="admin_k_create_client_title">New OAuth client</string>
+    <string name="admin_k_create">Create</string>
+    <string name="admin_k_desc_required">Description (required)</string>
+    <string name="admin_k_desc_placeholder">homelab servers</string>
+    <string name="admin_k_desc_too_long">At most %1$d characters.</string>
+    <string name="admin_k_desc_bad_chars">Only Latin letters, digits, spaces and hyphens.</string>
+    <string name="admin_k_desc_missing">A description is required.</string>
+    <string name="admin_k_expiry">Expires in</string>
+    <string name="admin_k_expiry_custom">Custom</string>
+    <string name="admin_k_expiry_days">Days</string>
+    <string name="admin_k_expiry_days_range">From 1 to %1$d.</string>
+    <string name="admin_k_tags">Tags</string>
+    <string name="admin_k_tags_required">Tags (required)</string>
+    <string name="admin_k_tags_help">A tagged device belongs to its tags, not to a person. The chips are the tags the policy defines.</string>
+    <string name="admin_k_tags_scoped_help">Keys an OAuth client makes must carry its tags (%1$s) or tags those own.</string>
+    <string name="admin_k_client_tags_help">Devices and keys the client creates carry these tags; required once it may write devices or auth keys.</string>
+    <string name="admin_k_tags_loading">Reading the policy\'s tags…</string>
+    <string name="admin_k_tags_unreadable">The policy\'s tags could not be read; type them below. %1$s</string>
+    <string name="admin_k_tags_none">The policy defines no tags in tagOwners.</string>
+    <string name="admin_k_tags_other">Other tags</string>
+    <string name="admin_k_tags_bad">Not a tag: %1$s</string>
+    <string name="admin_k_create_client_help">A credential for scripts and integrations: scoped, owned by the tailnet, never expires. Give it only the scopes it needs.</string>
+    <string name="admin_k_scopes">Scopes</string>
+    <string name="admin_k_scope_off">Off</string>
+    <string name="admin_k_scope_read">Read</string>
+    <string name="admin_k_scope_write">Write</string>
+    <string name="admin_k_scope_all">Everything</string>
+    <string name="admin_k_scope_devices">Devices</string>
+    <string name="admin_k_scope_routes">Routes</string>
+    <string name="admin_k_scope_posture">Posture attributes</string>
+    <string name="admin_k_scope_device_invites">Device sharing</string>
+    <string name="admin_k_scope_auth_keys">Auth keys</string>
+    <string name="admin_k_scope_oauth_keys">OAuth clients</string>
+    <string name="admin_k_scope_api_tokens">API tokens</string>
+    <string name="admin_k_scope_federated">Federated identities</string>
+    <string name="admin_k_scope_dns" translatable="false">DNS</string>
+    <string name="admin_k_scope_policy">Policy file</string>
+    <string name="admin_k_scope_users">Users</string>
+    <string name="admin_k_scope_webhooks">Webhooks</string>
+    <string name="admin_k_scope_audit_logs">Configuration log</string>
+    <string name="admin_k_scope_network_logs">Network flow logs</string>
+    <string name="admin_k_scope_log_streaming">Log streaming</string>
+    <string name="admin_k_scope_feature_settings">Feature settings</string>
+    <string name="admin_k_scope_networking_settings">Networking settings</string>
+    <string name="admin_k_scope_account_settings">Account settings</string>
+    <string name="admin_k_scope_services">Services</string>
+
+    <!-- Key changes, as the safety gates show them -->
+    <string name="admin_k_create_auth_effect">Devices join the tailnet with it: %1$s; it expires in %2$s.</string>
+    <string name="admin_k_warn_reusable_preauth">Reusable and pre-approved: anyone holding it can add any number of devices, unreviewed, until it expires.</string>
+    <string name="admin_k_warn_untagged">Without a tag, the devices it adds belong to the key\'s creator.</string>
+    <string name="admin_k_change_client_create">Create an OAuth client</string>
+    <string name="admin_k_change_client_create_effect">A new credential with the scopes below. Its secret is shown once.</string>
+    <string name="admin_k_warn_client_writes">It may change: %1$s.</string>
+    <string name="admin_k_warn_client_never_expires">It never expires: it works until revoked.</string>
+    <string name="admin_k_revoke_effect_credential">It stops working at once, for everything that signs in with it.</string>
+    <string name="admin_k_warn_revoke_reusable">A reusable key often lives in CI or provisioning scripts: they will fail to add devices.</string>
+    <string name="admin_k_warn_revoke_client">Every integration on this client loses access, and the tokens it minted stop working.</string>
+    <string name="admin_k_warn_revoke_federated">Workloads that sign in with this identity (CI jobs, cloud services) lose access.</string>
+    <string name="admin_k_warn_revoke_api">Scripts and tools using this token stop working.</string>
+
+    <!-- The secret, shown once -->
+    <string name="admin_k_reveal_auth_title">New auth key</string>
+    <string name="admin_k_reveal_auth_text">Sign devices in with it; the QR code carries it to another device\'s camera.</string>
+    <string name="admin_k_reveal_client_title">New OAuth client</string>
+    <string name="admin_k_reveal_client_text">Client ID: %1$s. The secret below is what a script signs in with.</string>
+    <string name="admin_k_reveal_qr_description">QR code of the secret</string>
+    <string name="admin_k_reveal_qr_show">QR code</string>
+    <string name="admin_k_reveal_qr_hide">Hide QR</string>
+    <string name="admin_k_reveal_share">Share</string>
+
+    <!-- Users tab -->
+    <string name="admin_u_search">Search users</string>
+    <string name="admin_u_search_clear">Clear search</string>
+    <string name="admin_u_filter_role">Role</string>
+    <string name="admin_u_filter_status">Status</string>
+    <string name="admin_u_filter_any">Any</string>
+    <string name="admin_u_none_match">No user matches.</string>
+    <string name="admin_u_clear_filters">Clear filters</string>
+    <string name="admin_u_online">Online</string>
+    <string name="admin_u_last_seen">Seen %1$s</string>
+    <string name="admin_u_type">Type</string>
+    <string name="admin_u_devices">Devices</string>
+    <string name="admin_u_presence">Activity</string>
+    <string name="admin_u_joined">Joined</string>
+    <string name="admin_u_approve">Approve</string>
+    <string name="admin_u_change_role">Change role</string>
+    <string name="admin_u_suspend">Suspend</string>
+    <string name="admin_u_restore">Restore</string>
+    <string name="admin_u_delete">Delete user</string>
+    <string name="admin_u_role_pick">Role of %1$s</string>
+    <string name="admin_u_cannot_write">This credential cannot change users.</string>
+    <string name="admin_u_lock_own">That is your own user: the one this credential acts as, or this phone\'s. Tailscale does not let a token change its own user; do it from another admin account.</string>
+    <string name="admin_u_lock_shared">A user of another tailnet who was shared a device here. Their role and status belong to their own tailnet; to cut them off, delete the device\'s share.</string>
+    <string name="admin_u_lock_owner">The owner changes only by a transfer of ownership, in the admin console.</string>
+    <string name="admin_u_owner_transfer">Owner is not offered: ownership is transferred in the admin console.</string>
+    <string name="admin_u_open_console">Open the admin console</string>
+
+    <string name="admin_u_role_owner_short">Admin, plus billing and the tailnet itself</string>
+    <string name="admin_u_role_admin_short">Everything in the admin console</string>
+    <string name="admin_u_role_network_admin_short">Policy, DNS, network settings</string>
+    <string name="admin_u_role_it_admin_short">Users and devices</string>
+    <string name="admin_u_role_billing_admin_short">Billing; reads the rest</string>
+    <string name="admin_u_role_auditor_short">Reads everything, changes nothing</string>
+    <string name="admin_u_role_member_short">Uses the tailnet only</string>
+    <string name="admin_u_role_owner_help">Everything an admin can do, plus owning billing and deleting the tailnet. One per tailnet.</string>
+    <string name="admin_u_role_admin_help">Full access to the admin console: devices, users, policy, settings and billing.</string>
+    <string name="admin_u_role_network_admin_help">Manages the policy file, DNS and network settings; cannot manage users or billing.</string>
+    <string name="admin_u_role_it_admin_help">Manages users and devices; cannot change the policy file or network settings.</string>
+    <string name="admin_u_role_billing_admin_help">Manages billing; reads the rest of the admin console.</string>
+    <string name="admin_u_role_auditor_help">Reads the whole admin console, logs included; changes nothing.</string>
+    <string name="admin_u_role_member_help">Uses the tailnet; no access to the admin console.</string>
+    <string name="admin_u_role_unknown_help">A role this app does not know.</string>
+    <string name="admin_u_status_active_help">Seen within the last 28 days.</string>
+    <string name="admin_u_status_idle_help">Not seen for more than 28 days.</string>
+    <string name="admin_u_status_suspended_help">Cannot reach the tailnet until restored.</string>
+    <string name="admin_u_status_needs_approval_help">Cannot join the tailnet until an admin approves them.</string>
+    <string name="admin_u_status_over_billing_limit_help">Cannot join until the plan\'s user count is raised.</string>
+    <string name="admin_u_status_unknown_help">A status this app does not know.</string>
+
+    <!-- User changes, as the safety gates show them -->
+    <string name="admin_u_change_role_effect">%1$s: %2$s</string>
+    <string name="admin_u_warn_role_up">This gives admin rights in the admin console.</string>
+    <string name="admin_u_warn_role_down">This takes their admin rights away.</string>
+    <plurals name="admin_u_warn_suspend_devices">
+        <item quantity="one">Their %d device loses access with them.</item>
+        <item quantity="other">Their %d devices lose access with them.</item>
+    </plurals>
+    <plurals name="admin_u_warn_delete_devices">
+        <item quantity="one">Their %d device is removed with them.</item>
+        <item quantity="other">Their %d devices are removed with them.</item>
+    </plurals>
+
+    <!-- Invites to the tailnet -->
+    <string name="admin_u_invites">Invites</string>
+    <plurals name="admin_u_invites_open">
+        <item quantity="one">%d open</item>
+        <item quantity="other">%d open</item>
+    </plurals>
+    <string name="admin_u_invites_unavailable">Not available</string>
+    <string name="admin_u_invites_loading">Loading…</string>
+    <string name="admin_u_invites_title">Invites to the tailnet</string>
+    <string name="admin_u_invites_help">Whoever accepts an invite joins the tailnet with its role. Accepted invites leave this list; the person appears among the users.</string>
+    <string name="admin_u_invites_need_token">Inviting takes a personal API token: Tailscale lets only a user\'s own key invite people or share devices, not an OAuth client.</string>
+    <string name="admin_u_invites_none">No open invites.</string>
+    <string name="admin_u_invite_new">Invite someone</string>
+    <string name="admin_u_invite_create">Create invite</string>
+    <string name="admin_u_invite_email">Email (optional)</string>
+    <string name="admin_u_invite_email_help">Without an email you get a link to pass on yourself.</string>
+    <string name="admin_u_invite_email_bad">That does not look like an email address.</string>
+    <string name="admin_u_invite_link">Invite link</string>
+    <string name="admin_u_invite_link_only">Link invite %1$s</string>
+    <string name="admin_u_invite_sent">Emailed %1$s</string>
+    <string name="admin_u_copy_link">Copy link</string>
+    <string name="admin_u_resend">Resend</string>
+    <string name="admin_u_invite_delete">Delete</string>
+    <string name="admin_u_reveal_invite_title">Invite link</string>
+    <string name="admin_u_reveal_invite_text">Whoever opens this link joins the tailnet with the invite\'s role. Hand it only to the person it is for.</string>
+    <string name="admin_u_change_invite_create">Invite to the tailnet</string>
+    <string name="admin_u_change_invite_email_effect">An invite goes to %1$s; on accepting they join as %2$s.</string>
+    <string name="admin_u_change_invite_link_effect">You get a link; whoever opens it joins as %1$s.</string>
+    <string name="admin_u_warn_invite_role">Whoever accepts gets the role %1$s in the admin console.</string>
+    <string name="admin_u_warn_invite_link">Anyone holding the link can accept it.</string>
+    <string name="admin_u_change_invite_resend">Resend the invite to %1$s</string>
+    <string name="admin_u_change_invite_resend_effect">The email goes out again; Tailscale allows this once a minute.</string>
+    <string name="admin_u_change_invite_delete">Delete the invite for %1$s</string>
+    <string name="admin_u_change_invite_delete_effect">The invite and its link stop working; nobody can join with it any more.</string>
+
+    <!-- Device shares -->
+    <string name="admin_u_share_device">Share a device</string>
+    <string name="admin_u_share_device_sub">With someone outside</string>
+    <string name="admin_u_share_pick">Which device to share</string>
+    <string name="admin_u_share_title">Share %1$s</string>
+    <string name="admin_u_share_help">A share lets someone from another tailnet reach this one device and nothing else. Each invite is an email or a link.</string>
+    <string name="admin_u_share_none">Not shared with anyone.</string>
+    <string name="admin_u_share_new">New share invite</string>
+    <string name="admin_u_share_create">Create invite</string>
+    <string name="admin_u_share_email_help">Without an email you get a link to pass on yourself.</string>
+    <string name="admin_u_share_multi">Multi-use</string>
+    <string name="admin_u_share_multi_help">The link can be accepted up to 1,000 times instead of once.</string>
+    <string name="admin_u_share_exit">Exit node allowed</string>
+    <string name="admin_u_share_exit_help">They may route their traffic through the device when it offers itself as an exit node.</string>
+    <string name="admin_u_share_accepted">Accepted</string>
+    <string name="admin_u_share_pending">Not accepted yet</string>
+    <string name="admin_u_share_created">Created %1$s</string>
+    <string name="admin_u_share_delete">Delete</string>
+    <string name="admin_u_reveal_share_title">Share link for %1$s</string>
+    <string name="admin_u_reveal_share_text">Whoever opens this link gets the device in their tailnet. Hand it only to the person it is for.</string>
+    <string name="admin_u_change_share_create">Share %1$s</string>
+    <string name="admin_u_change_share_email_effect">An invite to this device goes to %1$s.</string>
+    <string name="admin_u_change_share_link_effect">You get a link to this device to pass on.</string>
+    <string name="admin_u_warn_share_multi">The link can be accepted up to 1,000 times, by anyone holding it.</string>
+    <string name="admin_u_warn_share_exit">They may use the device as an exit node.</string>
+    <string name="admin_u_change_share_delete">Delete a share of %1$s</string>
+    <string name="admin_u_change_share_delete_effect">The invite and its link stop working.</string>
+    <string name="admin_u_warn_share_accepted">%1$s accepted it: deleting it may end their access to the device.</string>
+</resources>

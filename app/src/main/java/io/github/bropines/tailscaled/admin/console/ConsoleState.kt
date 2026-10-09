@@ -3,10 +3,12 @@ package io.github.bropines.tailscaled.admin.console
 import io.github.bropines.tailscaled.admin.api.AdminArea
 import io.github.bropines.tailscaled.admin.api.ApiAuditLogEntry
 import io.github.bropines.tailscaled.admin.api.ApiDevice
+import io.github.bropines.tailscaled.admin.api.ApiDeviceInvite
 import io.github.bropines.tailscaled.admin.api.ApiKey
 import io.github.bropines.tailscaled.admin.api.ApiService
 import io.github.bropines.tailscaled.admin.api.ApiServiceHost
 import io.github.bropines.tailscaled.admin.api.ApiUser
+import io.github.bropines.tailscaled.admin.api.ApiUserInvite
 import io.github.bropines.tailscaled.admin.api.ApiWebhook
 import io.github.bropines.tailscaled.admin.api.BackendFeature
 import io.github.bropines.tailscaled.admin.api.BackendKind
@@ -58,6 +60,7 @@ enum class ConsoleTab(val feature: BackendFeature?) {
     DNS(BackendFeature.DNS),
     POLICY(BackendFeature.POLICY),
     USERS(BackendFeature.USERS),
+    KEYS(BackendFeature.KEYS),
     SERVICES(BackendFeature.SERVICES),
     WEBHOOKS(BackendFeature.WEBHOOKS),
     LOGS(BackendFeature.AUDIT_LOGS),
@@ -107,8 +110,11 @@ data class ProfileDraft(
 /** A one-line message for the snackbar; [undo] when the change can be put back. */
 data class ConsoleMessage(val text: String, val id: Long, val undo: PlannedChange? = null)
 
-/** A secret the server returned once, shown until the person says it is saved. */
-data class RevealedSecret(val title: String, val text: String, val secret: String)
+/**
+ * A secret the server returned once, shown until the person says it is saved. [qr] adds a QR
+ * code of it; [once] false for what can be read again later (an invite link).
+ */
+data class RevealedSecret(val title: String, val text: String, val secret: String, val qr: Boolean = false, val once: Boolean = true)
 
 data class ConsoleState(
     val phase: ConsolePhase = ConsolePhase.LOADING,
@@ -138,6 +144,11 @@ data class ConsoleState(
     val message: ConsoleMessage? = null,
     /** The policy file, its editor and its previews; see PolicyConsole. */
     val policy: PolicyState = PolicyState(),
+    /** The policy's tagOwners (tag → owners), for the new-key tag picker. */
+    val tagOwners: Loadable<Map<String, List<String>>> = Loadable(),
+    val userInvites: Loadable<List<ApiUserInvite>> = Loadable(),
+    /** Share invites by device path id. */
+    val deviceInvites: Map<String, Loadable<List<ApiDeviceInvite>>> = emptyMap(),
 ) {
     val writeBlock: WriteBlock?
         get() = when {

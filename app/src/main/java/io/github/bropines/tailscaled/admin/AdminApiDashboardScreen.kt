@@ -11,7 +11,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.ManageAccounts
@@ -21,11 +20,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -39,7 +36,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.admin.api.AdminArea
@@ -58,11 +54,13 @@ import io.github.bropines.tailscaled.admin.policy.PolicyTab
 import io.github.bropines.tailscaled.admin.safety.ReadOnlyBanner
 import io.github.bropines.tailscaled.admin.settings.SettingsTab
 import io.github.bropines.tailscaled.admin.webhooks.WebhooksTab
+import io.github.bropines.tailscaled.admin.keys.KeysTab
+import io.github.bropines.tailscaled.admin.safety.ReadOnlyBanner
+import io.github.bropines.tailscaled.admin.users.UsersTab
 import io.github.bropines.tailscaled.core.ScrollableSlidingSegmentedChips
 import io.github.bropines.tailscaled.ui.AppTopBar
 import io.github.bropines.tailscaled.ui.PickerOption
 import io.github.bropines.tailscaled.ui.PickerSheet
-import io.github.bropines.tailscaled.ui.rememberFullSheetState
 import kotlinx.coroutines.launch
 
 private const val PICK_ADD = "\u0000add"
@@ -87,6 +85,7 @@ fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -
                 ConsoleTab.DNS -> R.string.admin_tab_dns
                 ConsoleTab.POLICY -> R.string.admin_cfg_tab_policy
                 ConsoleTab.USERS -> R.string.admin_tab_users
+                ConsoleTab.KEYS -> R.string.admin_k_tab
                 ConsoleTab.SERVICES -> R.string.admin_tab_services
                 ConsoleTab.WEBHOOKS -> R.string.admin_tab_webhooks
                 ConsoleTab.LOGS -> R.string.admin_tab_logs
@@ -98,19 +97,13 @@ fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -
     val pagerState = rememberPagerState(initialPage = tabs.indexOf(startTab).coerceAtLeast(0), pageCount = { tabs.size })
 
     var selectedDeviceId by rememberSaveable { mutableStateOf<String?>(null) }
-    var selectedUserId by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedServiceName by rememberSaveable { mutableStateOf<String?>(null) }
-    var showKeys by rememberSaveable { mutableStateOf(false) }
-    var showCreateKey by rememberSaveable { mutableStateOf(false) }
     var showProfiles by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(pagerState.currentPage, tabs) { tabs.getOrNull(pagerState.currentPage)?.let { vm?.refresh(it) } }
-    LaunchedEffect(showKeys) { if (showKeys) vm?.refreshKeys(force = false) }
 
     val profile = state.active
     val selfNode = state.self.nodeId.takeIf { state.phoneInTailnet }
-    fun isOwnUser(u: ApiUser) = (state.caps?.ownUserId != null && u.id == state.caps.ownUserId) ||
-        (state.phoneInTailnet && state.self.loginName != null && u.loginName.equals(state.self.loginName, ignoreCase = true))
 
     Scaffold(
         topBar = {
@@ -167,8 +160,8 @@ fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -
                             vm = vm,
                             onRetry = { vm?.refresh(tab, force = true) },
                             onOpenDevice = { selectedDeviceId = it.pathId },
-                            onOpenUser = { selectedUserId = it.id },
-                            onOpenKeys = { showKeys = true },
+                            onOpenUser = { u -> vm?.usersTab?.openUser?.value = u.id; scope.launch { pagerState.animateScrollToPage(tabs.indexOf(ConsoleTab.USERS).coerceAtLeast(0)) } },
+                            onOpenKeys = { scope.launch { pagerState.animateScrollToPage(tabs.indexOf(ConsoleTab.KEYS).coerceAtLeast(0)) } },
                             onReplaceCredential = { vm?.profiles?.editActive() },
                         )
                         ConsoleTab.DEVICES -> DevicesTab(
@@ -179,12 +172,8 @@ fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -
                         )
                         ConsoleTab.DNS -> DnsTab(state, vm)
                         ConsoleTab.POLICY -> PolicyTab(state, vm)
-                        ConsoleTab.USERS -> UsersTabContent(
-                            state = state.users,
-                            isOwn = ::isOwnUser,
-                            onRetry = { vm?.refresh(tab, force = true) },
-                            onUserClick = { selectedUserId = it.id },
-                        )
+                        ConsoleTab.USERS -> UsersTab(state, vm)
+                        ConsoleTab.KEYS -> KeysTab(state, vm)
                         ConsoleTab.SERVICES -> ServicesTabContent(
                             state = state.services,
                             onRetry = { vm?.refresh(tab, force = true) },
@@ -200,7 +189,11 @@ fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -
                             onClearLocal = { vm?.clearLocalLog() },
                         )
                         ConsoleTab.WEB -> AdminApiWebTabContent()
-                        ConsoleTab.SETTINGS -> SettingsTab(state, vm, onManageKeys = { showKeys = true })
+                        ConsoleTab.SETTINGS -> SettingsTab(
+                            state,
+                            vm,
+                            onManageKeys = { scope.launch { pagerState.animateScrollToPage(tabs.indexOf(ConsoleTab.KEYS).coerceAtLeast(0)) } },
+                        )
                     }
                 }
             }
@@ -241,25 +234,6 @@ fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -
         }
     }
 
-    selectedUserId?.let { id ->
-        val user = state.users.value?.firstOrNull { it.id == id }
-        // Gone after a refresh (deleted, say): the sheet closes with it.
-        LaunchedEffect(user == null) { if (user == null) selectedUserId = null }
-        if (user != null) {
-            UserDetailBottomSheet(
-                user = user,
-                own = isOwnUser(user),
-                canWrite = state.canWrite(AdminArea.USERS),
-                onDismiss = { selectedUserId = null },
-                onRoleChange = { vm?.setUserRole(user, it) },
-                onApprove = { vm?.approveUser(user) },
-                onSuspend = { vm?.suspendUser(user) },
-                onRestore = { vm?.restoreUser(user) },
-                onDelete = { vm?.deleteUser(user) },
-            )
-        }
-    }
-
     selectedServiceName?.let { name ->
         val service = state.services.value?.firstOrNull { it.name == name }
         // Gone after a refresh (deleted, say): the sheet closes with it.
@@ -277,40 +251,6 @@ fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -
         }
     }
 
-    if (showCreateKey) {
-        CreateKeyDialog(
-            policyTags = state.policyTags,
-            onDismiss = { showCreateKey = false },
-            onGenerate = { request ->
-                showCreateKey = false
-                vm?.createAuthKey(request)
-            },
-        )
-    }
-
-    if (showKeys) {
-        val sheetState = rememberFullSheetState()
-        ModalBottomSheet(onDismissRequest = { showKeys = false }, sheetState = sheetState) {
-            Column(Modifier.fillMaxSize()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(ctx.getString(R.string.admin_settings_auth_keys_title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    IconButton(onClick = { showKeys = false }) { Icon(Icons.Default.Close, contentDescription = ctx.getString(R.string.action_close)) }
-                }
-                HorizontalDivider()
-                KeysTabContent(
-                    state = state.keys,
-                    ownKeyId = state.caps?.ownKeyId,
-                    canWrite = state.canWrite(AdminArea.AUTH_KEYS),
-                    onRetry = { vm?.refreshKeys() },
-                    onRevokeClick = { vm?.revokeKey(it) },
-                    onCreateKeyClick = { showCreateKey = true },
-                )
-            }
-        }
-    }
 }
 
 private fun loadableFor(state: ConsoleState, tab: ConsoleTab): Loadable<*>? = when (tab) {
@@ -319,6 +259,7 @@ private fun loadableFor(state: ConsoleState, tab: ConsoleTab): Loadable<*>? = wh
     ConsoleTab.DNS -> state.dns
     ConsoleTab.POLICY -> state.policy.file
     ConsoleTab.USERS -> state.users
+    ConsoleTab.KEYS -> state.keys
     ConsoleTab.SERVICES -> state.services
     ConsoleTab.WEBHOOKS -> state.webhooks
     ConsoleTab.LOGS -> state.tailnetLog

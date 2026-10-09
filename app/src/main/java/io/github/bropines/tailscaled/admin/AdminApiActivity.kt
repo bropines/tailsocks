@@ -138,7 +138,7 @@ fun AdminConsoleContent(state: ConsoleState, vm: AdminConsoleViewModel?, onBack:
             onCancel = { vm?.cancelChange() },
             onUnlockResult = { vm?.onUnlockResult(it) },
         )
-        state.revealed?.let { SecretRevealDialog(it.title, it.text, it.secret) { vm?.secretSaved() } }
+        state.revealed?.let { SecretRevealDialog(it.title, it.text, it.secret, qr = it.qr, once = it.once) { vm?.secretSaved() } }
 
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
     }
