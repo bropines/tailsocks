@@ -140,7 +140,7 @@ fun DeviceDetailSheet(device: ApiDevice, state: ConsoleState, vm: AdminConsoleVi
                 onExpire = { vm?.expireDevice(device) },
                 onDelete = { vm?.deleteDevice(device) },
                 onSetRoutes = { before, after ->
-                    vm?.let { it.propose(DeviceChanges.setRoutes(it.text, device, before, after, self)) { it.loadRoutes(device) } }
+                    vm?.let { v -> v.propose(DeviceChanges.setRoutes(v.text, device, before, after, self), after = { v.loadRoutes(device) }) }
                 },
                 onRetryRoutes = { vm?.loadRoutes(device) },
                 onRetryDetail = { if (vm != null) dvm?.loadDetail(vm, device.pathId) },

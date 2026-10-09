@@ -385,9 +385,10 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
     /**
      * Every write starts here: guards, then the gates its class needs, then apply and verify.
      * [after] runs once it applied; [outcome] gets how it ended, whatever that was (not called
-     * when the person cancels at a gate).
+     * when the person cancels at a gate). [after] comes last so that a trailing lambda is the
+     * success callback: a "sent" or a reveal must never run for a write that failed.
      */
-    fun propose(planned: PlannedChange, after: (() -> Unit)? = null, outcome: ((ChangeOutcome) -> Unit)? = null) {
+    fun propose(planned: PlannedChange, outcome: ((ChangeOutcome) -> Unit)? = null, after: (() -> Unit)? = null) {
         val r = runner ?: return
         val blocked = r.blockedBy(planned.change)
         if (blocked != null) {
