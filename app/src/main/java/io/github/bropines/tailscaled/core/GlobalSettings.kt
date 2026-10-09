@@ -506,7 +506,7 @@ object GlobalSettings {
      *  - `automation_secret` — a shared secret, and the reason the whole
      *    `tailsocks_global` file is excluded from cloud backup and device
      *    transfer (res/xml/data_extraction_rules.xml). The Admin API token
-     *    (`admin_api_keys`) and the node keys (`files/states`) live outside this
+     *    (Keystore-sealed in `admin_vault`) and the node keys (`files/states`) live outside this
      *    preference file and are likewise never exported.
      *  - `root_routing_installed`, `root_routing_yielded`, `root_routing_shared`
      *    — markers for the rules installed on *this* device right now; restoring

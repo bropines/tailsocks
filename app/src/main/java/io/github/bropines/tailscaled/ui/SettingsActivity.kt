@@ -2,7 +2,9 @@ package io.github.bropines.tailscaled.ui
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.BuildConfig
 
-import io.github.bropines.tailscaled.admin.*
+import io.github.bropines.tailscaled.admin.AdminApiActivity
+import io.github.bropines.tailscaled.admin.profile.AdminProfiles
+import io.github.bropines.tailscaled.admin.profile.AuthType
 import io.github.bropines.tailscaled.core.*
 import io.github.bropines.tailscaled.models.*
 import androidx.appcompat.app.AppCompatDelegate
@@ -327,13 +329,24 @@ fun SettingsScreen(
     var exitNodeId by remember { mutableStateOf(profilePrefs.getString("exit_node_id", "") ?: "") }
     var enableWebUI by remember { mutableStateOf(profilePrefs.getBoolean("enable_webui", false)) }
     var webUIAddr by remember { mutableStateOf(profilePrefs.getString("webui_addr", "127.0.0.1:8080") ?: "127.0.0.1:8080") }
-    val globalApiPrefs = remember { context.getSharedPreferences("admin_api_keys", Context.MODE_PRIVATE) }
-    var adminApiTailnet by remember { mutableStateOf(profilePrefs.getString("last_known_tailnet", "") ?: "") }
-    var adminApiToken by remember { mutableStateOf("") }
-    LaunchedEffect(adminApiTailnet) {
-        adminApiToken = if (adminApiTailnet.isNotEmpty()) {
-            globalApiPrefs.getString(adminApiTailnet, "") ?: ""
-        } else ""
+    // The admin console's active profile, for the row that opens it. Read off the main thread:
+    // the first read migrates the old plain-text credentials into the Keystore-sealed vault.
+    // No secret is ever read here, let alone shown.
+    var adminSummary by remember { mutableStateOf("") }
+    val adminInPreview = androidx.compose.ui.platform.LocalInspectionMode.current
+    LaunchedEffect(Unit) {
+        if (adminInPreview) return@LaunchedEffect
+        adminSummary = withContext(Dispatchers.IO) {
+            runCatching {
+                AdminProfiles.store(context).active()?.let { p ->
+                    listOfNotNull(
+                        p.displayName,
+                        context.getString(if (p.authType == AuthType.OAUTH_CLIENT) R.string.admin_setup_tab_oauth else R.string.admin_setup_tab_token),
+                        context.getString(R.string.admin2_profile_read_only_badge).takeIf { p.readOnly },
+                    ).joinToString(" · ")
+                }
+            }.getOrNull() ?: context.getString(R.string.admin2_settings_none)
+        }
     }
 
     var advertiseTags by remember { mutableStateOf(profilePrefs.getString("advertise_tags", "") ?: "") }
@@ -2426,30 +2439,9 @@ fun SettingsScreen(
         Spacer(Modifier.height(12.dp))
 
         SettingsCard(title = stringResource(R.string.settings_sect_admin_api)) {
-            SettingsEditItem(stringResource(R.string.settings_admin_tailnet_title), adminApiTailnet, Icons.Default.CloudQueue, placeholder = stringResource(R.string.settings_admin_tailnet_placeholder)) { 
-                val oldTailnet = adminApiTailnet
-                adminApiTailnet = it
-                saveProfilePref("last_known_tailnet", it, triggerService = false)
-                if (it.isNotEmpty() && oldTailnet.isNotEmpty() && oldTailnet != it) {
-                    val tok = globalApiPrefs.getString(oldTailnet, "") ?: ""
-                    if (tok.isNotEmpty()) {
-                        globalApiPrefs.edit().putString(it, tok).apply()
-                    }
-                }
-            }
-            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-            SettingsEditItem(stringResource(R.string.settings_admin_token_title), adminApiToken, Icons.Default.VpnKey, placeholder = stringResource(R.string.settings_admin_token_placeholder)) { 
-                adminApiToken = it
-                if (adminApiTailnet.isNotEmpty()) {
-                    globalApiPrefs.edit().putString(adminApiTailnet, it).apply()
-                } else {
-                    Toast.makeText(context, context.getString(R.string.settings_admin_tailnet_missing), Toast.LENGTH_SHORT).show()
-                }
-            }
-            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
             SettingsClickableItem(
                 stringResource(R.string.admin_console_title),
-                stringResource(R.string.settings_link_admin_desc),
+                adminSummary.ifBlank { stringResource(R.string.settings_link_admin_desc) },
                 Icons.Default.AdminPanelSettings
             ) { context.startActivity(Intent(context, AdminApiActivity::class.java)) }
         }

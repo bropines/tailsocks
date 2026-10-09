@@ -3,7 +3,25 @@ import io.github.bropines.tailscaled.R
 import androidx.compose.material.icons.automirrored.filled.Notes
 import io.github.bropines.tailscaled.BuildConfig
 
-import io.github.bropines.tailscaled.admin.*
+import io.github.bropines.tailscaled.admin.api.ApiService
+import io.github.bropines.tailscaled.admin.console.ConsoleText
+import io.github.bropines.tailscaled.admin.profile.AdminProfile
+import io.github.bropines.tailscaled.admin.profile.AdminProfiles
+import io.github.bropines.tailscaled.admin.safety.AdminAuditLog
+import io.github.bropines.tailscaled.admin.safety.AdminChange
+import io.github.bropines.tailscaled.admin.safety.ChangeClassifier
+import io.github.bropines.tailscaled.admin.safety.ChangeKind
+import io.github.bropines.tailscaled.admin.safety.ChangeOutcome
+import io.github.bropines.tailscaled.admin.safety.ChangeTarget
+import io.github.bropines.tailscaled.admin.safety.GateEvidence
+import io.github.bropines.tailscaled.admin.safety.PlannedChange
+import io.github.bropines.tailscaled.admin.safety.SafeChangeRunner
+import io.github.bropines.tailscaled.admin.safety.SafetyContext
+import io.github.bropines.tailscaled.admin.safety.TargetType
+import io.github.bropines.tailscaled.admin.secure.AdminWriteGate
+import io.github.bropines.tailscaled.admin.secure.LockState
+import io.github.bropines.tailscaled.admin.secure.UnlockResult
+import io.github.bropines.tailscaled.admin.secure.findFragmentActivity
 import io.github.bropines.tailscaled.core.*
 import io.github.bropines.tailscaled.models.*
 
@@ -555,85 +573,116 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
     val allRules = remember(rules, paused) { rules + paused }
     fun setPaused(list: List<ServeRule>) { paused = list; PausedRules.save(context, list) }
 
-    /** The Admin API credentials for this tailnet, if the console was ever set up for it. */
-    fun adminSettings(): AdminApiSettings? {
-        val tailnet = AdminApiSettings.lastKnownTailnet(context).ifBlank { caps.dnsName.substringAfter(".", "") }
-        if (tailnet.isBlank()) return null
-        return AdminApiSettings.read(context, tailnet).takeIf { it.hasCredentials }
+    /**
+     * The admin profile that may publish in this tailnet: one for its MagicDNS suffix, with a
+     * credential, not read-only, on a phone with a screen lock to unlock the change. Null
+     * otherwise, and the screen offers the console's link instead.
+     */
+    var publishProfile by remember { mutableStateOf<AdminProfile?>(null) }
+    LaunchedEffect(caps.dnsName) {
+        if (inPreview) return@LaunchedEffect
+        // Off the main thread: the first read of the profiles may migrate old credentials into the Keystore.
+        publishProfile = withContext(Dispatchers.IO) {
+            runCatching {
+                AdminProfiles.forTailnet(context, caps.dnsName.trimEnd('.').substringAfter(".", "").ifBlank { null })
+                    ?.takeIf { !it.readOnly && AdminProfiles.hasCredential(context, it) && AdminWriteGate.lockState(context) != LockState.NO_SCREEN_LOCK }
+            }.getOrNull()
+        }
     }
+    fun adminSettings(): AdminProfile? = publishProfile
 
     /**
-     * Defines `svc:<service>` in the tailnet (or adds this screen's ports to its
-     * definition) and approves this node as its host, through the Admin API and
-     * behind the device credential. The two steps the admin console otherwise
-     * asks for by hand.
+     * Defines `svc:<service>` in the tailnet (or sets this screen's ports as its definition)
+     * and approves this node as its host, through the Admin API: a MEDIUM change. The dialog
+     * that asked was its confirm, then the write unlock, which fails closed. Recorded in the
+     * console's audit log like every other write.
      */
     fun publishService(service: String, ports: List<Int>) {
-        val settings = adminSettings() ?: return
-        val run = {
-            publishBusy = true
-            publishLogs[service] = emptyList()
-            logExpanded = logExpanded + service
-            val name = "svc:$service"
-            val portList = ports.distinct().sorted().map { "tcp:$it" }
-            scope.launch(Dispatchers.IO) {
-                suspend fun log(text: String) = withContext(Dispatchers.Main) { logLine(service, text) }
-                val result = runCatching {
-                    val client = settings.newClient(context)
-                    log(context.getString(R.string.serve_log_reading, name))
-                    val existing = client.getTailnetService(name)
-                    log(
-                        if (existing == null) context.getString(R.string.serve_log_not_found)
-                        else context.getString(R.string.serve_log_found, existing.ports?.joinToString(", ") ?: "")
-                    )
-                    // The definition's endpoints are exactly what this node serves for
-                    // the service. Merging in the old ones left a port behind when a
-                    // rule moved (443 → 2550), and a host that does not serve every
-                    // defined port is "needs configuration" in the console: control
-                    // then hands the service address to nobody.
-                    log(context.getString(R.string.serve_log_defining, portList.joinToString(", ")))
-                    client.createOrUpdateService(
-                        VIPServiceInfo(
-                            name = name,
-                            addrs = existing?.addrs,
-                            comment = existing?.comment,
-                            ports = portList,
-                            tags = existing?.tags
-                        )
-                    )
-                    log(context.getString(R.string.serve_log_defined))
-                    if (caps.nodeId.isNotEmpty()) {
-                        log(context.getString(R.string.serve_log_approving, caps.nodeId))
-                        client.setServiceDeviceApproved(name, caps.nodeId, true)
-                        log(context.getString(R.string.serve_log_approved))
-                    } else {
-                        log(context.getString(R.string.serve_log_no_node_id))
-                    }
-                }
-                withContext(Dispatchers.Main) {
-                    publishBusy = false
-                    result.onSuccess {
-                        logLine(service, context.getString(R.string.serve_log_waiting))
-                        awaitingAddress = awaitingAddress + service
-                        publishedAt = System.currentTimeMillis()
-                    }.onFailure {
-                        logLine(service, context.getString(R.string.serve_log_error, it.message ?: it.toString()))
-                    }
-                }
-            }
-        }
-        // The prompt needs the FragmentActivity itself; the one handed in by
-        // ServeActivity, not whatever LocalContext resolves to. Without it the
-        // tailnet is not touched.
+        val profile = adminSettings() ?: return
+        // The prompt needs the FragmentActivity itself; the one handed in by ServeActivity,
+        // not whatever LocalContext resolves to. Without it the tailnet is not touched.
         val host = activity ?: context.findFragmentActivity()
         if (host == null) {
             Toast.makeText(context, context.getString(R.string.serve_svc_publish_failed, "no activity for the credential prompt"), Toast.LENGTH_LONG).show()
             return
         }
-        host.authenticateWithBiometrics(
-            context.getString(R.string.admin_biometric_title),
-            context.getString(R.string.serve_svc_biometric_subtitle)
-        ) { ok -> if (ok) run() }
+        val name = "svc:$service"
+        val portList = ports.distinct().sorted().map { "tcp:$it" }
+        scope.launch {
+            val unlock = AdminWriteGate.unlock(host, context.getString(R.string.admin2_write_unlock_title), context.getString(R.string.serve_svc_biometric_subtitle))
+            val grant = when (unlock) {
+                is UnlockResult.Granted -> unlock.grant
+                UnlockResult.Cancelled -> return@launch
+                is UnlockResult.Failed -> {
+                    Toast.makeText(context, ConsoleText.unlockFailure(context, unlock.reason), Toast.LENGTH_LONG).show()
+                    return@launch
+                }
+            }
+            publishBusy = true
+            publishLogs[service] = emptyList()
+            logExpanded = logExpanded + service
+            suspend fun log(text: String) = withContext(Dispatchers.Main) { logLine(service, text) }
+            val planned = PlannedChange(
+                change = AdminChange(
+                    kind = ChangeKind.SERVICE_PUBLISH,
+                    changeClass = ChangeClassifier.classify(ChangeKind.SERVICE_PUBLISH),
+                    target = ChangeTarget(TargetType.SERVICE, name, name),
+                    title = context.getString(R.string.admin2_change_service_publish, name),
+                    effect = context.getString(R.string.admin2_change_service_publish_effect),
+                ),
+                apply = { b ->
+                    log(context.getString(R.string.serve_log_reading, name))
+                    val existing = b.getService(name)
+                    log(
+                        if (existing == null) context.getString(R.string.serve_log_not_found)
+                        else context.getString(R.string.serve_log_found, existing.ports.joinToString(", "))
+                    )
+                    // The definition's endpoints are exactly what this node serves for the
+                    // service. Merging in the old ones left a port behind when a rule moved
+                    // (443 to 2550), and a host that does not serve every defined port is
+                    // "needs configuration" in the console: control then hands the service
+                    // address to nobody.
+                    log(context.getString(R.string.serve_log_defining, portList.joinToString(", ")))
+                    b.putService(
+                        ApiService(
+                            name = name,
+                            displayName = existing?.displayName,
+                            addrs = existing?.addrs.orEmpty(),
+                            comment = existing?.comment,
+                            ports = portList,
+                            tags = existing?.tags.orEmpty(),
+                        )
+                    )
+                    log(context.getString(R.string.serve_log_defined))
+                    if (caps.nodeId.isNotEmpty()) {
+                        log(context.getString(R.string.serve_log_approving, caps.nodeId))
+                        b.setServiceHostApproved(name, caps.nodeId, true)
+                        log(context.getString(R.string.serve_log_approved))
+                    } else {
+                        log(context.getString(R.string.serve_log_no_node_id))
+                    }
+                },
+            )
+            val outcome = withContext(Dispatchers.IO) {
+                runCatching {
+                    val backend = AdminProfiles.newBackend(context, profile)
+                    val runner = SafeChangeRunner(backend, AdminAuditLog(AdminAuditLog.fileIn(context.filesDir)), {
+                        SafetyContext(profile.id, profile.displayName, readOnlyProfile = profile.readOnly, lockState = AdminWriteGate.lockState(context))
+                    })
+                    runner.run(planned, GateEvidence(confirmed = true, grant = grant))
+                }.getOrElse { ChangeOutcome.Failed(it, emptyList()) }
+            }
+            publishBusy = false
+            when (outcome) {
+                is ChangeOutcome.Applied -> {
+                    logLine(service, context.getString(R.string.serve_log_waiting))
+                    awaitingAddress = awaitingAddress + service
+                    publishedAt = System.currentTimeMillis()
+                }
+                is ChangeOutcome.Failed -> logLine(service, context.getString(R.string.serve_log_error, ConsoleText.error(context, outcome.error)))
+                is ChangeOutcome.Refused -> logLine(service, context.getString(R.string.serve_log_error, ConsoleText.refusal(context, outcome.reason)))
+            }
+        }
     }
 
     val certSaveLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/x-pem-file")) { uri ->

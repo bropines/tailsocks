@@ -1,327 +1,232 @@
 package io.github.bropines.tailscaled.admin
-import io.github.bropines.tailscaled.R
-import io.github.bropines.tailscaled.BuildConfig
-
-import io.github.bropines.tailscaled.core.*
-import io.github.bropines.tailscaled.models.*
-import io.github.bropines.tailscaled.ui.*
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Block
-import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Group
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Card
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
+import io.github.bropines.tailscaled.R
+import io.github.bropines.tailscaled.admin.api.RouteSelection
+import io.github.bropines.tailscaled.admin.api.TailnetSettingKey
+import io.github.bropines.tailscaled.admin.api.TailnetSettings
+import io.github.bropines.tailscaled.admin.console.ConsoleText
+import io.github.bropines.tailscaled.admin.console.Loadable
+import io.github.bropines.tailscaled.ui.HelpText
+import io.github.bropines.tailscaled.ui.PickerOption
+import io.github.bropines.tailscaled.ui.PickerSheet
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+/**
+ * The tailnet's settings, each saved on its own: a credential without the scope for one
+ * setting fails that row, not the screen, and every change goes through the safety pipeline
+ * (HIGH for what opens the tailnet). regionalRoutingOn is read-only now; routeSelection
+ * replaced it.
+ */
 @Composable
 fun TailnetSettingsTabContent(
-    settings: TailnetSettings?,
-    onApplySettings: (TailnetSettings) -> Unit,
+    state: Loadable<TailnetSettings>,
+    canWrite: (TailnetSettingKey) -> Boolean,
+    onRetry: () -> Unit,
+    onSet: (key: TailnetSettingKey, label: String, value: Any, show: (Any?) -> String) -> Unit,
     onManageKeysClick: () -> Unit,
-    onBillingClick: () -> Unit
 ) {
+    val settings = state.value
     if (settings == null) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            LoadingIndicator()
+        Column(Modifier.fillMaxSize().padding(16.dp)) {
+            LoadProblems(state, onRetry)
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { if (state.loading) LoadingIndicatorCompat() }
         }
         return
     }
-
-    // A sheet opens its own window whose LocalContext ignores the app locale, so
-    // its strings are resolved through this parent context instead — see
-    // wrapContextWithLocale().
+    // A sheet is a window of its own; strings come from here, the parent (wrapContextWithLocale).
     val ctx = LocalContext.current
-
-    var devicesApproval by remember(settings) { mutableStateOf(settings.devicesApprovalOn == true) }
-    var usersApproval by remember(settings) { mutableStateOf(settings.usersApprovalOn == true) }
-    var autoUpdates by remember(settings) { mutableStateOf(settings.devicesAutoUpdatesOn == true) }
-    var keyDurationDays by remember(settings) { mutableIntStateOf(settings.devicesKeyDurationDays ?: 180) }
-
-    var networkFlowLogging by remember(settings) { mutableStateOf(settings.networkFlowLoggingOn == true) }
-    var regionalRouting by remember(settings) { mutableStateOf(settings.regionalRoutingOn == true) }
-    var postureIdentityCollection by remember(settings) { mutableStateOf(settings.postureIdentityCollectionOn == true) }
-    var allowedExternalJoinRole by remember(settings) { mutableStateOf(settings.usersRoleAllowedToJoinExternalTailnets ?: "admin") }
-
-    var showDurationPicker by remember { mutableStateOf(false) }
-    var showRolePicker by remember { mutableStateOf(false) }
-
-    // The API's own words, "none", "admin", "member", used to stand on the button
-    // in capitals; these say who that is. A value the API adds later still shows,
-    // as itself.
-    fun roleLabel(role: String): String = when (role) {
+    val onOff: (Any?) -> String = { ConsoleText.onOff(ctx, it as? Boolean) }
+    fun daysLabel(days: Int): String = ctx.resources.getQuantityString(R.plurals.pickers_days, days, days)
+    fun roleLabel(role: String?): String = when (role) {
         "none" -> ctx.getString(R.string.pickers_role_none)
         "admin" -> ctx.getString(R.string.pickers_role_admin)
         "member" -> ctx.getString(R.string.pickers_role_member)
+        null, "" -> ctx.getString(R.string.admin2_settings_unknown)
         else -> role
     }
-    fun daysLabel(days: Int): String = ctx.resources.getQuantityString(R.plurals.pickers_days, days, days)
 
-    if (showDurationPicker) {
+    var durationPicker by remember { mutableStateOf(false) }
+    var rolePicker by remember { mutableStateOf(false) }
+    var routePicker by remember { mutableStateOf(false) }
+
+    if (durationPicker) {
+        val label = ctx.getString(R.string.admin_settings_key_expiry_title)
         PickerSheet(
-            title = ctx.getString(R.string.admin_settings_key_expiry_title),
+            title = label,
             options = listOf(1, 7, 30, 90, 180).map { PickerOption(it, daysLabel(it)) },
-            selected = keyDurationDays,
-            onPick = { keyDurationDays = it },
-            onDismiss = { showDurationPicker = false }
+            selected = settings.devicesKeyDurationDays,
+            onPick = { onSet(TailnetSettingKey.DEVICES_KEY_DURATION, label, it) { v -> (v as? Int)?.let(::daysLabel) ?: ctx.getString(R.string.admin2_settings_unknown) } },
+            onDismiss = { durationPicker = false },
         )
     }
-    if (showRolePicker) {
+    if (rolePicker) {
+        val label = ctx.getString(R.string.admin_settings_external_tailnets_title)
         PickerSheet(
             title = ctx.getString(R.string.admin_settings_allowed_role),
             options = listOf(
                 PickerOption("none", roleLabel("none"), Icons.Default.Block),
                 PickerOption("admin", roleLabel("admin"), Icons.Default.AdminPanelSettings),
-                PickerOption("member", roleLabel("member"), Icons.Default.Group)
+                PickerOption("member", roleLabel("member"), Icons.Default.Group),
             ),
-            selected = allowedExternalJoinRole,
-            onPick = { allowedExternalJoinRole = it },
-            onDismiss = { showRolePicker = false }
+            selected = settings.usersRoleAllowedToJoinExternalTailnets,
+            onPick = { onSet(TailnetSettingKey.USERS_EXTERNAL_ROLE, label, it) { v -> roleLabel(v as? String) } },
+            onDismiss = { rolePicker = false },
+        )
+    }
+    if (routePicker) {
+        val label = ctx.getString(R.string.admin2_settings_route_selection_title)
+        PickerSheet(
+            title = label,
+            options = RouteSelection.all.map { PickerOption(it, ConsoleText.routeSelection(ctx, it)) },
+            selected = settings.routeSelection,
+            onPick = { onSet(TailnetSettingKey.ROUTE_SELECTION, label, it) { v -> ConsoleText.routeSelection(ctx, v as? String) } },
+            onDismiss = { routePicker = false },
         )
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Card(
-            modifier = Modifier.fillMaxWidth().clickable { onManageKeysClick() }
+    @Composable
+    fun SwitchRow(key: TailnetSettingKey, titleRes: Int, descRes: Int, value: Boolean?) {
+        val title = ctx.getString(titleRes)
+        val enabled = canWrite(key) && value != null
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.medium)
+                .toggleable(value = value == true, enabled = enabled, role = Role.Switch) { onSet(key, title, it, onOff) }
+                .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.admin_settings_auth_keys_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text(stringResource(R.string.admin_settings_auth_keys_desc), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                HelpText(ctx.getString(descRes), inClickableRow = true)
+            }
+            Spacer(Modifier.width(8.dp))
+            Switch(checked = value == true, onCheckedChange = null, enabled = enabled)
+        }
+    }
+
+    @Composable
+    fun PickerRow(title: String, desc: String?, value: String, enabled: Boolean, onClick: () -> Unit) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                if (desc != null) HelpText(desc)
+            }
+            Spacer(Modifier.width(12.dp))
+            OutlinedButton(onClick = onClick, enabled = enabled, shape = MaterialTheme.shapes.medium) {
+                Text(value, maxLines = 1, softWrap = false)
+                Spacer(Modifier.width(4.dp))
+                Icon(Icons.Default.ArrowDropDown, null)
+            }
+        }
+    }
+
+    @Composable
+    fun Section(title: String, content: @Composable ColumnScope.() -> Unit) {
+        Card(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                content()
+            }
+        }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        LoadProblems(state, onRetry)
+
+        Card(modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.large).clickable { onManageKeysClick() }, shape = MaterialTheme.shapes.large) {
+            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(ctx.getString(R.string.admin_settings_auth_keys_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    HelpText(ctx.getString(R.string.admin_settings_auth_keys_desc))
                 }
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null)
             }
         }
 
-        // Billing removed and moved to Web Links tab
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(stringResource(R.string.admin_settings_key_expiry_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text(
-                    stringResource(R.string.admin_settings_key_expiry_desc),
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    // The label yields to the button, which cannot shrink.
-                    Text(
-                        stringResource(R.string.admin_settings_duration_days),
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Spacer(Modifier.width(12.dp))
-
-                    OutlinedButton(onClick = { showDurationPicker = true }) {
-                        Text(
-                            daysLabel(keyDurationDays),
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Icon(Icons.Default.ArrowDropDown, null)
-                    }
-                }
-            }
+        Section(ctx.getString(R.string.admin_settings_access_title)) {
+            SwitchRow(TailnetSettingKey.DEVICES_APPROVAL, R.string.admin_settings_device_approval_title, R.string.admin_settings_device_approval_desc, settings.devicesApprovalOn)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            SwitchRow(TailnetSettingKey.USERS_APPROVAL, R.string.admin_settings_user_approval_title, R.string.admin_settings_user_approval_desc, settings.usersApprovalOn)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            PickerRow(
+                ctx.getString(R.string.admin_settings_key_expiry_title),
+                ctx.getString(R.string.admin_settings_key_expiry_desc),
+                settings.devicesKeyDurationDays?.let(::daysLabel) ?: ctx.getString(R.string.admin2_settings_unknown),
+                canWrite(TailnetSettingKey.DEVICES_KEY_DURATION),
+            ) { durationPicker = true }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            PickerRow(
+                ctx.getString(R.string.admin_settings_external_tailnets_title),
+                ctx.getString(R.string.admin_settings_external_tailnets_desc),
+                roleLabel(settings.usersRoleAllowedToJoinExternalTailnets),
+                canWrite(TailnetSettingKey.USERS_EXTERNAL_ROLE),
+            ) { rolePicker = true }
         }
 
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text(stringResource(R.string.admin_settings_access_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-
-                Row(
-                    modifier = Modifier.fillMaxWidth().clickable { devicesApproval = !devicesApproval },
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.admin_settings_device_approval_title), fontWeight = FontWeight.Medium)
-                        Text(stringResource(R.string.admin_settings_device_approval_desc), fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
-                    }
-                    Switch(checked = devicesApproval, onCheckedChange = { devicesApproval = it })
-                }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-                Row(
-                    modifier = Modifier.fillMaxWidth().clickable { usersApproval = !usersApproval },
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.admin_settings_user_approval_title), fontWeight = FontWeight.Medium)
-                        Text(stringResource(R.string.admin_settings_user_approval_desc), fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
-                    }
-                    Switch(checked = usersApproval, onCheckedChange = { usersApproval = it })
-                }
-            }
+        Section(ctx.getString(R.string.admin_settings_software_title)) {
+            SwitchRow(TailnetSettingKey.DEVICES_AUTO_UPDATES, R.string.admin_settings_auto_updates_title, R.string.admin_settings_auto_updates_desc, settings.devicesAutoUpdatesOn)
         }
 
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text(stringResource(R.string.admin_settings_software_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-
-                Row(
-                    modifier = Modifier.fillMaxWidth().clickable { autoUpdates = !autoUpdates },
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.admin_settings_auto_updates_title), fontWeight = FontWeight.Medium)
-                        Text(stringResource(R.string.admin_settings_auto_updates_desc), fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
-                    }
-                    Switch(checked = autoUpdates, onCheckedChange = { autoUpdates = it })
-                }
-            }
+        Section(ctx.getString(R.string.admin_settings_network_title)) {
+            SwitchRow(TailnetSettingKey.HTTPS, R.string.admin2_settings_https_title, R.string.admin2_settings_https_desc, settings.httpsEnabled)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            PickerRow(
+                ctx.getString(R.string.admin2_settings_route_selection_title),
+                ctx.getString(R.string.admin2_settings_route_selection_desc),
+                ConsoleText.routeSelection(ctx, settings.routeSelection),
+                canWrite(TailnetSettingKey.ROUTE_SELECTION),
+            ) { routePicker = true }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            SwitchRow(TailnetSettingKey.NETWORK_FLOW_LOGGING, R.string.admin_settings_flow_logging_title, R.string.admin_settings_flow_logging_desc, settings.networkFlowLoggingOn)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            SwitchRow(TailnetSettingKey.POSTURE_IDENTITY, R.string.admin_settings_posture_title, R.string.admin_settings_posture_desc, settings.postureIdentityCollectionOn)
         }
 
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text(stringResource(R.string.admin_settings_network_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-
-                Row(
-                    modifier = Modifier.fillMaxWidth().clickable { networkFlowLogging = !networkFlowLogging },
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.admin_settings_flow_logging_title), fontWeight = FontWeight.Medium)
-                        Text(stringResource(R.string.admin_settings_flow_logging_desc), fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
-                    }
-                    Switch(checked = networkFlowLogging, onCheckedChange = { networkFlowLogging = it })
-                }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-                Row(
-                    modifier = Modifier.fillMaxWidth().clickable { regionalRouting = !regionalRouting },
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.admin_settings_regional_routing_title), fontWeight = FontWeight.Medium)
-                        Text(stringResource(R.string.admin_settings_regional_routing_desc), fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
-                    }
-                    Switch(checked = regionalRouting, onCheckedChange = { regionalRouting = it })
-                }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-                Row(
-                    modifier = Modifier.fillMaxWidth().clickable { postureIdentityCollection = !postureIdentityCollection },
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.admin_settings_posture_title), fontWeight = FontWeight.Medium)
-                        Text(stringResource(R.string.admin_settings_posture_desc), fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
-                    }
-                    Switch(checked = postureIdentityCollection, onCheckedChange = { postureIdentityCollection = it })
-                }
-            }
-        }
-
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(stringResource(R.string.admin_settings_external_tailnets_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text(
-                    stringResource(R.string.admin_settings_external_tailnets_desc),
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    // The label yields to the button, which cannot shrink.
-                    Text(
-                        stringResource(R.string.admin_settings_allowed_role),
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Spacer(Modifier.width(12.dp))
-
-                    OutlinedButton(onClick = { showRolePicker = true }) {
-                        Text(
-                            roleLabel(allowedExternalJoinRole),
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Icon(Icons.Default.ArrowDropDown, null)
-                    }
-                }
-            }
-        }
-
-        val hasChanges = devicesApproval != (settings.devicesApprovalOn == true) ||
-                usersApproval != (settings.usersApprovalOn == true) ||
-                autoUpdates != (settings.devicesAutoUpdatesOn == true) ||
-                keyDurationDays != (settings.devicesKeyDurationDays ?: 180) ||
-                networkFlowLogging != (settings.networkFlowLoggingOn == true) ||
-                regionalRouting != (settings.regionalRoutingOn == true) ||
-                postureIdentityCollection != (settings.postureIdentityCollectionOn == true) ||
-                allowedExternalJoinRole != (settings.usersRoleAllowedToJoinExternalTailnets ?: "admin")
-
-        Button(
-            onClick = {
-                val updated = TailnetSettings(
-                    aclsExternallyManagedOn = settings.aclsExternallyManagedOn,
-                    aclsExternalLink = settings.aclsExternalLink,
-                    devicesApprovalOn = devicesApproval,
-                    devicesAutoUpdatesOn = autoUpdates,
-                    devicesKeyDurationDays = keyDurationDays,
-                    usersApprovalOn = usersApproval,
-                    usersRoleAllowedToJoinExternalTailnets = allowedExternalJoinRole,
-                    networkFlowLoggingOn = networkFlowLogging,
-                    regionalRoutingOn = regionalRouting,
-                    postureIdentityCollectionOn = postureIdentityCollection
-                )
-                onApplySettings(updated)
-            },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = hasChanges,
-            shape = MaterialTheme.shapes.medium
-        ) {
-            Icon(Icons.Default.Done, null)
-            Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.admin_settings_apply))
+        if (settings.aclsExternallyManagedOn == true) {
+            HelpText(ctx.getString(R.string.admin2_settings_acls_external) + (settings.aclsExternalLink?.takeIf { it.isNotBlank() }?.let { " $it" } ?: ""))
         }
     }
 }

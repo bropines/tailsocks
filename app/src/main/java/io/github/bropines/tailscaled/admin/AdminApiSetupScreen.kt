@@ -1,49 +1,114 @@
 package io.github.bropines.tailscaled.admin
-import io.github.bropines.tailscaled.R
-import io.github.bropines.tailscaled.BuildConfig
-import io.github.bropines.tailscaled.ui.AppTopBar
 
-import io.github.bropines.tailscaled.core.*
-import io.github.bropines.tailscaled.models.*
-import io.github.bropines.tailscaled.ui.*
-
-import android.content.Context
-import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.res.stringResource
+import io.github.bropines.tailscaled.R
+import io.github.bropines.tailscaled.admin.console.ProfileDraft
+import io.github.bropines.tailscaled.admin.profile.AuthType
+import io.github.bropines.tailscaled.admin.secure.AdminWriteGate
+import io.github.bropines.tailscaled.admin.secure.SecretField
+import io.github.bropines.tailscaled.admin.secure.SecureWindow
+import io.github.bropines.tailscaled.admin.secure.UnlockFailure
+import io.github.bropines.tailscaled.admin.secure.UnlockResult
+import io.github.bropines.tailscaled.admin.secure.findFragmentActivity
+import io.github.bropines.tailscaled.core.SlidingSegmentedChips
+import io.github.bropines.tailscaled.ui.AppTopBar
+import io.github.bropines.tailscaled.ui.HelpText
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * One admin profile: a name, a credential and how to reach the server. The window is kept out
+ * of screenshots while it is open; secret fields are masked; a stored secret is never shown —
+ * the field stays empty and keeps it. A new credential is checked against the server before
+ * it is stored.
+ */
 @Composable
-fun AdminApiNoTailnetScreen(
-    onBack: () -> Unit,
-    onSaveTailnet: (String) -> Unit
+fun AdminProfileEditorScreen(
+    draft: ProfileDraft,
+    firstProfile: Boolean,
+    onChange: ((ProfileDraft) -> ProfileDraft) -> Unit,
+    onSave: (unchecked: Boolean) -> Unit,
+    onCancel: () -> Unit,
+    onDelete: () -> Unit,
+    onUnlockForWrites: (UnlockResult) -> Unit,
 ) {
-    val context = LocalContext.current
-    var enteredTailnet by remember { mutableStateOf("") }
+    val ctx = LocalContext.current
+    SecureWindow()
+    var showAdvanced by rememberSaveable { mutableStateOf(false) }
+    var showProxy by rememberSaveable { mutableStateOf(false) }
+    var confirmDelete by rememberSaveable { mutableStateOf(false) }
+    val showLabel = ctx.getString(R.string.admin2_secret_show)
+    val hideLabel = ctx.getString(R.string.admin2_secret_hide)
+    val keepPlaceholder = if (draft.hasStoredSecret) ctx.getString(R.string.admin2_secret_stored) else null
+
+    // Switching read-only off is unlocked like any other change; the editor waits for it.
+    val inPreview = LocalInspectionMode.current
+    val currentOnUnlock by rememberUpdatedState(onUnlockForWrites)
+    LaunchedEffect(draft.awaitingUnlock) {
+        if (!draft.awaitingUnlock || inPreview) return@LaunchedEffect
+        val activity = ctx.findFragmentActivity()
+        currentOnUnlock(
+            if (activity == null) UnlockResult.Failed(UnlockFailure.PROMPT_UNAVAILABLE)
+            else AdminWriteGate.unlock(activity, ctx.getString(R.string.admin2_write_unlock_title), ctx.getString(R.string.admin2_unlock_to_allow_writes, draft.name.ifBlank { "…" }))
+        )
+    }
 
     Scaffold(
         topBar = {
             AppTopBar(
-                title = stringResource(R.string.admin_setup_title),
-                onBack = onBack
+                title = ctx.getString(if (draft.id == null) R.string.admin2_profile_new_title else R.string.admin2_profile_edit_title),
+                onBack = onCancel,
             )
         }
     ) { padding ->
@@ -51,338 +116,201 @@ fun AdminApiNoTailnetScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(24.dp)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .imePadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Icon(
-                imageVector = Icons.Default.CloudOff,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.outline,
-                modifier = Modifier.size(80.dp)
-            )
-
-            Text(
-                text = stringResource(R.string.admin_setup_no_tailnet_title),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
-
-            Text(
-                text = stringResource(R.string.admin_setup_no_tailnet_desc),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(Modifier.height(8.dp))
+            if (firstProfile) {
+                Icon(Icons.Default.AdminPanelSettings, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(56.dp).align(Alignment.CenterHorizontally))
+                Text(
+                    ctx.getString(R.string.admin_setup_integration_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            HelpText(ctx.getString(R.string.admin2_profile_intro))
 
             OutlinedTextField(
-                value = enteredTailnet,
-                onValueChange = { enteredTailnet = it },
-                label = { Text(stringResource(R.string.admin_setup_tailnet_label)) },
-                placeholder = { Text(stringResource(R.string.admin_setup_tailnet_placeholder)) },
+                value = draft.name,
+                onValueChange = { v -> onChange { it.copy(name = v) } },
+                label = { Text(ctx.getString(R.string.admin2_profile_name)) },
+                placeholder = { Text(ctx.getString(R.string.admin2_profile_name_placeholder)) },
                 singleLine = true,
+                shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.medium
             )
 
-            Spacer(Modifier.height(16.dp))
-
-            Button(
-                onClick = {
-                    if (enteredTailnet.isBlank()) {
-                        Toast.makeText(context, context.getString(R.string.admin_setup_tailnet_required), Toast.LENGTH_SHORT).show()
-                    } else {
-                        onSaveTailnet(enteredTailnet.trim())
-                    }
-                },
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                shape = MaterialTheme.shapes.medium
-            ) {
-                Icon(Icons.Default.Check, null)
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.admin_setup_set_tailnet_name))
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AdminApiSetupScreen(
-    tailnet: String,
-    initialAuthType: String,
-    initialToken: String,
-    initialClientId: String,
-    initialClientSecret: String,
-    initialProxyMode: String,
-    initialProxyHost: String,
-    initialProxyPort: Int,
-    initialProxyUser: String,
-    initialProxyPass: String,
-    onBack: () -> Unit,
-    onSave: (String, String, String, String, String, String, Int, String, String) -> Unit,
-    onResetTailnet: () -> Unit
-) {
-    val context = LocalContext.current
-    var authType by remember { mutableStateOf(initialAuthType) }
-    var enteredToken by remember { mutableStateOf(initialToken) }
-    var enteredClientId by remember { mutableStateOf(initialClientId) }
-    var enteredClientSecret by remember { mutableStateOf(initialClientSecret) }
-
-    // Proxy State
-    var proxyMode by remember { mutableStateOf(initialProxyMode) }
-    var proxyHost by remember { mutableStateOf(initialProxyHost) }
-    var proxyPort by remember { mutableStateOf(if (initialProxyPort > 0) initialProxyPort.toString() else "") }
-    var proxyUser by remember { mutableStateOf(initialProxyUser) }
-    var proxyPass by remember { mutableStateOf(initialProxyPass) }
-    var isProxyExpanded by remember { mutableStateOf(false) }
-
-    Scaffold(
-        topBar = {
-            AppTopBar(
-                title = stringResource(R.string.admin_setup_title),
-                onBack = onBack
-            )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(24.dp)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.AdminPanelSettings,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(64.dp)
-            )
-
-            Text(
-                text = stringResource(R.string.admin_setup_integration_title),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f))
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.admin_setup_active_tailnet), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
-                        Text(tailnet, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
-                    }
-                    TextButton(onClick = onResetTailnet) {
-                        Text(stringResource(R.string.action_edit))
-                    }
-                }
-            }
-
-            // Auth Type SlidingSegmentedChips
-            val authTypes = listOf(
-                stringResource(R.string.admin_setup_tab_token),
-                stringResource(R.string.admin_setup_tab_oauth)
-            )
-            val selectedAuthIdx = if (authType == "TOKEN") 0 else 1
             SlidingSegmentedChips(
-                options = authTypes,
-                selectedIndex = selectedAuthIdx,
-                onOptionSelected = { idx ->
-                    authType = if (idx == 0) "TOKEN" else "OAUTH"
-                },
+                options = listOf(ctx.getString(R.string.admin_setup_tab_token), ctx.getString(R.string.admin_setup_tab_oauth)),
+                selectedIndex = if (draft.authType == AuthType.OAUTH_CLIENT) 1 else 0,
+                onOptionSelected = { i -> onChange { it.copy(authType = if (i == 1) AuthType.OAUTH_CLIENT else AuthType.API_TOKEN, secret = "") } },
                 modifier = Modifier.fillMaxWidth(),
-                height = 38.dp
+                height = 38.dp,
             )
+            HelpText(ctx.getString(if (draft.authType == AuthType.OAUTH_CLIENT) R.string.admin2_auth_oauth_help else R.string.admin2_auth_token_help))
 
-            if (authType == "TOKEN") {
+            if (draft.authType == AuthType.OAUTH_CLIENT) {
                 OutlinedTextField(
-                    value = enteredToken,
-                    onValueChange = { enteredToken = it },
-                    label = { Text(stringResource(R.string.admin_setup_token_label)) },
-                    placeholder = { Text(stringResource(R.string.admin_setup_token_placeholder)) },
+                    value = draft.oauthClientId,
+                    onValueChange = { v -> onChange { it.copy(oauthClientId = v.trim()) } },
+                    label = { Text(ctx.getString(R.string.admin_setup_client_id_label)) },
+                    placeholder = { Text(ctx.getString(R.string.admin_setup_client_id_placeholder)) },
                     singleLine = true,
+                    shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.medium
+                )
+                SecretField(
+                    value = draft.secret,
+                    onValueChange = { v -> onChange { it.copy(secret = v.trim()) } },
+                    label = ctx.getString(R.string.admin_setup_client_secret_label),
+                    placeholder = keepPlaceholder ?: ctx.getString(R.string.admin_setup_client_secret_placeholder),
+                    showLabel = showLabel, hideLabel = hideLabel,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             } else {
-                OutlinedTextField(
-                    value = enteredClientId,
-                    onValueChange = { enteredClientId = it },
-                    label = { Text(stringResource(R.string.admin_setup_client_id_label)) },
-                    placeholder = { Text(stringResource(R.string.admin_setup_client_id_placeholder)) },
-                    singleLine = true,
+                SecretField(
+                    value = draft.secret,
+                    onValueChange = { v -> onChange { it.copy(secret = v.trim()) } },
+                    label = ctx.getString(R.string.admin_setup_token_label),
+                    placeholder = keepPlaceholder ?: ctx.getString(R.string.admin_setup_token_placeholder),
+                    showLabel = showLabel, hideLabel = hideLabel,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.medium
-                )
-
-                OutlinedTextField(
-                    value = enteredClientSecret,
-                    onValueChange = { enteredClientSecret = it },
-                    label = { Text(stringResource(R.string.admin_setup_client_secret_label)) },
-                    placeholder = { Text(stringResource(R.string.admin_setup_client_secret_placeholder)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.medium
                 )
             }
 
-            // Advanced Proxy Settings Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.medium,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(MaterialTheme.shapes.medium)
+                    .toggleable(value = draft.readOnly, role = Role.Switch) { v -> onChange { it.copy(readOnly = v) } }
+                    .padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clickable { isProxyExpanded = !isProxyExpanded },
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Language, null, tint = MaterialTheme.colorScheme.primary)
-                            Spacer(Modifier.width(8.dp))
-                            Text(stringResource(R.string.admin_proxy_config_title), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                        }
-                        Icon(
-                            imageVector = if (isProxyExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                            contentDescription = null
-                        )
-                    }
+                Icon(Icons.Default.Visibility, null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(ctx.getString(R.string.admin2_profile_read_only), style = MaterialTheme.typography.bodyLarge)
+                    HelpText(ctx.getString(R.string.admin2_profile_read_only_desc), inClickableRow = true)
+                }
+                Switch(checked = draft.readOnly, onCheckedChange = null)
+            }
 
-                    if (isProxyExpanded) {
-                        Spacer(Modifier.height(12.dp))
+            ExpandableCard(
+                title = ctx.getString(R.string.admin2_profile_advanced),
+                expanded = showAdvanced,
+                onToggle = { showAdvanced = !showAdvanced },
+            ) {
+                OutlinedTextField(
+                    value = draft.baseUrl,
+                    onValueChange = { v -> onChange { it.copy(baseUrl = v.trim()) } },
+                    label = { Text(ctx.getString(R.string.admin2_profile_base_url)) },
+                    supportingText = { Text(ctx.getString(R.string.admin2_profile_base_url_help)) },
+                    singleLine = true,
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = draft.tailnet,
+                    onValueChange = { v -> onChange { it.copy(tailnet = v.trim()) } },
+                    label = { Text(ctx.getString(R.string.admin2_profile_tailnet)) },
+                    supportingText = { Text(ctx.getString(R.string.admin2_profile_tailnet_help)) },
+                    singleLine = true,
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
 
-                        // Proxy Mode selector
-                        Text(stringResource(R.string.admin_proxy_mode_label), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            val proxyOptions = listOf(
-                                "CONTROL_PLANE" to stringResource(R.string.admin_proxy_control_plane),
-                                "DIRECT" to stringResource(R.string.admin_proxy_direct),
-                                "LOCAL_SOCKS5" to stringResource(R.string.admin_proxy_local_socks5),
-                                "CUSTOM_SOCKS5" to stringResource(R.string.admin_proxy_custom_socks5)
-                            )
-                            proxyOptions.forEach { (modeVal, labelText) ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().clickable { proxyMode = modeVal },
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    RadioButton(selected = proxyMode == modeVal, onClick = { proxyMode = modeVal })
-                                    Text(labelText, style = MaterialTheme.typography.bodyMedium)
-                                }
-                            }
-                        }
+            ExpandableCard(
+                title = ctx.getString(R.string.admin_proxy_config_title),
+                expanded = showProxy,
+                onToggle = { showProxy = !showProxy },
+            ) {
+                ProxySettingsFields(
+                    proxy = draft.proxy,
+                    password = draft.proxyPassword,
+                    hasStoredPassword = draft.hasStoredProxyPassword,
+                    onChange = { p -> onChange { it.copy(proxy = p) } },
+                    onPasswordChange = { v -> onChange { it.copy(proxyPassword = v) } },
+                )
+            }
 
-                        if (proxyMode == "CONTROL_PLANE") {
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                stringResource(R.string.admin_proxy_control_plane_desc),
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        } else if (proxyMode == "CUSTOM_SOCKS5") {
-                            Spacer(Modifier.height(8.dp))
-                            OutlinedTextField(
-                                value = proxyHost,
-                                onValueChange = { proxyHost = it },
-                                label = { Text(stringResource(R.string.admin_proxy_socks5_host)) },
-                                placeholder = { Text(stringResource(R.string.admin_proxy_socks5_host_placeholder)) },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = MaterialTheme.shapes.small
-                            )
-                            Spacer(Modifier.height(8.dp))
-                             OutlinedTextField(
-                                 value = proxyPort,
-                                 onValueChange = { newValue ->
-                                     val digits = newValue.filter { it.isDigit() }
-                                     if (digits.length <= 5) {
-                                         val num = digits.toIntOrNull()
-                                         if (num == null || num <= 65535) {
-                                             proxyPort = digits
-                                         }
-                                     }
-                                 },
-                                 label = { Text(stringResource(R.string.admin_proxy_socks5_port)) },
-                                 placeholder = { Text(stringResource(R.string.admin_proxy_socks5_port_placeholder)) },
-                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                 singleLine = true,
-                                 modifier = Modifier.fillMaxWidth(),
-                                 shape = MaterialTheme.shapes.small
-                             )
-                            Spacer(Modifier.height(8.dp))
-                            OutlinedTextField(
-                                value = proxyUser,
-                                onValueChange = { proxyUser = it },
-                                label = { Text(stringResource(R.string.admin_proxy_username_optional)) },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = MaterialTheme.shapes.small
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            OutlinedTextField(
-                                value = proxyPass,
-                                onValueChange = { proxyPass = it },
-                                label = { Text(stringResource(R.string.admin_proxy_password_optional)) },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = MaterialTheme.shapes.small
-                            )
-                        } else if (proxyMode == "LOCAL_SOCKS5") {
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                stringResource(R.string.admin_proxy_local_desc_setup),
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+            draft.error?.let {
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+            }
+            if (draft.checking) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(ctx.getString(R.string.admin2_profile_checking), style = MaterialTheme.typography.bodySmall)
+                    LinearProgressIndicator(Modifier.fillMaxWidth())
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
-
             Button(
-                onClick = {
-                    val portVal = proxyPort.toIntOrNull() ?: 0
-                    if (authType == "TOKEN" && enteredToken.isBlank()) {
-                        Toast.makeText(context, context.getString(R.string.admin_setup_token_required), Toast.LENGTH_SHORT).show()
-                    } else if (authType == "OAUTH" && (enteredClientId.isBlank() || enteredClientSecret.isBlank())) {
-                        Toast.makeText(context, context.getString(R.string.admin_setup_oauth_required), Toast.LENGTH_SHORT).show()
-                    } else if (proxyMode == "CUSTOM_SOCKS5" && (proxyHost.isBlank() || portVal <= 0)) {
-                        Toast.makeText(context, context.getString(R.string.admin_proxy_socks5_required), Toast.LENGTH_SHORT).show()
-                    } else {
-                        onSave(
-                            authType,
-                            enteredToken.trim(),
-                            enteredClientId.trim(),
-                            enteredClientSecret.trim(),
-                            proxyMode,
-                            proxyHost.trim(),
-                            portVal,
-                            proxyUser.trim(),
-                            proxyPass.trim()
-                        )
-                    }
-                },
+                onClick = { onSave(false) },
+                enabled = !draft.checking && !draft.awaitingUnlock,
                 modifier = Modifier.fillMaxWidth().height(48.dp),
-                shape = MaterialTheme.shapes.medium
+                shape = MaterialTheme.shapes.medium,
             ) {
                 Icon(Icons.Default.Save, null)
                 Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.admin_setup_save_connect))
+                Text(ctx.getString(R.string.admin2_profile_save))
+            }
+            if (draft.offerUnchecked) {
+                OutlinedButton(onClick = { onSave(true) }, enabled = !draft.checking, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium) {
+                    Text(ctx.getString(R.string.admin2_profile_save_anyway))
+                }
+            }
+            if (draft.id != null) {
+                TextButton(
+                    onClick = { confirmDelete = true },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                ) {
+                    Icon(Icons.Default.Delete, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(ctx.getString(R.string.admin2_profile_delete))
+                }
+            }
+        }
+    }
+
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text(ctx.getString(R.string.admin2_profile_delete_title)) },
+            text = { Text(ctx.getString(R.string.admin2_profile_delete_text, draft.name.ifBlank { draft.baseUrl })) },
+            confirmButton = {
+                Button(
+                    onClick = { confirmDelete = false; onDelete() },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                ) { Text(ctx.getString(R.string.action_delete)) }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(ctx.getString(R.string.action_cancel)) } },
+        )
+    }
+}
+
+@Composable
+private fun ExpandableCard(title: String, expanded: Boolean, onToggle: () -> Unit, content: @Composable () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+    ) {
+        Column(Modifier.padding(12.dp)) {
+            Row(
+                Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).clickable(onClick = onToggle).padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Default.Language, null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(8.dp))
+                Text(title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                Icon(if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null)
+            }
+            AnimatedVisibility(expanded) {
+                Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { content() }
             }
         }
     }

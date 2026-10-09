@@ -1,14 +1,21 @@
 package io.github.bropines.tailscaled.admin
-import io.github.bropines.tailscaled.R
-import io.github.bropines.tailscaled.BuildConfig
-
-import io.github.bropines.tailscaled.core.*
-import io.github.bropines.tailscaled.models.*
-import io.github.bropines.tailscaled.ui.*
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -16,450 +23,260 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Undo
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.ManageAccounts
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.res.stringResource
+import io.github.bropines.tailscaled.R
+import io.github.bropines.tailscaled.admin.api.ApiUser
+import io.github.bropines.tailscaled.admin.api.UserRole
+import io.github.bropines.tailscaled.admin.api.UserStatus
+import io.github.bropines.tailscaled.admin.console.ConsoleText
+import io.github.bropines.tailscaled.admin.console.Loadable
+import io.github.bropines.tailscaled.ui.EmptyState
+import io.github.bropines.tailscaled.ui.HelpText
+import io.github.bropines.tailscaled.ui.PickerOption
+import io.github.bropines.tailscaled.ui.PickerSheet
+import io.github.bropines.tailscaled.ui.rememberFullSheetState
 
 @Composable
 fun UsersTabContent(
-    users: List<ApiUser>,
-    onUserClick: (ApiUser) -> Unit
+    state: Loadable<List<ApiUser>>,
+    isOwn: (ApiUser) -> Boolean,
+    onRetry: () -> Unit,
+    onUserClick: (ApiUser) -> Unit,
 ) {
-    if (users.isEmpty()) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(stringResource(R.string.admin_users_no_users), color = MaterialTheme.colorScheme.outline)
-        }
-    } else {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(users) { user ->
-                UserRow(user = user, onClick = { onUserClick(user) })
+    val ctx = LocalContext.current
+    // Waiting for approval first: that is what an admin opens this list for.
+    val users = remember(state.value) {
+        state.value.orEmpty().sortedWith(compareBy<ApiUser> { it.userStatus != UserStatus.NEEDS_APPROVAL }.thenBy { it.name.lowercase() })
+    }
+    Column(Modifier.fillMaxSize()) {
+        LoadProblems(state, onRetry, Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+        when {
+            users.isEmpty() && state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { LoadingIndicatorCompat() }
+            users.isEmpty() -> EmptyState(Icons.Default.Group, ctx.getString(R.string.admin_users_no_users))
+            else -> LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(users, key = { it.id }) { user -> UserRow(user = user, own = isOwn(user), onClick = { onUserClick(user) }) }
             }
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun UserRow(user: ApiUser, onClick: () -> Unit) {
+fun UserRow(user: ApiUser, own: Boolean, onClick: () -> Unit) {
+    val ctx = LocalContext.current
+    val scheme = MaterialTheme.colorScheme
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainer
+        modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.large).clickable { onClick() },
+        shape = MaterialTheme.shapes.large,
+        color = scheme.surfaceContainer,
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             UserAvatar(user = user)
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
-                Text(
-                    user.displayName?.takeIf { it.isNotBlank() } ?: user.loginName.substringBefore("@"),
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    user.loginName,
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                
-                Spacer(Modifier.height(4.dp))
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Role Badge
-                    val roleLabel = user.role ?: "member"
-                    val isPrivileged = roleLabel == "owner" || roleLabel.contains("admin")
-                    Text(
-                        text = roleLabel.uppercase(),
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isPrivileged) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                        modifier = Modifier
-                            .clip(MaterialTheme.shapes.small)
-                            .background(if (isPrivileged) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant)
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                Text(user.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(user.loginName, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 4.dp)) {
+                    val role = user.userRole
+                    StatusTag(
+                        ConsoleText.role(ctx, role, user.role),
+                        if (role.isPrivileged) scheme.primaryContainer else scheme.surfaceContainerHighest,
+                        if (role.isPrivileged) scheme.onPrimaryContainer else scheme.onSurface,
+                        if (role.isPrivileged) Icons.Default.AdminPanelSettings else null,
                     )
-
-                    // Status Badge
-                    val statusLabel = user.status ?: "active"
-                    val statusColor = when (statusLabel) {
-                        "active" -> Color(0xFF4CAF50)
-                        "suspended" -> MaterialTheme.colorScheme.error
-                        else -> Color(0xFFFF9800)
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(6.dp)
-                                .clip(CircleShape)
-                                .background(statusColor)
+                    val status = user.userStatus
+                    if (status != UserStatus.ACTIVE) {
+                        StatusTag(
+                            ConsoleText.status(ctx, status, user.status),
+                            if (status == UserStatus.SUSPENDED) scheme.errorContainer else scheme.tertiaryContainer,
+                            if (status == UserStatus.SUSPENDED) scheme.onErrorContainer else scheme.onTertiaryContainer,
+                            when (status) {
+                                UserStatus.SUSPENDED -> Icons.Default.Block
+                                UserStatus.NEEDS_APPROVAL -> Icons.Default.Schedule
+                                else -> null
+                            },
                         )
-                        Spacer(Modifier.width(4.dp))
-                        Text(statusLabel, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                    if (own) StatusTag(ctx.getString(R.string.admin2_user_you), scheme.secondaryContainer, scheme.onSecondaryContainer, Icons.Default.Person)
                 }
             }
-
-            if (user.deviceCount != null) {
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        user.deviceCount.toString(),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(stringResource(R.string.admin_users_devices_label), fontSize = 10.sp, color = MaterialTheme.colorScheme.outline)
-                }
+            user.deviceCount?.let { n ->
+                Text(
+                    ctx.resources.getQuantityString(R.plurals.admin2_user_devices, n, n),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = scheme.primary,
+                    modifier = Modifier.padding(start = 8.dp),
+                )
             }
         }
     }
 }
 
+/** Initials on a colour from the theme's palette, picked by the login so it stays put. */
 @Composable
 fun UserAvatar(user: ApiUser) {
-    val name = user.displayName?.takeIf { it.isNotBlank() } ?: user.loginName
-    val firstChar = name.firstOrNull()?.uppercaseChar() ?: '?'
-    
-    val colors = listOf(
-        Color(0xFFE91E63), Color(0xFF9C27B0), Color(0xFF673AB7),
-        Color(0xFF3F51B5), Color(0xFF2196F3), Color(0xFF009688),
-        Color(0xFF4CAF50), Color(0xFFFF9800), Color(0xFFFF5722)
+    val scheme = MaterialTheme.colorScheme
+    val palette = listOf(
+        scheme.primaryContainer to scheme.onPrimaryContainer,
+        scheme.secondaryContainer to scheme.onSecondaryContainer,
+        scheme.tertiaryContainer to scheme.onTertiaryContainer,
     )
-    val colorIndex = Math.abs(user.loginName.hashCode()) % colors.size
-    val bgColor = colors[colorIndex]
-
-    Box(
-        modifier = Modifier
-            .size(40.dp)
-            .clip(CircleShape)
-            .background(bgColor),
-        contentAlignment = Alignment.Center
-    ) {
+    val (bg, fg) = palette[Math.floorMod(user.loginName.hashCode(), palette.size)]
+    Box(Modifier.size(40.dp).clip(CircleShape).background(bg), contentAlignment = Alignment.Center) {
         Text(
-            text = firstChar.toString(),
-            color = Color.White,
+            (user.name.firstOrNull() ?: '?').uppercaseChar().toString(),
+            color = fg,
+            style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            fontSize = 18.sp
         )
     }
 }
 
+/**
+ * One user and the changes offered on them, each handed to the safety pipeline. The user the
+ * console acts as — or this phone's own login — gets no actions: the runner would refuse
+ * them anyway, and a disabled button with the reason says so first.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserDetailBottomSheet(
     user: ApiUser,
+    own: Boolean,
+    canWrite: Boolean,
     onDismiss: () -> Unit,
-    onRoleChange: (String) -> Unit,
+    onRoleChange: (UserRole) -> Unit,
     onApprove: () -> Unit,
     onSuspend: () -> Unit,
     onRestore: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
 ) {
     val sheetState = rememberFullSheetState()
-    val configuration = LocalConfiguration.current
-    val maxHeight = (configuration.screenHeightDp * 0.85f).dp
-    // A dialog/sheet opens its own window whose LocalContext ignores the app
-    // locale, so its strings are resolved through this parent context instead —
-    // see wrapContextWithLocale().
+    val maxHeight = (LocalConfiguration.current.screenHeightDp * 0.85f).dp
+    // Resolved through the parent's context; the sheet's own ignores the app locale.
     val ctx = LocalContext.current
+    val scheme = MaterialTheme.colorScheme
+    var rolePicker by remember { mutableStateOf(false) }
+    val actionable = canWrite && !own
 
-    var showRoleDialog by remember { mutableStateOf(false) }
-    var showSuspendConfirm by remember { mutableStateOf(false) }
-    var showRestoreConfirm by remember { mutableStateOf(false) }
-    var showApproveConfirm by remember { mutableStateOf(false) }
-    var showDeleteConfirm by remember { mutableStateOf(false) }
-    var pendingRoleChange by remember { mutableStateOf<String?>(null) }
+    if (rolePicker) {
+        PickerSheet(
+            title = ctx.getString(R.string.admin_users_select_role_title),
+            options = UserRole.assignable.map { PickerOption(it, ConsoleText.role(ctx, it)) },
+            selected = user.userRole,
+            onPick = { if (it != user.userRole) onRoleChange(it) },
+            onDismiss = { rolePicker = false },
+        )
+    }
 
-    // Strings resolved in the parent composition — see wrapContextWithLocale().
-    val strAdminUsersChangeRole = stringResource(R.string.admin_users_change_role)
-    val strAdminUsersLoginName = stringResource(R.string.admin_users_login_name)
-    val strAdminUsersDisplayName = stringResource(R.string.admin_users_display_name)
-    val strAdminUsersCreatedAt = stringResource(R.string.admin_users_created_at)
-    val strAdminUsersRole = stringResource(R.string.admin_users_role)
-    val strAdminUsersStatus = stringResource(R.string.admin_users_status)
-    val strAdminUsersType = stringResource(R.string.admin_users_type)
-    val strAdminUsersDevicesOwned = stringResource(R.string.admin_users_devices_owned)
-    val strAdminUsersApprove = stringResource(R.string.admin_users_approve)
-    val strAdminUsersRestore = stringResource(R.string.admin_users_restore)
-    val strAdminUsersSuspend = stringResource(R.string.admin_users_suspend)
-    val strAdminUsersDelete = stringResource(R.string.admin_users_delete)
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState
-    ) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = maxHeight)
-                .padding(bottom = 24.dp)
-                .verticalScroll(rememberScrollState()),
+            modifier = Modifier.fillMaxWidth().heightIn(max = maxHeight).padding(bottom = 24.dp).verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             UserAvatar(user = user)
-
-            Text(
-                user.displayName?.takeIf { it.isNotBlank() } ?: user.loginName.substringBefore("@"),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 24.dp),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-            )
-
-            // Quick Actions: Change User Role
-            OutlinedButton(
-                onClick = { showRoleDialog = true },
-                modifier = Modifier.padding(horizontal = 24.dp).fillMaxWidth()
-            ) {
-                Icon(Icons.Default.ManageAccounts, null)
-                Spacer(Modifier.width(8.dp))
-                Text(strAdminUsersChangeRole)
-            }
+            Text(user.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 24.dp))
 
             Card(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+                shape = MaterialTheme.shapes.large,
+                colors = CardDefaults.cardColors(containerColor = scheme.surfaceContainerLow),
             ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    DetailRow(strAdminUsersLoginName, user.loginName)
-                    DetailRow(strAdminUsersDisplayName, user.displayName ?: "N/A")
-                    DetailRow(strAdminUsersCreatedAt, formatExpires(user.created))
-                    DetailRow(strAdminUsersRole, user.role ?: "member")
-                    DetailRow(strAdminUsersStatus, user.status ?: "active")
-                    DetailRow(strAdminUsersType, user.type ?: "N/A")
-                    DetailRow(strAdminUsersDevicesOwned, user.deviceCount?.toString() ?: "0")
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    DetailRow(ctx.getString(R.string.admin_users_login_name), user.loginName)
+                    user.displayName?.takeIf { it.isNotBlank() }?.let { DetailRow(ctx.getString(R.string.admin_users_display_name), it) }
+                    DetailRow(ctx.getString(R.string.admin_users_created_at), formatExpires(user.created))
+                    DetailRow(ctx.getString(R.string.admin_users_role), ConsoleText.role(ctx, user.userRole, user.role))
+                    DetailRow(ctx.getString(R.string.admin_users_status), ConsoleText.status(ctx, user.userStatus, user.status))
+                    DetailRow(ctx.getString(R.string.admin_users_type), ConsoleText.userType(ctx, user.type))
+                    DetailRow(ctx.getString(R.string.admin_users_devices_owned), (user.deviceCount ?: 0).toString())
+                    user.lastSeen?.let { DetailRow(ctx.getString(R.string.pickers_sort_last_seen), formatExpires(it)) }
                 }
             }
 
-            // Administrative Actions
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                if (user.status == "pending" || user.status == "needs_approval") {
-                    Button(
-                        onClick = { showApproveConfirm = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                    ) {
-                        Icon(Icons.Default.CheckCircle, null)
-                        Spacer(Modifier.width(8.dp))
-                        Text(strAdminUsersApprove)
-                    }
-                }
-
-                if (user.status == "suspended") {
-                    Button(
-                        onClick = { showRestoreConfirm = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50), contentColor = Color.White)
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.Undo, null)
-                        Spacer(Modifier.width(8.dp))
-                        Text(strAdminUsersRestore)
-                    }
-                } else {
-                    OutlinedButton(
-                        onClick = { showSuspendConfirm = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.tertiary)
-                    ) {
-                        Icon(Icons.Default.Block, null)
-                        Spacer(Modifier.width(8.dp))
-                        Text(strAdminUsersSuspend)
-                    }
-                }
-
-                Button(
-                    onClick = { showDeleteConfirm = true },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer
-                    )
-                ) {
-                    Icon(Icons.Default.Delete, null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(strAdminUsersDelete)
-                }
+            if (own) {
+                HelpText(ctx.getString(R.string.admin2_refused_own_user), modifier = Modifier.padding(horizontal = 24.dp))
             }
-        }
-    }
 
-    if (showRoleDialog) {
-        val roles = listOf("owner", "admin", "member", "itadmin", "billingadmin", "auditor")
-        // Strings resolved in the parent composition — see wrapContextWithLocale().
-        val strAdminUsersSelectRoleTitle = stringResource(R.string.admin_users_select_role_title)
-        val strActionCancel = stringResource(R.string.action_cancel)
-        AlertDialog(
-            onDismissRequest = { showRoleDialog = false },
-            title = { Text(strAdminUsersSelectRoleTitle) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    val chunkedRoles = roles.chunked(2)
-                    chunkedRoles.forEach { pair ->
-                        Row(
+            if (actionable) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (user.userStatus == UserStatus.NEEDS_APPROVAL) {
+                        Button(onClick = onApprove, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium) {
+                            Icon(Icons.Default.CheckCircle, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(ctx.getString(R.string.admin_users_approve))
+                        }
+                    }
+                    if (user.userRole != UserRole.OWNER) {
+                        OutlinedButton(onClick = { rolePicker = true }, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium) {
+                            Icon(Icons.Default.ManageAccounts, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(ctx.getString(R.string.admin_users_change_role))
+                        }
+                    }
+                    if (user.userStatus == UserStatus.SUSPENDED) {
+                        OutlinedButton(onClick = onRestore, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium) {
+                            Icon(Icons.AutoMirrored.Filled.Undo, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(ctx.getString(R.string.admin_users_restore))
+                        }
+                    } else if (user.userRole != UserRole.OWNER) {
+                        OutlinedButton(onClick = onSuspend, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium) {
+                            Icon(Icons.Default.Block, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(ctx.getString(R.string.admin_users_suspend))
+                        }
+                    }
+                    if (user.userRole != UserRole.OWNER) {
+                        Button(
+                            onClick = onDelete,
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            shape = MaterialTheme.shapes.medium,
+                            colors = ButtonDefaults.buttonColors(containerColor = scheme.errorContainer, contentColor = scheme.onErrorContainer),
                         ) {
-                            pair.forEach { role ->
-                                val isSelected = (user.role ?: "member").lowercase() == role
-                                Surface(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable {
-                                            pendingRoleChange = role
-                                            showRoleDialog = false
-                                        },
-                                    shape = MaterialTheme.shapes.small,
-                                    color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                                    border = if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
-                                ) {
-                                    Box(
-                                        modifier = Modifier.padding(vertical = 10.dp, horizontal = 8.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = role.uppercase(),
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-                                        )
-                                    }
-                                }
-                            }
+                            Icon(Icons.Default.Delete, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(ctx.getString(R.string.admin_users_delete))
                         }
                     }
                 }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { showRoleDialog = false }) { Text(strActionCancel) }
             }
-        )
-    }
-
-    if (pendingRoleChange != null) {
-        AlertDialog(
-            onDismissRequest = { pendingRoleChange = null },
-            title = { Text(ctx.getString(R.string.admin_users_confirm_role_title)) },
-            text = { Text(ctx.getString(R.string.admin_users_confirm_role_text, pendingRoleChange!!.uppercase())) },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        onRoleChange(pendingRoleChange!!)
-                        pendingRoleChange = null
-                    }
-                ) {
-                    Text(ctx.getString(R.string.action_confirm))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { pendingRoleChange = null }) { Text(ctx.getString(R.string.action_cancel)) }
-            }
-        )
-    }
-
-    if (showApproveConfirm) {
-        // Strings resolved in the parent composition — see wrapContextWithLocale().
-        val strAdminUsersApproveTitle = stringResource(R.string.admin_users_approve_title)
-        val strAdminUsersApproveText = stringResource(R.string.admin_users_approve_text)
-        val strActionApprove = stringResource(R.string.action_approve)
-        val strActionCancel = stringResource(R.string.action_cancel)
-        AlertDialog(
-            onDismissRequest = { showApproveConfirm = false },
-            title = { Text(strAdminUsersApproveTitle) },
-            text = { Text(strAdminUsersApproveText) },
-            confirmButton = {
-                Button(onClick = { showApproveConfirm = false; onApprove() }) { Text(strActionApprove) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showApproveConfirm = false }) { Text(strActionCancel) }
-            }
-        )
-    }
-
-    if (showSuspendConfirm) {
-        // Strings resolved in the parent composition — see wrapContextWithLocale().
-        val strAdminUsersSuspendTitle = stringResource(R.string.admin_users_suspend_title)
-        val strAdminUsersSuspendText = stringResource(R.string.admin_users_suspend_text)
-        val strActionSuspend = stringResource(R.string.action_suspend)
-        val strActionCancel = stringResource(R.string.action_cancel)
-        AlertDialog(
-            onDismissRequest = { showSuspendConfirm = false },
-            title = { Text(strAdminUsersSuspendTitle) },
-            text = { Text(strAdminUsersSuspendText) },
-            confirmButton = {
-                Button(onClick = { showSuspendConfirm = false; onSuspend() }) { Text(strActionSuspend) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showSuspendConfirm = false }) { Text(strActionCancel) }
-            }
-        )
-    }
-
-    if (showRestoreConfirm) {
-        // Strings resolved in the parent composition — see wrapContextWithLocale().
-        val strAdminUsersRestoreTitle = stringResource(R.string.admin_users_restore_title)
-        val strAdminUsersRestoreText = stringResource(R.string.admin_users_restore_text)
-        val strActionRestore = stringResource(R.string.action_restore)
-        val strActionCancel = stringResource(R.string.action_cancel)
-        AlertDialog(
-            onDismissRequest = { showRestoreConfirm = false },
-            title = { Text(strAdminUsersRestoreTitle) },
-            text = { Text(strAdminUsersRestoreText) },
-            confirmButton = {
-                Button(onClick = { showRestoreConfirm = false; onRestore() }) { Text(strActionRestore) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showRestoreConfirm = false }) { Text(strActionCancel) }
-            }
-        )
-    }
-
-    if (showDeleteConfirm) {
-        // Strings resolved in the parent composition — see wrapContextWithLocale().
-        val strAdminUsersDeleteTitle = stringResource(R.string.admin_users_delete_title)
-        val strAdminUsersDeleteText = stringResource(R.string.admin_users_delete_text)
-        val strActionDelete = stringResource(R.string.action_delete)
-        val strActionCancel = stringResource(R.string.action_cancel)
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
-            title = { Text(strAdminUsersDeleteTitle) },
-            text = { Text(strAdminUsersDeleteText) },
-            confirmButton = {
-                Button(
-                    onClick = { showDeleteConfirm = false; onDelete() },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text(strActionDelete)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) { Text(strActionCancel) }
-            }
-        )
+        }
     }
 }

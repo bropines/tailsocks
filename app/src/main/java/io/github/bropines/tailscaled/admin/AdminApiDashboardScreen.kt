@@ -1,456 +1,198 @@
 package io.github.bropines.tailscaled.admin
-import io.github.bropines.tailscaled.R
-import io.github.bropines.tailscaled.BuildConfig
 
-import io.github.bropines.tailscaled.core.*
-import io.github.bropines.tailscaled.models.*
-import io.github.bropines.tailscaled.ui.*
-
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
-import android.widget.Toast
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.ManageAccounts
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.Dispatchers
+import io.github.bropines.tailscaled.R
+import io.github.bropines.tailscaled.admin.api.AdminArea
+import io.github.bropines.tailscaled.admin.api.ApiUser
+import io.github.bropines.tailscaled.admin.console.AdminConsoleViewModel
+import io.github.bropines.tailscaled.admin.console.ConsoleState
+import io.github.bropines.tailscaled.admin.console.ConsoleTab
+import io.github.bropines.tailscaled.admin.console.CredentialProblem
+import io.github.bropines.tailscaled.admin.console.Loadable
+import io.github.bropines.tailscaled.admin.console.WriteBlock
+import io.github.bropines.tailscaled.admin.safety.ReadOnlyBanner
+import io.github.bropines.tailscaled.core.ScrollableSlidingSegmentedChips
+import io.github.bropines.tailscaled.ui.AppTopBar
+import io.github.bropines.tailscaled.ui.PickerOption
+import io.github.bropines.tailscaled.ui.PickerSheet
+import io.github.bropines.tailscaled.ui.rememberFullSheetState
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.TimeZone
-import java.util.Locale
 
-object AdminApiLogsCache {
-    var auditLogs: List<ApiAuditLogEntry> = emptyList()
-    var daysRange: Int = 7
-    var lastFetchTime: Long = 0L
-    var lastFetchedRange: Int = -1
+private const val PICK_ADD = "\u0000add"
+private const val PICK_EDIT = "\u0000edit"
 
-    fun clear() {
-        auditLogs = emptyList()
-        daysRange = 7
-        lastFetchTime = 0L
-        lastFetchedRange = -1
-    }
-}
-
+/**
+ * The console's tabs over the active profile. Holds only what is on screen — which sheet is
+ * open, which tab — and reads everything else from [state]; every action goes to [vm], which
+ * is null in previews.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AdminApiDashboardScreen(
-    token: String,
-    tailnet: String,
-    clientId: String,
-    clientSecret: String,
-    proxyMode: String,
-    proxyHost: String,
-    proxyPort: Int,
-    proxyUser: String,
-    proxyPass: String,
-    onUpdateProxy: (String, String, Int, String, String) -> Unit,
-    onBack: () -> Unit,
-    onDisconnect: () -> Unit
-) {
-    val context = LocalContext.current
+fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -> Unit) {
+    val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
-    val tabDevices = stringResource(R.string.admin_tab_devices)
-    val tabDns = stringResource(R.string.admin_tab_dns)
-    val tabUsers = stringResource(R.string.admin_tab_users)
-    val tabServices = stringResource(R.string.admin_tab_services)
-    val tabWebhooks = stringResource(R.string.admin_tab_webhooks)
-    val tabLogs = stringResource(R.string.admin_tab_logs)
-    val tabWebLinks = stringResource(R.string.admin_tab_web_links)
-    val tabSettings = stringResource(R.string.admin_tab_settings)
-    val tabs = listOf(tabDevices, tabDns, tabUsers, tabServices, tabWebhooks, tabLogs, tabWebLinks, tabSettings)
+    val tabs = ConsoleTab.entries
+    val tabLabels = listOf(
+        R.string.admin_tab_devices, R.string.admin_tab_dns, R.string.admin_tab_users, R.string.admin_tab_services,
+        R.string.admin_tab_webhooks, R.string.admin_tab_logs, R.string.admin_tab_web_links, R.string.admin_tab_settings,
+    ).map { ctx.getString(it) }
     val pagerState = rememberPagerState(pageCount = { tabs.size })
-    var showKeysManagement by remember { mutableStateOf(false) }
 
-    // The local SOCKS5 endpoint and the control-plane proxy come from the app-wide settings
-    // inside the factory, read once with the client — the same client the peer sheet's
-    // version lookup builds, so the two cannot disagree on how the API is reached.
-    val client = remember(token, tailnet, proxyMode, proxyHost, proxyPort, proxyUser, proxyPass, clientId, clientSecret) {
-        newAdminApiClient(context, tailnet, token, clientId, clientSecret, proxyMode, proxyHost, proxyPort, proxyUser, proxyPass)
-    }
+    var selectedDeviceId by rememberSaveable { mutableStateOf<String?>(null) }
+    var selectedUserId by rememberSaveable { mutableStateOf<String?>(null) }
+    var selectedServiceName by rememberSaveable { mutableStateOf<String?>(null) }
+    var showKeys by rememberSaveable { mutableStateOf(false) }
+    var showCreateKey by rememberSaveable { mutableStateOf(false) }
+    var showCreateWebhook by rememberSaveable { mutableStateOf(false) }
+    var showProfiles by rememberSaveable { mutableStateOf(false) }
 
-    // State holders
-    var isRefreshing by remember { mutableStateOf(false) }
-    var devices by remember { mutableStateOf<List<ApiDevice>>(emptyList()) }
-    var keys by remember { mutableStateOf<List<ApiKeyInfo>>(emptyList()) }
-    var magicDnsEnabled by remember { mutableStateOf(false) }
-    var dnsNameservers by remember { mutableStateOf<List<String>>(emptyList()) }
-    var splitDns by remember { mutableStateOf<Map<String, List<String>>>(emptyMap()) }
-    var dnsSearchPaths by remember { mutableStateOf<List<String>>(emptyList()) }
-    var users by remember { mutableStateOf<List<ApiUser>>(emptyList()) }
-    var tailnetSettings by remember { mutableStateOf<TailnetSettings?>(null) }
-    var selectedUser by remember { mutableStateOf<ApiUser?>(null) }
-    var allTailnetTags by remember { mutableStateOf<List<String>>(emptyList()) }
-    var vipServices by remember { mutableStateOf<List<VIPServiceInfo>>(emptyList()) }
-    var webhooks by remember { mutableStateOf<List<WebhookEndpoint>>(emptyList()) }
-    var selectedServiceInfo by remember { mutableStateOf<VIPServiceInfo?>(null) }
-    var showCreateWebhookDialog by remember { mutableStateOf(false) }
+    LaunchedEffect(pagerState.currentPage) { vm?.refresh(tabs[pagerState.currentPage]) }
+    LaunchedEffect(showKeys) { if (showKeys) vm?.refreshKeys(force = false) }
 
-    var auditLogs by remember { mutableStateOf<List<ApiAuditLogEntry>>(AdminApiLogsCache.auditLogs) }
-    var auditLogsDaysRange by remember { mutableIntStateOf(AdminApiLogsCache.daysRange) }
-
-    // Cache Timestamps
-    var lastDevicesFetch by remember { mutableLongStateOf(0L) }
-    var lastKeysFetch by remember { mutableLongStateOf(0L) }
-    var lastDnsFetch by remember { mutableLongStateOf(0L) }
-    var lastUsersFetch by remember { mutableLongStateOf(0L) }
-    var lastServicesFetch by remember { mutableLongStateOf(0L) }
-    var lastWebhooksFetch by remember { mutableLongStateOf(0L) }
-    var lastSettingsFetch by remember { mutableLongStateOf(0L) }
-    var lastAuditLogsFetch by remember { mutableLongStateOf(AdminApiLogsCache.lastFetchTime) }
-    var lastFetchedAuditLogsRange by remember { mutableIntStateOf(AdminApiLogsCache.lastFetchedRange) }
-
-    var selectedDevice by remember { mutableStateOf<ApiDevice?>(null) }
-    var showCreateKeyDialog by remember { mutableStateOf(false) }
-    var generatedKeyToShow by remember { mutableStateOf<String?>(null) }
-    var showDisconnectConfirm by remember { mutableStateOf(false) }
-    var showProxySettingsDialog by remember { mutableStateOf(false) }
-
-    fun getRfc3339Time(timeMs: Long): String {
-        val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
-        sdf.timeZone = TimeZone.getTimeZone("UTC")
-        return sdf.format(Date(timeMs))
-    }
-
-    fun refreshTab(tabIndex: Int, force: Boolean = false) {
-        val now = System.currentTimeMillis()
-        val cacheDuration = 60 * 1000L // 60 seconds throttle
-        
-        isRefreshing = true
-        scope.launch(Dispatchers.IO) {
-            try {
-                when (tabIndex) {
-                    0 -> {
-                        if (force || now - lastDevicesFetch >= cacheDuration || devices.isEmpty()) {
-                            val list = client.listDevices()
-                            val tagsList = client.getTailnetTags()
-                            withContext(Dispatchers.Main) {
-                                devices = list
-                                allTailnetTags = tagsList
-                                lastDevicesFetch = now
-                            }
-                        }
-                    }
-                    1 -> {
-                        if (force || now - lastDnsFetch >= cacheDuration || dnsNameservers.isEmpty()) {
-                            val pref = client.getDnsPreferences()
-                            val ns = client.getDnsNameservers()
-                            val sdns = client.getSplitDns()
-                            val sp = client.listDnsSearchPaths()
-                            withContext(Dispatchers.Main) {
-                                magicDnsEnabled = pref.magicDNS
-                                dnsNameservers = ns
-                                splitDns = sdns
-                                dnsSearchPaths = sp
-                                lastDnsFetch = now
-                            }
-                        }
-                    }
-                    2 -> {
-                        if (force || now - lastUsersFetch >= cacheDuration || users.isEmpty()) {
-                            val list = client.listUsers()
-                            withContext(Dispatchers.Main) {
-                                users = list
-                                lastUsersFetch = now
-                            }
-                        }
-                    }
-                    3 -> {
-                        if (force || now - lastServicesFetch >= cacheDuration || vipServices.isEmpty()) {
-                            val list = client.listTailnetServices()
-                            withContext(Dispatchers.Main) {
-                                vipServices = list
-                                lastServicesFetch = now
-                            }
-                        }
-                    }
-                    4 -> {
-                        if (force || now - lastWebhooksFetch >= cacheDuration || webhooks.isEmpty()) {
-                            val list = client.listWebhooks()
-                            withContext(Dispatchers.Main) {
-                                webhooks = list
-                                lastWebhooksFetch = now
-                            }
-                        }
-                    }
-                    5 -> {
-                        if (force || now - lastAuditLogsFetch >= cacheDuration || auditLogs.isEmpty() || lastFetchedAuditLogsRange != auditLogsDaysRange) {
-                            val nowMs = System.currentTimeMillis()
-                            val end = getRfc3339Time(nowMs)
-                            val start = getRfc3339Time(nowMs - auditLogsDaysRange * 24 * 60 * 60 * 1000L)
-                            val logsList = client.getAuditLogs(start, end)
-                            withContext(Dispatchers.Main) {
-                                auditLogs = logsList
-                                lastAuditLogsFetch = now
-                                lastFetchedAuditLogsRange = auditLogsDaysRange
-                                AdminApiLogsCache.auditLogs = logsList
-                                AdminApiLogsCache.lastFetchTime = now
-                                AdminApiLogsCache.lastFetchedRange = auditLogsDaysRange
-                            }
-                        }
-                    }
-                    6 -> {
-                        // Web Links tab (static links)
-                    }
-                    7 -> {
-                        if (force || now - lastSettingsFetch >= cacheDuration || tailnetSettings == null) {
-                            val s = client.getTailnetSettings()
-                            withContext(Dispatchers.Main) {
-                                tailnetSettings = s
-                                lastSettingsFetch = now
-                            }
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
-                }
-            } finally {
-                withContext(Dispatchers.Main) { isRefreshing = false }
-            }
-        }
-    }
-
-    LaunchedEffect(pagerState.currentPage) {
-        refreshTab(pagerState.currentPage, force = false)
-    }
-
-    LaunchedEffect(showKeysManagement) {
-        if (showKeysManagement) {
-            scope.launch(Dispatchers.IO) {
-                try {
-                    val list = client.listKeys()
-                    withContext(Dispatchers.Main) {
-                        keys = list.sortedBy { it.revoked == true }
-                    }
-                } catch (e: Exception) {
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(context, context.getString(R.string.admin_error_loading_keys_format, e.message), Toast.LENGTH_SHORT).show()
-                    }
-                }
-            }
-        }
-    }
+    val profile = state.active
+    val selfNode = state.self.nodeId.takeIf { state.phoneInTailnet }
+    fun isOwnUser(u: ApiUser) = (state.caps?.ownUserId != null && u.id == state.caps.ownUserId) ||
+        (state.phoneInTailnet && state.self.loginName != null && u.loginName.equals(state.self.loginName, ignoreCase = true))
 
     Scaffold(
         topBar = {
             AppTopBar(
-                title = stringResource(R.string.admin_console_title),
-                subtitle = tailnet,
+                title = ctx.getString(R.string.admin_console_title),
+                subtitle = profile?.let {
+                    it.displayName + if (it.readOnly) " · " + ctx.getString(R.string.admin2_profile_read_only_badge) else ""
+                },
                 onBack = onBack,
+                onTitleClick = { showProfiles = true },
                 actions = {
-                    IconButton(onClick = { refreshTab(pagerState.currentPage, force = true) }) {
-                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.admin_cd_refresh))
+                    IconButton(onClick = { vm?.refresh(tabs[pagerState.currentPage], force = true) }) {
+                        Icon(Icons.Default.Refresh, contentDescription = ctx.getString(R.string.admin_cd_refresh))
                     }
-                    IconButton(onClick = { showProxySettingsDialog = true }) {
-                        Icon(Icons.Default.Router, contentDescription = stringResource(R.string.admin_cd_proxy_settings))
+                    IconButton(onClick = { vm?.profiles?.editActive() }) {
+                        Icon(Icons.Default.ManageAccounts, contentDescription = ctx.getString(R.string.admin2_profile_edit))
                     }
-                    IconButton(
-                        onClick = { showDisconnectConfirm = true }
-                    ) {
-                        Icon(Icons.Default.LinkOff, contentDescription = stringResource(R.string.admin_cd_disconnect_api), tint = MaterialTheme.colorScheme.error)
-                    }
-                }
+                },
             )
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
+        Column(Modifier.fillMaxSize().padding(padding)) {
             ScrollableSlidingSegmentedChips(
-                options = tabs,
+                options = tabLabels,
                 selectedIndex = pagerState.currentPage,
-                onOptionSelected = { index ->
-                    scope.launch {
-                        pagerState.animateScrollToPage(index)
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                height = 40.dp
+                onOptionSelected = { scope.launch { pagerState.animateScrollToPage(it) } },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                height = 40.dp,
             )
-
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier.weight(1f).fillMaxWidth()
-            ) { page ->
+            state.credentialProblem?.let { problem ->
+                CredentialProblemCard(problem) { vm?.profiles?.editActive() }
+            }
+            when (state.writeBlock) {
+                WriteBlock.NO_SCREEN_LOCK -> ReadOnlyBanner(
+                    ctx.getString(R.string.admin2_readonly_no_lock_title), ctx.getString(R.string.admin2_readonly_no_lock_desc),
+                    Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+                WriteBlock.READ_ONLY_PROFILE -> ReadOnlyBanner(
+                    ctx.getString(R.string.admin2_readonly_profile_title), ctx.getString(R.string.admin2_readonly_profile_desc),
+                    Modifier.padding(horizontal = 16.dp, vertical = 4.dp), Icons.Default.VisibilityOff,
+                )
+                null -> Unit
+            }
+            HorizontalPager(state = pagerState, modifier = Modifier.weight(1f).fillMaxWidth()) { page ->
+                val tab = tabs[page]
                 PullToRefreshBox(
-                    isRefreshing = isRefreshing,
-                    onRefresh = { refreshTab(page, force = true) },
-                    modifier = Modifier.fillMaxSize()
+                    isRefreshing = loadableFor(state, tab)?.loading == true,
+                    onRefresh = { vm?.refresh(tab, force = true) },
+                    modifier = Modifier.fillMaxSize(),
                 ) {
-                    when (page) {
-                        0 -> DevicesTabContent(
-                            devices = devices,
-                            onDeviceClick = { selectedDevice = it }
+                    when (tab) {
+                        ConsoleTab.DEVICES -> DevicesTabContent(
+                            state = state.devices,
+                            selfNodeId = selfNode,
+                            onRetry = { vm?.refresh(tab, force = true) },
+                            onDeviceClick = { selectedDeviceId = it.pathId },
                         )
-                        1 -> DnsTabContent(
-                            magicDns = magicDnsEnabled,
-                            nameservers = dnsNameservers,
-                            splitDns = splitDns,
-                            searchPaths = dnsSearchPaths,
-                            onMagicDnsChanged = { enabled ->
-                                scope.launch(Dispatchers.IO) {
-                                    try {
-                                        client.updateDnsPreferences(enabled)
-                                        withContext(Dispatchers.Main) {
-                                            magicDnsEnabled = enabled
-                                            Toast.makeText(context, context.getString(R.string.admin_settings_magic_dns_updated), Toast.LENGTH_SHORT).show()
-                                            refreshTab(1, force = true)
-                                        }
-                                    } catch (e: Exception) {
-                                        withContext(Dispatchers.Main) {
-                                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
-                                        }
-                                    }
-                                }
-                            },
-                            onApplyNameservers = { updatedList ->
-                                scope.launch(Dispatchers.IO) {
-                                    try {
-                                        client.setDnsNameservers(updatedList)
-                                        withContext(Dispatchers.Main) {
-                                            dnsNameservers = updatedList
-                                            Toast.makeText(context, context.getString(R.string.admin_settings_ns_applied), Toast.LENGTH_SHORT).show()
-                                            refreshTab(1, force = true)
-                                        }
-                                    } catch (e: Exception) {
-                                        withContext(Dispatchers.Main) {
-                                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
-                                        }
-                                    }
-                                }
-                            },
-                            onUpdateSplitDns = { domain, nsList ->
-                                scope.launch(Dispatchers.IO) {
-                                    try {
-                                        client.updateSplitDns(domain, nsList)
-                                        withContext(Dispatchers.Main) {
-                                            Toast.makeText(context, context.getString(R.string.admin_settings_search_applied), Toast.LENGTH_SHORT).show()
-                                            refreshTab(1, force = true)
-                                        }
-                                    } catch (e: Exception) {
-                                        withContext(Dispatchers.Main) {
-                                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
-                                        }
-                                    }
-                                }
-                            },
-                            onApplySearchPaths = { updatedPaths ->
-                                scope.launch(Dispatchers.IO) {
-                                    try {
-                                        client.setDnsSearchPaths(updatedPaths)
-                                        withContext(Dispatchers.Main) {
-                                            dnsSearchPaths = updatedPaths
-                                            Toast.makeText(context, context.getString(R.string.admin_settings_search_applied), Toast.LENGTH_SHORT).show()
-                                            refreshTab(1, force = true)
-                                        }
-                                    } catch (e: Exception) {
-                                        withContext(Dispatchers.Main) {
-                                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
-                                        }
-                                    }
-                                }
-                            }
+                        ConsoleTab.DNS -> DnsTabContent(
+                            state = state.dns,
+                            canWrite = state.canWrite(AdminArea.DNS),
+                            onRetry = { vm?.refresh(tab, force = true) },
+                            onMagicDnsChanged = { vm?.setMagicDns(it) },
+                            onApplyNameservers = { vm?.setNameservers(it) },
+                            onUpdateSplitDns = { domain, servers -> vm?.setSplitDns(domain, servers) },
+                            onApplySearchPaths = { vm?.setSearchPaths(it) },
                         )
-                        2 -> UsersTabContent(
-                            users = users,
-                            onUserClick = { selectedUser = it }
+                        ConsoleTab.USERS -> UsersTabContent(
+                            state = state.users,
+                            isOwn = ::isOwnUser,
+                            onRetry = { vm?.refresh(tab, force = true) },
+                            onUserClick = { selectedUserId = it.id },
                         )
-                        3 -> ServicesTabContent(
-                            services = vipServices,
-                            onServiceClick = { selectedServiceInfo = it }
+                        ConsoleTab.SERVICES -> ServicesTabContent(
+                            state = state.services,
+                            onRetry = { vm?.refresh(tab, force = true) },
+                            onServiceClick = { selectedServiceName = it.name },
                         )
-                        4 -> WebhooksTabContent(
-                            webhooks = webhooks,
-                            onCreateClick = { showCreateWebhookDialog = true },
-                            onTestClick = { wh ->
-                                scope.launch(Dispatchers.IO) {
-                                    try {
-                                        client.testWebhook(wh.endpointId)
-                                        withContext(Dispatchers.Main) {
-                                            Toast.makeText(context, context.getString(R.string.admin_webhooks_test_sent), Toast.LENGTH_SHORT).show()
-                                        }
-                                    } catch (e: Exception) {
-                                        withContext(Dispatchers.Main) {
-                                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
-                                        }
-                                    }
-                                }
-                            },
-                            onDeleteClick = { wh ->
-                                scope.launch(Dispatchers.IO) {
-                                    try {
-                                        client.deleteWebhook(wh.endpointId)
-                                        withContext(Dispatchers.Main) {
-                                            Toast.makeText(context, context.getString(R.string.admin_webhooks_deleted), Toast.LENGTH_SHORT).show()
-                                            refreshTab(4, force = true)
-                                        }
-                                    } catch (e: Exception) {
-                                        withContext(Dispatchers.Main) {
-                                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
-                                        }
-                                    }
-                                }
-                            }
+                        ConsoleTab.WEBHOOKS -> WebhooksTabContent(
+                            state = state.webhooks,
+                            canWrite = state.canWrite(AdminArea.WEBHOOKS),
+                            onRetry = { vm?.refresh(tab, force = true) },
+                            onCreateClick = { showCreateWebhook = true },
+                            onTestClick = { vm?.testWebhook(it) },
+                            onDeleteClick = { vm?.deleteWebhook(it) },
                         )
-                        5 -> AdminApiLogsTabContent(
-                            auditLogs = auditLogs,
-                            daysRange = auditLogsDaysRange,
-                            onDaysRangeChange = { newRange ->
-                                auditLogsDaysRange = newRange
-                                AdminApiLogsCache.daysRange = newRange
-                                refreshTab(5, force = true)
-                            },
-                            isLoading = auditLogs.isEmpty() && isRefreshing
+                        ConsoleTab.LOGS -> AdminApiLogsTabContent(
+                            tailnetLog = state.tailnetLog,
+                            daysRange = state.tailnetLogDays,
+                            onDaysRangeChange = { vm?.setTailnetLogDays(it) },
+                            onRetry = { vm?.refresh(tab, force = true) },
+                            localLog = state.localLog,
+                            onClearLocal = { vm?.clearLocalLog() },
                         )
-                        6 -> AdminApiWebTabContent()
-                        7 -> TailnetSettingsTabContent(
-                            settings = tailnetSettings,
-                            onApplySettings = { updatedSettings ->
-                                scope.launch(Dispatchers.IO) {
-                                    try {
-                                        val res = client.updateTailnetSettings(updatedSettings)
-                                        withContext(Dispatchers.Main) {
-                                            tailnetSettings = res
-                                            Toast.makeText(context, context.getString(R.string.admin_settings_updated), Toast.LENGTH_SHORT).show()
-                                            refreshTab(7, force = true)
-                                        }
-                                    } catch (e: Exception) {
-                                        withContext(Dispatchers.Main) {
-                                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
-                                        }
-                                    }
-                                }
-                            },
-                            onManageKeysClick = {
-                                showKeysManagement = true
-                            },
-                            onBillingClick = {}
+                        ConsoleTab.WEB -> AdminApiWebTabContent()
+                        ConsoleTab.SETTINGS -> TailnetSettingsTabContent(
+                            state = state.settings,
+                            canWrite = { key -> state.canWrite(key.scopeArea) },
+                            onRetry = { vm?.refresh(tab, force = true) },
+                            onSet = { key, label, value, show -> vm?.setSetting(key, label, value, show) },
+                            onManageKeysClick = { showKeys = true },
                         )
                     }
                 }
@@ -458,386 +200,162 @@ fun AdminApiDashboardScreen(
         }
     }
 
-    if (showDisconnectConfirm) {
-        // Strings come from the parent context, not stringResource() — see wrapContextWithLocale().
-        AlertDialog(
-            onDismissRequest = { showDisconnectConfirm = false },
-            title = { Text(context.getString(R.string.admin_disconnect_title)) },
-            text = { Text(context.getString(R.string.admin_disconnect_text, tailnet)) },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showDisconnectConfirm = false
-                        AdminApiLogsCache.clear()
-                        onDisconnect()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text(context.getString(R.string.action_disconnect))
+    if (showProfiles) {
+        PickerSheet(
+            title = ctx.getString(R.string.admin2_profile_switch_title),
+            options = state.profiles.map { p ->
+                PickerOption(p.id, p.displayName, supporting = p.tailnetDnsName.takeIf { it.isNotBlank() && it != p.displayName })
+            } + PickerOption(PICK_EDIT, ctx.getString(R.string.admin2_profile_edit), Icons.Default.Edit) +
+                PickerOption(PICK_ADD, ctx.getString(R.string.admin2_profile_add), Icons.Default.Add),
+            selected = profile?.id,
+            onPick = { id ->
+                when (id) {
+                    PICK_ADD -> vm?.profiles?.startNew()
+                    PICK_EDIT -> vm?.profiles?.editActive()
+                    else -> vm?.profiles?.switchTo(id)
                 }
             },
-            dismissButton = {
-                TextButton(onClick = { showDisconnectConfirm = false }) { Text(context.getString(R.string.action_cancel)) }
-            }
+            onDismiss = { showProfiles = false },
         )
     }
 
-    if (showProxySettingsDialog) {
-        ProxySettingsDialog(
-            initialProxyMode = proxyMode,
-            initialProxyHost = proxyHost,
-            initialProxyPort = proxyPort,
-            initialProxyUser = proxyUser,
-            initialProxyPass = proxyPass,
-            onDismiss = { showProxySettingsDialog = false },
-            onSave = { pmode, phost, pport, puser, ppass ->
-                showProxySettingsDialog = false
-                onUpdateProxy(pmode, phost, pport, puser, ppass)
-                Toast.makeText(context, context.getString(R.string.admin_settings_updated), Toast.LENGTH_SHORT).show()
-                refreshTab(pagerState.currentPage, force = true)
-            }
-        )
+    selectedDeviceId?.let { id ->
+        val device = state.devices.value?.firstOrNull { it.pathId == id }
+        // Gone after a refresh (deleted, say): the sheet closes with it.
+        LaunchedEffect(device == null) { if (device == null) selectedDeviceId = null }
+        if (device != null) {
+            DeviceDetailBottomSheet(
+                device = device,
+                routes = state.routes[device.pathId],
+                allTailnetTags = state.policyTags,
+                isThisPhone = selfNode != null && device.nodeId == selfNode,
+                canWriteDevices = state.canWrite(AdminArea.DEVICES),
+                canWriteRoutes = state.canWrite(AdminArea.ROUTES),
+                onDismiss = { selectedDeviceId = null },
+                onLoadRoutes = { vm?.loadRoutes(device) },
+                onRename = { vm?.renameDevice(device, it) },
+                onAuthorize = { vm?.setDeviceAuthorized(device, it) },
+                onExpire = { vm?.expireDevice(device) },
+                onDelete = { vm?.deleteDevice(device) },
+                onUpdateTags = { vm?.setDeviceTags(device, it) },
+                onToggleKeyExpiryDisabled = { vm?.setKeyExpiryDisabled(device, it) },
+                onSetRoutes = { before, after -> vm?.setRoutes(device, before, after) },
+            )
+        }
     }
 
-    if (generatedKeyToShow != null) {
-        // Strings resolved in the parent composition — see wrapContextWithLocale().
-        val strAdminKeyGeneratedTitle = stringResource(R.string.admin_key_generated_title)
-        val strAdminKeyGeneratedText = stringResource(R.string.admin_key_generated_text)
-        val strAdminKeyCopyClose = stringResource(R.string.admin_key_copy_close)
-        val strActionClose = stringResource(R.string.action_close)
-        AlertDialog(
-            onDismissRequest = { generatedKeyToShow = null },
-            title = { Text(strAdminKeyGeneratedTitle) },
-            text = {
-                Column {
-                    Text(strAdminKeyGeneratedText)
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        text = generatedKeyToShow!!,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .padding(8.dp)
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        clipboard.setPrimaryClip(ClipData.newPlainText("Tailscale Auth Key", generatedKeyToShow))
-                        Toast.makeText(context, context.getString(R.string.copied_to_clipboard, "Key"), Toast.LENGTH_SHORT).show()
-                        generatedKeyToShow = null
-                        scope.launch(Dispatchers.IO) {
-                            try {
-                                val list = client.listKeys()
-                                withContext(Dispatchers.Main) {
-                                    keys = list.sortedBy { it.revoked == true }
-                                }
-                            } catch (e: Exception) {}
-                        }
-                    }
-                ) {
-                    Text(strAdminKeyCopyClose)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { generatedKeyToShow = null }) { Text(strActionClose) }
-            }
-        )
+    selectedUserId?.let { id ->
+        val user = state.users.value?.firstOrNull { it.id == id }
+        // Gone after a refresh (deleted, say): the sheet closes with it.
+        LaunchedEffect(user == null) { if (user == null) selectedUserId = null }
+        if (user != null) {
+            UserDetailBottomSheet(
+                user = user,
+                own = isOwnUser(user),
+                canWrite = state.canWrite(AdminArea.USERS),
+                onDismiss = { selectedUserId = null },
+                onRoleChange = { vm?.setUserRole(user, it) },
+                onApprove = { vm?.approveUser(user) },
+                onSuspend = { vm?.suspendUser(user) },
+                onRestore = { vm?.restoreUser(user) },
+                onDelete = { vm?.deleteUser(user) },
+            )
+        }
     }
 
-    // Modal detailed sheets
-    selectedDevice?.let { device ->
-        DeviceDetailBottomSheet(
-            device = device,
-            client = client,
-            allTailnetTags = allTailnetTags,
-            onDismiss = { selectedDevice = null },
-            onRename = { newName ->
-                scope.launch(Dispatchers.IO) {
-                    try {
-                        client.renameDevice(device.id, newName)
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, context.getString(R.string.admin_device_renamed), Toast.LENGTH_SHORT).show()
-                            selectedDevice = null
-                            refreshTab(0, force = true)
-                        }
-                    } catch (e: Exception) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
-                        }
-                    }
-                }
-            },
-            onAuthorize = { authorized ->
-                scope.launch(Dispatchers.IO) {
-                    try {
-                        client.setDeviceAuthorized(device.id, authorized)
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, context.getString(if (authorized) R.string.admin_device_authorized else R.string.admin_device_deauthorized), Toast.LENGTH_SHORT).show()
-                            selectedDevice = null
-                            refreshTab(0, force = true)
-                        }
-                    } catch (e: Exception) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
-                        }
-                    }
-                }
-            },
-            onExpire = {
-                scope.launch(Dispatchers.IO) {
-                    try {
-                        client.expireDevice(device.id)
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, context.getString(R.string.admin_device_key_expired), Toast.LENGTH_SHORT).show()
-                            selectedDevice = null
-                            refreshTab(0, force = true)
-                        }
-                    } catch (e: Exception) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
-                        }
-                    }
-                }
-            },
-            onDelete = {
-                scope.launch(Dispatchers.IO) {
-                    try {
-                        client.deleteDevice(device.id)
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, context.getString(R.string.admin_device_deleted), Toast.LENGTH_SHORT).show()
-                            selectedDevice = null
-                            refreshTab(0, force = true)
-                        }
-                    } catch (e: Exception) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
-                        }
-                    }
-                }
-            },
-            onUpdateTags = { tagsList ->
-                scope.launch(Dispatchers.IO) {
-                    try {
-                        client.setDeviceTags(device.id, tagsList)
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, context.getString(R.string.admin_device_tags_updated), Toast.LENGTH_SHORT).show()
-                            selectedDevice = null
-                            refreshTab(0, force = true)
-                        }
-                    } catch (e: Exception) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
-                        }
-                    }
-                }
-            },
-            onToggleKeyExpiryDisabled = { disabled ->
-                scope.launch(Dispatchers.IO) {
-                    try {
-                        client.setDeviceKeyExpiryDisabled(device.id, disabled)
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, context.getString(R.string.admin_device_key_expiry_updated), Toast.LENGTH_SHORT).show()
-                            selectedDevice = null
-                            refreshTab(0, force = true)
-                        }
-                    } catch (e: Exception) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
-                        }
-                    }
-                }
-            }
-        )
+    selectedServiceName?.let { name ->
+        val service = state.services.value?.firstOrNull { it.name == name }
+        // Gone after a refresh (deleted, say): the sheet closes with it.
+        LaunchedEffect(service == null) { if (service == null) selectedServiceName = null }
+        if (service != null) {
+            ServiceDetailBottomSheet(
+                service = service,
+                hosts = state.serviceHosts[service.name],
+                allDevices = state.devices.value.orEmpty(),
+                canWrite = state.canWrite(AdminArea.SERVICES),
+                onLoadHosts = { vm?.loadServiceHosts(service) },
+                onSetHost = { deviceId, deviceName, approved -> vm?.setServiceHost(service, deviceId, deviceName, approved) },
+                onDismiss = { selectedServiceName = null },
+            )
+        }
     }
 
-    selectedUser?.let { user ->
-        UserDetailBottomSheet(
-            user = user,
-            onDismiss = { selectedUser = null },
-            onRoleChange = { newRole ->
-                scope.launch(Dispatchers.IO) {
-                    try {
-                        client.changeUserRole(user.id, newRole)
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, context.getString(R.string.admin_users_role_updated, newRole.uppercase()), Toast.LENGTH_SHORT).show()
-                            selectedUser = null
-                            refreshTab(3, force = true)
-                        }
-                    } catch (e: Exception) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
-                        }
-                    }
-                }
-            },
-            onApprove = {
-                scope.launch(Dispatchers.IO) {
-                    try {
-                        client.approveUser(user.id)
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, context.getString(R.string.admin_users_approved), Toast.LENGTH_SHORT).show()
-                            selectedUser = null
-                            refreshTab(3, force = true)
-                        }
-                    } catch (e: Exception) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
-                        }
-                    }
-                }
-            },
-            onSuspend = {
-                scope.launch(Dispatchers.IO) {
-                    try {
-                        client.suspendUser(user.id)
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, context.getString(R.string.admin_users_suspended), Toast.LENGTH_SHORT).show()
-                            selectedUser = null
-                            refreshTab(3, force = true)
-                        }
-                    } catch (e: Exception) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
-                        }
-                    }
-                }
-            },
-            onRestore = {
-                scope.launch(Dispatchers.IO) {
-                    try {
-                        client.restoreUser(user.id)
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, context.getString(R.string.admin_users_restored), Toast.LENGTH_SHORT).show()
-                            selectedUser = null
-                            refreshTab(3, force = true)
-                        }
-                    } catch (e: Exception) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
-                        }
-                    }
-                }
-            },
-            onDelete = {
-                scope.launch(Dispatchers.IO) {
-                    try {
-                        client.deleteUser(user.id)
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, context.getString(R.string.admin_users_deleted), Toast.LENGTH_SHORT).show()
-                            selectedUser = null
-                            refreshTab(3, force = true)
-                        }
-                    } catch (e: Exception) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
-                        }
-                    }
-                }
-            }
-        )
-    }
-
-    if (showCreateKeyDialog) {
+    if (showCreateKey) {
         CreateKeyDialog(
-            onDismiss = { showCreateKeyDialog = false },
-            onGenerate = { desc, expiry, ephemeral, preauth, tagsList ->
-                scope.launch(Dispatchers.IO) {
-                    try {
-                        val newKey = client.createKey(desc, expiry, ephemeral, preauth, tagsList)
-                        withContext(Dispatchers.Main) {
-                            showCreateKeyDialog = false
-                            generatedKeyToShow = newKey.key
-                        }
-                    } catch (e: Exception) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
-                        }
-                    }
-                }
-            }
+            policyTags = state.policyTags,
+            onDismiss = { showCreateKey = false },
+            onGenerate = { request ->
+                showCreateKey = false
+                vm?.createAuthKey(request)
+            },
         )
     }
 
-    selectedServiceInfo?.let { service ->
-        ServiceDetailBottomSheet(
-            service = service,
-            client = client,
-            allDevices = devices,
-            onDismiss = { selectedServiceInfo = null }
-        )
-    }
-
-    if (showCreateWebhookDialog) {
+    if (showCreateWebhook) {
         CreateWebhookDialog(
-            onDismiss = { showCreateWebhookDialog = false },
-            onSave = { url, events ->
-                scope.launch(Dispatchers.IO) {
-                    try {
-                        client.createWebhook(url, events)
-                        withContext(Dispatchers.Main) {
-                            showCreateWebhookDialog = false
-                            Toast.makeText(context, context.getString(R.string.admin_webhooks_added), Toast.LENGTH_SHORT).show()
-                            refreshTab(4, force = true)
-                        }
-                    } catch (e: Exception) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
-                        }
-                    }
-                }
-            }
+            onDismiss = { showCreateWebhook = false },
+            onSave = { url, provider, events ->
+                showCreateWebhook = false
+                vm?.createWebhook(url, provider, events)
+            },
         )
     }
 
-    if (showKeysManagement) {
+    if (showKeys) {
         val sheetState = rememberFullSheetState()
-        // Strings resolved in the parent composition — see wrapContextWithLocale().
-        val strAdminSettingsAuthKeysTitle = stringResource(R.string.admin_settings_auth_keys_title)
-        val strActionClose = stringResource(R.string.action_close)
-        ModalBottomSheet(
-            onDismissRequest = { showKeysManagement = false },
-            sheetState = sheetState
-        ) {
-            Column(modifier = Modifier.fillMaxSize()) {
+        ModalBottomSheet(onDismissRequest = { showKeys = false }, sheetState = sheetState) {
+            Column(Modifier.fillMaxSize()) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(strAdminSettingsAuthKeysTitle, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    IconButton(onClick = { showKeysManagement = false }) {
-                        Icon(Icons.Default.Close, contentDescription = strActionClose)
-                    }
+                    Text(ctx.getString(R.string.admin_settings_auth_keys_title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    IconButton(onClick = { showKeys = false }) { Icon(Icons.Default.Close, contentDescription = ctx.getString(R.string.action_close)) }
                 }
                 HorizontalDivider()
-                Box(modifier = Modifier.weight(1f)) {
-                    KeysTabContent(
-                        keys = keys,
-                        onRevokeClick = { key ->
-                            scope.launch(Dispatchers.IO) {
-                                try {
-                                    client.revokeKey(key.id)
-                                    withContext(Dispatchers.Main) {
-                                        Toast.makeText(context, context.getString(R.string.admin_keys_status_revoked), Toast.LENGTH_SHORT).show()
-                                        val list = client.listKeys()
-                                        keys = list.sortedBy { it.revoked == true }
-                                    }
-                                } catch (e: Exception) {
-                                    withContext(Dispatchers.Main) {
-                                        Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
-                                    }
-                                }
-                            }
-                        },
-                        onCreateKeyClick = { showCreateKeyDialog = true }
-                    )
-                }
+                KeysTabContent(
+                    state = state.keys,
+                    ownKeyId = state.caps?.ownKeyId,
+                    canWrite = state.canWrite(AdminArea.AUTH_KEYS),
+                    onRetry = { vm?.refreshKeys() },
+                    onRevokeClick = { vm?.revokeKey(it) },
+                    onCreateKeyClick = { showCreateKey = true },
+                )
+            }
+        }
+    }
+}
+
+private fun loadableFor(state: ConsoleState, tab: ConsoleTab): Loadable<*>? = when (tab) {
+    ConsoleTab.DEVICES -> state.devices
+    ConsoleTab.DNS -> state.dns
+    ConsoleTab.USERS -> state.users
+    ConsoleTab.SERVICES -> state.services
+    ConsoleTab.WEBHOOKS -> state.webhooks
+    ConsoleTab.LOGS -> state.tailnetLog
+    ConsoleTab.WEB -> null
+    ConsoleTab.SETTINGS -> state.settings
+}
+
+@Composable
+private fun CredentialProblemCard(problem: CredentialProblem, onFix: () -> Unit) {
+    val ctx = LocalContext.current
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer),
+    ) {
+        Column(Modifier.padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.ErrorOutline, null)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    ctx.getString(if (problem == CredentialProblem.UNREADABLE) R.string.admin2_credential_unreadable else R.string.admin2_credential_missing),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            Button(onClick = onFix, modifier = Modifier.align(Alignment.End).padding(top = 8.dp), shape = MaterialTheme.shapes.medium) {
+                Text(ctx.getString(R.string.admin2_credential_fix))
             }
         }
     }

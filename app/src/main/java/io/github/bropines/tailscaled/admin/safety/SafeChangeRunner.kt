@@ -103,8 +103,9 @@ class SafeChangeRunner(
         return null
     }
 
-    suspend fun run(planned: PlannedChange, gates: GateEvidence, isUndo: Boolean = false): ChangeOutcome {
+    suspend fun run(planned: PlannedChange, gates: GateEvidence): ChangeOutcome {
         val change = planned.change
+        val isUndo = planned.isUndo
         val refusal = check(change, gates)
             ?: if (change.needsUnlock && gates.grant?.consume(clock()) != true) Refusal.NOT_UNLOCKED else null
         if (refusal != null) {

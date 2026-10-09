@@ -96,4 +96,6 @@ class PlannedChange(
     val apply: suspend (AdminBackend) -> Unit,
     val verify: (suspend (AdminBackend) -> Boolean)? = null,
     val undo: PlannedChange? = null,
+    /** This change puts back what another one changed; the audit log marks it. */
+    val isUndo: Boolean = false,
 )

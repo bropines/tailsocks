@@ -50,6 +50,8 @@ data class DemoData(
     val taildropIncoming: List<io.github.bropines.tailscaled.core.IncomingTransfer>? = null,
     /** TailCat's key, connections and server, with what the bridge reports for them. */
     val tailcat: DemoTailcat? = null,
+    /** The admin console as its ViewModel would hold it: a profile, loaded tabs, a gate. */
+    val admin: io.github.bropines.tailscaled.admin.console.ConsoleState? = null,
 )
 
 /** What TailcatScreen reads from storage and from TailcatService, made up. */

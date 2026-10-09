@@ -116,9 +116,15 @@ object AdminProfiles {
      * The backend for [profile]. Blocking (Keystore): call it off the main thread. What a
      * personal token was refused before is remembered in the profile and applied up front.
      */
-    fun newBackend(context: Context, profile: AdminProfile): AdminBackend {
-        val credential = credential(context, profile)
-        val transport = transport(context, profile)
+    fun newBackend(context: Context, profile: AdminProfile): AdminBackend =
+        newBackend(context, profile, credential(context, profile), null)
+
+    /**
+     * A backend for a profile not saved yet, or a credential not stored yet: the profile editor
+     * checks what was typed with it. [proxyPassword] overrides the stored one when not null.
+     */
+    fun newBackend(context: Context, profile: AdminProfile, credential: AdminCredential, proxyPassword: String?): AdminBackend {
+        val transport = transport(context, profile, proxyPassword)
         val log: (String) -> Unit = { Log.i("AdminApi", "[${profile.displayName}] $it") }
         return when (profile.backend) {
             // Headscale 0.30's /api/v2 speaks this same API; its own backends arrive with their
@@ -150,7 +156,7 @@ object AdminProfiles {
     }
 
     /** The proxy as the bridge takes it, or "" for a direct connection. */
-    fun proxyUrl(context: Context, profile: AdminProfile): String {
+    fun proxyUrl(context: Context, profile: AdminProfile, proxyPassword: String? = null): String {
         val p = profile.proxy
         return when (p.mode) {
             AdminProxySettings.MODE_CONTROL_PLANE -> GlobalSettings.getControlProxyUrl(context).trim()
@@ -164,15 +170,16 @@ object AdminProfiles {
                 )
             }
             AdminProxySettings.MODE_CUSTOM_SOCKS5 -> if (p.host.isNotBlank() && p.port > 0) {
-                val pass = runCatching { vault(context).get(profile.id, CredentialVault.Slot.PROXY_PASSWORD) }.getOrNull().orEmpty()
+                val pass = proxyPassword
+                    ?: runCatching { vault(context).get(profile.id, CredentialVault.Slot.PROXY_PASSWORD) }.getOrNull().orEmpty()
                 socksUrl(p.host, p.port, p.user, pass)
             } else ""
             else -> ""
         }
     }
 
-    private fun transport(context: Context, profile: AdminProfile): HttpTransport {
-        val proxy = proxyUrl(context, profile)
+    private fun transport(context: Context, profile: AdminProfile, proxyPassword: String?): HttpTransport {
+        val proxy = proxyUrl(context, profile, proxyPassword)
         val primary = BridgeTransport(proxy)
         // The control proxy may be down while the network is fine: reads may then go directly.
         // Never writes — see FallbackTransport.

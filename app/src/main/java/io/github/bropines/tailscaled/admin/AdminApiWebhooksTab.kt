@@ -1,289 +1,229 @@
 package io.github.bropines.tailscaled.admin
 
-import io.github.bropines.tailscaled.R
 import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Webhook
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.res.stringResource
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import io.github.bropines.tailscaled.R
+import io.github.bropines.tailscaled.admin.api.ApiWebhook
+import io.github.bropines.tailscaled.admin.api.WebhookEvents
+import io.github.bropines.tailscaled.admin.console.ConsoleText
+import io.github.bropines.tailscaled.admin.console.Loadable
+import io.github.bropines.tailscaled.ui.EmptyState
 
 @Composable
 fun WebhooksTabContent(
-    webhooks: List<WebhookEndpoint>,
+    state: Loadable<List<ApiWebhook>>,
+    canWrite: Boolean,
+    onRetry: () -> Unit,
     onCreateClick: () -> Unit,
-    onTestClick: (WebhookEndpoint) -> Unit,
-    onDeleteClick: (WebhookEndpoint) -> Unit
+    onTestClick: (ApiWebhook) -> Unit,
+    onDeleteClick: (ApiWebhook) -> Unit,
 ) {
+    val ctx = LocalContext.current
+    val webhooks = state.value.orEmpty()
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            // The heading takes what is left after the button; without a weight
-            // both are sized by their own text and the Russian strings collide.
+            // The heading takes what is left after the button; Russian strings collided otherwise.
             Text(
-                stringResource(R.string.admin_webhooks_title),
+                ctx.getString(R.string.admin_webhooks_title),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             )
-            Spacer(Modifier.width(12.dp))
-            Button(
-                onClick = onCreateClick,
-                shape = MaterialTheme.shapes.small,
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-            ) {
-                Icon(Icons.Default.Add, contentDescription = null)
-                Spacer(Modifier.width(4.dp))
-                Text(
-                    stringResource(R.string.admin_webhooks_add),
-                    fontSize = 13.sp,
-                    maxLines = 1,
-                    softWrap = false
-                )
+            if (canWrite) {
+                Spacer(Modifier.width(12.dp))
+                Button(onClick = onCreateClick, shape = MaterialTheme.shapes.medium, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(Modifier.width(4.dp))
+                    Text(ctx.getString(R.string.admin_webhooks_add), style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false)
+                }
             }
         }
-
-        if (webhooks.isEmpty()) {
-            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Text(stringResource(R.string.admin_webhooks_no_webhooks), color = MaterialTheme.colorScheme.outline)
-            }
-        } else {
-            LazyColumn(
+        LoadProblems(state, onRetry, Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+        when {
+            webhooks.isEmpty() && state.loading -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { LoadingIndicatorCompat() }
+            webhooks.isEmpty() -> EmptyState(Icons.Default.Webhook, ctx.getString(R.string.admin_webhooks_no_webhooks), Modifier.weight(1f).fillMaxWidth())
+            else -> LazyColumn(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
                 contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                items(webhooks) { webhook ->
-                    WebhookRow(
-                        webhook = webhook,
-                        onTest = { onTestClick(webhook) },
-                        onDelete = { onDeleteClick(webhook) }
-                    )
+                items(webhooks, key = { it.endpointId }) { webhook ->
+                    WebhookRow(webhook, canWrite, onTest = { onTestClick(webhook) }, onDelete = { onDeleteClick(webhook) })
                 }
             }
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun WebhookRow(
-    webhook: WebhookEndpoint,
-    onTest: () -> Unit,
-    onDelete: () -> Unit
-) {
-    var showDeleteConfirm by remember { mutableStateOf(false) }
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainer
-    ) {
+fun WebhookRow(webhook: ApiWebhook, canWrite: Boolean, onTest: () -> Unit, onDelete: () -> Unit) {
+    val ctx = LocalContext.current
+    val scheme = MaterialTheme.colorScheme
+    Surface(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, color = scheme.surfaceContainer) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(MaterialTheme.shapes.small)
-                        .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f)),
-                    contentAlignment = Alignment.Center
+                    modifier = Modifier.size(36.dp).clip(MaterialTheme.shapes.small).background(scheme.secondary.copy(alpha = 0.12f)),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Default.Webhook, null, tint = MaterialTheme.colorScheme.secondary)
+                    Icon(Icons.Default.Webhook, null, tint = scheme.secondary)
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
+                    Text(webhook.endpointUrl, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(
-                        webhook.endpointUrl,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        "ID: ${webhook.endpointId}",
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.outline
+                        "${ConsoleText.webhookProvider(ctx, webhook.providerType)} · " +
+                            ctx.resources.getQuantityString(R.plurals.admin2_webhook_events, webhook.subscriptions.size, webhook.subscriptions.size),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = scheme.onSurfaceVariant,
                     )
                 }
             }
-
-            Text(
-                stringResource(R.string.admin_webhooks_subscribed_events, webhook.subscribedEvents?.size?.toString() ?: "0"),
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedButton(
-                    onClick = onTest,
-                    modifier = Modifier.weight(1f),
-                    shape = MaterialTheme.shapes.small,
-                    contentPadding = PaddingValues(vertical = 4.dp)
-                ) {
-                    Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text(stringResource(R.string.admin_webhooks_test_ping), fontSize = 12.sp)
+            if (webhook.subscriptions.isNotEmpty()) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    webhook.subscriptions.forEach { StatusTag(it, scheme.surfaceContainerHighest, scheme.onSurface) }
                 }
-
-                Button(
-                    onClick = { showDeleteConfirm = true },
-                    modifier = Modifier.weight(1f),
-                    shape = MaterialTheme.shapes.small,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer
-                    ),
-                    contentPadding = PaddingValues(vertical = 4.dp)
-                ) {
-                    Icon(Icons.Default.Delete, null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text(stringResource(R.string.action_delete), fontSize = 12.sp)
+            }
+            if (canWrite) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = onTest, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium) {
+                        Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(ctx.getString(R.string.admin_webhooks_test_ping), style = MaterialTheme.typography.labelLarge)
+                    }
+                    Button(
+                        onClick = onDelete,
+                        modifier = Modifier.weight(1f),
+                        shape = MaterialTheme.shapes.medium,
+                        colors = ButtonDefaults.buttonColors(containerColor = scheme.errorContainer, contentColor = scheme.onErrorContainer),
+                    ) {
+                        Icon(Icons.Default.Delete, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(ctx.getString(R.string.action_delete), style = MaterialTheme.typography.labelLarge)
+                    }
                 }
             }
         }
     }
-
-    if (showDeleteConfirm) {
-        // Strings resolved in the parent composition — see wrapContextWithLocale().
-        val strAdminWebhooksDeleteTitle = stringResource(R.string.admin_webhooks_delete_title)
-        val strAdminWebhooksDeleteText = stringResource(R.string.admin_webhooks_delete_text)
-        val strActionDelete = stringResource(R.string.action_delete)
-        val strActionCancel = stringResource(R.string.action_cancel)
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
-            title = { Text(strAdminWebhooksDeleteTitle) },
-            text = { Text(strAdminWebhooksDeleteText) },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showDeleteConfirm = false
-                        onDelete()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text(strActionDelete)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) { Text(strActionCancel) }
-            }
-        )
-    }
 }
 
+/**
+ * A new webhook: an https endpoint, its format, and the events it receives — the schema's
+ * `subscriptions`, all eighteen of them on offer (the old dialog sent `subscribedEvents`, which
+ * the API does not know, and the webhook came out with none).
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun CreateWebhookDialog(
-    onDismiss: () -> Unit,
-    onSave: (String, List<String>) -> Unit
-) {
-    val context = LocalContext.current
-    var url by remember { mutableStateOf("") }
-    
-    val availableEvents = listOf(
-        "nodeCreated",
-        "nodeDeleted",
-        "nodeNeedsApproval",
-        "nodeKeyExpired",
-        "userCreated",
-        "userDeleted",
-        "userNeedsApproval"
-    )
-    val selectedEvents = remember { mutableStateListOf<String>().apply { addAll(availableEvents) } }
-
-    // Strings resolved in the parent composition — see wrapContextWithLocale().
-    val strAdminWebhooksAddTitle = stringResource(R.string.admin_webhooks_add_title)
-    val strAdminWebhooksUrlLabel = stringResource(R.string.admin_webhooks_url_label)
-    val strAdminWebhooksUrlPlaceholder = stringResource(R.string.admin_webhooks_url_placeholder)
-    val strAdminWebhooksSubscribeLabel = stringResource(R.string.admin_webhooks_subscribe_label)
-    val strActionSave = stringResource(R.string.action_save)
-    val strActionCancel = stringResource(R.string.action_cancel)
+fun CreateWebhookDialog(onDismiss: () -> Unit, onSave: (url: String, provider: String, events: List<String>) -> Unit) {
+    val ctx = LocalContext.current
+    var url by rememberSaveable { mutableStateOf("") }
+    var provider by rememberSaveable { mutableStateOf("") }
+    val events = remember {
+        mutableStateListOf("nodeCreated", "nodeNeedsApproval", "nodeKeyExpiringInOneDay", "nodeKeyExpired", "userNeedsApproval")
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(strAdminWebhooksAddTitle) },
+        title = { Text(ctx.getString(R.string.admin_webhooks_add_title)) },
         text = {
-            Column(
-                modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
+            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     value = url,
-                    onValueChange = { url = it },
-                    label = { Text(strAdminWebhooksUrlLabel) },
-                    placeholder = { Text(strAdminWebhooksUrlPlaceholder) },
+                    onValueChange = { url = it.trim() },
+                    label = { Text(ctx.getString(R.string.admin_webhooks_url_label)) },
+                    placeholder = { Text(ctx.getString(R.string.admin_webhooks_url_placeholder)) },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier.fillMaxWidth(),
                 )
-
-                Text(strAdminWebhooksSubscribeLabel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-
-                availableEvents.forEach { event ->
-                    val isChecked = selectedEvents.contains(event)
+                Text(ctx.getString(R.string.admin2_webhook_provider), style = MaterialTheme.typography.labelLarge)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    WebhookEvents.providerTypes.forEach { p ->
+                        FilterChip(selected = provider == p, onClick = { provider = p }, label = { Text(ConsoleText.webhookProvider(ctx, p)) })
+                    }
+                }
+                Text(ctx.getString(R.string.admin_webhooks_subscribe_label), style = MaterialTheme.typography.labelLarge)
+                WebhookEvents.all.forEach { event ->
+                    val on = event in events
                     Row(
-                        modifier = Modifier
+                        Modifier
                             .fillMaxWidth()
-                            .clickable {
-                                if (isChecked) selectedEvents.remove(event) else selectedEvents.add(event)
-                            }
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .clip(MaterialTheme.shapes.small)
+                            .toggleable(value = on, role = Role.Checkbox) { if (it) events.add(event) else events.remove(event) },
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Checkbox(
-                            checked = isChecked,
-                            onCheckedChange = {
-                                if (isChecked) selectedEvents.remove(event) else selectedEvents.add(event)
-                            }
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(event, fontSize = 13.sp)
+                        Checkbox(checked = on, onCheckedChange = null, modifier = Modifier.padding(8.dp))
+                        Text(event, style = MaterialTheme.typography.bodyMedium, fontFamily = FontFamily.Monospace)
                     }
                 }
             }
         },
         confirmButton = {
-            Button(
-                onClick = {
-                    if (!android.util.Patterns.WEB_URL.matcher(url).matches()) {
-                        Toast.makeText(context, context.getString(R.string.admin_webhooks_invalid_url), Toast.LENGTH_SHORT).show()
-                    } else if (selectedEvents.isEmpty()) {
-                        Toast.makeText(context, context.getString(R.string.admin_webhooks_no_events_selected), Toast.LENGTH_SHORT).show()
-                    } else {
-                        onSave(url.trim(), selectedEvents.toList())
-                    }
+            Button(onClick = {
+                when {
+                    !url.startsWith("https://") || !android.util.Patterns.WEB_URL.matcher(url).matches() ->
+                        Toast.makeText(ctx, ctx.getString(R.string.admin_webhooks_invalid_url), Toast.LENGTH_SHORT).show()
+                    events.isEmpty() -> Toast.makeText(ctx, ctx.getString(R.string.admin_webhooks_no_events_selected), Toast.LENGTH_SHORT).show()
+                    else -> onSave(url, provider, WebhookEvents.all.filter { it in events })
                 }
-            ) {
-                Text(strActionSave)
-            }
+            }) { Text(ctx.getString(R.string.action_save)) }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(strActionCancel) }
-        }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(ctx.getString(R.string.action_cancel)) } },
     )
 }

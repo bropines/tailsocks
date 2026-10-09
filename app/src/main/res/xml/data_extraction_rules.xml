@@ -8,12 +8,18 @@
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="sharedpref" path="admin_api_keys.xml" />
+        <exclude domain="sharedpref" path="admin_profiles.xml" />
+        <exclude domain="sharedpref" path="admin_vault.xml" />
+        <exclude domain="file" path="admin" />
         <exclude domain="sharedpref" path="tailsocks_global.xml" />
         <exclude domain="file" path="states" />
         <exclude domain="file" path="taildrop" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="admin_api_keys.xml" />
+        <exclude domain="sharedpref" path="admin_profiles.xml" />
+        <exclude domain="sharedpref" path="admin_vault.xml" />
+        <exclude domain="file" path="admin" />
         <exclude domain="sharedpref" path="tailsocks_global.xml" />
         <exclude domain="file" path="states" />
         <exclude domain="file" path="taildrop" />
