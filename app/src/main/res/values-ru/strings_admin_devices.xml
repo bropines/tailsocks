@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The admin console's Devices tab: list, filters, the device sheet, its dialogs, bulk tags (4.9.0). -->
+<resources>
+    <!-- Search and filters -->
+    <string name="admin_dev_search_hint">Имя, IP, тег или пользователь</string>
+    <string name="admin_dev_search_clear">Очистить поиск</string>
+    <string name="admin_dev_owner_all">Все пользователи</string>
+    <string name="admin_dev_owner_mine">Мои</string>
+    <string name="admin_dev_owner_title">Чьи устройства</string>
+    <string name="admin_dev_owner_mine_option">Мои (%1$s)</string>
+    <string name="admin_dev_filter_needs_approval">Ждут одобрения</string>
+    <string name="admin_dev_filter_expiring">Ключ истекает</string>
+    <string name="admin_dev_filter_offline">Не в сети</string>
+    <plurals name="admin_dev_filter_offline_days">
+        <item quantity="one">Не в сети больше %d дня</item>
+        <item quantity="few">Не в сети больше %d дней</item>
+        <item quantity="many">Не в сети больше %d дней</item>
+        <item quantity="other">Не в сети больше %d дня</item>
+    </plurals>
+    <string name="admin_dev_offline_title">Не в сети дольше</string>
+    <plurals name="admin_dev_days">
+        <item quantity="one">%d дня</item>
+        <item quantity="few">%d дней</item>
+        <item quantity="many">%d дней</item>
+        <item quantity="other">%d дня</item>
+    </plurals>
+    <string name="admin_dev_filter_routers">Выходные узлы и маршрутизаторы</string>
+    <string name="admin_dev_filter_update">Есть обновление</string>
+    <string name="admin_dev_filter_tagged">С тегами</string>
+    <string name="admin_dev_tag_title">Теги</string>
+    <string name="admin_dev_tag_any">Любой тег</string>
+    <string name="admin_dev_filter_shared">Открыто вам</string>
+    <string name="admin_dev_filter_off">Выкл.</string>
+    <string name="admin_dev_filter_count">%1$s · %2$d</string>
+    <string name="admin_dev_clear_filters">Сбросить фильтры</string>
+    <plurals name="admin_dev_count_filtered">
+        <item quantity="one">%1$d из %2$d устройства</item>
+        <item quantity="few">%1$d из %2$d устройств</item>
+        <item quantity="many">%1$d из %2$d устройств</item>
+        <item quantity="other">%1$d из %2$d устройства</item>
+    </plurals>
+    <string name="admin_dev_none_match">Ничего не подходит</string>
+    <string name="admin_dev_none">Устройств нет</string>
+    <string name="admin_dev_sort_title">Сортировка устройств</string>
+    <string name="admin_dev_sort_name">По имени</string>
+    <string name="admin_dev_sort_last_seen">По активности, сначала в сети</string>
+    <string name="admin_dev_sort_created">Сначала новые</string>
+    <string name="admin_dev_routes_reading">Читаю маршруты: %1$d из %2$d</string>
+    <string name="admin_dev_routes_partial">Маршруты прочитались не у всех устройств, так что часть маршрутизаторов может не попасть в список. %1$s</string>
+
+    <!-- Selection -->
+    <string name="admin_dev_select">Выбрать устройства</string>
+    <string name="admin_dev_select_stop">Закончить выбор</string>
+    <plurals name="admin_dev_selected">
+        <item quantity="one">Выбрано: %d</item>
+        <item quantity="few">Выбрано: %d</item>
+        <item quantity="many">Выбрано: %d</item>
+        <item quantity="other">Выбрано: %d</item>
+    </plurals>
+    <string name="admin_dev_select_all">Все видимые</string>
+    <string name="admin_dev_select_none">Ни одного</string>
+    <string name="admin_dev_select_tags">Изменить теги</string>
+
+    <!-- Status and badges -->
+    <string name="admin_dev_never_seen">Ни разу не подключалось</string>
+    <string name="admin_dev_status_line">%1$s · %2$s</string>
+    <string name="admin_dev_badge_needs_approval">Ждёт одобрения</string>
+    <string name="admin_dev_badge_key_expired">Ключ истёк</string>
+    <string name="admin_dev_badge_key_today">Ключ истекает сегодня</string>
+    <plurals name="admin_dev_badge_key_expiring">
+        <item quantity="one">Ключ истекает через %d день</item>
+        <item quantity="few">Ключ истекает через %d дня</item>
+        <item quantity="many">Ключ истекает через %d дней</item>
+        <item quantity="other">Ключ истекает через %d дня</item>
+    </plurals>
+    <string name="admin_dev_badge_update">Есть обновление</string>
+    <string name="admin_dev_badge_exit">Выходной узел</string>
+    <string name="admin_dev_badge_router">Маршрутизатор подсетей</string>
+    <string name="admin_dev_badge_routes_pending">Маршруты ждут одобрения</string>
+    <string name="admin_dev_badge_lock_error">Ошибка Tailnet Lock</string>
+    <string name="admin_dev_badge_multiple">Несколько подключений</string>
+
+    <!-- The device sheet -->
+    <string name="admin_dev_section_addresses">Адреса</string>
+    <string name="admin_dev_magicdns">Имя в MagicDNS</string>
+    <string name="admin_dev_copy">Скопировать: %1$s</string>
+    <string name="admin_dev_copied">%1$s: скопировано</string>
+    <string name="admin_dev_section_details">Сведения</string>
+    <string name="admin_dev_created">Добавлено</string>
+    <string name="admin_dev_last_seen">Последний раз в сети</string>
+    <string name="admin_dev_online_now">Сейчас в сети</string>
+    <string name="admin_dev_when">%1$s (%2$s)</string>
+    <string name="admin_dev_system">Система</string>
+    <string name="admin_dev_version">Версия Tailscale</string>
+    <string name="admin_dev_version_update">%1$s · есть обновление</string>
+    <string name="admin_dev_owner">Владелец</string>
+    <string name="admin_dev_owner_tags">Его теги (добавил %1$s)</string>
+    <string name="admin_dev_tags">Теги</string>
+    <string name="admin_dev_key_expiry">Срок ключа</string>
+    <string name="admin_dev_key_disabled">Отключён: ключ не истекает</string>
+    <string name="admin_dev_key_expires">Истекает %1$s</string>
+    <string name="admin_dev_key_expired">Истёк %1$s</string>
+    <string name="admin_dev_ssh">Tailscale SSH</string>
+    <string name="admin_dev_ephemeral">Временное</string>
+    <string name="admin_dev_ephemeral_value">Да: удаляется вскоре после выхода из сети</string>
+    <string name="admin_dev_incoming">Входящие подключения</string>
+    <string name="admin_dev_incoming_blocked">Запрещены на самом устройстве</string>
+    <string name="admin_dev_lock_key">Ключ Tailnet Lock</string>
+    <string name="admin_dev_node_id">ID узла</string>
+    <string name="admin_dev_not_reported">Не сообщается</string>
+    <string name="admin_dev_section_connectivity">Связь</string>
+    <string name="admin_dev_relay">Основной ретранслятор</string>
+    <string name="admin_dev_relay_value">%1$s · %2$d мс</string>
+    <string name="admin_dev_ipv6_support">Поддержка IPv6</string>
+    <string name="admin_dev_port_mapping">Проброс портов</string>
+    <string name="admin_dev_port_mapping_none">Нет</string>
+    <string name="admin_dev_nat">NAT</string>
+    <string name="admin_dev_nat_hard">Меняется для каждого адресата: прямое соединение установить труднее</string>
+    <string name="admin_dev_nat_easy">Одинаковый для всех адресатов</string>
+    <string name="admin_dev_endpoints">Конечные точки</string>
+    <string name="admin_dev_connectivity_none">Не сообщается: сервер прислал только основные поля.</string>
+    <string name="admin_dev_detail_failed">Полные сведения не загрузились. %1$s</string>
+    <string name="admin_dev_shared_title">Открыто вам из другого tailnet</string>
+    <string name="admin_dev_shared_desc">Этот tailnet может к нему подключаться, но не может его менять: имя, теги, маршруты и удаление решает tailnet, который его открыл. Обратитесь к его администраторам или отзовите доступ там.</string>
+    <string name="admin_dev_needs_approval_desc">Оно ждёт, пока администратор его одобрит, и до тех пор не попадёт в tailnet.</string>
+    <string name="admin_dev_this_phone_warning">Это телефон, на котором открыта консоль. Если отозвать у него доступ, истечь ключ или удалить его, он потеряет связь с tailnet, а с ним и консоль, если она ходит к API через него.</string>
+    <string name="admin_dev_cannot_write">Изменения выключены: профиль или ключ доступа только для чтения.</string>
+
+    <!-- Routes -->
+    <string name="admin_dev_routes_title">Маршруты</string>
+    <string name="admin_dev_routes_none">Маршрутов не объявляет и выходным узлом не служит.</string>
+    <string name="admin_dev_exit_node">Выходной узел</string>
+    <string name="admin_dev_exit_desc">Устройства смогут пускать через него весь интернет-трафик. Если его отключить, все, кто им пользуется, останутся без выхода.</string>
+    <string name="admin_dev_exit_off_warning">Устройства, которые выходят в интернет через него, этот выход потеряют: их трафик остановится, пока они не выберут другой узел.</string>
+    <string name="admin_dev_route_approved">Одобрен</string>
+    <string name="admin_dev_route_pending">Ждёт одобрения</string>
+    <string name="admin_dev_route_stale">Одобрен, но больше не объявляется</string>
+    <string name="admin_dev_route_line">%1$s, %2$s</string>
+    <plurals name="admin_dev_routes_approve_all">
+        <item quantity="one">Одобрить %d маршрут</item>
+        <item quantity="few">Одобрить %d маршрута</item>
+        <item quantity="many">Одобрить %d маршрутов</item>
+        <item quantity="other">Одобрить %d маршрута</item>
+    </plurals>
+
+    <!-- Actions -->
+    <string name="admin_dev_action_rename">Имя</string>
+    <string name="admin_dev_action_tags">Теги</string>
+    <string name="admin_dev_action_ip">IP-адрес</string>
+    <string name="admin_dev_key_expiry_switch">Отключить срок ключа</string>
+    <string name="admin_dev_key_expiry_switch_desc">Ключ узла перестаёт истекать. Если включить обратно, вернётся прежний срок, а если он уже прошёл, устройству придётся войти заново.</string>
+    <string name="admin_dev_action_authorize">Одобрить</string>
+    <string name="admin_dev_action_deauthorize">Отозвать доступ</string>
+    <string name="admin_dev_action_expire">Истечь ключ</string>
+    <string name="admin_dev_action_delete">Удалить устройство</string>
+
+    <!-- Rename -->
+    <string name="admin_dev_rename_title">Переименовать %1$s</string>
+    <string name="admin_dev_rename_label">Имя</string>
+    <string name="admin_dev_rename_reset_help">Если оставить пустым, имя снова возьмётся из имени хоста устройства: %1$s.</string>
+    <string name="admin_dev_rename_invalid">Латинские буквы, цифры и дефисы, но не в начале и не в конце; до 63 знаков.</string>
+    <string name="admin_dev_rename_apply">Переименовать</string>
+    <string name="admin_dev_rename_reset">Вернуть имя хоста</string>
+    <string name="admin_dev_change_reset_name">Вернуть %1$s имя хоста</string>
+    <string name="admin_dev_change_reset_name_effect">Имя снова возьмётся из имени хоста %1$s; ссылки на старое имя перестанут работать.</string>
+
+    <!-- Tags -->
+    <string name="admin_dev_tags_title">Теги %1$s</string>
+    <string name="admin_dev_tags_owner_warning">С тегом устройство перестаёт принадлежать пользователю %1$s: дальше им владеют теги. Просто так это не отменить — вернуть его человеку можно, только сняв теги в веб-консоли или заново войдя на устройстве.</string>
+    <string name="admin_dev_tags_clear_warning">Без тегов устройству снова нужен владелец-пользователь: кому оно достанется, решит сервер, и устройству может понадобиться войти заново.</string>
+    <string name="admin_dev_tags_save">Сохранить теги</string>
+
+    <!-- IPv4 -->
+    <string name="admin_dev_ip_title">IPv4-адрес %1$s</string>
+    <string name="admin_dev_ip_label">Новый IPv4-адрес</string>
+    <string name="admin_dev_ip_help">Внутри 100.64.0.0/10 и не занятый другим устройством. Текущие подключения к нему оборвутся, а другие узлы найдут его по новому адресу, как только получат обновление.</string>
+    <string name="admin_dev_ip_malformed">Это не IPv4-адрес; нужен вида 100.80.0.1.</string>
+    <string name="admin_dev_ip_outside">Адрес должен быть внутри 100.64.0.0/10: от 100.64.0.0 до 100.127.255.255.</string>
+    <string name="admin_dev_ip_reserved">Этот адрес Tailscale держит за собой.</string>
+    <string name="admin_dev_ip_taken">Уже занят: %1$s.</string>
+    <string name="admin_dev_ip_unchanged">Это и есть его текущий адрес.</string>
+    <string name="admin_dev_ip_continue">Продолжить</string>
+    <string name="admin_dev_change_ip">Сменить IPv4-адрес %1$s</string>
+    <string name="admin_dev_change_ip_effect">Подключения к нему оборвутся; узлы будут находить его по адресу %1$s, а DNS-кэши ещё какое-то время могут помнить старый.</string>
+
+    <!-- Bulk tags -->
+    <plurals name="admin_dev_bulk_target">
+        <item quantity="one">%d устройство</item>
+        <item quantity="few">%d устройства</item>
+        <item quantity="many">%d устройств</item>
+        <item quantity="other">%d устройства</item>
+    </plurals>
+    <plurals name="admin_dev_bulk_title">
+        <item quantity="one">Теги %d устройства</item>
+        <item quantity="few">Теги %d устройств</item>
+        <item quantity="many">Теги %d устройств</item>
+        <item quantity="other">Теги %d устройства</item>
+    </plurals>
+    <string name="admin_dev_bulk_mode_add">Добавить</string>
+    <string name="admin_dev_bulk_mode_remove">Снять</string>
+    <string name="admin_dev_bulk_mode_replace">Заменить</string>
+    <string name="admin_dev_bulk_mode_add_desc">Выбранные теги добавятся к тем, что уже есть у каждого устройства.</string>
+    <string name="admin_dev_bulk_mode_remove_desc">Выбранные теги снимутся. Хотя бы один тег у устройства здесь остаётся: если снять последний, у него сменится владелец.</string>
+    <string name="admin_dev_bulk_mode_replace_desc">У каждого устройства будут ровно выбранные теги; остальные снимутся.</string>
+    <string name="admin_dev_bulk_preview">Было → станет</string>
+    <string name="admin_dev_bulk_summary">Изменятся: %1$d · без изменений: %2$d · пропущены: %3$d</string>
+    <plurals name="admin_dev_bulk_owner_warning">
+        <item quantity="one">%d устройство перестанет принадлежать своему пользователю: дальше им владеют теги, и просто так это не отменить.</item>
+        <item quantity="few">%d устройства перестанут принадлежать своим пользователям: дальше ими владеют теги, и просто так это не отменить.</item>
+        <item quantity="many">%d устройств перестанут принадлежать своим пользователям: дальше ими владеют теги, и просто так это не отменить.</item>
+        <item quantity="other">%d устройства перестанут принадлежать своим пользователям: дальше ими владеют теги, и просто так это не отменить.</item>
+    </plurals>
+    <plurals name="admin_dev_bulk_owner_warning_named">
+        <item quantity="one">%1$d устройство перестанет принадлежать своему пользователю, и просто так это не отменить: %2$s.</item>
+        <item quantity="few">%1$d устройства перестанут принадлежать своим пользователям, и просто так это не отменить: %2$s.</item>
+        <item quantity="many">%1$d устройств перестанут принадлежать своим пользователям, и просто так это не отменить: %2$s.</item>
+        <item quantity="other">%1$d устройства перестанут принадлежать своим пользователям, и просто так это не отменить: %2$s.</item>
+    </plurals>
+    <string name="admin_dev_bulk_row_owner">Владелец %1$s → его теги</string>
+    <string name="admin_dev_bulk_skip_shared">Пропущено: открыто вам из другого tailnet</string>
+    <string name="admin_dev_bulk_skip_unchanged">Без изменений</string>
+    <string name="admin_dev_bulk_skip_last_tag">Пропущено: лишилось бы последнего тега</string>
+    <string name="admin_dev_bulk_review">Проверить и применить</string>
+    <plurals name="admin_dev_bulk_change_title">
+        <item quantity="one">Изменить теги %d устройства</item>
+        <item quantity="few">Изменить теги %d устройств</item>
+        <item quantity="many">Изменить теги %d устройств</item>
+        <item quantity="other">Изменить теги %d устройства</item>
+    </plurals>
+    <string name="admin_dev_bulk_effect_add">Каждому добавится %1$s. Кто сможет к ним подключаться, решают правила для их тегов.</string>
+    <string name="admin_dev_bulk_effect_remove">С каждого снимется %1$s. Кто сможет к ним подключаться, решают правила для их тегов.</string>
+    <string name="admin_dev_bulk_effect_replace">У каждого будет ровно %1$s. Кто сможет к ним подключаться, решают правила для их тегов.</string>
+    <string name="admin_dev_bulk_record_effect">Теги: %1$s → %2$s</string>
+    <string name="admin_dev_bulk_results">Результат</string>
+    <string name="admin_dev_bulk_results_summary">Готово: %1$d · не вышло: %2$d</string>
+    <string name="admin_dev_bulk_pending">Ожидает</string>
+    <string name="admin_dev_bulk_not_sent">Не отправлено: %1$s</string>
+    <string name="admin_dev_bulk_failed">Ошибка: %1$s</string>
+    <string name="admin_dev_bulk_done">Готово</string>
+</resources>

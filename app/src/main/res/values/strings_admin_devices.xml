@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The admin console's Devices tab: list, filters, the device sheet, its dialogs, bulk tags (4.9.0). -->
+<resources>
+    <!-- Search and filters -->
+    <string name="admin_dev_search_hint">Name, IP, tag or user</string>
+    <string name="admin_dev_search_clear">Clear the search</string>
+    <string name="admin_dev_owner_all">All users</string>
+    <string name="admin_dev_owner_mine">Mine</string>
+    <string name="admin_dev_owner_title">Whose devices</string>
+    <string name="admin_dev_owner_mine_option">Mine (%1$s)</string>
+    <string name="admin_dev_filter_needs_approval">Needs approval</string>
+    <string name="admin_dev_filter_expiring">Key expiring</string>
+    <string name="admin_dev_filter_offline">Offline</string>
+    <plurals name="admin_dev_filter_offline_days">
+        <item quantity="one">Offline over %d day</item>
+        <item quantity="other">Offline over %d days</item>
+    </plurals>
+    <string name="admin_dev_offline_title">Offline for more than</string>
+    <plurals name="admin_dev_days">
+        <item quantity="one">%d day</item>
+        <item quantity="other">%d days</item>
+    </plurals>
+    <string name="admin_dev_filter_routers">Exit nodes and routers</string>
+    <string name="admin_dev_filter_update">Update available</string>
+    <string name="admin_dev_filter_tagged">Tagged</string>
+    <string name="admin_dev_tag_title">Tags</string>
+    <string name="admin_dev_tag_any">Any tag</string>
+    <string name="admin_dev_filter_shared">Shared in</string>
+    <string name="admin_dev_filter_off">Off</string>
+    <string name="admin_dev_filter_count">%1$s · %2$d</string>
+    <string name="admin_dev_clear_filters">Clear filters</string>
+    <plurals name="admin_dev_count_filtered">
+        <item quantity="one">%1$d of %2$d device</item>
+        <item quantity="other">%1$d of %2$d devices</item>
+    </plurals>
+    <string name="admin_dev_none_match">No device matches</string>
+    <string name="admin_dev_none">No devices</string>
+    <string name="admin_dev_sort_title">Sort devices</string>
+    <string name="admin_dev_sort_name">Name</string>
+    <string name="admin_dev_sort_last_seen">Last seen, online first</string>
+    <string name="admin_dev_sort_created">Newest first</string>
+    <string name="admin_dev_routes_reading">Reading routes: %1$d of %2$d</string>
+    <string name="admin_dev_routes_partial">Not every device\'s routes could be read, so some routers may be missing. %1$s</string>
+
+    <!-- Selection -->
+    <string name="admin_dev_select">Select devices</string>
+    <string name="admin_dev_select_stop">Stop selecting</string>
+    <plurals name="admin_dev_selected">
+        <item quantity="one">%d selected</item>
+        <item quantity="other">%d selected</item>
+    </plurals>
+    <string name="admin_dev_select_all">All shown</string>
+    <string name="admin_dev_select_none">None</string>
+    <string name="admin_dev_select_tags">Edit tags</string>
+
+    <!-- Status and badges -->
+    <string name="admin_dev_never_seen">Never connected</string>
+    <string name="admin_dev_status_line">%1$s · %2$s</string>
+    <string name="admin_dev_badge_needs_approval">Needs approval</string>
+    <string name="admin_dev_badge_key_expired">Key expired</string>
+    <string name="admin_dev_badge_key_today">Key expires today</string>
+    <plurals name="admin_dev_badge_key_expiring">
+        <item quantity="one">Key expires in %d day</item>
+        <item quantity="other">Key expires in %d days</item>
+    </plurals>
+    <string name="admin_dev_badge_update">Update available</string>
+    <string name="admin_dev_badge_exit">Exit node</string>
+    <string name="admin_dev_badge_router">Subnet router</string>
+    <string name="admin_dev_badge_routes_pending">Routes to approve</string>
+    <string name="admin_dev_badge_lock_error">Tailnet Lock error</string>
+    <string name="admin_dev_badge_multiple">Several connections</string>
+
+    <!-- The device sheet -->
+    <string name="admin_dev_section_addresses">Addresses</string>
+    <string name="admin_dev_ipv4" translatable="false">IPv4</string>
+    <string name="admin_dev_ipv6" translatable="false">IPv6</string>
+    <string name="admin_dev_magicdns">MagicDNS name</string>
+    <string name="admin_dev_copy">Copy %1$s</string>
+    <string name="admin_dev_copied">%1$s copied</string>
+    <string name="admin_dev_section_details">Details</string>
+    <string name="admin_dev_created">Added</string>
+    <string name="admin_dev_last_seen">Last seen</string>
+    <string name="admin_dev_online_now">Online now</string>
+    <string name="admin_dev_when">%1$s (%2$s)</string>
+    <string name="admin_dev_system">System</string>
+    <string name="admin_dev_version">Tailscale version</string>
+    <string name="admin_dev_version_update">%1$s · update available</string>
+    <string name="admin_dev_owner">Owner</string>
+    <string name="admin_dev_owner_tags">Its tags (added by %1$s)</string>
+    <string name="admin_dev_tags">Tags</string>
+    <string name="admin_dev_key_expiry">Key expiry</string>
+    <string name="admin_dev_key_disabled">Off: the key does not expire</string>
+    <string name="admin_dev_key_expires">Expires %1$s</string>
+    <string name="admin_dev_key_expired">Expired %1$s</string>
+    <string name="admin_dev_ssh">Tailscale SSH</string>
+    <string name="admin_dev_ephemeral">Ephemeral</string>
+    <string name="admin_dev_ephemeral_value">Yes: removed soon after it goes offline</string>
+    <string name="admin_dev_incoming">Incoming connections</string>
+    <string name="admin_dev_incoming_blocked">Blocked on the device</string>
+    <string name="admin_dev_lock_key">Tailnet Lock key</string>
+    <string name="admin_dev_node_id">Node ID</string>
+    <string name="admin_dev_not_reported">Not reported</string>
+    <string name="admin_dev_section_connectivity">Connectivity</string>
+    <string name="admin_dev_relay">Preferred relay</string>
+    <string name="admin_dev_relay_value">%1$s · %2$d ms</string>
+    <string name="admin_dev_udp" translatable="false">UDP</string>
+    <string name="admin_dev_ipv6_support">IPv6 support</string>
+    <string name="admin_dev_port_mapping">Port mapping</string>
+    <string name="admin_dev_port_mapping_none">None</string>
+    <string name="admin_dev_nat">NAT</string>
+    <string name="admin_dev_nat_hard">Changes per destination: direct connections are harder</string>
+    <string name="admin_dev_nat_easy">The same for every destination</string>
+    <string name="admin_dev_endpoints">Endpoints</string>
+    <string name="admin_dev_connectivity_none">Not reported: the server sent only the basic fields.</string>
+    <string name="admin_dev_detail_failed">Full details could not be loaded. %1$s</string>
+    <string name="admin_dev_shared_title">Shared in from another tailnet</string>
+    <string name="admin_dev_shared_desc">This tailnet can reach it but not change it: its name, tags, routes and removal belong to the tailnet that shares it. Ask that tailnet\'s admins, or remove the share there.</string>
+    <string name="admin_dev_needs_approval_desc">It waits for an admin to approve it before it can reach the tailnet.</string>
+    <string name="admin_dev_this_phone_warning">This is the phone running the console. Deauthorizing, expiring or deleting it cuts its own connection to the tailnet, and the console\'s too if it reaches the API through it.</string>
+    <string name="admin_dev_cannot_write">Changes are off: the profile or the credential only reads.</string>
+
+    <!-- Routes -->
+    <string name="admin_dev_routes_title">Routes</string>
+    <string name="admin_dev_routes_none">It advertises no routes and is not an exit node.</string>
+    <string name="admin_dev_exit_node">Exit node</string>
+    <string name="admin_dev_exit_desc">Devices may send all their internet traffic through it. Taking it away cuts off everyone using it.</string>
+    <string name="admin_dev_exit_off_warning">Devices that use it as their exit node lose it: their internet traffic stops until they choose another one.</string>
+    <string name="admin_dev_route_approved">Approved</string>
+    <string name="admin_dev_route_pending">Waiting for approval</string>
+    <string name="admin_dev_route_stale">Approved, no longer advertised</string>
+    <string name="admin_dev_route_line">%1$s, %2$s</string>
+    <plurals name="admin_dev_routes_approve_all">
+        <item quantity="one">Approve %d route</item>
+        <item quantity="other">Approve %d routes</item>
+    </plurals>
+
+    <!-- Actions -->
+    <string name="admin_dev_action_rename">Rename</string>
+    <string name="admin_dev_action_tags">Tags</string>
+    <string name="admin_dev_action_ip">IP address</string>
+    <string name="admin_dev_key_expiry_switch">Disable key expiry</string>
+    <string name="admin_dev_key_expiry_switch_desc">Its node key never expires. Turned back on, the original expiry returns, and if that has passed the device must log in again.</string>
+    <string name="admin_dev_action_authorize">Authorize</string>
+    <string name="admin_dev_action_deauthorize">Deauthorize</string>
+    <string name="admin_dev_action_expire">Expire key</string>
+    <string name="admin_dev_action_delete">Delete device</string>
+
+    <!-- Rename -->
+    <string name="admin_dev_rename_title">Rename %1$s</string>
+    <string name="admin_dev_rename_label">Name</string>
+    <string name="admin_dev_rename_reset_help">Left blank, the name is made from the device\'s hostname, %1$s, again.</string>
+    <string name="admin_dev_rename_invalid">Letters, digits and hyphens, not at the start or the end; up to 63.</string>
+    <string name="admin_dev_rename_apply">Rename</string>
+    <string name="admin_dev_rename_reset">Reset to hostname</string>
+    <string name="admin_dev_change_reset_name">Reset the name of %1$s</string>
+    <string name="admin_dev_change_reset_name_effect">Its name is made from the hostname %1$s again; links to the old name stop working.</string>
+
+    <!-- Tags -->
+    <string name="admin_dev_tags_title">Tags of %1$s</string>
+    <string name="admin_dev_tags_owner_warning">Tagging takes the device away from its user, %1$s: from then on its tags own it. That cannot simply be undone — giving it back to a person means removing the tags in the admin console on the web or logging the device in again.</string>
+    <string name="admin_dev_tags_clear_warning">Without tags the device needs a user to own it again: the server decides who, and the device may have to log in again.</string>
+    <string name="admin_dev_tags_save">Save tags</string>
+
+    <!-- IPv4 -->
+    <string name="admin_dev_ip_title">IPv4 address of %1$s</string>
+    <string name="admin_dev_ip_label">New IPv4 address</string>
+    <string name="admin_dev_ip_help">Inside 100.64.0.0/10 and not used by another device. Connections to it break, and peers reach it at the new address once they get the update.</string>
+    <string name="admin_dev_ip_malformed">Not an IPv4 address, like 100.80.0.1.</string>
+    <string name="admin_dev_ip_outside">Must be inside 100.64.0.0/10: from 100.64.0.0 to 100.127.255.255.</string>
+    <string name="admin_dev_ip_reserved">Tailscale keeps this address for itself.</string>
+    <string name="admin_dev_ip_taken">Already used by %1$s.</string>
+    <string name="admin_dev_ip_unchanged">That is its address now.</string>
+    <string name="admin_dev_ip_continue">Continue</string>
+    <string name="admin_dev_change_ip">Change the IPv4 address of %1$s</string>
+    <string name="admin_dev_change_ip_effect">Connections to it break; peers reach it at %1$s, and DNS caches may keep the old address for a while.</string>
+
+    <!-- Bulk tags -->
+    <plurals name="admin_dev_bulk_target">
+        <item quantity="one">%d device</item>
+        <item quantity="other">%d devices</item>
+    </plurals>
+    <plurals name="admin_dev_bulk_title">
+        <item quantity="one">Tags of %d device</item>
+        <item quantity="other">Tags of %d devices</item>
+    </plurals>
+    <string name="admin_dev_bulk_mode_add">Add</string>
+    <string name="admin_dev_bulk_mode_remove">Remove</string>
+    <string name="admin_dev_bulk_mode_replace">Replace</string>
+    <string name="admin_dev_bulk_mode_add_desc">The chosen tags join the ones each device has.</string>
+    <string name="admin_dev_bulk_mode_remove_desc">The chosen tags come off. A device keeps at least one tag here: taking off the last one changes who owns it.</string>
+    <string name="admin_dev_bulk_mode_replace_desc">Each device gets exactly the chosen tags; its other tags come off.</string>
+    <string name="admin_dev_bulk_preview">Before → after</string>
+    <string name="admin_dev_bulk_summary">Change: %1$d · unchanged: %2$d · skipped: %3$d</string>
+    <plurals name="admin_dev_bulk_owner_warning">
+        <item quantity="one">%d device stops belonging to its user: its tags own it from then on, which cannot simply be undone.</item>
+        <item quantity="other">%d devices stop belonging to their users: their tags own them from then on, which cannot simply be undone.</item>
+    </plurals>
+    <plurals name="admin_dev_bulk_owner_warning_named">
+        <item quantity="one">%1$d device stops belonging to its user, which cannot simply be undone: %2$s.</item>
+        <item quantity="other">%1$d devices stop belonging to their users, which cannot simply be undone: %2$s.</item>
+    </plurals>
+    <string name="admin_dev_bulk_row_owner">Owner %1$s → its tags</string>
+    <string name="admin_dev_bulk_skip_shared">Skipped: shared in from another tailnet</string>
+    <string name="admin_dev_bulk_skip_unchanged">Unchanged</string>
+    <string name="admin_dev_bulk_skip_last_tag">Skipped: it would lose its last tag</string>
+    <string name="admin_dev_bulk_review">Review and apply</string>
+    <plurals name="admin_dev_bulk_change_title">
+        <item quantity="one">Change the tags of %d device</item>
+        <item quantity="other">Change the tags of %d devices</item>
+    </plurals>
+    <string name="admin_dev_bulk_effect_add">Adds %1$s to each. Who may reach them follows the policy for their tags.</string>
+    <string name="admin_dev_bulk_effect_remove">Takes %1$s off each. Who may reach them follows the policy for their tags.</string>
+    <string name="admin_dev_bulk_effect_replace">Gives each exactly %1$s. Who may reach them follows the policy for their tags.</string>
+    <string name="admin_dev_bulk_record_effect">Tags: %1$s → %2$s</string>
+    <string name="admin_dev_bulk_results">Results</string>
+    <string name="admin_dev_bulk_results_summary">Done: %1$d · not done: %2$d</string>
+    <string name="admin_dev_bulk_pending">Waiting</string>
+    <string name="admin_dev_bulk_not_sent">Not sent: %1$s</string>
+    <string name="admin_dev_bulk_failed">Failed: %1$s</string>
+    <string name="admin_dev_bulk_done">Done</string>
+</resources>

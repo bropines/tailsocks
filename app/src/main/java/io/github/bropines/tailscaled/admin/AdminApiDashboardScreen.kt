@@ -51,6 +51,8 @@ import io.github.bropines.tailscaled.admin.console.ConsoleTab
 import io.github.bropines.tailscaled.admin.console.CredentialProblem
 import io.github.bropines.tailscaled.admin.console.Loadable
 import io.github.bropines.tailscaled.admin.console.WriteBlock
+import io.github.bropines.tailscaled.admin.devices.DeviceDetailSheet
+import io.github.bropines.tailscaled.admin.devices.DevicesTab
 import io.github.bropines.tailscaled.admin.safety.ReadOnlyBanner
 import io.github.bropines.tailscaled.core.ScrollableSlidingSegmentedChips
 import io.github.bropines.tailscaled.ui.AppTopBar
@@ -165,10 +167,10 @@ fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -
                             onOpenKeys = { showKeys = true },
                             onReplaceCredential = { vm?.profiles?.editActive() },
                         )
-                        ConsoleTab.DEVICES -> DevicesTabContent(
-                            state = state.devices,
+                        ConsoleTab.DEVICES -> DevicesTab(
+                            state = state,
+                            vm = vm,
                             selfNodeId = selfNode,
-                            onRetry = { vm?.refresh(tab, force = true) },
                             onDeviceClick = { selectedDeviceId = it.pathId },
                         )
                         ConsoleTab.DNS -> DnsTabContent(
@@ -245,22 +247,12 @@ fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -
         // Gone after a refresh (deleted, say): the sheet closes with it.
         LaunchedEffect(device == null) { if (device == null) selectedDeviceId = null }
         if (device != null) {
-            DeviceDetailBottomSheet(
+            DeviceDetailSheet(
                 device = device,
-                routes = state.routes[device.pathId],
-                allTailnetTags = state.policyTags,
-                isThisPhone = selfNode != null && device.nodeId == selfNode,
-                canWriteDevices = state.canWrite(AdminArea.DEVICES),
-                canWriteRoutes = state.canWrite(AdminArea.ROUTES),
+                state = state,
+                vm = vm,
+                selfNodeId = selfNode,
                 onDismiss = { selectedDeviceId = null },
-                onLoadRoutes = { vm?.loadRoutes(device) },
-                onRename = { vm?.renameDevice(device, it) },
-                onAuthorize = { vm?.setDeviceAuthorized(device, it) },
-                onExpire = { vm?.expireDevice(device) },
-                onDelete = { vm?.deleteDevice(device) },
-                onUpdateTags = { vm?.setDeviceTags(device, it) },
-                onToggleKeyExpiryDisabled = { vm?.setKeyExpiryDisabled(device, it) },
-                onSetRoutes = { before, after -> vm?.setRoutes(device, before, after) },
             )
         }
     }
