@@ -51,6 +51,8 @@ enum class ConsolePhase {
  * has no webhooks or audit log) does not show the tab. WEB links to Tailscale's own console.
  */
 enum class ConsoleTab(val feature: BackendFeature?) {
+    /** The first screen: what waits for a person (admin/attention/). */
+    ATTENTION(BackendFeature.DEVICES),
     DEVICES(BackendFeature.DEVICES),
     DNS(BackendFeature.DNS),
     USERS(BackendFeature.USERS),

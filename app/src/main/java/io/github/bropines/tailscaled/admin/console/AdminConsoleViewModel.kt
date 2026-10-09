@@ -23,6 +23,7 @@ import io.github.bropines.tailscaled.admin.api.Listing
 import io.github.bropines.tailscaled.admin.api.TailnetSettingKey
 import io.github.bropines.tailscaled.admin.api.UserListType
 import io.github.bropines.tailscaled.admin.api.UserRole
+import io.github.bropines.tailscaled.admin.attention.AttentionSession
 import io.github.bropines.tailscaled.admin.profile.AdminProfile
 import io.github.bropines.tailscaled.admin.profile.AdminProfiles
 import io.github.bropines.tailscaled.admin.profile.MissingCredentialException
@@ -80,6 +81,9 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
     internal val audit = AdminAuditLog(AdminAuditLog.fileIn(app.filesDir))
 
     val profiles = ConsoleProfiles(this)
+
+    /** The "Needs attention" home and the profile's background check. */
+    val attention = AttentionSession(this)
 
     /**
      * Words in the app's chosen language: before Android 13 the Application's own resources
@@ -195,6 +199,7 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
     fun refresh(tab: ConsoleTab, force: Boolean = false) {
         if (_state.value.phase != ConsolePhase.READY) return
         when (tab) {
+            ConsoleTab.ATTENTION -> attention.refresh(force)
             ConsoleTab.DEVICES -> {
                 loadList(force, { it.devices }, { s, v -> s.copy(devices = v) }) { it.listDevices() }
                     ?.invokeOnCompletion { learnTailnet() }

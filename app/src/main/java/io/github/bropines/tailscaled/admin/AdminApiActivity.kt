@@ -50,7 +50,9 @@ import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.admin.console.AdminConsoleViewModel
 import io.github.bropines.tailscaled.admin.console.ConsolePhase
 import io.github.bropines.tailscaled.admin.console.ConsoleState
+import io.github.bropines.tailscaled.admin.console.ConsoleTab
 import io.github.bropines.tailscaled.admin.console.ProfileDraft
+import io.github.bropines.tailscaled.admin.notify.AttentionLaunch
 import io.github.bropines.tailscaled.admin.safety.SafetyHost
 import io.github.bropines.tailscaled.admin.safety.SecretRevealDialog
 import io.github.bropines.tailscaled.admin.secure.AdminWriteGate
@@ -74,6 +76,8 @@ class AdminApiActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // From an attention notification: open on the profile it was about.
+        if (savedInstanceState == null) AttentionLaunch.selectProfile(this, intent)
         setContent {
             TailSocksTheme {
                 AdminConsoleRoot(vm, onBack = { finish() })
@@ -125,7 +129,7 @@ fun AdminConsoleContent(state: ConsoleState, vm: AdminConsoleViewModel?, onBack:
                 )
             } ?: AdminWaitScreen(onBack) { LoadingIndicatorCompat() }
             ConsolePhase.LOCKED -> AdminLockedScreen(state.viewUnlockUnavailable, onBack) { vm?.onViewUnlock(it) }
-            ConsolePhase.READY -> AdminDashboard(state, vm, onBack)
+            ConsolePhase.READY -> AdminDashboard(state, vm, onBack, startTab = ConsoleTab.ATTENTION)
         }
 
         SafetyHost(

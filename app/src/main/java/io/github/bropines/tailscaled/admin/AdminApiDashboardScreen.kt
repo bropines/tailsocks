@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.admin.api.AdminArea
 import io.github.bropines.tailscaled.admin.api.ApiUser
+import io.github.bropines.tailscaled.admin.attention.AttentionTab
 import io.github.bropines.tailscaled.admin.console.AdminConsoleViewModel
 import io.github.bropines.tailscaled.admin.console.ConsoleState
 import io.github.bropines.tailscaled.admin.console.ConsoleTab
@@ -75,6 +76,7 @@ fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -
     val tabLabels = tabs.map {
         ctx.getString(
             when (it) {
+                ConsoleTab.ATTENTION -> R.string.admin_attention_tab
                 ConsoleTab.DEVICES -> R.string.admin_tab_devices
                 ConsoleTab.DNS -> R.string.admin_tab_dns
                 ConsoleTab.USERS -> R.string.admin_tab_users
@@ -154,6 +156,15 @@ fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     when (tab) {
+                        ConsoleTab.ATTENTION -> AttentionTab(
+                            state = state,
+                            vm = vm,
+                            onRetry = { vm?.refresh(tab, force = true) },
+                            onOpenDevice = { selectedDeviceId = it.pathId },
+                            onOpenUser = { selectedUserId = it.id },
+                            onOpenKeys = { showKeys = true },
+                            onReplaceCredential = { vm?.profiles?.editActive() },
+                        )
                         ConsoleTab.DEVICES -> DevicesTabContent(
                             state = state.devices,
                             selfNodeId = selfNode,
@@ -337,6 +348,7 @@ fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -
 }
 
 private fun loadableFor(state: ConsoleState, tab: ConsoleTab): Loadable<*>? = when (tab) {
+    ConsoleTab.ATTENTION -> state.devices
     ConsoleTab.DEVICES -> state.devices
     ConsoleTab.DNS -> state.dns
     ConsoleTab.USERS -> state.users
