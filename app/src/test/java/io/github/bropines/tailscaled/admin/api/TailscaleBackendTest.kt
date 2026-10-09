@@ -1,6 +1,7 @@
 package io.github.bropines.tailscaled.admin.api
 
 import io.github.bropines.tailscaled.core.AppJson
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
@@ -19,15 +20,41 @@ class TailscaleBackendTest {
     private fun body(req: HttpRequest): JsonObject = AppJson.parseToJsonElement(req.body!!).jsonObject
 
     @Test
-    fun deviceListUsesDashAndNeverAsksForAllFields() = runBlocking {
+    fun deviceListUsesDashAndAsksForAllFields() = runBlocking {
         val t = FakeTransport().ok("GET", "/tailnet/-/devices", recorded("devices.json"))
-        val list = testBackend(t).listDevices(listOf("fields" to "all", "isEphemeral" to "false"))
+        val list = testBackend(t).listDevices(listOf("fields" to "default", "isEphemeral" to "false"))
         val url = t.requests.single().url
         assertTrue(url, url.startsWith("https://api.tailscale.com/api/v2/tailnet/-/devices"))
-        assertFalse("fields=all must never reach the device list", url.contains("fields"))
+        assertTrue("routes come with the list", url.contains("fields=all"))
+        assertFalse("a caller's fields never reach the list", url.contains("fields=default"))
         assertTrue(url.contains("isEphemeral=false"))
         assertEquals("Bearer tskey-api-kAPI1CNTRL-secretpart", t.requests.single().headers["Authorization"])
         assertEquals(3, list.items.size)
+    }
+
+    @Test
+    fun aListRefusedWithAllFieldsFallsBackForTheSession() = runBlocking {
+        val t = FakeTransport()
+            .on("GET", "/tailnet/-/devices", "fields=all", true, status(404, """{"message":"not found"}"""))
+            .ok("GET", "/tailnet/-/devices", recorded("devices.json"))
+        val backend = testBackend(t)
+        assertEquals(3, backend.listDevices().items.size)
+        assertEquals(2, t.requests.size)
+        assertFalse(t.requests[1].url.contains("fields"))
+        backend.listDevices()
+        assertEquals("the plain list from then on", 3, t.requests.size)
+        assertFalse(t.requests[2].url.contains("fields"))
+    }
+
+    @Test
+    fun aRefusedCredentialIsNotRetriedWithoutFields() = runBlocking {
+        val t = FakeTransport().on("GET", "/tailnet/-/devices", null, true, status(401, """{"message":"bad token"}"""))
+        try {
+            testBackend(t).listDevices()
+            fail()
+        } catch (_: AdminApiException.Unauthorized) {
+        }
+        assertEquals(1, t.requests.size)
     }
 
     @Test
@@ -346,6 +373,24 @@ class TailscaleBackendTest {
     }
 
     @Test
+    fun aSharedTokenCacheSavesTheNextBackendAMint() = runBlocking {
+        val cache = OAuthTokenCache()
+        val credential = AdminCredential.OAuthClient("kCLIENT1CNTRL", "tskey-client-kCLIENT1CNTRL-s3cret")
+        val t = FakeTransport()
+            .on("POST", "/oauth/token", null, true, { HttpResponse(200, """{"access_token":"tok-1","token_type":"Bearer","expires_in":3600}""") })
+            .ok("GET", "/devices", """{"devices":[]}""")
+        fun backend() = TailscaleBackend(credential = credential, transport = t, clock = { 1_000_000L }, io = Dispatchers.Unconfined, tokenCache = cache)
+        backend().listDevices()
+        backend().listDevices()
+        assertEquals(1, t.requestsTo("POST", "/oauth/token").size)
+        assertEquals("Bearer tok-1", t.requests.last().headers["Authorization"])
+        // Another secret for the same client is another entry.
+        TailscaleBackend(credential = AdminCredential.OAuthClient("kCLIENT1CNTRL", "tskey-client-kCLIENT1CNTRL-other"), transport = t, clock = { 1_000_000L },
+            io = Dispatchers.Unconfined, tokenCache = cache).listDevices()
+        assertEquals(2, t.requestsTo("POST", "/oauth/token").size)
+    }
+
+    @Test
     fun aRefusedOauthClientIsUnauthorized() = runBlocking {
         val t = FakeTransport().on("POST", "/oauth/token", null, true, status(401, """{"message":"invalid client"}"""))
         try {
@@ -432,6 +477,6 @@ class TailscaleBackendTest {
             tailnet = "T1234CNTRL",
             io = kotlinx.coroutines.Dispatchers.Unconfined,
         ).listDevices()
-        assertEquals("https://hs.example.org/api/v2/tailnet/T1234CNTRL/devices", t.requests.single().url)
+        assertEquals("https://hs.example.org/api/v2/tailnet/T1234CNTRL/devices?fields=all", t.requests.single().url)
     }
 }

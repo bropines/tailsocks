@@ -11,6 +11,7 @@ import io.github.bropines.tailscaled.admin.api.DeviceRoutes
 import io.github.bropines.tailscaled.admin.console.AdminConsoleViewModel
 import io.github.bropines.tailscaled.admin.console.ConsoleState
 import io.github.bropines.tailscaled.admin.console.ConsoleTab
+import io.github.bropines.tailscaled.admin.devices.DeviceQueries
 import io.github.bropines.tailscaled.admin.notify.AttentionChecks
 import io.github.bropines.tailscaled.admin.notify.AttentionNotifier
 import io.github.bropines.tailscaled.admin.notify.AttentionNotifyOnce
@@ -90,9 +91,15 @@ class AttentionSession internal constructor(private val vm: AdminConsoleViewMode
                 if (vm.backend !== b || !readable(vm.state.value, BackendFeature.DEVICE_ROUTES, AdminArea.ROUTES)) return@launch
                 if (!force && System.currentTimeMillis() - _state.value.routesReadAt < ROUTES_FRESH_MS) return@launch
                 val candidates = devices.filter { !it.isShared && it.authorized != false }
-                val targets = candidates
+                // The list read with every field carries each device's routes: nothing to ask then.
+                val unlisted = candidates.filter { DeviceQueries.knownRoutes(it, null) == null }
+                val targets = unlisted
                     .sortedWith(compareByDescending<ApiDevice> { it.isOnline }.thenBy { it.shortName.lowercase() })
                     .take(MAX_ROUTE_READS)
+                if (targets.isEmpty()) {
+                    _state.update { it.copy(routes = emptyMap(), routesReadAt = System.currentTimeMillis(), scanned = candidates.size, scanTotal = candidates.size) }
+                    return@launch
+                }
                 _state.update { it.copy(scanning = true) }
                 val gate = Semaphore(PARALLEL_READS)
                 var refused = false
@@ -120,7 +127,7 @@ class AttentionSession internal constructor(private val vm: AdminConsoleViewMode
                     it.copy(
                         routes = if (caps?.canRead(AdminArea.ROUTES) == false) emptyMap() else read,
                         routesReadAt = System.currentTimeMillis(),
-                        scanned = targets.size,
+                        scanned = candidates.size - unlisted.size + targets.size,
                         scanTotal = candidates.size,
                     )
                 }
@@ -205,8 +212,13 @@ class AttentionSession internal constructor(private val vm: AdminConsoleViewMode
          * each device the newer of the routes read here and those its sheet loaded since.
          */
         fun input(s: ConsoleState, a: AttentionUiState): AttentionInput {
-            val routes = a.routes.toMutableMap()
-            s.routes.forEach { (id, l) -> if (l.value != null && l.loadedAt > a.routesReadAt) routes[id] = l.value }
+            // A device the list carries routes for has them as of the list; a read wins only when newer.
+            val listed = s.devices.value.orEmpty().filter { DeviceQueries.knownRoutes(it, null) != null }.mapTo(HashSet()) { it.pathId }
+            val listedAt = s.devices.loadedAt
+            val routes = a.routes.filterTo(mutableMapOf()) { (id, _) -> id !in listed || a.routesReadAt > listedAt }
+            s.routes.forEach { (id, l) ->
+                if (l.value != null && l.loadedAt > a.routesReadAt && (id !in listed || l.loadedAt > listedAt)) routes[id] = l.value
+            }
             return AttentionInput(
                 devices = s.devices.value,
                 users = s.users.value.takeIf { readable(s, BackendFeature.USERS, AdminArea.USERS) },

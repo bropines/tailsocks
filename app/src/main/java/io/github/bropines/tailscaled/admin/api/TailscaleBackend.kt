@@ -63,6 +63,8 @@ class TailscaleBackend(
     private val sleeper: suspend (Long) -> Unit = { delay(it) },
     private val io: CoroutineDispatcher = Dispatchers.IO,
     private val log: (String) -> Unit = {},
+    /** Where OAuth access tokens outlive this backend: a console opened again reuses its hour. */
+    private val tokenCache: OAuthTokenCache? = null,
 ) : AdminBackend {
 
     override val kind: BackendKind = BackendKind.TAILSCALE
@@ -110,8 +112,28 @@ class TailscaleBackend(
 
     // ---------------------------------------------------------------- devices
 
-    override suspend fun listDevices(filters: List<Pair<String, String>>): Listing<ApiDevice> =
-        decodeList(exchange("GET", "$tn/devices", AdminArea.DEVICES, query = filters.filter { it.first != "fields" }), "devices", "device")
+    /** Set once the list was refused with fields=all: this session asks for the plain list from then on. */
+    @Volatile
+    private var plainDeviceList = false
+
+    /**
+     * The list with every field: routes and connectivity in one call, not one call per device.
+     * A live API bug answers the whole list 404 with fields=all once a device is shared in; the
+     * plain list follows, and stays for the rest of the session.
+     */
+    override suspend fun listDevices(filters: List<Pair<String, String>>): Listing<ApiDevice> {
+        val query = filters.filter { it.first != "fields" }
+        if (!plainDeviceList) {
+            try {
+                return decodeList(exchange("GET", "$tn/devices", AdminArea.DEVICES, query = query + ("fields" to "all")), "devices", "device")
+            } catch (e: AdminApiException) {
+                if (e !is AdminApiException.NotFound && e !is AdminApiException.BadRequest && e !is AdminApiException.Server) throw e
+                log("device list refused with fields=all (${e.javaClass.simpleName}); asking without")
+                plainDeviceList = true
+            }
+        }
+        return decodeList(exchange("GET", "$tn/devices", AdminArea.DEVICES, query = query), "devices", "device")
+    }
 
     override suspend fun getDevice(deviceId: String): ApiDevice {
         val path = "/device/${Urls.seg(deviceId)}"
@@ -532,11 +554,21 @@ class TailscaleBackend(
         is AdminCredential.ApiToken -> c.token
         is AdminCredential.HeadscaleKey -> c.key
         is AdminCredential.OAuthClient -> tokenLock.withLock {
-            accessToken?.takeIf { clock() < accessTokenExpiresAt } ?: mintToken(c)
+            accessToken?.takeIf { clock() < accessTokenExpiresAt }
+                ?: tokenCache?.get(tokenCacheKey(c), clock())?.also { (token, expiresAt) ->
+                    accessToken = token
+                    accessTokenExpiresAt = expiresAt
+                }?.first
+                ?: mintToken(c)
         }
     }
 
-    private suspend fun forgetToken() = tokenLock.withLock { accessToken = null }
+    private suspend fun forgetToken() = tokenLock.withLock {
+        accessToken = null
+        (credential as? AdminCredential.OAuthClient)?.let { tokenCache?.remove(tokenCacheKey(it)) }
+    }
+
+    private fun tokenCacheKey(c: AdminCredential.OAuthClient) = OAuthTokenCache.key(api, c.clientId, c.clientSecret)
 
     /** client_credentials at /oauth/token: a one-hour token. No refresh token exists; a new one is minted. */
     private suspend fun mintToken(c: AdminCredential.OAuthClient): String {
@@ -559,6 +591,7 @@ class TailscaleBackend(
         accessToken = token.accessToken
         // Renewed a minute early; an hour is what the server hands out.
         accessTokenExpiresAt = clock() + (token.expiresIn.takeIf { it > 0 } ?: 3600L).minus(60).coerceAtLeast(30) * 1000
+        tokenCache?.put(tokenCacheKey(c), token.accessToken, accessTokenExpiresAt)
         return token.accessToken
     }
 

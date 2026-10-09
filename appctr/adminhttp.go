@@ -53,6 +53,13 @@ func adminTransport(proxyURL string) (*http.Transport, string) {
 		TLSHandshakeTimeout: 15 * time.Second,
 		IdleConnTimeout:     90 * time.Second,
 		MaxIdleConnsPerHost: 4,
+		// Every request shares one HTTP/2 connection. Without pings a connection that died
+		// quietly (the phone changed networks, the proxy dropped it) stays in the pool and
+		// every request on it waits out its whole timeout; a ping unanswered closes it.
+		HTTP2: &http.HTTP2Config{
+			SendPingTimeout: 15 * time.Second,
+			PingTimeout:     5 * time.Second,
+		},
 	}
 	if proxyURL != "" {
 		u, err := url.Parse(proxyURL)

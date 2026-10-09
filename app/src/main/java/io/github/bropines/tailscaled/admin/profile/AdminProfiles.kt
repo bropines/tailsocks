@@ -10,6 +10,7 @@ import io.github.bropines.tailscaled.admin.api.BridgeTransport
 import io.github.bropines.tailscaled.admin.api.Capabilities
 import io.github.bropines.tailscaled.admin.api.FallbackTransport
 import io.github.bropines.tailscaled.admin.api.HttpTransport
+import io.github.bropines.tailscaled.admin.api.OAuthTokenCache
 import io.github.bropines.tailscaled.admin.api.TailscaleBackend
 import io.github.bropines.tailscaled.admin.api.headscale.HeadscaleBackends
 import io.github.bropines.tailscaled.admin.secure.CredentialVault
@@ -139,6 +140,7 @@ object AdminProfiles {
                     tailnet = profile.tailnet,
                     initialCapabilities = remembered,
                     log = log,
+                    tokenCache = OAuthTokenCache.shared,
                 )
             }
         }
