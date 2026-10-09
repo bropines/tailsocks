@@ -179,7 +179,7 @@ private fun WebhookCard(w: ApiWebhook, onClick: () -> Unit) {
                     listOfNotNull(
                         ConsoleText.webhookProvider(ctx, w.providerType),
                         ctx.resources.getQuantityString(R.plurals.admin2_webhook_events, w.subscriptions.size, w.subscriptions.size),
-                        w.created?.let { ctx.getString(R.string.admin_cfg_wh_created, formatExpires(it)) },
+                        w.created?.let { ctx.getString(R.string.admin_cfg_wh_created, formatExpires(ctx, it)) },
                     ).joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall,
                     color = scheme.onSurfaceVariant,
@@ -214,8 +214,8 @@ fun WebhookSheetContent(w: ApiWebhook, canWrite: Boolean, vm: AdminConsoleViewMo
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             DetailRow(ctx.getString(R.string.admin2_webhook_provider), ConsoleText.webhookProvider(ctx, w.providerType))
             w.creatorLoginName?.takeIf { it.isNotBlank() }?.let { DetailRow(ctx.getString(R.string.admin_cfg_wh_creator), it) }
-            w.created?.let { DetailRow(ctx.getString(R.string.admin_cfg_wh_created_label), formatExpires(it)) }
-            w.lastModified?.let { DetailRow(ctx.getString(R.string.admin_cfg_wh_modified_label), formatExpires(it)) }
+            w.created?.let { DetailRow(ctx.getString(R.string.admin_cfg_wh_created_label), formatExpires(ctx, it)) }
+            w.lastModified?.let { DetailRow(ctx.getString(R.string.admin_cfg_wh_modified_label), formatExpires(ctx, it)) }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Text(ctx.getString(R.string.admin_cfg_wh_events), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)

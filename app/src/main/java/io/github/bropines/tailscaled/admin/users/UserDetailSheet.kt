@@ -136,7 +136,7 @@ fun UserDetailContent(
                 DetailRow(ctx.getString(R.string.admin_u_type), ConsoleText.userType(ctx, user.type))
                 user.deviceCount?.let { DetailRow(ctx.getString(R.string.admin_u_devices), ctx.resources.getQuantityString(R.plurals.admin2_user_devices, it, it)) }
                 presenceText(ctx, user, now)?.let { DetailRow(ctx.getString(R.string.admin_u_presence), it) }
-                user.created?.let { DetailRow(ctx.getString(R.string.admin_u_joined), formatExpires(it)) }
+                user.created?.let { DetailRow(ctx.getString(R.string.admin_u_joined), formatExpires(ctx, it)) }
             }
         }
 

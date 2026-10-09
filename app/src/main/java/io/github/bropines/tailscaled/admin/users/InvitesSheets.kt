@@ -390,7 +390,7 @@ private fun ShareCard(inv: ApiDeviceInvite, canDelete: Boolean, now: Long, onDel
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Text(who ?: ctx.getString(R.string.admin_u_invite_link_only, inv.id), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    inv.created?.let { Text(ctx.getString(R.string.admin_u_share_created, formatExpires(it)), style = MaterialTheme.typography.bodySmall, color = scheme.outline) }
+                    inv.created?.let { Text(ctx.getString(R.string.admin_u_share_created, formatExpires(ctx, it)), style = MaterialTheme.typography.bodySmall, color = scheme.outline) }
                     parseIso(inv.lastEmailSentAt)?.time?.let {
                         Text(ctx.getString(R.string.admin_u_invite_sent, relativeText(ctx, it - now)), style = MaterialTheme.typography.bodySmall, color = scheme.outline)
                     }

@@ -1,5 +1,6 @@
 package io.github.bropines.tailscaled.admin
 
+import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -110,10 +111,11 @@ fun parseIso(isoTime: String?): Date? {
     }
 }
 
-fun formatExpires(isoTime: String?): String {
+/** A date from the API in the app's language — not the system's, which the app may override. */
+fun formatExpires(ctx: Context, isoTime: String?): String {
     if (isoTime.isNullOrEmpty() || isoTime.startsWith("0001-01-01")) return "∞"
     val date = parseIso(isoTime) ?: return isoTime
-    return SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault()).format(date)
+    return java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT, ctx.resources.configuration.locales[0]).format(date)
 }
 
 @Composable

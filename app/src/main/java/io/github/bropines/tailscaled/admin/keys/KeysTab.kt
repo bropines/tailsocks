@@ -297,13 +297,13 @@ private fun KeyCard(key: ApiKey, own: Boolean, now: Long, canRevoke: Boolean, on
 private fun ExpiryLine(key: ApiKey, expiry: KeyExpiry, revoked: Boolean) {
     val ctx = LocalContext.current
     val scheme = MaterialTheme.colorScheme
-    val created = key.created?.let { ctx.getString(R.string.admin_k_created, formatExpires(it)) }
+    val created = key.created?.let { ctx.getString(R.string.admin_k_created, formatExpires(ctx, it)) }
     val (text, icon, color) = when {
-        revoked -> Triple(key.revoked?.let { ctx.getString(R.string.admin_k_revoked_at, formatExpires(it)) }, null, scheme.outline)
+        revoked -> Triple(key.revoked?.let { ctx.getString(R.string.admin_k_revoked_at, formatExpires(ctx, it)) }, null, scheme.outline)
         expiry.state == ExpiryState.NEVER -> Triple(ctx.getString(R.string.admin_k_never_expires), null, scheme.onSurfaceVariant)
         expiry.state == ExpiryState.EXPIRED -> Triple(ctx.getString(R.string.admin_k_expired, relativeText(ctx, expiry.remainingMs)), Icons.Default.Schedule, scheme.outline)
         expiry.state == ExpiryState.SOON -> Triple(ctx.getString(R.string.admin_k_expires_soon, relativeText(ctx, expiry.remainingMs)), Icons.Default.Warning, scheme.error)
-        else -> Triple(ctx.getString(R.string.admin_k_expires, relativeText(ctx, expiry.remainingMs), formatExpires(key.expires)), null, scheme.onSurfaceVariant)
+        else -> Triple(ctx.getString(R.string.admin_k_expires, relativeText(ctx, expiry.remainingMs), formatExpires(ctx, key.expires)), null, scheme.onSurfaceVariant)
     }
     Column {
         if (text != null) {
