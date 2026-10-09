@@ -9,6 +9,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Taildrop shows files being received: progress, speed and time left at the top of the inbox and in a notification.
 - QR scanner (camera or gallery): TailSocks links open their screen, TailCat codes a filled-in connection; anything else is only shown.
 - TailCat QR codes come as a link any camera opens in TailSocks, or as the command for a computer.
+- QR codes can be rounded or dotted and take the theme's colours; Settings → Appearance picks the style.
 - Taildrop: a long press on Show in folder copies the folder's path, for file managers that take no folder (MT Manager).
 
 ### Fixed
