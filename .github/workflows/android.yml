@@ -1,25 +1,11 @@
 name: Android CI Chain
 
+# Releases only: a tag builds, signs and publishes. A push to main or a pull
+# request no longer spends a full Go and Gradle build each — the tag that
+# follows them builds the same tree anyway. Anything in between is a manual run.
 on:
   push:
-    branches: [ "main" ]
     tags: [ "v*" ]
-    paths:
-      - 'app/**'
-      - 'appctr/**'
-      - 'build.gradle.kts'
-      - 'settings.gradle.kts'
-      - 'gradle/**'
-      - '.github/workflows/android.yml'
-  pull_request:
-    branches: [ "main" ]
-    paths:
-      - 'app/**'
-      - 'appctr/**'
-      - 'build.gradle.kts'
-      - 'settings.gradle.kts'
-      - 'gradle/**'
-      - '.github/workflows/android.yml'
   workflow_dispatch:
     inputs:
       build_type:
