@@ -53,6 +53,7 @@ import io.github.bropines.tailscaled.admin.console.Loadable
 import io.github.bropines.tailscaled.admin.console.WriteBlock
 import io.github.bropines.tailscaled.admin.devices.DeviceDetailSheet
 import io.github.bropines.tailscaled.admin.devices.DevicesTab
+import io.github.bropines.tailscaled.admin.policy.PolicyTab
 import io.github.bropines.tailscaled.admin.safety.ReadOnlyBanner
 import io.github.bropines.tailscaled.core.ScrollableSlidingSegmentedChips
 import io.github.bropines.tailscaled.ui.AppTopBar
@@ -81,6 +82,7 @@ fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -
                 ConsoleTab.ATTENTION -> R.string.admin_attention_tab
                 ConsoleTab.DEVICES -> R.string.admin_tab_devices
                 ConsoleTab.DNS -> R.string.admin_tab_dns
+                ConsoleTab.POLICY -> R.string.admin_cfg_tab_policy
                 ConsoleTab.USERS -> R.string.admin_tab_users
                 ConsoleTab.SERVICES -> R.string.admin_tab_services
                 ConsoleTab.WEBHOOKS -> R.string.admin_tab_webhooks
@@ -182,6 +184,7 @@ fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -
                             onUpdateSplitDns = { domain, servers -> vm?.setSplitDns(domain, servers) },
                             onApplySearchPaths = { vm?.setSearchPaths(it) },
                         )
+                        ConsoleTab.POLICY -> PolicyTab(state, vm)
                         ConsoleTab.USERS -> UsersTabContent(
                             state = state.users,
                             isOwn = ::isOwnUser,
@@ -343,6 +346,7 @@ private fun loadableFor(state: ConsoleState, tab: ConsoleTab): Loadable<*>? = wh
     ConsoleTab.ATTENTION -> state.devices
     ConsoleTab.DEVICES -> state.devices
     ConsoleTab.DNS -> state.dns
+    ConsoleTab.POLICY -> state.policy.file
     ConsoleTab.USERS -> state.users
     ConsoleTab.SERVICES -> state.services
     ConsoleTab.WEBHOOKS -> state.webhooks

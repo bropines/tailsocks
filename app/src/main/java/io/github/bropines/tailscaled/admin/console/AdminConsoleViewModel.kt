@@ -24,6 +24,7 @@ import io.github.bropines.tailscaled.admin.api.TailnetSettingKey
 import io.github.bropines.tailscaled.admin.api.UserListType
 import io.github.bropines.tailscaled.admin.api.UserRole
 import io.github.bropines.tailscaled.admin.attention.AttentionSession
+import io.github.bropines.tailscaled.admin.policy.PolicyConsole
 import io.github.bropines.tailscaled.admin.profile.AdminProfile
 import io.github.bropines.tailscaled.admin.profile.AdminProfiles
 import io.github.bropines.tailscaled.admin.profile.MissingCredentialException
@@ -77,10 +78,13 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
     private var viewUnlocked = false
     /** What to do once a change applied (show a returned secret, reload a sheet), by change. */
     private val afterApply = mutableMapOf<PlannedChange, () -> Unit>()
+    /** What to do with a change's outcome, whatever it is: the policy editor answers a 412. */
+    private val onOutcome = mutableMapOf<PlannedChange, (ChangeOutcome) -> Unit>()
     private var messageSeq = 0L
     internal val audit = AdminAuditLog(AdminAuditLog.fileIn(app.filesDir))
 
     val profiles = ConsoleProfiles(this)
+    val policy = PolicyConsole(this)
 
     /** The "Needs attention" home and the profile's background check. */
     val attention = AttentionSession(this)
@@ -206,6 +210,7 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
                 loadTags(force)
             }
             ConsoleTab.DNS -> loadOne(force, { it.dns }, { s, v -> s.copy(dns = v) }) { it.dnsConfiguration() }
+            ConsoleTab.POLICY -> policy.load(force)
             ConsoleTab.USERS -> loadList(force, { it.users }, { s, v -> s.copy(users = v) }) { it.listUsers(UserListType.ALL) }
             ConsoleTab.SERVICES -> {
                 loadList(force, { it.services }, { s, v -> s.copy(services = v) }) { it.listServices() }
@@ -377,8 +382,12 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
     /** Whether the runner's guards would stop [planned] whatever happens at the gates. */
     fun blockedBy(planned: PlannedChange) = runner?.blockedBy(planned.change)
 
-    /** Every write starts here: guards, then the gates its class needs, then apply and verify. */
-    fun propose(planned: PlannedChange, after: (() -> Unit)? = null) {
+    /**
+     * Every write starts here: guards, then the gates its class needs, then apply and verify.
+     * [after] runs once it applied; [outcome] gets how it ended, whatever that was (not called
+     * when the person cancels at a gate).
+     */
+    fun propose(planned: PlannedChange, after: (() -> Unit)? = null, outcome: ((ChangeOutcome) -> Unit)? = null) {
         val r = runner ?: return
         val blocked = r.blockedBy(planned.change)
         if (blocked != null) {
@@ -386,10 +395,12 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
                 // Recorded too: the log shows what was stopped, not only what went out.
                 withContext(Dispatchers.IO) { r.run(planned, GateEvidence(confirmed = false)) }
                 say(ConsoleText.refusal(text, blocked))
+                outcome?.invoke(ChangeOutcome.Refused(blocked))
             }
             return
         }
         if (after != null) afterApply[planned] = after
+        if (outcome != null) onOutcome[planned] = outcome
         if (planned.change.changeClass == ChangeClass.LOW) apply(planned, GateEvidence(confirmed = true))
         else _state.update { it.copy(safety = SafetyStep.Confirm(planned)) }
     }
@@ -401,8 +412,8 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
 
     fun cancelChange() {
         when (val step = _state.value.safety) {
-            is SafetyStep.Confirm -> afterApply.remove(step.planned)
-            is SafetyStep.Unlock -> afterApply.remove(step.planned)
+            is SafetyStep.Confirm -> { afterApply.remove(step.planned); onOutcome.remove(step.planned) }
+            is SafetyStep.Unlock -> { afterApply.remove(step.planned); onOutcome.remove(step.planned) }
             else -> Unit
         }
         _state.update { it.copy(safety = SafetyStep.Idle) }
@@ -433,6 +444,7 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
             _state.update { it.copy(safety = SafetyStep.Idle) }
             say(ConsoleText.outcome(text, planned.change.title, out), undo = planned.undo.takeIf { out is ChangeOutcome.Applied })
             if (out is ChangeOutcome.Applied) then?.invoke()
+            onOutcome.remove(planned)?.invoke(out)
             refreshAfter(planned.change.kind)
             reloadLocalLog()
         }
@@ -447,6 +459,7 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
             AdminArea.DNS -> refresh(ConsoleTab.DNS, force = true)
             AdminArea.WEBHOOKS -> refresh(ConsoleTab.WEBHOOKS, force = true)
             AdminArea.SERVICES -> refresh(ConsoleTab.SERVICES, force = true)
+            AdminArea.POLICY -> refresh(ConsoleTab.POLICY, force = true)
             else -> refresh(ConsoleTab.SETTINGS, force = true)
         }
     }

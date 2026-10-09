@@ -16,6 +16,7 @@ import io.github.bropines.tailscaled.admin.api.DeviceRoutes
 import io.github.bropines.tailscaled.admin.api.DnsConfiguration
 import io.github.bropines.tailscaled.admin.api.TailnetSettings
 import io.github.bropines.tailscaled.admin.api.TailscaleBackend
+import io.github.bropines.tailscaled.admin.policy.PolicyState
 import io.github.bropines.tailscaled.admin.profile.AdminProfile
 import io.github.bropines.tailscaled.admin.profile.AdminProxySettings
 import io.github.bropines.tailscaled.admin.profile.AuthType
@@ -55,6 +56,7 @@ enum class ConsoleTab(val feature: BackendFeature?) {
     ATTENTION(BackendFeature.DEVICES),
     DEVICES(BackendFeature.DEVICES),
     DNS(BackendFeature.DNS),
+    POLICY(BackendFeature.POLICY),
     USERS(BackendFeature.USERS),
     SERVICES(BackendFeature.SERVICES),
     WEBHOOKS(BackendFeature.WEBHOOKS),
@@ -134,6 +136,8 @@ data class ConsoleState(
     val safety: SafetyStep = SafetyStep.Idle,
     val revealed: RevealedSecret? = null,
     val message: ConsoleMessage? = null,
+    /** The policy file, its editor and its previews; see PolicyConsole. */
+    val policy: PolicyState = PolicyState(),
 ) {
     val writeBlock: WriteBlock?
         get() = when {

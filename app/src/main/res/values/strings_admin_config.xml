@@ -1,0 +1,283 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The admin console's configuration tabs: policy file, DNS, webhooks, tailnet settings. -->
+<resources>
+    <string name="admin_cfg_tab_policy">Policy</string>
+    <string name="admin_cfg_apply">Apply</string>
+    <string name="admin_cfg_reset">Reset</string>
+    <string name="admin_cfg_scope_missing">This credential may not change it: it needs the %1$s scope.</string>
+    <string name="admin_cfg_scope_needed">Needs the %1$s scope</string>
+    <string name="admin_cfg_confirm_phrase">Type «%1$s» to confirm</string>
+    <string name="admin_cfg_confirm_phrase_label">Phrase</string>
+
+    <!-- Policy file: the viewer -->
+    <string name="admin_cfg_policy_title">Policy file</string>
+    <string name="admin_cfg_policy_version">version %1$s</string>
+    <plurals name="admin_cfg_policy_lines">
+        <item quantity="one">%d line</item>
+        <item quantity="other">%d lines</item>
+    </plurals>
+    <string name="admin_cfg_policy_help">Who may reach what in the tailnet, with SSH rules, tags and tests, exactly as the server keeps it, comments included. A change is checked here and by the server, compared with this version and sent only if nobody changed the file meanwhile.</string>
+    <string name="admin_cfg_policy_edit">Edit</string>
+    <string name="admin_cfg_policy_search">Search the policy</string>
+    <string name="admin_cfg_policy_search_clear">Clear the search</string>
+    <string name="admin_cfg_policy_search_count">%1$d of %2$d lines</string>
+    <string name="admin_cfg_policy_search_none">Not found</string>
+    <string name="admin_cfg_policy_search_prev">Previous match</string>
+    <string name="admin_cfg_policy_search_next">Next match</string>
+    <string name="admin_cfg_policy_revert">Previous version</string>
+    <string name="admin_cfg_policy_revert_help">Saved on this phone before its last change to the policy (%1$s). Reverting goes through every check a change does.</string>
+    <string name="admin_cfg_policy_revert_action">Revert</string>
+    <string name="admin_cfg_policy_ro_external_title">Managed outside the console</string>
+    <string name="admin_cfg_policy_ro_external_text">The tailnet\'s settings say the policy comes from elsewhere, such as GitOps or Terraform: edits here would be overwritten, so it is read-only. Change it where it is managed.</string>
+    <string name="admin_cfg_policy_ro_scope_title">Read-only policy</string>
+    <string name="admin_cfg_policy_ro_scope_text">This credential may read the policy file but not change it: that needs the policy_file scope.</string>
+
+    <!-- Policy file: the editor -->
+    <string name="admin_cfg_policy_editor">Edit the policy</string>
+    <string name="admin_cfg_policy_revert_editor">Revert the policy</string>
+    <string name="admin_cfg_policy_editor_base">Against version %1$s</string>
+    <string name="admin_cfg_policy_review">Review</string>
+    <string name="admin_cfg_policy_local_ok">Reads as a policy file. The server checks it again on review.</string>
+    <string name="admin_cfg_policy_goto">Line %1$d</string>
+    <string name="admin_cfg_policy_discard_title">Discard your edit?</string>
+    <string name="admin_cfg_policy_discard_text">Nothing has been sent; the policy stays as it is.</string>
+    <string name="admin_cfg_policy_discard">Discard</string>
+    <string name="admin_cfg_policy_keep_editing">Keep editing</string>
+
+    <string name="admin_cfg_issue_string">Line %1$d: a string is not closed.</string>
+    <string name="admin_cfg_issue_comment">Line %1$d: a /* comment is not closed.</string>
+    <string name="admin_cfg_issue_unclosed">The %1$s opened on line %2$d is never closed.</string>
+    <string name="admin_cfg_issue_mismatched">Line %1$d: %2$s does not close what line %3$d opened.</string>
+    <string name="admin_cfg_issue_end">Line %1$d: the file ends too early.</string>
+    <string name="admin_cfg_issue_unexpected">Line %1$d: %2$s is not expected here.</string>
+    <string name="admin_cfg_issue_colon">Line %1$d: a colon is missing after the key.</string>
+    <string name="admin_cfg_issue_comma">Line %1$d: a comma is missing before this.</string>
+    <string name="admin_cfg_issue_not_object">The policy must be one object in braces.</string>
+    <string name="admin_cfg_issue_empty">The file is empty.</string>
+
+    <!-- Policy file: the review -->
+    <string name="admin_cfg_review_title">Review the change</string>
+    <string name="admin_cfg_review_counts">+%1$d −%2$d lines</string>
+    <string name="admin_cfg_review_apply">Apply the policy…</string>
+    <string name="admin_cfg_review_apply_revert">Revert the policy…</string>
+    <string name="admin_cfg_review_apply_help">Next you type «%1$s» and unlock; then it is sent only if the file is still the version you started from.</string>
+    <string name="admin_cfg_review_not_sent">Not applied</string>
+    <string name="admin_cfg_step_local">Read on this phone</string>
+    <string name="admin_cfg_step_server">Checked by the server, tests included</string>
+    <string name="admin_cfg_step_diff">Compared with the current version</string>
+    <string name="admin_cfg_step_risks">What it opens up</string>
+    <string name="admin_cfg_step_access">This phone\'s own access</string>
+    <string name="admin_cfg_step_waiting">waiting</string>
+    <string name="admin_cfg_step_running">checking</string>
+    <string name="admin_cfg_step_passed">passed</string>
+    <string name="admin_cfg_step_warned">see below</string>
+    <string name="admin_cfg_step_failed">failed</string>
+    <string name="admin_cfg_step_local_failed">The file does not read as a policy</string>
+    <string name="admin_cfg_step_server_failed">The server refused it</string>
+    <string name="admin_cfg_step_server_unreachable">The server could not check it</string>
+    <string name="admin_cfg_risks_title">What it opens up</string>
+    <string name="admin_cfg_risks_none">Nothing this check knows to be risky is new.</string>
+    <string name="admin_cfg_diff_title">What changes</string>
+    <string name="admin_cfg_diff_none">The text is the same as the current version: nothing to send.</string>
+    <plurals name="admin_cfg_diff_folded">
+        <item quantity="one">⋯ %d unchanged line</item>
+        <item quantity="other">⋯ %d unchanged lines</item>
+    </plurals>
+    <string name="admin_cfg_access_title">This phone\'s access</string>
+    <string name="admin_cfg_access_kept">This phone keeps the access it had, as far as the previews show.</string>
+    <string name="admin_cfg_access_lost_user">As %1$s this phone no longer reaches: %2$s</string>
+    <string name="admin_cfg_access_lost_ipport">No longer allowed to reach this phone at %1$s: %2$s</string>
+    <string name="admin_cfg_access_skipped">This phone is not a node of this tailnet, so its own access was not checked.</string>
+    <string name="admin_cfg_access_failed">The access check could not run: %1$s</string>
+    <string name="admin_cfg_access_help">The server previews which rules match this phone\'s user and its address on ports 22 and 443, under the current policy and under the new one. A rule rewritten to say the same thing differently shows up here too.</string>
+
+    <string name="admin_cfg_risk_wildcard_src">Everyone as a source</string>
+    <string name="admin_cfg_risk_wildcard_src_help">“*” as a source lets every user and device of the tailnet use this rule.</string>
+    <string name="admin_cfg_risk_wildcard_dst">Every device as a destination</string>
+    <string name="admin_cfg_risk_wildcard_dst_help">“*” as a destination reaches every device in the tailnet on these ports.</string>
+    <string name="admin_cfg_risk_danger_all" translatable="false">autogroup:danger-all</string>
+    <string name="admin_cfg_risk_danger_all_help">Everyone, including users and devices shared in from other tailnets.</string>
+    <string name="admin_cfg_risk_ssh_wildcard">SSH with a wildcard</string>
+    <string name="admin_cfg_risk_ssh_wildcard_help">An SSH rule with “*” among its sources, destinations or users opens shells far wider than one host or group.</string>
+    <string name="admin_cfg_risk_ssh_root">SSH as root without a check</string>
+    <string name="admin_cfg_risk_ssh_root_help">“accept” lets these users log in as root with no re-authentication; “check” would ask for it.</string>
+    <string name="admin_cfg_risk_autoapprover">Broad auto-approval</string>
+    <string name="admin_cfg_risk_autoapprover_help">Routes or exit nodes announced by anyone in this group are approved with no admin looking at them.</string>
+    <string name="admin_cfg_risk_wide_route">Wide route auto-approved</string>
+    <string name="admin_cfg_risk_wide_route_help">A route of /8 or wider (IPv6 /32), up to the whole internet, is approved automatically.</string>
+    <string name="admin_cfg_risk_funnel">Funnel for everyone</string>
+    <string name="admin_cfg_risk_funnel_help">Funnel publishes services to the public internet; this lets every member or device turn it on.</string>
+    <string name="admin_cfg_risk_tests">Fewer tests</string>
+    <string name="admin_cfg_risk_tests_help">Tests are what the server checks every policy change against; removing them removes that guard.</string>
+
+    <!-- Policy file: the write -->
+    <string name="admin_cfg_policy_change_title">Apply the policy file</string>
+    <string name="admin_cfg_policy_revert_title">Revert the policy file</string>
+    <string name="admin_cfg_policy_change_effect">Every device follows the new rules within seconds. The version it replaces stays on this phone for a revert.</string>
+    <string name="admin_cfg_policy_phrase">apply policy</string>
+    <string name="admin_cfg_policy_lines_label">Policy file</string>
+    <string name="admin_cfg_policy_lines_after" translatable="false">%1$s (+%2$d −%3$d)</string>
+    <plurals name="admin_cfg_policy_more">
+        <item quantity="one">…and %d more risk</item>
+        <item quantity="other">…and %d more risks</item>
+    </plurals>
+    <string name="admin_cfg_policy_rejected">The server refused it when it checked it again: %1$s</string>
+    <string name="admin_cfg_policy_conflict_unread">Changed elsewhere, and the new version could not be read: %1$s</string>
+    <string name="admin_cfg_conflict_title">Changed elsewhere</string>
+    <string name="admin_cfg_conflict_text">The policy file was changed after you opened it, and your edit was not sent. Nothing of theirs or yours is lost yet.</string>
+    <string name="admin_cfg_conflict_mergeable">Your edit and theirs touch different lines: yours can be applied on top of theirs and reviewed again.</string>
+    <string name="admin_cfg_conflict_overlap">Your edit and theirs touch the same place, around lines %1$s.</string>
+    <string name="admin_cfg_conflict_reapply">Apply my edit to their version</string>
+    <string name="admin_cfg_conflict_edit">Edit against their version</string>
+    <string name="admin_cfg_conflict_discard">Discard my edit</string>
+
+    <!-- Who can reach -->
+    <string name="admin_cfg_reach_open">Who can reach…</string>
+    <string name="admin_cfg_reach_title">Who can reach…</string>
+    <string name="admin_cfg_reach_help">The server shows which rules of the saved policy let traffic through: to a device on a port, or from a user. Nothing is changed.</string>
+    <string name="admin_cfg_reach_by_device">A device</string>
+    <string name="admin_cfg_reach_by_user">A user</string>
+    <string name="admin_cfg_reach_pick_device">Choose a device</string>
+    <string name="admin_cfg_reach_this_phone">this phone</string>
+    <string name="admin_cfg_reach_port">Port</string>
+    <string name="admin_cfg_reach_port_invalid">A port from 1 to 65535.</string>
+    <string name="admin_cfg_reach_user">User\'s login</string>
+    <string name="admin_cfg_reach_choose">Choose</string>
+    <string name="admin_cfg_reach_check">Check</string>
+    <string name="admin_cfg_reach_result_ipport">Rules that let traffic reach %1$s</string>
+    <string name="admin_cfg_reach_result_user">Rules that apply to %1$s</string>
+    <string name="admin_cfg_reach_none_ipport">No rule lets anyone reach it on this port.</string>
+    <string name="admin_cfg_reach_none_user">No rule lets this user reach anything.</string>
+    <string name="admin_cfg_reach_from">From</string>
+    <string name="admin_cfg_reach_to">To</string>
+    <string name="admin_cfg_reach_rule_line">Rule on line %1$d</string>
+
+    <!-- DNS -->
+    <string name="admin_cfg_dns_preferences">Preferences</string>
+    <string name="admin_cfg_dns_magic" translatable="false">MagicDNS</string>
+    <string name="admin_cfg_dns_magic_help">Every device gets a name in the tailnet, like host.tailnet.ts.net, that the others resolve.</string>
+    <string name="admin_cfg_dns_magic_needs_ns">There is no global nameserver: the server may refuse MagicDNS without one.</string>
+    <string name="admin_cfg_dns_magic_off_effect">Names like host.tailnet.ts.net stop resolving on every device; devices reach each other by address only, and anything set up by name breaks.</string>
+    <string name="admin_cfg_dns_override">Override local DNS</string>
+    <string name="admin_cfg_dns_override_help">Devices use the global nameservers below for every name, instead of the DNS their own network gives them.</string>
+    <string name="admin_cfg_dns_override_needs_ns">Add a global nameserver first: with none, devices would have no resolver.</string>
+    <string name="admin_cfg_dns_legacy_only">This server has only the older DNS API, which cannot set it.</string>
+    <string name="admin_cfg_dns_override_on">Override local DNS</string>
+    <string name="admin_cfg_dns_override_off">Stop overriding local DNS</string>
+    <string name="admin_cfg_dns_override_on_effect">Every device resolves every name through the global nameservers, ignoring its own network\'s DNS.</string>
+    <string name="admin_cfg_dns_override_off_effect">Devices go back to their own network\'s DNS for names outside the tailnet.</string>
+    <string name="admin_cfg_dns_ns_help">Resolvers for names outside the tailnet: an IPv4 or IPv6 address, or a DNS-over-HTTPS URL. “Exit node” keeps a resolver in use while a device goes through an exit node.</string>
+    <string name="admin_cfg_dns_ns_placeholder">1.1.1.1 or https://…</string>
+    <string name="admin_cfg_dns_exit_chip">Exit node</string>
+    <string name="admin_cfg_dns_exit_label">Use these also with an exit node</string>
+    <string name="admin_cfg_dns_with_exit">%1$s (with exit node)</string>
+    <string name="admin_cfg_dns_remove">Remove %1$s</string>
+    <string name="admin_cfg_dns_ns_none_magic_effect">The last global nameserver goes, and the server turns MagicDNS off with it: names like host.tailnet.ts.net stop resolving until MagicDNS is turned on again.</string>
+    <string name="admin_cfg_dns_ns_none_override_effect">Override local DNS is on: with no global nameserver, devices are left without a resolver for names outside the tailnet.</string>
+    <string name="admin_cfg_dns_split_help">Names under a domain go to its own resolvers, such as an office DNS reached through a subnet router.</string>
+    <string name="admin_cfg_dns_split_change">Change the resolvers for %1$s</string>
+    <string name="admin_cfg_dns_search_help">Short names are tried under these domains: “wiki” becomes wiki.example.com.</string>
+    <string name="admin_cfg_dns_err_empty">Enter a value.</string>
+    <string name="admin_cfg_dns_err_resolver">An IPv4 or IPv6 address, or an https:// DoH URL.</string>
+    <string name="admin_cfg_dns_err_doh">A DNS-over-HTTPS URL starts with https:// and has a host.</string>
+    <string name="admin_cfg_dns_err_domain">A domain: letters, digits and hyphens, in labels separated by dots.</string>
+    <string name="admin_cfg_dns_err_duplicate">Already in the list.</string>
+
+    <!-- Webhooks -->
+    <string name="admin_cfg_wh_help">Tailscale posts events to these addresses as they happen: a new device to approve, a key about to expire. A phone cannot receive them; they are for a chat or a server.</string>
+    <string name="admin_cfg_wh_created">made %1$s</string>
+    <string name="admin_cfg_wh_creator">Made by</string>
+    <string name="admin_cfg_wh_created_label">Made</string>
+    <string name="admin_cfg_wh_modified_label">Last changed</string>
+    <string name="admin_cfg_wh_events">Events</string>
+    <string name="admin_cfg_wh_events_none">Choose at least one event.</string>
+    <string name="admin_cfg_wh_save_events">Save the events</string>
+    <string name="admin_cfg_wh_test">Send a test event</string>
+    <string name="admin_cfg_wh_test_help">Queued at once; the endpoint receives an event of type “test” within seconds.</string>
+    <string name="admin_cfg_wh_test_sent">Test event queued for %1$s.</string>
+    <string name="admin_cfg_wh_rotate">Rotate the secret</string>
+    <string name="admin_cfg_wh_rotate_help">A new signing secret, shown once. The old one stops working at once.</string>
+    <string name="admin_cfg_wh_delete">Delete the webhook</string>
+    <string name="admin_cfg_wh_create">Create</string>
+    <string name="admin_cfg_wh_url_help">https, on port 443 or 80, reachable from the internet.</string>
+    <string name="admin_cfg_wh_url_empty">Enter the endpoint\'s address.</string>
+    <string name="admin_cfg_wh_url_bad">Not an address Tailscale can post to.</string>
+    <string name="admin_cfg_wh_url_https">The address must start with https://.</string>
+    <string name="admin_cfg_wh_url_port">Tailscale posts only to port 443 or 80.</string>
+    <string name="admin_cfg_wh_url_credentials">No user name or password in the address: the secret signs each event instead.</string>
+    <string name="admin_cfg_wh_create_effect">Events go to %1$s from now on. Its signing secret is shown once, next.</string>
+    <string name="admin_cfg_wh_update_title">Change the events for %1$s</string>
+    <string name="admin_cfg_wh_update_effect">Only the chosen events are posted to this endpoint.</string>
+    <string name="admin_cfg_wh_rotate_title">Rotate the secret of %1$s</string>
+    <string name="admin_cfg_wh_rotate_effect">A new signing secret is made and shown once; the old one stops working.</string>
+    <string name="admin_cfg_wh_rotate_warning">Until the endpoint has the new secret, it rejects every event as forged.</string>
+    <string name="admin_cfg_wh_secret">Signing secret</string>
+    <string name="admin_cfg_wh_secret_current">current</string>
+    <string name="admin_cfg_wh_secret_new">a new one, shown once</string>
+    <string name="admin_cfg_wh_group_devices">Devices</string>
+    <string name="admin_cfg_wh_group_lock">Tailnet Lock</string>
+    <string name="admin_cfg_wh_group_users">Users</string>
+    <string name="admin_cfg_wh_group_policy">Policy</string>
+    <string name="admin_cfg_wh_group_routing">Routing</string>
+    <string name="admin_cfg_wh_ev_node_created">A device was added</string>
+    <string name="admin_cfg_wh_ev_node_needs_approval">A device needs approval</string>
+    <string name="admin_cfg_wh_ev_node_approved">A device was approved</string>
+    <string name="admin_cfg_wh_ev_node_key_expiring">A device key expires within a day</string>
+    <string name="admin_cfg_wh_ev_node_key_expired">A device key expired</string>
+    <string name="admin_cfg_wh_ev_node_deleted">A device was removed</string>
+    <string name="admin_cfg_wh_ev_node_signed">A device was signed</string>
+    <string name="admin_cfg_wh_ev_node_needs_signature">A device needs a signature</string>
+    <string name="admin_cfg_wh_ev_policy_update">The policy file changed</string>
+    <string name="admin_cfg_wh_ev_user_created">A user joined</string>
+    <string name="admin_cfg_wh_ev_user_needs_approval">A user needs approval</string>
+    <string name="admin_cfg_wh_ev_user_suspended">A user was suspended</string>
+    <string name="admin_cfg_wh_ev_user_restored">A user was restored</string>
+    <string name="admin_cfg_wh_ev_user_deleted">A user was deleted</string>
+    <string name="admin_cfg_wh_ev_user_approved">A user was approved</string>
+    <string name="admin_cfg_wh_ev_user_role_updated">A user\'s role changed</string>
+    <string name="admin_cfg_wh_ev_subnet_forwarding">A subnet router has IP forwarding off</string>
+    <string name="admin_cfg_wh_ev_exit_forwarding">An exit node has IP forwarding off</string>
+
+    <!-- Tailnet settings -->
+    <string name="admin_cfg_set_network">Network</string>
+    <string name="admin_cfg_set_logging">Logging and identity</string>
+    <string name="admin_cfg_set_policy">Policy file</string>
+    <string name="admin_cfg_set_unreadable">This credential cannot read it (it needs %1$s).</string>
+    <string name="admin_cfg_set_regional_routing">Regional routing: %1$s. It follows the route selection.</string>
+    <string name="admin_cfg_set_devices_approval_help">New devices wait for an admin\'s approval before they can connect.</string>
+    <string name="admin_cfg_set_users_approval_help">New users wait for an admin\'s approval before they can join.</string>
+    <string name="admin_cfg_set_key_duration_help">How long a device stays logged in before it must re-authenticate; from 1 to 180 days.</string>
+    <string name="admin_cfg_set_external_help">Which of your users may join other tailnets they are invited to.</string>
+    <string name="admin_cfg_set_auto_updates_help">Tailscale updates itself on the devices that support it.</string>
+    <string name="admin_cfg_set_https_help">Devices may get TLS certificates for their tailnet names, which Serve and Funnel use. Every such name is published in public Certificate Transparency logs.</string>
+    <string name="admin_cfg_set_route_selection_help">How a route served by several subnet routers picks one.</string>
+    <string name="admin_cfg_set_flow_logs_help">Tailscale logs every connection between devices: who, to whom, when, how much.</string>
+    <string name="admin_cfg_set_posture_help">Devices report identifiers such as serial numbers to device-posture integrations.</string>
+    <string name="admin_cfg_set_acls_external">Managed externally</string>
+    <string name="admin_cfg_set_acls_external_help">Marks the policy as managed elsewhere (GitOps, Terraform): the console stops editing it, and so does this app.</string>
+    <string name="admin_cfg_set_acls_link">Where it is managed</string>
+    <string name="admin_cfg_set_acls_link_help">A link the console shows to where the policy really lives; https, or empty.</string>
+    <string name="admin_cfg_set_acls_link_bad">An https:// link with a host, or nothing.</string>
+    <string name="admin_cfg_set_acls_link_placeholder" translatable="false">https://github.com/…</string>
+    <string name="admin_cfg_set_acls_link_edit">Edit the link</string>
+    <string name="admin_cfg_set_devices_approval_off">New devices join without an admin approving them: anyone who can log in, or holds an auth key, adds a device at once.</string>
+    <string name="admin_cfg_set_devices_approval_on">New devices wait for an admin\'s approval; devices already in stay.</string>
+    <string name="admin_cfg_set_users_approval_off">New users join without an admin approving them.</string>
+    <string name="admin_cfg_set_users_approval_on">New users wait for an admin\'s approval; users already in stay.</string>
+    <string name="admin_cfg_set_key_duration_up">Devices stay logged in longer before they must re-authenticate: a lost or stolen device keeps its access longer.</string>
+    <string name="admin_cfg_set_key_duration_down">Devices re-authenticate sooner, from their next login on.</string>
+    <string name="admin_cfg_set_external_wider">More of your users may join other tailnets, taking their devices there.</string>
+    <string name="admin_cfg_set_external_narrower">Fewer of your users may join other tailnets.</string>
+    <string name="admin_cfg_set_auto_updates_on">Tailscale updates itself on every device that supports it.</string>
+    <string name="admin_cfg_set_auto_updates_off">Devices update only when their owners update them.</string>
+    <string name="admin_cfg_set_https_on">Devices may get certificates, and every name that gets one is published in public Certificate Transparency logs, for good.</string>
+    <string name="admin_cfg_set_https_off">No new certificates: Serve and Funnel over HTTPS stop working as the current ones expire.</string>
+    <string name="admin_cfg_set_route_selection_effect">Every device picks among subnet routers serving the same routes the new way.</string>
+    <string name="admin_cfg_set_flow_logs_on">Every connection in the tailnet is logged and kept by Tailscale: who talked to whom, when and how much.</string>
+    <string name="admin_cfg_set_flow_logs_off">Connections are no longer logged; logs already kept age out on their own.</string>
+    <string name="admin_cfg_set_posture_on">Devices start reporting identifiers such as serial numbers to posture integrations.</string>
+    <string name="admin_cfg_set_posture_off">Devices stop reporting identity; posture rules that rely on it may stop matching.</string>
+    <string name="admin_cfg_set_acls_external_on">The policy can no longer be edited in the console or here; it is expected to come from your external pipeline.</string>
+    <string name="admin_cfg_set_acls_external_off">The policy can be edited in the console again; an external pipeline may overwrite those edits.</string>
+    <string name="admin_cfg_set_acls_link_effect">The console links to this address as where the policy is managed.</string>
+</resources>

@@ -170,18 +170,21 @@ fun DiffPreview(lines: List<DiffLine>, modifier: Modifier = Modifier) {
     }
 }
 
-/** The target's name, typed back. Matches exactly, apart from spaces around it. */
+/**
+ * The target's name, typed back — or, with [phrase], a fixed phrase ("apply policy"), quoted.
+ * Matches exactly, apart from spaces around it.
+ */
 @Composable
-fun TypedConfirmationField(expected: String, value: String, onValueChange: (String) -> Unit, modifier: Modifier = Modifier) {
+fun TypedConfirmationField(expected: String, value: String, onValueChange: (String) -> Unit, modifier: Modifier = Modifier, phrase: Boolean = false) {
     val ctx = LocalContext.current
     Column(modifier) {
-        Text(ctx.getString(R.string.admin2_confirm_type, expected), style = MaterialTheme.typography.bodyMedium)
+        Text(ctx.getString(if (phrase) R.string.admin_cfg_confirm_phrase else R.string.admin2_confirm_type, expected), style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.padding(top = 6.dp))
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
             singleLine = true,
-            label = { Text(ctx.getString(R.string.admin2_confirm_type_label)) },
+            label = { Text(ctx.getString(if (phrase) R.string.admin_cfg_confirm_phrase_label else R.string.admin2_confirm_type_label)) },
             isError = value.isNotEmpty() && value.trim() != expected.trim(),
             keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, capitalization = KeyboardCapitalization.None),
             shape = MaterialTheme.shapes.medium,
@@ -232,7 +235,8 @@ fun ChangeConfirmContent(change: AdminChange, typed: String, onTyped: (String) -
         Column {
             Text(ctx.getString(R.string.admin2_confirm_target), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
             Text(change.target.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-            if (change.target.id != change.target.name) {
+            // The tailnet's id is "-": nothing worth showing under its name.
+            if (change.target.id != change.target.name && change.target.type != TargetType.TAILNET) {
                 Text(change.target.id, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.outline)
             }
         }
@@ -240,7 +244,7 @@ fun ChangeConfirmContent(change: AdminChange, typed: String, onTyped: (String) -
         change.warnings.forEach { WarningLine(it) }
         if (change.target.isThisDevice) WarningLine(ctx.getString(R.string.admin2_confirm_this_device))
         if (change.diff.isNotEmpty()) DiffPreview(change.diff)
-        if (change.needsTypedConfirmation) TypedConfirmationField(change.confirmText, typed, onTyped)
+        if (change.needsTypedConfirmation) TypedConfirmationField(change.confirmText, typed, onTyped, phrase = change.confirmPhrase != null)
         if (change.needsUnlock) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.LockOpen, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.outline)
