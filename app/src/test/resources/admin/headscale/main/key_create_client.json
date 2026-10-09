@@ -1,0 +1,1 @@
+{"id":"6ca9b77a50e4","keyType":"client","key":"hskey-client-6ca9b77a50e4-SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS","description":"bench client","created":"2026-10-09T18:19:56.399728608Z","invalid":false,"capabilities":{"devices":{"create":{"reusable":false,"ephemeral":false,"preauthorized":false,"tags":null}}},"scopes":["devices:core:read"]}

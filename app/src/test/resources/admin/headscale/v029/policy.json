@@ -1,0 +1,1 @@
+{"policy":"{\n  // bench policy\n  \"tagOwners\": {\n    \"tag:server\": [\"alice@\"],\n    \"tag:test\": [\"alice@\"],\n  },\n  \"acls\": [\n    {\"action\": \"accept\", \"src\": [\"*\"], \"dst\": [\"*:*\"]},\n  ],\n}\n", "updatedAt":"2026-10-09T18:18:48.752968480Z"}

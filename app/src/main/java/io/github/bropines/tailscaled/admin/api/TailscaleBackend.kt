@@ -490,7 +490,7 @@ class TailscaleBackend(
         null
     }
 
-    override suspend fun putService(service: ApiService) {
+    override suspend fun putService(service: ApiService, pathName: String) {
         val body = buildJsonObject {
             put("name", service.name)
             service.displayName?.takeIf { it.isNotBlank() }?.let { put("displayName", it) }
@@ -499,7 +499,7 @@ class TailscaleBackend(
             putJsonArray("ports") { service.ports.forEach { add(JsonPrimitive(it)) } }
             if (service.tags.isNotEmpty()) putJsonArray("tags") { service.tags.forEach { add(JsonPrimitive(it)) } }
         }
-        exchange("PUT", "$tn/services/${Urls.seg(service.name)}", AdminArea.SERVICES, body = body.toString())
+        exchange("PUT", "$tn/services/${Urls.seg(pathName)}", AdminArea.SERVICES, body = body.toString())
     }
 
     override suspend fun deleteService(name: String) {
@@ -516,9 +516,9 @@ class TailscaleBackend(
 
     // ---------------------------------------------------------------- logs
 
-    override suspend fun auditLog(start: String, end: String): Listing<ApiAuditLogEntry> =
+    override suspend fun auditLog(start: String, end: String, filters: AuditLogFilters): Listing<ApiAuditLogEntry> =
         decodeList(
-            exchange("GET", "$tn/logging/configuration", AdminArea.AUDIT_LOGS, query = listOf("start" to start, "end" to end)),
+            exchange("GET", "$tn/logging/configuration", AdminArea.AUDIT_LOGS, query = listOf("start" to start, "end" to end) + filters.query()),
             "logs", "audit event", idField = "eventGroupID"
         )
 
@@ -714,6 +714,6 @@ class TailscaleBackend(
         private val RETRYABLE_5XX = setOf(502, 503, 504)
         private val TAG = Regex("\"(tag:[A-Za-z0-9_\\-/]+)\"")
 
-        val FEATURES: Set<BackendFeature> = BackendFeature.entries.toSet()
+        val FEATURES: Set<BackendFeature> = BackendFeature.entries.toSet() - BackendFeature.headscaleOnly
     }
 }

@@ -1,0 +1,1 @@
+{"message":"validation failed","data":[{"errors":["expected required property tags to be present (body.capabilities.devices.create: map[ephemeral:false preauthorized:false reusable:false])"]}],"status":422}

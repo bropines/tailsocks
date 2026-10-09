@@ -1,0 +1,10 @@
+{
+                 
+  "tagOwners": {
+    "tag:server": ["alice@"],
+    "tag:test": ["alice@"],
+  },
+  "acls": [
+    {"action": "accept", "src": ["*"], "dst": ["*:*"]},
+  ],
+}

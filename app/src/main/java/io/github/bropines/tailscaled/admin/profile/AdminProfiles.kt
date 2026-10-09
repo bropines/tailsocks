@@ -11,6 +11,7 @@ import io.github.bropines.tailscaled.admin.api.Capabilities
 import io.github.bropines.tailscaled.admin.api.FallbackTransport
 import io.github.bropines.tailscaled.admin.api.HttpTransport
 import io.github.bropines.tailscaled.admin.api.TailscaleBackend
+import io.github.bropines.tailscaled.admin.api.headscale.HeadscaleBackends
 import io.github.bropines.tailscaled.admin.secure.CredentialVault
 import io.github.bropines.tailscaled.admin.secure.KeystoreSecretBox
 import io.github.bropines.tailscaled.admin.secure.PrefsKeyValueStore
@@ -127,9 +128,9 @@ object AdminProfiles {
         val transport = transport(context, profile, proxyPassword)
         val log: (String) -> Unit = { Log.i("AdminApi", "[${profile.displayName}] $it") }
         return when (profile.backend) {
-            // Headscale 0.30's /api/v2 speaks this same API; its own backends arrive with their
-            // capability probing (GET /version) and the v1 adapter.
-            BackendKind.TAILSCALE, BackendKind.HEADSCALE_V2, BackendKind.HEADSCALE_V1 -> {
+            BackendKind.HEADSCALE_V2, BackendKind.HEADSCALE_V1 ->
+                HeadscaleBackends.create(profile.backend, credential, transport, profile.baseUrl, log)
+            BackendKind.TAILSCALE -> {
                 val remembered = rememberedCapabilities(profile, credential)
                 TailscaleBackend(
                     credential = credential,

@@ -53,6 +53,19 @@ enum class BackendFeature {
     DEVICES, DEVICE_ROUTES, DEVICE_IPV4, KEYS, USERS, USER_ROLES, USER_INVITES,
     DNS, DNS_CONFIGURATION, SETTINGS, POLICY, WEBHOOKS, AUDIT_LOGS, SERVICES, POSTURE,
     DEVICE_INVITES, OAUTH_CLIENTS,
+    // Single actions Headscale lacks: Tailscale has them all; ask before offering one.
+    DEVICE_DEAUTHORIZE, DEVICE_UNTAG, DEVICE_EXPIRE, DEVICE_KEY_EXPIRY_DISABLE, DEVICE_KEY_EXPIRY_ENABLE,
+    /** Writing the policy; gone while it is managed elsewhere (a Headscale policy file on disk). */
+    POLICY_WRITE,
+    /** An untagged auth key belongs to a user picked when it is made (Headscale). */
+    AUTH_KEY_OWNER,
+    /** A Headscale server's own administration: registration by link, users, API keys. */
+    HEADSCALE_ADMIN;
+
+    companion object {
+        /** What no Tailscale tailnet has. */
+        val headscaleOnly: Set<BackendFeature> = setOf(AUTH_KEY_OWNER, HEADSCALE_ADMIN)
+    }
 }
 
 /**

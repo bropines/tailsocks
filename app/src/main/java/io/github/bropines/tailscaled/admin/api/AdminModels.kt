@@ -162,6 +162,8 @@ data class AuthKeyRequest(
     val ephemeral: Boolean = false,
     val preauthorized: Boolean = false,
     val tags: List<String> = emptyList(),
+    /** The user (id) an untagged key belongs to, where the backend has [BackendFeature.AUTH_KEY_OWNER]. */
+    val user: String? = null,
 )
 
 @Serializable

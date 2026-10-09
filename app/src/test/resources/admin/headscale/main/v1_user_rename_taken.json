@@ -1,0 +1,1 @@
+{"title":"Internal Server Error","status":500,"detail":"renaming user","errors":[{"message":"updating user: constraint failed: UNIQUE constraint failed: users.name (2067)"}]}

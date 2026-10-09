@@ -137,15 +137,19 @@ interface AdminBackend {
     suspend fun listServices(): Listing<ApiService> = unsupported(BackendFeature.SERVICES)
     /** Null when the tailnet has no such service. */
     suspend fun getService(name: String): ApiService? = unsupported(BackendFeature.SERVICES)
-    /** Creates the service or replaces its definition. */
-    suspend fun putService(service: ApiService): Unit = unsupported(BackendFeature.SERVICES)
+    /**
+     * Creates the service or replaces its definition. [pathName] is the service's current name:
+     * a different [ApiService.name] renames it.
+     */
+    suspend fun putService(service: ApiService, pathName: String = service.name): Unit = unsupported(BackendFeature.SERVICES)
     suspend fun deleteService(name: String): Unit = unsupported(BackendFeature.SERVICES)
     suspend fun serviceHosts(name: String): Listing<ApiServiceHost> = unsupported(BackendFeature.SERVICES)
     suspend fun setServiceHostApproved(name: String, deviceId: String, approved: Boolean): Unit = unsupported(BackendFeature.SERVICES)
 
     // Logs
-    /** The configuration audit log between two RFC 3339 instants. */
-    suspend fun auditLog(start: String, end: String): Listing<ApiAuditLogEntry> = unsupported(BackendFeature.AUDIT_LOGS)
+    /** The configuration audit log between two RFC 3339 instants, narrowed on the server by [filters]. */
+    suspend fun auditLog(start: String, end: String, filters: AuditLogFilters = AuditLogFilters()): Listing<ApiAuditLogEntry> =
+        unsupported(BackendFeature.AUDIT_LOGS)
 }
 
 fun unsupported(feature: BackendFeature): Nothing = throw AdminApiException.Unsupported(feature)

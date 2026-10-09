@@ -1,0 +1,6 @@
+{
+	// Headscale default policy. Allows all communication.
+	"acls": [
+		{"action": "accept", "src": ["*"], "dst": ["*:*"]},
+	],
+}
