@@ -482,7 +482,12 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
             AdminArea.DEVICES, AdminArea.ROUTES ->
                 refresh(ConsoleTab.DEVICES, force = true)
             AdminArea.AUTH_KEYS -> refreshKeys()
-            AdminArea.OAUTH_KEYS, AdminArea.API_TOKENS, AdminArea.FEDERATED_KEYS -> refreshKeys()
+            AdminArea.OAUTH_KEYS, AdminArea.FEDERATED_KEYS -> refreshKeys()
+            // A Headscale server's own API keys live on its Server tab too; elsewhere a no-op.
+            AdminArea.API_TOKENS -> {
+                refreshKeys()
+                headscale.refresh(force = true)
+            }
             // A device share's own callback reloads that device's invites.
             AdminArea.DEVICE_INVITES -> Unit
             AdminArea.USERS -> refresh(ConsoleTab.USERS, force = true)
@@ -490,7 +495,6 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
             AdminArea.WEBHOOKS -> refresh(ConsoleTab.WEBHOOKS, force = true)
             AdminArea.SERVICES -> refresh(ConsoleTab.SERVICES, force = true)
             AdminArea.POLICY -> refresh(ConsoleTab.POLICY, force = true)
-            AdminArea.API_TOKENS -> headscale.refresh(force = true)
             else -> refresh(ConsoleTab.SETTINGS, force = true)
         }
     }

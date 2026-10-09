@@ -214,7 +214,12 @@ fun AdminDashboard(
                             vm,
                             onManageKeys = { scope.launch { pagerState.animateScrollToPage(tabs.indexOf(ConsoleTab.KEYS).coerceAtLeast(0)) } },
                         )
-                        ConsoleTab.SERVER -> HeadscaleTab(state, hsState, vm, onManageKeys = { showKeys = true })
+                        ConsoleTab.SERVER -> HeadscaleTab(
+                            state,
+                            hsState,
+                            vm,
+                            onManageKeys = { scope.launch { pagerState.animateScrollToPage(tabs.indexOf(ConsoleTab.KEYS).coerceAtLeast(0)) } },
+                        )
                     }
                 }
             }

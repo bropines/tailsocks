@@ -41,7 +41,7 @@ class HeadscaleSafetyTest {
     @Test
     fun aHeadscaleServerGetsItsOwnTabAndLosesTailscalesOnes() {
         val caps = v2Backend(FakeTransport()).capabilities.value
-        assertEquals(listOf(ConsoleTab.DEVICES, ConsoleTab.USERS, ConsoleTab.SERVER), ConsoleState(caps = caps).tabs)
+        assertEquals(listOf(ConsoleTab.ATTENTION, ConsoleTab.DEVICES, ConsoleTab.POLICY, ConsoleTab.USERS, ConsoleTab.KEYS, ConsoleTab.SERVER), ConsoleState(caps = caps).tabs)
         assertTrue(caps.has(BackendFeature.AUTH_KEY_OWNER))
         assertFalse(caps.has(BackendFeature.SETTINGS))
         val tailscale = Capabilities(BackendKind.TAILSCALE, CredentialKind.API_TOKEN, TailscaleBackend.FEATURES)
