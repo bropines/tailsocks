@@ -226,7 +226,7 @@
 
     <!-- Device shares -->
     <string name="admin_u_share_device">Поделиться</string>
-    <string name="admin_u_share_device_sub">Устройством, с кем-то извне</string>
+    <string name="admin_u_share_device_sub">Устройством</string>
     <string name="admin_u_share_pick">Каким устройством поделиться</string>
     <string name="admin_u_share_title">Поделиться: %1$s</string>
     <string name="admin_u_share_help">Человек из другого tailnet получит доступ только к этому устройству, больше ни к чему. Приглашение — письмо или ссылка.</string>

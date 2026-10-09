@@ -8,6 +8,7 @@ import io.github.bropines.tailscaled.admin.api.ApiUser
 import io.github.bropines.tailscaled.admin.api.ApiUserInvite
 import io.github.bropines.tailscaled.admin.api.DeviceInviteRequest
 import io.github.bropines.tailscaled.admin.api.UserRole
+import io.github.bropines.tailscaled.admin.api.UserStatus
 import io.github.bropines.tailscaled.admin.console.ConsoleChanges
 import io.github.bropines.tailscaled.admin.console.ConsoleText
 import io.github.bropines.tailscaled.admin.safety.AdminChange
@@ -32,6 +33,13 @@ object UserChanges {
 
     fun suspend(ctx: Context, u: ApiUser): PlannedChange =
         ConsoleChanges.suspendUser(ctx, u).withWarnings(devicesWarning(ctx, u, R.plurals.admin_u_warn_suspend_devices))
+
+    /** HIGH, as giving access back is: with the status before and after shown. */
+    fun restore(ctx: Context, u: ApiUser): PlannedChange {
+        val base = ConsoleChanges.restoreUser(ctx, u)
+        val diff = DiffLine(ctx.getString(R.string.admin2_diff_status), ConsoleText.status(ctx, u.userStatus, u.status), ConsoleText.status(ctx, UserStatus.ACTIVE))
+        return PlannedChange(base.change.copy(diff = listOf(diff)), base.apply, base.verify, base.undo, base.isUndo)
+    }
 
     fun delete(ctx: Context, u: ApiUser): PlannedChange =
         ConsoleChanges.deleteUser(ctx, u).withWarnings(devicesWarning(ctx, u, R.plurals.admin_u_warn_delete_devices))

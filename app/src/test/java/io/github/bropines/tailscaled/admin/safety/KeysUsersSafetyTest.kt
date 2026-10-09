@@ -25,6 +25,7 @@ class KeysUsersClassifierTest {
         assertEquals(ChangeClass.MEDIUM, ChangeClassifier.classify(ChangeKind.DEVICE_INVITE_CREATE))
         assertEquals(ChangeClass.HIGH, ChangeClassifier.classify(ChangeKind.USER_INVITE_DELETE))
         assertEquals(ChangeClass.HIGH, ChangeClassifier.classify(ChangeKind.DEVICE_INVITE_DELETE))
+        assertEquals("giving a suspended user access back is as weighty as taking it", ChangeClass.HIGH, ChangeClassifier.classify(ChangeKind.USER_RESTORE))
     }
 
     @Test

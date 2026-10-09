@@ -14,13 +14,13 @@ object ChangeClassifier {
         ChangeKind.DEVICE_RENAME, ChangeKind.WEBHOOK_TEST -> ChangeClass.LOW
 
         ChangeKind.DEVICE_TAGS, ChangeKind.DEVICE_ROUTES, ChangeKind.DEVICE_AUTHORIZE, ChangeKind.DEVICE_KEY_EXPIRY,
-        ChangeKind.KEY_CREATE, ChangeKind.USER_APPROVE, ChangeKind.USER_RESTORE,
+        ChangeKind.KEY_CREATE, ChangeKind.USER_APPROVE,
         ChangeKind.DNS_MAGIC_DNS, ChangeKind.DNS_SPLIT, ChangeKind.DNS_NAMESERVERS, ChangeKind.DNS_SEARCH_PATHS,
         ChangeKind.SETTING, ChangeKind.WEBHOOK_CREATE, ChangeKind.WEBHOOK_UPDATE,
         ChangeKind.SERVICE_PUBLISH, ChangeKind.SERVICE_HOST_APPROVAL, ChangeKind.DNS_OVERRIDE_LOCAL -> ChangeClass.MEDIUM
 
         ChangeKind.DEVICE_DEAUTHORIZE, ChangeKind.DEVICE_EXPIRE, ChangeKind.DEVICE_DELETE, ChangeKind.DEVICE_IPV4,
-        ChangeKind.KEY_REVOKE, ChangeKind.USER_ROLE, ChangeKind.USER_SUSPEND, ChangeKind.USER_DELETE,
+        ChangeKind.KEY_REVOKE, ChangeKind.USER_ROLE, ChangeKind.USER_SUSPEND, ChangeKind.USER_RESTORE, ChangeKind.USER_DELETE,
         ChangeKind.WEBHOOK_DELETE, ChangeKind.SERVICE_DELETE,
         // The endpoint rejects every event until it has the new secret.
         ChangeKind.WEBHOOK_ROTATE -> ChangeClass.HIGH

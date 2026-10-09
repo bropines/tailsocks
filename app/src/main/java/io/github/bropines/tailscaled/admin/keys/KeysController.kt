@@ -52,7 +52,7 @@ class KeysController internal constructor(private val vm: AdminConsoleViewModel)
     fun createAuthKey(request: AuthKeyRequest, expiry: String) {
         val t = vm.text
         var created: ApiKey? = null
-        vm.propose(KeyChanges.createAuthKey(t, request, expiry) { created = it }) {
+        vm.propose(KeyChanges.createAuthKey(t, request, expiry) { created = it }, after = {
             created?.key?.takeIf { it.isNotBlank() }?.let { secret ->
                 vm.update {
                     it.copy(
@@ -65,14 +65,14 @@ class KeysController internal constructor(private val vm: AdminConsoleViewModel)
                     )
                 }
             }
-        }
+        })
     }
 
     fun createOAuthClient(request: OAuthClientRequest) {
         val t = vm.text
         var created: ApiKey? = null
-        vm.propose(KeyChanges.createOAuthClient(t, request) { created = it }) {
-            val c = created ?: return@propose
+        vm.propose(KeyChanges.createOAuthClient(t, request) { created = it }, after = after@{
+            val c = created ?: return@after
             c.key?.takeIf { it.isNotBlank() }?.let { secret ->
                 vm.update {
                     it.copy(
@@ -85,7 +85,7 @@ class KeysController internal constructor(private val vm: AdminConsoleViewModel)
                     )
                 }
             }
-        }
+        })
     }
 
     fun revoke(k: ApiKey) = vm.propose(KeyChanges.revoke(vm.text, k))

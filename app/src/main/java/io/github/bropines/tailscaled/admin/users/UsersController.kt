@@ -90,7 +90,7 @@ class UsersController internal constructor(private val vm: AdminConsoleViewModel
     fun approve(u: ApiUser) = vm.propose(ConsoleChanges.approveUser(vm.text, u))
     fun setRole(u: ApiUser, role: UserRole) = vm.propose(UserChanges.setRole(vm.text, u, role))
     fun suspend(u: ApiUser) = vm.propose(UserChanges.suspend(vm.text, u))
-    fun restore(u: ApiUser) = vm.propose(ConsoleChanges.restoreUser(vm.text, u))
+    fun restore(u: ApiUser) = vm.propose(UserChanges.restore(vm.text, u))
     fun delete(u: ApiUser) = vm.propose(UserChanges.delete(vm.text, u))
 
     // ------------------------------------------------------------------ invites
@@ -107,13 +107,13 @@ class UsersController internal constructor(private val vm: AdminConsoleViewModel
         if (!mayInvite(BackendFeature.USER_INVITES)) return
         val t = vm.text
         var created: ApiUserInvite? = null
-        vm.propose(UserChanges.createInvite(t, email, role, vm.tailnetLabel) { created = it }) {
+        vm.propose(UserChanges.createInvite(t, email, role, vm.tailnetLabel) { created = it }, after = {
             created?.inviteUrl?.takeIf { it.isNotBlank() }?.let { link ->
                 vm.update {
                     it.copy(revealed = RevealedSecret(t.getString(R.string.admin_u_reveal_invite_title), t.getString(R.string.admin_u_reveal_invite_text), link, qr = true, once = false))
                 }
             }
-        }
+        })
     }
 
     fun resendInvite(inv: ApiUserInvite) {
@@ -129,7 +129,7 @@ class UsersController internal constructor(private val vm: AdminConsoleViewModel
         val t = vm.text
         var created: ApiDeviceInvite? = null
         val self = state.self.nodeId.takeIf { state.phoneInTailnet }
-        vm.propose(UserChanges.createDeviceInvite(t, d, request, self) { created = it }) {
+        vm.propose(UserChanges.createDeviceInvite(t, d, request, self) { created = it }, after = {
             loadDeviceInvites(d, force = true)
             created?.inviteUrl?.takeIf { it.isNotBlank() }?.let { link ->
                 vm.update {
@@ -141,12 +141,12 @@ class UsersController internal constructor(private val vm: AdminConsoleViewModel
                     )
                 }
             }
-        }
+        })
     }
 
     /** Allowed with an OAuth client too: `device_invites` covers deleting. */
     fun deleteDeviceInvite(d: ApiDevice, inv: ApiDeviceInvite) =
-        vm.propose(UserChanges.deleteDeviceInvite(vm.text, d, inv)) { loadDeviceInvites(d, force = true) }
+        vm.propose(UserChanges.deleteDeviceInvite(vm.text, d, inv), after = { loadDeviceInvites(d, force = true) })
 
     private companion object {
         const val FRESH_MS = 60_000L
