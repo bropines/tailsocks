@@ -4,6 +4,10 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ## [Unreleased]
 
+### Added
+
+- About credits Claude, who helped write the code.
+
 ### Changed
 
 - TailCat: a link without an address shows what it carries instead of a one-line toast.

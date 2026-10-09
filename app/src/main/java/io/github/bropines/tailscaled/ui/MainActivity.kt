@@ -43,6 +43,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
@@ -1731,7 +1732,8 @@ fun MainScreen(
             Triple(stringResource(R.string.main_dev_app), "https://github.com/bropines", Icons.Default.Person),
             Triple(stringResource(R.string.main_dev_patch), "https://github.com/bropines/tailsocks", Icons.Default.Build),
             Triple(stringResource(R.string.main_dev_anet_patch), "https://github.com/Asutorufa/tailscale", Icons.Default.Extension),
-            Triple(stringResource(R.string.main_dev_core), "https://github.com/tailscale/tailscale", Icons.Default.Hub)
+            Triple(stringResource(R.string.main_dev_core), "https://github.com/tailscale/tailscale", Icons.Default.Hub),
+            Triple(stringResource(R.string.main_dev_claude), CLAUDE_URL, Icons.Default.AutoAwesome)
         )
         val openLink: (String) -> Unit = { url ->
             try {
@@ -1742,12 +1744,16 @@ fun MainScreen(
         }
         // Lives inside this block on purpose: closing the dialog takes it down too.
         var showAboutBackdrop by remember { mutableStateOf(false) }
+        var showVibeCoding by remember { mutableStateOf(false) }
         var showIssueReport by remember { mutableStateOf(false) }
         if (showIssueReport) {
             IssueReportDialog(onDismiss = { showIssueReport = false })
         }
         if (showAboutBackdrop) {
             AboutBackdrop(onDismiss = { showAboutBackdrop = false })
+        }
+        if (showVibeCoding) {
+            VibeCodingScene(onDismiss = { showVibeCoding = false })
         }
 
         AlertDialog(
@@ -2077,10 +2083,14 @@ fun MainScreen(
                                             // pages, and a one-line credit measures 36dp —
                                             // under the 48dp a finger is entitled to.
                                             .heightIn(min = 48.dp)
-                                            // The first row also answers a long press.
+                                            // The first row and Claude's also answer a long press.
                                             .combinedClickable(
                                                 onClick = { openLink(url) },
-                                                onLongClick = if (index == 0) ({ showAboutBackdrop = true }) else null
+                                                onLongClick = when {
+                                                    index == 0 -> ({ showAboutBackdrop = true })
+                                                    url == CLAUDE_URL -> ({ showVibeCoding = true })
+                                                    else -> null
+                                                }
                                             )
                                             .padding(horizontal = 12.dp, vertical = 8.dp),
                                         verticalAlignment = Alignment.CenterVertically
@@ -3074,6 +3084,9 @@ private fun ExitNodePingChip(
         }
     }
 }
+
+/** Where the Claude credit in About leads. */
+private const val CLAUDE_URL = "https://claude.ai"
 
 // ---------------------------------------------------------------------------------------------
 // About: full-screen backdrop.

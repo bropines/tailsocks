@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="main_dev_claude">Помогал писать код: Claude от Anthropic</string>
+    <string name="egg_vibe_question">Учишься вайбкодить, Поттер?</string>
+    <string name="egg_vibe_answer">Да. А что?</string>
+</resources>

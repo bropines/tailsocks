@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- About → credits -->
+    <string name="main_dev_claude">Coding help: Claude by Anthropic</string>
+    <!-- A long press on that row -->
+    <string name="egg_vibe_question">Learning to vibe-code, Potter?</string>
+    <string name="egg_vibe_answer">Yes. So what?</string>
+</resources>
