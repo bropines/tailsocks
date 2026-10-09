@@ -1,0 +1,301 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Opening the console -->
+    <string name="admin2_view_unlock_title">Разблокировать админ-панель</string>
+    <string name="admin2_view_unlock_subtitle">В ней устройства и пользователи вашего tailnet</string>
+    <string name="admin2_view_unlock_unavailable">На этом телефоне не удаётся показать запрос разблокировки, поэтому панель остаётся закрытой.</string>
+
+    <!-- Read-only states -->
+    <string name="admin2_readonly_no_lock_title">Только просмотр: нет блокировки экрана</string>
+    <string name="admin2_readonly_no_lock_desc">Изменения подтверждаются отпечатком, лицом или блокировкой экрана, а на этом телефоне её нет. Задайте PIN-код, графический ключ или пароль в настройках системы, чтобы вносить изменения отсюда; до тех пор панель только показывает tailnet.</string>
+    <string name="admin2_readonly_profile_title">Профиль только для просмотра</string>
+    <string name="admin2_readonly_profile_desc">Через этот профиль ничего не меняется. Разрешить изменения можно в настройках профиля, с разблокировкой.</string>
+    <string name="admin2_readonly_scope_title">Этот ключ может только читать</string>
+    <string name="admin2_readonly_scope_desc">Его права (scopes) не позволяют ничего менять в этом разделе. Для изменений нужен ключ с правами на запись.</string>
+    <string name="admin2_not_allowed_area">Этому ключу нельзя: нужно право %1$s.</string>
+
+    <!-- Unlocking a change -->
+    <string name="admin2_write_unlock_title">Подтвердите изменение</string>
+    <string name="admin2_unlock_cancelled">Отменено, ничего не изменилось.</string>
+    <string name="admin2_unlock_lockout">Слишком много попыток. Повторите позже; ничего не изменилось.</string>
+    <string name="admin2_unlock_unavailable">Запрос разблокировки недоступен на этом телефоне; ничего не изменилось.</string>
+    <string name="admin2_unlock_not_proven">Хранилище ключей телефона не приняло эту разблокировку. Используйте PIN-код, графический ключ или пароль; ничего не изменилось.</string>
+    <string name="admin2_unlock_no_lock">Чтобы вносить изменения, задайте блокировку экрана; ничего не изменилось.</string>
+    <string name="admin2_unlock_error">Разблокировка не удалась; ничего не изменилось.</string>
+
+    <!-- Refusals -->
+    <string name="admin2_refused_read_only">Профиль только для просмотра; ничего не изменилось.</string>
+    <string name="admin2_refused_not_allowed">Этому ключу такое не разрешено; ничего не изменилось.</string>
+    <string name="admin2_refused_own_credential">На этом ключе работает сама панель. Отзовите его в веб-консоли или сначала переведите профиль на другой ключ.</string>
+    <string name="admin2_refused_own_user">Это ваш собственный пользователь. Меняйте его из другой учётной записи администратора.</string>
+    <string name="admin2_refused_shared">Это устройство открыто вам из другого tailnet; менять его может только тот tailnet.</string>
+    <string name="admin2_refused_gates">Не подтверждено; ничего не изменилось.</string>
+    <string name="admin2_refused_policy">Файл политики правится в своём редакторе.</string>
+
+    <!-- The confirm dialog -->
+    <string name="admin2_class_low">Низкий риск</string>
+    <string name="admin2_class_medium">Нужна разблокировка</string>
+    <string name="admin2_class_high">Высокий риск</string>
+    <string name="admin2_class_policy">Изменение политики</string>
+    <string name="admin2_confirm_target">Объект</string>
+    <string name="admin2_confirm_diff">Что изменится</string>
+    <string name="admin2_confirm_before">Было</string>
+    <string name="admin2_confirm_after">Станет</string>
+    <string name="admin2_confirm_nothing">ничего</string>
+    <string name="admin2_confirm_type">Введите %1$s для подтверждения</string>
+    <string name="admin2_confirm_type_label">Имя</string>
+    <string name="admin2_confirm_unlock_note">Перед отправкой нужно будет разблокировать отпечатком, лицом или блокировкой экрана.</string>
+    <string name="admin2_confirm_apply">Разблокировать и применить</string>
+    <string name="admin2_confirm_this_device">Это телефон, которым вы пользуетесь: он может потерять связь с tailnet.</string>
+    <string name="admin2_applying">Применяется…</string>
+
+    <!-- Outcomes -->
+    <string name="admin2_outcome_verified">%1$s: готово и проверено</string>
+    <string name="admin2_outcome_applied">%1$s: готово</string>
+    <string name="admin2_outcome_mismatch">%1$s: отправлено, но сервер показывает другое. Обновите, чтобы увидеть текущее состояние.</string>
+    <string name="admin2_outcome_failed">%1$s: не удалось. %2$s</string>
+    <string name="admin2_undo">Отменить</string>
+    <string name="admin2_undo_title">Отмена: %1$s</string>
+
+    <!-- API errors -->
+    <string name="admin2_error_unauthorized">Ключ отклонён: истёк или отозван. Замените его в профиле.</string>
+    <string name="admin2_error_payment">Ваш тариф Tailscale этого не включает.</string>
+    <string name="admin2_error_forbidden_scope">Нет доступа: ключу нужно право %1$s.</string>
+    <string name="admin2_error_forbidden">Этому ключу нельзя.</string>
+    <string name="admin2_error_not_found">Не найдено; возможно, уже удалено.</string>
+    <string name="admin2_error_conflict">Конфликт: это изменили в другом месте. Обновите и повторите.</string>
+    <string name="admin2_error_precondition">На сервере это изменилось после загрузки. Обновите и повторите.</string>
+    <string name="admin2_error_bad_request">Сервер отклонил запрос: %1$s</string>
+    <string name="admin2_error_bad_request_plain">Сервер отклонил запрос.</string>
+    <string name="admin2_error_rate_limited">Слишком много запросов. Повторите через минуту.</string>
+    <string name="admin2_error_server">Ошибка на сервере (%1$d). Повторите позже.</string>
+    <string name="admin2_error_network">Нет связи с API: %1$s</string>
+    <string name="admin2_error_decode">Не удалось прочитать ответ сервера (%1$s).</string>
+    <string name="admin2_error_unsupported">Этот сервер такого не умеет.</string>
+    <string name="admin2_error_other">Что-то пошло не так: %1$s</string>
+    <string name="admin2_error_request_id">Запрос %1$s</string>
+    <string name="admin2_retry">Повторить</string>
+    <plurals name="admin2_unreadable_items">
+        <item quantity="one">%d запись не удалось прочитать, она не показана.</item>
+        <item quantity="few">%d записи не удалось прочитать, они не показаны.</item>
+        <item quantity="many">%d записей не удалось прочитать, они не показаны.</item>
+        <item quantity="other">%d записи не удалось прочитать, они не показаны.</item>
+    </plurals>
+
+    <!-- Credentials -->
+    <string name="admin2_credential_missing">Для этого профиля не сохранён ключ.</string>
+    <string name="admin2_credential_unreadable">Сохранённый ключ больше не открывается: восстановлена резервная копия или сброшено хранилище ключей телефона. Введите его заново.</string>
+    <string name="admin2_credential_fix">Ввести ключ</string>
+    <string name="admin2_secret_show">Показать</string>
+    <string name="admin2_secret_hide">Скрыть</string>
+    <string name="admin2_secret_stored">Сохранён. Оставьте пустым, чтобы не менять.</string>
+    <string name="admin2_secret_copy">Копировать</string>
+    <string name="admin2_secret_saved">Я сохранил</string>
+    <string name="admin2_secret_copied">Скопировано и помечено в буфере как секретное.</string>
+    <string name="admin2_secret_once">Показывается один раз — скопируйте сейчас. Панель его не хранит.</string>
+    <string name="admin2_webhook_secret_title">Секрет подписи webhook</string>
+    <string name="admin2_webhook_secret_text">По нему проверяется заголовок Tailscale-Webhook-Signature каждого события.</string>
+
+    <!-- Profiles -->
+    <string name="admin2_profiles_title">Профили админ-панели</string>
+    <string name="admin2_profile_add">Добавить профиль</string>
+    <string name="admin2_profile_new_title">Новый профиль панели</string>
+    <string name="admin2_profile_edit_title">Профиль</string>
+    <string name="admin2_profile_edit">Изменить профиль</string>
+    <string name="admin2_profile_delete">Удалить профиль</string>
+    <string name="admin2_profile_delete_title">Удалить профиль?</string>
+    <string name="admin2_profile_delete_text">%1$s и его ключ будут удалены с этого телефона. В tailnet ничего не изменится.</string>
+    <string name="admin2_profile_intro">Профиль — это управляющий сервер и ключ к нему. Он не зависит от учётной записи, с которой подключён TailSocks.</string>
+    <string name="admin2_profile_name">Название профиля</string>
+    <string name="admin2_profile_name_placeholder">например, Домашний tailnet</string>
+    <string name="admin2_profile_advanced">Сервер и tailnet</string>
+    <string name="admin2_profile_base_url">Адрес API</string>
+    <string name="admin2_profile_base_url_help">Только HTTPS; обычный HTTP разрешён лишь к самому телефону (127.0.0.1, localhost).</string>
+    <string name="admin2_profile_url_https">Используйте https://. Ключ никогда не передаётся по сети без шифрования.</string>
+    <string name="admin2_profile_url_malformed">Такой адрес не подходит, пример: https://api.tailscale.com</string>
+    <string name="admin2_profile_url_userinfo">Уберите из адреса имя пользователя и пароль.</string>
+    <string name="admin2_profile_tailnet">ID tailnet</string>
+    <string name="admin2_profile_tailnet_help">Оставьте «-», чтобы работать с tailnet самого ключа, или укажите Tailnet ID из общих настроек консоли.</string>
+    <string name="admin2_profile_read_only">Только просмотр</string>
+    <string name="admin2_profile_read_only_desc">Никогда не вносить изменения через этот профиль, что бы ни позволял ключ. Ещё надёжнее — OAuth-клиент только с правами на чтение: тогда запрет соблюдает и сам Tailscale.</string>
+    <string name="admin2_profile_save">Сохранить</string>
+    <string name="admin2_profile_save_anyway">Сохранить без проверки</string>
+    <string name="admin2_profile_checking">Проверяем ключ…</string>
+    <string name="admin2_profile_check_failed">Ключ не подошёл. %1$s</string>
+    <string name="admin2_profile_secret_required">Введите ключ.</string>
+    <string name="admin2_profile_client_id_required">Введите ID OAuth-клиента.</string>
+    <string name="admin2_profile_switch_title">Профиль панели</string>
+    <string name="admin2_profile_read_only_badge">только просмотр</string>
+    <string name="admin2_auth_token_help">Личный токен API из админ-консоли (Settings → Keys). Действует с вашей ролью и истекает через 1–90 дней.</string>
+    <string name="admin2_auth_oauth_help">OAuth-клиент действует ровно с теми правами, что ему выданы, и не истекает. Клиент только с правами на чтение делает панель по-настоящему безопасной для просмотра.</string>
+    <string name="admin2_unlock_to_allow_writes">Разрешить изменения через %1$s</string>
+    <string name="admin2_settings_none">Не настроено</string>
+
+    <!-- Devices -->
+    <plurals name="admin2_devices_count">
+        <item quantity="one">%d устройство</item>
+        <item quantity="few">%d устройства</item>
+        <item quantity="many">%d устройств</item>
+        <item quantity="other">%d устройства</item>
+    </plurals>
+    <string name="admin2_device_online">В сети</string>
+    <string name="admin2_device_offline">Не в сети</string>
+    <string name="admin2_device_last_seen">Был в сети %1$s</string>
+    <string name="admin2_device_shared">Открыто вам</string>
+    <string name="admin2_device_this_phone">Этот телефон</string>
+    <string name="admin2_device_multiple_connections">С этим ключом узла подключаются несколько машин: состояние скопировано между устройствами.</string>
+    <string name="admin2_device_lock_error">Tailnet Lock: %1$s</string>
+    <string name="admin2_device_shared_desc">Открыто вам из другого tailnet: менять его может только тот tailnet.</string>
+    <string name="admin2_device_rename_help">Имя в MagicDNS станет имя.%1$s. Буквы, цифры и дефисы.</string>
+    <string name="admin2_device_rename_blank">Введите имя.</string>
+    <string name="admin2_device_tags_owner_warning">Теги становятся владельцем устройства: оно перестанет принадлежать %1$s.</string>
+    <string name="admin2_device_tags_none">Без тегов</string>
+    <string name="admin2_device_tags_new">Добавить тег</string>
+    <string name="admin2_device_tags_invalid">Тег начинается с tag: и описан в tagOwners политики.</string>
+    <string name="admin2_device_routes_unreadable">Не удалось загрузить маршруты.</string>
+
+    <!-- Users -->
+    <string name="admin2_user_you">Вы</string>
+    <string name="admin2_role_owner">Владелец</string>
+    <string name="admin2_role_admin">Администратор</string>
+    <string name="admin2_role_it_admin">IT-администратор</string>
+    <string name="admin2_role_network_admin">Сетевой администратор</string>
+    <string name="admin2_role_billing_admin">Администратор оплаты</string>
+    <string name="admin2_role_auditor">Аудитор</string>
+    <string name="admin2_role_member">Участник</string>
+    <string name="admin2_status_active">Активен</string>
+    <string name="admin2_status_idle">Неактивен</string>
+    <string name="admin2_status_suspended">Заблокирован</string>
+    <string name="admin2_status_needs_approval">Ждёт одобрения</string>
+    <string name="admin2_status_over_billing_limit">Сверх лимита тарифа</string>
+    <string name="admin2_user_type_member">Участник</string>
+    <string name="admin2_user_type_shared">Гость из другого tailnet</string>
+    <plurals name="admin2_user_devices">
+        <item quantity="one">%d устройство</item>
+        <item quantity="few">%d устройства</item>
+        <item quantity="many">%d устройств</item>
+        <item quantity="other">%d устройства</item>
+    </plurals>
+
+    <!-- Keys -->
+    <string name="admin2_key_type_auth">Ключ авторизации</string>
+    <string name="admin2_key_type_api">Токен API</string>
+    <string name="admin2_key_type_client">OAuth-клиент</string>
+    <string name="admin2_key_type_federated">Федеративная идентичность</string>
+    <string name="admin2_key_type_unknown">Ключ</string>
+    <string name="admin2_key_own">На нём работает эта панель</string>
+    <string name="admin2_key_reusable">Многоразовый</string>
+    <string name="admin2_key_reusable_desc">Можно зарегистрировать больше одного устройства.</string>
+    <string name="admin2_key_ephemeral_desc">Зарегистрированные с ним устройства удаляются вскоре после отключения.</string>
+    <string name="admin2_key_preauth_desc">Зарегистрированные с ним устройства не ждут одобрения.</string>
+
+    <!-- Webhooks -->
+    <plurals name="admin2_webhook_events">
+        <item quantity="one">%d событие</item>
+        <item quantity="few">%d события</item>
+        <item quantity="many">%d событий</item>
+        <item quantity="other">%d события</item>
+    </plurals>
+    <string name="admin2_webhook_provider">Формат</string>
+    <string name="admin2_webhook_provider_plain">Обычный JSON</string>
+
+    <!-- Tailnet settings -->
+    <string name="admin2_settings_https_title">HTTPS-сертификаты</string>
+    <string name="admin2_settings_https_desc">Устройства могут получать TLS-сертификаты на свои имена в tailnet; на них работают Serve и Funnel.</string>
+    <string name="admin2_settings_route_selection_title">Выбор маршрута</string>
+    <string name="admin2_settings_route_selection_desc">Как выбирается один из нескольких маршрутизаторов подсети, раздающих один маршрут.</string>
+    <string name="admin2_route_failover">Активный-резервный</string>
+    <string name="admin2_route_regional">Региональная маршрутизация</string>
+    <string name="admin2_route_regional_failover">Региональная с резервированием</string>
+    <string name="admin2_settings_acls_external">Файл политики управляется вне консоли.</string>
+    <string name="admin2_settings_unknown">Не задано</string>
+
+    <!-- The console's own log -->
+    <string name="admin2_logs_tailnet">Tailnet</string>
+    <string name="admin2_logs_this_phone">С этого телефона</string>
+    <string name="admin2_local_log_empty">С этого телефона ещё ничего не меняли.</string>
+    <string name="admin2_local_log_help">Каждое изменение, которое панель отправила или остановила, с ID запросов сервера. Хранится только на этом телефоне.</string>
+    <string name="admin2_result_verified">Готово, проверено</string>
+    <string name="admin2_result_applied">Готово</string>
+    <string name="admin2_result_mismatch">Не так, как просили</string>
+    <string name="admin2_result_failed">Не удалось</string>
+    <string name="admin2_result_refused">Остановлено</string>
+    <string name="admin2_local_log_clear">Очистить</string>
+
+    <!-- Changes: titles and effects -->
+    <string name="admin2_change_rename">Переименовать %1$s</string>
+    <string name="admin2_change_rename_effect">В MagicDNS оно станет %1$s; ссылки на старое имя перестанут работать.</string>
+    <string name="admin2_change_tags">Изменить теги %1$s</string>
+    <string name="admin2_change_tags_effect">Кто сможет до него достучаться, решит политика для этих тегов.</string>
+    <string name="admin2_change_routes">Изменить маршруты %1$s</string>
+    <string name="admin2_change_routes_effect">Трафик одобренных маршрутов пойдёт через это устройство.</string>
+    <string name="admin2_change_exit_on">Сделать %1$s выходным узлом</string>
+    <string name="admin2_change_exit_off">Убрать %1$s из выходных узлов</string>
+    <string name="admin2_change_exit_effect">Устройства смогут пускать через него весь трафик в интернет.</string>
+    <string name="admin2_change_authorize">Одобрить %1$s</string>
+    <string name="admin2_change_authorize_effect">Устройство войдёт в tailnet.</string>
+    <string name="admin2_change_deauthorize">Отозвать одобрение %1$s</string>
+    <string name="admin2_change_deauthorize_effect">Устройство будет отрезано от tailnet, пока его снова не одобрят.</string>
+    <string name="admin2_change_expiry_off">Отключить истечение ключа %1$s</string>
+    <string name="admin2_change_expiry_off_effect">Ключ узла не будет истекать.</string>
+    <string name="admin2_change_expiry_on">Включить истечение ключа %1$s</string>
+    <string name="admin2_change_expiry_on_effect">Ключ истечёт в исходный срок; если он уже прошёл, устройству придётся войти заново.</string>
+    <string name="admin2_change_expire">Сбросить ключ %1$s</string>
+    <string name="admin2_change_expire_effect">Устройство будет разлогинено и должно будет войти заново.</string>
+    <string name="admin2_change_delete_device">Удалить %1$s</string>
+    <string name="admin2_change_delete_device_effect">Устройство будет удалено из tailnet. Отменить нельзя: ему придётся войти заново.</string>
+    <string name="admin2_change_key_create">Создать ключ авторизации</string>
+    <string name="admin2_change_key_create_effect">Новый ключ, которым можно регистрировать устройства в tailnet.</string>
+    <string name="admin2_change_key_revoke">Отозвать %1$s</string>
+    <string name="admin2_change_key_revoke_effect">Он сразу перестанет работать. Уже зарегистрированные с ним устройства останутся.</string>
+    <string name="admin2_change_user_approve">Одобрить %1$s</string>
+    <string name="admin2_change_user_approve_effect">Пользователь сможет войти в tailnet.</string>
+    <string name="admin2_change_user_role">Изменить роль %1$s</string>
+    <string name="admin2_change_user_role_effect">Вместе с ролью изменится то, что пользователь может делать в tailnet и в консоли.</string>
+    <string name="admin2_change_user_suspend">Заблокировать %1$s</string>
+    <string name="admin2_change_user_suspend_effect">Пользователь и его устройства потеряют доступ к tailnet.</string>
+    <string name="admin2_change_user_restore">Разблокировать %1$s</string>
+    <string name="admin2_change_user_restore_effect">Пользователь и его устройства снова получат доступ.</string>
+    <string name="admin2_change_user_delete">Удалить %1$s</string>
+    <string name="admin2_change_user_delete_effect">Пользователь и его устройства будут удалены из tailnet. Отменить нельзя.</string>
+    <string name="admin2_change_magicdns_on">Включить MagicDNS</string>
+    <string name="admin2_change_magicdns_off">Выключить MagicDNS</string>
+    <string name="admin2_change_magicdns_on_effect">У устройств появятся имена в tailnet.</string>
+    <string name="admin2_change_magicdns_off_effect">Имена вида host.tailnet.ts.net перестанут разрешаться.</string>
+    <string name="admin2_change_nameservers">Изменить общие DNS-серверы</string>
+    <string name="admin2_change_nameservers_effect">Для имён вне tailnet устройства будут спрашивать эти серверы.</string>
+    <string name="admin2_change_nameservers_none_effect">Все общие DNS-серверы будут удалены, а вместе с ними выключится MagicDNS.</string>
+    <string name="admin2_change_split_add">Направить %1$s на свои DNS-серверы</string>
+    <string name="admin2_change_split_add_effect">Имена в %1$s будет разрешать %2$s.</string>
+    <string name="admin2_change_split_remove">Убрать маршрут для %1$s</string>
+    <string name="admin2_change_split_remove_effect">Имена в %1$s снова пойдут на общие DNS-серверы.</string>
+    <string name="admin2_change_search">Изменить домены поиска</string>
+    <string name="admin2_change_search_effect">Короткие имена будут искаться в этих доменах.</string>
+    <string name="admin2_change_setting">Изменить «%1$s»</string>
+    <string name="admin2_change_setting_effect">Настройка всего tailnet: касается каждого устройства и пользователя.</string>
+    <string name="admin2_change_webhook_create">Добавить webhook</string>
+    <string name="admin2_change_webhook_create_effect">События tailnet будут отправляться на %1$s.</string>
+    <string name="admin2_change_webhook_test">Проверить %1$s</string>
+    <string name="admin2_change_webhook_delete">Удалить webhook на %1$s</string>
+    <string name="admin2_change_webhook_delete_effect">События перестанут приходить на этот адрес. Отменить нельзя.</string>
+    <string name="admin2_change_service_host_on">Одобрить %1$s хостом %2$s</string>
+    <string name="admin2_change_service_host_off">Снять %1$s с хостов %2$s</string>
+    <string name="admin2_change_service_host_effect">Трафик службы получают одобренные хосты.</string>
+    <string name="admin2_change_service_publish">Опубликовать %1$s в tailnet</string>
+    <string name="admin2_change_service_publish_effect">Служба будет описана с портами этого телефона, а он будет одобрен её хостом.</string>
+    <string name="admin2_diff_name">Имя</string>
+    <string name="admin2_diff_tags">Теги</string>
+    <string name="admin2_diff_routes">Одобренные маршруты</string>
+    <string name="admin2_diff_role">Роль</string>
+    <string name="admin2_diff_status">Статус</string>
+    <string name="admin2_diff_authorized">Одобрено</string>
+    <string name="admin2_diff_device">Устройство</string>
+    <string name="admin2_diff_key">Ключ</string>
+    <string name="admin2_diff_nameservers">DNS-серверы</string>
+    <string name="admin2_diff_search">Домены поиска</string>
+    <string name="admin2_diff_url">Адрес</string>
+    <string name="admin2_yes">Да</string>
+    <string name="admin2_no">Нет</string>
+    <string name="admin2_on">Вкл.</string>
+    <string name="admin2_off">Выкл.</string>
+</resources>

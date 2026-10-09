@@ -1,0 +1,298 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The admin console's safety pipeline, profiles and credential handling (4.9.0). -->
+<resources>
+    <!-- Opening the console -->
+    <string name="admin2_view_unlock_title">Unlock the admin console</string>
+    <string name="admin2_view_unlock_subtitle">It shows your tailnet\'s devices and users</string>
+    <string name="admin2_view_unlock_unavailable">The unlock prompt cannot be shown on this phone, so the console stays locked.</string>
+
+    <!-- Read-only states -->
+    <string name="admin2_readonly_no_lock_title">Read-only: no screen lock</string>
+    <string name="admin2_readonly_no_lock_desc">Changes are unlocked with your fingerprint, face or screen lock, and this phone has none. Set a PIN, pattern or password in the system settings to make changes here; until then the console only shows the tailnet.</string>
+    <string name="admin2_readonly_profile_title">Read-only profile</string>
+    <string name="admin2_readonly_profile_desc">This profile never makes changes. Edit the profile to allow them; that needs an unlock.</string>
+    <string name="admin2_readonly_scope_title">This credential can only read</string>
+    <string name="admin2_readonly_scope_desc">Its scopes allow no changes here. Use a credential with write scopes for this part of the tailnet.</string>
+    <string name="admin2_not_allowed_area">Not allowed for this credential: it needs the %1$s scope.</string>
+
+    <!-- Unlocking a change -->
+    <string name="admin2_write_unlock_title">Confirm the change</string>
+    <string name="admin2_unlock_cancelled">Cancelled; nothing was changed.</string>
+    <string name="admin2_unlock_lockout">Too many attempts. Try again later; nothing was changed.</string>
+    <string name="admin2_unlock_unavailable">The unlock prompt is not available on this phone; nothing was changed.</string>
+    <string name="admin2_unlock_not_proven">The phone\'s key store did not accept this unlock. Use your PIN, pattern or password; nothing was changed.</string>
+    <string name="admin2_unlock_no_lock">Set a screen lock to make changes; nothing was changed.</string>
+    <string name="admin2_unlock_error">The unlock failed; nothing was changed.</string>
+
+    <!-- Refusals -->
+    <string name="admin2_refused_read_only">This profile is read-only; nothing was changed.</string>
+    <string name="admin2_refused_not_allowed">This credential is not allowed to do that; nothing was changed.</string>
+    <string name="admin2_refused_own_credential">This is the key the console itself runs on. Revoke it in the admin console on the web, or switch this profile to another credential first.</string>
+    <string name="admin2_refused_own_user">That is your own user. Change it from another admin account.</string>
+    <string name="admin2_refused_shared">This device is shared in from another tailnet; only that tailnet can change it.</string>
+    <string name="admin2_refused_gates">Not confirmed; nothing was changed.</string>
+    <string name="admin2_refused_policy">The policy file is edited in its own editor.</string>
+
+    <!-- The confirm dialog -->
+    <string name="admin2_class_low">Low risk</string>
+    <string name="admin2_class_medium">Needs unlock</string>
+    <string name="admin2_class_high">High risk</string>
+    <string name="admin2_class_policy">Policy change</string>
+    <string name="admin2_confirm_target">Applies to</string>
+    <string name="admin2_confirm_diff">What changes</string>
+    <string name="admin2_confirm_before">Before</string>
+    <string name="admin2_confirm_after">After</string>
+    <string name="admin2_confirm_nothing">nothing</string>
+    <string name="admin2_confirm_type">Type %1$s to confirm</string>
+    <string name="admin2_confirm_type_label">Name</string>
+    <string name="admin2_confirm_unlock_note">You will unlock with your fingerprint, face or screen lock before it is sent.</string>
+    <string name="admin2_confirm_apply">Unlock and apply</string>
+    <string name="admin2_confirm_this_device">This is the phone you are using; it may lose its connection to the tailnet.</string>
+    <string name="admin2_applying">Applying…</string>
+
+    <!-- Outcomes -->
+    <string name="admin2_outcome_verified">%1$s: done and checked</string>
+    <string name="admin2_outcome_applied">%1$s: done</string>
+    <string name="admin2_outcome_mismatch">%1$s: sent, but the server shows something else. Refresh to see the current state.</string>
+    <string name="admin2_outcome_failed">%1$s: failed. %2$s</string>
+    <string name="admin2_undo">Undo</string>
+    <string name="admin2_undo_title">Undo: %1$s</string>
+
+    <!-- API errors -->
+    <string name="admin2_error_unauthorized">The credential was refused: it expired or was revoked. Replace it in the profile.</string>
+    <string name="admin2_error_payment">Your Tailscale plan does not include this.</string>
+    <string name="admin2_error_forbidden_scope">Not allowed: the credential needs the %1$s scope.</string>
+    <string name="admin2_error_forbidden">Not allowed for this credential.</string>
+    <string name="admin2_error_not_found">Not found; it may have been removed already.</string>
+    <string name="admin2_error_conflict">Conflict: it was changed elsewhere. Refresh and try again.</string>
+    <string name="admin2_error_precondition">It changed on the server since it was loaded. Refresh and try again.</string>
+    <string name="admin2_error_bad_request">The server refused the request: %1$s</string>
+    <string name="admin2_error_bad_request_plain">The server refused the request.</string>
+    <string name="admin2_error_rate_limited">Too many requests. Try again in a minute.</string>
+    <string name="admin2_error_server">The server had an error (%1$d). Try again later.</string>
+    <string name="admin2_error_network">No connection to the API: %1$s</string>
+    <string name="admin2_error_decode">The server\'s answer could not be read (%1$s).</string>
+    <string name="admin2_error_unsupported">This server does not support that.</string>
+    <string name="admin2_error_other">Something went wrong: %1$s</string>
+    <string name="admin2_error_request_id">Request %1$s</string>
+    <string name="admin2_retry">Retry</string>
+    <plurals name="admin2_unreadable_items">
+        <item quantity="one">%d item could not be read and is not shown.</item>
+        <item quantity="other">%d items could not be read and are not shown.</item>
+    </plurals>
+
+    <!-- Credentials -->
+    <string name="admin2_credential_missing">No credential is stored for this profile.</string>
+    <string name="admin2_credential_unreadable">The stored credential can no longer be opened: a restored backup, or the phone\'s key store was reset. Enter it again.</string>
+    <string name="admin2_credential_fix">Enter the credential</string>
+    <string name="admin2_secret_show">Show</string>
+    <string name="admin2_secret_hide">Hide</string>
+    <string name="admin2_secret_stored">Stored. Leave empty to keep it.</string>
+    <string name="admin2_secret_copy">Copy</string>
+    <string name="admin2_secret_saved">I have saved it</string>
+    <string name="admin2_secret_copied">Copied, marked sensitive on the clipboard.</string>
+    <string name="admin2_secret_once">It is shown once: copy it now. The console does not keep it.</string>
+    <string name="admin2_webhook_secret_title">Webhook signing secret</string>
+    <string name="admin2_webhook_secret_text">Use it to check the Tailscale-Webhook-Signature header of each event.</string>
+
+    <!-- Profiles -->
+    <string name="admin2_profiles_title">Admin profiles</string>
+    <string name="admin2_profile_add">Add a profile</string>
+    <string name="admin2_profile_new_title">New admin profile</string>
+    <string name="admin2_profile_edit_title">Edit profile</string>
+    <string name="admin2_profile_edit">Edit this profile</string>
+    <string name="admin2_profile_delete">Delete this profile</string>
+    <string name="admin2_profile_delete_title">Delete the profile?</string>
+    <string name="admin2_profile_delete_text">Removes %1$s and its stored credential from this phone. Nothing in the tailnet changes.</string>
+    <string name="admin2_profile_intro">A profile is a control server and a credential. It does not depend on the account TailSocks is connected with.</string>
+    <string name="admin2_profile_name">Profile name</string>
+    <string name="admin2_profile_name_placeholder">e.g. Home tailnet</string>
+    <string name="admin2_profile_advanced">Server and tailnet</string>
+    <string name="admin2_profile_base_url">API address</string>
+    <string name="admin2_profile_base_url_help">HTTPS only; plain HTTP is allowed to this phone itself (127.0.0.1, localhost).</string>
+    <string name="admin2_profile_url_https">Use https://. A credential is never sent unencrypted over a network.</string>
+    <string name="admin2_profile_url_malformed">Not an address the console can use, e.g. https://api.tailscale.com</string>
+    <string name="admin2_profile_url_userinfo">Leave the user name and password out of the address.</string>
+    <string name="admin2_profile_tailnet">Tailnet ID</string>
+    <string name="admin2_profile_tailnet_help">Leave “-” for the credential\'s own tailnet, or enter the Tailnet ID from the console\'s General settings.</string>
+    <string name="admin2_profile_read_only">Read-only</string>
+    <string name="admin2_profile_read_only_desc">Never make changes through this profile, whatever the credential allows. Safer still is an OAuth client with only read scopes: then Tailscale enforces it too.</string>
+    <string name="admin2_profile_save">Save</string>
+    <string name="admin2_profile_save_anyway">Save without checking</string>
+    <string name="admin2_profile_checking">Checking the credential…</string>
+    <string name="admin2_profile_check_failed">The credential did not work. %1$s</string>
+    <string name="admin2_profile_secret_required">Enter the credential.</string>
+    <string name="admin2_profile_client_id_required">Enter the OAuth client ID.</string>
+    <string name="admin2_profile_switch_title">Admin profile</string>
+    <string name="admin2_profile_read_only_badge">read-only</string>
+    <string name="admin2_auth_token_help">A personal API access token from the admin console (Settings → Keys). It acts with your own role and expires in 1–90 days.</string>
+    <string name="admin2_auth_oauth_help">An OAuth client acts with exactly the scopes it was given and does not expire. One with read scopes only makes the console truly read-only.</string>
+    <string name="admin2_unlock_to_allow_writes">Allow changes through %1$s</string>
+    <string name="admin2_settings_none">Not set up</string>
+
+    <!-- Devices -->
+    <plurals name="admin2_devices_count">
+        <item quantity="one">%d device</item>
+        <item quantity="other">%d devices</item>
+    </plurals>
+    <string name="admin2_device_online">Online</string>
+    <string name="admin2_device_offline">Offline</string>
+    <string name="admin2_device_last_seen">Last seen %1$s</string>
+    <string name="admin2_device_shared">Shared in</string>
+    <string name="admin2_device_this_phone">This phone</string>
+    <string name="admin2_device_multiple_connections">Several machines connect with this node key: its state was copied between devices.</string>
+    <string name="admin2_device_lock_error">Tailnet Lock: %1$s</string>
+    <string name="admin2_device_shared_desc">Shared in from another tailnet: only that tailnet can change it.</string>
+    <string name="admin2_device_rename_help">Its MagicDNS name becomes name.%1$s. Letters, digits and hyphens.</string>
+    <string name="admin2_device_rename_blank">Enter a name.</string>
+    <string name="admin2_device_tags_owner_warning">Tags become the device\'s owner: it stops belonging to %1$s.</string>
+    <string name="admin2_device_tags_none">No tags</string>
+    <string name="admin2_device_tags_new">Add a tag</string>
+    <string name="admin2_device_tags_invalid">A tag starts with tag: and is defined in the policy\'s tagOwners.</string>
+    <string name="admin2_device_routes_unreadable">Routes could not be loaded.</string>
+
+    <!-- Users -->
+    <string name="admin2_user_you">You</string>
+    <string name="admin2_role_owner">Owner</string>
+    <string name="admin2_role_admin">Admin</string>
+    <string name="admin2_role_it_admin">IT admin</string>
+    <string name="admin2_role_network_admin">Network admin</string>
+    <string name="admin2_role_billing_admin">Billing admin</string>
+    <string name="admin2_role_auditor">Auditor</string>
+    <string name="admin2_role_member">Member</string>
+    <string name="admin2_status_active">Active</string>
+    <string name="admin2_status_idle">Idle</string>
+    <string name="admin2_status_suspended">Suspended</string>
+    <string name="admin2_status_needs_approval">Needs approval</string>
+    <string name="admin2_status_over_billing_limit">Over the billing limit</string>
+    <string name="admin2_user_type_member">Member</string>
+    <string name="admin2_user_type_shared">Shared with the tailnet</string>
+    <plurals name="admin2_user_devices">
+        <item quantity="one">%d device</item>
+        <item quantity="other">%d devices</item>
+    </plurals>
+
+    <!-- Keys -->
+    <string name="admin2_key_type_auth">Auth key</string>
+    <string name="admin2_key_type_api">API token</string>
+    <string name="admin2_key_type_client">OAuth client</string>
+    <string name="admin2_key_type_federated">Federated identity</string>
+    <string name="admin2_key_type_unknown">Key</string>
+    <string name="admin2_key_own">Used by this console</string>
+    <string name="admin2_key_reusable">Reusable</string>
+    <string name="admin2_key_reusable_desc">Can register more than one device.</string>
+    <string name="admin2_key_ephemeral_desc">Devices registered with it are removed soon after they go offline.</string>
+    <string name="admin2_key_preauth_desc">Devices registered with it skip device approval.</string>
+
+    <!-- Webhooks -->
+    <plurals name="admin2_webhook_events">
+        <item quantity="one">%d event</item>
+        <item quantity="other">%d events</item>
+    </plurals>
+    <string name="admin2_webhook_provider">Format</string>
+    <string name="admin2_webhook_provider_plain">Plain JSON</string>
+    <string name="admin2_webhook_provider_slack" translatable="false">Slack</string>
+    <string name="admin2_webhook_provider_mattermost" translatable="false">Mattermost</string>
+    <string name="admin2_webhook_provider_googlechat" translatable="false">Google Chat</string>
+    <string name="admin2_webhook_provider_discord" translatable="false">Discord</string>
+
+    <!-- Tailnet settings -->
+    <string name="admin2_settings_https_title">HTTPS certificates</string>
+    <string name="admin2_settings_https_desc">Devices may get TLS certificates for their names in the tailnet, which Serve and Funnel use.</string>
+    <string name="admin2_settings_route_selection_title">Route selection</string>
+    <string name="admin2_settings_route_selection_desc">How a route served by several subnet routers picks one.</string>
+    <string name="admin2_route_failover">Active-passive failover</string>
+    <string name="admin2_route_regional">Regional routing</string>
+    <string name="admin2_route_regional_failover">Regional routing with failover</string>
+    <string name="admin2_settings_acls_external">The policy file is managed outside the console.</string>
+    <string name="admin2_settings_unknown">Not set</string>
+
+    <!-- The console's own log -->
+    <string name="admin2_logs_tailnet">Tailnet</string>
+    <string name="admin2_logs_this_phone">From this phone</string>
+    <string name="admin2_local_log_empty">No changes were made from this phone yet.</string>
+    <string name="admin2_local_log_help">Every change this console sent or stopped, with the server\'s request IDs. Kept on this phone only.</string>
+    <string name="admin2_result_verified">Done, checked</string>
+    <string name="admin2_result_applied">Done</string>
+    <string name="admin2_result_mismatch">Not as asked</string>
+    <string name="admin2_result_failed">Failed</string>
+    <string name="admin2_result_refused">Stopped</string>
+    <string name="admin2_local_log_clear">Clear</string>
+
+    <!-- Changes: titles and effects -->
+    <string name="admin2_change_rename">Rename %1$s</string>
+    <string name="admin2_change_rename_effect">It becomes %1$s in MagicDNS; links to the old name stop working.</string>
+    <string name="admin2_change_tags">Change the tags of %1$s</string>
+    <string name="admin2_change_tags_effect">Who may reach it follows the policy for these tags.</string>
+    <string name="admin2_change_routes">Change the routes of %1$s</string>
+    <string name="admin2_change_routes_effect">Traffic for approved routes goes through this device.</string>
+    <string name="admin2_change_exit_on">Use %1$s as an exit node</string>
+    <string name="admin2_change_exit_off">Stop using %1$s as an exit node</string>
+    <string name="admin2_change_exit_effect">Devices may send all their internet traffic through it.</string>
+    <string name="admin2_change_authorize">Authorize %1$s</string>
+    <string name="admin2_change_authorize_effect">The device joins the tailnet.</string>
+    <string name="admin2_change_deauthorize">Deauthorize %1$s</string>
+    <string name="admin2_change_deauthorize_effect">The device is cut off from the tailnet until it is authorized again.</string>
+    <string name="admin2_change_expiry_off">Disable key expiry for %1$s</string>
+    <string name="admin2_change_expiry_off_effect">Its node key will not expire.</string>
+    <string name="admin2_change_expiry_on">Enable key expiry for %1$s</string>
+    <string name="admin2_change_expiry_on_effect">Its key expires at the original time; if that has passed, the device must log in again.</string>
+    <string name="admin2_change_expire">Expire the key of %1$s</string>
+    <string name="admin2_change_expire_effect">The device is logged out and must authenticate again.</string>
+    <string name="admin2_change_delete_device">Delete %1$s</string>
+    <string name="admin2_change_delete_device_effect">The device is removed from the tailnet. There is no undo: it would have to log in again.</string>
+    <string name="admin2_change_key_create">Generate an auth key</string>
+    <string name="admin2_change_key_create_effect">A new key that can register devices in the tailnet.</string>
+    <string name="admin2_change_key_revoke">Revoke %1$s</string>
+    <string name="admin2_change_key_revoke_effect">It stops working at once. Devices it already registered stay.</string>
+    <string name="admin2_change_user_approve">Approve %1$s</string>
+    <string name="admin2_change_user_approve_effect">The user may join the tailnet.</string>
+    <string name="admin2_change_user_role">Change the role of %1$s</string>
+    <string name="admin2_change_user_role_effect">What the user may do in the tailnet and its console changes with the role.</string>
+    <string name="admin2_change_user_suspend">Suspend %1$s</string>
+    <string name="admin2_change_user_suspend_effect">The user loses access to the tailnet, and so do their devices.</string>
+    <string name="admin2_change_user_restore">Restore %1$s</string>
+    <string name="admin2_change_user_restore_effect">The user and their devices get access back.</string>
+    <string name="admin2_change_user_delete">Delete %1$s</string>
+    <string name="admin2_change_user_delete_effect">The user and their devices are removed from the tailnet. There is no undo.</string>
+    <string name="admin2_change_magicdns_on">Turn MagicDNS on</string>
+    <string name="admin2_change_magicdns_off">Turn MagicDNS off</string>
+    <string name="admin2_change_magicdns_on_effect">Devices get names in the tailnet.</string>
+    <string name="admin2_change_magicdns_off_effect">Names like host.tailnet.ts.net stop resolving.</string>
+    <string name="admin2_change_nameservers">Change the global nameservers</string>
+    <string name="admin2_change_nameservers_effect">Devices use these resolvers for names outside the tailnet.</string>
+    <string name="admin2_change_nameservers_none_effect">Every global nameserver is removed, and MagicDNS turns off with them.</string>
+    <string name="admin2_change_split_add">Route %1$s to its own nameservers</string>
+    <string name="admin2_change_split_add_effect">Names under %1$s are resolved by %2$s.</string>
+    <string name="admin2_change_split_remove">Stop routing %1$s</string>
+    <string name="admin2_change_split_remove_effect">Names under %1$s go to the global nameservers again.</string>
+    <string name="admin2_change_search">Change the search domains</string>
+    <string name="admin2_change_search_effect">Short names are looked up under these domains.</string>
+    <string name="admin2_change_setting">Change “%1$s”</string>
+    <string name="admin2_change_setting_effect">A tailnet-wide setting: it applies to every device and user.</string>
+    <string name="admin2_change_webhook_create">Add a webhook</string>
+    <string name="admin2_change_webhook_create_effect">Tailnet events are sent to %1$s.</string>
+    <string name="admin2_change_webhook_test">Test %1$s</string>
+    <string name="admin2_change_webhook_delete">Delete the webhook to %1$s</string>
+    <string name="admin2_change_webhook_delete_effect">Events stop going to this address. There is no undo.</string>
+    <string name="admin2_change_service_host_on">Approve %1$s as a host of %2$s</string>
+    <string name="admin2_change_service_host_off">Revoke %1$s as a host of %2$s</string>
+    <string name="admin2_change_service_host_effect">Approved hosts receive the service\'s traffic.</string>
+    <string name="admin2_change_service_publish">Publish %1$s in the tailnet</string>
+    <string name="admin2_change_service_publish_effect">Defines the service with this phone\'s ports and approves this phone as its host.</string>
+    <string name="admin2_diff_name">Name</string>
+    <string name="admin2_diff_tags">Tags</string>
+    <string name="admin2_diff_routes">Approved routes</string>
+    <string name="admin2_diff_role">Role</string>
+    <string name="admin2_diff_status">Status</string>
+    <string name="admin2_diff_authorized">Authorized</string>
+    <string name="admin2_diff_device">Device</string>
+    <string name="admin2_diff_key">Key</string>
+    <string name="admin2_diff_nameservers">Nameservers</string>
+    <string name="admin2_diff_search">Search domains</string>
+    <string name="admin2_diff_url">Address</string>
+    <string name="admin2_yes">Yes</string>
+    <string name="admin2_no">No</string>
+    <string name="admin2_on">On</string>
+    <string name="admin2_off">Off</string>
+</resources>

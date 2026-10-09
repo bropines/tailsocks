@@ -32,6 +32,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.fragment.app.FragmentActivity
 
 /**
  * Keeps the window out of screenshots, screen recordings and the recents thumbnail while it is
@@ -75,6 +76,9 @@ private fun Context.findActivity(): Activity? {
     }
     return null
 }
+
+/** The FragmentActivity behind a Compose LocalContext, through the locale wrappers; the unlock prompt needs it. */
+fun Context.findFragmentActivity(): FragmentActivity? = findActivity() as? FragmentActivity
 
 object SensitiveClipboard {
     /**
