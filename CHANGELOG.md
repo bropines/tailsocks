@@ -7,6 +7,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 ### Added
 
 - About credits Claude, who helped write the code.
+- Admin console rebuilt: admin profiles, credentials sealed in the Keystore, every change confirmed and unlocked by its risk, a local log of every change.
 
 ### Changed
 
@@ -14,6 +15,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Fixed
 
+- Admin console: no crash on Android 9–10; webhooks, user approval and roles, and the keys list work against today's API.
 - The core learns which network carries the default route again, so it reconnects at once after Wi-Fi ↔ mobile data.
 
 ## [4.8.0] - 2026-10-09
