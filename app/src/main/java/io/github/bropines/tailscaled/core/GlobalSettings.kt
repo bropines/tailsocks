@@ -22,6 +22,8 @@ object GlobalSettings {
     private const val KEY_THEME_PRESET = "theme_preset"
     private const val KEY_UI_SCALE = "ui_scale"
     private const val KEY_DYNAMIC_COLOR = "dynamic_color"
+    private const val KEY_QR_SHAPE = "qr_shape"
+    private const val KEY_QR_PALETTE = "qr_palette"
 
     private fun getPrefs(context: Context) = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
@@ -249,6 +251,14 @@ object GlobalSettings {
 
     fun isDynamicColorEnabled(context: Context): Boolean = getBoolean(context, KEY_DYNAMIC_COLOR, true)
     fun setDynamicColorEnabled(context: Context, enabled: Boolean) = setBoolean(context, KEY_DYNAMIC_COLOR, enabled)
+
+    /** How QR codes are drawn (ui/QrStyle.kt); rounded, in the theme's colours, when unset. */
+    fun getQrStyle(context: Context): QrStyle = QrStyle(
+        shape = QrShape.fromId(getPrefs(context).getString(KEY_QR_SHAPE, null)),
+        palette = QrPalette.fromId(getPrefs(context).getString(KEY_QR_PALETTE, null))
+    )
+    fun setQrStyle(context: Context, style: QrStyle) =
+        getPrefs(context).edit().putString(KEY_QR_SHAPE, style.shape.id).putString(KEY_QR_PALETTE, style.palette.id).apply()
 
     // -------------------------------------------------------------------------
     // TUN Mode (hev-socks5-tunnel VPN)
@@ -536,7 +546,7 @@ object GlobalSettings {
         "root_vpn_bypass",
         // Appearance
         "app_theme", "theme_preset", "dynamic_color", "amoled_mode", "show_changelog_after_update", "update_check_on_launch", "show_connection_summary",
-        "ui_scale", AppIcons.PREF
+        "ui_scale", AppIcons.PREF, KEY_QR_SHAPE, KEY_QR_PALETTE
     )
 
     /** The exportable subset of the global preferences, as stored. */

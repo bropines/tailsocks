@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings → Appearance: how QR codes look (ui/QrStyle.kt) -->
+    <string name="qr_style_title">QR-коды</string>
+    <string name="qr_style_note">Как выглядят коды, которые приложение показывает для чужой камеры. В любом стиле угловые квадраты остаются сплошными, а код — тёмным на светлом, так что его прочитает любая камера.</string>
+    <string name="qr_style_sample">Пример QR-кода</string>
+    <string name="qr_style_squares">Квадраты</string>
+    <string name="qr_style_rounded">Плавные</string>
+    <string name="qr_style_dots">Точки</string>
+    <string name="qr_palette_theme">Тема</string>
+    <string name="qr_palette_mono">Чёрно-белые</string>
+</resources>

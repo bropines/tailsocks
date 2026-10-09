@@ -2181,6 +2181,9 @@ fun SettingsScreen(
             Spacer(Modifier.height(12.dp))
             AppIconRow()
 
+            Spacer(Modifier.height(12.dp))
+            QrStyleSetting()
+
             // Dynamic Colors switcher (Android 12+)
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
                 Spacer(Modifier.height(12.dp))

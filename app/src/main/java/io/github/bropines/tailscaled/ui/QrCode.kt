@@ -47,9 +47,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -84,13 +86,14 @@ private fun encodeQr(text: String): QrCode? =
     try { QrCode.encodeText(text, QrCode.Ecc.LOW) } catch (_: DataTooLongException) { null }
 
 /**
- * [text] as a square QR code, as wide as it is given.
+ * [text] as a square QR code, as wide as it is given, drawn in [style] —
+ * Settings' choice unless a caller passes its own.
  *
- * Black modules on white whatever the theme: a camera looks for dark on light,
- * and a code drawn in a dark theme's colours reads inverted. The modules are
- * rectangles a whole number of pixels wide, centred, not a bitmap scaled to
- * fit, so the edges stay sharp at any size; what the division leaves over
- * widens the quiet zone.
+ * Dark on light whatever the theme (see QrInk): a camera looks for dark on
+ * light, and a code drawn in a dark theme's colours reads inverted. Modules
+ * are a whole number of pixels wide, centred, not a bitmap scaled to fit, so
+ * the edges stay sharp at any size; what the division leaves over widens the
+ * quiet zone.
  *
  * The labels default to this composition's resources. Inside a sheet or a
  * dialog pass them in, resolved by the screen — see wrapContextWithLocale.
@@ -99,20 +102,22 @@ private fun encodeQr(text: String): QrCode? =
 fun QrCodeImage(
     text: String,
     modifier: Modifier = Modifier,
+    style: QrStyle = rememberQrStyle(),
     contentDescription: String = stringResource(R.string.qr_image),
     tooLong: String = stringResource(R.string.qr_too_long),
 ) {
     val qr = remember(text) { encodeQr(text) }
+    val ink = rememberQrInk(style.palette)
     Box(
         modifier = modifier
             .aspectRatio(1f)
             .clip(MaterialTheme.shapes.medium)
-            .background(Color.White)
+            .background(ink.background)
             // Keeps the rounded corners clear of the quiet zone.
             .padding(8.dp),
         contentAlignment = Alignment.Center
     ) {
-        if (qr == null) Text(tooLong, color = Color.Black, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
+        if (qr == null) Text(tooLong, color = ink.module, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
         else Spacer(
             Modifier
                 .fillMaxSize()
@@ -124,28 +129,174 @@ fun QrCodeImage(
                     val module = maxOf(1, minOf(size.width, size.height).toInt() / (qr.size + 2 * QUIET_ZONE))
                     val left = ((size.width - module * qr.size) / 2).toInt()
                     val top = ((size.height - module * qr.size) / 2).toInt()
-                    // One rectangle per run of dark modules in a row, all in one
-                    // path: no seams between neighbours, a few hundred shapes at most.
-                    val path = Path()
-                    for (y in 0 until qr.size) {
-                        var x = 0
-                        while (x < qr.size) {
-                            if (!qr.getModule(x, y)) { x++; continue }
-                            val start = x
-                            while (x < qr.size && qr.getModule(x, y)) x++
-                            path.addRect(
-                                Rect(
-                                    (left + start * module).toFloat(), (top + y * module).toFloat(),
-                                    (left + x * module).toFloat(), (top + (y + 1) * module).toFloat()
-                                )
-                            )
-                        }
+                    val paths = QrPaths(qr, style.shape, module.toFloat(), left.toFloat(), top.toFloat())
+                    onDrawBehind {
+                        drawPath(paths.modules, ink.module)
+                        drawPath(paths.eyes, ink.eye)
                     }
-                    onDrawBehind { drawPath(path, Color.Black) }
                 }
         )
     }
 }
+
+/**
+ * [qr] as [shape] draws it, [m] pixels a module, its top left corner at
+ * ([left], [top]): the modules in one path — one shape per module or run, so
+ * neighbours meet without seams — and the three finder patterns in another,
+ * for a colour of their own.
+ *
+ * The finder and alignment patterns stay solid in every style: rings and
+ * full-width cores, softened at most. A scanner finds a code by its finder
+ * patterns and corrects for perspective by its alignment patterns, measuring
+ * the light and dark runs across them against a module's width. An alignment
+ * pattern drawn as the other modules, its core a circle, went unfound in
+ * tilted photos, and ZXing read none of those codes.
+ */
+private class QrPaths(private val qr: QrCode, shape: QrShape, private val m: Float, private val left: Float, private val top: Float) {
+    val modules = Path().apply { fillType = PathFillType.EvenOdd }
+    val eyes = Path().apply { fillType = PathFillType.EvenOdd }
+    private val n = qr.size
+    private val alignment = if (shape == QrShape.SQUARES) emptyList() else alignmentCentres()
+
+    /** The dark modules the style draws one by one: all but the patterns' own. */
+    private val data = BooleanArray(n * n).also { grid ->
+        for (y in 0 until n) for (x in 0 until n) grid[y * n + x] = qr.getModule(x, y)
+        for ((ex, ey) in eyeCorners()) for (y in ey until ey + 7) for (x in ex until ex + 7) grid[y * n + x] = false
+        for ((ax, ay) in alignment) for (y in ay - 2..ay + 2) for (x in ax - 2..ax + 2) grid[y * n + x] = false
+    }
+
+    init {
+        when (shape) {
+            QrShape.SQUARES -> squares()
+            QrShape.ROUNDED -> rounded()
+            QrShape.DOTS -> dots()
+        }
+        // Even-odd: a ring's hole is cut out of the outer square and the core
+        // filled again inside it, in one path. The outer corners stay square:
+        // OpenCV's detector takes them for the code's corners, and rounding
+        // them by half a module lost it one test code in five.
+        val r = if (shape == QrShape.SQUARES) 0f else 1f
+        for ((ex, ey) in eyeCorners()) {
+            eyes.addRoundRect(cells(ex, ey, 7, 7, 0f))
+            eyes.addRoundRect(cells(ex + 1, ey + 1, 5, 5, r))
+            eyes.addRoundRect(cells(ex + 2, ey + 2, 3, 3, r))
+        }
+        // A ring with softened corners round a square core.
+        for ((ax, ay) in alignment) {
+            modules.addRoundRect(cells(ax - 2, ay - 2, 5, 5, 1f))
+            modules.addRoundRect(cells(ax - 1, ay - 1, 3, 3, 0.5f))
+            modules.addRoundRect(cells(ax, ay, 1, 1, 0f))
+        }
+    }
+
+    private fun eyeCorners() = listOf(0 to 0, n - 7 to 0, 0 to n - 7)
+
+    /** A module [data] draws; false outside the code. */
+    private fun dark(x: Int, y: Int) = x in 0 until n && y in 0 until n && data[y * n + x]
+
+    /** [w]×[h] modules from ([x], [y]), corners [radius] modules round. */
+    private fun cells(x: Int, y: Int, w: Int, h: Int, radius: Float) = RoundRect(
+        left + x * m, top + y * m, left + (x + w) * m, top + (y + h) * m, CornerRadius(radius * m)
+    )
+
+    /** One rectangle per run of dark modules in a row: a few hundred shapes at most. */
+    private fun squares() {
+        for (y in 0 until n) {
+            var x = 0
+            while (x < n) {
+                if (!dark(x, y)) { x++; continue }
+                val start = x
+                while (x < n && dark(x, y)) x++
+                modules.addRect(Rect(left + start * m, top + y * m, left + x * m, top + (y + 1) * m))
+            }
+        }
+    }
+
+    /**
+     * Each dark module rounds the corners where it has no neighbour on either
+     * side, and each light one fills its corners where three dark ones meet
+     * round it: an inside bend is a curve too, and the modules run together
+     * like a liquid. A module's centre — what a scanner samples — stays its colour.
+     */
+    private fun rounded() {
+        val r = m / 2
+        fun corner(round: Boolean) = if (round) CornerRadius(r) else CornerRadius.Zero
+        for (y in 0 until n) for (x in 0 until n) {
+            val px = left + x * m
+            val py = top + y * m
+            val up = dark(x, y - 1)
+            val down = dark(x, y + 1)
+            val leftOf = dark(x - 1, y)
+            val rightOf = dark(x + 1, y)
+            if (dark(x, y)) {
+                modules.addRoundRect(
+                    RoundRect(
+                        px, py, px + m, py + m,
+                        topLeftCornerRadius = corner(!up && !leftOf),
+                        topRightCornerRadius = corner(!up && !rightOf),
+                        bottomRightCornerRadius = corner(!down && !rightOf),
+                        bottomLeftCornerRadius = corner(!down && !leftOf)
+                    )
+                )
+            } else {
+                if (up && leftOf && dark(x - 1, y - 1)) fillet(px, py, 1f, 1f, r)
+                if (up && rightOf && dark(x + 1, y - 1)) fillet(px + m, py, -1f, 1f, r)
+                if (down && leftOf && dark(x - 1, y + 1)) fillet(px, py + m, 1f, -1f, r)
+                if (down && rightOf && dark(x + 1, y + 1)) fillet(px + m, py + m, -1f, -1f, r)
+            }
+        }
+    }
+
+    /**
+     * The inside of a bend at the corner ([cx], [cy]) of a light module: the
+     * corner's square of side [r] less a quarter circle. [dx] and [dy] point
+     * into the module.
+     */
+    private fun fillet(cx: Float, cy: Float, dx: Float, dy: Float, r: Float) {
+        // A cubic with control points 0.552 r out is a quarter circle to within 0.03%.
+        val k = 0.5523f * r
+        modules.moveTo(cx, cy)
+        modules.lineTo(cx + dx * r, cy)
+        modules.cubicTo(cx + dx * (r - k), cy, cx, cy + dy * (r - k), cx, cy + dy * r)
+        modules.close()
+    }
+
+    /** A dot a module. */
+    private fun dots() {
+        val d = m * DOT
+        for (y in 0 until n) for (x in 0 until n) {
+            if (!dark(x, y)) continue
+            val cx = left + x * m + m / 2
+            val cy = top + y * m + m / 2
+            modules.addOval(Rect(cx - d / 2, cy - d / 2, cx + d / 2, cy + d / 2))
+        }
+    }
+
+    /**
+     * Where the alignment patterns' centres are: none in version 1, then a
+     * grid spaced by the standard's formula, less the three corners the finder
+     * patterns hold (qrcodegen keeps its own copy private).
+     */
+    private fun alignmentCentres(): List<Pair<Int, Int>> {
+        if (qr.version == 1) return emptyList()
+        val count = qr.version / 7 + 2
+        val step = (qr.version * 8 + count * 3 + 5) / (count * 4 - 4) * 2
+        val positions = IntArray(count)
+        positions[0] = 6
+        var pos = n - 7
+        for (i in count - 1 downTo 1) { positions[i] = pos; pos -= step }
+        val last = count - 1
+        return buildList {
+            for (i in 0 until count) for (j in 0 until count) {
+                if (i == 0 && j == 0 || i == 0 && j == last || i == last && j == 0) continue
+                add(positions[i] to positions[j])
+            }
+        }
+    }
+}
+
+/** A dot's diameter, in modules: a hair of light between neighbours keeps them dots. */
+private const val DOT = 0.9f
 
 /**
  * [text] as a big QR code in a sheet, for another device to scan, with the
@@ -191,6 +342,7 @@ fun QrSheet(title: String, variants: List<QrVariant>, onDismiss: () -> Unit) {
         hideText = stringResource(R.string.qr_hide_text),
     )
     val copied = stringResource(R.string.qr_copied)
+    val style = rememberQrStyle()
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberFullSheetState()) {
         QrSheetContent(
             title = title,
@@ -198,6 +350,7 @@ fun QrSheet(title: String, variants: List<QrVariant>, onDismiss: () -> Unit) {
             selected = selected,
             onSelect = { selected = it },
             labels = labels,
+            style = style,
             onCopy = {
                 clipboard.copyText(scope, variant.text)
                 Toast.makeText(context, copied, Toast.LENGTH_SHORT).show()
@@ -225,6 +378,7 @@ internal fun QrSheetContent(
     selected: Int,
     onSelect: (Int) -> Unit,
     labels: QrLabels,
+    style: QrStyle,
     onCopy: () -> Unit,
     onShare: () -> Unit,
 ) {
@@ -256,6 +410,7 @@ internal fun QrSheetContent(
         }
         QrCodeImage(
             text = text,
+            style = style,
             contentDescription = labels.image,
             tooLong = labels.tooLong,
             modifier = Modifier.widthIn(max = maxSide).fillMaxWidth()
