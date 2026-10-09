@@ -7,10 +7,16 @@
     <string name="qr_share">Share</string>
     <string name="qr_copied">Copied</string>
 
+    <!-- TailCat: the same code as a link or as the command -->
+    <string name="qr_tab_link">Link</string>
+    <string name="qr_tab_command">Command</string>
+    <string name="qr_tailcat_server_link_help">Any phone\'s camera opens it in TailSocks with a connection to this phone filled in. If the server lets in anyone, the address is all a client needs.</string>
+    <string name="qr_tailcat_connection_link_help">Any phone\'s camera opens it in TailSocks with this connection filled in. The proxy\'s login and password stay on this phone.</string>
+
     <!-- TailCat -->
     <string name="qr_tailcat_server_title">Connect to this phone</string>
-    <string name="qr_tailcat_server_help">Scan it on the other device: TailSocks there turns it into a new connection (Scan QR code in TailCat); a computer runs these lines with the tailcat CLI. If the server lets in anyone, the address is all a client needs.</string>
-    <string name="qr_tailcat_connection_help">The same connection on another device: scan it with Scan QR code in TailCat there. The proxy\'s login and password stay on this phone.</string>
+    <string name="qr_tailcat_server_help">The lines a computer runs with the tailcat CLI; TailSocks\'s scanner (Scan QR code in TailCat) reads them too. If the server lets in anyone, the address is all a client needs.</string>
+    <string name="qr_tailcat_connection_help">The tailcat command for this connection, for a computer; TailSocks\'s scanner reads it too. The proxy\'s login and password stay on this phone.</string>
 
     <!-- Serve -->
     <string name="qr_serve_title">Open on another device</string>

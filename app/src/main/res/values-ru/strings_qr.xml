@@ -8,9 +8,13 @@
     <string name="qr_copied">Скопировано</string>
 
     <!-- TailCat -->
+    <string name="qr_tab_link">Ссылка</string>
+    <string name="qr_tab_command">Команда</string>
+    <string name="qr_tailcat_server_link_help">Камера любого телефона откроет её в TailSocks с готовым подключением к этому телефону. Если сервер пускает всех, клиенту хватит одного адреса.</string>
+    <string name="qr_tailcat_connection_link_help">Камера любого телефона откроет её в TailSocks, и подключение заполнится само. Логин и пароль прокси останутся на этом телефоне.</string>
     <string name="qr_tailcat_server_title">Подключиться к этому телефону</string>
-    <string name="qr_tailcat_server_help">Отсканируйте на другом устройстве: TailSocks там превратит его в новое подключение («Сканировать QR-код» в TailCat); компьютер выполнит эти строки через tailcat CLI. Если сервер пускает всех, клиенту хватит одного адреса.</string>
-    <string name="qr_tailcat_connection_help">То же подключение на другом устройстве: отсканируйте его там через «Сканировать QR-код» в TailCat. Логин и пароль прокси останутся на этом телефоне.</string>
+    <string name="qr_tailcat_server_help">Строки, которые компьютер выполнит через tailcat CLI; сканер TailSocks («Сканировать QR-код» в TailCat) их тоже прочитает. Если сервер пускает всех, клиенту хватит одного адреса.</string>
+    <string name="qr_tailcat_connection_help">Команда tailcat для этого подключения — для компьютера; сканер TailSocks её тоже прочитает. Логин и пароль прокси останутся на этом телефоне.</string>
 
     <!-- Serve -->
     <string name="qr_serve_title">Открыть на другом устройстве</string>

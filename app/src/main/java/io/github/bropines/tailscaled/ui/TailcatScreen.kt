@@ -349,21 +349,29 @@ fun TailcatScreen(onBack: () -> Unit, page: ServePage? = null, importText: Strin
 
     // The address is in both codes and under them: the card keeps it hidden,
     // the sheet is what a tap on purpose opens.
+    // A link any camera opens in TailSocks first, the command a computer runs
+    // second; the app's own scanner reads either.
     qrConnection?.let { conn ->
+        val command = conn.command()
         QrSheet(
             title = conn.name,
-            text = conn.command(),
-            help = stringResource(R.string.qr_tailcat_connection_help),
+            variants = listOf(
+                QrVariant(stringResource(R.string.qr_tab_link), DeepLinks.tailcatAddLink(command), stringResource(R.string.qr_tailcat_connection_link_help)),
+                QrVariant(stringResource(R.string.qr_tab_command), command, stringResource(R.string.qr_tailcat_connection_help)),
+            ),
             onDismiss = { qrConnection = null }
         )
     }
     scannedText?.let { ScanResultSheet(text = it, onDismiss = { scannedText = null }) }
     val qrAddress = serverAddress
     if (serverQr && qrAddress != null) {
+        val command = TailcatServer.clientCommand(qrAddress, serverConfig)
         QrSheet(
             title = stringResource(R.string.qr_tailcat_server_title),
-            text = TailcatServer.clientCommand(qrAddress, serverConfig),
-            help = stringResource(R.string.qr_tailcat_server_help),
+            variants = listOf(
+                QrVariant(stringResource(R.string.qr_tab_link), DeepLinks.tailcatAddLink(command), stringResource(R.string.qr_tailcat_server_link_help)),
+                QrVariant(stringResource(R.string.qr_tab_command), command, stringResource(R.string.qr_tailcat_server_help)),
+            ),
             onDismiss = { serverQr = false }
         )
     }

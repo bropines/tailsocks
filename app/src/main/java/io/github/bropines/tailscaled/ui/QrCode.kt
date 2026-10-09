@@ -32,6 +32,11 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import io.github.bropines.tailscaled.core.SlidingSegmentedChips
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -148,12 +153,28 @@ fun QrCodeImage(
  *
  * The caller passes [title] and [help] already resolved, as every sheet does.
  */
+@Composable
+fun QrSheet(title: String, text: String, onDismiss: () -> Unit, help: String? = null) =
+    QrSheet(title = title, variants = listOf(QrVariant("", text, help)), onDismiss = onDismiss)
+
+/**
+ * One way to put the same thing in a code: the tab's [label], the [text] the
+ * code carries, and the [help] that goes with it.
+ */
+data class QrVariant(val label: String, val text: String, val help: String? = null)
+
+/**
+ * The same thing in more than one encoding — a link any camera opens and the
+ * command a computer runs, say — one tab each; the first is shown first.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun QrSheet(title: String, text: String, onDismiss: () -> Unit, help: String? = null) {
+fun QrSheet(title: String, variants: List<QrVariant>, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
+    var selected by rememberSaveable { mutableIntStateOf(0) }
+    val variant = variants[selected.coerceIn(0, variants.lastIndex)]
     // Resolved here, in the screen's composition: the sheet is a window of its
     // own and would take the system language (see wrapContextWithLocale).
     val labels = QrLabels(
@@ -166,14 +187,15 @@ fun QrSheet(title: String, text: String, onDismiss: () -> Unit, help: String? = 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberFullSheetState()) {
         QrSheetContent(
             title = title,
-            text = text,
-            help = help,
+            variants = variants,
+            selected = selected,
+            onSelect = { selected = it },
             labels = labels,
             onCopy = {
-                clipboard.copyText(scope, text)
+                clipboard.copyText(scope, variant.text)
                 Toast.makeText(context, copied, Toast.LENGTH_SHORT).show()
             },
-            onShare = { shareText(context, text, labels.share) }
+            onShare = { shareText(context, variant.text, labels.share) }
         )
     }
 }
@@ -185,12 +207,15 @@ internal data class QrLabels(val image: String, val tooLong: String, val copy: S
 @Composable
 internal fun QrSheetContent(
     title: String,
-    text: String,
-    help: String?,
+    variants: List<QrVariant>,
+    selected: Int,
+    onSelect: (Int) -> Unit,
     labels: QrLabels,
     onCopy: () -> Unit,
     onShare: () -> Unit,
 ) {
+    val variant = variants[selected.coerceIn(0, variants.lastIndex)]
+    val text = variant.text
     // Upright the width decides; turned, the whole code still fits on the screen.
     val maxSide = minOf(320.dp, (LocalConfiguration.current.screenHeightDp * 0.6f).dp)
     Column(
@@ -205,7 +230,15 @@ internal fun QrSheetContent(
     ) {
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(title, style = MaterialTheme.typography.titleLarge)
-            if (help != null) HelpText(help)
+            variant.help?.let { HelpText(it) }
+        }
+        if (variants.size > 1) {
+            SlidingSegmentedChips(
+                options = variants.map { it.label },
+                selectedIndex = selected,
+                onOptionSelected = onSelect,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
         QrCodeImage(
             text = text,

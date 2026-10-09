@@ -26,13 +26,18 @@ private const val SAMPLE_ADDRESS =
     "tcpGFwWCCa_YV4eQYH9TzAT1pAJ32RTL5JeIt1ik7V836CqQRlYGFrWCBwRbtA4ktTae4jSlp20ioJ33iVGfRoyYz1ctqW8oW4KWFxWCDbzpV_8lYJxS7diCnBrDy5Bkc56U5rutaJUl4HD5PBW2FpBA"
 
 @Composable
-private fun QrSample(dark: Boolean, title: String, text: String, help: String) {
+private fun QrSample(dark: Boolean, title: String, text: String, help: String) =
+    QrSample(dark, title, listOf(QrVariant("", text, help)))
+
+@Composable
+private fun QrSample(dark: Boolean, title: String, variants: List<QrVariant>, selected: Int = 0) {
     TailSocksTheme(appTheme = if (dark) "dark" else "light", themePreset = "emerald", dynamicColorEnabled = false) {
         Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxSize()) {
             QrSheetContent(
                 title = title,
-                text = text,
-                help = help,
+                variants = variants,
+                selected = selected,
+                onSelect = {},
                 labels = QrLabels(
                     image = stringResource(R.string.qr_image),
                     tooLong = stringResource(R.string.qr_too_long),
@@ -46,12 +51,28 @@ private fun QrSample(dark: Boolean, title: String, text: String, help: String) {
     }
 }
 
+private const val SAMPLE_SERVER_COMMAND =
+    "tailcat forward $SAMPLE_ADDRESS 5555 8080\ntailcat socks --listen=127.0.0.1:1080 $SAMPLE_ADDRESS"
+
+@Composable
+private fun tailcatServerVariants() = listOf(
+    QrVariant(stringResource(R.string.qr_tab_link), DeepLinks.tailcatAddLink(SAMPLE_SERVER_COMMAND), stringResource(R.string.qr_tailcat_server_link_help)),
+    QrVariant(stringResource(R.string.qr_tab_command), SAMPLE_SERVER_COMMAND, stringResource(R.string.qr_tailcat_server_help)),
+)
+
 @PreviewTest @QrGeometries @Composable
 fun QrTailcatServerDark() = QrSample(
     dark = true,
     title = stringResource(R.string.qr_tailcat_server_title),
-    text = "tailcat forward $SAMPLE_ADDRESS 5555 8080\ntailcat socks --listen=127.0.0.1:1080 $SAMPLE_ADDRESS",
-    help = stringResource(R.string.qr_tailcat_server_help)
+    variants = tailcatServerVariants()
+)
+
+@PreviewTest @Preview(name = "qr-tailcat-command", device = "spec:width=393dp,height=852dp,dpi=420") @Composable
+fun QrTailcatServerCommandLight() = QrSample(
+    dark = false,
+    title = stringResource(R.string.qr_tailcat_server_title),
+    variants = tailcatServerVariants(),
+    selected = 1
 )
 
 @PreviewTest @QrGeometries @Composable

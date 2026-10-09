@@ -63,6 +63,14 @@ object DeepLinks {
     }
 
     /**
+     * The `tailcat/add` link carrying [command]: any phone's camera opens it in
+     * the app, with a new connection's editor filled in from the command.
+     */
+    fun tailcatAddLink(command: String): String =
+        Uri.Builder().scheme(SCHEME).authority("tailcat").appendPath("add")
+            .appendQueryParameter("cmd", command).build().toString()
+
+    /**
      * What a `tailcat/add` link hands the editor — its `cmd`, else its
      * `address`, else "" — and null for any other link.
      */

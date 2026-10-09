@@ -116,7 +116,7 @@ A `tailsocks://` link opens a screen of the app and does nothing else — no tok
 adb shell am start -a android.intent.action.VIEW -d 'tailsocks://logs?category=TAILCAT'
 ```
 
-**The same links as QR codes.** The app's QR scanner — the main screen's top bar, TailCat's top bar, its empty list and a connection's editor, or `tailsocks://scan` — reads the camera or a picture from the gallery. A `tailsocks://` link it reads opens exactly as if it had been tapped; a TailCat address or connect command (what a TailCat card's QR code holds) opens a new connection's editor, filled in. Anything else is only shown, with Copy and, for a web address, Open — nothing in a code is acted on without a tap. The camera permission is asked for when the scanner opens; the gallery needs none.
+**The same links as QR codes.** The app's QR scanner — the main screen's top bar, TailCat's top bar, its empty list and a connection's editor, or `tailsocks://scan` — reads the camera or a picture from the gallery. A `tailsocks://` link it reads opens exactly as if it had been tapped; a TailCat address or connect command opens a new connection's editor, filled in. A TailCat QR code (a card's, or the server's *Connect to this phone*) has two tabs: **Link** — `tailsocks://tailcat/add?cmd=…`, which any phone's camera opens in TailSocks — and **Command**, the `tailcat` lines a computer runs; the scanner reads both. Anything else is only shown, with Copy and, for a web address, Open — nothing in a code is acted on without a tap. The camera permission is asked for when the scanner opens; the gallery needs none.
 
 ---
 
