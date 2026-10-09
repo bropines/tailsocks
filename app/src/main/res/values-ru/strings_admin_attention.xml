@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The admin console's "Needs attention" home and its background checks (4.9.0). -->
+<resources>
+    <string name="admin_attention_tab">Требует внимания</string>
+
+    <!-- The list -->
+    <plurals name="admin_attention_count">
+        <item quantity="one">%d пункт требует внимания</item>
+        <item quantity="few">%d пункта требуют внимания</item>
+        <item quantity="many">%d пунктов требуют внимания</item>
+        <item quantity="other">%d пункта требуют внимания</item>
+    </plurals>
+    <string name="admin_attention_empty_title">Всё спокойно</string>
+    <string name="admin_attention_empty_text">Никто не ждёт одобрения, и ни один ключ не истекает в ближайшую неделю.</string>
+    <string name="admin_attention_not_checked">С этим ключом не проверяются: %1$s</string>
+    <string name="admin_attention_source_users">пользователи</string>
+    <string name="admin_attention_source_keys">ключи авторизации</string>
+    <string name="admin_attention_scanning">Читаю маршруты устройств по одному…</string>
+    <plurals name="admin_attention_scan_capped">
+        <item quantity="one">Маршруты прочитаны на %1$d из %2$d устройства.</item>
+        <item quantity="few">Маршруты прочитаны на %1$d из %2$d устройств.</item>
+        <item quantity="many">Маршруты прочитаны на %1$d из %2$d устройств.</item>
+        <item quantity="other">Маршруты прочитаны на %1$d из %2$d устройства.</item>
+    </plurals>
+
+    <string name="admin_attention_section_approvals">Ждут одобрения</string>
+    <string name="admin_attention_section_credential">Эта панель</string>
+    <string name="admin_attention_section_expiry">Истекают ключи</string>
+    <string name="admin_attention_section_problems">Проблемы</string>
+    <string name="admin_attention_section_routes">Маршруты ждут одобрения</string>
+    <string name="admin_attention_section_updates">Есть обновления</string>
+
+    <string name="admin_attention_device_approval">Устройство ждёт одобрения</string>
+    <string name="admin_attention_user_approval">Пользователь ждёт одобрения</string>
+    <string name="admin_attention_credential_refused">Ключ панели отклонён</string>
+    <string name="admin_attention_credential_refused_short">Отклонён: истёк или отозван</string>
+    <string name="admin_attention_credential_refused_desc">Он истёк или отозван. Замените его в профиле, чтобы снова читать tailnet.</string>
+    <string name="admin_attention_credential_expiring">Истекает %1$s</string>
+    <string name="admin_attention_credential_name">Ключ этой панели</string>
+    <string name="admin_attention_device_key_expiring">Ключ устройства истекает %1$s</string>
+    <string name="admin_attention_device_key_expired">Ключ устройства истёк %1$s</string>
+    <string name="admin_attention_auth_key_expiring">Ключ авторизации истекает %1$s</string>
+    <string name="admin_attention_lock_error">Ошибка Tailnet Lock</string>
+    <string name="admin_attention_lock_error_desc">Подпишите устройство или удалите его в веб-консоли: %1$s</string>
+    <string name="admin_attention_multiple">Ключом устройства пользуются несколько машин</string>
+    <string name="admin_attention_multiple_desc">Скорее всего, его состояние скопировали на другую машину. Проверьте устройство и сбросьте ему ключ, если копия не ваша.</string>
+    <string name="admin_attention_routes">Объявляет ещё не одобренные маршруты</string>
+    <string name="admin_attention_exit_node">Предлагает себя как выходной узел</string>
+    <string name="admin_attention_exit_node_route">выходной узел</string>
+    <string name="admin_attention_update">Работает на %1$s, есть обновление</string>
+    <string name="admin_attention_update_plain">Есть обновление</string>
+
+    <plurals name="admin_attention_in_days">
+        <item quantity="one">через %d день</item>
+        <item quantity="few">через %d дня</item>
+        <item quantity="many">через %d дней</item>
+        <item quantity="other">через %d дня</item>
+    </plurals>
+    <plurals name="admin_attention_in_hours">
+        <item quantity="one">через %d час</item>
+        <item quantity="few">через %d часа</item>
+        <item quantity="many">через %d часов</item>
+        <item quantity="other">через %d часа</item>
+    </plurals>
+    <string name="admin_attention_within_hour">в течение часа</string>
+    <plurals name="admin_attention_days_ago">
+        <item quantity="one">%d день назад</item>
+        <item quantity="few">%d дня назад</item>
+        <item quantity="many">%d дней назад</item>
+        <item quantity="other">%d дня назад</item>
+    </plurals>
+    <plurals name="admin_attention_hours_ago">
+        <item quantity="one">%d час назад</item>
+        <item quantity="few">%d часа назад</item>
+        <item quantity="many">%d часов назад</item>
+        <item quantity="other">%d часа назад</item>
+    </plurals>
+    <string name="admin_attention_just_now">только что</string>
+
+    <!-- Actions -->
+    <string name="admin_attention_approve">Одобрить</string>
+    <string name="admin_attention_reject">Отклонить</string>
+    <string name="admin_attention_open">Открыть</string>
+    <string name="admin_attention_open_keys">Ключи</string>
+    <string name="admin_attention_replace">Заменить</string>
+    <string name="admin_attention_reject_device">Отклонить %1$s</string>
+    <string name="admin_attention_reject_device_effect">Отказа как такового в Tailscale нет: устройство будет удалено. Оно сможет попроситься снова, войдя заново.</string>
+    <string name="admin_attention_reject_user">Отклонить %1$s</string>
+    <string name="admin_attention_reject_user_effect">Отказа как такового в Tailscale нет: пользователь будет удалён. Он сможет войти снова и попроситься заново.</string>
+
+    <!-- Background checks -->
+    <string name="admin_attention_checks_title">Проверять в фоне</string>
+    <string name="admin_attention_checks_desc">Время от времени читает этот tailnet и по одному разу сообщает о каждом новом устройстве или пользователе, ждущем одобрения, и о каждом ключе, который скоро истечёт. Только чтение: «Одобрить» и «Отклонить» в уведомлении всё равно попросят разблокировку.</string>
+    <string name="admin_attention_checks_read_only">Профиль только для просмотра, поэтому его уведомления лишь открывают панель.</string>
+    <string name="admin_attention_checks_interval">Как часто</string>
+    <string name="admin_attention_interval_15">Каждые 15 минут</string>
+    <string name="admin_attention_interval_60">Каждый час</string>
+    <string name="admin_attention_interval_360">Каждые 6 часов</string>
+    <string name="admin_attention_checks_notifications_off">Уведомления TailSocks выключены: проверки идут, но ничего не показывают.</string>
+    <string name="admin_attention_checks_allow">Разрешить</string>
+
+    <!-- Notifications -->
+    <string name="admin_attention_channel">Оповещения администратора</string>
+    <string name="admin_attention_channel_desc">Устройства и пользователи, ждущие одобрения в вашем tailnet, и ключи, которые скоро истекут</string>
+    <plurals name="admin_attention_notif_expiry_title">
+        <item quantity="one">Скоро истекает %d ключ</item>
+        <item quantity="few">Скоро истекают %d ключа</item>
+        <item quantity="many">Скоро истекают %d ключей</item>
+        <item quantity="other">Скоро истекают %d ключа</item>
+    </plurals>
+    <plurals name="admin_attention_notif_more">
+        <item quantity="one">и ещё %d</item>
+        <item quantity="few">и ещё %d</item>
+        <item quantity="many">и ещё %d</item>
+        <item quantity="other">и ещё %d</item>
+    </plurals>
+    <string name="admin_attention_open_console">Открыть панель</string>
+
+    <!-- Approve or Reject from a notification -->
+    <string name="admin_attention_action_checking">Проверяю %1$s…</string>
+    <string name="admin_attention_action_gone">%1$s больше нет в tailnet; ничего не изменено.</string>
+    <string name="admin_attention_action_not_pending">%1$s больше не ждёт одобрения; ничего не изменено.</string>
+    <string name="admin_attention_action_read_failed">Не удалось проверить %1$s, поэтому ничего не изменено: %2$s</string>
+    <string name="admin_attention_action_profile_gone">Этого профиля администратора больше нет.</string>
+</resources>

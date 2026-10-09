@@ -286,6 +286,8 @@ dependencies {
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.compose)
     implementation(libs.zxing.core)
+    // The admin console's background checks for what needs attention (admin/notify/).
+    implementation(libs.androidx.work.runtime.ktx)
     compileOnly(libs.guava)
     debugImplementation(libs.androidx.ui.tooling)
     screenshotTestImplementation(libs.screenshot.validation.api)

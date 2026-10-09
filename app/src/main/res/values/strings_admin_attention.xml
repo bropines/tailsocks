@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The admin console's "Needs attention" home and its background checks (4.9.0). -->
+<resources>
+    <string name="admin_attention_tab">Needs attention</string>
+
+    <!-- The list -->
+    <plurals name="admin_attention_count">
+        <item quantity="one">%d thing needs attention</item>
+        <item quantity="other">%d things need attention</item>
+    </plurals>
+    <string name="admin_attention_empty_title">Nothing needs attention</string>
+    <string name="admin_attention_empty_text">No device or user waits for approval, and no key expires within a week.</string>
+    <string name="admin_attention_not_checked">Not checked with this credential: %1$s</string>
+    <string name="admin_attention_source_users">users</string>
+    <string name="admin_attention_source_keys">auth keys</string>
+    <string name="admin_attention_scanning">Reading each device\'s routes…</string>
+    <plurals name="admin_attention_scan_capped">
+        <item quantity="one">Routes were read on %1$d of %2$d device.</item>
+        <item quantity="other">Routes were read on %1$d of %2$d devices.</item>
+    </plurals>
+
+    <string name="admin_attention_section_approvals">Awaiting approval</string>
+    <string name="admin_attention_section_credential">This console</string>
+    <string name="admin_attention_section_expiry">Keys expiring</string>
+    <string name="admin_attention_section_problems">Problems</string>
+    <string name="admin_attention_section_routes">Routes awaiting approval</string>
+    <string name="admin_attention_section_updates">Updates available</string>
+
+    <string name="admin_attention_device_approval">Device awaiting approval</string>
+    <string name="admin_attention_user_approval">User awaiting approval</string>
+    <string name="admin_attention_credential_refused">The console\'s credential was refused</string>
+    <string name="admin_attention_credential_refused_short">Refused: it expired or was revoked</string>
+    <string name="admin_attention_credential_refused_desc">It expired or was revoked. Replace it in the profile to read the tailnet again.</string>
+    <string name="admin_attention_credential_expiring">Expires %1$s</string>
+    <string name="admin_attention_credential_name">This console\'s credential</string>
+    <string name="admin_attention_device_key_expiring">Device key expires %1$s</string>
+    <string name="admin_attention_device_key_expired">Device key expired %1$s</string>
+    <string name="admin_attention_auth_key_expiring">Auth key expires %1$s</string>
+    <string name="admin_attention_lock_error">Tailnet Lock error</string>
+    <string name="admin_attention_lock_error_desc">Sign the device or remove it in the admin console on the web: %1$s</string>
+    <string name="admin_attention_multiple">Several machines use this device\'s key</string>
+    <string name="admin_attention_multiple_desc">Its state was probably copied to another machine. Check the device, and expire its key if the copy is not yours.</string>
+    <string name="admin_attention_routes">Advertises routes not approved yet</string>
+    <string name="admin_attention_exit_node">Offers itself as an exit node</string>
+    <string name="admin_attention_exit_node_route">exit node</string>
+    <string name="admin_attention_update">Runs %1$s; an update is available</string>
+    <string name="admin_attention_update_plain">An update is available</string>
+
+    <plurals name="admin_attention_in_days">
+        <item quantity="one">in %d day</item>
+        <item quantity="other">in %d days</item>
+    </plurals>
+    <plurals name="admin_attention_in_hours">
+        <item quantity="one">in %d hour</item>
+        <item quantity="other">in %d hours</item>
+    </plurals>
+    <string name="admin_attention_within_hour">within the hour</string>
+    <plurals name="admin_attention_days_ago">
+        <item quantity="one">%d day ago</item>
+        <item quantity="other">%d days ago</item>
+    </plurals>
+    <plurals name="admin_attention_hours_ago">
+        <item quantity="one">%d hour ago</item>
+        <item quantity="other">%d hours ago</item>
+    </plurals>
+    <string name="admin_attention_just_now">just now</string>
+
+    <!-- Actions -->
+    <string name="admin_attention_approve">Approve</string>
+    <string name="admin_attention_reject">Reject</string>
+    <string name="admin_attention_open">Open</string>
+    <string name="admin_attention_open_keys">Keys</string>
+    <string name="admin_attention_replace">Replace</string>
+    <string name="admin_attention_reject_device">Reject %1$s</string>
+    <string name="admin_attention_reject_device_effect">Tailscale has no reject: the device is deleted. It can ask to join again by logging in.</string>
+    <string name="admin_attention_reject_user">Reject %1$s</string>
+    <string name="admin_attention_reject_user_effect">Tailscale has no reject: the user is deleted. They can sign in again to ask anew.</string>
+
+    <!-- Background checks -->
+    <string name="admin_attention_checks_title">Check in the background</string>
+    <string name="admin_attention_checks_desc">Reads this tailnet now and then and notifies you once about each new device or user awaiting approval and each key about to expire. It only reads: Approve and Reject in a notification still ask for your unlock.</string>
+    <string name="admin_attention_checks_read_only">This profile is read-only, so its notifications only open the console.</string>
+    <string name="admin_attention_checks_interval">How often</string>
+    <string name="admin_attention_interval_15">Every 15 minutes</string>
+    <string name="admin_attention_interval_60">Every hour</string>
+    <string name="admin_attention_interval_360">Every 6 hours</string>
+    <string name="admin_attention_checks_notifications_off">Notifications are off for TailSocks: the checks run, but show nothing.</string>
+    <string name="admin_attention_checks_allow">Allow</string>
+
+    <!-- Notifications -->
+    <string name="admin_attention_channel">Admin alerts</string>
+    <string name="admin_attention_channel_desc">Devices and users awaiting approval in a tailnet you manage, and keys about to expire</string>
+    <plurals name="admin_attention_notif_expiry_title">
+        <item quantity="one">%d key expires soon</item>
+        <item quantity="other">%d keys expire soon</item>
+    </plurals>
+    <plurals name="admin_attention_notif_more">
+        <item quantity="one">and %d more</item>
+        <item quantity="other">and %d more</item>
+    </plurals>
+    <string name="admin_attention_open_console">Open console</string>
+
+    <!-- Approve or Reject from a notification -->
+    <string name="admin_attention_action_checking">Checking %1$s…</string>
+    <string name="admin_attention_action_gone">%1$s is no longer in the tailnet; nothing was changed.</string>
+    <string name="admin_attention_action_not_pending">%1$s no longer waits for approval; nothing was changed.</string>
+    <string name="admin_attention_action_read_failed">Could not check %1$s, so nothing was changed: %2$s</string>
+    <string name="admin_attention_action_profile_gone">That admin profile no longer exists.</string>
+</resources>

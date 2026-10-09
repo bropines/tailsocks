@@ -145,6 +145,14 @@
         <activity android:name=".ui.PeersActivity" android:exported="false" />
         <activity android:name=".ui.QrScanActivity" android:exported="false" />
         <activity android:name=".admin.AdminApiActivity" android:exported="false" />
+        <!-- Approve / Reject from an admin attention notification: the confirmation and the
+             unlock over whatever is on screen, in a task of its own. Never exported. -->
+        <activity
+            android:name=".admin.notify.AttentionActionActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Tailscaled.Transparent" />
 
         <activity android:name=".ui.ToggleActivity" android:exported="false" android:theme="@android:style/Theme.NoDisplay" android:excludeFromRecents="true" />
 

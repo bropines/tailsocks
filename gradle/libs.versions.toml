@@ -38,6 +38,9 @@ zxing = "3.5.4"
 guava = "32.0.1-android"
 # JVM unit tests only (src/test); nothing of it reaches the APK.
 junit = "4.13.2"
+# The admin console's background checks (admin/notify/): periodic reads under a
+# network constraint. Apache-2.0, no Play services; Glance already pulled 2.7.1.
+work = "2.10.5"
 
 [libraries]
 androidx-browser = { group = "androidx.browser", name = "browser", version.ref = "browser" }
@@ -68,6 +71,7 @@ androidx-camera-compose = { group = "androidx.camera", name = "camera-compose", 
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 guava = { group = "com.google.guava", name = "guava", version.ref = "guava" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
 
 androidx-material3-adaptive = { group = "androidx.compose.material3.adaptive", name = "adaptive", version.ref = "material3-adaptive" }
 screenshot-validation-api = { group = "com.android.tools.screenshot", name = "screenshot-validation-api", version.ref = "screenshot" }
