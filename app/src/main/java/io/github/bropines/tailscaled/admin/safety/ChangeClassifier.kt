@@ -1,6 +1,7 @@
 package io.github.bropines.tailscaled.admin.safety
 
 import io.github.bropines.tailscaled.admin.api.TailnetSettingKey
+import io.github.bropines.tailscaled.admin.api.UserRole
 
 /**
  * The safety table, as code. Fixed kinds have a fixed class; a few depend on the values:
@@ -27,7 +28,26 @@ object ChangeClassifier {
         ChangeKind.POLICY_FILE -> ChangeClass.POLICY
 
         ChangeKind.DEVICE_TAGS_BULK -> ChangeClass.HIGH
+        ChangeKind.USER_INVITE_RESEND -> ChangeClass.LOW
+        ChangeKind.OAUTH_CLIENT_CREATE, ChangeKind.USER_INVITE_CREATE, ChangeKind.DEVICE_INVITE_CREATE -> ChangeClass.MEDIUM
+        ChangeKind.USER_INVITE_DELETE, ChangeKind.DEVICE_INVITE_DELETE -> ChangeClass.HIGH
     }
+
+    /**
+     * A new OAuth client is HIGH when a write scope lets it mint more credentials, rewrite the
+     * policy or change people (all, oauth_keys, federated_keys, api_access_tokens, policy_file,
+     * users); MEDIUM when it reads, or writes narrower areas.
+     */
+    fun oauthClient(scopes: List<String>): ChangeClass =
+        if (scopes.any { it.trim() in POWERFUL_WRITE_SCOPES }) ChangeClass.HIGH else ChangeClass.MEDIUM
+
+    private val POWERFUL_WRITE_SCOPES = setOf("all", "oauth_keys", "federated_keys", "api_access_tokens", "policy_file", "users")
+
+    /** An invite to any role but member hands whoever accepts it admin-console rights: HIGH. */
+    fun userInvite(role: UserRole): ChangeClass = if (role == UserRole.MEMBER) ChangeClass.MEDIUM else ChangeClass.HIGH
+
+    /** A multi-use share link can be accepted up to a thousand times, by anyone holding it: HIGH. */
+    fun deviceInvite(multiUse: Boolean): ChangeClass = if (multiUse) ChangeClass.HIGH else ChangeClass.MEDIUM
 
     /** Approving routes is MEDIUM; taking an approved exit node away cuts off everyone using it: HIGH. */
     fun routes(before: List<String>, after: List<String>): ChangeClass {

@@ -47,9 +47,15 @@ enum class ChangeKind(val area: AdminArea) {
     POLICY_FILE(AdminArea.POLICY),
     /** One tag change over several devices; each device also gets a DEVICE_TAGS record of its own. */
     DEVICE_TAGS_BULK(AdminArea.DEVICES),
+    OAUTH_CLIENT_CREATE(AdminArea.OAUTH_KEYS),
+    USER_INVITE_CREATE(AdminArea.USERS),
+    USER_INVITE_RESEND(AdminArea.USERS),
+    USER_INVITE_DELETE(AdminArea.USERS),
+    DEVICE_INVITE_CREATE(AdminArea.DEVICE_INVITES),
+    DEVICE_INVITE_DELETE(AdminArea.DEVICE_INVITES),
 }
 
-enum class TargetType { DEVICE, KEY, USER, TAILNET, WEBHOOK, SERVICE }
+enum class TargetType { DEVICE, KEY, USER, TAILNET, WEBHOOK, SERVICE, INVITE }
 
 /**
  * What a change acts on. [name] is what the person types back for a HIGH change, so it is the
