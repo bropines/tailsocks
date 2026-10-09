@@ -14,6 +14,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Admin console: a policy editor with server validation, diff, risk lint, a lock-out check, conflict-safe saving and revert; DNS, webhooks and tailnet settings completed.
 - Admin console: Headscale servers (0.25–0.30) with registration by QR code or link; the audit log filtered on the server with before → after; Services created, renamed and deleted.
 - Admin console keeps an encrypted copy of its lists and opens on it at once, refreshing in place; nothing is changed from the copy.
+- Admin console: a device with an update links to its page in the Tailscale console, where Start update lives (the API has none).
 
 ### Changed
 

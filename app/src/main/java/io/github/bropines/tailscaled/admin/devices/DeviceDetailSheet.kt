@@ -19,6 +19,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
@@ -76,6 +77,7 @@ import io.github.bropines.tailscaled.admin.console.ConsoleState
 import io.github.bropines.tailscaled.admin.console.ConsoleText
 import io.github.bropines.tailscaled.admin.console.Loadable
 import io.github.bropines.tailscaled.admin.safety.ReadOnlyBanner
+import io.github.bropines.tailscaled.admin.ConsoleLinks
 import io.github.bropines.tailscaled.ui.HelpText
 import kotlin.math.roundToInt
 
@@ -377,6 +379,17 @@ private fun Details(device: ApiDevice, now: Long, copy: (String, String) -> Unit
             if (device.updateAvailable == true) ctx.getString(R.string.admin_dev_version_update, v) else v,
             mono = false,
         )
+    }
+    // The API cannot start a client update; the console's own page for the machine can.
+    if (device.updateAvailable == true && !device.isShared) ConsoleLinks.machine(device)?.let { url ->
+        Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
+            TextButton(onClick = { ConsoleLinks.open(ctx, url) }) {
+                Icon(Icons.AutoMirrored.Filled.OpenInNew, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(ctx.getString(R.string.admin_update_in_console))
+            }
+            HelpText(ctx.getString(R.string.admin_update_help))
+        }
     }
     val user = device.user?.takeIf { it.isNotBlank() }
     when {

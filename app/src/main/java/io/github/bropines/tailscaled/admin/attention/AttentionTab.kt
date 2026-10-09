@@ -88,6 +88,7 @@ import io.github.bropines.tailscaled.admin.console.Loadable
 import io.github.bropines.tailscaled.admin.console.WriteBlock
 import io.github.bropines.tailscaled.admin.notify.AttentionChecks
 import io.github.bropines.tailscaled.admin.notify.AttentionNotifier
+import io.github.bropines.tailscaled.admin.ConsoleLinks
 import io.github.bropines.tailscaled.ui.HelpText
 import io.github.bropines.tailscaled.ui.PickerOption
 import io.github.bropines.tailscaled.ui.PickerSheet
@@ -397,6 +398,10 @@ private fun OpenAction(item: AttentionItem, actions: AttentionActions, open: (()
             TextButton(onClick = actions.replaceCredential) { Text(ctx.getString(R.string.admin_attention_replace)) }
         AttentionKind.AUTH_KEY_EXPIRING ->
             TextButton(onClick = actions.openKeys) { Text(ctx.getString(R.string.admin_attention_open_keys)) }
+        // The row opens the device; the button, the console's page with its Start update.
+        AttentionKind.UPDATE_AVAILABLE -> item.device?.takeIf { !it.isShared }?.let(ConsoleLinks::machine)?.let { url ->
+            TextButton(onClick = { ConsoleLinks.open(ctx, url) }) { Text(ctx.getString(R.string.admin_update_action)) }
+        } ?: if (open != null) TextButton(onClick = open) { Text(ctx.getString(R.string.admin_attention_open)) } else Unit
         else -> if (open != null) TextButton(onClick = open) { Text(ctx.getString(R.string.admin_attention_open)) }
     }
 }

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="admin_update_in_console">Обновить в консоли Tailscale</string>
+    <string name="admin_update_action">Обновить</string>
+    <string name="admin_update_help">Через API Tailscale клиент не обновить. Кнопка открывает машину в веб-консоли под вашим входом из браузера. Там есть «Start update», если на машине включены автообновления, она в сети и это не Mac.</string>
+</resources>

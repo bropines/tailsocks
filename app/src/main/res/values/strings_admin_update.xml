@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="admin_update_in_console">Update in the Tailscale console</string>
+    <string name="admin_update_action">Update</string>
+    <string name="admin_update_help">Tailscale\'s API cannot update a client. This opens the machine in the web console, signed in as in your browser: its Start update button is there when the machine has auto-updates on, is online and is not a Mac.</string>
+</resources>
