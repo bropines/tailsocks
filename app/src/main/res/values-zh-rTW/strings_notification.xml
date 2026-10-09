@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The ongoing connection card in the notification shade. A file of its own so
+  it lands without touching strings.xml; Android merges every values/*.xml into
+  one table. Where the main screen already has the words (Starting…, Connection
+  problem, Sign-in needed, the health titles) the card reuses those, so the two
+  never disagree; only what the card says and the screen does not lives here.
+--><resources>
+    </resources>

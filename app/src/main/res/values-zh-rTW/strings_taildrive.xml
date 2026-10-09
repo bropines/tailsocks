@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Taildrive screen. Kept apart from strings.xml so the screen's text can change
+     without touching the shared file; Android merges every file under values/. --><resources>
+    </resources>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The live state card at the top of Settings → Diagnostics. Kept apart from
+     strings.xml so work on it does not collide with edits there; Android merges
+     every file in values/. Values are short on purpose: they sit in one
+     monospace row each, next to a label. --><resources>
+    </resources>
