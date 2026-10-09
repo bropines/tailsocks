@@ -43,6 +43,8 @@ private fun QrSample(dark: Boolean, title: String, variants: List<QrVariant>, se
                     tooLong = stringResource(R.string.qr_too_long),
                     copy = stringResource(R.string.action_copy),
                     share = stringResource(R.string.qr_share),
+                    showText = stringResource(R.string.qr_show_text),
+                    hideText = stringResource(R.string.qr_hide_text),
                 ),
                 onCopy = {},
                 onShare = {}

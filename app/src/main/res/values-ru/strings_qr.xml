@@ -6,6 +6,8 @@
     <string name="qr_too_long">Слишком длинно для QR-кода</string>
     <string name="qr_share">Поделиться</string>
     <string name="qr_copied">Скопировано</string>
+    <string name="qr_show_text">Показать текст</string>
+    <string name="qr_hide_text">Скрыть текст</string>
 
     <!-- TailCat -->
     <string name="qr_tab_link">Ссылка</string>

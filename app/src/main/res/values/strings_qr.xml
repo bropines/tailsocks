@@ -6,6 +6,8 @@
     <string name="qr_too_long">Too long for a QR code</string>
     <string name="qr_share">Share</string>
     <string name="qr_copied">Copied</string>
+    <string name="qr_show_text">Show text</string>
+    <string name="qr_hide_text">Hide text</string>
 
     <!-- TailCat: the same code as a link or as the command -->
     <string name="qr_tab_link">Link</string>
