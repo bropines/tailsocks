@@ -8,6 +8,7 @@ import io.github.bropines.tailscaled.admin.api.ApiService
 import io.github.bropines.tailscaled.admin.api.ApiServiceHost
 import io.github.bropines.tailscaled.admin.api.ApiUser
 import io.github.bropines.tailscaled.admin.api.ApiWebhook
+import io.github.bropines.tailscaled.admin.api.BackendFeature
 import io.github.bropines.tailscaled.admin.api.BackendKind
 import io.github.bropines.tailscaled.admin.api.Capabilities
 import io.github.bropines.tailscaled.admin.api.DecodeIssue
@@ -45,7 +46,20 @@ enum class ConsolePhase {
     READY,
 }
 
-enum class ConsoleTab { DEVICES, DNS, USERS, SERVICES, WEBHOOKS, LOGS, WEB, SETTINGS }
+/**
+ * The console's tabs, each with the backend feature it needs: a backend without it (Headscale
+ * has no webhooks or audit log) does not show the tab. WEB links to Tailscale's own console.
+ */
+enum class ConsoleTab(val feature: BackendFeature?) {
+    DEVICES(BackendFeature.DEVICES),
+    DNS(BackendFeature.DNS),
+    USERS(BackendFeature.USERS),
+    SERVICES(BackendFeature.SERVICES),
+    WEBHOOKS(BackendFeature.WEBHOOKS),
+    LOGS(BackendFeature.AUDIT_LOGS),
+    WEB(null),
+    SETTINGS(BackendFeature.SETTINGS),
+}
 
 /** Why writes are off for the whole profile, whatever the credential allows. */
 enum class WriteBlock { NO_SCREEN_LOCK, READ_ONLY_PROFILE }
@@ -130,6 +144,13 @@ data class ConsoleState(
     fun canWrite(area: AdminArea): Boolean = writeBlock == null && caps?.canWrite(area) != false
 
     fun canRead(area: AdminArea): Boolean = caps?.canRead(area) != false
+
+    /** The tabs this backend has: all of them until the capabilities say otherwise. */
+    val tabs: List<ConsoleTab>
+        get() = ConsoleTab.entries.filter { tab ->
+            val c = caps ?: return@filter true
+            if (tab == ConsoleTab.WEB) c.backend == BackendKind.TAILSCALE else tab.feature == null || c.has(tab.feature)
+        }
 
     /** Whether this phone is a node of the profile's tailnet, as the device list says. */
     val phoneInTailnet: Boolean

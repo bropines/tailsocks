@@ -71,12 +71,22 @@ private const val PICK_EDIT = "\u0000edit"
 fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -> Unit, startTab: ConsoleTab = ConsoleTab.DEVICES) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
-    val tabs = ConsoleTab.entries
-    val tabLabels = listOf(
-        R.string.admin_tab_devices, R.string.admin_tab_dns, R.string.admin_tab_users, R.string.admin_tab_services,
-        R.string.admin_tab_webhooks, R.string.admin_tab_logs, R.string.admin_tab_web_links, R.string.admin_tab_settings,
-    ).map { ctx.getString(it) }
-    val pagerState = rememberPagerState(initialPage = startTab.ordinal, pageCount = { tabs.size })
+    val tabs = state.tabs
+    val tabLabels = tabs.map {
+        ctx.getString(
+            when (it) {
+                ConsoleTab.DEVICES -> R.string.admin_tab_devices
+                ConsoleTab.DNS -> R.string.admin_tab_dns
+                ConsoleTab.USERS -> R.string.admin_tab_users
+                ConsoleTab.SERVICES -> R.string.admin_tab_services
+                ConsoleTab.WEBHOOKS -> R.string.admin_tab_webhooks
+                ConsoleTab.LOGS -> R.string.admin_tab_logs
+                ConsoleTab.WEB -> R.string.admin_tab_web_links
+                ConsoleTab.SETTINGS -> R.string.admin_tab_settings
+            }
+        )
+    }
+    val pagerState = rememberPagerState(initialPage = tabs.indexOf(startTab).coerceAtLeast(0), pageCount = { tabs.size })
 
     var selectedDeviceId by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedUserId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -86,7 +96,7 @@ fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -
     var showCreateWebhook by rememberSaveable { mutableStateOf(false) }
     var showProfiles by rememberSaveable { mutableStateOf(false) }
 
-    LaunchedEffect(pagerState.currentPage) { vm?.refresh(tabs[pagerState.currentPage]) }
+    LaunchedEffect(pagerState.currentPage, tabs) { tabs.getOrNull(pagerState.currentPage)?.let { vm?.refresh(it) } }
     LaunchedEffect(showKeys) { if (showKeys) vm?.refreshKeys(force = false) }
 
     val profile = state.active
@@ -104,7 +114,7 @@ fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -
                 onBack = onBack,
                 onTitleClick = { showProfiles = true },
                 actions = {
-                    IconButton(onClick = { vm?.refresh(tabs[pagerState.currentPage], force = true) }) {
+                    IconButton(onClick = { tabs.getOrNull(pagerState.currentPage)?.let { vm?.refresh(it, force = true) } }) {
                         Icon(Icons.Default.Refresh, contentDescription = ctx.getString(R.string.admin_cd_refresh))
                     }
                     IconButton(onClick = { vm?.profiles?.editActive() }) {
