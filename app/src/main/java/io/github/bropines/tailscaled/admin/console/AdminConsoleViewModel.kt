@@ -141,7 +141,8 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
                 rememberRefusals(profile, caps)
             }
         }
-        _state.update { it.copy(phase = phaseAfterLoad(), localLog = audit.records(profile.id)) }
+        val log = withContext(Dispatchers.IO) { audit.records(profile.id) }
+        _state.update { it.copy(phase = phaseAfterLoad(), localLog = log) }
         if (_state.value.phase == ConsolePhase.READY) start()
     }
 
