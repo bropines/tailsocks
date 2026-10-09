@@ -12,6 +12,7 @@ import android.net.Uri
  *
  *     tailsocks://serve                     Serve & Funnel
  *     tailsocks://exitnode                  the exit-node picker on the main screen
+ *     tailsocks://scan                      the QR scanner, over the main screen
  *     tailsocks://tailcat                   TailCat
  *     tailsocks://tailcat/add?cmd=…         a new TailCat connection from an
  *                                           address or a connect command
@@ -20,13 +21,17 @@ import android.net.Uri
  *     tailsocks://peers | dns | netcheck | console | files | taildrive | permissions | licenses
  *
  * MainActivity receives them (VIEW, scheme tailsocks) and opens the screen on
- * top of itself, so Back lands on the main screen.
+ * top of itself, so Back lands on the main screen. A link that reaches the app
+ * another way — a scanned QR code — goes through [open], to the same place.
  */
 object DeepLinks {
     const val SCHEME = "tailsocks"
 
     /** The main screen's own: MainActivity opens its exit-node picker rather than a screen. */
     const val EXIT_NODE = "exitnode"
+
+    /** The main screen's own too: it opens the QR scanner and deals with what it reads. */
+    const val SCAN = "scan"
 
     /** Settings sections a link may name; the ids SettingsActivity's list uses. */
     private val SETTINGS_SECTIONS = setOf(
@@ -40,10 +45,7 @@ object DeepLinks {
         val path = uri.pathSegments
         return when (uri.host) {
             "serve" -> Intent(context, ServeActivity::class.java)
-            "tailcat" -> when (path.firstOrNull()) {
-                "add" -> ServeActivity.tailcatIntent(context, importText = uri.getQueryParameter("cmd") ?: uri.getQueryParameter("address"))
-                else -> ServeActivity.tailcatIntent(context)
-            }
+            "tailcat" -> ServeActivity.tailcatIntent(context, importText = tailcatImportText(uri))
             "logs" -> LogsActivity.intent(context, uri.getQueryParameter("category")?.uppercase() ?: "ALL")
             "settings" -> Intent(context, SettingsActivity::class.java).apply {
                 path.firstOrNull()?.takeIf { it in SETTINGS_SECTIONS }?.let { putExtra(SettingsActivity.EXTRA_OPEN_SECTION, it) }
@@ -58,5 +60,31 @@ object DeepLinks {
             "licenses" -> Intent(context, LicensesActivity::class.java)
             else -> null
         }
+    }
+
+    /**
+     * What a `tailcat/add` link hands the editor — its `cmd`, else its
+     * `address`, else "" — and null for any other link.
+     */
+    fun tailcatImportText(uri: Uri): String? {
+        if (uri.scheme != SCHEME || uri.host != "tailcat" || uri.pathSegments.firstOrNull() != "add") return null
+        return uri.getQueryParameter("cmd") ?: uri.getQueryParameter("address") ?: ""
+    }
+
+    /** Whether [uri] is a link the app opens: a screen's, or one of the main screen's own. */
+    fun knows(context: Context, uri: Uri): Boolean =
+        uri.scheme == SCHEME && (uri.host == EXIT_NODE || uri.host == SCAN || intentFor(context, uri) != null)
+
+    /**
+     * Opens [uri] as if the system had handed it to the app: the main
+     * screen's own links go through MainActivity, a screen opens on top of
+     * [context]. False, with nothing opened, for a link the app does not know.
+     */
+    fun open(context: Context, uri: Uri): Boolean {
+        if (!knows(context, uri)) return false
+        val intent = if (uri.host == EXIT_NODE || uri.host == SCAN) Intent(Intent.ACTION_VIEW, uri, context, MainActivity::class.java)
+        else intentFor(context, uri) ?: return false
+        context.startActivity(intent)
+        return true
     }
 }

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The QR scanner (ui/QrScanActivity.kt) -->
+    <string name="qr_scan_action">Сканировать QR-код</string>
+    <string name="qr_scan_title">Сканер QR-кодов</string>
+    <string name="qr_scan_hint">Наведите камеру на QR-код</string>
+    <string name="qr_scan_hint_more">Ссылка TailSocks откроет свой экран, адрес TailCat — новое подключение. Прочее будет только показано.</string>
+    <string name="qr_scan_gallery">Из галереи</string>
+    <string name="qr_scan_torch_on">Включить фонарик</string>
+    <string name="qr_scan_torch_off">Выключить фонарик</string>
+    <string name="qr_scan_not_found">На картинке не нашлось QR-кода</string>
+
+    <!-- Camera access -->
+    <string name="qr_scan_camera_title">Доступ к камере</string>
+    <string name="qr_scan_camera_text">Камера работает, только пока открыт этот экран, — чтобы прочитать код. Ничего не записывается и никуда не отправляется.</string>
+    <string name="qr_scan_allow">Разрешить камеру</string>
+    <string name="qr_scan_denied_title">Нет доступа к камере</string>
+    <string name="qr_scan_denied_text">Разрешите камеру, чтобы сканировать, или выберите в галерее скриншот либо фото кода.</string>
+    <string name="qr_scan_blocked_title">Доступ к камере выключен</string>
+    <string name="qr_scan_blocked_text">Android больше не спросит. Разрешите камеру в настройках приложения TailSocks или выберите снимок кода в галерее.</string>
+    <string name="qr_scan_open_settings">Открыть настройки</string>
+    <string name="qr_scan_no_camera_title">Камеры нет</string>
+    <string name="qr_scan_no_camera_text">На этом устройстве нет камеры. Выберите в галерее скриншот или фото кода.</string>
+    <string name="qr_scan_failed_title">Камера не запустилась</string>
+    <string name="qr_scan_failed_text">Возможно, её занимает другое приложение. Попробуйте ещё раз или выберите снимок кода в галерее.</string>
+    <string name="qr_scan_retry">Ещё раз</string>
+
+    <!-- What was read -->
+    <string name="qr_scan_result_title">QR-код</string>
+    <string name="qr_scan_result_help">Это не ссылка TailSocks и не адрес TailCat, поэтому ничего не открыто.</string>
+    <string name="qr_scan_result_web_help">Веб-ссылка, а не ссылка TailSocks: ничего не открыто. Открывайте, только если доверяете тому, куда она ведёт.</string>
+    <string name="qr_scan_open">Открыть</string>
+    <string name="qr_scan_no_app">Нечем открыть</string>
+    <string name="qr_scan_no_tailcat">В этом коде нет адреса TailCat</string>
+</resources>

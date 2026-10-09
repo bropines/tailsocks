@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The QR scanner (ui/QrScanActivity.kt) -->
+    <string name="qr_scan_action">Scan QR code</string>
+    <string name="qr_scan_title">Scan QR code</string>
+    <string name="qr_scan_hint">Point the camera at a QR code</string>
+    <string name="qr_scan_hint_more">A TailSocks link opens its screen, a TailCat address a new connection. Anything else is only shown.</string>
+    <string name="qr_scan_gallery">From gallery</string>
+    <string name="qr_scan_torch_on">Turn on the flashlight</string>
+    <string name="qr_scan_torch_off">Turn off the flashlight</string>
+    <string name="qr_scan_not_found">No QR code found in this picture</string>
+
+    <!-- Camera access -->
+    <string name="qr_scan_camera_title">Camera access</string>
+    <string name="qr_scan_camera_text">The camera works only while this screen is open, to read the code. Nothing is recorded or sent anywhere.</string>
+    <string name="qr_scan_allow">Allow camera</string>
+    <string name="qr_scan_denied_title">No camera access</string>
+    <string name="qr_scan_denied_text">Allow the camera to scan, or pick a screenshot or a photo of the code from the gallery.</string>
+    <string name="qr_scan_blocked_title">Camera access is off</string>
+    <string name="qr_scan_blocked_text">Android will not ask again. Allow the camera in TailSocks\' app settings, or pick a picture of the code from the gallery.</string>
+    <string name="qr_scan_open_settings">Open settings</string>
+    <string name="qr_scan_no_camera_title">No camera</string>
+    <string name="qr_scan_no_camera_text">This device has no camera. Pick a screenshot or a photo of the code from the gallery.</string>
+    <string name="qr_scan_failed_title">The camera did not start</string>
+    <string name="qr_scan_failed_text">Another app may be holding it. Try again, or pick a picture of the code from the gallery.</string>
+    <string name="qr_scan_retry">Try again</string>
+
+    <!-- What was read -->
+    <string name="qr_scan_result_title">QR code</string>
+    <string name="qr_scan_result_help">Not a TailSocks link or a TailCat address, so nothing was opened.</string>
+    <string name="qr_scan_result_web_help">A web link, not a TailSocks one: nothing was opened. Open it only if you trust where it leads.</string>
+    <string name="qr_scan_open">Open</string>
+    <string name="qr_scan_no_app">No app can open it</string>
+    <string name="qr_scan_no_tailcat">No TailCat address in this code</string>
+</resources>

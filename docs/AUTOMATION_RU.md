@@ -105,6 +105,7 @@ adb shell am broadcast -a io.github.bropines.tailscaled.action.SET_BYEDPI -n io.
 |---|---|
 | `tailsocks://serve` | Serve & Funnel |
 | `tailsocks://exitnode` | Выбор выходного узла на главном экране |
+| `tailsocks://scan` | Сканер QR-кодов поверх главного экрана |
 | `tailsocks://tailcat` | TailCat |
 | `tailsocks://tailcat/add?cmd=<адрес или команда подключения>` | новое подключение TailCat, уже заполненное (`cmd` в URL-кодировке) |
 | `tailsocks://logs?category=TAILCAT` | Логи на одной категории (`ALL`, `ERROR`, `CORE`, `TAILSCALE`, `TAILCAT`, …) |
@@ -114,6 +115,8 @@ adb shell am broadcast -a io.github.bropines.tailscaled.action.SET_BYEDPI -n io.
 ```bash
 adb shell am start -a android.intent.action.VIEW -d 'tailsocks://logs?category=TAILCAT'
 ```
+
+**Те же ссылки в QR-кодах.** Сканер QR-кодов приложения — в верхней панели главного экрана, в верхней панели TailCat, в его пустом списке и в редакторе подключения, или по `tailsocks://scan` — читает камеру или картинку из галереи. Прочитанная ссылка `tailsocks://` открывается ровно так, как если бы по ней нажали; адрес TailCat или команда подключения (то, что в QR-коде карточки TailCat) открывает редактор нового подключения, уже заполненный. Всё остальное только показывается, с кнопками «Копировать» и, для веб-адреса, «Открыть» — ничего из кода не выполняется без нажатия. Разрешение на камеру запрашивается, когда сканер открывается; галерее оно не нужно.
 
 ---
 

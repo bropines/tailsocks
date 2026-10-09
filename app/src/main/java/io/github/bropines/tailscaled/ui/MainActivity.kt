@@ -212,6 +212,8 @@ class MainActivity : ComponentActivity() {
     private val addAccountRequest = mutableStateOf<Boolean?>(null)
     /** Set by tailsocks://exitnode (the launcher's Exit node shortcut): the screen opens its picker. */
     private val exitNodeRequest = mutableStateOf(false)
+    /** Set by tailsocks://scan: the screen opens the QR scanner. */
+    private val scanRequest = mutableStateOf(false)
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(wrapContextWithLocale(newBase))
@@ -243,7 +245,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             TailSocksTheme {
-                MainScreen(showAccountSwitcher, showChangelog, addAccountRequest, exitNodeRequest)
+                MainScreen(showAccountSwitcher, showChangelog, addAccountRequest, exitNodeRequest, scanRequest)
             }
         }
     }
@@ -315,8 +317,11 @@ class MainActivity : ComponentActivity() {
         if (intent.action == Intent.ACTION_VIEW && intent.data?.scheme == DeepLinks.SCHEME) {
             val uri = intent.data!!
             intent.data = null
-            if (uri.host == DeepLinks.EXIT_NODE) exitNodeRequest.value = true
-            else DeepLinks.intentFor(this, uri)?.let { startActivity(it) }
+            when (uri.host) {
+                DeepLinks.EXIT_NODE -> exitNodeRequest.value = true
+                DeepLinks.SCAN -> scanRequest.value = true
+                else -> DeepLinks.intentFor(this, uri)?.let { startActivity(it) }
+            }
         }
         // Tap on the "the system would not let it back" notification. A start
         // made while an activity is coming to the foreground is never refused,
@@ -469,7 +474,8 @@ fun MainScreen(
     showAccountSwitcher: MutableState<Boolean>,
     showChangelog: MutableState<Boolean> = remember { mutableStateOf(false) },
     addAccountRequest: MutableState<Boolean?> = remember { mutableStateOf(null) },
-    exitNodeRequest: MutableState<Boolean> = remember { mutableStateOf(false) }
+    exitNodeRequest: MutableState<Boolean> = remember { mutableStateOf(false) },
+    scanRequest: MutableState<Boolean> = remember { mutableStateOf(false) }
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -627,6 +633,17 @@ fun MainScreen(
         if (exitNodeRequest.value) {
             exitNodeRequest.value = false
             openExitNodeSheet()
+        }
+    }
+    // The QR scanner, from the top bar and tailsocks://scan: an app link opens
+    // as if tapped, a TailCat address in a new connection's editor; any other
+    // text is only shown, in a sheet.
+    var scannedText by remember { mutableStateOf<String?>(null) }
+    val scanQr = rememberQrScanner { text -> scannedText = openScanned(context, text) }
+    LaunchedEffect(scanRequest.value) {
+        if (scanRequest.value) {
+            scanRequest.value = false
+            scanQr()
         }
     }
 
@@ -1246,6 +1263,9 @@ fun MainScreen(
                             Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.main_cd_refresh_config))
                         }
                     }
+                    IconButton(onClick = scanQr) {
+                        Icon(Icons.Default.QrCodeScanner, contentDescription = stringResource(R.string.qr_scan_action))
+                    }
                     IconButton(onClick = {
                         context.startActivity(Intent(context, AdminApiActivity::class.java))
                     }) {
@@ -1671,6 +1691,8 @@ fun MainScreen(
     if (showAutostartAsk && !showChangelog.value) {
         AutostartAskDialog(onAnswered = { showAutostartAsk = false })
     }
+
+    scannedText?.let { ScanResultSheet(text = it, onDismiss = { scannedText = null }) }
 
     if (showAboutDialog) {
         val versionName = remember {

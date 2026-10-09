@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Router
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.StopCircle
@@ -100,6 +101,7 @@ import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.PredictiveBackContainer
 import io.github.bropines.tailscaled.core.TailcatConnection
 import io.github.bropines.tailscaled.core.TailcatConnections
+import io.github.bropines.tailscaled.core.TailcatImport
 import io.github.bropines.tailscaled.core.TailcatKey
 import io.github.bropines.tailscaled.core.TailcatServer
 import io.github.bropines.tailscaled.core.TailcatServerConfig
@@ -186,18 +188,37 @@ fun TailcatScreen(onBack: () -> Unit, page: ServePage? = null, importText: Strin
     }
 
     if (!inPreview) LaunchedEffect(Unit) { withContext(Dispatchers.IO) { TailcatService.refreshStatuses() } }
+    /** A new connection's editor, filled in from an address or connect command; false when [text] holds none. */
+    fun importConnection(text: String): Boolean {
+        val parsed = TailcatConnections.parseImport(text) ?: return false
+        editor = TailcatConnection(
+            name = context.getString(R.string.tailcat_name_default, connections.size + 1),
+            address = parsed.address,
+            ports = parsed.ports,
+            socks = parsed.socks ?: 0
+        )
+        return true
+    }
     // A tailsocks://tailcat/add link: a new connection's editor, filled in.
     if (!inPreview && importText != null) LaunchedEffect(importText) {
-        val parsed = TailcatConnections.parseImport(importText)
-        if (parsed == null) {
+        if (!importConnection(importText)) {
             Toast.makeText(context, context.getString(R.string.tailcat_import_none_link), Toast.LENGTH_SHORT).show()
-        } else {
-            editor = TailcatConnection(
-                name = context.getString(R.string.tailcat_name_default, connections.size + 1),
-                address = parsed.address,
-                ports = parsed.ports,
-                socks = parsed.socks ?: 0
-            )
+        }
+    }
+    // A scanned code: a TailCat address, or a tailcat/add link, opens the editor
+    // here; another app link opens its screen; any other text is only shown.
+    var scannedText by remember { mutableStateOf<String?>(null) }
+    val scanQr = rememberQrScanner { text ->
+        when (val code = ScannedCode.of(context, text)) {
+            is ScannedCode.AppLink -> {
+                val add = DeepLinks.tailcatImportText(code.uri)
+                if (add == null) DeepLinks.open(context, code.uri)
+                else if (!importConnection(add)) {
+                    Toast.makeText(context, context.getString(R.string.tailcat_import_none_link), Toast.LENGTH_SHORT).show()
+                }
+            }
+            is ScannedCode.Tailcat -> importConnection(code.text)
+            is ScannedCode.Text -> scannedText = code.text
         }
     }
     // The output of the open card, read while it is on screen.
@@ -210,6 +231,9 @@ fun TailcatScreen(onBack: () -> Unit, page: ServePage? = null, importText: Strin
     }
 
     val actions: @Composable RowScope.() -> Unit = {
+        IconButton(onClick = scanQr) {
+            Icon(Icons.Default.QrCodeScanner, stringResource(R.string.qr_scan_action))
+        }
         if (statuses.keys.any { running(it) } || serverOn) {
             IconButton(onClick = { TailcatService.stopAll(context); serverConfig = TailcatServer.load(context) }) {
                 Icon(Icons.Default.StopCircle, stringResource(R.string.tailcat_stop_all))
@@ -246,7 +270,7 @@ fun TailcatScreen(onBack: () -> Unit, page: ServePage? = null, importText: Strin
                     }
                     item { SectionHeading(stringResource(R.string.tailcat_heading_connections)) }
                     if (connections.isEmpty()) {
-                        item { EmptyConnectionsCard() }
+                        item { EmptyConnectionsCard(onScan = scanQr) }
                     } else items(connections, key = { it.id }) { conn ->
                         val status = statuses[conn.id]
                         ConnectionCard(
@@ -333,6 +357,7 @@ fun TailcatScreen(onBack: () -> Unit, page: ServePage? = null, importText: Strin
             onDismiss = { qrConnection = null }
         )
     }
+    scannedText?.let { ScanResultSheet(text = it, onDismiss = { scannedText = null }) }
     val qrAddress = serverAddress
     if (serverQr && qrAddress != null) {
         QrSheet(
@@ -452,7 +477,7 @@ private fun IconBox(icon: ImageVector, container: Color, tint: Color, shape: and
 }
 
 @Composable
-private fun EmptyConnectionsCard() {
+private fun EmptyConnectionsCard(onScan: () -> Unit) {
     Card(shape = MaterialTheme.shapes.large, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 28.dp),
@@ -467,6 +492,12 @@ private fun EmptyConnectionsCard() {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
+            // The QR code another phone's TailCat shows: the quickest way to a first connection.
+            OutlinedButton(onClick = onScan, modifier = Modifier.padding(top = 4.dp)) {
+                Icon(Icons.Default.QrCodeScanner, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.qr_scan_action))
+            }
         }
     }
 }
@@ -664,6 +695,27 @@ private fun ConnectionEditorSheet(
     val portsClash = clash?.takeIf { socksClash == null }
     val canSave = name.isNotBlank() && address.isNotBlank() && (ports.isNotBlank() || socks.isNotBlank()) && problem == null
 
+    /** Address, ports and proxy from a pasted or scanned connection; the name stays. */
+    fun fill(parsed: TailcatImport) {
+        address = parsed.address
+        if (parsed.ports.isNotEmpty()) ports = parsed.ports
+        parsed.socks?.let { socks = it.toString() }
+    }
+    // Resolved out here, in the screen's composition — see wrapContextWithLocale.
+    val scanLabel = stringResource(R.string.qr_scan_action)
+    val noTailcat = stringResource(R.string.qr_scan_no_tailcat)
+    // A scanned code fills the fields as Paste does: a TailCat address or
+    // connect command, or a tailcat/add link carrying one.
+    val scanQr = rememberQrScanner { text ->
+        val importText = when (val code = ScannedCode.of(context, text)) {
+            is ScannedCode.AppLink -> DeepLinks.tailcatImportText(code.uri)
+            is ScannedCode.Tailcat -> code.text
+            is ScannedCode.Text -> null
+        }
+        val parsed = importText?.let { TailcatConnections.parseImport(it) }
+        if (parsed == null) Toast.makeText(context, noTailcat, Toast.LENGTH_SHORT).show() else fill(parsed)
+    }
+
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
             modifier = Modifier
@@ -681,6 +733,8 @@ private fun ConnectionEditorSheet(
                     style = MaterialTheme.typography.titleLarge,
                     modifier = Modifier.weight(1f)
                 )
+                // The QR code another device's TailCat shows.
+                IconButton(onClick = scanQr) { Icon(Icons.Default.QrCodeScanner, scanLabel) }
                 // An address, or the commands a server's card copies: address,
                 // ports and proxy in one go.
                 TextButton(onClick = {
@@ -689,9 +743,7 @@ private fun ConnectionEditorSheet(
                         if (parsed == null) {
                             Toast.makeText(context, context.getString(R.string.tailcat_import_none), Toast.LENGTH_SHORT).show()
                         } else {
-                            address = parsed.address
-                            if (parsed.ports.isNotEmpty()) ports = parsed.ports
-                            parsed.socks?.let { socks = it.toString() }
+                            fill(parsed)
                         }
                     }
                 }) {

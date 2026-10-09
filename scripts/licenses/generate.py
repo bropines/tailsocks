@@ -54,6 +54,9 @@ MAVEN_TEXT = {
     "io.nayuki:qrcodegen": "MIT-qrcodegen.txt",
     # Protocol Buffers' runtime, repackaged by AndroidX for Glance.
     "androidx.glance:glance-appwidget-external-protobuf": "BSD-3-Clause-protobuf.txt",
+    # libyuv, compiled into CameraX's native libraries; the POM names BSD-3-Clause,
+    # the artifact carries only the Apache license.
+    "androidx.camera:camera-core": "BSD-3-Clause-libyuv.txt",
 }
 # Groups whose POM names its license only through a parent POM Gradle never fetched.
 MAVEN_LICENSE = {"com.google.guava": "Apache-2.0", "com.google.auto.service": "Apache-2.0"}
@@ -122,12 +125,14 @@ def pom_info(pom, depth=0):
     """(licenses [(name, url)], project url, organization) following parent POMs."""
     if not pom or not os.path.exists(pom): return [], "", ""
     root = ET.parse(pom).getroot()
-    lic = [((l.findtext(NS + "name") or "").strip(), (l.findtext(NS + "url") or "").strip()) for l in root.iter(NS + "license")]
-    url = (root.findtext(NS + "url") or "").strip()
-    org = (root.findtext(NS + "organization/" + NS + "name") or "").strip()
-    par = root.find(NS + "parent")
+    # A few old POMs (javax.inject:javax.inject:1, under Dagger) declare no namespace.
+    ns = NS if root.tag.startswith(NS) else ""
+    lic = [((l.findtext(ns + "name") or "").strip(), (l.findtext(ns + "url") or "").strip()) for l in root.iter(ns + "license")]
+    url = (root.findtext(ns + "url") or "").strip()
+    org = (root.findtext(ns + "organization/" + ns + "name") or "").strip()
+    par = root.find(ns + "parent")
     if (not lic or not url) and par is not None and depth < 6:
-        pg, pa, pv = (par.findtext(NS + x) for x in ("groupId", "artifactId", "version"))
+        pg, pa, pv = (par.findtext(ns + x) for x in ("groupId", "artifactId", "version"))
         cands = glob.glob(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(pom)))),
                                        "..", pg, pa, pv, "*", f"{pa}-{pv}.pom"))
         cands = cands or glob.glob(os.path.expanduser(f"~/.gradle/caches/modules-2/files-2.1/{pg}/{pa}/{pv}/*/{pa}-{pv}.pom"))

@@ -58,8 +58,9 @@ import io.nayuki.qrcodegen.DataTooLongException
 import io.nayuki.qrcodegen.QrCode
 
 /*
- * QR codes to show, never to scan: a connect command, a served link, a peer's
- * address, for another device's camera. No camera, no permission.
+ * QR codes to show: a connect command, a served link, a peer's address, for
+ * another device's camera. Drawing one needs no camera and no permission; the
+ * reading side is QrScanActivity.
  */
 
 /** Light modules on every side of the code: the standard's quiet zone, which scanners look for. */

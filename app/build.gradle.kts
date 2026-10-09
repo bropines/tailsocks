@@ -271,6 +271,14 @@ dependencies {
     implementation(libs.androidx.material3.adaptive)
     // QR codes for addresses and links, drawn by ui/QrCode.kt; display only.
     implementation(libs.qrcodegen)
+    // ...and to scan (ui/QrScanActivity.kt): the camera through CameraX, its
+    // preview drawn by camera-compose, the codes read by ZXing's core.
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.compose)
+    implementation(libs.zxing.core)
+    compileOnly(libs.guava)
     debugImplementation(libs.androidx.ui.tooling)
     screenshotTestImplementation(libs.screenshot.validation.api)
     screenshotTestImplementation(libs.androidx.ui.tooling)

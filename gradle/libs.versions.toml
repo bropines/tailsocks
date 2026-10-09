@@ -26,6 +26,16 @@ appfunctions = "1.0.0-alpha10"
 # QR codes to show (ui/QrCode.kt): Nayuki's encoder, MIT, plain Java with no
 # dependencies and no reflection — nothing for R8 to keep, nothing non-free.
 qrcodegen = "1.8.0"
+# QR codes to scan (ui/QrScanActivity.kt): CameraX for the preview and the
+# frames, ZXing's core to decode them. Both Apache-2.0 — no ML Kit, no Play
+# services, nothing an F-Droid build cannot carry.
+camerax = "1.6.2"
+zxing = "3.5.4"
+# Only for the compiler: CameraX's signatures name Guava's ListenableFuture, and
+# AppFunctions' Guava on the runtime classpath swaps the standalone
+# listenablefuture artifact for its empty stand-in. At run time the class comes
+# with that Guava, the same version; the APK carries no second copy.
+guava = "32.0.1-android"
 
 [libraries]
 androidx-browser = { group = "androidx.browser", name = "browser", version.ref = "browser" }
@@ -49,6 +59,12 @@ androidx-glance-material3 = { group = "androidx.glance", name = "glance-material
 androidx-appfunctions = { group = "androidx.appfunctions", name = "appfunctions", version.ref = "appfunctions" }
 androidx-appfunctions-compiler = { group = "androidx.appfunctions", name = "appfunctions-compiler", version.ref = "appfunctions" }
 qrcodegen = { group = "io.nayuki", name = "qrcodegen", version.ref = "qrcodegen" }
+androidx-camera-core = { group = "androidx.camera", name = "camera-core", version.ref = "camerax" }
+androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "camerax" }
+androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "camerax" }
+androidx-camera-compose = { group = "androidx.camera", name = "camera-compose", version.ref = "camerax" }
+zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
+guava = { group = "com.google.guava", name = "guava", version.ref = "guava" }
 
 androidx-material3-adaptive = { group = "androidx.compose.material3.adaptive", name = "adaptive", version.ref = "material3-adaptive" }
 screenshot-validation-api = { group = "com.android.tools.screenshot", name = "screenshot-validation-api", version.ref = "screenshot" }

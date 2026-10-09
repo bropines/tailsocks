@@ -14,6 +14,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarColors
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,7 +31,9 @@ import io.github.bropines.tailscaled.R
  * With it the title steps down to titleMedium: a single-line bar has room for
  * two short lines and no more. [onBack] shows the back arrow; leave it null on
  * a screen with nowhere to go back to. [onTitleClick] makes the title a
- * picker, and a caret after the subtitle says so.
+ * picker, and a caret after the subtitle says so. [colors] is for a bar laid
+ * over something else — the QR scanner's camera — and stays the default on
+ * every ordinary screen.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,10 +43,12 @@ fun AppTopBar(
     subtitle: String? = null,
     onBack: (() -> Unit)? = null,
     onTitleClick: (() -> Unit)? = null,
+    colors: TopAppBarColors = TopAppBarDefaults.topAppBarColors(),
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     TopAppBar(
         modifier = modifier,
+        colors = colors,
         title = {
             Column(if (onTitleClick != null) Modifier.clickable(onClick = onTitleClick) else Modifier) {
                 Text(

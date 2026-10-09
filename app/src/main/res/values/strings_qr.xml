@@ -9,8 +9,8 @@
 
     <!-- TailCat -->
     <string name="qr_tailcat_server_title">Connect to this phone</string>
-    <string name="qr_tailcat_server_help">Scan it on the other device. TailSocks takes these lines with Paste in a new connection\'s editor; a computer runs them with the tailcat CLI. If the server lets in anyone, the address is all a client needs.</string>
-    <string name="qr_tailcat_connection_help">The same connection on another device: scan it, then Paste in a new connection\'s editor. The proxy\'s login and password stay on this phone.</string>
+    <string name="qr_tailcat_server_help">Scan it on the other device: TailSocks there turns it into a new connection (Scan QR code in TailCat); a computer runs these lines with the tailcat CLI. If the server lets in anyone, the address is all a client needs.</string>
+    <string name="qr_tailcat_connection_help">The same connection on another device: scan it with Scan QR code in TailCat there. The proxy\'s login and password stay on this phone.</string>
 
     <!-- Serve -->
     <string name="qr_serve_title">Open on another device</string>
