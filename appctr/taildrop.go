@@ -195,8 +195,10 @@ type TaildropListener interface {
 	// OnIncomingFiles receives the JSON array of BusPartialFile that arrived in
 	// one Notify.IncomingFiles — the same shape GetIncomingFilesJSON returns.
 	// It is called for every Notify that carries the field, roughly once a
-	// second per active transfer, plus a final one in which the finished file
-	// has Done=true and FinalPath set (send.go: SendFileNotify after Rename).
+	// second while a transfer moves (Received = bytes written so far; upstream
+	// 1.84+ never counts them, patch 03 restores it in send.go), plus a final
+	// one in which the finished file has Done=true and FinalPath set (send.go:
+	// SendFileNotify after Rename). A failed transfer gets no final one.
 	// That final entry is present in exactly one notification: the daemon
 	// forgets the transfer right after it, so a caller that only polls
 	// GetIncomingFilesJSON can miss it — react to Done here. An empty array

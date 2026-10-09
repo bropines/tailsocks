@@ -38,6 +38,8 @@ echo "-> Generating atomic patches..."
 diff -u orig/cmd/tailscaled/proxy.go tailscale_src/cmd/tailscaled/proxy.go > patches/02-socks5-auth.patch || true
 
 # 03-taildrop-monolithic-fs.patch (feature/taildrop)
+# Includes send.go: the receiver counts the bytes it writes again, so
+# Notify.IncomingFiles reports progress (upstream 1.84+ copies past the counter).
 diff -N -r -u -x "*.orig" -x "*.rej" orig/feature/taildrop tailscale_src/feature/taildrop > patches/03-taildrop-monolithic-fs.patch || true
 
 # 04-vip-services.patch (ipn/ipnlocal)

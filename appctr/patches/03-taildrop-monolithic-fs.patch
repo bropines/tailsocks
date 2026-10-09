@@ -395,3 +395,34 @@ diff -N -r -u -x '*.orig' -x '*.rej' orig/feature/taildrop/fileops_fs.go tailsca
 -	}
 -	return filepath.Join(dir, baseName), nil
 -}
+diff -N -r -u -x '*.orig' -x '*.rej' orig/feature/taildrop/send.go tailscale_src/feature/taildrop/send.go
+--- orig/feature/taildrop/send.go	2026-09-30 21:46:37.000000000 +0300
++++ tailscale_src/feature/taildrop/send.go	2026-10-09 04:37:07.493578452 +0300
+@@ -116,11 +116,13 @@
+ 		return inFile
+ 	})
+ 
+-	inFile.w = wc
+-
+ 	if loaded {
+ 		return 0, ErrFileExists
+ 	}
++	// TailSocks: the writer is set only by the PUT that owns the entry; set
++	// before the check, a second PUT of the same name would swap its own file
++	// in under the transfer already running and then close it.
++	inFile.w = wc
+ 	defer m.incomingFiles.Delete(inFileKey)
+ 
+ 	// Record that we have started to receive at least one file.
+@@ -135,7 +137,10 @@
+ 	}
+ 
+ 	// Copy the contents of the file to the writer.
+-	copyLength, err := io.Copy(wc, r)
++	// TailSocks: through inFile, which counts what is written and notifies
++	// about once a second. Upstream copies straight into wc since 1.84, so
++	// PartialFile.Received stays 0 and a receiver never sees progress.
++	copyLength, err := io.Copy(inFile, r)
+ 	if err != nil {
+ 		return 0, m.redactAndLogError("Copy", err)
+ 	}
