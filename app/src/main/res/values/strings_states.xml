@@ -20,7 +20,6 @@
     <string name="state_show_all">Show all</string>
 
     <!-- Admin Console, when the tailnet could not be read off a stopped daemon. -->
-    <string name="state_admin_enter_tailnet">Enter the tailnet by hand</string>
 
     <!-- Peer row: how the traffic goes, after the address. A DERP relay shows
          its region code instead, as the daemon reports it (fra, ams). -->

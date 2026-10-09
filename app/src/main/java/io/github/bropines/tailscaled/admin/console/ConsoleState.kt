@@ -139,7 +139,6 @@ data class ConsoleState(
     val serviceHosts: Map<String, Loadable<List<ApiServiceHost>>> = emptyMap(),
     val webhooks: Loadable<List<ApiWebhook>> = Loadable(),
     val tailnetLog: Loadable<List<ApiAuditLogEntry>> = Loadable(),
-    val tailnetLogDays: Int = 7,
     /** The audit log's window and server-side filters. */
     val tailnetLogQuery: AuditLogQuery = AuditLogQuery(),
     val localLog: List<AuditRecord> = emptyList(),

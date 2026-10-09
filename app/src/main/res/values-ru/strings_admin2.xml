@@ -11,8 +11,6 @@
     <string name="admin2_readonly_profile_title">Профиль только для просмотра</string>
     <string name="admin2_readonly_profile_desc">Через этот профиль ничего не меняется. Разрешить изменения можно в настройках профиля, с разблокировкой.</string>
     <string name="admin2_readonly_scope_title">Этот ключ может только читать</string>
-    <string name="admin2_readonly_scope_desc">Его права (scopes) не позволяют ничего менять в этом разделе. Для изменений нужен ключ с правами на запись.</string>
-    <string name="admin2_not_allowed_area">Этому ключу нельзя: нужно право %1$s.</string>
 
     <!-- Unlocking a change -->
     <string name="admin2_write_unlock_title">Подтвердите изменение</string>
@@ -55,7 +53,6 @@
     <string name="admin2_outcome_mismatch">%1$s: отправлено, но сервер показывает другое. Обновите, чтобы увидеть текущее состояние.</string>
     <string name="admin2_outcome_failed">%1$s: не удалось. %2$s</string>
     <string name="admin2_undo">Отменить</string>
-    <string name="admin2_undo_title">Отмена: %1$s</string>
 
     <!-- API errors -->
     <string name="admin2_error_unauthorized">Ключ отклонён: истёк или отозван. Замените его в профиле.</string>
@@ -97,7 +94,6 @@
     <string name="admin2_webhook_secret_text">По нему проверяется заголовок Tailscale-Webhook-Signature каждого события.</string>
 
     <!-- Profiles -->
-    <string name="admin2_profiles_title">Профили админ-панели</string>
     <string name="admin2_profile_add">Добавить профиль</string>
     <string name="admin2_profile_new_title">Новый профиль панели</string>
     <string name="admin2_profile_edit_title">Профиль</string>
@@ -139,15 +135,12 @@
         <item quantity="other">%d устройства</item>
     </plurals>
     <string name="admin2_device_online">В сети</string>
-    <string name="admin2_device_offline">Не в сети</string>
     <string name="admin2_device_last_seen">Был в сети %1$s</string>
     <string name="admin2_device_shared">Открыто вам</string>
     <string name="admin2_device_this_phone">Этот телефон</string>
     <string name="admin2_device_multiple_connections">С этим ключом узла подключаются несколько машин: состояние скопировано между устройствами.</string>
     <string name="admin2_device_lock_error">Tailnet Lock: %1$s</string>
-    <string name="admin2_device_shared_desc">Открыто вам из другого tailnet: менять его может только тот tailnet.</string>
     <string name="admin2_device_rename_help">Имя в MagicDNS станет имя.%1$s. Буквы, цифры и дефисы.</string>
-    <string name="admin2_device_rename_blank">Введите имя.</string>
     <string name="admin2_device_tags_owner_warning">Теги становятся владельцем устройства: оно перестанет принадлежать %1$s.</string>
     <string name="admin2_device_tags_none">Без тегов</string>
     <string name="admin2_device_tags_new">Добавить тег</string>
@@ -183,7 +176,6 @@
     <string name="admin2_key_type_client">OAuth-клиент</string>
     <string name="admin2_key_type_federated">Федеративная идентичность</string>
     <string name="admin2_key_type_unknown">Ключ</string>
-    <string name="admin2_key_own">На нём работает эта панель</string>
     <string name="admin2_key_reusable">Многоразовый</string>
     <string name="admin2_key_reusable_desc">Можно зарегистрировать больше одного устройства.</string>
     <string name="admin2_key_ephemeral_desc">Зарегистрированные с ним устройства удаляются вскоре после отключения.</string>
@@ -201,26 +193,18 @@
 
     <!-- Tailnet settings -->
     <string name="admin2_settings_https_title">HTTPS-сертификаты</string>
-    <string name="admin2_settings_https_desc">Устройства могут получать TLS-сертификаты на свои имена в tailnet; на них работают Serve и Funnel.</string>
     <string name="admin2_settings_route_selection_title">Выбор маршрута</string>
-    <string name="admin2_settings_route_selection_desc">Как выбирается один из нескольких маршрутизаторов подсети, раздающих один маршрут.</string>
     <string name="admin2_route_failover">Активный-резервный</string>
     <string name="admin2_route_regional">Региональная маршрутизация</string>
     <string name="admin2_route_regional_failover">Региональная с резервированием</string>
-    <string name="admin2_settings_acls_external">Файл политики управляется вне консоли.</string>
     <string name="admin2_settings_unknown">Не задано</string>
 
     <!-- The console's own log -->
-    <string name="admin2_logs_tailnet">Tailnet</string>
-    <string name="admin2_logs_this_phone">С этого телефона</string>
-    <string name="admin2_local_log_empty">С этого телефона ещё ничего не меняли.</string>
-    <string name="admin2_local_log_help">Каждое изменение, которое панель отправила или остановила, с ID запросов сервера. Хранится только на этом телефоне.</string>
     <string name="admin2_result_verified">Готово, проверено</string>
     <string name="admin2_result_applied">Готово</string>
     <string name="admin2_result_mismatch">Не так, как просили</string>
     <string name="admin2_result_failed">Не удалось</string>
     <string name="admin2_result_refused">Остановлено</string>
-    <string name="admin2_local_log_clear">Очистить</string>
 
     <!-- Changes: titles and effects -->
     <string name="admin2_change_rename">Переименовать %1$s</string>

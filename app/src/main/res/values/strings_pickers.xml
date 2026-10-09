@@ -12,13 +12,8 @@
     </plurals>
 
     <!-- Audit logs: how far back to fetch. -->
-    <string name="pickers_logs_period_title">Period</string>
 
     <!-- Admin devices: sort order. The sheet title already says "sort", so these do not. -->
-    <string name="pickers_sort_name_az">Name, A to Z</string>
-    <string name="pickers_sort_name_za">Name, Z to A</string>
-    <string name="pickers_sort_last_seen">Recently seen first</string>
-    <string name="pickers_sort_update">Updates available first</string>
 
     <!-- Tailnet settings: who may join other tailnets. The API values are none, admin, member. -->
     <string name="pickers_role_none">Nobody</string>

@@ -178,20 +178,6 @@ object ConsoleChanges {
 
     fun keyTarget(k: ApiKey) = ChangeTarget(TargetType.KEY, k.id, k.description?.takeIf { it.isNotBlank() } ?: k.id)
 
-    fun revokeKey(ctx: Context, k: ApiKey): PlannedChange = PlannedChange(
-        change = change(
-            ChangeKind.KEY_REVOKE, keyTarget(k),
-            title = ctx.getString(R.string.admin2_change_key_revoke, k.description?.takeIf { it.isNotBlank() } ?: k.id),
-            effect = ctx.getString(R.string.admin2_change_key_revoke_effect),
-            diff = listOf(DiffLine(ctx.getString(R.string.admin2_diff_key), "${ConsoleText.keyType(ctx, k.type)} ${k.id}", null)),
-        ),
-        apply = { it.deleteKey(k.id) },
-        verify = { b ->
-            val after = runCatching { b.getKey(k.id) }
-            after.exceptionOrNull() is AdminApiException.NotFound || after.getOrNull()?.let { it.isRevoked || it.invalid == true } == true
-        },
-    )
-
     // ------------------------------------------------------------------ users
 
     fun userTarget(u: ApiUser) = ChangeTarget(TargetType.USER, u.id, u.loginName.ifBlank { u.name }, loginName = u.loginName)

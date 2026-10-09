@@ -10,7 +10,6 @@
     <string name="state_logs_category_empty">В %1$s ничего нет</string>
     <string name="state_show_all">Показать все</string>
 
-    <string name="state_admin_enter_tailnet">Указать tailnet вручную</string>
 
     <string name="peer_path_direct">напрямую</string>
     <string name="peer_path_peer_relay">реле-узел</string>

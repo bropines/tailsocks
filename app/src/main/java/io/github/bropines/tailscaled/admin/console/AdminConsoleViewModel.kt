@@ -142,7 +142,7 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
                 profiles = it.profiles,
                 active = profile,
                 lockState = it.lockState,
-                tailnetLogDays = it.tailnetLogDays,
+                tailnetLogQuery = it.tailnetLogQuery,
             )
         }
         val created = withContext(Dispatchers.IO) { runCatching { AdminProfiles.newBackend(app, profile) } }
@@ -251,11 +251,6 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
 
     fun refreshKeys(force: Boolean = true) =
         loadList(force, { it.keys }, { s, v -> s.copy(keys = v) }) { it.listKeys() }
-
-    fun setTailnetLogDays(days: Int) {
-        _state.update { it.copy(tailnetLogDays = days) }
-        refresh(ConsoleTab.LOGS, force = true)
-    }
 
     /** New server-side filters or window for the tailnet's audit log; the old result stays until the new one arrives. */
     fun setTailnetLogQuery(query: AuditLogQuery) {
@@ -534,7 +529,6 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun revokeKey(k: ApiKey) = propose(ConsoleChanges.revokeKey(text, k))
 
     fun approveUser(u: ApiUser) = propose(ConsoleChanges.approveUser(text, u))
     fun setUserRole(u: ApiUser, role: UserRole) = propose(ConsoleChanges.setUserRole(text, u, role))
@@ -593,8 +587,6 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
         viewUnlocked = true
     }
 
-    internal fun lockStateNow(): LockState = AdminWriteGate.lockState(app)
-
     override fun onCleared() {
         closeSession()
         super.onCleared()
@@ -605,7 +597,5 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
         private const val FRESH_MS = 60_000L
         private const val DAY_MS = 24L * 3600 * 1000
 
-        fun rfc3339(ms: Long): String = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
-            .apply { timeZone = TimeZone.getTimeZone("UTC") }.format(Date(ms))
     }
 }

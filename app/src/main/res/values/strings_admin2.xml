@@ -12,8 +12,6 @@
     <string name="admin2_readonly_profile_title">Read-only profile</string>
     <string name="admin2_readonly_profile_desc">This profile never makes changes. Edit the profile to allow them; that needs an unlock.</string>
     <string name="admin2_readonly_scope_title">This credential can only read</string>
-    <string name="admin2_readonly_scope_desc">Its scopes allow no changes here. Use a credential with write scopes for this part of the tailnet.</string>
-    <string name="admin2_not_allowed_area">Not allowed for this credential: it needs the %1$s scope.</string>
 
     <!-- Unlocking a change -->
     <string name="admin2_write_unlock_title">Confirm the change</string>
@@ -56,7 +54,6 @@
     <string name="admin2_outcome_mismatch">%1$s: sent, but the server shows something else. Refresh to see the current state.</string>
     <string name="admin2_outcome_failed">%1$s: failed. %2$s</string>
     <string name="admin2_undo">Undo</string>
-    <string name="admin2_undo_title">Undo: %1$s</string>
 
     <!-- API errors -->
     <string name="admin2_error_unauthorized">The credential was refused: it expired or was revoked. Replace it in the profile.</string>
@@ -96,7 +93,6 @@
     <string name="admin2_webhook_secret_text">Use it to check the Tailscale-Webhook-Signature header of each event.</string>
 
     <!-- Profiles -->
-    <string name="admin2_profiles_title">Admin profiles</string>
     <string name="admin2_profile_add">Add a profile</string>
     <string name="admin2_profile_new_title">New admin profile</string>
     <string name="admin2_profile_edit_title">Edit profile</string>
@@ -136,15 +132,12 @@
         <item quantity="other">%d devices</item>
     </plurals>
     <string name="admin2_device_online">Online</string>
-    <string name="admin2_device_offline">Offline</string>
     <string name="admin2_device_last_seen">Last seen %1$s</string>
     <string name="admin2_device_shared">Shared in</string>
     <string name="admin2_device_this_phone">This phone</string>
     <string name="admin2_device_multiple_connections">Several machines connect with this node key: its state was copied between devices.</string>
     <string name="admin2_device_lock_error">Tailnet Lock: %1$s</string>
-    <string name="admin2_device_shared_desc">Shared in from another tailnet: only that tailnet can change it.</string>
     <string name="admin2_device_rename_help">Its MagicDNS name becomes name.%1$s. Letters, digits and hyphens.</string>
-    <string name="admin2_device_rename_blank">Enter a name.</string>
     <string name="admin2_device_tags_owner_warning">Tags become the device\'s owner: it stops belonging to %1$s.</string>
     <string name="admin2_device_tags_none">No tags</string>
     <string name="admin2_device_tags_new">Add a tag</string>
@@ -178,7 +171,6 @@
     <string name="admin2_key_type_client">OAuth client</string>
     <string name="admin2_key_type_federated">Federated identity</string>
     <string name="admin2_key_type_unknown">Key</string>
-    <string name="admin2_key_own">Used by this console</string>
     <string name="admin2_key_reusable">Reusable</string>
     <string name="admin2_key_reusable_desc">Can register more than one device.</string>
     <string name="admin2_key_ephemeral_desc">Devices registered with it are removed soon after they go offline.</string>
@@ -198,26 +190,18 @@
 
     <!-- Tailnet settings -->
     <string name="admin2_settings_https_title">HTTPS certificates</string>
-    <string name="admin2_settings_https_desc">Devices may get TLS certificates for their names in the tailnet, which Serve and Funnel use.</string>
     <string name="admin2_settings_route_selection_title">Route selection</string>
-    <string name="admin2_settings_route_selection_desc">How a route served by several subnet routers picks one.</string>
     <string name="admin2_route_failover">Active-passive failover</string>
     <string name="admin2_route_regional">Regional routing</string>
     <string name="admin2_route_regional_failover">Regional routing with failover</string>
-    <string name="admin2_settings_acls_external">The policy file is managed outside the console.</string>
     <string name="admin2_settings_unknown">Not set</string>
 
     <!-- The console's own log -->
-    <string name="admin2_logs_tailnet">Tailnet</string>
-    <string name="admin2_logs_this_phone">From this phone</string>
-    <string name="admin2_local_log_empty">No changes were made from this phone yet.</string>
-    <string name="admin2_local_log_help">Every change this console sent or stopped, with the server\'s request IDs. Kept on this phone only.</string>
     <string name="admin2_result_verified">Done, checked</string>
     <string name="admin2_result_applied">Done</string>
     <string name="admin2_result_mismatch">Not as asked</string>
     <string name="admin2_result_failed">Failed</string>
     <string name="admin2_result_refused">Stopped</string>
-    <string name="admin2_local_log_clear">Clear</string>
 
     <!-- Changes: titles and effects -->
     <string name="admin2_change_rename">Rename %1$s</string>

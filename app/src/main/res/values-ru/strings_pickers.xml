@@ -7,12 +7,7 @@
         <item quantity="other">%d дня</item>
     </plurals>
 
-    <string name="pickers_logs_period_title">Период</string>
 
-    <string name="pickers_sort_name_az">По имени, А–Я</string>
-    <string name="pickers_sort_name_za">По имени, Я–А</string>
-    <string name="pickers_sort_last_seen">Сначала недавно активные</string>
-    <string name="pickers_sort_update">Сначала с обновлениями</string>
 
     <string name="pickers_role_none">Никто</string>
     <string name="pickers_role_admin">Администраторы</string>

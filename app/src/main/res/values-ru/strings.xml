@@ -46,17 +46,12 @@
     <string name="action_rename">Переименовать</string>
     <string name="action_confirm">Подтвердить</string>
     <string name="action_generate">Сгенерировать</string>
-    <string name="action_revoke">Отозвать</string>
-    <string name="action_approve">Одобрить</string>
-    <string name="action_suspend">Заблокировать</string>
-    <string name="action_restore">Восстановить</string>
     <string name="action_edit">Изменить</string>
     <string name="action_copy">Копировать</string>
     <string name="action_open">Открыть</string>
     <string name="action_send">Отправить</string>
     <string name="action_back">Назад</string>
     <string name="action_more">Ещё</string>
-    <string name="action_disconnect">Отключить</string>
     <string name="action_unlock">Разблокировать консоль</string>
 
     <!-- Common placeholders / empty states -->
@@ -113,62 +108,24 @@
     <string name="admin_proxy_socks5_required">Требуются корректные хост и порт SOCKS5</string>
 
     <!-- Admin: Devices tab -->
-    <string name="admin_devices_no_devices">Устройства не найдены</string>
-    <string name="admin_devices_cd_sort">Сортировка устройств</string>
-    <string name="admin_devices_status_expired">Истёк</string>
-    <string name="admin_devices_status_pending">Ожидание</string>
 
     <!-- Admin: Device detail bottom sheet -->
-    <string name="admin_device_btn_rename">Пере-вать</string>
-    <string name="admin_device_btn_tags">Теги</string>
-    <string name="admin_device_detail_full_name">Полное имя</string>
-    <string name="admin_device_detail_ip">IP-адрес</string>
-    <string name="admin_device_detail_os">ОС</string>
-    <string name="admin_device_detail_os_unknown">Неизвестно</string>
-    <string name="admin_device_detail_owner">Владелец</string>
-    <string name="admin_device_detail_owner_na">Н/Д</string>
-    <string name="admin_device_detail_key_expiry">Срок действия ключа</string>
-    <string name="admin_device_detail_key_expiry_disabled">Отключено</string>
-    <string name="admin_device_detail_authorization">Авторизация</string>
-    <string name="admin_device_detail_authorization_approved">Одобрено</string>
-    <string name="admin_device_detail_authorization_required">Требуется</string>
-    <string name="admin_device_detail_tags">Теги</string>
 
     <!-- Admin: Device update banner -->
-    <string name="admin_device_update_available">Доступно обновление</string>
 
     <!-- Admin: Device key expiry card -->
-    <string name="admin_device_disable_key_expiry">Отключить истечение ключа</string>
-    <string name="admin_device_disable_key_expiry_desc">Предотвратить истечение ключа на этом конкретном устройстве.</string>
 
     <!-- Admin: Device routing card -->
-    <string name="admin_device_routing_title">Маршрутизация и подсети</string>
-    <string name="admin_device_no_routes">На этом устройстве не объявлены подсетевые маршруты или выходные узлы.</string>
-    <string name="admin_device_exit_node_label">Использовать как выходной узел</string>
-    <string name="admin_device_exit_node_desc">Маршрутизировать интернет-трафик через это устройство.</string>
-    <string name="admin_device_no_subnet_routes">Подсетевые маршруты не объявлены.</string>
-    <string name="admin_device_advertised_subnets">Объявленные подсети</string>
 
     <!-- Admin: Device admin actions -->
-    <string name="admin_device_authorize">Авторизовать узел</string>
-    <string name="admin_device_deauthorize">Отозвать авторизацию</string>
-    <string name="admin_device_expire_key">Аннулировать ключ сейчас</string>
-    <string name="admin_device_delete">Удалить устройство</string>
 
     <!-- Admin: Device rename dialog -->
-    <string name="admin_device_rename_title">Переименовать устройство</string>
-    <string name="admin_device_rename_label">Новое базовое имя</string>
 
     <!-- Admin: Device tags dialog -->
-    <string name="admin_device_tags_title">Редактировать теги устройства</string>
-    <string name="admin_device_tags_update">Обновить теги</string>
 
     <!-- Admin: DNS tab -->
-    <string name="admin_dns_magic_dns_desc">Регистрация DNS-имён для устройств</string>
     <string name="admin_dns_global_ns_title">Глобальные DNS-серверы</string>
     <string name="admin_dns_no_custom_ns">Пользовательские DNS-серверы не настроены</string>
-    <string name="admin_dns_ns_placeholder">например: 1.1.1.1</string>
-    <string name="admin_dns_apply_ns">Применить DNS-серверы</string>
     <string name="admin_dns_split_title">Split DNS (маршруты по доменам)</string>
     <string name="admin_dns_no_split">Маршруты Split DNS не настроены</string>
     <string name="admin_dns_add_split_route">Добавить маршрут Split DNS</string>
@@ -176,79 +133,33 @@
     <string name="admin_dns_domain_placeholder">например: corp.internal</string>
     <string name="admin_dns_ns_list_label">DNS-серверы (через запятую)</string>
     <string name="admin_dns_ns_list_placeholder">например: 10.0.0.1, 10.0.0.2</string>
-    <string name="admin_dns_domain_and_ns_required">Необходимо указать домен и DNS-серверы</string>
     <string name="admin_dns_search_domains_title">Поисковые домены DNS</string>
     <string name="admin_dns_no_search_domains">Поисковые домены не настроены</string>
     <string name="admin_dns_search_domain_placeholder">например: mycompany.com</string>
-    <string name="admin_dns_apply_search">Применить поисковые домены</string>
     <string name="admin_dns_tailnet_name_title">Имя Tailnet</string>
     <string name="admin_dns_tailnet_name_desc">Переименование домена tailnet на пользовательское имя (например, *.ts.net). Это необходимо выполнять через консоль администратора Tailscale по соображениям безопасности.</string>
     <string name="admin_dns_rename_web">Переименовать Tailnet в веб-консоли</string>
 
     <!-- Admin: Users tab -->
     <string name="admin_users_no_users">Пользователи не найдены</string>
-    <string name="admin_users_change_role">Изменить роль пользователя</string>
-    <string name="admin_users_login_name">Имя для входа</string>
-    <string name="admin_users_display_name">Отображаемое имя</string>
-    <string name="admin_users_created_at">Дата создания</string>
     <string name="admin_users_role">Роль</string>
     <string name="admin_users_status">Статус</string>
-    <string name="admin_users_type">Тип пользователя</string>
-    <string name="admin_users_devices_owned">Устройств во владении</string>
-    <string name="admin_users_approve">Одобрить пользователя</string>
-    <string name="admin_users_restore">Восстановить доступ</string>
-    <string name="admin_users_suspend">Заблокировать пользователя</string>
-    <string name="admin_users_delete">Удалить пользователя</string>
-    <string name="admin_users_select_role_title">Выбрать роль пользователя</string>
 
     <!-- Admin: Services tab -->
-    <string name="admin_services_info">Службы определяются в консоли администратора или с экрана Serve &amp; Funnel при сохранении правила для службы. Здесь подтверждаются устройства, которые их хостят.</string>
-    <string name="admin_services_no_services">Виртуальные службы не найдены</string>
-    <string name="admin_services_no_ip">Нет IP</string>
-    <string name="admin_services_ip_addresses">IP-адреса</string>
-    <string name="admin_services_exposed_ports">Открытые порты</string>
-    <string name="admin_services_comment">Комментарий</string>
-    <string name="admin_services_no_comment">Без комментария</string>
-    <string name="admin_services_tags">Теги службы</string>
-    <string name="admin_services_hosting_devices">Размещающие устройства и одобрения</string>
-    <string name="admin_services_no_hosts">Нет устройств, настроенных или запрашивающих размещение этой службы.</string>
-    <string name="admin_services_host_level">Уровень: %1$s • Конфиг: %2$s</string>
 
     <!-- Admin: Keys tab -->
-    <string name="admin_keys_no_active">Нет активных ключей</string>
-    <string name="admin_keys_cd_generate">Создать ключ</string>
-    <string name="admin_keys_expires_prefix">Истекает: %1$s</string>
     <string name="admin_keys_status_revoked">Отозван</string>
     <string name="admin_keys_status_expired">Истёк</string>
-    <string name="admin_keys_cd_revoke">Отозвать</string>
-    <string name="admin_keys_generate_title">Создать Auth-ключ</string>
     <string name="admin_keys_desc_label">Описание</string>
-    <string name="admin_keys_desc_placeholder">например: Ключ серверного узла</string>
-    <string name="admin_keys_expiry_label">Срок действия (дней)</string>
-    <string name="admin_keys_ephemeral_title">Эфемерный ключ</string>
-    <string name="admin_keys_preauth_title">Предварительно авторизованный ключ</string>
-    <string name="admin_keys_tags_label">Применить теги (через запятую)</string>
-    <string name="admin_keys_tags_supporting">Необязательно. Требует определения владельца тега в ACL</string>
 
     <!-- Admin: Logs tab -->
-    <string name="admin_logs_search_placeholder">Поиск по аудит-логам…</string>
-    <string name="admin_logs_events_found">%1$d событий аудита</string>
-    <string name="admin_logs_no_events">События аудита не найдены</string>
-    <string name="admin_logs_actor_prefix">Актор: %1$s (%2$s)</string>
-    <string name="admin_logs_target_prefix">Цель: %1$s</string>
-    <string name="admin_logs_origin_prefix">Источник: %1$s</string>
-    <string name="admin_logs_action_type_format">%1$s (%2$s)</string>
 
     <!-- Admin: Webhooks tab -->
     <string name="admin_webhooks_title">Webhook-эндпоинты</string>
     <string name="admin_webhooks_add">Добавить эндпоинт</string>
     <string name="admin_webhooks_no_webhooks">Webhooks не настроены</string>
-    <string name="admin_webhooks_test_ping">Тест ping</string>
     <string name="admin_webhooks_add_title">Добавить Webhook-эндпоинт</string>
     <string name="admin_webhooks_url_label">URL эндпоинта</string>
-    <string name="admin_webhooks_subscribe_label">Подписка на события:</string>
-    <string name="admin_webhooks_invalid_url">Введите корректный URL (http/https)</string>
-    <string name="admin_webhooks_no_events_selected">Выберите хотя бы одно событие</string>
 
     <!-- Admin: Web links tab -->
     <string name="admin_web_title">Безопасные веб-настройки</string>
@@ -270,23 +181,14 @@
     <string name="admin_settings_auth_keys_title">Auth-ключи</string>
     <string name="admin_settings_auth_keys_desc">Создание, просмотр и отзыв ключей аутентификации для данного Tailnet.</string>
     <string name="admin_settings_key_expiry_title">Срок действия ключей по умолчанию</string>
-    <string name="admin_settings_key_expiry_desc">Задайте срок действия ключей устройств в данном tailnet. Значение должно быть от 1 до 180 дней.</string>
     <string name="admin_settings_access_title">Управление доступом и одобрением</string>
     <string name="admin_settings_device_approval_title">Обязательное одобрение устройств</string>
-    <string name="admin_settings_device_approval_desc">Новые устройства должны быть одобрены администратором перед подключением.</string>
     <string name="admin_settings_user_approval_title">Обязательное одобрение пользователей</string>
-    <string name="admin_settings_user_approval_desc">Новые участники требуют ручного одобрения от владельцев или администраторов.</string>
     <string name="admin_settings_software_title">Управление программным обеспечением</string>
     <string name="admin_settings_auto_updates_title">Автоматические обновления</string>
-    <string name="admin_settings_auto_updates_desc">Разрешить Tailscale автоматически обновляться на устройствах данного tailnet.</string>
-    <string name="admin_settings_network_title">Сеть и логи</string>
     <string name="admin_settings_flow_logging_title">Логирование сетевых потоков</string>
-    <string name="admin_settings_flow_logging_desc">Включить логирование сетевых потоков для tailnet.</string>
     <string name="admin_settings_posture_title">Сбор данных о состоянии устройств</string>
-    <string name="admin_settings_posture_desc">Включить сбор данных идентификации для интеграций posture-проверок.</string>
     <string name="admin_settings_external_tailnets_title">Доступ к внешним Tailnet</string>
-    <string name="admin_settings_external_tailnets_desc">Выберите роли пользователей, которым разрешено присоединяться к внешним tailnet по приглашению.</string>
-    <string name="admin_settings_allowed_role">Разрешённая роль</string>
 
     <!-- ======================== UI COMPONENTS ======================== -->
 

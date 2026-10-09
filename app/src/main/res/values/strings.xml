@@ -47,17 +47,12 @@
     <string name="action_rename">Rename</string>
     <string name="action_confirm">Confirm</string>
     <string name="action_generate">Generate</string>
-    <string name="action_revoke">Revoke</string>
-    <string name="action_approve">Approve</string>
-    <string name="action_suspend">Suspend</string>
-    <string name="action_restore">Restore</string>
     <string name="action_edit">Edit</string>
     <string name="action_copy">Copy</string>
     <string name="action_open">Open</string>
     <string name="action_send">Send</string>
     <string name="action_back">Back</string>
     <string name="action_more">More options</string>
-    <string name="action_disconnect">Disconnect</string>
     <string name="action_unlock">Unlock Console</string>
 
     <!-- Common placeholders / empty states -->
@@ -117,63 +112,24 @@
     <string name="admin_proxy_socks5_required">Valid SOCKS5 host and port are required</string>
 
     <!-- Admin: Devices tab -->
-    <string name="admin_devices_no_devices">No devices found</string>
-    <string name="admin_devices_cd_sort">Sort Devices</string>
-    <string name="admin_devices_status_expired">Expired</string>
-    <string name="admin_devices_status_pending">Pending</string>
 
     <!-- Admin: Device detail bottom sheet -->
-    <string name="admin_device_btn_rename">Rename</string>
-    <string name="admin_device_btn_tags">Tags</string>
-    <string name="admin_device_detail_full_name">Full Name</string>
-    <string name="admin_device_detail_ip">IP Address</string>
-    <string name="admin_device_detail_os">OS</string>
-    <string name="admin_device_detail_os_unknown">Unknown</string>
-    <string name="admin_device_detail_owner">User Owner</string>
-    <string name="admin_device_detail_owner_na">N/A</string>
-    <string name="admin_device_detail_key_expiry">Key Expiry</string>
-    <string name="admin_device_detail_key_expiry_disabled">Disabled</string>
-    <string name="admin_device_detail_authorization">Authorization</string>
-    <string name="admin_device_detail_authorization_approved">Approved</string>
-    <string name="admin_device_detail_authorization_required">Required</string>
-    <string name="admin_device_detail_tags">Tags</string>
 
     <!-- Admin: Device update banner -->
-    <string name="admin_device_update_available">Update Available</string>
 
     <!-- Admin: Device key expiry card -->
-    <string name="admin_device_disable_key_expiry">Disable Key Expiry</string>
-    <string name="admin_device_disable_key_expiry_desc">Prevent key from expiring on this specific device.</string>
 
     <!-- Admin: Device routing card -->
-    <string name="admin_device_routing_title">Routing &amp; Subnets</string>
-    <string name="admin_device_no_routes">No subnet routes or exit nodes advertised by this device.</string>
-    <string name="admin_device_exit_node_label">Use as Exit Node</string>
-    <string name="admin_device_exit_node_desc">Route internet traffic through this device.</string>
-    <string name="admin_device_no_subnet_routes">No subnet routes advertised.</string>
-    <string name="admin_device_advertised_subnets">Advertised Subnets</string>
 
     <!-- Admin: Device admin actions -->
-    <string name="admin_device_authorize">Authorize Node</string>
-    <string name="admin_device_deauthorize">Deauthorize Node</string>
-    <string name="admin_device_expire_key">Expire Key Now</string>
-    <string name="admin_device_delete">Delete Device</string>
 
     <!-- Admin: Device rename dialog -->
-    <string name="admin_device_rename_title">Rename Device</string>
-    <string name="admin_device_rename_label">New Base Name</string>
 
     <!-- Admin: Device tags dialog -->
-    <string name="admin_device_tags_title">Edit Device Tags</string>
-    <string name="admin_device_tags_update">Update Tags</string>
 
     <!-- Admin: DNS tab -->
-    <string name="admin_dns_magic_dns_title" translatable="false">MagicDNS</string>
-    <string name="admin_dns_magic_dns_desc">Register DNS names for devices</string>
     <string name="admin_dns_global_ns_title">Global Nameservers</string>
     <string name="admin_dns_no_custom_ns">No custom nameservers configured</string>
-    <string name="admin_dns_ns_placeholder">e.g. 1.1.1.1</string>
-    <string name="admin_dns_apply_ns">Apply DNS Nameservers</string>
     <string name="admin_dns_split_title">Split DNS (Domain Routes)</string>
     <string name="admin_dns_no_split">No Split DNS routes configured</string>
     <string name="admin_dns_add_split_route">Add Split DNS Route</string>
@@ -181,81 +137,34 @@
     <string name="admin_dns_domain_placeholder">e.g. corp.internal</string>
     <string name="admin_dns_ns_list_label">Nameservers (comma separated)</string>
     <string name="admin_dns_ns_list_placeholder">e.g. 10.0.0.1, 10.0.0.2</string>
-    <string name="admin_dns_domain_and_ns_required">Domain and nameservers are required</string>
     <string name="admin_dns_search_domains_title">DNS Search Domains</string>
     <string name="admin_dns_no_search_domains">No search domains configured</string>
     <string name="admin_dns_search_domain_placeholder">e.g. mycompany.com</string>
-    <string name="admin_dns_apply_search">Apply Search Domains</string>
     <string name="admin_dns_tailnet_name_title">Tailnet Name</string>
     <string name="admin_dns_tailnet_name_desc">Rename your tailnet domain to a custom name (e.g. *.ts.net). This must be done via the Tailscale Admin Console for security reasons.</string>
     <string name="admin_dns_rename_web">Rename Tailnet on Web</string>
 
     <!-- Admin: Users tab -->
     <string name="admin_users_no_users">No users found</string>
-    <string name="admin_users_change_role">Change User Role</string>
-    <string name="admin_users_login_name">Login Name</string>
-    <string name="admin_users_display_name">Display Name</string>
-    <string name="admin_users_created_at">Created At</string>
     <string name="admin_users_role">Role</string>
     <string name="admin_users_status">Status</string>
-    <string name="admin_users_type">User Type</string>
-    <string name="admin_users_devices_owned">Devices Owned</string>
-    <string name="admin_users_approve">Approve User</string>
-    <string name="admin_users_restore">Restore User Access</string>
-    <string name="admin_users_suspend">Suspend User</string>
-    <string name="admin_users_delete">Delete User</string>
-    <string name="admin_users_select_role_title">Select User Role</string>
 
     <!-- Admin: Services tab -->
-    <string name="admin_services_info">Services are defined in the admin console, or from the Serve &amp; Funnel screen when you save a rule for one. Here you approve which devices host them.</string>
-    <string name="admin_services_no_services">No virtual services found</string>
-    <string name="admin_services_no_ip">No IP</string>
-    <string name="admin_services_ip_addresses">IP Addresses</string>
-    <string name="admin_services_exposed_ports">Exposed Ports</string>
-    <string name="admin_services_comment">Comment</string>
-    <string name="admin_services_no_comment">No comment</string>
-    <string name="admin_services_tags">Service Tags</string>
-    <string name="admin_services_hosting_devices">Hosting Devices &amp; Approvals</string>
-    <string name="admin_services_no_hosts">No devices are configured or requesting to host this service.</string>
-    <string name="admin_services_host_level">Level: %1$s • Config: %2$s</string>
 
     <!-- Admin: Keys tab -->
-    <string name="admin_keys_no_active">No active keys</string>
-    <string name="admin_keys_cd_generate">Generate Key</string>
-    <string name="admin_keys_expires_prefix">Expires: %1$s</string>
     <string name="admin_keys_status_revoked">Revoked</string>
     <string name="admin_keys_status_expired">Expired</string>
-    <string name="admin_keys_cd_revoke">Revoke</string>
-    <string name="admin_keys_generate_title">Generate Auth Key</string>
     <string name="admin_keys_desc_label">Description</string>
-    <string name="admin_keys_desc_placeholder">e.g. Server node key</string>
-    <string name="admin_keys_expiry_label">Expires in (Days)</string>
-    <string name="admin_keys_ephemeral_title">Ephemeral Node Key</string>
-    <string name="admin_keys_preauth_title">Pre-authorized Key</string>
-    <string name="admin_keys_tags_label">Apply Tags (comma separated)</string>
-    <string name="admin_keys_tags_placeholder" translatable="false">tag:server, tag:mobile</string>
-    <string name="admin_keys_tags_supporting">Optional. Requires tag owner definition in ACL</string>
 
     <!-- Admin: Logs tab -->
-    <string name="admin_logs_search_placeholder">Search audit logs…</string>
-    <string name="admin_logs_events_found">%1$d audit events found</string>
-    <string name="admin_logs_no_events">No audit log events found</string>
-    <string name="admin_logs_actor_prefix">Actor: %1$s (%2$s)</string>
-    <string name="admin_logs_target_prefix">Target: %1$s</string>
-    <string name="admin_logs_origin_prefix">Origin: %1$s</string>
-    <string name="admin_logs_action_type_format">%1$s (%2$s)</string>
 
     <!-- Admin: Webhooks tab -->
     <string name="admin_webhooks_title">Webhook Endpoints</string>
     <string name="admin_webhooks_add">Add Endpoint</string>
     <string name="admin_webhooks_no_webhooks">No webhooks configured</string>
-    <string name="admin_webhooks_test_ping">Test Ping</string>
     <string name="admin_webhooks_add_title">Add Webhook Endpoint</string>
     <string name="admin_webhooks_url_label">Endpoint URL</string>
     <string name="admin_webhooks_url_placeholder" translatable="false">https://example.com/webhook</string>
-    <string name="admin_webhooks_subscribe_label">Subscribe to Events:</string>
-    <string name="admin_webhooks_invalid_url">Please enter a valid URL (http/https)</string>
-    <string name="admin_webhooks_no_events_selected">Please select at least one event</string>
 
     <!-- Admin: Web links tab -->
     <string name="admin_web_title">Secure Web Settings</string>
@@ -277,23 +186,14 @@
     <string name="admin_settings_auth_keys_title">Auth Keys</string>
     <string name="admin_settings_auth_keys_desc">Generate, list, and revoke authentication keys for this Tailnet.</string>
     <string name="admin_settings_key_expiry_title">Default Key Expiry</string>
-    <string name="admin_settings_key_expiry_desc">Set the default expiration time for device keys in this tailnet. Value must be between 1 and 180 days.</string>
     <string name="admin_settings_access_title">Access &amp; Approval Controls</string>
     <string name="admin_settings_device_approval_title">Device Approval Required</string>
-    <string name="admin_settings_device_approval_desc">New devices must be approved by an administrator before they can join.</string>
     <string name="admin_settings_user_approval_title">User Approval Required</string>
-    <string name="admin_settings_user_approval_desc">New members require manual approval from owners or admins to join.</string>
     <string name="admin_settings_software_title">Device Software Management</string>
     <string name="admin_settings_auto_updates_title">Automatic Updates</string>
-    <string name="admin_settings_auto_updates_desc">Enable Tailscale to auto-update on devices belonging to this tailnet.</string>
-    <string name="admin_settings_network_title">Network &amp; Log Settings</string>
     <string name="admin_settings_flow_logging_title">Network Flow Logging</string>
-    <string name="admin_settings_flow_logging_desc">Enable network flow logging for the tailnet.</string>
     <string name="admin_settings_posture_title">Posture Identity Collection</string>
-    <string name="admin_settings_posture_desc">Enable identity collection for device posture integrations.</string>
     <string name="admin_settings_external_tailnets_title">External Tailnets Access</string>
-    <string name="admin_settings_external_tailnets_desc">Select which user roles are allowed to join external tailnets via invitation.</string>
-    <string name="admin_settings_allowed_role">Allowed Role</string>
 
     <!-- ======================== UI COMPONENTS ======================== -->
 

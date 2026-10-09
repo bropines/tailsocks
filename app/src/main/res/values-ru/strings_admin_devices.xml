@@ -135,7 +135,6 @@
     <string name="admin_dev_route_approved">Одобрен</string>
     <string name="admin_dev_route_pending">Ждёт одобрения</string>
     <string name="admin_dev_route_stale">Одобрен, но больше не объявляется</string>
-    <string name="admin_dev_route_line">%1$s, %2$s</string>
     <plurals name="admin_dev_routes_approve_all">
         <item quantity="one">Одобрить %d маршрут</item>
         <item quantity="few">Одобрить %d маршрута</item>

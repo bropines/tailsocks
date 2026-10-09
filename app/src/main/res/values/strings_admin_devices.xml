@@ -128,7 +128,6 @@
     <string name="admin_dev_route_approved">Approved</string>
     <string name="admin_dev_route_pending">Waiting for approval</string>
     <string name="admin_dev_route_stale">Approved, no longer advertised</string>
-    <string name="admin_dev_route_line">%1$s, %2$s</string>
     <plurals name="admin_dev_routes_approve_all">
         <item quantity="one">Approve %d route</item>
         <item quantity="other">Approve %d routes</item>
