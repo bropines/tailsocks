@@ -110,7 +110,7 @@ fun LogsTab(
     var which by rememberSaveable { mutableIntStateOf(if (startOnLocal) 1 else 0) }
     Column(Modifier.fillMaxSize()) {
         SlidingSegmentedChips(
-            options = listOf(ctx.getString(R.string.admin_log_section_tailnet), ctx.getString(R.string.admin_log_section_phone)),
+            options = listOf(ctx.getString(R.string.admin_log_section_tailnet), ctx.getString(R.string.admin_log_section_phone_short)),
             selectedIndex = which,
             onOptionSelected = { which = it },
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
@@ -144,7 +144,7 @@ private fun TailnetLog(
     Column(Modifier.fillMaxSize()) {
         FilterBar(query, onQuery, onEdit = { editing = it }, onEvent = { eventPicker = true })
         Text(
-            ctx.resources.getQuantityString(R.plurals.admin_log_count, entries.size, entries.size, windowLabel(ctx, query.window)),
+            ctx.resources.getQuantityString(R.plurals.admin_log_count, entries.size, entries.size),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.outline,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
@@ -460,7 +460,7 @@ fun AuditChangesBlock(changes: List<AuditChange>, property: String?) {
                 is AuditChange.Text -> Column {
                     Text(label, style = MaterialTheme.typography.labelSmall, color = scheme.outline)
                     SelectionContainer {
-                        Column(Modifier.horizontalScroll(rememberScrollState())) {
+                        Column {
                             c.lines.forEach { l ->
                                 when (l.kind) {
                                     TextLine.Kind.GAP -> Text(
@@ -475,7 +475,6 @@ fun AuditChangesBlock(changes: List<AuditChange>, property: String?) {
                                         } + l.text,
                                         style = MaterialTheme.typography.bodySmall,
                                         fontFamily = FontFamily.Monospace,
-                                        softWrap = false,
                                         color = when (l.kind) {
                                             TextLine.Kind.ADDED -> scheme.primary
                                             TextLine.Kind.REMOVED -> scheme.error

@@ -117,9 +117,10 @@
     <!-- Logs -->
     <string name="admin_log_section_tailnet">Tailnet log</string>
     <string name="admin_log_section_phone">Changes made from this phone</string>
+    <string name="admin_log_section_phone_short">This phone</string>
     <plurals name="admin_log_count">
-        <item quantity="one">%1$d event in the last %2$s</item>
-        <item quantity="other">%1$d events in the last %2$s</item>
+        <item quantity="one">%d event</item>
+        <item quantity="other">%d events</item>
     </plurals>
     <plurals name="admin_log_window_hours">
         <item quantity="one">%d hour</item>
@@ -259,7 +260,7 @@
     <string name="admin_svc_empty">No services yet</string>
     <string name="admin_svc_no_address">No address yet</string>
     <string name="admin_svc_field_name">Name</string>
-    <string name="admin_svc_field_display_name">Display name (optional)</string>
+    <string name="admin_svc_field_display_name">Display name</string>
     <string name="admin_svc_field_addresses">Addresses</string>
     <string name="admin_svc_field_ports">Ports</string>
     <string name="admin_svc_field_tags">Tags</string>

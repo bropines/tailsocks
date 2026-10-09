@@ -116,11 +116,12 @@
     <!-- Logs -->
     <string name="admin_log_section_tailnet">Журнал tailnet</string>
     <string name="admin_log_section_phone">Изменения с этого телефона</string>
+    <string name="admin_log_section_phone_short">Этот телефон</string>
     <plurals name="admin_log_count">
-        <item quantity="one">%1$d событие за последние %2$s</item>
-        <item quantity="few">%1$d события за последние %2$s</item>
-        <item quantity="many">%1$d событий за последние %2$s</item>
-        <item quantity="other">%1$d события за последние %2$s</item>
+        <item quantity="one">%d событие</item>
+        <item quantity="few">%d события</item>
+        <item quantity="many">%d событий</item>
+        <item quantity="other">%d события</item>
     </plurals>
     <plurals name="admin_log_window_hours">
         <item quantity="one">%d час</item>
@@ -268,7 +269,7 @@
     <string name="admin_svc_empty">Сервисов пока нет</string>
     <string name="admin_svc_no_address">Адреса пока нет</string>
     <string name="admin_svc_field_name">Имя</string>
-    <string name="admin_svc_field_display_name">Отображаемое имя (необязательно)</string>
+    <string name="admin_svc_field_display_name">Отображаемое имя</string>
     <string name="admin_svc_field_addresses">Адреса</string>
     <string name="admin_svc_field_ports">Порты</string>
     <string name="admin_svc_field_tags">Теги</string>
