@@ -279,8 +279,8 @@ fun AdminDashboard(
     }
     editingServiceName?.let { name ->
         val service = state.services.value?.firstOrNull { it.name == name }
-        if (service == null) editingServiceName = null
-        else ServiceEditorDialog(service, state.policyTags, onDismiss = { editingServiceName = null }) { vm?.updateService(service, it) }
+        LaunchedEffect(service == null) { if (service == null) editingServiceName = null }
+        if (service != null) ServiceEditorDialog(service, state.policyTags, onDismiss = { editingServiceName = null }) { vm?.updateService(service, it) }
     }
 
 }

@@ -55,6 +55,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -191,8 +192,9 @@ fun HeadscaleTab(
     }
     renaming?.let { id ->
         val user = users.firstOrNull { it.id == id }
-        if (user == null) renaming = null
-        else UserNameDialog(ctx.getString(R.string.admin_hs_user_rename_title, user.loginName), user.loginName, withDetails = false, onDismiss = { renaming = null }) { name, _, _ ->
+        // Gone after a refresh (deleted elsewhere, say): the dialog closes with it.
+        LaunchedEffect(user == null) { if (user == null) renaming = null }
+        if (user != null) UserNameDialog(ctx.getString(R.string.admin_hs_user_rename_title, user.loginName), user.loginName, withDetails = false, onDismiss = { renaming = null }) { name, _, _ ->
             if (name != user.loginName) console?.renameUser(user, name)
         }
     }
