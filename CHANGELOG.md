@@ -2,6 +2,16 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Changed
+
+- TailCat: a link without an address shows what it carries instead of a one-line toast.
+
+### Fixed
+
+- The core learns which network carries the default route again, so it reconnects at once after Wi-Fi ↔ mobile data.
+
 ## [4.8.0] - 2026-10-09
 
 ### Added
