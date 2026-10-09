@@ -230,6 +230,82 @@ class TailscaleBackend(
         exchange("POST", "/users/${Urls.seg(userId)}/$action", AdminArea.USERS, body = "")
     }
 
+    // ---------------------------------------------------------------- trust credentials, invites
+
+    override suspend fun createOAuthClient(request: OAuthClientRequest): ApiKey {
+        require(request.scopes.isNotEmpty()) { "an OAuth client needs at least one scope" }
+        val body = buildJsonObject {
+            put("keyType", "client")
+            if (request.description.isNotBlank()) put("description", request.description.trim())
+            putJsonArray("scopes") { request.scopes.forEach { add(JsonPrimitive(it)) } }
+            if (request.tags.isNotEmpty()) putJsonArray("tags") { request.tags.forEach { add(JsonPrimitive(it)) } }
+        }
+        return decodeObject(exchange("POST", "$tn/keys", AdminArea.OAUTH_KEYS, body = body.toString()), "key")
+    }
+
+    override suspend fun listUserInvites(): Listing<ApiUserInvite> =
+        decodeArray(exchange("GET", "$tn/user-invites", AdminArea.USERS), "user invite")
+
+    override suspend fun createUserInvite(email: String?, role: UserRole): ApiUserInvite {
+        require(role != UserRole.UNKNOWN && role != UserRole.OWNER) { "no such invite role" }
+        val body = JsonArray(listOf(buildJsonObject {
+            put("role", role.wire)
+            email?.trim()?.takeIf { it.isNotEmpty() }?.let { put("email", it) }
+        }))
+        val created = decodeArray<ApiUserInvite>(exchange("POST", "$tn/user-invites", AdminArea.USERS, body = body.toString()), "user invite")
+        return created.items.firstOrNull() ?: throw AdminApiException.Decode("user invite", null)
+    }
+
+    override suspend fun resendUserInvite(inviteId: String) {
+        exchange("POST", "/user-invites/${Urls.seg(inviteId)}/resend", AdminArea.USERS, body = "")
+    }
+
+    override suspend fun deleteUserInvite(inviteId: String) {
+        exchange("DELETE", "/user-invites/${Urls.seg(inviteId)}", AdminArea.USERS)
+    }
+
+    override suspend fun listDeviceInvites(deviceId: String): Listing<ApiDeviceInvite> =
+        decodeArray(exchange("GET", "/device/${Urls.seg(deviceId)}/device-invites", AdminArea.DEVICE_INVITES), "device invite")
+
+    override suspend fun createDeviceInvite(deviceId: String, request: DeviceInviteRequest): ApiDeviceInvite {
+        val body = JsonArray(listOf(buildJsonObject {
+            put("multiUse", request.multiUse)
+            put("allowExitNode", request.allowExitNode)
+            request.email?.trim()?.takeIf { it.isNotEmpty() }?.let { put("email", it) }
+        }))
+        val created = decodeArray<ApiDeviceInvite>(
+            exchange("POST", "/device/${Urls.seg(deviceId)}/device-invites", AdminArea.DEVICE_INVITES, body = body.toString()),
+            "device invite"
+        )
+        return created.items.firstOrNull() ?: throw AdminApiException.Decode("device invite", null)
+    }
+
+    override suspend fun deleteDeviceInvite(inviteId: String) {
+        exchange("DELETE", "/device-invites/${Urls.seg(inviteId)}", AdminArea.DEVICE_INVITES)
+    }
+
+    /** A list the server answers as a bare JSON array (the invite endpoints), element by element. */
+    private inline fun <reified T> decodeArray(resp: HttpResponse, what: String, idField: String = "id"): Listing<T> {
+        val root = try {
+            AppJson.parseToJsonElement(resp.body.ifBlank { "[]" })
+        } catch (e: Exception) {
+            throw AdminApiException.Decode("$what list", resp.requestId, e)
+        }
+        val array = root as? JsonArray ?: throw AdminApiException.Decode("$what list", resp.requestId)
+        val items = ArrayList<T>(array.size)
+        val issues = mutableListOf<DecodeIssue>()
+        array.forEachIndexed { index, el ->
+            try {
+                items += AppJson.decodeFromJsonElement<T>(el)
+            } catch (e: Exception) {
+                val id = (el as? JsonObject)?.get(idField)?.let { runCatching { it.jsonPrimitive.content }.getOrNull() }
+                issues += DecodeIssue(what, index, id, (e.message ?: e.javaClass.simpleName).lineSequence().first().take(200))
+            }
+        }
+        if (issues.isNotEmpty()) log("$what list: ${issues.size} of ${array.size} unreadable")
+        return Listing(items, issues)
+    }
+
     // ---------------------------------------------------------------- DNS
 
     override suspend fun dnsConfiguration(): DnsConfiguration = try {

@@ -80,6 +80,20 @@ interface AdminBackend {
     suspend fun restoreUser(userId: String): Unit = unsupported(BackendFeature.USER_ROLES)
     suspend fun deleteUser(userId: String): Unit = unsupported(BackendFeature.USER_ROLES)
 
+    // Trust credentials and invites
+    /** An OAuth client; the answer carries its secret (`key`), once. */
+    suspend fun createOAuthClient(request: OAuthClientRequest): ApiKey = unsupported(BackendFeature.OAUTH_CLIENTS)
+    /** Open invites to join the tailnet; accepted ones are gone from it. */
+    suspend fun listUserInvites(): Listing<ApiUserInvite> = unsupported(BackendFeature.USER_INVITES)
+    /** Emailed when [email] is set; the answer carries the link when the server makes one. Needs a personal token. */
+    suspend fun createUserInvite(email: String?, role: UserRole): ApiUserInvite = unsupported(BackendFeature.USER_INVITES)
+    suspend fun resendUserInvite(inviteId: String): Unit = unsupported(BackendFeature.USER_INVITES)
+    suspend fun deleteUserInvite(inviteId: String): Unit = unsupported(BackendFeature.USER_INVITES)
+    suspend fun listDeviceInvites(deviceId: String): Listing<ApiDeviceInvite> = unsupported(BackendFeature.DEVICE_INVITES)
+    /** Shares [deviceId] with someone outside the tailnet. Needs a personal token. */
+    suspend fun createDeviceInvite(deviceId: String, request: DeviceInviteRequest): ApiDeviceInvite = unsupported(BackendFeature.DEVICE_INVITES)
+    suspend fun deleteDeviceInvite(inviteId: String): Unit = unsupported(BackendFeature.DEVICE_INVITES)
+
     // DNS
     suspend fun dnsConfiguration(): DnsConfiguration = unsupported(BackendFeature.DNS)
     suspend fun setMagicDns(enabled: Boolean): Unit = unsupported(BackendFeature.DNS)
