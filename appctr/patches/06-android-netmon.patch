@@ -1,6 +1,6 @@
---- /dev/null	2026-09-28 04:11:42.578445164 +0300
-+++ tailscale_src/cmd/tailscaled/fix_android_netmon.go	2026-10-01 17:23:14.113160886 +0300
-@@ -0,0 +1,165 @@
+--- /dev/null	2026-10-07 00:25:56.942684671 +0300
++++ tailscale_src/cmd/tailscaled/fix_android_netmon.go	2026-10-09 19:42:15.126232377 +0300
+@@ -0,0 +1,188 @@
 +//go:build android
 +// +build android
 +
@@ -11,6 +11,7 @@
 +	"net"
 +	"os"
 +	"os/signal"
++	"strings"
 +	"sync/atomic"
 +	"syscall"
 +
@@ -87,15 +88,37 @@
 +	// reason — it expects the app to wake the monitor — and the official
 +	// client does that in-process. Ours runs the daemon as a child, so the
 +	// nudge arrives as a signal from appctr.InjectNetworkState.
++	//
++	// With the nudge comes the name of the interface that now carries the
++	// default route: on Android netmon learns it only through
++	// UpdateLastKnownDefaultRouteInterface, which nothing in a separate daemon
++	// calls. Without it the default interface is "" and never viable, so no
++	// change is ever judged to need a rebind.
++	loadDefaultRoute()
 +	wake := make(chan os.Signal, 1)
 +	signal.Notify(wake, syscall.SIGUSR1)
 +	go func() {
 +		for range wake {
++			loadDefaultRoute()
 +			if m := androidNetMon.Load(); m != nil {
 +				m.InjectEvent()
 +			}
 +		}
 +	}()
++}
++
++// loadDefaultRoute hands netmon the default-route interface the app last
++// wrote to TS_NETROUTE_FILE ("" while there is no network).
++func loadDefaultRoute() {
++	path := os.Getenv("TS_NETROUTE_FILE")
++	if path == "" {
++		return
++	}
++	b, err := os.ReadFile(path)
++	if err != nil {
++		return
++	}
++	netmon.UpdateLastKnownDefaultRouteInterface(strings.TrimSpace(string(b)))
 +}
 +
 +// interfacesFromAnet reads the interfaces from the system. Returns nothing at
