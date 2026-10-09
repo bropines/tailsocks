@@ -235,8 +235,29 @@ class TailscaleBackend(
     override suspend fun dnsConfiguration(): DnsConfiguration = try {
         decodeObject(exchange("GET", "$tn/dns/configuration", AdminArea.DNS), "DNS configuration")
     } catch (e: AdminApiException.NotFound) {
-        // A server without the combined endpoint: the four older ones say the same.
+        // A server without the combined endpoint: the four older ones say the same, and the
+        // console stops offering what only the combined one can set.
+        caps.update { it.copy(features = it.features - BackendFeature.DNS_CONFIGURATION) }
         legacyDnsConfiguration()
+    }
+
+    override suspend fun setDnsConfiguration(config: DnsConfiguration): DnsConfiguration {
+        fun resolvers(list: List<DnsResolver>) = JsonArray(list.map { r ->
+            buildJsonObject {
+                put("address", r.address)
+                r.useWithExitNode?.let { put("useWithExitNode", it) }
+            }
+        })
+        val body = buildJsonObject {
+            put("nameservers", resolvers(config.nameservers))
+            put("splitDNS", JsonObject(config.splitDns.mapValues { (_, v) -> resolvers(v) }))
+            putJsonArray("searchPaths") { config.searchPaths.forEach { add(JsonPrimitive(it)) } }
+            putJsonObject("preferences") {
+                config.preferences.overrideLocalDNS?.let { put("overrideLocalDNS", it) }
+                config.preferences.magicDNS?.let { put("magicDNS", it) }
+            }
+        }
+        return decodeObject(exchange("POST", "$tn/dns/configuration", AdminArea.DNS, body = body.toString()), "DNS configuration")
     }
 
     private suspend fun legacyDnsConfiguration(): DnsConfiguration {
@@ -308,6 +329,36 @@ class TailscaleBackend(
         }.getOrNull()
         val tags = fromOwners ?: TAG.findAll(resp.body).map { it.groupValues[1] }.toList()
         return tags.filter { it.startsWith("tag:") }.distinct().sorted()
+    }
+
+    override suspend fun validatePolicy(text: String): PolicyValidation {
+        val resp = try {
+            exchange("POST", "$tn/acl/validate", AdminArea.POLICY, body = text, contentType = HUJSON, write = false)
+        } catch (e: AdminApiException.BadRequest) {
+            // A policy that does not parse may come back as a 400 with the reason in its message.
+            return PolicyValidation(false, e.apiMessage)
+        }
+        return PolicyValidation.parse(resp.body)
+    }
+
+    override suspend fun previewPolicy(text: String, type: PolicyPreviewType, previewFor: String): PolicyPreview =
+        decodeObject(
+            exchange(
+                "POST", "$tn/acl/preview", AdminArea.POLICY,
+                query = listOf("type" to type.wire, "previewFor" to previewFor),
+                body = text, contentType = HUJSON, write = false,
+            ),
+            "policy preview"
+        )
+
+    override suspend fun setPolicyFile(text: String, ifMatch: String): PolicyFile {
+        require(ifMatch.isNotBlank()) { "a policy write always carries the ETag it was made against" }
+        val resp = exchange(
+            "POST", "$tn/acl", AdminArea.POLICY,
+            body = text, contentType = HUJSON, accept = HUJSON,
+            extraHeaders = mapOf("If-Match" to quotedEtag(ifMatch)),
+        )
+        return PolicyFile(resp.body, resp.header("ETag"))
     }
 
     // ---------------------------------------------------------------- webhooks
@@ -446,14 +497,18 @@ class TailscaleBackend(
         query: List<Pair<String, String>> = emptyList(),
         body: String? = null,
         accept: String = "application/json",
+        contentType: String = "application/json",
+        extraHeaders: Map<String, String> = emptyMap(),
+        /** A POST that changes nothing (policy validate and preview) is a read: retried, and a 403 narrows reading. */
+        write: Boolean = method != "GET",
     ): HttpResponse {
-        val write = method != "GET"
         var reauthorized = false
         while (true) {
             val headers = buildMap {
                 put("Authorization", "Bearer ${bearer()}")
                 put("Accept", accept)
-                if (body != null) put("Content-Type", "application/json")
+                if (body != null) put("Content-Type", contentType)
+                putAll(extraHeaders)
             }
             val request = HttpRequest(method, api + path + Urls.query(query), headers, body, idempotent = !write)
             val resp = send(request, write, path)
@@ -573,6 +628,13 @@ class TailscaleBackend(
 
     companion object {
         const val DEFAULT_BASE_URL = "https://api.tailscale.com"
+        private const val HUJSON = "application/hujson"
+
+        /** An ETag as If-Match wants it: quoted, as the GET sent it, or quoted here when it came bare. */
+        fun quotedEtag(etag: String): String {
+            val t = etag.trim()
+            return if (t.startsWith("\"") || t.startsWith("W/")) t else "\"$t\""
+        }
         private val RETRYABLE_5XX = setOf(502, 503, 504)
         private val TAG = Regex("\"(tag:[A-Za-z0-9_\\-/]+)\"")
 

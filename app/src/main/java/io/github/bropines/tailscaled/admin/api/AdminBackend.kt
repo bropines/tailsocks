@@ -97,6 +97,18 @@ interface AdminBackend {
     suspend fun policyFile(): PolicyFile = unsupported(BackendFeature.POLICY)
     /** Tags defined in the policy's tagOwners, sorted. */
     suspend fun policyTags(): List<String> = unsupported(BackendFeature.POLICY)
+    /** Checks a candidate policy (HuJSON) on the server and runs its tests; nothing is saved. */
+    suspend fun validatePolicy(text: String): PolicyValidation = unsupported(BackendFeature.POLICY)
+    /** The rules of the policy [text] that match a user or an ip:port; nothing is saved. */
+    suspend fun previewPolicy(text: String, type: PolicyPreviewType, previewFor: String): PolicyPreview = unsupported(BackendFeature.POLICY)
+    /**
+     * Replaces the policy with [text], only while the server still holds the version whose
+     * ETag is [ifMatch]: a 412 ([AdminApiException.PreconditionFailed]) when someone changed it.
+     */
+    suspend fun setPolicyFile(text: String, ifMatch: String): PolicyFile = unsupported(BackendFeature.POLICY)
+
+    /** Replaces the whole DNS configuration (/dns/configuration); the older endpoints are the methods above. */
+    suspend fun setDnsConfiguration(config: DnsConfiguration): DnsConfiguration = unsupported(BackendFeature.DNS_CONFIGURATION)
 
     // Webhooks
     suspend fun listWebhooks(): Listing<ApiWebhook> = unsupported(BackendFeature.WEBHOOKS)
