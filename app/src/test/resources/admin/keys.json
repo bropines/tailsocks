@@ -1,0 +1,17 @@
+{
+  "keys": [
+    {"id": "kAUTH1CNTRL", "keyType": "auth", "description": "server key", "created": "2026-09-01T10:00:00Z",
+     "expires": "2026-12-01T10:00:00Z", "invalid": false,
+     "capabilities": {"devices": {"create": {"reusable": true, "ephemeral": false, "preauthorized": true, "tags": ["tag:server"]}}},
+     "userId": "uAMELIE1CNTRL"},
+    {"id": "kAUTH2CNTRL", "keyType": "auth", "description": "old one", "created": "2026-01-01T10:00:00Z",
+     "expires": "2026-04-01T10:00:00Z", "revoked": "2026-02-03T04:05:06Z", "invalid": true,
+     "capabilities": {"devices": {"create": {"reusable": false, "ephemeral": true}}}},
+    {"id": "kAPI1CNTRL", "keyType": "api", "description": "phone console", "expirySeconds": 7776000,
+     "created": "2026-09-20T10:00:00Z", "expires": "2026-12-19T10:00:00Z", "userId": "uAMELIE1CNTRL"},
+    {"id": "kCLIENT1CNTRL", "keyType": "client", "description": "read only", "created": "2021-12-09T23:22:39Z",
+     "scopes": ["all:read"], "userId": "uAMELIE1CNTRL"},
+    {"id": "kFED1CNTRL", "keyType": "federated", "scopes": ["devices:core"], "tags": ["tag:ci"],
+     "issuer": "https://token.actions.githubusercontent.com", "subject": "repo:example/*", "customClaimRules": {"ref": "main"}}
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "devices": [
+    {
+      "addresses": ["100.87.74.78", "fd7a:115c:a1e0:ac82:4843:ca90:697d:c36e"],
+      "id": "92960230385",
+      "nodeId": "n292kg92CNTRL",
+      "user": "amelie@example.com",
+      "name": "pangolin.tailfe8c.ts.net",
+      "hostname": "pangolin",
+      "clientVersion": "v1.104.0",
+      "updateAvailable": false,
+      "os": "linux",
+      "created": "2025-09-12T23:20:13Z",
+      "connectedToControl": true,
+      "keyExpiryDisabled": true,
+      "expires": "0001-01-01T00:00:00Z",
+      "authorized": true,
+      "isExternal": false,
+      "multipleConnections": false,
+      "machineKey": "mkey:abc",
+      "nodeKey": "nodekey:01234567",
+      "blocksIncomingConnections": false,
+      "tailnetLockKey": "tlpub:aa",
+      "tailnetLockError": "",
+      "tags": ["tag:server"],
+      "isEphemeral": false,
+      "someFieldFromTheFuture": {"nested": [1, 2, 3]}
+    },
+    {
+      "addresses": ["100.101.34.12"],
+      "id": "1234",
+      "nodeId": "nPHONE11CNTRL",
+      "user": "bob@example.com",
+      "name": "pixel-9.tailfe8c.ts.net",
+      "hostname": "pixel-9",
+      "os": "android",
+      "connectedToControl": false,
+      "lastSeen": "2026-10-08T10:00:00Z",
+      "expires": "2027-04-01T00:00:00Z",
+      "authorized": false,
+      "multipleConnections": true,
+      "tailnetLockError": "node key not signed"
+    },
+    {
+      "addresses": "this should be a list",
+      "id": "77",
+      "nodeId": "nBROKEN1CNTRL",
+      "name": "broken.tailfe8c.ts.net"
+    },
+    {
+      "addresses": ["100.70.1.2"],
+      "id": "555",
+      "nodeId": "nSHARED1CNTRL",
+      "user": "carol@other.example",
+      "name": "nas.tail99999.ts.net",
+      "isExternal": true,
+      "connectedToControl": true
+    }
+  ]
+}

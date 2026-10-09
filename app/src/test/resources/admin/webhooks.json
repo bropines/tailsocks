@@ -1,0 +1,7 @@
+{
+  "webhooks": [
+    {"endpointId": "12345", "endpointUrl": "https://example.com/hook", "providerType": "slack",
+     "creatorLoginName": "amelie@example.com", "created": "2026-01-01T00:00:00Z", "lastModified": "2026-02-01T00:00:00Z",
+     "subscriptions": ["nodeCreated", "userNeedsApproval", "policyUpdate"]}
+  ]
+}

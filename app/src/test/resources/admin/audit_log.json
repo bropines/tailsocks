@@ -1,0 +1,14 @@
+{
+  "version": "1.1",
+  "tailnet": "example.com",
+  "logs": [
+    {"eventTime": "2026-10-08T12:00:00.123456789Z", "type": "CONFIG", "eventGroupID": "g1", "origin": "CONFIG_API",
+     "actor": {"id": "uAMELIE1CNTRL", "type": "USER", "loginName": "amelie@example.com", "displayName": "Amelie"},
+     "target": {"id": "n292kg92CNTRL", "name": "pangolin", "type": "NODE", "property": "MACHINE_NAME"},
+     "action": "UPDATE", "old": "old-name", "new": "pangolin"},
+    {"eventTime": "2026-10-08T12:01:00Z", "type": "CONFIG", "eventGroupID": "g2", "origin": "ADMIN_CONSOLE",
+     "actor": {"id": "uAMELIE1CNTRL", "type": "USER"},
+     "target": {"id": "T1", "type": "TAILNET", "property": "DNS_CONFIG"},
+     "action": "UPDATE", "old": {"magicDNS": false}, "new": {"magicDNS": true}}
+  ]
+}

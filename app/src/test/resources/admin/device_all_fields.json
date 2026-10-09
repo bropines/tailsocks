@@ -1,0 +1,13 @@
+{
+  "addresses": ["100.87.74.78"],
+  "id": "92960230385",
+  "nodeId": "n292kg92CNTRL",
+  "name": "pangolin.tailfe8c.ts.net",
+  "hostname": "pangolin",
+  "connectedToControl": true,
+  "enabledRoutes": ["10.0.0.0/16"],
+  "advertisedRoutes": ["10.0.0.0/16", "192.168.1.0/24", "0.0.0.0/0", "::/0"],
+  "clientConnectivity": {"endpoints": ["199.9.14.201:59128"], "latency": {"Dallas": {"latencyMs": 60.46}}},
+  "sshEnabled": true,
+  "distro": {"name": "debian", "version": "12", "codeName": "bookworm"}
+}

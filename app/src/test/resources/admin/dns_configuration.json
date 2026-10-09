@@ -1,0 +1,6 @@
+{
+  "nameservers": [{"address": "1.1.1.1", "useWithExitNode": true}, {"address": "2606:4700:4700::1111"}],
+  "splitDNS": {"corp.example": [{"address": "10.0.0.53"}]},
+  "searchPaths": ["corp.example"],
+  "preferences": {"overrideLocalDNS": true, "magicDNS": true}
+}

@@ -1,0 +1,5 @@
+{
+  "vipServices": [
+    {"name": "svc:web", "displayName": "Web", "addrs": ["100.100.100.1", "fd7a:115c:a1e0::1"], "comment": "", "ports": ["tcp:443"], "tags": ["tag:web"]}
+  ]
+}

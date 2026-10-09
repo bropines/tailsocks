@@ -214,6 +214,14 @@ android {
         buildConfig = true
     }
 
+    // Plain JVM tests (src/test): the Admin API layer against recorded
+    // responses, the safety classifier, the credential migration. Android
+    // stubs answer with defaults instead of throwing, so a stray Log call in
+    // code under test does not fail it; nothing there may depend on them.
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -282,6 +290,7 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     screenshotTestImplementation(libs.screenshot.validation.api)
     screenshotTestImplementation(libs.androidx.ui.tooling)
+    testImplementation(libs.junit)
 }
 
 ksp {

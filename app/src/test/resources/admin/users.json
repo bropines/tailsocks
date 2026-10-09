@@ -1,0 +1,11 @@
+{
+  "users": [
+    {"id": "uAMELIE1CNTRL", "displayName": "Amelie", "loginName": "amelie@example.com", "tailnetId": "T1234CNTRL",
+     "created": "2025-01-01T00:00:00Z", "type": "member", "role": "owner", "status": "active", "deviceCount": 4,
+     "lastSeen": "2026-10-09T08:00:00Z", "currentlyConnected": true},
+    {"id": "uBOB1CNTRL", "displayName": "", "loginName": "bob@example.com", "type": "member", "role": "it-admin",
+     "status": "needs-approval", "deviceCount": 0},
+    {"id": "uCAROL1CNTRL", "displayName": "Carol", "loginName": "carol@other.example", "type": "shared",
+     "role": "member", "status": "idle"}
+  ]
+}
