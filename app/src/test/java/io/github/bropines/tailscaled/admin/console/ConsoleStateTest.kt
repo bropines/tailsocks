@@ -22,7 +22,7 @@ class ConsoleStateTest {
 
     @Test
     fun aBackendWithoutAFeatureLosesItsTab() {
-        assertEquals(ConsoleTab.entries, ConsoleState(caps = tailscale).tabs)
+        assertEquals("Tailscale has every tab but a Headscale server's own", ConsoleTab.entries - ConsoleTab.SERVER, ConsoleState(caps = tailscale).tabs)
         assertEquals("before the capabilities are known, everything shows", ConsoleTab.entries, ConsoleState().tabs)
         val headscale = Capabilities(
             BackendKind.HEADSCALE_V2, CredentialKind.HEADSCALE_API_KEY,

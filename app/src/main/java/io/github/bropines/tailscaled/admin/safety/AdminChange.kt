@@ -54,6 +54,13 @@ enum class ChangeKind(val area: AdminArea) {
     DEVICE_INVITE_CREATE(AdminArea.DEVICE_INVITES),
     DEVICE_INVITE_DELETE(AdminArea.DEVICE_INVITES),
     SERVICE_RENAME(AdminArea.SERVICES),
+    // Headscale's own.
+    NODE_REGISTER(AdminArea.DEVICES),
+    NODE_REGISTRATION_REJECT(AdminArea.DEVICES),
+    USER_CREATE(AdminArea.USERS),
+    USER_RENAME(AdminArea.USERS),
+    API_KEY_CREATE(AdminArea.API_TOKENS),
+    API_KEY_EXPIRE(AdminArea.API_TOKENS),
 }
 
 enum class TargetType { DEVICE, KEY, USER, TAILNET, WEBHOOK, SERVICE, INVITE }

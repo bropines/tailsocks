@@ -83,7 +83,8 @@ class SafeChangeRunner(
             ctx.readOnlyProfile -> Refusal.READ_ONLY_PROFILE
             change.needsUnlock && ctx.lockState == LockState.NO_SCREEN_LOCK -> Refusal.NO_SCREEN_LOCK
             !ctx.canWrite(change.area) -> Refusal.NOT_ALLOWED
-            t.type == TargetType.KEY && change.kind == ChangeKind.KEY_REVOKE && ctx.ownKeyId != null && t.id == ctx.ownKeyId -> Refusal.OWN_CREDENTIAL
+            t.type == TargetType.KEY && (change.kind == ChangeKind.KEY_REVOKE || change.kind == ChangeKind.API_KEY_EXPIRE) &&
+                ctx.ownKeyId != null && t.id == ctx.ownKeyId -> Refusal.OWN_CREDENTIAL
             t.type == TargetType.USER && isOwnUser(t, ctx) -> Refusal.OWN_USER
             t.type == TargetType.DEVICE && t.shared -> Refusal.SHARED_DEVICE
             else -> null

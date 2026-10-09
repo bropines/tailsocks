@@ -1,5 +1,118 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Headscale: the tab -->
+    <string name="admin_hs_tab">Сервер</string>
+    <string name="admin_hs_server_title">Headscale %1$s</string>
+    <string name="admin_hs_server_title_dev">Headscale (сборка для разработки)</string>
+    <string name="admin_hs_server_title_plain">Headscale</string>
+    <string name="admin_hs_server_address">Адрес</string>
+    <string name="admin_hs_server_api">API</string>
+    <string name="admin_hs_server_api_v1">REST API v1 (0.25–0.29)</string>
+    <string name="admin_hs_server_api_v2">API v2, совместимый с Tailscale (0.30+)</string>
+    <string name="admin_hs_server_build">Сборка</string>
+    <string name="admin_hs_server_policy">Политика</string>
+    <string name="admin_hs_policy_database">Хранится на сервере, можно менять отсюда</string>
+    <string name="admin_hs_policy_file">Файл на сервере: здесь только просмотр</string>
+    <string name="admin_hs_policy_unknown">Пока неизвестно</string>
+    <string name="admin_hs_policy_file_readonly">Политика — файл на сервере (policy.mode: file). Здесь её можно прочитать, а изменить — только правкой этого файла.</string>
+    <string name="admin_hs_server_node_expiry">Ключи устройств истекают через</string>
+    <string name="admin_hs_server_node_expiry_never">Никогда</string>
+    <string name="admin_hs_all_access">API-ключ Headscale может на сервере всё. «Только просмотр» — обещание этого приложения, а не ограничение ключа: у того, у кого есть ключ, остаётся полный доступ.</string>
+
+    <!-- Headscale: registration -->
+    <string name="admin_hs_register_title">Добавить устройство</string>
+    <string name="admin_hs_register_help">На новом устройстве tailscale up --login-server с адресом этого сервера покажет ссылку (с --qr — QR-код). Отсканируйте или вставьте её здесь и выберите, чьё это устройство.</string>
+    <string name="admin_hs_register_scan">Сканировать</string>
+    <string name="admin_hs_register_paste">Вставить ссылку</string>
+    <string name="admin_hs_register_problem_empty">Буфер обмена пуст: сначала скопируйте ссылку, которую показывает устройство.</string>
+    <string name="admin_hs_register_problem_link">Это не ссылка регистрации. Она выглядит как https://ваш-сервер/register/…</string>
+    <string name="admin_hs_register_problem_id">В ссылке нет правильного идентификатора регистрации; скопируйте её целиком.</string>
+    <string name="admin_hs_register_waiting">Устройство ждёт подключения</string>
+    <string name="admin_hs_register_from">Ссылка от %1$s</string>
+    <string name="admin_hs_register_other_server">Эту ссылку выдал %1$s, а не сервер этого профиля (%2$s). Зарегистрировать устройство можно только на том сервере, который её выдал.</string>
+    <string name="admin_hs_register_wrong_version">Идентификатор не похож на те, что выдаёт эта версия сервера; регистрация может не пройти.</string>
+    <string name="admin_hs_register_choose_user">Выберите пользователя</string>
+    <string name="admin_hs_register_as">Владелец: %1$s</string>
+    <string name="admin_hs_register_no_users">Пользователей пока нет: сначала добавьте пользователя ниже.</string>
+    <string name="admin_hs_register_do">Зарегистрировать</string>
+    <string name="admin_hs_register_reject">Отклонить</string>
+    <string name="admin_hs_registered">%1$s подключено как устройство %2$s.</string>
+
+    <!-- Headscale: pre-auth keys -->
+    <string name="admin_hs_keys_title">Ключи предварительной авторизации</string>
+    <string name="admin_hs_keys_help">Устройство может подключиться и без ссылки, по ключу: tailscale up --login-server %1$s --authkey с этим ключом. Ключ без тегов принадлежит пользователю, с тегами — никому.</string>
+    <string name="admin_hs_keys_all">Все ключи</string>
+    <string name="admin_hs_keys_new">Новый ключ</string>
+    <string name="admin_hs_key_tags">Теги (необязательно)</string>
+    <string name="admin_hs_key_user">Пользователь</string>
+    <string name="admin_hs_key_tagged_owner">С тегами: подключённые по нему устройства не принадлежат пользователю</string>
+    <string name="admin_hs_key_reusable">Многоразовый</string>
+    <string name="admin_hs_key_ephemeral">Временные устройства</string>
+    <string name="admin_hs_key_expiry">Действует</string>
+    <string name="admin_hs_key_create">Создать</string>
+
+    <!-- Headscale: users -->
+    <string name="admin_hs_users_title">Пользователи</string>
+    <string name="admin_hs_users_help">Пользователи хранятся на сервере; политика называет их name@. Пользователей, входящих через OIDC, создаёт сам сервер, а не это приложение.</string>
+    <string name="admin_hs_users_none">Пользователей пока нет.</string>
+    <string name="admin_hs_user_add">Добавить</string>
+    <string name="admin_hs_user_add_title">Новый пользователь</string>
+    <string name="admin_hs_user_rename">Переименовать %1$s</string>
+    <string name="admin_hs_user_delete">Удалить %1$s</string>
+    <string name="admin_hs_user_rename_title">Переименование %1$s</string>
+    <string name="admin_hs_user_rename_help">Все %1$s@ в политике перестанут совпадать, пока их там тоже не исправят.</string>
+    <string name="admin_hs_user_name">Имя</string>
+    <string name="admin_hs_user_name_help">Строчными буквами, без пробелов.</string>
+    <string name="admin_hs_user_name_error">Только строчные латинские буквы, цифры, точки и дефисы, без пробелов.</string>
+    <string name="admin_hs_user_display">Отображаемое имя (необязательно)</string>
+    <string name="admin_hs_user_email">Почта (необязательно)</string>
+
+    <!-- Headscale: API keys -->
+    <string name="admin_hs_apikeys_title">API-ключи</string>
+    <string name="admin_hs_apikeys_help">Ключи, с которыми программы и эта панель входят на сервер. У каждого полный доступ; в списке видны только префиксы.</string>
+    <string name="admin_hs_apikeys_new">Новый API-ключ</string>
+    <string name="admin_hs_apikeys_new_text">У ключа будет полный доступ к серверу до конца срока. Он будет показан один раз.</string>
+    <string name="admin_hs_apikeys_own">Эта панель</string>
+    <string name="admin_hs_apikeys_expired">Истёк</string>
+    <string name="admin_hs_apikeys_expires">Истекает %1$s</string>
+    <string name="admin_hs_apikeys_last_used">использован %1$s</string>
+    <string name="admin_hs_apikeys_expire">Отозвать</string>
+    <string name="admin_hs_apikey_secret_title">Новый API-ключ</string>
+    <string name="admin_hs_apikey_secret_text">Сохраните его сейчас: сервер больше его не покажет. У ключа полный доступ к серверу.</string>
+
+    <!-- Headscale: changes, as the confirm step shows them -->
+    <string name="admin_hs_change_register">Зарегистрировать устройство для %1$s</string>
+    <string name="admin_hs_change_register_effect">Устройство, ожидающее по этой ссылке, подключится к сети как устройство %1$s.</string>
+    <string name="admin_hs_change_reject">Отклонить ожидающее устройство</string>
+    <string name="admin_hs_change_reject_effect">Устройству, ожидающему по этой ссылке, будет отказано; ему придётся запросить подключение заново.</string>
+    <string name="admin_hs_change_user_create">Добавить пользователя %1$s</string>
+    <string name="admin_hs_change_user_create_effect">Пользователь сможет владеть устройствами и ключами, политика сможет на него ссылаться.</string>
+    <string name="admin_hs_change_user_rename">Переименовать пользователя %1$s</string>
+    <string name="admin_hs_change_user_rename_effect">%1$s станет %2$s. Правила политики с %1$s@ перестанут совпадать, пока их тоже не исправят.</string>
+    <string name="admin_hs_change_apikey_create">Создать API-ключ</string>
+    <plurals name="admin_hs_change_apikey_create_effect">
+        <item quantity="one">Новый ключ с полным доступом к серверу на %d день.</item>
+        <item quantity="few">Новый ключ с полным доступом к серверу на %d дня.</item>
+        <item quantity="many">Новый ключ с полным доступом к серверу на %d дней.</item>
+        <item quantity="other">Новый ключ с полным доступом к серверу на %d дня.</item>
+    </plurals>
+    <string name="admin_hs_change_apikey_expire">Отозвать API-ключ %1$s</string>
+    <string name="admin_hs_change_apikey_expire_effect">Всё, что входит с этим ключом, сразу перестанет работать.</string>
+    <string name="admin_hs_diff_owner">Владелец</string>
+    <string name="admin_hs_diff_user">Пользователь</string>
+    <string name="admin_hs_diff_display_name">Отображаемое имя</string>
+    <string name="admin_hs_diff_email">Почта</string>
+    <string name="admin_hs_diff_api_key">API-ключ</string>
+
+    <!-- Headscale: the profile editor -->
+    <string name="admin_hs_editor_url">Адрес сервера</string>
+    <string name="admin_hs_editor_url_help">Тот, что устройства указывают в --login-server. HTTPS; простой HTTP — только к самому этому телефону.</string>
+    <string name="admin_hs_editor_key">API-ключ</string>
+    <string name="admin_hs_editor_key_help">Создайте его на сервере: headscale apikeys create --expiration 90d. Версия API сервера определится при сохранении.</string>
+    <string name="admin_hs_editor_found_v1">У этого сервера REST API v1 (Headscale 0.25–0.29).</string>
+    <string name="admin_hs_editor_found_v2">У этого сервера API v2, совместимый с Tailscale (Headscale 0.30 и новее).</string>
+    <string name="admin_hs_editor_tailscale_url">Это API самого Tailscale: для него выберите вверху Tailscale.</string>
+
     <!-- Logs -->
     <string name="admin_log_section_tailnet">Журнал tailnet</string>
     <string name="admin_log_section_phone">Изменения с этого телефона</string>

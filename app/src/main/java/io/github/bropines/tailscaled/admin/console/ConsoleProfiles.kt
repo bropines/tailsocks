@@ -4,6 +4,7 @@ import androidx.lifecycle.viewModelScope
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.admin.api.AdminApiException
 import io.github.bropines.tailscaled.admin.api.AdminCredential
+import io.github.bropines.tailscaled.admin.headscale.HeadscaleProfiles
 import io.github.bropines.tailscaled.admin.profile.AdminProfile
 import io.github.bropines.tailscaled.admin.profile.AdminProfiles
 import io.github.bropines.tailscaled.admin.profile.AdminProxySettings
@@ -142,8 +143,17 @@ class ConsoleProfiles internal constructor(private val vm: AdminConsoleViewModel
         )
         vm.update { it.copy(draft = d.copy(checking = true, error = null, offerUnchecked = false)) }
         vm.viewModelScope.launch {
+            // A Headscale server is asked which API it has; the profile takes the backend that fits.
+            val detected = HeadscaleProfiles.withDetectedBackend(vm.app, vm.text, profile, newSecret, d.proxyPassword.ifBlank { null }, unchecked)
+            val toSave = when (detected) {
+                is HeadscaleProfiles.Detection.Ok -> detected.profile
+                is HeadscaleProfiles.Detection.Failed -> {
+                    vm.update { it.copy(draft = d.copy(checking = false, error = detected.message, offerUnchecked = detected.offerUnchecked)) }
+                    return@launch
+                }
+            }
             if (newSecret.isNotEmpty() && !unchecked) {
-                val problem = tryCredential(profile, newSecret, d.proxyPassword.ifBlank { null })
+                val problem = tryCredential(toSave, newSecret, d.proxyPassword.ifBlank { null })
                 if (problem != null) {
                     vm.update { it.copy(draft = d.copy(checking = false, error = problem.first, offerUnchecked = problem.second)) }
                     return@launch
@@ -160,7 +170,7 @@ class ConsoleProfiles internal constructor(private val vm: AdminConsoleViewModel
                         vault.put(id, CredentialVault.Slot.PROXY_PASSWORD, if (d.proxy.mode == AdminProxySettings.MODE_CUSTOM_SOCKS5) d.proxyPassword else "")
                     }
                     val store = AdminProfiles.store(vm.app)
-                    check(store.save(profile))
+                    check(store.save(toSave))
                     store.setActive(id)
                 }.isSuccess
             }

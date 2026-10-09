@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
@@ -51,6 +52,8 @@ import io.github.bropines.tailscaled.admin.devices.DeviceDetailSheet
 import io.github.bropines.tailscaled.admin.devices.DevicesTab
 import io.github.bropines.tailscaled.admin.dns.DnsTab
 import io.github.bropines.tailscaled.admin.policy.PolicyTab
+import io.github.bropines.tailscaled.admin.headscale.HeadscaleTab
+import io.github.bropines.tailscaled.admin.headscale.HeadscaleUiState
 import io.github.bropines.tailscaled.admin.logs.LogsTab
 import io.github.bropines.tailscaled.admin.safety.ReadOnlyBanner
 import io.github.bropines.tailscaled.admin.settings.SettingsTab
@@ -77,7 +80,14 @@ private const val PICK_EDIT = "\u0000edit"
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -> Unit, startTab: ConsoleTab = ConsoleTab.DEVICES) {
+fun AdminDashboard(
+    state: ConsoleState,
+    vm: AdminConsoleViewModel?,
+    onBack: () -> Unit,
+    startTab: ConsoleTab = ConsoleTab.DEVICES,
+    /** The Headscale tab's state where there is no ViewModel (previews). */
+    headscaleDemo: HeadscaleUiState? = null,
+) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val tabs = state.tabs
@@ -95,6 +105,7 @@ fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -
                 ConsoleTab.LOGS -> R.string.admin_tab_logs
                 ConsoleTab.WEB -> R.string.admin_tab_web_links
                 ConsoleTab.SETTINGS -> R.string.admin_tab_settings
+                ConsoleTab.SERVER -> R.string.admin_hs_tab
             }
         )
     }
@@ -105,6 +116,7 @@ fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -
     var showProfiles by rememberSaveable { mutableStateOf(false) }
     var showCreateService by rememberSaveable { mutableStateOf(false) }
     var editingServiceName by rememberSaveable { mutableStateOf<String?>(null) }
+    val hsState = vm?.headscale?.state?.collectAsState()?.value ?: headscaleDemo ?: HeadscaleUiState()
 
     LaunchedEffect(pagerState.currentPage, tabs) { tabs.getOrNull(pagerState.currentPage)?.let { vm?.refresh(it) } }
 
@@ -202,6 +214,7 @@ fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -
                             vm,
                             onManageKeys = { scope.launch { pagerState.animateScrollToPage(tabs.indexOf(ConsoleTab.KEYS).coerceAtLeast(0)) } },
                         )
+                        ConsoleTab.SERVER -> HeadscaleTab(state, hsState, vm, onManageKeys = { showKeys = true })
                     }
                 }
             }
@@ -284,6 +297,7 @@ private fun loadableFor(state: ConsoleState, tab: ConsoleTab): Loadable<*>? = wh
     ConsoleTab.LOGS -> state.tailnetLog
     ConsoleTab.WEB -> null
     ConsoleTab.SETTINGS -> state.settings
+    ConsoleTab.SERVER -> state.users
 }
 
 @Composable

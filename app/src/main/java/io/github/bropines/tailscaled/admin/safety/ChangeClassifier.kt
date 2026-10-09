@@ -33,6 +33,11 @@ object ChangeClassifier {
         ChangeKind.USER_INVITE_DELETE, ChangeKind.DEVICE_INVITE_DELETE -> ChangeClass.HIGH
         // The old name stops resolving for every client of the service.
         ChangeKind.SERVICE_RENAME -> ChangeClass.HIGH
+
+        // Headscale: letting a waiting device in, refusing it, adding a user — named and unlocked.
+        ChangeKind.NODE_REGISTER, ChangeKind.NODE_REGISTRATION_REJECT, ChangeKind.USER_CREATE -> ChangeClass.MEDIUM
+        // A renamed user stops matching the policy's name@; an API key is all access.
+        ChangeKind.USER_RENAME, ChangeKind.API_KEY_CREATE, ChangeKind.API_KEY_EXPIRE -> ChangeClass.HIGH
     }
 
     /**

@@ -3,6 +3,7 @@ package io.github.bropines.tailscaled.admin.console
 import android.content.Context
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.admin.api.AdminApiException
+import io.github.bropines.tailscaled.admin.api.BackendFeature
 import io.github.bropines.tailscaled.admin.api.KeyType
 import io.github.bropines.tailscaled.admin.api.RouteSelection
 import io.github.bropines.tailscaled.admin.api.UserRole
@@ -35,7 +36,9 @@ object ConsoleText {
             is AdminApiException.Server -> ctx.getString(R.string.admin2_error_server, e.status)
             is AdminApiException.Network -> ctx.getString(R.string.admin2_error_network, e.detail)
             is AdminApiException.Decode -> ctx.getString(R.string.admin2_error_decode, e.what)
-            is AdminApiException.Unsupported -> ctx.getString(R.string.admin2_error_unsupported)
+            is AdminApiException.Unsupported -> ctx.getString(
+                if (e.feature == BackendFeature.POLICY_WRITE) R.string.admin_hs_policy_file_readonly else R.string.admin2_error_unsupported
+            )
             is AdminApiException.Unexpected -> ctx.getString(R.string.admin2_error_other, e.apiMessage ?: e.message.orEmpty())
             is MissingCredentialException -> ctx.getString(R.string.admin2_credential_unreadable)
             else -> ctx.getString(R.string.admin2_error_other, e.message ?: e.javaClass.simpleName)

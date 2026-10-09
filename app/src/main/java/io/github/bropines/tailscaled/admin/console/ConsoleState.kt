@@ -67,6 +67,8 @@ enum class ConsoleTab(val feature: BackendFeature?) {
     LOGS(BackendFeature.AUDIT_LOGS),
     WEB(null),
     SETTINGS(BackendFeature.SETTINGS),
+    /** A Headscale server's own administration: registration, users, API keys. */
+    SERVER(BackendFeature.HEADSCALE_ADMIN),
 }
 
 /** Why writes are off for the whole profile, whatever the credential allows. */

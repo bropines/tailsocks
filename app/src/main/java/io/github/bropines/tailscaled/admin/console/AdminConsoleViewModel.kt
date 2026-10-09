@@ -26,6 +26,7 @@ import io.github.bropines.tailscaled.admin.api.UserRole
 import io.github.bropines.tailscaled.admin.attention.AttentionSession
 import io.github.bropines.tailscaled.admin.policy.PolicyConsole
 import io.github.bropines.tailscaled.admin.keys.KeysController
+import io.github.bropines.tailscaled.admin.headscale.HeadscaleConsole
 import io.github.bropines.tailscaled.admin.logs.AuditLogQuery
 import io.github.bropines.tailscaled.admin.services.ServiceChanges
 import io.github.bropines.tailscaled.admin.profile.AdminProfile
@@ -95,6 +96,9 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
 
     val keysTab = KeysController(this)
     val usersTab = UsersController(this)
+
+    /** A Headscale server's own administration (the SERVER tab). */
+    val headscale = HeadscaleConsole(this)
 
     /**
      * Words in the app's chosen language: before Android 13 the Application's own resources
@@ -238,6 +242,10 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
             }
             ConsoleTab.WEB -> Unit
             ConsoleTab.SETTINGS -> loadOne(force, { it.settings }, { s, v -> s.copy(settings = v) }) { it.tailnetSettings() }
+            ConsoleTab.SERVER -> {
+                headscale.refresh(force)
+                loadList(force, { it.users }, { s, v -> s.copy(users = v) }) { it.listUsers(UserListType.ALL) }
+            }
         }
     }
 
@@ -482,6 +490,7 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
             AdminArea.WEBHOOKS -> refresh(ConsoleTab.WEBHOOKS, force = true)
             AdminArea.SERVICES -> refresh(ConsoleTab.SERVICES, force = true)
             AdminArea.POLICY -> refresh(ConsoleTab.POLICY, force = true)
+            AdminArea.API_TOKENS -> headscale.refresh(force = true)
             else -> refresh(ConsoleTab.SETTINGS, force = true)
         }
     }

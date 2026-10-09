@@ -1,6 +1,119 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The admin console's Headscale backends, its audit logs and its Services (4.9.0). -->
 <resources>
+    <!-- Headscale: the tab -->
+    <string name="admin_hs_tab">Server</string>
+    <string name="admin_hs_server_title">Headscale %1$s</string>
+    <string name="admin_hs_server_title_dev">Headscale (development build)</string>
+    <string name="admin_hs_server_title_plain">Headscale</string>
+    <string name="admin_hs_server_address">Address</string>
+    <string name="admin_hs_server_api">API</string>
+    <string name="admin_hs_server_api_v1">REST API v1 (0.25–0.29)</string>
+    <string name="admin_hs_server_api_v2">Tailscale-compatible API v2 (0.30+)</string>
+    <string name="admin_hs_server_build">Build</string>
+    <string name="admin_hs_server_policy">Policy</string>
+    <string name="admin_hs_policy_database">Kept on the server, can be changed here</string>
+    <string name="admin_hs_policy_file">A file on the server: read-only here</string>
+    <string name="admin_hs_policy_unknown">Not known yet</string>
+    <string name="admin_hs_policy_file_readonly">The policy is a file on the server (policy.mode: file). It can be read here; it changes only when that file is edited.</string>
+    <string name="admin_hs_server_node_expiry">Node keys expire after</string>
+    <string name="admin_hs_server_node_expiry_never">Never</string>
+    <string name="admin_hs_all_access">A Headscale API key can do anything on the server. “Read-only” is this app\'s own promise, not a limit of the key: whoever holds the key can still change everything.</string>
+
+    <!-- Headscale: registration -->
+    <string name="admin_hs_register_title">Register a device</string>
+    <string name="admin_hs_register_help">On the new device, tailscale up --login-server with this server\'s address shows a link (add --qr for a code). Scan or paste it here and choose whose device it is.</string>
+    <string name="admin_hs_register_scan">Scan code</string>
+    <string name="admin_hs_register_paste">Paste link</string>
+    <string name="admin_hs_register_problem_empty">The clipboard is empty: copy the link the device shows first.</string>
+    <string name="admin_hs_register_problem_link">That is not a registration link. It looks like https://your-server/register/…</string>
+    <string name="admin_hs_register_problem_id">The link has no valid registration id; copy it again in full.</string>
+    <string name="admin_hs_register_waiting">A device is waiting to join</string>
+    <string name="admin_hs_register_from">Link from %1$s</string>
+    <string name="admin_hs_register_other_server">This link was made by %1$s, not by this profile\'s server (%2$s). It can only be registered on the server that made it.</string>
+    <string name="admin_hs_register_wrong_version">The id has a different shape than this server\'s release uses; registering may fail.</string>
+    <string name="admin_hs_register_choose_user">Choose the user</string>
+    <string name="admin_hs_register_as">Owner: %1$s</string>
+    <string name="admin_hs_register_no_users">There are no users yet: add one below first.</string>
+    <string name="admin_hs_register_do">Register</string>
+    <string name="admin_hs_register_reject">Reject</string>
+    <string name="admin_hs_registered">%1$s joined as %2$s\'s device.</string>
+
+    <!-- Headscale: pre-auth keys -->
+    <string name="admin_hs_keys_title">Pre-auth keys</string>
+    <string name="admin_hs_keys_help">A device can also join without a link, with a key: tailscale up --login-server %1$s --authkey with the key. An untagged key belongs to a user; a tagged one to no one.</string>
+    <string name="admin_hs_keys_all">All keys</string>
+    <string name="admin_hs_keys_new">New key</string>
+    <string name="admin_hs_key_tags">Tags (optional)</string>
+    <string name="admin_hs_key_user">User</string>
+    <string name="admin_hs_key_tagged_owner">Tagged: devices that join with it belong to no user</string>
+    <string name="admin_hs_key_reusable">Reusable</string>
+    <string name="admin_hs_key_ephemeral">Ephemeral devices</string>
+    <string name="admin_hs_key_expiry">Valid for</string>
+    <string name="admin_hs_key_create">Create</string>
+
+    <!-- Headscale: users -->
+    <string name="admin_hs_users_title">Users</string>
+    <string name="admin_hs_users_help">Users live on the server; the policy names them as name@. Users signed in through OIDC are made by the server, not here.</string>
+    <string name="admin_hs_users_none">No users yet.</string>
+    <string name="admin_hs_user_add">Add</string>
+    <string name="admin_hs_user_add_title">New user</string>
+    <string name="admin_hs_user_rename">Rename %1$s</string>
+    <string name="admin_hs_user_delete">Delete %1$s</string>
+    <string name="admin_hs_user_rename_title">Rename %1$s</string>
+    <string name="admin_hs_user_rename_help">Every %1$s@ in the policy stops matching until it is changed there too.</string>
+    <string name="admin_hs_user_name">Name</string>
+    <string name="admin_hs_user_name_help">Lowercase, no spaces.</string>
+    <string name="admin_hs_user_name_error">Use lowercase letters, digits, dots, dashes; no spaces.</string>
+    <string name="admin_hs_user_display">Display name (optional)</string>
+    <string name="admin_hs_user_email">Email (optional)</string>
+
+    <!-- Headscale: API keys -->
+    <string name="admin_hs_apikeys_title">API keys</string>
+    <string name="admin_hs_apikeys_help">The keys programs and this console sign in to the server with. Each has full access; only prefixes are ever listed.</string>
+    <string name="admin_hs_apikeys_new">New API key</string>
+    <string name="admin_hs_apikeys_new_text">The key will have full access to the server until it expires. It is shown once.</string>
+    <string name="admin_hs_apikeys_own">This console</string>
+    <string name="admin_hs_apikeys_expired">Expired</string>
+    <string name="admin_hs_apikeys_expires">Expires %1$s</string>
+    <string name="admin_hs_apikeys_last_used">used %1$s</string>
+    <string name="admin_hs_apikeys_expire">Expire</string>
+    <string name="admin_hs_apikey_secret_title">New API key</string>
+    <string name="admin_hs_apikey_secret_text">Save it now: the server never shows it again. It has full access to the server.</string>
+
+    <!-- Headscale: changes, as the confirm step shows them -->
+    <string name="admin_hs_change_register">Register a device for %1$s</string>
+    <string name="admin_hs_change_register_effect">The device waiting with this link joins the network as %1$s\'s.</string>
+    <string name="admin_hs_change_reject">Reject the waiting device</string>
+    <string name="admin_hs_change_reject_effect">The device waiting with this link is turned away; it has to ask again.</string>
+    <string name="admin_hs_change_user_create">Add user %1$s</string>
+    <string name="admin_hs_change_user_create_effect">The user can own devices and keys; the policy can name them.</string>
+    <string name="admin_hs_change_user_rename">Rename user %1$s</string>
+    <string name="admin_hs_change_user_rename_effect">%1$s becomes %2$s. Policy rules that name %1$s@ stop matching until they are changed too.</string>
+    <string name="admin_hs_change_apikey_create">Create an API key</string>
+    <plurals name="admin_hs_change_apikey_create_effect">
+        <item quantity="one">A new key with full access to the server, valid for %d day.</item>
+        <item quantity="other">A new key with full access to the server, valid for %d days.</item>
+    </plurals>
+    <string name="admin_hs_change_apikey_expire">Expire API key %1$s</string>
+    <string name="admin_hs_change_apikey_expire_effect">Whatever signs in with this key stops working at once.</string>
+    <string name="admin_hs_diff_owner">Owner</string>
+    <string name="admin_hs_diff_user">User</string>
+    <string name="admin_hs_diff_display_name">Display name</string>
+    <string name="admin_hs_diff_email">Email</string>
+    <string name="admin_hs_diff_api_key">API key</string>
+
+    <!-- Headscale: the profile editor -->
+    <string name="admin_hs_editor_tailscale" translatable="false">Tailscale</string>
+    <string name="admin_hs_editor_headscale" translatable="false">Headscale</string>
+    <string name="admin_hs_editor_url">Server address</string>
+    <string name="admin_hs_editor_url_help">What devices use as --login-server. HTTPS; plain HTTP only to this phone itself.</string>
+    <string name="admin_hs_editor_key">API key</string>
+    <string name="admin_hs_editor_key_help">Make one on the server: headscale apikeys create --expiration 90d. Its API generation is found when you save.</string>
+    <string name="admin_hs_editor_found_v1">This server has the REST API v1 (Headscale 0.25–0.29).</string>
+    <string name="admin_hs_editor_found_v2">This server has the Tailscale-compatible API v2 (Headscale 0.30 or newer).</string>
+    <string name="admin_hs_editor_tailscale_url">That is Tailscale\'s own API: choose Tailscale above for it.</string>
+
     <!-- Logs -->
     <string name="admin_log_section_tailnet">Tailnet log</string>
     <string name="admin_log_section_phone">Changes made from this phone</string>

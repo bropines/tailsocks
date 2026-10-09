@@ -58,6 +58,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.admin.console.ProfileDraft
+import io.github.bropines.tailscaled.admin.headscale.HeadscaleEditor
+import io.github.bropines.tailscaled.admin.headscale.HeadscaleEditorFields
 import io.github.bropines.tailscaled.admin.profile.AuthType
 import io.github.bropines.tailscaled.admin.secure.AdminWriteGate
 import io.github.bropines.tailscaled.admin.secure.SecretField
@@ -147,42 +149,56 @@ fun AdminProfileEditorScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
 
+                // Tailscale or Headscale; which Headscale API generation is found on saving.
+                val headscale = HeadscaleEditor.isHeadscale(draft)
                 SlidingSegmentedChips(
-                    options = listOf(ctx.getString(R.string.admin_setup_tab_token), ctx.getString(R.string.admin_setup_tab_oauth)),
-                    selectedIndex = if (draft.authType == AuthType.OAUTH_CLIENT) 1 else 0,
-                    onOptionSelected = { i -> onChange { it.copy(authType = if (i == 1) AuthType.OAUTH_CLIENT else AuthType.API_TOKEN, secret = "") } },
+                    options = listOf(ctx.getString(R.string.admin_hs_editor_tailscale), ctx.getString(R.string.admin_hs_editor_headscale)),
+                    selectedIndex = if (headscale) 1 else 0,
+                    onOptionSelected = { i -> onChange { HeadscaleEditor.switchBackend(it, toHeadscale = i == 1) } },
                     modifier = Modifier.fillMaxWidth(),
                     height = 38.dp,
                 )
-                HelpText(ctx.getString(if (draft.authType == AuthType.OAUTH_CLIENT) R.string.admin2_auth_oauth_help else R.string.admin2_auth_token_help))
 
-                if (draft.authType == AuthType.OAUTH_CLIENT) {
-                    OutlinedTextField(
-                        value = draft.oauthClientId,
-                        onValueChange = { v -> onChange { it.copy(oauthClientId = v.trim()) } },
-                        label = { Text(ctx.getString(R.string.admin_setup_client_id_label)) },
-                        placeholder = { Text(ctx.getString(R.string.admin_setup_client_id_placeholder)) },
-                        singleLine = true,
-                        shape = MaterialTheme.shapes.medium,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    SecretField(
-                        value = draft.secret,
-                        onValueChange = { v -> onChange { it.copy(secret = v.trim()) } },
-                        label = ctx.getString(R.string.admin_setup_client_secret_label),
-                        placeholder = keepPlaceholder ?: ctx.getString(R.string.admin_setup_client_secret_placeholder),
-                        showLabel = showLabel, hideLabel = hideLabel,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                if (headscale) {
+                    HeadscaleEditorFields(draft, onChange, keepPlaceholder, showLabel, hideLabel)
                 } else {
-                    SecretField(
-                        value = draft.secret,
-                        onValueChange = { v -> onChange { it.copy(secret = v.trim()) } },
-                        label = ctx.getString(R.string.admin_setup_token_label),
-                        placeholder = keepPlaceholder ?: ctx.getString(R.string.admin_setup_token_placeholder),
-                        showLabel = showLabel, hideLabel = hideLabel,
+                    SlidingSegmentedChips(
+                        options = listOf(ctx.getString(R.string.admin_setup_tab_token), ctx.getString(R.string.admin_setup_tab_oauth)),
+                        selectedIndex = if (draft.authType == AuthType.OAUTH_CLIENT) 1 else 0,
+                        onOptionSelected = { i -> onChange { it.copy(authType = if (i == 1) AuthType.OAUTH_CLIENT else AuthType.API_TOKEN, secret = "") } },
                         modifier = Modifier.fillMaxWidth(),
+                        height = 38.dp,
                     )
+                    HelpText(ctx.getString(if (draft.authType == AuthType.OAUTH_CLIENT) R.string.admin2_auth_oauth_help else R.string.admin2_auth_token_help))
+
+                    if (draft.authType == AuthType.OAUTH_CLIENT) {
+                        OutlinedTextField(
+                            value = draft.oauthClientId,
+                            onValueChange = { v -> onChange { it.copy(oauthClientId = v.trim()) } },
+                            label = { Text(ctx.getString(R.string.admin_setup_client_id_label)) },
+                            placeholder = { Text(ctx.getString(R.string.admin_setup_client_id_placeholder)) },
+                            singleLine = true,
+                            shape = MaterialTheme.shapes.medium,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        SecretField(
+                            value = draft.secret,
+                            onValueChange = { v -> onChange { it.copy(secret = v.trim()) } },
+                            label = ctx.getString(R.string.admin_setup_client_secret_label),
+                            placeholder = keepPlaceholder ?: ctx.getString(R.string.admin_setup_client_secret_placeholder),
+                            showLabel = showLabel, hideLabel = hideLabel,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    } else {
+                        SecretField(
+                            value = draft.secret,
+                            onValueChange = { v -> onChange { it.copy(secret = v.trim()) } },
+                            label = ctx.getString(R.string.admin_setup_token_label),
+                            placeholder = keepPlaceholder ?: ctx.getString(R.string.admin_setup_token_placeholder),
+                            showLabel = showLabel, hideLabel = hideLabel,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                 }
 
                 Row(
@@ -202,7 +218,7 @@ fun AdminProfileEditorScreen(
                     Switch(checked = draft.readOnly, onCheckedChange = null)
                 }
 
-                ExpandableCard(
+                if (!headscale) ExpandableCard(
                     title = ctx.getString(R.string.admin2_profile_advanced),
                     expanded = showAdvanced,
                     onToggle = { showAdvanced = !showAdvanced },
