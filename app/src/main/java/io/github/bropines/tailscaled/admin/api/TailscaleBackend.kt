@@ -171,6 +171,11 @@ class TailscaleBackend(
             body = buildJsonObject { put("ipv4", ipv4) }.toString())
     }
 
+    override suspend fun resetDeviceName(deviceId: String) {
+        exchange("POST", "/device/${Urls.seg(deviceId)}/name", AdminArea.DEVICES,
+            body = buildJsonObject { put("name", "") }.toString())
+    }
+
     // ---------------------------------------------------------------- keys
 
     override suspend fun listKeys(): Listing<ApiKey> =

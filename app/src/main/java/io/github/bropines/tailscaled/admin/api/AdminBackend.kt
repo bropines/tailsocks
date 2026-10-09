@@ -60,6 +60,8 @@ interface AdminBackend {
     suspend fun expireDevice(deviceId: String)
     suspend fun deleteDevice(deviceId: String)
     suspend fun setDeviceIpv4(deviceId: String, ipv4: String): Unit = unsupported(BackendFeature.DEVICE_IPV4)
+    /** Back to the name the server derives from the OS hostname: the empty name [renameDevice] refuses. */
+    suspend fun resetDeviceName(deviceId: String): Unit = unsupported(BackendFeature.DEVICES)
 
     // Keys
     /** Every key of the tailnet the credential may see (`all=true`), of every type. */

@@ -51,6 +51,8 @@ data class ApiDevice(
     val sshEnabled: Boolean? = null,
     val isEphemeral: Boolean? = null,
     val distro: ApiDistro? = null,
+    /** The device's network as it last reported it; only with fields=all. */
+    val clientConnectivity: ApiClientConnectivity? = null,
 ) {
     /** The id to put in a path: [nodeId], which the API prefers, else the legacy [id]. */
     val pathId: String get() = nodeId.ifBlank { id }
@@ -73,6 +75,29 @@ data class ApiDevice(
 
 @Serializable
 data class ApiDistro(val name: String? = null, val version: String? = null, val codeName: String? = null)
+
+/** A device's own report of its network: endpoints, relay latencies, what the network allows. */
+@Serializable
+data class ApiClientConnectivity(
+    val endpoints: List<String> = emptyList(),
+    /** True behind a NAT whose mapping changes per destination: direct connections are harder. */
+    val mappingVariesByDestIP: Boolean? = null,
+    /** By DERP region name. */
+    val latency: Map<String, ApiDerpLatency> = emptyMap(),
+    val clientSupports: ApiClientSupports? = null,
+)
+
+@Serializable
+data class ApiDerpLatency(val preferred: Boolean? = null, val latencyMs: Double? = null)
+
+@Serializable
+data class ApiClientSupports(
+    val ipv6: Boolean? = null,
+    val pcp: Boolean? = null,
+    val pmp: Boolean? = null,
+    val udp: Boolean? = null,
+    val upnp: Boolean? = null,
+)
 
 @Serializable
 data class DeviceRoutes(

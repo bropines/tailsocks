@@ -106,6 +106,7 @@ object ConsoleChanges {
             change = change(
                 ChangeKind.DEVICE_ROUTES, deviceTarget(d, selfNodeId), title, effect,
                 diff = listOf(DiffLine(ctx.getString(R.string.admin2_diff_routes), ConsoleText.list(before), ConsoleText.list(after))),
+                cls = ChangeClassifier.routes(before, after),
             ),
             apply = { it.setDeviceRoutes(d.pathId, after) },
             verify = { it.deviceRoutes(d.pathId).enabledRoutes.toSet() == after.toSet() },

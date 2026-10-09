@@ -23,6 +23,14 @@ object ChangeClassifier {
         ChangeKind.WEBHOOK_DELETE, ChangeKind.SERVICE_DELETE -> ChangeClass.HIGH
 
         ChangeKind.POLICY_FILE -> ChangeClass.POLICY
+
+        ChangeKind.DEVICE_TAGS_BULK -> ChangeClass.HIGH
+    }
+
+    /** Approving routes is MEDIUM; taking an approved exit node away cuts off everyone using it: HIGH. */
+    fun routes(before: List<String>, after: List<String>): ChangeClass {
+        val exit = setOf("0.0.0.0/0", "::/0")
+        return if (before.any { it in exit } && after.none { it in exit }) ChangeClass.HIGH else ChangeClass.MEDIUM
     }
 
     /** Removing every nameserver turns MagicDNS off with it: HIGH while it is on. */

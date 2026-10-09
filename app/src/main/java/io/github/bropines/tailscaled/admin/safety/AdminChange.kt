@@ -44,6 +44,8 @@ enum class ChangeKind(val area: AdminArea) {
     SERVICE_HOST_APPROVAL(AdminArea.SERVICES),
     SERVICE_DELETE(AdminArea.SERVICES),
     POLICY_FILE(AdminArea.POLICY),
+    /** One tag change over several devices; each device also gets a DEVICE_TAGS record of its own. */
+    DEVICE_TAGS_BULK(AdminArea.DEVICES),
 }
 
 enum class TargetType { DEVICE, KEY, USER, TAILNET, WEBHOOK, SERVICE }
