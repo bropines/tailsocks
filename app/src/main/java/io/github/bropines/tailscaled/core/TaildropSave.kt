@@ -112,6 +112,20 @@ object TaildropSave {
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }.getOrNull()
 
+    /**
+     * The file-system path of the folder a saved copy sits in — "/storage/emulated/0/Download/
+     * Taildrop" — for a file manager that cannot be handed a folder (MT Manager takes files
+     * only) and needs it pasted. Null for any provider but the device's own storage.
+     */
+    fun folderPath(saved: Uri): String? {
+        if (saved.authority != EXTERNAL_STORAGE) return null
+        val id = runCatching { DocumentsContract.getTreeDocumentId(saved) }.getOrNull() ?: return null
+        val volume = id.substringBefore(':', "").ifEmpty { return null }
+        val path = id.substringAfter(':', "").trim('/')
+        val root = if (volume == "primary") "/storage/emulated/0" else "/storage/$volume"
+        return if (path.isEmpty()) root else "$root/$path"
+    }
+
     /** The top folder of the tree [uri] belongs to — the default folder itself, for a saved copy. */
     private fun folderDocument(uri: Uri): Uri =
         DocumentsContract.buildDocumentUriUsingTree(uri, DocumentsContract.getTreeDocumentId(uri))

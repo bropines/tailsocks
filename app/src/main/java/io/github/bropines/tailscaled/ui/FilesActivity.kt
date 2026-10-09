@@ -6,6 +6,8 @@ import androidx.compose.ui.res.stringResource
 import io.github.bropines.tailscaled.core.*
 import io.github.bropines.tailscaled.models.*
 
+import android.content.ClipboardManager
+import android.content.ClipData
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -410,6 +412,7 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false) {
                         onDeleteFile = { deleteFile(it) },
                         onOpenSaved = { openSavedTaildropFile(context, it) },
                         onShowSavedInFolder = { showSavedTaildropFolder(context, it) },
+                        onCopySavedFolderPath = { copySavedTaildropFolderPath(context, it) },
                         onHideSaved = { hideSaved(it) },
                         showFolderHint = taildropFolder == null && !folderHintDismissed,
                         onChooseFolder = { folderPicker.launch(null) },
@@ -534,6 +537,18 @@ private fun showSavedTaildropFolder(context: Context, entry: TaildropHistoryEntr
         val folder = entry.savedTo?.substringBeforeLast('/', "")?.ifEmpty { null } ?: entry.savedTo.orEmpty()
         Toast.makeText(context, context.getString(R.string.taildrop_folder_unavailable_format, folder), Toast.LENGTH_LONG).show()
     }
+}
+
+/**
+ * Copies the path of the folder a saved file sits in, to paste into a file manager that
+ * cannot be handed a folder; the label shown on the card when the path is not known.
+ */
+private fun copySavedTaildropFolderPath(context: Context, entry: TaildropHistoryEntry) {
+    val path = entry.savedUri?.let { TaildropSave.folderPath(Uri.parse(it)) }
+        ?: entry.savedTo?.substringBeforeLast('/', "")?.ifEmpty { null }
+        ?: return
+    context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText(path, path))
+    Toast.makeText(context, context.getString(R.string.taildrop_folder_path_copied_format, path), Toast.LENGTH_SHORT).show()
 }
 
 /** The bridge's waiting-files JSON; an empty list for nothing or anything unreadable. */

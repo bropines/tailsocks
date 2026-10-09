@@ -90,6 +90,8 @@
     <!-- The default folder: received files are moved there on arrival. -->
     <string name="taildrop_saved_to_format">Saved to %1$s</string>
     <string name="taildrop_show_in_folder">Show in folder</string>
+    <string name="taildrop_copy_folder_path">Copy the folder\'s path</string>
+    <string name="taildrop_folder_path_copied_format">Path copied: %1$s</string>
     <string name="taildrop_hide">Hide</string>
     <string name="taildrop_folder_unavailable_format">No app here opens folders. The file is in %1$s</string>
     <string name="taildrop_save_failed">Couldn\'t save automatically, it waits here</string>

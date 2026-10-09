@@ -1,6 +1,9 @@
 package io.github.bropines.tailscaled.ui
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -218,6 +221,7 @@ internal fun TaildropPage(
     onDeleteFile: (TaildropFile) -> Unit,
     onOpenSaved: (TaildropHistoryEntry) -> Unit,
     onShowSavedInFolder: (TaildropHistoryEntry) -> Unit,
+    onCopySavedFolderPath: (TaildropHistoryEntry) -> Unit,
     onHideSaved: (TaildropHistoryEntry) -> Unit,
     showFolderHint: Boolean,
     onChooseFolder: () -> Unit,
@@ -261,7 +265,7 @@ internal fun TaildropPage(
             // Keyed by position too: on the device's storage a document id is a path, so a
             // copy saved under the name of one deleted earlier gets the same URI again.
             itemsIndexed(saved, key = { i, e -> "saved:$i:" + e.savedUri }) { _, e ->
-                TaildropSavedCard(e, { onOpenSaved(e) }, { onShowSavedInFolder(e) }, { onHideSaved(e) })
+                TaildropSavedCard(e, { onOpenSaved(e) }, { onShowSavedInFolder(e) }, { onCopySavedFolderPath(e) }, { onHideSaved(e) })
             }
         }
         if (showFolderHint && loaded) item(key = "inbox-folder-hint") { TaildropFolderHint(onChooseFolder, onDismissFolderHint) }
@@ -420,11 +424,19 @@ internal fun TaildropIncomingCard(transfer: IncomingTransfer) {
 
 /**
  * A received file the default folder took: the name it was saved under, when it came and
- * from whom, and where it is now. Open and Show in folder go to the saved copy; Hide takes
- * the card off the inbox and leaves the file alone.
+ * from whom, and where it is now. Open and Show in folder go to the saved copy — a long
+ * press on Show in folder copies the folder's path instead, for a file manager that takes
+ * no folder; Hide takes the card off the inbox and leaves the file alone.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-internal fun TaildropSavedCard(entry: TaildropHistoryEntry, onOpen: () -> Unit, onShowInFolder: () -> Unit, onHide: () -> Unit) {
+internal fun TaildropSavedCard(
+    entry: TaildropHistoryEntry,
+    onOpen: () -> Unit,
+    onShowInFolder: () -> Unit,
+    onCopyFolderPath: () -> Unit,
+    onHide: () -> Unit
+) {
     val savedTo = entry.savedTo.orEmpty()
     // savedTo is "<folder>/<name>"; the name may have been made free with " (1)".
     val name = savedTo.substringAfterLast('/').ifEmpty { entry.name }
@@ -465,7 +477,26 @@ internal fun TaildropSavedCard(entry: TaildropHistoryEntry, onOpen: () -> Unit, 
             TextButton(onClick = onHide, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant)) {
                 Text(stringResource(R.string.taildrop_hide))
             }
-            TextButton(onClick = onShowInFolder) { Text(stringResource(R.string.taildrop_show_in_folder)) }
+            // A TextButton in looks, with a long press it cannot take.
+            Box(
+                modifier = Modifier
+                    .clip(ButtonDefaults.textShape)
+                    .combinedClickable(
+                        role = Role.Button,
+                        onLongClickLabel = stringResource(R.string.taildrop_copy_folder_path),
+                        onLongClick = onCopyFolderPath,
+                        onClick = onShowInFolder
+                    )
+                    .defaultMinSize(minHeight = ButtonDefaults.MinHeight)
+                    .padding(ButtonDefaults.TextButtonContentPadding),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    stringResource(R.string.taildrop_show_in_folder),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
             Button(onClick = onOpen, shape = MaterialTheme.shapes.medium) { Text(stringResource(R.string.action_open)) }
         }
     }

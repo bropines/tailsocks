@@ -81,6 +81,8 @@
 
     <string name="taildrop_saved_to_format">Сохранено в %1$s</string>
     <string name="taildrop_show_in_folder">Показать в папке</string>
+    <string name="taildrop_copy_folder_path">Скопировать путь к папке</string>
+    <string name="taildrop_folder_path_copied_format">Путь скопирован: %1$s</string>
     <string name="taildrop_hide">Скрыть</string>
     <string name="taildrop_folder_unavailable_format">Нет приложения, которое открывает папки. Файл лежит в %1$s</string>
     <string name="taildrop_save_failed">Не удалось сохранить автоматически, файл ждёт здесь</string>
