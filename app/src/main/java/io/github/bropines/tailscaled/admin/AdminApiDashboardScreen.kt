@@ -53,8 +53,11 @@ import io.github.bropines.tailscaled.admin.console.Loadable
 import io.github.bropines.tailscaled.admin.console.WriteBlock
 import io.github.bropines.tailscaled.admin.devices.DeviceDetailSheet
 import io.github.bropines.tailscaled.admin.devices.DevicesTab
+import io.github.bropines.tailscaled.admin.dns.DnsTab
 import io.github.bropines.tailscaled.admin.policy.PolicyTab
 import io.github.bropines.tailscaled.admin.safety.ReadOnlyBanner
+import io.github.bropines.tailscaled.admin.settings.SettingsTab
+import io.github.bropines.tailscaled.admin.webhooks.WebhooksTab
 import io.github.bropines.tailscaled.core.ScrollableSlidingSegmentedChips
 import io.github.bropines.tailscaled.ui.AppTopBar
 import io.github.bropines.tailscaled.ui.PickerOption
@@ -99,7 +102,6 @@ fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -
     var selectedServiceName by rememberSaveable { mutableStateOf<String?>(null) }
     var showKeys by rememberSaveable { mutableStateOf(false) }
     var showCreateKey by rememberSaveable { mutableStateOf(false) }
-    var showCreateWebhook by rememberSaveable { mutableStateOf(false) }
     var showProfiles by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(pagerState.currentPage, tabs) { tabs.getOrNull(pagerState.currentPage)?.let { vm?.refresh(it) } }
@@ -175,15 +177,7 @@ fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -
                             selfNodeId = selfNode,
                             onDeviceClick = { selectedDeviceId = it.pathId },
                         )
-                        ConsoleTab.DNS -> DnsTabContent(
-                            state = state.dns,
-                            canWrite = state.canWrite(AdminArea.DNS),
-                            onRetry = { vm?.refresh(tab, force = true) },
-                            onMagicDnsChanged = { vm?.setMagicDns(it) },
-                            onApplyNameservers = { vm?.setNameservers(it) },
-                            onUpdateSplitDns = { domain, servers -> vm?.setSplitDns(domain, servers) },
-                            onApplySearchPaths = { vm?.setSearchPaths(it) },
-                        )
+                        ConsoleTab.DNS -> DnsTab(state, vm)
                         ConsoleTab.POLICY -> PolicyTab(state, vm)
                         ConsoleTab.USERS -> UsersTabContent(
                             state = state.users,
@@ -196,14 +190,7 @@ fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -
                             onRetry = { vm?.refresh(tab, force = true) },
                             onServiceClick = { selectedServiceName = it.name },
                         )
-                        ConsoleTab.WEBHOOKS -> WebhooksTabContent(
-                            state = state.webhooks,
-                            canWrite = state.canWrite(AdminArea.WEBHOOKS),
-                            onRetry = { vm?.refresh(tab, force = true) },
-                            onCreateClick = { showCreateWebhook = true },
-                            onTestClick = { vm?.testWebhook(it) },
-                            onDeleteClick = { vm?.deleteWebhook(it) },
-                        )
+                        ConsoleTab.WEBHOOKS -> WebhooksTab(state, vm)
                         ConsoleTab.LOGS -> AdminApiLogsTabContent(
                             tailnetLog = state.tailnetLog,
                             daysRange = state.tailnetLogDays,
@@ -213,13 +200,7 @@ fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -
                             onClearLocal = { vm?.clearLocalLog() },
                         )
                         ConsoleTab.WEB -> AdminApiWebTabContent()
-                        ConsoleTab.SETTINGS -> TailnetSettingsTabContent(
-                            state = state.settings,
-                            canWrite = { key -> state.canWrite(key.scopeArea) },
-                            onRetry = { vm?.refresh(tab, force = true) },
-                            onSet = { key, label, value, show -> vm?.setSetting(key, label, value, show) },
-                            onManageKeysClick = { showKeys = true },
-                        )
+                        ConsoleTab.SETTINGS -> SettingsTab(state, vm, onManageKeys = { showKeys = true })
                     }
                 }
             }
@@ -303,16 +284,6 @@ fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -
             onGenerate = { request ->
                 showCreateKey = false
                 vm?.createAuthKey(request)
-            },
-        )
-    }
-
-    if (showCreateWebhook) {
-        CreateWebhookDialog(
-            onDismiss = { showCreateWebhook = false },
-            onSave = { url, provider, events ->
-                showCreateWebhook = false
-                vm?.createWebhook(url, provider, events)
             },
         )
     }
