@@ -19,6 +19,7 @@ import io.github.bropines.tailscaled.admin.api.DnsConfiguration
 import io.github.bropines.tailscaled.admin.api.TailnetSettings
 import io.github.bropines.tailscaled.admin.api.TailscaleBackend
 import io.github.bropines.tailscaled.admin.policy.PolicyState
+import io.github.bropines.tailscaled.admin.logs.AuditLogQuery
 import io.github.bropines.tailscaled.admin.profile.AdminProfile
 import io.github.bropines.tailscaled.admin.profile.AdminProxySettings
 import io.github.bropines.tailscaled.admin.profile.AuthType
@@ -137,6 +138,8 @@ data class ConsoleState(
     val webhooks: Loadable<List<ApiWebhook>> = Loadable(),
     val tailnetLog: Loadable<List<ApiAuditLogEntry>> = Loadable(),
     val tailnetLogDays: Int = 7,
+    /** The audit log's window and server-side filters. */
+    val tailnetLogQuery: AuditLogQuery = AuditLogQuery(),
     val localLog: List<AuditRecord> = emptyList(),
     val settings: Loadable<TailnetSettings> = Loadable(),
     val safety: SafetyStep = SafetyStep.Idle,

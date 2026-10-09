@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Logs -->
+    <string name="admin_log_section_tailnet">Журнал tailnet</string>
+    <string name="admin_log_section_phone">Изменения с этого телефона</string>
+    <plurals name="admin_log_count">
+        <item quantity="one">%1$d событие за последние %2$s</item>
+        <item quantity="few">%1$d события за последние %2$s</item>
+        <item quantity="many">%1$d событий за последние %2$s</item>
+        <item quantity="other">%1$d события за последние %2$s</item>
+    </plurals>
+    <plurals name="admin_log_window_hours">
+        <item quantity="one">%d час</item>
+        <item quantity="few">%d часа</item>
+        <item quantity="many">%d часов</item>
+        <item quantity="other">%d часа</item>
+    </plurals>
+    <string name="admin_log_empty">За это время ничего не менялось.</string>
+    <string name="admin_log_empty_filtered">За это время под фильтры ничего не подходит.</string>
+    <string name="admin_log_filter_clear_all">Сбросить фильтры</string>
+    <string name="admin_log_filter_actor">Кто</string>
+    <string name="admin_log_filter_target">Что</string>
+    <string name="admin_log_filter_event">Событие</string>
+    <string name="admin_log_filter_event_any">Любое событие</string>
+    <string name="admin_log_filter_actor_help">Имя или логин для поиска, или идентификатор пользователя либо устройства как есть.</string>
+    <string name="admin_log_filter_target_help">Любая часть имени или идентификатора устройства, пользователя или ключа.</string>
+    <string name="admin_log_filter_value">%1$s: %2$s</string>
+    <string name="admin_log_filter_clear">Сбросить «%1$s»</string>
+    <string name="admin_log_filter_apply">Применить</string>
+    <string name="admin_log_day_today">Сегодня</string>
+    <string name="admin_log_day_yesterday">Вчера</string>
+    <string name="admin_log_day_unknown">Время неизвестно</string>
+    <string name="admin_log_entry_title">%1$s · %2$s</string>
+    <string name="admin_log_entry_by">кто: %1$s</string>
+    <string name="admin_log_entry_toggle">показать или скрыть подробности</string>
+    <string name="admin_log_entry_expanded">подробности показаны</string>
+    <string name="admin_log_entry_collapsed">подробности скрыты</string>
+    <plurals name="admin_log_more_changes">
+        <item quantity="one">и ещё %d</item>
+        <item quantity="few">и ещё %d</item>
+        <item quantity="many">и ещё %d</item>
+        <item quantity="other">и ещё %d</item>
+    </plurals>
+    <plurals name="admin_log_text_lines_changed">
+        <item quantity="one">изменена %d строка</item>
+        <item quantity="few">изменены %d строки</item>
+        <item quantity="many">изменено %d строк</item>
+        <item quantity="other">изменено %d строки</item>
+    </plurals>
+    <plurals name="admin_log_text_folded">
+        <item quantity="one">⋯ %d строка без изменений</item>
+        <item quantity="few">⋯ %d строки без изменений</item>
+        <item quantity="many">⋯ %d строк без изменений</item>
+        <item quantity="other">⋯ %d строки без изменений</item>
+    </plurals>
+    <string name="admin_log_no_change">Значение не изменилось.</string>
+    <string name="admin_log_value">Значение</string>
+    <string name="admin_log_unknown">Неизвестно</string>
+    <string name="admin_log_detail_actor_type">Кто это был</string>
+    <string name="admin_log_detail_actor_tags">Его теги</string>
+    <string name="admin_log_detail_origin">Откуда</string>
+    <string name="admin_log_detail_target_id">Идентификатор</string>
+    <string name="admin_log_detail_ephemeral">Временное</string>
+    <string name="admin_log_detail_group">Операция</string>
+    <string name="admin_log_detail_details">Подробности</string>
+    <string name="admin_log_phone_help">Что этот телефон изменил или пытался изменить; хранится только на этом телефоне. Что изменилось на самом деле, записано в журнале самого tailnet.</string>
+    <string name="admin_log_phone_clear">Очистить</string>
+    <string name="admin_log_phone_empty">С этого телефона пока ничего не менялось.</string>
+    <string name="admin_log_phone_undo">отмена</string>
+
+    <!-- Logs: the API's actions -->
+    <string name="admin_log_action_login">Вход</string>
+    <string name="admin_log_action_logout">Выход</string>
+    <string name="admin_log_action_create">Создание</string>
+    <string name="admin_log_action_update">Изменение</string>
+    <string name="admin_log_action_delete">Удаление</string>
+    <string name="admin_log_action_cancel">Отмена</string>
+    <string name="admin_log_action_revoke">Отзыв</string>
+    <string name="admin_log_action_approve">Одобрение</string>
+    <string name="admin_log_action_suspend">Блокировка</string>
+    <string name="admin_log_action_restore">Восстановление</string>
+    <string name="admin_log_action_enable">Включение</string>
+    <string name="admin_log_action_disable">Выключение</string>
+    <string name="admin_log_action_accept">Принятие</string>
+    <string name="admin_log_action_expired">Истечение срока</string>
+    <string name="admin_log_action_push">Синхронизация</string>
+    <string name="admin_log_action_verify">Подтверждение</string>
+    <string name="admin_log_action_join_waitlist">Запись в лист ожидания</string>
+    <string name="admin_log_action_invite">Приглашение</string>
+    <string name="admin_log_action_join">Присоединение</string>
+    <string name="admin_log_action_leave">Выход из tailnet</string>
+    <string name="admin_log_action_resend">Повторная отправка</string>
+    <string name="admin_log_action_migrate">Смена способа входа</string>
+
+    <!-- Logs: what an event acted on -->
+    <string name="admin_log_target_tailnet">Tailnet</string>
+    <string name="admin_log_target_user">Пользователь</string>
+    <string name="admin_log_target_group">Группа</string>
+    <string name="admin_log_target_node">Устройство</string>
+    <string name="admin_log_target_api_key">Ключ</string>
+    <string name="admin_log_target_invite">Приглашение</string>
+    <string name="admin_log_target_share">Общий доступ</string>
+    <string name="admin_log_target_billing">Оплата</string>
+    <string name="admin_log_target_admin_console">Консоль администратора</string>
+    <string name="admin_log_target_web_interface">Веб-интерфейс</string>
+    <string name="admin_log_target_webhook">Вебхук</string>
+    <string name="admin_log_target_failed_request">Неудачный запрос</string>
+
+    <!-- Logs: where an event came from, and who -->
+    <string name="admin_log_origin_admin_console">Консоль администратора</string>
+    <string name="admin_log_origin_api">API</string>
+    <string name="admin_log_origin_control">Сервер координации</string>
+    <string name="admin_log_origin_idp">Провайдер входа</string>
+    <string name="admin_log_origin_node">Устройство</string>
+    <string name="admin_log_origin_support">Запрос в поддержку</string>
+    <string name="admin_log_origin_notification">Уведомление</string>
+    <string name="admin_log_actor_user">Пользователь</string>
+    <string name="admin_log_actor_node">Устройство</string>
+    <string name="admin_log_actor_automated">Автоматически</string>
+    <string name="admin_log_actor_oauth_client">OAuth-клиент</string>
+    <string name="admin_log_actor_logstream">Потоковая передача журналов</string>
+    <string name="admin_log_actor_secret_scanner">Поиск утёкших секретов</string>
+    <string name="admin_log_actor_pam">Управление доступом</string>
+
+    <!-- Logs: which property changed -->
+    <string name="admin_log_prop_acl">Файл политики</string>
+    <string name="admin_log_prop_tags">Теги</string>
+    <string name="admin_log_prop_address">Адрес</string>
+    <string name="admin_log_prop_routes">Маршруты</string>
+    <string name="admin_log_prop_auto_routes">Автоодобренные маршруты</string>
+    <string name="admin_log_prop_attributes">Атрибуты</string>
+    <string name="admin_log_prop_dns">Настройки DNS</string>
+    <string name="admin_log_prop_email">Почта</string>
+    <string name="admin_log_prop_security_email">Почта для безопасности</string>
+    <string name="admin_log_prop_support_email">Почта поддержки</string>
+    <string name="admin_log_prop_exit_node">Выходной узел</string>
+    <string name="admin_log_prop_feature">Функция</string>
+    <string name="admin_log_prop_key_expiry">Срок ключа</string>
+    <string name="admin_log_prop_device_approval">Одобрение устройств</string>
+    <string name="admin_log_prop_user_approval">Одобрение пользователей</string>
+    <string name="admin_log_prop_name">Имя</string>
+    <string name="admin_log_prop_key_duration">Срок жизни ключей</string>
+    <string name="admin_log_prop_flow_logs">Журналы сетевых потоков</string>
+    <string name="admin_log_prop_node_share">Общий доступ к устройству</string>
+    <string name="admin_log_prop_posture">Состояние устройства</string>
+    <string name="admin_log_prop_role">Роль</string>
+    <string name="admin_log_prop_webhook_events">События вебхука</string>
+    <string name="admin_log_prop_secret">Секрет</string>
+    <string name="admin_log_prop_route_selection">Выбор маршрута</string>
+    <string name="admin_log_prop_services">Сбор сервисов</string>
+</resources>

@@ -28,7 +28,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.android.tools.screenshot.PreviewTest
 import io.github.bropines.tailscaled.R
-import io.github.bropines.tailscaled.admin.AdminApiLogsTabContent
 import io.github.bropines.tailscaled.admin.AdminApiMainScreen
 import io.github.bropines.tailscaled.admin.AdminConsoleContent
 import io.github.bropines.tailscaled.admin.AdminDashboard
@@ -62,6 +61,8 @@ import io.github.bropines.tailscaled.admin.console.CredentialProblem
 import io.github.bropines.tailscaled.admin.console.Loadable
 import io.github.bropines.tailscaled.admin.console.ProfileDraft
 import io.github.bropines.tailscaled.admin.console.SelfIdentity
+import io.github.bropines.tailscaled.admin.logs.AuditLogQuery
+import io.github.bropines.tailscaled.admin.logs.LogsTab
 import io.github.bropines.tailscaled.admin.profile.AdminProfile
 import io.github.bropines.tailscaled.admin.safety.AdminChange
 import io.github.bropines.tailscaled.admin.safety.AuditRecord
@@ -230,7 +231,7 @@ fun AdminTailnetLogPreview() = Admin { AdminDashboard(AdminDemo.state, null, {},
 
 @PreviewTest @AdminGeometries @Composable
 fun AdminLocalLogPreview() = Admin {
-    AdminApiLogsTabContent(Loadable(emptyList()), 7, {}, {}, AdminDemo.state.localLog, {}, startOnLocal = true)
+    LogsTab(Loadable(emptyList()), AuditLogQuery(), {}, {}, AdminDemo.state.localLog, {}, startOnLocal = true, now = 1_791_600_000_000L)
 }
 
 @PreviewTest @AdminGeometries @Composable

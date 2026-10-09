@@ -51,6 +51,7 @@ import io.github.bropines.tailscaled.admin.devices.DeviceDetailSheet
 import io.github.bropines.tailscaled.admin.devices.DevicesTab
 import io.github.bropines.tailscaled.admin.dns.DnsTab
 import io.github.bropines.tailscaled.admin.policy.PolicyTab
+import io.github.bropines.tailscaled.admin.logs.LogsTab
 import io.github.bropines.tailscaled.admin.safety.ReadOnlyBanner
 import io.github.bropines.tailscaled.admin.settings.SettingsTab
 import io.github.bropines.tailscaled.admin.webhooks.WebhooksTab
@@ -180,10 +181,10 @@ fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -
                             onServiceClick = { selectedServiceName = it.name },
                         )
                         ConsoleTab.WEBHOOKS -> WebhooksTab(state, vm)
-                        ConsoleTab.LOGS -> AdminApiLogsTabContent(
+                        ConsoleTab.LOGS -> LogsTab(
                             tailnetLog = state.tailnetLog,
-                            daysRange = state.tailnetLogDays,
-                            onDaysRangeChange = { vm?.setTailnetLogDays(it) },
+                            query = state.tailnetLogQuery,
+                            onQuery = { vm?.setTailnetLogQuery(it) },
                             onRetry = { vm?.refresh(tab, force = true) },
                             localLog = state.localLog,
                             onClearLocal = { vm?.clearLocalLog() },

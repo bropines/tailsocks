@@ -26,6 +26,7 @@ import io.github.bropines.tailscaled.admin.api.UserRole
 import io.github.bropines.tailscaled.admin.attention.AttentionSession
 import io.github.bropines.tailscaled.admin.policy.PolicyConsole
 import io.github.bropines.tailscaled.admin.keys.KeysController
+import io.github.bropines.tailscaled.admin.logs.AuditLogQuery
 import io.github.bropines.tailscaled.admin.profile.AdminProfile
 import io.github.bropines.tailscaled.admin.profile.AdminProfiles
 import io.github.bropines.tailscaled.admin.profile.MissingCredentialException
@@ -227,10 +228,10 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
             }
             ConsoleTab.WEBHOOKS -> loadList(force, { it.webhooks }, { s, v -> s.copy(webhooks = v) }) { it.listWebhooks() }
             ConsoleTab.LOGS -> {
-                val days = _state.value.tailnetLogDays
+                val query = _state.value.tailnetLogQuery
                 loadList(force, { it.tailnetLog }, { s, v -> s.copy(tailnetLog = v) }) {
-                    val now = System.currentTimeMillis()
-                    it.auditLog(rfc3339(now - days * DAY_MS), rfc3339(now))
+                    val (start, end) = query.range(System.currentTimeMillis())
+                    it.auditLog(start, end, query.filters())
                 }
                 reloadLocalLog()
             }
@@ -244,6 +245,13 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setTailnetLogDays(days: Int) {
         _state.update { it.copy(tailnetLogDays = days) }
+        refresh(ConsoleTab.LOGS, force = true)
+    }
+
+    /** New server-side filters or window for the tailnet's audit log; the old result stays until the new one arrives. */
+    fun setTailnetLogQuery(query: AuditLogQuery) {
+        if (query == _state.value.tailnetLogQuery) return
+        _state.update { it.copy(tailnetLogQuery = query) }
         refresh(ConsoleTab.LOGS, force = true)
     }
 

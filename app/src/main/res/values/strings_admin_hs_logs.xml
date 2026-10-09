@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The admin console's Headscale backends, its audit logs and its Services (4.9.0). -->
+<resources>
+    <!-- Logs -->
+    <string name="admin_log_section_tailnet">Tailnet log</string>
+    <string name="admin_log_section_phone">Changes made from this phone</string>
+    <plurals name="admin_log_count">
+        <item quantity="one">%1$d event in the last %2$s</item>
+        <item quantity="other">%1$d events in the last %2$s</item>
+    </plurals>
+    <plurals name="admin_log_window_hours">
+        <item quantity="one">%d hour</item>
+        <item quantity="other">%d hours</item>
+    </plurals>
+    <string name="admin_log_empty">Nothing was changed in this time.</string>
+    <string name="admin_log_empty_filtered">Nothing matches these filters in this time.</string>
+    <string name="admin_log_filter_clear_all">Clear the filters</string>
+    <string name="admin_log_filter_actor">Who</string>
+    <string name="admin_log_filter_target">What</string>
+    <string name="admin_log_filter_event">Event</string>
+    <string name="admin_log_filter_event_any">Any event</string>
+    <string name="admin_log_filter_actor_help">A name or login to search for, or a user or device id as it is.</string>
+    <string name="admin_log_filter_target_help">Any part of a device, user or key name or id.</string>
+    <string name="admin_log_filter_value">%1$s: %2$s</string>
+    <string name="admin_log_filter_clear">Clear %1$s</string>
+    <string name="admin_log_filter_apply">Apply</string>
+    <string name="admin_log_day_today">Today</string>
+    <string name="admin_log_day_yesterday">Yesterday</string>
+    <string name="admin_log_day_unknown">Unknown time</string>
+    <string name="admin_log_entry_title">%1$s · %2$s</string>
+    <string name="admin_log_entry_by">by %1$s</string>
+    <string name="admin_log_entry_toggle">show or hide the details</string>
+    <string name="admin_log_entry_expanded">details shown</string>
+    <string name="admin_log_entry_collapsed">details hidden</string>
+    <plurals name="admin_log_more_changes">
+        <item quantity="one">and %d more</item>
+        <item quantity="other">and %d more</item>
+    </plurals>
+    <plurals name="admin_log_text_lines_changed">
+        <item quantity="one">%d line changed</item>
+        <item quantity="other">%d lines changed</item>
+    </plurals>
+    <plurals name="admin_log_text_folded">
+        <item quantity="one">⋯ %d unchanged line</item>
+        <item quantity="other">⋯ %d unchanged lines</item>
+    </plurals>
+    <string name="admin_log_no_change">The value did not change.</string>
+    <string name="admin_log_value">Value</string>
+    <string name="admin_log_unknown">Unknown</string>
+    <string name="admin_log_detail_actor_type">Who it was</string>
+    <string name="admin_log_detail_actor_tags">Their tags</string>
+    <string name="admin_log_detail_origin">Made in</string>
+    <string name="admin_log_detail_target_id">Id</string>
+    <string name="admin_log_detail_ephemeral">Ephemeral</string>
+    <string name="admin_log_detail_group">Operation</string>
+    <string name="admin_log_detail_details">Details</string>
+    <string name="admin_log_phone_help">What this phone changed or tried to change, kept on this phone only. The tailnet\'s own log records what actually changed.</string>
+    <string name="admin_log_phone_clear">Clear</string>
+    <string name="admin_log_phone_empty">No changes from this phone yet.</string>
+    <string name="admin_log_phone_undo">undo</string>
+
+    <!-- Logs: the API's actions -->
+    <string name="admin_log_action_login">Signed in</string>
+    <string name="admin_log_action_logout">Signed out</string>
+    <string name="admin_log_action_create">Created</string>
+    <string name="admin_log_action_update">Changed</string>
+    <string name="admin_log_action_delete">Deleted</string>
+    <string name="admin_log_action_cancel">Cancelled</string>
+    <string name="admin_log_action_revoke">Revoked</string>
+    <string name="admin_log_action_approve">Approved</string>
+    <string name="admin_log_action_suspend">Suspended</string>
+    <string name="admin_log_action_restore">Restored</string>
+    <string name="admin_log_action_enable">Turned on</string>
+    <string name="admin_log_action_disable">Turned off</string>
+    <string name="admin_log_action_accept">Accepted</string>
+    <string name="admin_log_action_expired">Expired</string>
+    <string name="admin_log_action_push">Synced</string>
+    <string name="admin_log_action_verify">Verified</string>
+    <string name="admin_log_action_join_waitlist">Joined the waitlist</string>
+    <string name="admin_log_action_invite">Invited</string>
+    <string name="admin_log_action_join">Joined</string>
+    <string name="admin_log_action_leave">Left</string>
+    <string name="admin_log_action_resend">Sent again</string>
+    <string name="admin_log_action_migrate">Moved to another sign-in provider</string>
+
+    <!-- Logs: what an event acted on -->
+    <string name="admin_log_target_tailnet">Tailnet</string>
+    <string name="admin_log_target_user">User</string>
+    <string name="admin_log_target_group">Group</string>
+    <string name="admin_log_target_node">Device</string>
+    <string name="admin_log_target_api_key">Key</string>
+    <string name="admin_log_target_invite">Invite</string>
+    <string name="admin_log_target_share">Sharing</string>
+    <string name="admin_log_target_billing">Billing</string>
+    <string name="admin_log_target_admin_console">Admin console</string>
+    <string name="admin_log_target_web_interface">Web interface</string>
+    <string name="admin_log_target_webhook">Webhook</string>
+    <string name="admin_log_target_failed_request">Failed request</string>
+
+    <!-- Logs: where an event came from, and who -->
+    <string name="admin_log_origin_admin_console">Admin console</string>
+    <string name="admin_log_origin_api">API</string>
+    <string name="admin_log_origin_control">Coordination server</string>
+    <string name="admin_log_origin_idp">Identity provider</string>
+    <string name="admin_log_origin_node">A device</string>
+    <string name="admin_log_origin_support">Support request</string>
+    <string name="admin_log_origin_notification">Notification</string>
+    <string name="admin_log_actor_user">User</string>
+    <string name="admin_log_actor_node">Device</string>
+    <string name="admin_log_actor_automated">Automatic</string>
+    <string name="admin_log_actor_oauth_client">OAuth client</string>
+    <string name="admin_log_actor_logstream">Log streaming</string>
+    <string name="admin_log_actor_secret_scanner">Secret scanning</string>
+    <string name="admin_log_actor_pam">Access management</string>
+
+    <!-- Logs: which property changed -->
+    <string name="admin_log_prop_acl">Policy file</string>
+    <string name="admin_log_prop_tags">Tags</string>
+    <string name="admin_log_prop_address">Address</string>
+    <string name="admin_log_prop_routes">Routes</string>
+    <string name="admin_log_prop_auto_routes">Auto-approved routes</string>
+    <string name="admin_log_prop_attributes">Attributes</string>
+    <string name="admin_log_prop_dns">DNS settings</string>
+    <string name="admin_log_prop_email">Email</string>
+    <string name="admin_log_prop_security_email">Security email</string>
+    <string name="admin_log_prop_support_email">Support email</string>
+    <string name="admin_log_prop_exit_node">Exit node</string>
+    <string name="admin_log_prop_feature">Feature</string>
+    <string name="admin_log_prop_key_expiry">Key expiry</string>
+    <string name="admin_log_prop_device_approval">Device approval</string>
+    <string name="admin_log_prop_user_approval">User approval</string>
+    <string name="admin_log_prop_name">Name</string>
+    <string name="admin_log_prop_key_duration">Key lifetime</string>
+    <string name="admin_log_prop_flow_logs">Network flow logs</string>
+    <string name="admin_log_prop_node_share">Device sharing</string>
+    <string name="admin_log_prop_posture">Device posture</string>
+    <string name="admin_log_prop_role">Role</string>
+    <string name="admin_log_prop_webhook_events">Webhook events</string>
+    <string name="admin_log_prop_secret">Secret</string>
+    <string name="admin_log_prop_route_selection">Route selection</string>
+    <string name="admin_log_prop_services">Services collection</string>
+</resources>
