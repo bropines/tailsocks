@@ -53,6 +53,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -473,13 +474,15 @@ internal fun TaildropSavedCard(
             }
         }
         HorizontalDivider(Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
-        Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.End) {
+        Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = onHide, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant)) {
                 Text(stringResource(R.string.taildrop_hide))
             }
-            // A TextButton in looks, with a long press it cannot take.
+            // A TextButton in looks and size — the 48dp it reserves to be touched, too, or
+            // the row sets it higher than its neighbours — with a long press it cannot take.
             Box(
                 modifier = Modifier
+                    .minimumInteractiveComponentSize()
                     .clip(ButtonDefaults.textShape)
                     .combinedClickable(
                         role = Role.Button,
