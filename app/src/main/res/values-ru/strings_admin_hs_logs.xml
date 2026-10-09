@@ -148,4 +148,47 @@
     <string name="admin_log_prop_secret">Секрет</string>
     <string name="admin_log_prop_route_selection">Выбор маршрута</string>
     <string name="admin_log_prop_services">Сбор сервисов</string>
+
+    <!-- Services -->
+    <string name="admin_svc_help">Сервис — это имя и адреса в tailnet, которые обслуживают устройства. Устройство начинает его обслуживать, только когда его одобрят здесь или автоодобрение.</string>
+    <string name="admin_svc_new">Новый</string>
+    <string name="admin_svc_empty">Сервисов пока нет</string>
+    <string name="admin_svc_no_address">Адреса пока нет</string>
+    <string name="admin_svc_field_name">Имя</string>
+    <string name="admin_svc_field_display_name">Отображаемое имя (необязательно)</string>
+    <string name="admin_svc_field_addresses">Адреса</string>
+    <string name="admin_svc_field_ports">Порты</string>
+    <string name="admin_svc_field_tags">Теги</string>
+    <string name="admin_svc_field_comment">Комментарий</string>
+    <string name="admin_svc_field_ipv4">Адрес IPv4 (необязательно)</string>
+    <string name="admin_svc_ports_help">Через запятую: 443, tcp:80, tcp:8000-8010.</string>
+    <string name="admin_svc_ipv4_help">Если оставить пустым, tailnet назначит адрес сам.</string>
+    <string name="admin_svc_error_name">Строчные латинские буквы, цифры и дефисы, до 63 символов.</string>
+    <string name="admin_svc_error_ports">Хотя бы один порт, например 443 или tcp:443; диапазон — tcp:8000-8010.</string>
+    <string name="admin_svc_error_ipv4">Это не адрес IPv4.</string>
+    <string name="admin_svc_rename_warning">Сервис %1$s будет переименован: клиенты со старым именем потеряют его, пока не перейдут на новое.</string>
+    <string name="admin_svc_editor_new">Новый сервис</string>
+    <string name="admin_svc_editor_edit">Изменить сервис</string>
+    <string name="admin_svc_hosts">Устройства</string>
+    <string name="admin_svc_hosts_help">Устройства, объявившие этот сервис. Одобренное устройство получает трафик сервиса.</string>
+    <string name="admin_svc_hosts_none">Этот сервис пока не объявило ни одно устройство.</string>
+    <string name="admin_svc_host_approved">Одобрено</string>
+    <string name="admin_svc_host_approved_auto">Одобрено автоматически</string>
+    <string name="admin_svc_host_not_approved">Не одобрено</string>
+    <string name="admin_svc_host_ready">готово</string>
+    <string name="admin_svc_change_create">Создать сервис %1$s</string>
+    <string name="admin_svc_change_create_effect">Сервис получит адреса; объявившие его устройства смогут обслуживать его после одобрения.</string>
+    <string name="admin_svc_change_edit">Изменить сервис %1$s</string>
+    <string name="admin_svc_change_edit_effect">Клиенты увидят новое описание; одобренные устройства останутся одобренными.</string>
+    <string name="admin_svc_change_rename">Переименовать сервис %1$s</string>
+    <string name="admin_svc_change_rename_effect">Он станет %1$s. Клиенты со старым именем потеряют сервис, пока не перейдут на новое.</string>
+    <string name="admin_svc_change_delete">Удалить сервис %1$s</string>
+    <string name="admin_svc_change_delete_effect">Сервис и его адреса будут удалены; все устройства перестанут его обслуживать.</string>
+    <string name="admin_svc_diff_name">Имя</string>
+    <string name="admin_svc_diff_display">Отображаемое имя</string>
+    <string name="admin_svc_diff_ports">Порты</string>
+    <string name="admin_svc_diff_tags">Теги</string>
+    <string name="admin_svc_diff_comment">Комментарий</string>
+    <string name="admin_svc_diff_addrs">Адреса</string>
+    <string name="admin_svc_diff_service">Сервис</string>
 </resources>

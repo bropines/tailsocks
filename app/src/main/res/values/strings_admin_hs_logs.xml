@@ -139,4 +139,47 @@
     <string name="admin_log_prop_secret">Secret</string>
     <string name="admin_log_prop_route_selection">Route selection</string>
     <string name="admin_log_prop_services">Services collection</string>
+
+    <!-- Services -->
+    <string name="admin_svc_help">A service is a name and addresses in the tailnet that devices host. A host serves it only once approved here or by an auto-approver.</string>
+    <string name="admin_svc_new">New</string>
+    <string name="admin_svc_empty">No services yet</string>
+    <string name="admin_svc_no_address">No address yet</string>
+    <string name="admin_svc_field_name">Name</string>
+    <string name="admin_svc_field_display_name">Display name (optional)</string>
+    <string name="admin_svc_field_addresses">Addresses</string>
+    <string name="admin_svc_field_ports">Ports</string>
+    <string name="admin_svc_field_tags">Tags</string>
+    <string name="admin_svc_field_comment">Comment</string>
+    <string name="admin_svc_field_ipv4">IPv4 address (optional)</string>
+    <string name="admin_svc_ports_help">Comma-separated: 443, tcp:80, tcp:8000-8010.</string>
+    <string name="admin_svc_ipv4_help">Left empty, the tailnet assigns one.</string>
+    <string name="admin_svc_error_name">Lowercase letters, digits and dashes, up to 63.</string>
+    <string name="admin_svc_error_ports">At least one port, as 443 or tcp:443; ranges as tcp:8000-8010.</string>
+    <string name="admin_svc_error_ipv4">Not an IPv4 address.</string>
+    <string name="admin_svc_rename_warning">This renames %1$s: clients using the old name lose the service until they use the new one.</string>
+    <string name="admin_svc_editor_new">New service</string>
+    <string name="admin_svc_editor_edit">Edit service</string>
+    <string name="admin_svc_hosts">Hosts</string>
+    <string name="admin_svc_hosts_help">Devices that advertise this service. Approving one lets it receive the service\'s traffic.</string>
+    <string name="admin_svc_hosts_none">No device advertises this service yet.</string>
+    <string name="admin_svc_host_approved">Approved</string>
+    <string name="admin_svc_host_approved_auto">Approved automatically</string>
+    <string name="admin_svc_host_not_approved">Not approved</string>
+    <string name="admin_svc_host_ready">ready</string>
+    <string name="admin_svc_change_create">Create service %1$s</string>
+    <string name="admin_svc_change_create_effect">The service gets its addresses; devices that advertise it can host it once approved.</string>
+    <string name="admin_svc_change_edit">Change service %1$s</string>
+    <string name="admin_svc_change_edit_effect">Clients see the new definition; approved hosts stay approved.</string>
+    <string name="admin_svc_change_rename">Rename service %1$s</string>
+    <string name="admin_svc_change_rename_effect">It becomes %1$s. Clients using the old name lose the service until they use the new one.</string>
+    <string name="admin_svc_change_delete">Delete service %1$s</string>
+    <string name="admin_svc_change_delete_effect">The service and its addresses are removed; every host stops serving it.</string>
+    <string name="admin_svc_diff_name">Name</string>
+    <string name="admin_svc_diff_display">Display name</string>
+    <string name="admin_svc_diff_ports">Ports</string>
+    <string name="admin_svc_diff_tags">Tags</string>
+    <string name="admin_svc_diff_comment">Comment</string>
+    <string name="admin_svc_diff_addrs">Addresses</string>
+    <string name="admin_svc_diff_service">Service</string>
 </resources>

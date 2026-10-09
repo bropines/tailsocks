@@ -27,6 +27,7 @@ import io.github.bropines.tailscaled.admin.attention.AttentionSession
 import io.github.bropines.tailscaled.admin.policy.PolicyConsole
 import io.github.bropines.tailscaled.admin.keys.KeysController
 import io.github.bropines.tailscaled.admin.logs.AuditLogQuery
+import io.github.bropines.tailscaled.admin.services.ServiceChanges
 import io.github.bropines.tailscaled.admin.profile.AdminProfile
 import io.github.bropines.tailscaled.admin.profile.AdminProfiles
 import io.github.bropines.tailscaled.admin.profile.MissingCredentialException
@@ -565,6 +566,11 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setServiceHost(service: ApiService, deviceId: String, deviceName: String, approved: Boolean) =
         propose(ConsoleChanges.setServiceHost(text, service, deviceId, deviceName, approved)) { loadServiceHosts(service) }
+
+    fun createService(service: ApiService) = propose(ServiceChanges.create(text, service))
+    /** An edit; a different name renames the service (HIGH: its old name stops resolving). */
+    fun updateService(before: ApiService, after: ApiService) = propose(ServiceChanges.update(text, before, after))
+    fun deleteService(service: ApiService) = propose(ServiceChanges.delete(text, service))
 
     // ------------------------------------------------------------------ profiles (see ConsoleProfiles)
 

@@ -58,6 +58,9 @@ import io.github.bropines.tailscaled.admin.webhooks.WebhooksTab
 import io.github.bropines.tailscaled.admin.keys.KeysTab
 import io.github.bropines.tailscaled.admin.safety.ReadOnlyBanner
 import io.github.bropines.tailscaled.admin.users.UsersTab
+import io.github.bropines.tailscaled.admin.services.ServiceEditorDialog
+import io.github.bropines.tailscaled.admin.services.ServiceSheet
+import io.github.bropines.tailscaled.admin.services.ServicesTab
 import io.github.bropines.tailscaled.core.ScrollableSlidingSegmentedChips
 import io.github.bropines.tailscaled.ui.AppTopBar
 import io.github.bropines.tailscaled.ui.PickerOption
@@ -100,6 +103,8 @@ fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -
     var selectedDeviceId by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedServiceName by rememberSaveable { mutableStateOf<String?>(null) }
     var showProfiles by rememberSaveable { mutableStateOf(false) }
+    var showCreateService by rememberSaveable { mutableStateOf(false) }
+    var editingServiceName by rememberSaveable { mutableStateOf<String?>(null) }
 
     LaunchedEffect(pagerState.currentPage, tabs) { tabs.getOrNull(pagerState.currentPage)?.let { vm?.refresh(it) } }
 
@@ -175,10 +180,12 @@ fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -
                         ConsoleTab.POLICY -> PolicyTab(state, vm)
                         ConsoleTab.USERS -> UsersTab(state, vm)
                         ConsoleTab.KEYS -> KeysTab(state, vm)
-                        ConsoleTab.SERVICES -> ServicesTabContent(
+                        ConsoleTab.SERVICES -> ServicesTab(
                             state = state.services,
+                            canWrite = state.canWrite(AdminArea.SERVICES),
                             onRetry = { vm?.refresh(tab, force = true) },
                             onServiceClick = { selectedServiceName = it.name },
+                            onCreate = { showCreateService = true },
                         )
                         ConsoleTab.WEBHOOKS -> WebhooksTab(state, vm)
                         ConsoleTab.LOGS -> LogsTab(
@@ -240,16 +247,27 @@ fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -
         // Gone after a refresh (deleted, say): the sheet closes with it.
         LaunchedEffect(service == null) { if (service == null) selectedServiceName = null }
         if (service != null) {
-            ServiceDetailBottomSheet(
+            ServiceSheet(
                 service = service,
                 hosts = state.serviceHosts[service.name],
                 allDevices = state.devices.value.orEmpty(),
                 canWrite = state.canWrite(AdminArea.SERVICES),
                 onLoadHosts = { vm?.loadServiceHosts(service) },
                 onSetHost = { deviceId, deviceName, approved -> vm?.setServiceHost(service, deviceId, deviceName, approved) },
+                onEdit = { editingServiceName = service.name },
+                onDelete = { vm?.deleteService(service) },
                 onDismiss = { selectedServiceName = null },
             )
         }
+    }
+
+    if (showCreateService) {
+        ServiceEditorDialog(null, state.policyTags, onDismiss = { showCreateService = false }) { vm?.createService(it) }
+    }
+    editingServiceName?.let { name ->
+        val service = state.services.value?.firstOrNull { it.name == name }
+        if (service == null) editingServiceName = null
+        else ServiceEditorDialog(service, state.policyTags, onDismiss = { editingServiceName = null }) { vm?.updateService(service, it) }
     }
 
 }

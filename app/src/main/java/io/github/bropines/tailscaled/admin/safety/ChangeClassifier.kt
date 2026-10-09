@@ -31,6 +31,8 @@ object ChangeClassifier {
         ChangeKind.USER_INVITE_RESEND -> ChangeClass.LOW
         ChangeKind.OAUTH_CLIENT_CREATE, ChangeKind.USER_INVITE_CREATE, ChangeKind.DEVICE_INVITE_CREATE -> ChangeClass.MEDIUM
         ChangeKind.USER_INVITE_DELETE, ChangeKind.DEVICE_INVITE_DELETE -> ChangeClass.HIGH
+        // The old name stops resolving for every client of the service.
+        ChangeKind.SERVICE_RENAME -> ChangeClass.HIGH
     }
 
     /**

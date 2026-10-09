@@ -53,6 +53,7 @@ enum class ChangeKind(val area: AdminArea) {
     USER_INVITE_DELETE(AdminArea.USERS),
     DEVICE_INVITE_CREATE(AdminArea.DEVICE_INVITES),
     DEVICE_INVITE_DELETE(AdminArea.DEVICE_INVITES),
+    SERVICE_RENAME(AdminArea.SERVICES),
 }
 
 enum class TargetType { DEVICE, KEY, USER, TAILNET, WEBHOOK, SERVICE, INVITE }
