@@ -334,6 +334,7 @@ object ConsoleChanges {
         TailnetSettingKey.POSTURE_IDENTITY -> s.postureIdentityCollectionOn
         TailnetSettingKey.HTTPS -> s.httpsEnabled
         TailnetSettingKey.ACLS_EXTERNALLY_MANAGED -> s.aclsExternallyManagedOn
+        TailnetSettingKey.ACLS_EXTERNAL_LINK -> s.aclsExternalLink
     }
 
     /**

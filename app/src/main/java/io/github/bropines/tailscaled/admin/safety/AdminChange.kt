@@ -40,6 +40,7 @@ enum class ChangeKind(val area: AdminArea) {
     WEBHOOK_TEST(AdminArea.WEBHOOKS),
     WEBHOOK_ROTATE(AdminArea.WEBHOOKS),
     WEBHOOK_DELETE(AdminArea.WEBHOOKS),
+    DNS_OVERRIDE_LOCAL(AdminArea.DNS),
     SERVICE_PUBLISH(AdminArea.SERVICES),
     SERVICE_HOST_APPROVAL(AdminArea.SERVICES),
     SERVICE_DELETE(AdminArea.SERVICES),
@@ -83,9 +84,17 @@ data class AdminChange(
     val warnings: List<String> = emptyList(),
     /** The area whose write access the change needs; the kind's own unless a setting says otherwise. */
     val area: AdminArea = kind.area,
+    /** What is typed back instead of the target's name ("apply policy"); null for the name. */
+    val confirmPhrase: String? = null,
+    /** For a POLICY change: what the policy pipeline checked. Without it the runner refuses. */
+    val policy: PolicyEvidence? = null,
 ) {
     val needsUnlock: Boolean get() = changeClass != ChangeClass.LOW
     val needsTypedConfirmation: Boolean get() = changeClass == ChangeClass.HIGH || changeClass == ChangeClass.POLICY
+    /** The text the typed confirmation must match. */
+    val confirmText: String get() = confirmPhrase ?: target.name
+    /** HIGH and POLICY: the red button and the warning icon. */
+    val isHighRisk: Boolean get() = changeClass == ChangeClass.HIGH || changeClass == ChangeClass.POLICY
 }
 
 /**

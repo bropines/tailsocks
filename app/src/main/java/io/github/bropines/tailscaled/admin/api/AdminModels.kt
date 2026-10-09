@@ -268,6 +268,7 @@ enum class TailnetSettingKey(val wire: String, val scopeArea: AdminArea) {
     POSTURE_IDENTITY("postureIdentityCollectionOn", AdminArea.SETTINGS),
     HTTPS("httpsEnabled", AdminArea.NETWORKING_SETTINGS),
     ACLS_EXTERNALLY_MANAGED("aclsExternallyManagedOn", AdminArea.POLICY),
+    ACLS_EXTERNAL_LINK("aclsExternalLink", AdminArea.POLICY),
 }
 
 /** The values [TailnetSettings.routeSelection] takes. */

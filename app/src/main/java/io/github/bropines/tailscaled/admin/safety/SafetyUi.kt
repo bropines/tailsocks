@@ -200,7 +200,7 @@ fun ChangeConfirmDialog(change: AdminChange, onConfirm: (typedName: String?) -> 
     var typed by rememberSaveable(change.target.id, change.kind) { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(if (change.changeClass == ChangeClass.HIGH) Icons.Default.Warning else Icons.Default.Lock, null) },
+        icon = { Icon(if (change.isHighRisk) Icons.Default.Warning else Icons.Default.Lock, null) },
         title = { Text(change.title) },
         text = { ChangeConfirmContent(change, typed) { typed = it } },
         confirmButton = { ChangeConfirmButton(change, typed) { onConfirm(if (change.needsTypedConfirmation) typed else null) } },
@@ -212,11 +212,11 @@ fun ChangeConfirmDialog(change: AdminChange, onConfirm: (typedName: String?) -> 
 @Composable
 fun ChangeConfirmButton(change: AdminChange, typed: String, onClick: () -> Unit) {
     val ctx = LocalContext.current
-    val nameOk = !change.needsTypedConfirmation || typed.trim() == change.target.name.trim()
+    val nameOk = !change.needsTypedConfirmation || typed.trim() == change.confirmText.trim()
     Button(
         onClick = onClick,
         enabled = nameOk,
-        colors = if (change.changeClass == ChangeClass.HIGH) ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+        colors = if (change.isHighRisk) ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
         else ButtonDefaults.buttonColors(),
     ) {
         Text(ctx.getString(if (change.needsUnlock) R.string.admin2_confirm_apply else R.string.action_confirm))
@@ -240,7 +240,7 @@ fun ChangeConfirmContent(change: AdminChange, typed: String, onTyped: (String) -
         change.warnings.forEach { WarningLine(it) }
         if (change.target.isThisDevice) WarningLine(ctx.getString(R.string.admin2_confirm_this_device))
         if (change.diff.isNotEmpty()) DiffPreview(change.diff)
-        if (change.needsTypedConfirmation) TypedConfirmationField(change.target.name, typed, onTyped)
+        if (change.needsTypedConfirmation) TypedConfirmationField(change.confirmText, typed, onTyped)
         if (change.needsUnlock) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.LockOpen, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.outline)

@@ -79,7 +79,7 @@ class SafeChangeRunner(
         val ctx = context()
         val t = change.target
         return when {
-            change.changeClass == ChangeClass.POLICY -> Refusal.POLICY_PIPELINE
+            change.changeClass == ChangeClass.POLICY && !PolicyGate.passed(change) -> Refusal.POLICY_PIPELINE
             ctx.readOnlyProfile -> Refusal.READ_ONLY_PROFILE
             change.needsUnlock && ctx.lockState == LockState.NO_SCREEN_LOCK -> Refusal.NO_SCREEN_LOCK
             !ctx.canWrite(change.area) -> Refusal.NOT_ALLOWED
@@ -98,7 +98,7 @@ class SafeChangeRunner(
     fun check(change: AdminChange, gates: GateEvidence): Refusal? {
         blockedBy(change)?.let { return it }
         if (!gates.confirmed) return Refusal.NOT_CONFIRMED
-        if (change.needsTypedConfirmation && gates.typedName?.trim() != change.target.name.trim()) return Refusal.TYPED_MISMATCH
+        if (change.needsTypedConfirmation && gates.typedName?.trim() != change.confirmText.trim()) return Refusal.TYPED_MISMATCH
         if (change.needsUnlock && gates.grant == null) return Refusal.NOT_UNLOCKED
         return null
     }
