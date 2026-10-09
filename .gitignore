@@ -66,6 +66,8 @@ appctr/tailscale_src/tmp/
 .gemini/
 
 *.txt
+# ...but the license texts scripts/licenses/generate.py reads: no artifact carries them.
+!scripts/licenses/texts/*.txt
 *.Zone.Identifier
 status.json
 .kotlin/
