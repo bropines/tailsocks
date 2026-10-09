@@ -61,6 +61,7 @@ import io.github.bropines.tailscaled.admin.console.Loadable
 import io.github.bropines.tailscaled.admin.safety.AuditRecord
 import io.github.bropines.tailscaled.admin.safety.AuditResult
 import io.github.bropines.tailscaled.admin.safety.ChangeClassBadge
+import io.github.bropines.tailscaled.admin.safety.Refusal
 import io.github.bropines.tailscaled.ui.EmptyState
 import io.github.bropines.tailscaled.ui.HelpText
 import io.github.bropines.tailscaled.ui.PickerOption
@@ -83,9 +84,10 @@ fun AdminApiLogsTabContent(
     onRetry: () -> Unit,
     localLog: List<AuditRecord>,
     onClearLocal: () -> Unit,
+    startOnLocal: Boolean = false,
 ) {
     val ctx = LocalContext.current
-    var which by rememberSaveable { mutableIntStateOf(0) }
+    var which by rememberSaveable { mutableIntStateOf(if (startOnLocal) 1 else 0) }
     Column(Modifier.fillMaxSize()) {
         SlidingSegmentedChips(
             options = listOf(ctx.getString(R.string.admin2_logs_tailnet), ctx.getString(R.string.admin2_logs_this_phone)),
@@ -302,7 +304,11 @@ fun LocalAuditCard(record: AuditRecord) {
                 Text(record.effect, style = MaterialTheme.typography.bodySmall)
                 Text("${record.kind.name.lowercase().replace('_', ' ')} · ${record.targetName}", style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace, color = scheme.onSurfaceVariant)
                 ChangeClassBadge(record.changeClass)
-                record.detail?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = scheme.error) }
+                // A refusal is stored by name; it reads as the sentence the console showed then.
+                val detail = record.detail?.let { d ->
+                    if (record.result == AuditResult.REFUSED) runCatching { ConsoleText.refusal(ctx, Refusal.valueOf(d)) }.getOrDefault(d) else d
+                }
+                detail?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = scheme.error) }
                 if (record.requestIds.isNotEmpty()) {
                     Text(record.requestIds.joinToString(", ") { ctx.getString(R.string.admin2_error_request_id, it) }, style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace, color = scheme.outline)
                 }

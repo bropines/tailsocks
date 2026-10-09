@@ -198,47 +198,57 @@ fun TypedConfirmationField(expected: String, value: String, onValueChange: (Stri
 fun ChangeConfirmDialog(change: AdminChange, onConfirm: (typedName: String?) -> Unit, onDismiss: () -> Unit) {
     val ctx = LocalContext.current
     var typed by rememberSaveable(change.target.id, change.kind) { mutableStateOf("") }
-    val nameOk = !change.needsTypedConfirmation || typed.trim() == change.target.name.trim()
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(if (change.changeClass == ChangeClass.HIGH) Icons.Default.Warning else Icons.Default.Lock, null) },
         title = { Text(change.title) },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                ChangeClassBadge(change.changeClass)
-                Column {
-                    Text(ctx.getString(R.string.admin2_confirm_target), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                    Text(change.target.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-                    if (change.target.id != change.target.name) {
-                        Text(change.target.id, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.outline)
-                    }
-                }
-                Text(change.effect, style = MaterialTheme.typography.bodyMedium)
-                change.warnings.forEach { WarningLine(it) }
-                if (change.target.isThisDevice) WarningLine(ctx.getString(R.string.admin2_confirm_this_device))
-                if (change.diff.isNotEmpty()) DiffPreview(change.diff)
-                if (change.needsTypedConfirmation) TypedConfirmationField(change.target.name, typed, { typed = it })
-                if (change.needsUnlock) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.LockOpen, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.outline)
-                        Spacer(Modifier.width(6.dp))
-                        Text(ctx.getString(R.string.admin2_confirm_unlock_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onConfirm(if (change.needsTypedConfirmation) typed else null) },
-                enabled = nameOk,
-                colors = if (change.changeClass == ChangeClass.HIGH) ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                else ButtonDefaults.buttonColors(),
-            ) {
-                Text(ctx.getString(if (change.needsUnlock) R.string.admin2_confirm_apply else R.string.action_confirm))
-            }
-        },
+        text = { ChangeConfirmContent(change, typed) { typed = it } },
+        confirmButton = { ChangeConfirmButton(change, typed) { onConfirm(if (change.needsTypedConfirmation) typed else null) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(ctx.getString(R.string.action_cancel)) } },
     )
+}
+
+/** The confirm button: "Unlock and apply" for what needs the unlock, red for HIGH, off until the name matches. */
+@Composable
+fun ChangeConfirmButton(change: AdminChange, typed: String, onClick: () -> Unit) {
+    val ctx = LocalContext.current
+    val nameOk = !change.needsTypedConfirmation || typed.trim() == change.target.name.trim()
+    Button(
+        onClick = onClick,
+        enabled = nameOk,
+        colors = if (change.changeClass == ChangeClass.HIGH) ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+        else ButtonDefaults.buttonColors(),
+    ) {
+        Text(ctx.getString(if (change.needsUnlock) R.string.admin2_confirm_apply else R.string.action_confirm))
+    }
+}
+
+/** The confirm dialog's body, apart so a preview can draw it without a dialog window. */
+@Composable
+fun ChangeConfirmContent(change: AdminChange, typed: String, onTyped: (String) -> Unit) {
+    val ctx = LocalContext.current
+    Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        ChangeClassBadge(change.changeClass)
+        Column {
+            Text(ctx.getString(R.string.admin2_confirm_target), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+            Text(change.target.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+            if (change.target.id != change.target.name) {
+                Text(change.target.id, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.outline)
+            }
+        }
+        Text(change.effect, style = MaterialTheme.typography.bodyMedium)
+        change.warnings.forEach { WarningLine(it) }
+        if (change.target.isThisDevice) WarningLine(ctx.getString(R.string.admin2_confirm_this_device))
+        if (change.diff.isNotEmpty()) DiffPreview(change.diff)
+        if (change.needsTypedConfirmation) TypedConfirmationField(change.target.name, typed, onTyped)
+        if (change.needsUnlock) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.LockOpen, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.outline)
+                Spacer(Modifier.width(6.dp))
+                Text(ctx.getString(R.string.admin2_confirm_unlock_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
 }
 
 @Composable
@@ -302,35 +312,40 @@ fun SecretRevealDialog(title: String, text: String, secret: String, onDone: () -
         properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false, securePolicy = SecureFlagPolicy.SecureOn),
         icon = { Icon(Icons.Default.Key, null) },
         title = { Text(title) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(text, style = MaterialTheme.typography.bodyMedium)
-                Text(ctx.getString(R.string.admin2_secret_once), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                Text(
-                    secret,
-                    fontFamily = FontFamily.Monospace,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.shapes.small)
-                        .padding(10.dp),
-                )
-                OutlinedButton(
-                    onClick = {
-                        SensitiveClipboard.copy(ctx, title, secret)
-                        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) {
-                            android.widget.Toast.makeText(ctx, ctx.getString(R.string.admin2_secret_copied), android.widget.Toast.LENGTH_SHORT).show()
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Icon(Icons.Default.ContentCopy, null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(ctx.getString(R.string.admin2_secret_copy))
-                }
-            }
-        },
+        text = { SecretRevealContent(title, text, secret) },
         confirmButton = { Button(onClick = onDone) { Text(ctx.getString(R.string.admin2_secret_saved)) } },
     )
+}
+
+/** The reveal dialog's body, apart so a preview can draw it without a dialog window. */
+@Composable
+fun SecretRevealContent(label: String, text: String, secret: String) {
+    val ctx = LocalContext.current
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(text, style = MaterialTheme.typography.bodyMedium)
+        Text(ctx.getString(R.string.admin2_secret_once), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        Text(
+            secret,
+            fontFamily = FontFamily.Monospace,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.shapes.small)
+                .padding(10.dp),
+        )
+        OutlinedButton(
+            onClick = {
+                SensitiveClipboard.copy(ctx, label, secret)
+                if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) {
+                    android.widget.Toast.makeText(ctx, ctx.getString(R.string.admin2_secret_copied), android.widget.Toast.LENGTH_SHORT).show()
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Icon(Icons.Default.ContentCopy, null, Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(ctx.getString(R.string.admin2_secret_copy))
+        }
+    }
 }

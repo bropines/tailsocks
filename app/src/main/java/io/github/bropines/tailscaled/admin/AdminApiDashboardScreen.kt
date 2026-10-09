@@ -68,7 +68,7 @@ private const val PICK_EDIT = "\u0000edit"
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -> Unit) {
+fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -> Unit, startTab: ConsoleTab = ConsoleTab.DEVICES) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val tabs = ConsoleTab.entries
@@ -76,7 +76,7 @@ fun AdminDashboard(state: ConsoleState, vm: AdminConsoleViewModel?, onBack: () -
         R.string.admin_tab_devices, R.string.admin_tab_dns, R.string.admin_tab_users, R.string.admin_tab_services,
         R.string.admin_tab_webhooks, R.string.admin_tab_logs, R.string.admin_tab_web_links, R.string.admin_tab_settings,
     ).map { ctx.getString(it) }
-    val pagerState = rememberPagerState(pageCount = { tabs.size })
+    val pagerState = rememberPagerState(initialPage = startTab.ordinal, pageCount = { tabs.size })
 
     var selectedDeviceId by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedUserId by rememberSaveable { mutableStateOf<String?>(null) }

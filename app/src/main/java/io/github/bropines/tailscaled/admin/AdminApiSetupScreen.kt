@@ -3,6 +3,7 @@ package io.github.bropines.tailscaled.admin
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
@@ -112,165 +114,168 @@ fun AdminProfileEditorScreen(
             )
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .imePadding()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            if (firstProfile) {
-                Icon(Icons.Default.AdminPanelSettings, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(56.dp).align(Alignment.CenterHorizontally))
-                Text(
-                    ctx.getString(R.string.admin_setup_integration_title),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            HelpText(ctx.getString(R.string.admin2_profile_intro))
+        // A form: on a tablet or in landscape it keeps a readable width instead of spanning the screen.
+        Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.TopCenter) {
+            Column(
+                modifier = Modifier
+                    .widthIn(max = 640.dp)
+                    .fillMaxSize()
+                    .imePadding()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                if (firstProfile) {
+                    Icon(Icons.Default.AdminPanelSettings, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(56.dp).align(Alignment.CenterHorizontally))
+                    Text(
+                        ctx.getString(R.string.admin_setup_integration_title),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                HelpText(ctx.getString(R.string.admin2_profile_intro))
 
-            OutlinedTextField(
-                value = draft.name,
-                onValueChange = { v -> onChange { it.copy(name = v) } },
-                label = { Text(ctx.getString(R.string.admin2_profile_name)) },
-                placeholder = { Text(ctx.getString(R.string.admin2_profile_name_placeholder)) },
-                singleLine = true,
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            SlidingSegmentedChips(
-                options = listOf(ctx.getString(R.string.admin_setup_tab_token), ctx.getString(R.string.admin_setup_tab_oauth)),
-                selectedIndex = if (draft.authType == AuthType.OAUTH_CLIENT) 1 else 0,
-                onOptionSelected = { i -> onChange { it.copy(authType = if (i == 1) AuthType.OAUTH_CLIENT else AuthType.API_TOKEN, secret = "") } },
-                modifier = Modifier.fillMaxWidth(),
-                height = 38.dp,
-            )
-            HelpText(ctx.getString(if (draft.authType == AuthType.OAUTH_CLIENT) R.string.admin2_auth_oauth_help else R.string.admin2_auth_token_help))
-
-            if (draft.authType == AuthType.OAUTH_CLIENT) {
                 OutlinedTextField(
-                    value = draft.oauthClientId,
-                    onValueChange = { v -> onChange { it.copy(oauthClientId = v.trim()) } },
-                    label = { Text(ctx.getString(R.string.admin_setup_client_id_label)) },
-                    placeholder = { Text(ctx.getString(R.string.admin_setup_client_id_placeholder)) },
+                    value = draft.name,
+                    onValueChange = { v -> onChange { it.copy(name = v) } },
+                    label = { Text(ctx.getString(R.string.admin2_profile_name)) },
+                    placeholder = { Text(ctx.getString(R.string.admin2_profile_name_placeholder)) },
                     singleLine = true,
                     shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                SecretField(
-                    value = draft.secret,
-                    onValueChange = { v -> onChange { it.copy(secret = v.trim()) } },
-                    label = ctx.getString(R.string.admin_setup_client_secret_label),
-                    placeholder = keepPlaceholder ?: ctx.getString(R.string.admin_setup_client_secret_placeholder),
-                    showLabel = showLabel, hideLabel = hideLabel,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            } else {
-                SecretField(
-                    value = draft.secret,
-                    onValueChange = { v -> onChange { it.copy(secret = v.trim()) } },
-                    label = ctx.getString(R.string.admin_setup_token_label),
-                    placeholder = keepPlaceholder ?: ctx.getString(R.string.admin_setup_token_placeholder),
-                    showLabel = showLabel, hideLabel = hideLabel,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
 
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(MaterialTheme.shapes.medium)
-                    .toggleable(value = draft.readOnly, role = Role.Switch) { v -> onChange { it.copy(readOnly = v) } }
-                    .padding(vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Default.Visibility, null, tint = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(ctx.getString(R.string.admin2_profile_read_only), style = MaterialTheme.typography.bodyLarge)
-                    HelpText(ctx.getString(R.string.admin2_profile_read_only_desc), inClickableRow = true)
+                SlidingSegmentedChips(
+                    options = listOf(ctx.getString(R.string.admin_setup_tab_token), ctx.getString(R.string.admin_setup_tab_oauth)),
+                    selectedIndex = if (draft.authType == AuthType.OAUTH_CLIENT) 1 else 0,
+                    onOptionSelected = { i -> onChange { it.copy(authType = if (i == 1) AuthType.OAUTH_CLIENT else AuthType.API_TOKEN, secret = "") } },
+                    modifier = Modifier.fillMaxWidth(),
+                    height = 38.dp,
+                )
+                HelpText(ctx.getString(if (draft.authType == AuthType.OAUTH_CLIENT) R.string.admin2_auth_oauth_help else R.string.admin2_auth_token_help))
+
+                if (draft.authType == AuthType.OAUTH_CLIENT) {
+                    OutlinedTextField(
+                        value = draft.oauthClientId,
+                        onValueChange = { v -> onChange { it.copy(oauthClientId = v.trim()) } },
+                        label = { Text(ctx.getString(R.string.admin_setup_client_id_label)) },
+                        placeholder = { Text(ctx.getString(R.string.admin_setup_client_id_placeholder)) },
+                        singleLine = true,
+                        shape = MaterialTheme.shapes.medium,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    SecretField(
+                        value = draft.secret,
+                        onValueChange = { v -> onChange { it.copy(secret = v.trim()) } },
+                        label = ctx.getString(R.string.admin_setup_client_secret_label),
+                        placeholder = keepPlaceholder ?: ctx.getString(R.string.admin_setup_client_secret_placeholder),
+                        showLabel = showLabel, hideLabel = hideLabel,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                } else {
+                    SecretField(
+                        value = draft.secret,
+                        onValueChange = { v -> onChange { it.copy(secret = v.trim()) } },
+                        label = ctx.getString(R.string.admin_setup_token_label),
+                        placeholder = keepPlaceholder ?: ctx.getString(R.string.admin_setup_token_placeholder),
+                        showLabel = showLabel, hideLabel = hideLabel,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
-                Switch(checked = draft.readOnly, onCheckedChange = null)
-            }
 
-            ExpandableCard(
-                title = ctx.getString(R.string.admin2_profile_advanced),
-                expanded = showAdvanced,
-                onToggle = { showAdvanced = !showAdvanced },
-            ) {
-                OutlinedTextField(
-                    value = draft.baseUrl,
-                    onValueChange = { v -> onChange { it.copy(baseUrl = v.trim()) } },
-                    label = { Text(ctx.getString(R.string.admin2_profile_base_url)) },
-                    supportingText = { Text(ctx.getString(R.string.admin2_profile_base_url_help)) },
-                    singleLine = true,
-                    shape = MaterialTheme.shapes.medium,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                OutlinedTextField(
-                    value = draft.tailnet,
-                    onValueChange = { v -> onChange { it.copy(tailnet = v.trim()) } },
-                    label = { Text(ctx.getString(R.string.admin2_profile_tailnet)) },
-                    supportingText = { Text(ctx.getString(R.string.admin2_profile_tailnet_help)) },
-                    singleLine = true,
-                    shape = MaterialTheme.shapes.medium,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-
-            ExpandableCard(
-                title = ctx.getString(R.string.admin_proxy_config_title),
-                expanded = showProxy,
-                onToggle = { showProxy = !showProxy },
-            ) {
-                ProxySettingsFields(
-                    proxy = draft.proxy,
-                    password = draft.proxyPassword,
-                    hasStoredPassword = draft.hasStoredProxyPassword,
-                    onChange = { p -> onChange { it.copy(proxy = p) } },
-                    onPasswordChange = { v -> onChange { it.copy(proxyPassword = v) } },
-                )
-            }
-
-            draft.error?.let {
-                Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
-            }
-            if (draft.checking) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(ctx.getString(R.string.admin2_profile_checking), style = MaterialTheme.typography.bodySmall)
-                    LinearProgressIndicator(Modifier.fillMaxWidth())
-                }
-            }
-
-            Button(
-                onClick = { onSave(false) },
-                enabled = !draft.checking && !draft.awaitingUnlock,
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                shape = MaterialTheme.shapes.medium,
-            ) {
-                Icon(Icons.Default.Save, null)
-                Spacer(Modifier.width(8.dp))
-                Text(ctx.getString(R.string.admin2_profile_save))
-            }
-            if (draft.offerUnchecked) {
-                OutlinedButton(onClick = { onSave(true) }, enabled = !draft.checking, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium) {
-                    Text(ctx.getString(R.string.admin2_profile_save_anyway))
-                }
-            }
-            if (draft.id != null) {
-                TextButton(
-                    onClick = { confirmDelete = true },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(MaterialTheme.shapes.medium)
+                        .toggleable(value = draft.readOnly, role = Role.Switch) { v -> onChange { it.copy(readOnly = v) } }
+                        .padding(vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(Icons.Default.Delete, null)
+                    Icon(Icons.Default.Visibility, null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(ctx.getString(R.string.admin2_profile_read_only), style = MaterialTheme.typography.bodyLarge)
+                        HelpText(ctx.getString(R.string.admin2_profile_read_only_desc), inClickableRow = true)
+                    }
+                    Switch(checked = draft.readOnly, onCheckedChange = null)
+                }
+
+                ExpandableCard(
+                    title = ctx.getString(R.string.admin2_profile_advanced),
+                    expanded = showAdvanced,
+                    onToggle = { showAdvanced = !showAdvanced },
+                ) {
+                    OutlinedTextField(
+                        value = draft.baseUrl,
+                        onValueChange = { v -> onChange { it.copy(baseUrl = v.trim()) } },
+                        label = { Text(ctx.getString(R.string.admin2_profile_base_url)) },
+                        supportingText = { Text(ctx.getString(R.string.admin2_profile_base_url_help)) },
+                        singleLine = true,
+                        shape = MaterialTheme.shapes.medium,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    OutlinedTextField(
+                        value = draft.tailnet,
+                        onValueChange = { v -> onChange { it.copy(tailnet = v.trim()) } },
+                        label = { Text(ctx.getString(R.string.admin2_profile_tailnet)) },
+                        supportingText = { Text(ctx.getString(R.string.admin2_profile_tailnet_help)) },
+                        singleLine = true,
+                        shape = MaterialTheme.shapes.medium,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+
+                ExpandableCard(
+                    title = ctx.getString(R.string.admin_proxy_config_title),
+                    expanded = showProxy,
+                    onToggle = { showProxy = !showProxy },
+                ) {
+                    ProxySettingsFields(
+                        proxy = draft.proxy,
+                        password = draft.proxyPassword,
+                        hasStoredPassword = draft.hasStoredProxyPassword,
+                        onChange = { p -> onChange { it.copy(proxy = p) } },
+                        onPasswordChange = { v -> onChange { it.copy(proxyPassword = v) } },
+                    )
+                }
+
+                draft.error?.let {
+                    Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                }
+                if (draft.checking) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(ctx.getString(R.string.admin2_profile_checking), style = MaterialTheme.typography.bodySmall)
+                        LinearProgressIndicator(Modifier.fillMaxWidth())
+                    }
+                }
+
+                Button(
+                    onClick = { onSave(false) },
+                    enabled = !draft.checking && !draft.awaitingUnlock,
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = MaterialTheme.shapes.medium,
+                ) {
+                    Icon(Icons.Default.Save, null)
                     Spacer(Modifier.width(8.dp))
-                    Text(ctx.getString(R.string.admin2_profile_delete))
+                    Text(ctx.getString(R.string.admin2_profile_save))
+                }
+                if (draft.offerUnchecked) {
+                    OutlinedButton(onClick = { onSave(true) }, enabled = !draft.checking, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium) {
+                        Text(ctx.getString(R.string.admin2_profile_save_anyway))
+                    }
+                }
+                if (draft.id != null) {
+                    TextButton(
+                        onClick = { confirmDelete = true },
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                    ) {
+                        Icon(Icons.Default.Delete, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(ctx.getString(R.string.admin2_profile_delete))
+                    }
                 }
             }
         }
