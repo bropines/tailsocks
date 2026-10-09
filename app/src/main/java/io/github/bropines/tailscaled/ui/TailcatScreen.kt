@@ -199,26 +199,35 @@ fun TailcatScreen(onBack: () -> Unit, page: ServePage? = null, importText: Strin
         )
         return true
     }
-    // A tailsocks://tailcat/add link: a new connection's editor, filled in.
-    if (!inPreview && importText != null) LaunchedEffect(importText) {
-        if (!importConnection(importText)) {
+    // A code or link that opened nothing is shown as it is; [scannedHelp] says
+    // why when it was a tailcat/add link whose text holds no address.
+    var scannedText by remember { mutableStateOf<String?>(null) }
+    var scannedHelp by remember { mutableStateOf<String?>(null) }
+    /** Opens the editor from a tailcat/add link's text, or shows that text when it holds no address. */
+    fun importLink(text: String) {
+        if (importConnection(text)) return
+        if (text.isBlank()) {
             Toast.makeText(context, context.getString(R.string.tailcat_import_none_link), Toast.LENGTH_SHORT).show()
+        } else {
+            scannedText = text
+            scannedHelp = context.getString(R.string.tailcat_import_no_address_help)
         }
     }
+    // A tailsocks://tailcat/add link: a new connection's editor, filled in.
+    if (!inPreview && importText != null) LaunchedEffect(importText) { importLink(importText) }
     // A scanned code: a TailCat address, or a tailcat/add link, opens the editor
     // here; another app link opens its screen; any other text is only shown.
-    var scannedText by remember { mutableStateOf<String?>(null) }
     val scanQr = rememberQrScanner { text ->
         when (val code = ScannedCode.of(context, text)) {
             is ScannedCode.AppLink -> {
                 val add = DeepLinks.tailcatImportText(code.uri)
-                if (add == null) DeepLinks.open(context, code.uri)
-                else if (!importConnection(add)) {
-                    Toast.makeText(context, context.getString(R.string.tailcat_import_none_link), Toast.LENGTH_SHORT).show()
-                }
+                if (add == null) DeepLinks.open(context, code.uri) else importLink(add)
             }
             is ScannedCode.Tailcat -> importConnection(code.text)
-            is ScannedCode.Text -> scannedText = code.text
+            is ScannedCode.Text -> {
+                scannedText = code.text
+                scannedHelp = null
+            }
         }
     }
     // The output of the open card, read while it is on screen.
@@ -362,7 +371,7 @@ fun TailcatScreen(onBack: () -> Unit, page: ServePage? = null, importText: Strin
             onDismiss = { qrConnection = null }
         )
     }
-    scannedText?.let { ScanResultSheet(text = it, onDismiss = { scannedText = null }) }
+    scannedText?.let { ScanResultSheet(text = it, help = scannedHelp, onDismiss = { scannedText = null }) }
     val qrAddress = serverAddress
     if (serverQr && qrAddress != null) {
         val command = TailcatServer.clientCommand(qrAddress, serverConfig)

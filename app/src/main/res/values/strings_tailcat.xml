@@ -82,4 +82,5 @@
     <string name="tailcat_import">Paste</string>
     <string name="tailcat_import_none">No tailcat address on the clipboard</string>
     <string name="tailcat_import_none_link">The link has no tailcat address</string>
+    <string name="tailcat_import_no_address_help">The link holds no TailCat address. This is what it carries.</string>
 </resources>

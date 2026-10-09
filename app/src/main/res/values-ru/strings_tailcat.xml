@@ -81,4 +81,5 @@
     <string name="tailcat_import">Вставить</string>
     <string name="tailcat_import_none">В буфере нет адреса tailcat</string>
     <string name="tailcat_import_none_link">В ссылке нет адреса tailcat</string>
+    <string name="tailcat_import_no_address_help">В ссылке нет адреса TailCat. Вот что в ней лежит.</string>
 </resources>

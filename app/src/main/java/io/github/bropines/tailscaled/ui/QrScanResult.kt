@@ -99,7 +99,7 @@ internal fun webLink(text: String): Uri? {
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ScanResultSheet(text: String, onDismiss: () -> Unit) {
+fun ScanResultSheet(text: String, onDismiss: () -> Unit, help: String? = null) {
     val context = LocalContext.current
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
@@ -108,7 +108,7 @@ fun ScanResultSheet(text: String, onDismiss: () -> Unit) {
     // own and would take the system language (see wrapContextWithLocale).
     val labels = ScanResultLabels(
         title = stringResource(R.string.qr_scan_result_title),
-        help = stringResource(if (web != null) R.string.qr_scan_result_web_help else R.string.qr_scan_result_help),
+        help = help ?: stringResource(if (web != null) R.string.qr_scan_result_web_help else R.string.qr_scan_result_help),
         copy = stringResource(R.string.action_copy),
         open = stringResource(R.string.qr_scan_open),
     )
