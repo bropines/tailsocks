@@ -69,8 +69,6 @@
     <!-- Admin: Auth lock screen -->
     <string name="admin_locked_title">Админ-панель заблокирована</string>
     <string name="admin_locked_desc">Для доступа к инструментам администратора требуется аутентификация.</string>
-    <string name="admin_biometric_title">Разблокировать админ-панель</string>
-    <string name="admin_biometric_subtitle">Пройдите биометрическую аутентификацию</string>
     <string name="admin_cd_locked">Заблокировано</string>
 
     <!-- Admin: Dashboard -->
@@ -83,43 +81,23 @@
     <string name="admin_tab_web_links">Веб-ссылки</string>
     <string name="admin_tab_settings">Настройки</string>
     <string name="admin_cd_refresh">Обновить</string>
-    <string name="admin_cd_proxy_settings">Настройки прокси</string>
-    <string name="admin_cd_disconnect_api">Отключить API</string>
-
-    <!-- Admin: Disconnect dialog -->
-    <string name="admin_disconnect_title">Отключить API?</string>
-    <string name="admin_disconnect_text">Это удалит учётные данные API для данного tailnet (%1$s). Продолжить?</string>
 
     <!-- Admin: Generated key dialog -->
     <string name="admin_key_generated_title">Ключ успешно создан</string>
     <string name="admin_key_generated_text">Скопируйте этот ключ сейчас. Его нельзя будет посмотреть повторно:</string>
-    <string name="admin_key_copy_close">Скопировать и закрыть</string>
 
     <!-- Admin: Setup screens -->
-    <string name="admin_setup_title">Настройка Admin API</string>
-    <string name="admin_setup_no_tailnet_title">Tailnet не обнаружен</string>
-    <string name="admin_setup_no_tailnet_desc">TailSocks должен быть хотя бы раз подключён к VPN для автоматического определения домена Tailnet.\n\nВы также можете указать домен Tailnet вручную ниже:</string>
-    <string name="admin_setup_tailnet_label">Доменное имя Tailnet</string>
-    <string name="admin_setup_tailnet_placeholder">например: taila1b2.ts.net</string>
-    <string name="admin_setup_tailnet_required">Требуется доменное имя Tailnet</string>
-    <string name="admin_setup_set_tailnet_name">Задать имя Tailnet</string>
 
     <string name="admin_setup_integration_title">Интеграция с Tailscale API</string>
-    <string name="admin_setup_active_tailnet">Активный домен Tailnet</string>
     <string name="admin_setup_tab_token">Личный токен</string>
     <string name="admin_setup_tab_oauth">OAuth клиент</string>
     <string name="admin_setup_token_label">API Access Token (tskey-api-…)</string>
     <string name="admin_setup_client_id_label">OAuth Client ID</string>
     <string name="admin_setup_client_id_placeholder">например: cKXXXXX</string>
     <string name="admin_setup_client_secret_label">OAuth Client Secret (tskey-client-…)</string>
-    <string name="admin_setup_token_required">Требуется API Access Token</string>
-    <string name="admin_setup_oauth_required">Требуются Client ID и Client Secret</string>
-    <string name="admin_setup_save_connect">Сохранить и подключить</string>
 
     <!-- Admin: Proxy settings -->
-    <string name="admin_proxy_settings_title">Настройки прокси API</string>
     <string name="admin_proxy_config_title">Конфигурация прокси API</string>
-    <string name="admin_proxy_mode_label">Режим прокси</string>
     <string name="admin_proxy_control_plane">Прокси управляющего сервера (Авто)</string>
     <string name="admin_proxy_direct">Прямое подключение (без прокси)</string>
     <string name="admin_proxy_local_socks5">Прокси SOCKS5 Tailsocks</string>
@@ -129,16 +107,12 @@
     <string name="admin_proxy_socks5_host_placeholder">например: 192.168.1.100</string>
     <string name="admin_proxy_socks5_port">Порт SOCKS5</string>
     <string name="admin_proxy_socks5_port_placeholder">например: 1080</string>
-    <string name="admin_proxy_username">Имя пользователя прокси</string>
     <string name="admin_proxy_username_optional">Имя пользователя прокси (необязательно)</string>
-    <string name="admin_proxy_password">Пароль прокси</string>
     <string name="admin_proxy_password_optional">Пароль прокси (необязательно)</string>
-    <string name="admin_proxy_local_desc">Использует внутренний SOCKS5-сервер. Запросы API проходят через активный VPN / выходной узел.</string>
     <string name="admin_proxy_local_desc_setup">Маршрутизирует API-запросы через активный Socks5-сервер. Полезно для работы через выходной узел.</string>
     <string name="admin_proxy_socks5_required">Требуются корректные хост и порт SOCKS5</string>
 
     <!-- Admin: Devices tab -->
-    <string name="admin_devices_count">%1$d устройств</string>
     <string name="admin_devices_no_devices">Устройства не найдены</string>
     <string name="admin_devices_cd_sort">Сортировка устройств</string>
     <string name="admin_devices_status_expired">Истёк</string>
@@ -162,8 +136,6 @@
 
     <!-- Admin: Device update banner -->
     <string name="admin_device_update_available">Доступно обновление</string>
-    <string name="admin_device_update_desc">Текущая версия: %1$s. Для обновления используйте веб-консоль.</string>
-    <string name="admin_device_update_desc_na">Текущая версия: Н/Д. Для обновления используйте веб-консоль.</string>
 
     <!-- Admin: Device key expiry card -->
     <string name="admin_device_disable_key_expiry">Отключить истечение ключа</string>
@@ -189,28 +161,7 @@
 
     <!-- Admin: Device tags dialog -->
     <string name="admin_device_tags_title">Редактировать теги устройства</string>
-    <string name="admin_device_tags_available">Доступные ACL-теги:</string>
-    <string name="admin_device_tags_custom_label">Пользовательские теги (через запятую)</string>
-    <string name="admin_device_tags_prefix_hint">Теги должны начинаться с префикса \'tag:\'</string>
     <string name="admin_device_tags_update">Обновить теги</string>
-
-    <!-- Admin: Device expire key confirm -->
-    <string name="admin_device_expire_title">Аннулировать ключ устройства?</string>
-    <string name="admin_device_expire_text">Это немедленно выведет данный узел из tailnet. Продолжить?</string>
-    <string name="admin_device_expire_confirm">Аннулировать</string>
-
-    <!-- Admin: Device delete confirm -->
-    <string name="admin_device_delete_title">Удалить устройство?</string>
-    <string name="admin_device_delete_text">Вы уверены, что хотите безвозвратно удалить это устройство? Это действие невозможно отменить.</string>
-
-    <!-- Admin: Device toast messages -->
-    <string name="admin_device_renamed">Устройство переименовано</string>
-    <string name="admin_device_authorized">Устройство авторизовано</string>
-    <string name="admin_device_deauthorized">Авторизация устройства отозвана</string>
-    <string name="admin_device_key_expired">Ключ устройства аннулирован</string>
-    <string name="admin_device_deleted">Устройство удалено</string>
-    <string name="admin_device_tags_updated">Теги устройства обновлены</string>
-    <string name="admin_device_key_expiry_updated">Настройка истечения ключа обновлена</string>
 
     <!-- Admin: DNS tab -->
     <string name="admin_dns_magic_dns_desc">Регистрация DNS-имён для устройств</string>
@@ -236,7 +187,6 @@
 
     <!-- Admin: Users tab -->
     <string name="admin_users_no_users">Пользователи не найдены</string>
-    <string name="admin_users_devices_label">устройств</string>
     <string name="admin_users_change_role">Изменить роль пользователя</string>
     <string name="admin_users_login_name">Имя для входа</string>
     <string name="admin_users_display_name">Отображаемое имя</string>
@@ -250,21 +200,6 @@
     <string name="admin_users_suspend">Заблокировать пользователя</string>
     <string name="admin_users_delete">Удалить пользователя</string>
     <string name="admin_users_select_role_title">Выбрать роль пользователя</string>
-    <string name="admin_users_confirm_role_title">Подтвердить смену роли</string>
-    <string name="admin_users_confirm_role_text">Вы уверены, что хотите сменить роль этого пользователя на %1$s?</string>
-    <string name="admin_users_approve_title">Одобрить пользователя?</string>
-    <string name="admin_users_approve_text">Это одобрит учётную запись и разрешит аутентификацию устройств в tailnet.</string>
-    <string name="admin_users_suspend_title">Заблокировать пользователя?</string>
-    <string name="admin_users_suspend_text">Вы уверены, что хотите заблокировать этого пользователя? Он потеряет доступ ко всем ресурсам tailnet, его активные ключи будут заблокированы.</string>
-    <string name="admin_users_restore_title">Восстановить пользователя?</string>
-    <string name="admin_users_restore_text">Это восстановит доступ пользователя и вернёт подключение к tailnet.</string>
-    <string name="admin_users_delete_title">Удалить пользователя?</string>
-    <string name="admin_users_delete_text">Безвозвратно удалить эту учётную запись? Это действие невозможно отменить.</string>
-    <string name="admin_users_role_updated">Роль обновлена: %1$s</string>
-    <string name="admin_users_approved">Пользователь одобрен</string>
-    <string name="admin_users_suspended">Пользователь заблокирован</string>
-    <string name="admin_users_restored">Доступ пользователя восстановлен</string>
-    <string name="admin_users_deleted">Пользователь удалён</string>
 
     <!-- Admin: Services tab -->
     <string name="admin_services_info">Службы определяются в консоли администратора или с экрана Serve &amp; Funnel при сохранении правила для службы. Здесь подтверждаются устройства, которые их хостят.</string>
@@ -282,9 +217,6 @@
     <!-- Admin: Keys tab -->
     <string name="admin_keys_no_active">Нет активных ключей</string>
     <string name="admin_keys_cd_generate">Создать ключ</string>
-    <string name="admin_keys_revoke_title">Отозвать ключ?</string>
-    <string name="admin_keys_revoke_text">Вы уверены, что хотите отозвать этот auth-ключ? Устройства, использующие его, больше не смогут аутентифицироваться.</string>
-    <string name="admin_keys_id_prefix">ID: %1$s</string>
     <string name="admin_keys_expires_prefix">Истекает: %1$s</string>
     <string name="admin_keys_status_revoked">Отозван</string>
     <string name="admin_keys_status_expired">Истёк</string>
@@ -294,9 +226,7 @@
     <string name="admin_keys_desc_placeholder">например: Ключ серверного узла</string>
     <string name="admin_keys_expiry_label">Срок действия (дней)</string>
     <string name="admin_keys_ephemeral_title">Эфемерный ключ</string>
-    <string name="admin_keys_ephemeral_desc">Узлы удаляются автоматически при отключении</string>
     <string name="admin_keys_preauth_title">Предварительно авторизованный ключ</string>
-    <string name="admin_keys_preauth_desc">Пропустить одобрение устройства администратором</string>
     <string name="admin_keys_tags_label">Применить теги (через запятую)</string>
     <string name="admin_keys_tags_supporting">Необязательно. Требует определения владельца тега в ACL</string>
 
@@ -313,18 +243,12 @@
     <string name="admin_webhooks_title">Webhook-эндпоинты</string>
     <string name="admin_webhooks_add">Добавить эндпоинт</string>
     <string name="admin_webhooks_no_webhooks">Webhooks не настроены</string>
-    <string name="admin_webhooks_subscribed_events">Подписанные события: %1$s</string>
     <string name="admin_webhooks_test_ping">Тест ping</string>
-    <string name="admin_webhooks_delete_title">Удалить Webhook?</string>
-    <string name="admin_webhooks_delete_text">Вы уверены, что хотите удалить этот webhook-эндпоинт? Это действие невозможно отменить.</string>
     <string name="admin_webhooks_add_title">Добавить Webhook-эндпоинт</string>
     <string name="admin_webhooks_url_label">URL эндпоинта</string>
     <string name="admin_webhooks_subscribe_label">Подписка на события:</string>
     <string name="admin_webhooks_invalid_url">Введите корректный URL (http/https)</string>
     <string name="admin_webhooks_no_events_selected">Выберите хотя бы одно событие</string>
-    <string name="admin_webhooks_test_sent">Тестовый ping отправлен</string>
-    <string name="admin_webhooks_deleted">Webhook удалён</string>
-    <string name="admin_webhooks_added">Webhook добавлен</string>
 
     <!-- Admin: Web links tab -->
     <string name="admin_web_title">Безопасные веб-настройки</string>
@@ -347,7 +271,6 @@
     <string name="admin_settings_auth_keys_desc">Создание, просмотр и отзыв ключей аутентификации для данного Tailnet.</string>
     <string name="admin_settings_key_expiry_title">Срок действия ключей по умолчанию</string>
     <string name="admin_settings_key_expiry_desc">Задайте срок действия ключей устройств в данном tailnet. Значение должно быть от 1 до 180 дней.</string>
-    <string name="admin_settings_duration_days">Срок (дней)</string>
     <string name="admin_settings_access_title">Управление доступом и одобрением</string>
     <string name="admin_settings_device_approval_title">Обязательное одобрение устройств</string>
     <string name="admin_settings_device_approval_desc">Новые устройства должны быть одобрены администратором перед подключением.</string>
@@ -359,18 +282,11 @@
     <string name="admin_settings_network_title">Сеть и логи</string>
     <string name="admin_settings_flow_logging_title">Логирование сетевых потоков</string>
     <string name="admin_settings_flow_logging_desc">Включить логирование сетевых потоков для tailnet.</string>
-    <string name="admin_settings_regional_routing_title">Региональная маршрутизация</string>
-    <string name="admin_settings_regional_routing_desc">Включить региональную маршрутизацию для высокой доступности.</string>
     <string name="admin_settings_posture_title">Сбор данных о состоянии устройств</string>
     <string name="admin_settings_posture_desc">Включить сбор данных идентификации для интеграций posture-проверок.</string>
     <string name="admin_settings_external_tailnets_title">Доступ к внешним Tailnet</string>
     <string name="admin_settings_external_tailnets_desc">Выберите роли пользователей, которым разрешено присоединяться к внешним tailnet по приглашению.</string>
     <string name="admin_settings_allowed_role">Разрешённая роль</string>
-    <string name="admin_settings_apply">Применить настройки</string>
-    <string name="admin_settings_updated">Настройки обновлены</string>
-    <string name="admin_settings_magic_dns_updated">MagicDNS обновлён</string>
-    <string name="admin_settings_ns_applied">DNS-серверы применены</string>
-    <string name="admin_settings_search_applied">Поисковые домены применены</string>
 
     <!-- ======================== UI COMPONENTS ======================== -->
 
@@ -870,10 +786,6 @@
     <string name="settings_web_enable_desc">Запустить встроенный веб-сервер Tailscale</string>
     <string name="settings_web_address_title">Адрес Веб-интерфейса</string>
     <string name="settings_sect_admin_api">API консоли администратора</string>
-    <string name="settings_admin_tailnet_title">Имя Tailnet</string>
-    <string name="settings_admin_tailnet_placeholder">например, taila1b2.ts.net</string>
-    <string name="settings_admin_token_title">Токен доступа API</string>
-    <string name="settings_admin_tailnet_missing">Пожалуйста, сначала укажите имя Tailnet</string>
     <string name="settings_sect_adv_profile">Расширенный профиль</string>
     <string name="settings_logout_reset_title">Выйти и сбросить узел</string>
     <string name="settings_password_empty">Пароль не может быть пустым</string>
@@ -1094,7 +1006,6 @@
     <string name="taildrive_share_full_storage">Поделиться всем хранилищем</string>
     <string name="dns_cd_test_server">Проверить DNS-сервер</string>
     <string name="dns_cd_copy_ip">Скопировать IP</string>
-    <string name="admin_error_loading_keys_format">Ошибка загрузки ключей: %1$s</string>
     <string name="notif_channel_alerts">Оповещения о соединении</string>
     <string name="revive_refused_title">TailSocks отключён</string>
     <string name="revive_refused_text">Система остановила службу и не дала запустить её снова. Нажмите, чтобы подключиться.</string>
