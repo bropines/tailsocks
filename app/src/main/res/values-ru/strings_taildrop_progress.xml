@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="taildrop_progress_channel">Передачи Taildrop</string>
+    <plurals name="taildrop_progress_receiving_files">
+        <item quantity="one">Приём %d файла</item>
+        <item quantity="few">Приём %d файлов</item>
+        <item quantity="many">Приём %d файлов</item>
+        <item quantity="other">Приём %d файла</item>
+    </plurals>
+    <string name="taildrop_progress_of_format">%1$s из %2$s</string>
+    <string name="taildrop_progress_left_seconds">осталось %1$d с</string>
+    <string name="taildrop_progress_left_minutes">осталось %1$d мин</string>
+    <string name="taildrop_progress_left_hours">осталось %1$d ч %2$d мин</string>
+    <string name="taildrop_progress_stalled">Ожидание данных</string>
+    <string name="taildrop_progress_finishing">Завершение…</string>
+    <string name="taildrop_progress_saving">Сохранение в папку…</string>
+    <string name="taildrop_progress_interrupted">Прервано</string>
+    <string name="taildrop_progress_interrupted_title">Приём прерван</string>
+    <plurals name="taildrop_progress_files">
+        <item quantity="one">%d файл</item>
+        <item quantity="few">%d файла</item>
+        <item quantity="many">%d файлов</item>
+        <item quantity="other">%d файла</item>
+    </plurals>
+</resources>

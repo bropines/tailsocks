@@ -1,6 +1,7 @@
 package io.github.bropines.tailscaled.ui
 
 import android.net.Uri
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -16,6 +17,8 @@ import androidx.compose.ui.unit.dp
 import com.android.tools.screenshot.PreviewTest
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.AppJson
+import io.github.bropines.tailscaled.core.IncomingPhase
+import io.github.bropines.tailscaled.core.IncomingTransfer
 import io.github.bropines.tailscaled.core.TaildropHistory
 import io.github.bropines.tailscaled.models.StatusResponse
 import io.github.bropines.tailscaled.models.TaildropDirection
@@ -160,6 +163,37 @@ private object TaildropDemo {
     /** None chosen: received files wait in the app, and the inbox offers to choose one. */
     val noFolder get() = DemoData(statusJson = statusJson, taildropFilesJson = filesJson, taildropHistoryJson = historyJson)
     val empty get() = DemoData(statusJson = statusJson, taildropFilesJson = "[]", taildropHistoryJson = "[]")
+
+    /** A video coming in from the MacBook, a bit under half-way, over the inbox of [data]. */
+    val receiving get() = data.copy(
+        taildropIncoming = listOf(
+            IncomingTransfer(
+                key = "holiday", name = "holiday-video.mp4", sender = "macbook-air",
+                size = 104_857_600, received = 47_396_044, bytesPerSecond = 2_202_009
+            )
+        )
+    )
+
+    /** One card per state: no size declared, stalled, all bytes in, saving, interrupted. */
+    val incomingStates = listOf(
+        IncomingTransfer(key = "a", name = "scan-0042.tiff", sender = "homelab-nas", received = 18_874_368, bytesPerSecond = 1_048_576),
+        IncomingTransfer(
+            key = "b", name = "dataset-2026-10.parquet", sender = "desktop-home",
+            size = 524_288_000, received = 131_072_000, phase = IncomingPhase.STALLED
+        ),
+        IncomingTransfer(
+            key = "c", name = "IMG_20261008_101500.jpg", sender = "galaxy-tab",
+            size = 4_194_304, received = 4_194_304, phase = IncomingPhase.FINISHING
+        ),
+        IncomingTransfer(
+            key = "d", name = "voice-memo.m4a", sender = "galaxy-tab",
+            size = 734_003, received = 734_003, phase = IncomingPhase.SAVING
+        ),
+        IncomingTransfer(
+            key = "e", name = "backup-2026-10.tar.zst", sender = "raspberry-pi",
+            size = 2_147_483_648, received = 805_306_368, phase = IncomingPhase.INTERRUPTED
+        )
+    )
 }
 
 @Composable
@@ -199,6 +233,28 @@ fun TaildropPageTallShowcase() = TaildropShowcase(TaildropDemo.data) { FilesScre
 // No default folder: both files wait in the app, and the inbox offers to choose a folder.
 @PreviewTest @StatesPhoneBothLanguages @Composable
 fun TaildropPageNoFolderShowcase() = TaildropShowcase(TaildropDemo.noFolder) { FilesScreen(onBack = {}, openTaildrop = true) }
+
+// A file arriving: its card heads the inbox — bar, size, speed, time left — over the files
+// waiting and saved.
+@PreviewTest @StatesPhoneBothLanguages @Composable
+fun TaildropPageIncomingShowcase() = TaildropShowcase(TaildropDemo.receiving) { FilesScreen(onBack = {}, openTaildrop = true) }
+
+// The same in the light theme.
+@PreviewTest @StatesPhone @Composable
+fun TaildropPageIncomingLightShowcase() =
+    TailSocksTheme(appTheme = "light", themePreset = "default", dynamicColorEnabled = false, amoledModeEnabled = false) {
+        CompositionLocalProvider(LocalDemo provides TaildropDemo.receiving) { FilesScreen(onBack = {}, openTaildrop = true) }
+    }
+
+// The card in each of its other states.
+@PreviewTest @StatesPhoneBothLanguages @Composable
+fun TaildropIncomingStatesShowcase() = TaildropShowcase(TaildropDemo.data) {
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            TaildropDemo.incomingStates.forEach { TaildropIncomingCard(it) }
+        }
+    }
+}
 
 // Nothing received, nothing sent yet: each section says so in one line; the folder hint stays.
 @PreviewTest @StatesPhoneBothLanguages @Composable

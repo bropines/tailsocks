@@ -94,6 +94,9 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false) {
         mutableStateOf(if (demo != null) demo.taildropFolder?.let(Uri::parse) else GlobalSettings.getTaildropRootUri(context))
     }
     var folderHintDismissed by remember { mutableStateOf(demo == null && GlobalSettings.isTaildropFolderHintDismissed(context)) }
+    // Files arriving right now, as the service tracks them from the IPN bus (TaildropEvents).
+    val liveIncoming by TaildropEvents.incoming.collectAsState()
+    val incoming = demo?.taildropIncoming ?: liveIncoming
     // Every peer a send picker may list (taildropPickerPeers); the page splits them.
     var pickerPeers by remember {
         mutableStateOf(
@@ -397,6 +400,7 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false) {
                     }
                 } else {
                     TaildropPage(
+                        incoming = incoming,
                         files = files,
                         history = history,
                         targets = targets,

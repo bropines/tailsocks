@@ -46,6 +46,8 @@ data class DemoData(
     val taildropHistoryJson: String? = null,
     /** The default Taildrop folder, a tree URI as Settings stores it; null for none chosen. */
     val taildropFolder: String? = null,
+    /** Taildrop files being received, as TaildropEvents.incoming holds them. */
+    val taildropIncoming: List<io.github.bropines.tailscaled.core.IncomingTransfer>? = null,
     /** TailCat's key, connections and server, with what the bridge reports for them. */
     val tailcat: DemoTailcat? = null,
 )

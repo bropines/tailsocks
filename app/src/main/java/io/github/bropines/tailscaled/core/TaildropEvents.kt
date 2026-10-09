@@ -18,6 +18,7 @@ import io.github.bropines.tailscaled.models.TaildropFile
 import io.github.bropines.tailscaled.models.TaildropHistoryEntry
 import io.github.bropines.tailscaled.ui.FilesActivity
 import io.github.bropines.tailscaled.ui.parseRfc3339Millis
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import java.io.File
@@ -29,9 +30,11 @@ import java.io.File
  * itself and there is no inbox to poll — `/localapi/v0/files/` is `null` forever.
  * The one thing that announces an arrival is `Notify.IncomingFiles` on the IPN
  * bus, which the Go bridge already streams and forwards here through
- * [TaildropListener]: one callback per notification (about one a second per
- * transfer in flight) and a final one where the finished file carries
- * `Done=true` and `FinalPath`. The daemon drops the transfer right after that
+ * [TaildropListener]: one callback per notification and a final one where the
+ * finished file carries `Done=true` and `FinalPath`. With patch 03 (send.go) there is also
+ * about one a second per transfer in flight, which [TaildropProgress] turns into
+ * [incoming] and a progress notification; upstream 1.84–1.104 never sends those,
+ * only the final one. The daemon drops the transfer right after that
  * notification, so the Done entry is seen exactly once; this object turns it
  * into a history entry, a move into the default folder when one is chosen
  * ([TaildropSave]), a broadcast (the Files hub re-reads the directory) and a
@@ -86,6 +89,9 @@ object TaildropEvents {
      */
     @Volatile var inboxVisible: Boolean = false
 
+    /** The files being received right now, for the Files page; the progress notification shows the same. */
+    val incoming: StateFlow<List<IncomingTransfer>> get() = TaildropProgress.incoming
+
     fun attach(context: Context) {
         val app = context.applicationContext
         Appctr.setTaildropListener(TaildropListener { json -> onIncomingFiles(app, json) })
@@ -93,18 +99,29 @@ object TaildropEvents {
 
     fun detach() {
         try { Appctr.setTaildropListener(null) } catch (e: Exception) { Log.w(TAG, "detach: ${e.message}") }
+        TaildropProgress.stopped()
     }
 
-    /** Runs on the bridge's bus goroutine: decode, pick out the finished files, leave. */
+    /** Runs on the bridge's bus goroutine: decode, hand over the progress, pick out the finished files, leave. */
     private fun onIncomingFiles(context: Context, json: String) {
         if (json.isBlank() || json == "[]") return
         val files = runCatching { AppJson.decodeFromString<List<IncomingFile>>(json) }
             .getOrElse { Log.w(TAG, "IncomingFiles unreadable: ${it.message}"); return }
-        val done = files.filter { it.Done && !it.FinalPath.isNullOrEmpty() }
+        TaildropProgress.onReport(context, files)
+        val done = files.filter { it.Done }
         if (done.isEmpty()) return
-        val fresh = synchronized(lock) { done.filter { announced.put(it.FinalPath!! + "|" + (it.Started ?: ""), true) == null } }
+        val fresh = synchronized(lock) {
+            done.filter { !it.FinalPath.isNullOrEmpty() && announced.put(it.FinalPath + "|" + (it.Started ?: ""), true) == null }
+        }
+        // Nothing to announce for the rest: their cards can go now. The fresh ones' go once
+        // the file is where the inbox will find it.
+        (done - fresh.toSet()).forEach(TaildropProgress::finished)
         if (fresh.isEmpty()) return
-        Thread({ fresh.forEach { announce(context, it) } }, "taildrop-received").start()
+        Thread({
+            fresh.forEach { f ->
+                try { announce(context, f) } finally { TaildropProgress.finished(f) }
+            }
+        }, "taildrop-received").start()
     }
 
     private fun announce(context: Context, f: IncomingFile) {
@@ -163,14 +180,14 @@ object TaildropEvents {
      * Who sent it, from the one place the bus states it: in direct mode the partial is
      * named `<name>.<sender StableNodeID>.partial` (feature/taildrop/send.go).
      */
-    private fun senderId(partialPath: String?): String? {
+    internal fun senderId(partialPath: String?): String? {
         val base = partialPath?.let { File(it).name } ?: return null
         if (!base.endsWith(".partial")) return null
         return base.removeSuffix(".partial").substringAfterLast('.', "").takeIf { it.isNotEmpty() }
     }
 
     /** The sender as /status has it; null when anything along the way is missing. */
-    private fun senderPeer(id: String): PeerData? = runCatching {
+    internal fun senderPeer(id: String): PeerData? = runCatching {
         val json = Appctr.getStatusFromAPI()
         if (json.isBlank() || json.startsWith("Error")) null
         else AppJson.decodeFromString<StatusResponse>(json).peers?.values?.firstOrNull { it.id == id }

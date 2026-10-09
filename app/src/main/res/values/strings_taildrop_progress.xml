@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Files being received over Taildrop: the Incoming cards at the top of the inbox and the
+  progress notification. A file of its own so it lands without touching strings.xml.
+-->
+<resources>
+    <!-- Notification channel of the progress notification. -->
+    <string name="taildrop_progress_channel">Taildrop transfers</string>
+    <!-- Title of the progress notification while more than one file arrives. -->
+    <plurals name="taildrop_progress_receiving_files">
+        <item quantity="one">Receiving %d file</item>
+        <item quantity="other">Receiving %d files</item>
+    </plurals>
+    <!-- "45.2 MB of 104.9 MB" -->
+    <string name="taildrop_progress_of_format">%1$s of %2$s</string>
+    <string name="taildrop_progress_left_seconds">%1$d s left</string>
+    <string name="taildrop_progress_left_minutes">%1$d min left</string>
+    <string name="taildrop_progress_left_hours">%1$d h %2$d min left</string>
+    <!-- Nothing has arrived for a few seconds. -->
+    <string name="taildrop_progress_stalled">Waiting for data</string>
+    <!-- Every byte is in; the file is being closed and put in place. -->
+    <string name="taildrop_progress_finishing">Finishing…</string>
+    <!-- Received, and being copied into the default folder. -->
+    <string name="taildrop_progress_saving">Saving to the folder…</string>
+    <string name="taildrop_progress_interrupted">Interrupted</string>
+    <!-- Notification left when a transfer stopped before the end. -->
+    <string name="taildrop_progress_interrupted_title">Receiving interrupted</string>
+    <plurals name="taildrop_progress_files">
+        <item quantity="one">%d file</item>
+        <item quantity="other">%d files</item>
+    </plurals>
+</resources>

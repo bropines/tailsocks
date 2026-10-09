@@ -1,5 +1,6 @@
 package io.github.bropines.tailscaled.ui
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -47,6 +48,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -79,7 +81,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.CompactSearchBar
+import io.github.bropines.tailscaled.core.IncomingPhase
+import io.github.bropines.tailscaled.core.IncomingTransfer
 import io.github.bropines.tailscaled.core.formatFileSize
+import io.github.bropines.tailscaled.core.incomingDetail
 import io.github.bropines.tailscaled.models.PeerData
 import io.github.bropines.tailscaled.models.TaildropDirection
 import io.github.bropines.tailscaled.models.TaildropFile
@@ -203,6 +208,7 @@ internal fun taildropSavedEntries(files: List<TaildropFile>, history: List<Taild
 
 @Composable
 internal fun TaildropPage(
+    incoming: List<IncomingTransfer>,
     files: List<TaildropFile>,
     history: List<TaildropHistoryEntry>,
     targets: TaildropTargets,
@@ -230,12 +236,14 @@ internal fun TaildropPage(
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        val inboxCount = files.size + saved.size
+        val inboxCount = incoming.size + files.size + saved.size
         item(key = "inbox-head") { TaildropSectionHeading(stringResource(R.string.taildrop_section_inbox), inboxCount.takeIf { it > 0 }) }
         if (inboxCount == 0) {
             if (loaded) item(key = "inbox-empty") { TaildropMutedLine(stringResource(R.string.files_empty_inbox), Icons.Default.Inbox) }
         } else {
-            // Waiting first: they are the ones asking for something.
+            // Arriving first: what is happening now. Each makes way for its file once it is in.
+            items(incoming, key = { "incoming:" + it.key }) { TaildropIncomingCard(it) }
+            // Then waiting: they are the ones asking for something.
             items(files, key = { "file:" + it.Path + it.Name }) { f ->
                 val entry = remember(f, history) { receivedEntryOf(f, history) }
                 val note = when {
@@ -359,6 +367,54 @@ private fun TaildropMoreRow(label: String, onClick: () -> Unit) {
     ) {
         Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+    }
+}
+
+/**
+ * A file being received: its name, the sender, a bar and the numbers (incomingDetail). No
+ * buttons — there is nothing to do with half a file, and the daemon offers no way to refuse
+ * one. The bar runs indeterminate while the size is unknown and while the file is finished
+ * and saved; an interrupted one keeps how far it got, in the error colour.
+ */
+@Composable
+internal fun TaildropIncomingCard(transfer: IncomingTransfer) {
+    val interrupted = transfer.phase == IncomingPhase.INTERRUPTED
+    val accent = if (interrupted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+    val detail = incomingDetail(LocalResources.current, transfer)
+    val fraction = transfer.fraction ?: if (interrupted) 0f else null
+    ElevatedCard(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            FileIcon(transfer.name.substringAfterLast('.', "").lowercase())
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
+                Text(transfer.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                transfer.sender?.let {
+                    Text(
+                        stringResource(R.string.taildrop_from_format, it),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                val bar = Modifier.fillMaxWidth().padding(top = 10.dp)
+                if (fraction != null) {
+                    // Reports come a second apart; the bar slides between them instead of jumping.
+                    val shown by animateFloatAsState(fraction, label = "incoming")
+                    LinearProgressIndicator(progress = { shown }, modifier = bar, color = accent)
+                } else {
+                    LinearProgressIndicator(modifier = bar, color = accent)
+                }
+                Text(
+                    detail,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (interrupted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 6.dp)
+                )
+            }
+        }
     }
 }
 
