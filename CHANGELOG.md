@@ -2,6 +2,17 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Added
+
+- Taildrop shows files being received: progress, speed and time left at the top of the inbox and in a notification.
+- QR scanner (camera or gallery): TailSocks links open their screen, TailCat codes a filled-in connection; anything else is only shown.
+
+### Fixed
+
+- Taildrop: the core counts received bytes again, so incoming files report progress (lost upstream in Tailscale 1.84).
+
 ## [4.7.5] - 2026-10-07
 
 ### Added

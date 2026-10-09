@@ -449,8 +449,7 @@ object TaildropProgress {
                 .setOngoing(true)
                 .setCategory(NotificationCompat.CATEGORY_PROGRESS)
                 // A plain progress bar before Android 16. On 16 a Live Update — the status bar
-                // chip, HyperOS's island — once the manifest asks for POST_PROMOTED_NOTIFICATIONS;
-                // without it the request is ignored.
+                // chip, HyperOS's island — granted by POST_PROMOTED_NOTIFICATIONS in the manifest.
                 .setStyle(NotificationCompat.ProgressStyle().setProgress(card.percent).setProgressIndeterminate(card.indeterminate))
                 .setRequestPromotedOngoing(true)
             if (!card.indeterminate) b.setShortCriticalText("${card.percent}%")
