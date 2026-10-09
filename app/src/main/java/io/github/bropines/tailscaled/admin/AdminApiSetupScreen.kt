@@ -177,6 +177,7 @@ fun AdminProfileEditorScreen(
                             onValueChange = { v -> onChange { it.copy(oauthClientId = v.trim()) } },
                             label = { Text(ctx.getString(R.string.admin_setup_client_id_label)) },
                             placeholder = { Text(ctx.getString(R.string.admin_setup_client_id_placeholder)) },
+                            supportingText = { Text(ctx.getString(R.string.admin_oauth_client_id_optional)) },
                             singleLine = true,
                             shape = MaterialTheme.shapes.medium,
                             modifier = Modifier.fillMaxWidth(),

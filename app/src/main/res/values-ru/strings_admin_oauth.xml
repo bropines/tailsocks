@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="admin_oauth_client_id_optional">Можно оставить пустым: ID есть в самом секрете.</string>
+    <string name="admin_oauth_client_id_mismatch">Этот ID не совпадает с секретом. Оставьте поле пустым, и ID возьмётся из секрета.</string>
+</resources>

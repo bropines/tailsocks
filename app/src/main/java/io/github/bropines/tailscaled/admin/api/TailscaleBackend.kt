@@ -576,7 +576,7 @@ class TailscaleBackend(
             method = "POST",
             url = "$api/oauth/token",
             headers = mapOf("Content-Type" to "application/x-www-form-urlencoded", "Accept" to "application/json"),
-            body = Urls.form(listOf("client_id" to c.clientId, "client_secret" to c.clientSecret, "grant_type" to "client_credentials")),
+            body = Urls.form(listOf("client_id" to c.clientId.ifBlank { c.keyId.orEmpty() }, "client_secret" to c.clientSecret, "grant_type" to "client_credentials")),
             // Exchanging the secret twice changes nothing on the server.
             idempotent = true,
         )

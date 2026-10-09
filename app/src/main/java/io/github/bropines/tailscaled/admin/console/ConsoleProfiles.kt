@@ -111,7 +111,13 @@ class ConsoleProfiles internal constructor(private val vm: AdminConsoleViewModel
             )
             is BaseUrlRules.Result.Ok -> Unit
         }
-        if (d.authType == AuthType.OAUTH_CLIENT && d.oauthClientId.isBlank()) return t.getString(R.string.admin2_profile_client_id_required)
+        if (d.authType == AuthType.OAUTH_CLIENT) {
+            // The secret carries its client's id ("tskey-client-<id>-…"), and it is all the server shows once.
+            val fromSecret = AdminCredential.keyIdOf(d.secret, CLIENT_SECRET_PREFIX)
+            val typed = d.oauthClientId.trim()
+            if (typed.isBlank() && fromSecret == null) return t.getString(R.string.admin2_profile_client_id_required)
+            if (typed.isNotBlank() && fromSecret != null && typed != fromSecret) return t.getString(R.string.admin_oauth_client_id_mismatch)
+        }
         val authChanged = d.id != null && state.profiles.firstOrNull { it.id == d.id }?.authType != d.authType
         if (d.secret.isBlank() && (!d.hasStoredSecret || authChanged)) return t.getString(R.string.admin2_profile_secret_required)
         if (d.proxy.mode == AdminProxySettings.MODE_CUSTOM_SOCKS5 && (d.proxy.host.isBlank() || d.proxy.port !in 1..65535)) {
@@ -124,7 +130,10 @@ class ConsoleProfiles internal constructor(private val vm: AdminConsoleViewModel
         val existing = d.id?.let { id -> state.profiles.firstOrNull { it.id == id } }
         val id = d.id ?: UUID.randomUUID().toString()
         val newSecret = d.secret.trim()
-        val credentialChanged = newSecret.isNotEmpty() || existing?.authType != d.authType || existing.oauthClientId != d.oauthClientId.trim()
+        val clientId = if (d.authType == AuthType.OAUTH_CLIENT) {
+            d.oauthClientId.trim().ifBlank { AdminCredential.keyIdOf(newSecret, CLIENT_SECRET_PREFIX).orEmpty() }
+        } else d.oauthClientId.trim()
+        val credentialChanged = newSecret.isNotEmpty() || existing?.authType != d.authType || existing.oauthClientId != clientId
         val profile = AdminProfile(
             id = id,
             name = d.name.trim(),
@@ -133,7 +142,7 @@ class ConsoleProfiles internal constructor(private val vm: AdminConsoleViewModel
             tailnet = d.tailnet.trim().ifBlank { "-" },
             tailnetDnsName = existing?.tailnetDnsName.orEmpty(),
             authType = d.authType,
-            oauthClientId = d.oauthClientId.trim(),
+            oauthClientId = clientId,
             readOnly = d.readOnly,
             proxy = d.proxy.copy(host = d.proxy.host.trim(), user = d.proxy.user.trim()),
             createdAt = existing?.createdAt ?: System.currentTimeMillis(),
@@ -212,5 +221,9 @@ class ConsoleProfiles internal constructor(private val vm: AdminConsoleViewModel
         } catch (e: Exception) {
             vm.text.getString(R.string.admin2_profile_check_failed, ConsoleText.error(vm.text, e)) to true
         }
+    }
+
+    private companion object {
+        const val CLIENT_SECRET_PREFIX = "tskey-client-"
     }
 }

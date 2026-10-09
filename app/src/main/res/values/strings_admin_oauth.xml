@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="admin_oauth_client_id_optional">May stay empty: the secret carries it.</string>
+    <string name="admin_oauth_client_id_mismatch">This client ID does not match the secret. Leave it empty to take it from the secret.</string>
+</resources>

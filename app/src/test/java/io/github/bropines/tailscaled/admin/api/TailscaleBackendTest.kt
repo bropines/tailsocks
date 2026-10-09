@@ -391,6 +391,15 @@ class TailscaleBackendTest {
     }
 
     @Test
+    fun aSecretAloneNamesItsClient() = runBlocking {
+        val t = FakeTransport()
+            .on("POST", "/oauth/token", null, true, { HttpResponse(200, """{"access_token":"tok-1","token_type":"Bearer","expires_in":3600}""") })
+            .ok("GET", "/devices", """{"devices":[]}""")
+        testBackend(t, AdminCredential.OAuthClient("", "tskey-client-kABC123CNTRL-s3cret")).listDevices()
+        assertTrue(t.requestsTo("POST", "/oauth/token").single().body!!.contains("client_id=kABC123CNTRL"))
+    }
+
+    @Test
     fun aRefusedOauthClientIsUnauthorized() = runBlocking {
         val t = FakeTransport().on("POST", "/oauth/token", null, true, status(401, """{"message":"invalid client"}"""))
         try {

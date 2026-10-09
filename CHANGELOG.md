@@ -18,6 +18,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 ### Changed
 
 - TailCat: a link without an address shows what it carries instead of a one-line toast.
+- Admin console: an OAuth client is added with its secret alone; the client ID is read from it.
 
 ### Fixed
 
