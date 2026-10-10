@@ -1,452 +1,697 @@
 package io.github.bropines.tailscaled.ui
 
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Paint
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.clipPath
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import android.graphics.Canvas
+import android.graphics.DashPathEffect
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.RectF
 import kotlin.math.PI
-import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 import kotlin.math.sqrt
 
 /*
- * The spinning cat, drawn in 3D: a short-legged grey tabby made of an ellipsoid body, a
- * round head, four legs and a tail, turned about its vertical axis and projected with a
- * little perspective. Whatever sits on its surface — eyes, stripes, ears — has a direction
- * it faces and is seen only from that side, so the cat turns as one body rather than as
+ * The cat, drawn in 3D: a short-legged cat made of an ellipsoid body, a big round head, four
+ * stubby legs and a tail, turned about its vertical axis and projected with a little
+ * perspective. Whatever sits on its surface — eyes, stripes, ears, the muzzle — has a
+ * direction it faces and is seen only from that side, so it turns as one body rather than as
  * a flat picture.
  *
- * Cat space: x to the cat's left as it faces the viewer, y down with the ground at 0,
- * z towards the viewer. An azimuth is measured from +z towards +x.
+ * Cat space: x to the cat's left as it faces you, y down with the ground at 0, z towards you;
+ * an azimuth is measured from +z towards +x. The caller moves the canvas to the spot under
+ * the cat and scales it; the cat is about 200 units tall. Nothing is allocated while drawing,
+ * so a choir of them can turn at 120 frames a second.
  */
 
-private val FUR_TOP = Color(0xFFB4BAC2)
-private val FUR_BOTTOM = Color(0xFF858B94)
-private val STRIPE = Color(0xFF5A6068)
-private val CREAM = Color(0xFFF5F2ED)
-private val INK = Color(0xFF2A2E34)
-private val NOSE = Color(0xFFE6919F)
-private val EAR_INNER = Color(0xFFEFAAB6)
-private val EYE_RIM = Color(0xFFDCE0C8)
+private fun argb(v: Long) = v.toInt()
+
+/** A coat, ARGB. [stripe] 0 is a cat without tabby marks. */
+internal class CatCoat(
+    val fur: Int,
+    val shade: Int,
+    val stripe: Int,
+    val cream: Int,
+    val iris: Int,
+    val ink: Int,
+    /** How much of the chest is white, 0…1. */
+    val bib: Float = 0.5f
+)
+
+internal object CatCoats {
+    val GREY = CatCoat(argb(0xFFB4BBC4), argb(0xFF8B929C), argb(0xFF5D646D), argb(0xFFF5F2ED), argb(0xFFD6D982), argb(0xFF252930))
+    val GINGER = CatCoat(argb(0xFFF3AF6C), argb(0xFFD78A4D), argb(0xFFBE6832), argb(0xFFFCF1E3), argb(0xFFA5CF68), argb(0xFF3B2A1F))
+    val TUXEDO = CatCoat(argb(0xFF464A53), argb(0xFF30333A), 0, argb(0xFFF4F4F2), argb(0xFFE6C95C), argb(0xFF121316), bib = 1f)
+    val CREAM = CatCoat(argb(0xFFF3E9DB), argb(0xFFDCC9B2), argb(0xFFD0B592), argb(0xFFFFFCF7), argb(0xFF92C4EA), argb(0xFF3C342B))
+    val SMOKE = CatCoat(argb(0xFF8E939B), argb(0xFF6C717A), argb(0xFF494E56), argb(0xFFE9E7E3), argb(0xFFE3B95C), argb(0xFF22252A))
+}
+
+/** How the cat stands at one instant. */
+internal class CatPose {
+    /** Degrees about the vertical axis, 0 faces the viewer, growing turns it to its left. */
+    var angle = 0f
+    /** Units off the ground. */
+    var lift = 0f
+    /** Positive flattens, negative stretches. */
+    var squash = 0f
+    var mouth = PawShow.MOUTH_SHUT
+    var mouthOpen = 0f
+    /** 0 open … 1 shut. */
+    var blink = 0f
+    /** Where the pupils look, −1 left … 1 right. */
+    var glance = 0f
+
+    fun set(angle: Float, lift: Float, squash: Float, mouth: Int, mouthOpen: Float, blink: Float, glance: Float): CatPose {
+        this.angle = angle
+        this.lift = lift
+        this.squash = squash
+        this.mouth = mouth
+        this.mouthOpen = mouthOpen
+        this.blink = blink
+        this.glance = glance
+        return this
+    }
+}
 
 private const val DEG = (PI / 180).toFloat()
+private const val CAMERA = 900f
+/** The height the perspective is centred on. */
+private const val EYE_LEVEL = -90f
 
-/** Where the camera stands: farther means flatter. */
-private const val CAMERA = 1100f
-
-/** The height the perspective is centred on, in cat units. */
-private const val EYE_LEVEL = -88f
-
-private class Point3(val x: Float, val y: Float, val z: Float)
-
-private class CatView(size: Size, angle: Float) {
-    val s = min(size.width / 300f, size.height / 205f)
-    private val cx = size.width / 2f
-    private val groundY = size.height / 2f + 92f * s
-    private val a = angle * DEG
-    val cosA = cos(a)
-    val sinA = sin(a)
-
-    fun depth(x: Float, z: Float) = -x * sinA + z * cosA
-    fun scale(x: Float, z: Float) = CAMERA / (CAMERA - depth(x, z))
-
-    fun at(x: Float, y: Float, z: Float): Offset {
-        val k = scale(x, z)
-        return Offset(cx + (x * cosA + z * sinA) * k * s, groundY + ((y - EYE_LEVEL) * k + EYE_LEVEL) * s)
-    }
-
-    fun at(p: Point3) = at(p.x, p.y, p.z)
-
-    /** How squarely a surface facing azimuth [az] (degrees) faces the viewer, −1…1. */
-    fun facing(az: Float) = cos(az * DEG + a)
-}
+private const val OUTLINE = 3f
 
 // The body: an ellipsoid.
-private const val BODY_Y = -64f
-private const val BODY_Z = -18f
-private const val BODY_AX = 56f
-private const val BODY_AY = 40f
-private const val BODY_AZ = 80f
+private const val BODY_Y = -50f
+private const val BODY_Z = -14f
+private const val BODY_AX = 50f
+private const val BODY_AY = 33f
+private const val BODY_AZ = 66f
 
-// The head: a sphere squashed a little.
-private const val HEAD_Y = -112f
-private const val HEAD_Z = 50f
-private const val HEAD_R = 50f
-private const val HEAD_RY = 44f
+// The head: a big sphere, squashed a little.
+private const val HEAD_Y = -114f
+private const val HEAD_Z = 34f
+private const val HEAD_R = 57f
+private const val HEAD_RY = 50f
 
-private fun headPoint(az: Float, el: Float) = Point3(
-    HEAD_R * cos(el * DEG) * sin(az * DEG),
-    HEAD_Y - HEAD_RY * sin(el * DEG),
-    HEAD_Z + HEAD_R * cos(el * DEG) * cos(az * DEG)
-)
+// Stubby legs.
+private val LEG_X = floatArrayOf(-24f, 24f, -24f, 24f)
+private val LEG_Z = floatArrayOf(28f, 28f, -52f, -52f)
+private const val LEG_TOP = -38f
+private const val LEG_R = 11.5f
+private const val PAW_H = 12f
 
-// The snout: a small round muzzle on the front of the head, which side on is the profile.
-private const val SNOUT_R = 17f
-private const val SNOUT_RY = 12.5f
-private val SNOUT = headPoint(0f, -20f).let { Point3(it.x, it.y, it.z - 6f) }
+// The ears, the eyes, the muzzle.
+private const val EAR_AZ = 40f
+private const val EAR_EL = 44f
+private const val EAR_H = 40f
+private const val EAR_W = 20f
+private const val EYE_AZ = 30f
+private const val EYE_EL = 6f
+private const val EYE_R = 14f
+private const val PAD_AZ = 13f
+private const val PAD_EL = -24f
+private const val PAD_R = 12.5f
 
-/** A point on the snout's surface at azimuth [az], [dy] below its centre. */
-private fun snoutPoint(az: Float, dy: Float) =
-    Point3(SNOUT.x + SNOUT_R * sin(az * DEG), SNOUT.y + dy, SNOUT.z + SNOUT_R * cos(az * DEG))
+// The tail sweeps back and up; face on, the cat hides it.
+private val TAIL_X = floatArrayOf(0f, 4f, 10f, 18f, 28f)
+private val TAIL_Y = floatArrayOf(-58f, -70f, -86f, -106f, -122f)
+private val TAIL_Z = floatArrayOf(-74f, -102f, -124f, -136f, -134f)
 
-/** How squarely the head's surface at ([az], [el]) faces the viewer. */
-private fun CatView.headFacing(az: Float, el: Float) = facing(az) * cos(el * DEG)
+private val MOUTH_DARK = argb(0xFF5A2E39)
+private val TONGUE = argb(0xFFE98A9A)
+private val EAR_INNER = argb(0xFFEFAAB6)
+private val NOSE = argb(0xFFE58B9B)
+private val PUPIL = argb(0xFF111316)
+private const val SHADOW = 0x2E000000
 
-/** A cross-section of the body at [w] (−1 rear … 1 front), [t] degrees round from the left flank over the top. */
-private fun bodyRing(w: Float, t: Float): Pair<Point3, Point3> {
-    val r = sqrt((1f - w * w).coerceAtLeast(0f))
-    val x = BODY_AX * r * cos(t * DEG)
-    val yo = -BODY_AY * r * sin(t * DEG)
-    val zo = BODY_AZ * w
-    val point = Point3(x, BODY_Y + yo, BODY_Z + zo)
-    val n = Point3(x / (BODY_AX * BODY_AX), yo / (BODY_AY * BODY_AY), zo / (BODY_AZ * BODY_AZ))
-    return point to n
-}
-
-private fun CatView.normalFacing(n: Point3): Float {
-    val len = sqrt(n.x * n.x + n.y * n.y + n.z * n.z)
-    return if (len == 0f) 0f else depth(n.x, n.z) / len
-}
-
-/** Draws [points] as one stroke wherever their surface faces the viewer, fading at the edge. */
-private fun DrawScope.surfaceStroke(points: List<Pair<Offset, Float>>, color: Color, width: Float) {
-    for (i in 1 until points.size) {
-        val (p0, f0) = points[i - 1]
-        val (p1, f1) = points[i]
-        val f = min(f0, f1)
-        if (f <= 0.04f) continue
-        drawLine(color.copy(alpha = color.alpha * (f * 4f).coerceAtMost(1f)), p0, p1, width, StrokeCap.Round)
+internal class CatPainter {
+    private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    private val line = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
     }
-}
+    private val dash = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 13f
+        pathEffect = DashPathEffect(floatArrayOf(5f, 9f), 2f)
+    }
+    private val path = Path()
+    private val clip = Path()
+    private val rect = RectF()
 
-/** A stroke along the head's surface through ([az], [el]) pairs, interpolated. */
-private fun DrawScope.headStroke(v: CatView, vararg azEl: Float, color: Color = STRIPE, width: Float = 4.5f) {
-    val samples = mutableListOf<Pair<Offset, Float>>()
-    for (i in 0 until azEl.size / 2 - 1) {
-        val az0 = azEl[i * 2]
-        val el0 = azEl[i * 2 + 1]
-        val az1 = azEl[i * 2 + 2]
-        val el1 = azEl[i * 2 + 3]
-        for (k in 0..8) {
-            if (i > 0 && k == 0) continue
-            val f = k / 8f
+    // The view: the turn, and the point last projected.
+    private var cosA = 1f
+    private var sinA = 0f
+    private var px = 0f
+    private var py = 0f
+    private var pk = 1f
+
+    // Scratch for sorting and for an ear's outline.
+    private val legDepth = FloatArray(4)
+    private val legOrder = IntArray(4)
+    private val partDepth = FloatArray(3)
+    private val partOrder = IntArray(3)
+    private val hx = FloatArray(4)
+    private val hy = FloatArray(4)
+    private val hullOrder = IntArray(4)
+    private val hull = IntArray(9)
+
+    private fun depth(x: Float, z: Float) = -x * sinA + z * cosA
+
+    private fun project(x: Float, y: Float, z: Float) {
+        val k = CAMERA / (CAMERA - depth(x, z))
+        pk = k
+        px = (x * cosA + z * sinA) * k
+        py = (y - EYE_LEVEL) * k + EYE_LEVEL
+    }
+
+    /** How squarely a surface facing azimuth [az] faces the viewer, −1…1. */
+    private fun facing(az: Float) = cos(az * DEG) * cosA - sin(az * DEG) * sinA
+
+    private fun headFacing(az: Float, el: Float) = facing(az) * cos(el * DEG)
+
+    private fun projectHead(az: Float, el: Float) {
+        val c = cos(el * DEG)
+        project(HEAD_R * c * sin(az * DEG), HEAD_Y - HEAD_RY * sin(el * DEG), HEAD_Z + HEAD_R * c * cos(az * DEG))
+    }
+
+    /**
+     * Draws the cat on [canvas], whose origin is the ground under it. [detail] off leaves out
+     * the whiskers and toes, which a small cat has no room for.
+     */
+    fun draw(canvas: Canvas, coat: CatCoat, pose: CatPose, detail: Boolean = true) {
+        val a = pose.angle * DEG
+        cosA = cos(a)
+        sinA = sin(a)
+
+        // The shadow stays on the ground and shrinks as the cat rises.
+        val lifted = (1f - pose.lift / 220f).coerceIn(0.3f, 1f)
+        val half = sqrt(sq(64f * cosA) + sq(100f * sinA)) * lifted
+        fill.color = SHADOW
+        fill.alpha = (0x2E * lifted).toInt()
+        rect.set(-half, -7f * lifted, half, 7f * lifted)
+        canvas.drawOval(rect, fill)
+
+        canvas.save()
+        canvas.translate(0f, -pose.lift)
+        canvas.scale(1f + 0.6f * pose.squash, 1f - pose.squash)
+
+        // The legs never cover the body, so they go first, the far ones before the near.
+        for (i in 0..3) {
+            legDepth[i] = depth(LEG_X[i], LEG_Z[i])
+            legOrder[i] = i
+        }
+        sortBy(legOrder, legDepth, 4)
+        for (n in 0..3) drawLeg(canvas, coat, legOrder[n], detail)
+
+        // The rest by depth. Side on, the head sits over the front of the body and the tail
+        // over its back, hence the small leads they are given.
+        partDepth[0] = depth(0f, BODY_Z)
+        partDepth[1] = depth(0f, HEAD_Z) + 20f
+        partDepth[2] = depth(TAIL_X[2], TAIL_Z[2]) + 10f
+        for (i in 0..2) partOrder[i] = i
+        sortBy(partOrder, partDepth, 3)
+        for (n in 0..2) when (partOrder[n]) {
+            0 -> drawBody(canvas, coat)
+            1 -> drawHead(canvas, coat, pose, detail)
+            else -> drawTail(canvas, coat)
+        }
+        canvas.restore()
+    }
+
+    private fun drawLeg(canvas: Canvas, coat: CatCoat, i: Int, detail: Boolean) {
+        project(LEG_X[i], LEG_TOP, LEG_Z[i])
+        val top = py
+        project(LEG_X[i], 0f, LEG_Z[i])
+        val x = px
+        val bottom = py
+        val k = pk
+        val r = LEG_R * k
+        fill.color = coat.fur
+        rect.set(x - r, top, x + r, bottom)
+        canvas.drawRoundRect(rect, r, r, fill)
+        fill.color = coat.cream
+        rect.set(x - r, bottom - PAW_H * k, x + r, bottom)
+        canvas.drawRoundRect(rect, r, r * 0.8f, fill)
+        line.color = coat.ink
+        line.strokeWidth = OUTLINE
+        rect.set(x - r, top, x + r, bottom)
+        canvas.drawRoundRect(rect, r, r, line)
+        // Toes, on the side of the paw that points forward.
+        val toes = facing(0f)
+        if (detail && toes > 0.25f) {
+            line.strokeWidth = 1.8f
+            line.alpha = (255 * toes).toInt()
+            for (side in -1..1 step 2) {
+                val tx = x + side * 0.3f * r * 2f * toes
+                canvas.drawLine(tx, bottom - PAW_H * k * 0.55f, tx, bottom - 1.5f, line)
+            }
+            line.alpha = 255
+        }
+    }
+
+    private fun drawBody(canvas: Canvas, coat: CatCoat) {
+        project(0f, BODY_Y, BODY_Z)
+        val cx = px
+        val cy = py
+        val k = pk
+        val rx = sqrt(sq(BODY_AX * cosA) + sq(BODY_AZ * sinA)) * k
+        val ry = BODY_AY * k
+        clip.reset()
+        clip.addOval(cx - rx, cy - ry, cx + rx, cy + ry, Path.Direction.CW)
+        canvas.save()
+        canvas.clipPath(clip)
+        shadeOval(canvas, coat, cx, cy, rx, ry)
+
+        // The white chest, between the front legs.
+        val chest = facing(0f)
+        if (chest > 0.05f) {
+            project(0f, BODY_Y + 10f, BODY_Z + BODY_AZ * 0.92f)
+            fill.color = coat.cream
+            fill.alpha = (255 * (chest * 3f).coerceAtMost(1f)).toInt()
+            val w = (10f + 18f * coat.bib) * chest * pk
+            val h = (22f + 16f * coat.bib) * pk
+            rect.set(px - w, py - h, px + w, py + h * 1.4f)
+            canvas.drawOval(rect, fill)
+            fill.alpha = 255
+        }
+        // The stripes run across the back from flank to flank.
+        if (coat.stripe != 0) {
+            var w = -0.78f
+            while (w < 0.4f) {
+                bodyStripe(canvas, coat.stripe, w)
+                w += 0.22f
+            }
+        }
+        canvas.restore()
+        line.color = coat.ink
+        line.strokeWidth = OUTLINE
+        rect.set(cx - rx, cy - ry, cx + rx, cy + ry)
+        canvas.drawOval(rect, line)
+    }
+
+    /** One tabby band round the body at [w] (−1 rear … 1 front), over the top from flank to flank. */
+    private fun bodyStripe(canvas: Canvas, color: Int, w: Float) {
+        val r = sqrt((1f - w * w).coerceAtLeast(0f))
+        line.color = color
+        line.strokeWidth = 5.5f
+        var lastX = 0f
+        var lastY = 0f
+        var lastF = 0f
+        for (i in 0..12) {
+            val t = (16f + 148f * i / 12f) * DEG
+            val x = BODY_AX * r * cos(t)
+            val yo = -BODY_AY * r * sin(t)
+            val zo = BODY_AZ * w
+            project(x, BODY_Y + yo, BODY_Z + zo)
+            // The surface's normal, and how squarely it faces the viewer.
+            val nx = x / (BODY_AX * BODY_AX)
+            val ny = yo / (BODY_AY * BODY_AY)
+            val nz = zo / (BODY_AZ * BODY_AZ)
+            val f = depth(nx, nz) / sqrt(nx * nx + ny * ny + nz * nz).coerceAtLeast(1e-6f)
+            if (i > 0) segment(canvas, lastX, lastY, px, py, min(lastF, f))
+            lastX = px
+            lastY = py
+            lastF = f
+        }
+        line.alpha = 255
+    }
+
+    /** A stroke segment on a surface that faces the viewer by [f], fading out at the edge. */
+    private fun segment(canvas: Canvas, x0: Float, y0: Float, x1: Float, y1: Float, f: Float) {
+        if (f <= 0.04f) return
+        line.alpha = (255 * (f * 4f).coerceAtMost(1f)).toInt()
+        canvas.drawLine(x0, y0, x1, y1, line)
+    }
+
+    /** A stroke along the head's surface from ([az0], [el0]) to ([az1], [el1]). */
+    private fun headStroke(canvas: Canvas, color: Int, az0: Float, el0: Float, az1: Float, el1: Float, width: Float = 4.5f) {
+        line.color = color
+        line.strokeWidth = width
+        var lastX = 0f
+        var lastY = 0f
+        var lastF = 0f
+        for (i in 0..8) {
+            val f = i / 8f
             val az = az0 + (az1 - az0) * f
             val el = el0 + (el1 - el0) * f
-            samples += v.at(headPoint(az, el)) to v.headFacing(az, el)
+            projectHead(az, el)
+            val facing = headFacing(az, el)
+            if (i > 0) segment(canvas, lastX, lastY, px, py, min(lastF, facing))
+            lastX = px
+            lastY = py
+            lastF = facing
+        }
+        line.alpha = 255
+    }
+
+    /** A round fur shape inside the current clip: its shadow side low and to the right, lit above. */
+    private fun shadeOval(canvas: Canvas, coat: CatCoat, cx: Float, cy: Float, rx: Float, ry: Float) {
+        fill.color = coat.shade
+        rect.set(cx - rx, cy - ry, cx + rx, cy + ry)
+        canvas.drawOval(rect, fill)
+        fill.color = coat.fur
+        val lx = cx - 0.1f * rx
+        val ly = cy - 0.17f * ry
+        rect.set(lx - rx * 0.97f, ly - ry * 0.93f, lx + rx * 0.97f, ly + ry * 0.93f)
+        canvas.drawOval(rect, fill)
+    }
+
+    private fun drawTail(canvas: Canvas, coat: CatCoat) {
+        path.reset()
+        project(TAIL_X[0], TAIL_Y[0], TAIL_Z[0])
+        path.moveTo(px, py)
+        for (i in 1 until TAIL_X.size - 1) {
+            project(TAIL_X[i], TAIL_Y[i], TAIL_Z[i])
+            val cx = px
+            val cy = py
+            project(TAIL_X[i + 1], TAIL_Y[i + 1], TAIL_Z[i + 1])
+            if (i < TAIL_X.size - 2) path.quadTo(cx, cy, (cx + px) / 2f, (cy + py) / 2f)
+            else path.quadTo(cx, cy, px, py)
+        }
+        line.color = coat.ink
+        line.strokeWidth = 19f
+        canvas.drawPath(path, line)
+        line.color = coat.fur
+        line.strokeWidth = 13f
+        canvas.drawPath(path, line)
+        if (coat.stripe != 0) {
+            dash.color = coat.stripe
+            canvas.drawPath(path, dash)
         }
     }
-    surfaceStroke(samples, color, width * v.s)
-}
 
-/** The convex hull of a handful of points, as a closed path. */
-private fun hullPath(points: List<Offset>): Path {
-    val sorted = points.sortedWith(compareBy({ it.x }, { it.y }))
-    fun cross(o: Offset, a: Offset, b: Offset) = (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
-    val hull = mutableListOf<Offset>()
-    for (pass in 0..1) {
-        val start = hull.size
-        for (p in if (pass == 0) sorted else sorted.reversed()) {
-            while (hull.size >= start + 2 && cross(hull[hull.size - 2], hull[hull.size - 1], p) <= 0f) hull.removeAt(hull.size - 1)
-            hull += p
+    private fun drawHead(canvas: Canvas, coat: CatCoat, pose: CatPose, detail: Boolean) {
+        for (side in -1..1 step 2) drawEar(canvas, coat, side.toFloat())
+
+        project(0f, HEAD_Y, HEAD_Z)
+        val cx = px
+        val cy = py
+        val k = pk
+        val rx = HEAD_R * k
+        val ry = HEAD_RY * k
+        val front = facing(0f)
+        // The muzzle goes in twice: outlined under the head, so that only the part sticking
+        // out past it shows an edge, and plain over it, as the face.
+        drawMuzzle(canvas, coat, pose, outline = true)
+
+        clip.reset()
+        clip.addOval(cx - rx, cy - ry, cx + rx, cy + ry, Path.Direction.CW)
+        canvas.save()
+        canvas.clipPath(clip)
+        shadeOval(canvas, coat, cx, cy, rx, ry)
+        if (coat.stripe != 0) {
+            // The M on the forehead, lines on the cheeks, rings round the back of the head.
+            headStroke(canvas, coat.stripe, -15f, 60f, -10f, 34f)
+            headStroke(canvas, coat.stripe, 0f, 68f, 0f, 38f)
+            headStroke(canvas, coat.stripe, 15f, 60f, 10f, 34f)
+            for (side in -1..1 step 2) {
+                headStroke(canvas, coat.stripe, 64f * side, 6f, 86f * side, 2f)
+                headStroke(canvas, coat.stripe, 62f * side, -10f, 84f * side, -14f)
+            }
+            var el = 44f
+            while (el > 0f) {
+                headStroke(canvas, coat.stripe, 116f, el, 180f, el + 4f, 5f)
+                headStroke(canvas, coat.stripe, 180f, el + 4f, 244f, el, 5f)
+                el -= 18f
+            }
+        } else if (coat.bib >= 1f) {
+            // A tuxedo's white blaze between the eyes.
+            fill.color = coat.cream
+            fill.alpha = (255 * (front * 3f).coerceIn(0f, 1f)).toInt()
+            projectHead(0f, -6f)
+            rect.set(px - 12f * front * k, py - 26f * k, px + 12f * front * k, py + 22f * k)
+            if (front > 0f) canvas.drawOval(rect, fill)
+            fill.alpha = 255
         }
-        hull.removeAt(hull.size - 1)
-    }
-    return Path().apply {
-        hull.forEachIndexed { i, p -> if (i == 0) moveTo(p.x, p.y) else lineTo(p.x, p.y) }
-        close()
-    }
-}
+        canvas.restore()
 
-private fun DrawScope.ellipseAt(center: Offset, rx: Float, ry: Float, color: Color, outline: Boolean, s: Float) {
-    if (rx <= 0f || ry <= 0f) return
-    val topLeft = Offset(center.x - rx, center.y - ry)
-    val size = Size(rx * 2f, ry * 2f)
-    drawOval(color, topLeft, size)
-    if (outline) drawOval(INK, topLeft, size, style = Stroke(3f * s))
-}
+        if (front >= 0f) drawMuzzle(canvas, coat, pose, outline = false)
+        for (side in -1..1 step 2) drawEye(canvas, coat, pose, side.toFloat())
+        if (front >= 0f) drawMouth(canvas, coat, pose, detail)
 
-private fun DrawScope.drawLeg(v: CatView, lx: Float, lz: Float) {
-    val k = v.scale(lx, lz)
-    val top = v.at(lx, -42f, lz)
-    val bottom = v.at(lx, 0f, lz)
-    val r = 12.5f * k * v.s
-    val paw = 14f * k * v.s
-    val outline = Path().apply {
-        addRoundRect(
-            androidx.compose.ui.geometry.RoundRect(
-                Rect(bottom.x - r, top.y, bottom.x + r, bottom.y),
-                androidx.compose.ui.geometry.CornerRadius(r, r)
-            )
-        )
+        line.color = coat.ink
+        line.strokeWidth = OUTLINE
+        rect.set(cx - rx, cy - ry, cx + rx, cy + ry)
+        canvas.drawOval(rect, line)
     }
-    drawPath(outline, Brush.verticalGradient(listOf(FUR_TOP, FUR_BOTTOM), startY = top.y, endY = bottom.y))
-    drawRoundRect(
-        CREAM,
-        topLeft = Offset(bottom.x - r, bottom.y - paw),
-        size = Size(r * 2f, paw),
-        cornerRadius = androidx.compose.ui.geometry.CornerRadius(r, r)
-    )
-    drawPath(outline, INK, style = Stroke(3f * v.s))
-    // Toes, on the side of the paw that points forward.
-    val toes = v.facing(0f)
-    if (toes > 0.25f) {
-        for (dx in floatArrayOf(-0.33f, 0.33f)) {
-            val x = bottom.x + dx * r * 2f * toes * 0.9f
-            drawLine(INK.copy(alpha = toes), Offset(x, bottom.y - paw * 0.55f), Offset(x, bottom.y - 1.5f * v.s), 1.8f * v.s, StrokeCap.Round)
-        }
-    }
-}
 
-private val TAIL = listOf(
-    Point3(0f, -76f, -94f),
-    Point3(6f, -100f, -114f),
-    Point3(20f, -126f, -122f),
-    Point3(40f, -150f, -112f),
-    Point3(54f, -164f, -96f)
-)
-
-private fun DrawScope.drawTail(v: CatView) {
-    val pts = TAIL.map { v.at(it) }
-    val path = Path().apply {
-        moveTo(pts[0].x, pts[0].y)
-        for (i in 1 until pts.size - 1) {
-            val mid = Offset((pts[i].x + pts[i + 1].x) / 2f, (pts[i].y + pts[i + 1].y) / 2f)
-            quadraticTo(pts[i].x, pts[i].y, mid.x, mid.y)
-        }
-        lineTo(pts.last().x, pts.last().y)
-    }
-    val s = v.s
-    drawPath(path, INK, style = Stroke(19f * s, cap = StrokeCap.Round, join = StrokeJoin.Round))
-    drawPath(path, FUR_TOP, style = Stroke(13f * s, cap = StrokeCap.Round, join = StrokeJoin.Round))
-    drawPath(
-        path,
-        STRIPE,
-        style = Stroke(13f * s, cap = StrokeCap.Butt, pathEffect = PathEffect.dashPathEffect(floatArrayOf(5f * s, 10f * s), 2f * s))
-    )
-}
-
-private fun DrawScope.drawBody(v: CatView) {
-    val k = v.scale(0f, BODY_Z)
-    val c = v.at(0f, BODY_Y, BODY_Z)
-    val rx = sqrt((BODY_AX * v.cosA).let { it * it } + (BODY_AZ * v.sinA).let { it * it }) * k * v.s
-    val ry = BODY_AY * k * v.s
-    val topLeft = Offset(c.x - rx, c.y - ry)
-    val size = Size(rx * 2f, ry * 2f)
-    drawOval(Brush.verticalGradient(listOf(FUR_TOP, FUR_BOTTOM), startY = c.y - ry, endY = c.y + ry), topLeft, size)
-
-    // The stripes run across the back from flank to flank.
-    for (w in floatArrayOf(-0.78f, -0.56f, -0.34f, -0.12f, 0.1f, 0.32f)) {
-        val samples = (0..16).map { i ->
-            val (p, n) = bodyRing(w, 18f + 144f * i / 16f)
-            v.at(p) to v.normalFacing(n)
-        }
-        surfaceStroke(samples, STRIPE, 5.5f * v.s)
-    }
-    // The white chest, between the front legs.
-    val chest = v.facing(0f)
-    if (chest > 0.05f) {
-        val p = v.at(0f, BODY_Y + 8f, BODY_Z + BODY_AZ * 0.93f)
-        ellipseAt(p, 21f * chest * k * v.s, 24f * k * v.s, CREAM.copy(alpha = (chest * 3f).coerceAtMost(1f)), false, v.s)
-    }
-    drawOval(INK, topLeft, size, style = Stroke(3f * v.s))
-}
-
-private fun DrawScope.drawSnout(v: CatView, k: Float) {
-    val s = v.s
-    val c = v.at(SNOUT)
-    val topLeft = Offset(c.x - SNOUT_R * k * s, c.y - SNOUT_RY * k * s)
-    val size = Size(SNOUT_R * 2f * k * s, SNOUT_RY * 2f * k * s)
-    drawOval(CREAM, topLeft, size)
-    // Face on, the muzzle is a patch of white fur; side on, it is a shape with an edge.
-    val edge = (1f - abs(v.facing(0f)) * 1.4f).coerceIn(0f, 1f)
-    if (edge > 0f) drawOval(INK.copy(alpha = edge), topLeft, size, style = Stroke(3f * s))
-}
-
-private fun DrawScope.drawSnoutFace(v: CatView, k: Float) {
-    val s = v.s
-    val front = v.facing(0f)
-    // The nose, on top of the snout's tip; side on it is the tip.
-    val n = v.at(snoutPoint(0f, -6f))
-    val w = 6.5f * front.coerceAtLeast(0.45f) * k * s
-    val h = 5f * k * s
-    val nose = Path().apply {
-        moveTo(n.x - w, n.y - h * 0.6f)
-        quadraticTo(n.x, n.y - h * 1.1f, n.x + w, n.y - h * 0.6f)
-        quadraticTo(n.x + w * 0.4f, n.y + h * 0.4f, n.x, n.y + h * 0.8f)
-        quadraticTo(n.x - w * 0.4f, n.y + h * 0.4f, n.x - w, n.y - h * 0.6f)
-        close()
-    }
-    drawPath(nose, NOSE.copy(alpha = ((front + 0.35f) * 3f).coerceIn(0f, 1f)))
-    // The mouth: down from the nose, then out to either side.
-    val ink = INK.copy(alpha = (front * 3f).coerceIn(0f, 1f))
-    val m0 = v.at(snoutPoint(0f, -2f))
-    val m1 = v.at(snoutPoint(0f, 3f))
-    drawLine(ink, m0, m1, 2.2f * s, StrokeCap.Round)
-    // Not a smile: the line goes out flat and turns a little down.
-    for (side in floatArrayOf(-1f, 1f)) {
-        if (v.facing(26f * side) <= 0.05f) continue
-        val end = v.at(snoutPoint(26f * side, 6.5f))
-        drawLine(ink, m1, end, 2.2f * s, StrokeCap.Round)
-    }
-    // Whiskers, out from the sides of the snout that can be seen.
-    for (side in floatArrayOf(-1f, 1f)) {
-        val f = v.facing(45f * side)
-        if (f <= 0.1f) continue
-        val o = v.at(snoutPoint(45f * side, 1f))
-        val dir = if (v.at(snoutPoint(90f * side, 1f)).x > v.at(SNOUT).x) 1f else -1f
-        val len = 40f * k * s * f
-        for (tilt in floatArrayOf(-12f, 0f, 12f)) {
-            val r = tilt * DEG
-            val start = Offset(o.x, o.y + tilt * 0.15f * k * s)
-            drawLine(
-                INK.copy(alpha = 0.55f * (f * 2f).coerceAtMost(1f)),
-                start,
-                Offset(start.x + dir * len * cos(r), start.y + len * sin(r)),
-                1.6f * s,
-                StrokeCap.Round
-            )
-        }
-    }
-}
-
-private fun DrawScope.drawHead(v: CatView, blink: Boolean) {
-    val s = v.s
-    // Ears first, so the head covers where they join it.
-    for (side in floatArrayOf(-1f, 1f)) {
-        val az = 36f * side
-        val base = headPoint(az, 50f)
+    private fun drawEar(canvas: Canvas, coat: CatCoat, side: Float) {
+        val az = EAR_AZ * side
+        val c = cos(EAR_EL * DEG)
+        val bx = HEAD_R * c * sin(az * DEG)
+        val by = HEAD_Y - HEAD_RY * sin(EAR_EL * DEG)
+        val bz = HEAD_Z + HEAD_R * c * cos(az * DEG)
         val tx = cos(az * DEG)
         val tz = -sin(az * DEG)
-        val tip = v.at(base.x + 6f * side, base.y - 36f, base.z + 2f)
-        val b0 = v.at(base.x - tx * 18f, base.y + 4f, base.z - tz * 18f)
-        val b1 = v.at(base.x + tx * 18f, base.y + 4f, base.z + tz * 18f)
-        // An ear is a cup, not a sheet: a point behind its base keeps it from going thin side on.
-        val back = v.at(base.x - sin(az * DEG) * 15f, base.y - 12f, base.z - cos(az * DEG) * 15f)
-        val ear = hullPath(listOf(b0, tip, b1, back))
-        drawPath(ear, FUR_TOP)
-        val front = v.facing(az)
+        // A cup, not a sheet: a point behind the base keeps it from going thin side on.
+        project(bx + 5f * side, by - EAR_H, bz - 2f)
+        hx[0] = px; hy[0] = py
+        project(bx - tx * EAR_W, by + 4f, bz - tz * EAR_W)
+        hx[1] = px; hy[1] = py
+        project(bx + tx * EAR_W, by + 4f, bz + tz * EAR_W)
+        hx[2] = px; hy[2] = py
+        project(bx - sin(az * DEG) * 15f, by - 12f, bz - cos(az * DEG) * 15f)
+        hx[3] = px; hy[3] = py
+        hullPath(4)
+        fill.color = coat.fur
+        canvas.drawPath(path, fill)
+        val front = facing(az)
         if (front > 0.1f) {
-            val mid = Offset((b0.x + b1.x + tip.x) / 3f, (b0.y + b1.y + tip.y) / 3f + 4f * s)
-            fun toward(p: Offset, f: Float) = Offset(mid.x + (p.x - mid.x) * f, mid.y + (p.y - mid.y) * f)
-            val inner = Path().apply {
-                val a = toward(b0, 0.62f)
-                val b = toward(tip, 0.62f)
-                val c = toward(b1, 0.62f)
-                moveTo(a.x, a.y)
-                lineTo(b.x, b.y)
-                lineTo(c.x, c.y)
-                close()
+            val mx = (hx[0] + hx[1] + hx[2]) / 3f
+            val my = (hy[0] + hy[1] + hy[2]) / 3f + 4f
+            clip.reset()
+            clip.moveTo(mx + (hx[1] - mx) * 0.6f, my + (hy[1] - my) * 0.6f)
+            clip.lineTo(mx + (hx[0] - mx) * 0.62f, my + (hy[0] - my) * 0.62f)
+            clip.lineTo(mx + (hx[2] - mx) * 0.6f, my + (hy[2] - my) * 0.6f)
+            clip.close()
+            fill.color = EAR_INNER
+            fill.alpha = (255 * (front * 2.5f).coerceAtMost(1f)).toInt()
+            canvas.drawPath(clip, fill)
+            fill.alpha = 255
+        }
+        line.color = coat.ink
+        line.strokeWidth = OUTLINE
+        canvas.drawPath(path, line)
+    }
+
+    /** The two whisker pads and the chin; side on, the profile of the snout. */
+    private fun drawMuzzle(canvas: Canvas, coat: CatCoat, pose: CatPose, outline: Boolean) {
+        val jaw = if (pose.mouth == PawShow.MOUTH_A) 7f * pose.mouthOpen else 0f
+        fill.color = coat.cream
+        line.color = coat.ink
+        line.strokeWidth = OUTLINE
+        // The chin, under the pads; it drops when the cat sings an A.
+        projectHead(0f, PAD_EL - 14f)
+        val chinK = pk
+        rect.set(px - 10f * chinK, py - 8f * chinK, px + 10f * chinK, py + (6f + jaw) * chinK)
+        if (outline) canvas.drawOval(rect, line)
+        canvas.drawOval(rect, fill)
+        for (side in -1..1 step 2) {
+            val az = PAD_AZ * side
+            projectHead(az, PAD_EL)
+            val r = PAD_R * pk
+            // A pad facing away is behind the head and the other pad.
+            if (headFacing(az, PAD_EL) < -0.2f) continue
+            if (outline) canvas.drawCircle(px, py, r, line)
+            canvas.drawCircle(px, py, r, fill)
+        }
+    }
+
+    private fun drawEye(canvas: Canvas, coat: CatCoat, pose: CatPose, side: Float) {
+        val az = EYE_AZ * side
+        val f = headFacing(az, EYE_EL)
+        if (f <= 0.04f) return
+        projectHead(az, EYE_EL)
+        val cx = px
+        val cy = py
+        val k = pk
+        // The meme's stare: a touch uneven, one eye a little bigger than the other.
+        val big = if (side > 0f) 1.06f else 1f
+        val ex = EYE_R * big * f * k
+        val ey = EYE_R * big * 1.08f * k
+        val alpha = (255 * (f * 4f).coerceAtMost(1f)).toInt()
+
+        if (pose.blink >= 0.98f) {
+            line.color = coat.ink
+            line.strokeWidth = 3.2f
+            line.alpha = alpha
+            canvas.drawLine(cx - ex, cy + ey * 0.15f, cx + ex, cy + ey * 0.15f, line)
+            line.alpha = 255
+            return
+        }
+        clip.reset()
+        clip.addOval(cx - ex, cy - ey, cx + ex, cy + ey, Path.Direction.CW)
+        fill.color = coat.iris
+        fill.alpha = alpha
+        canvas.drawPath(clip, fill)
+        canvas.save()
+        canvas.clipPath(clip)
+        // A wide, dark pupil: dilated, which is what makes the stare blank rather than cross.
+        val gx = cx + pose.glance * ex * 0.36f
+        fill.color = PUPIL
+        fill.alpha = alpha
+        rect.set(gx - ex * 0.66f, cy - ey * 0.8f, gx + ex * 0.66f, cy + ey * 0.8f)
+        canvas.drawOval(rect, fill)
+        fill.color = -1
+        fill.alpha = (alpha * 0.95f).toInt()
+        canvas.drawCircle(gx + ex * 0.3f, cy - ey * 0.36f, ey * 0.24f, fill)
+        fill.alpha = (alpha * 0.7f).toInt()
+        canvas.drawCircle(gx - ex * 0.28f, cy + ey * 0.34f, ey * 0.1f, fill)
+        // A lid a little way down: the cat is calm about all of this.
+        val lid = cy - ey + ey * 2f * (0.1f + 0.9f * pose.blink)
+        fill.color = coat.fur
+        fill.alpha = alpha
+        canvas.drawRect(cx - ex, cy - ey, cx + ex, lid, fill)
+        canvas.restore()
+        line.color = coat.ink
+        line.alpha = alpha
+        line.strokeWidth = 2.6f
+        canvas.drawPath(clip, line)
+        line.strokeWidth = 2.6f
+        canvas.save()
+        canvas.clipPath(clip)
+        canvas.drawLine(cx - ex, lid, cx + ex, lid, line)
+        canvas.restore()
+        line.alpha = 255
+        fill.alpha = 255
+    }
+
+    private fun drawMouth(canvas: Canvas, coat: CatCoat, pose: CatPose, detail: Boolean) {
+        val front = facing(0f)
+        val a = (255 * (front * 3f).coerceIn(0f, 1f)).toInt()
+        // The nose, between the pads and above them.
+        projectHead(0f, PAD_EL + 11f)
+        val k = pk
+        val nx = px
+        val ny = py
+        val w = 6.5f * front.coerceAtLeast(0.45f) * k
+        val h = 5f * k
+        path.reset()
+        path.moveTo(nx - w, ny - h * 0.6f)
+        path.quadTo(nx, ny - h * 1.1f, nx + w, ny - h * 0.6f)
+        path.quadTo(nx + w * 0.4f, ny + h * 0.4f, nx, ny + h * 0.8f)
+        path.quadTo(nx - w * 0.4f, ny + h * 0.4f, nx - w, ny - h * 0.6f)
+        path.close()
+        fill.color = NOSE
+        fill.alpha = a
+        canvas.drawPath(path, fill)
+
+        line.color = coat.ink
+        line.alpha = a
+        line.strokeWidth = 2.2f
+        val open = if (pose.mouth == PawShow.MOUTH_SHUT) 0f else pose.mouthOpen
+        projectHead(0f, PAD_EL - 4f)
+        val mx = px
+        val my = py
+        val squeeze = front.coerceAtLeast(0.35f)
+        if (open < 0.08f) {
+            // Shut: down from the nose and out to either side, flat, the corners a little down.
+            canvas.drawLine(nx, ny + h * 0.8f, mx, my - 2f * k, line)
+            canvas.drawLine(mx, my - 2f * k, mx - 7f * squeeze * k, my + 0.5f * k, line)
+            canvas.drawLine(mx, my - 2f * k, mx + 7f * squeeze * k, my + 0.5f * k, line)
+        } else {
+            canvas.drawLine(nx, ny + h * 0.8f, mx, my - 2.5f * k, line)
+            val ox = when (pose.mouth) {
+                PawShow.MOUTH_U -> 4.5f
+                PawShow.MOUTH_I -> 9f
+                else -> 8f
             }
-            drawPath(inner, EAR_INNER.copy(alpha = (front * 2.5f).coerceAtMost(1f)))
+            val oy = when (pose.mouth) {
+                PawShow.MOUTH_U -> 6.5f
+                PawShow.MOUTH_I -> 3.6f
+                else -> 11f
+            }
+            val rx = ox * squeeze * k * (0.6f + 0.4f * open)
+            val ry = oy * k * open
+            val top = my - 2.5f * k
+            rect.set(mx - rx, top, mx + rx, top + ry * 2f)
+            fill.color = MOUTH_DARK
+            fill.alpha = a
+            canvas.drawOval(rect, fill)
+            if (pose.mouth != PawShow.MOUTH_I) {
+                clip.reset()
+                clip.addOval(rect, Path.Direction.CW)
+                canvas.save()
+                canvas.clipPath(clip)
+                fill.color = TONGUE
+                fill.alpha = a
+                canvas.drawCircle(mx, top + ry * 2.1f, rx * 0.85f, fill)
+                canvas.restore()
+            }
+            canvas.drawOval(rect, line)
         }
-        drawPath(ear, INK, style = Stroke(3f * s, join = StrokeJoin.Round))
+        line.alpha = 255
+        fill.alpha = 255
+
+        if (!detail) return
+        // Whiskers, out from the sides of the pads that can be seen.
+        for (side in -1..1 step 2) {
+            val f = facing(45f * side)
+            if (f <= 0.1f) continue
+            projectHead(PAD_AZ * 2.2f * side, PAD_EL - 2f)
+            val ox = px
+            val oy = py
+            val dir = if (ox > nx) 1f else -1f
+            val len = 36f * k * f
+            line.color = coat.ink
+            line.strokeWidth = 1.6f
+            line.alpha = (140 * (f * 2f).coerceAtMost(1f)).toInt()
+            for (tilt in -1..1) {
+                val r = tilt * 12f * DEG
+                val sy = oy + tilt * 2.2f * k
+                canvas.drawLine(ox, sy, ox + dir * len * cos(r), sy + len * sin(r), line)
+            }
+            line.alpha = 255
+        }
     }
 
-    val k = v.scale(0f, HEAD_Z)
-    val c = v.at(0f, HEAD_Y, HEAD_Z)
-    val rx = HEAD_R * k * s
-    val ry = HEAD_RY * k * s
-    // Turned away, the snout is behind the head, which covers all but what sticks out.
-    if (v.facing(0f) < 0f) drawSnout(v, k)
-    drawOval(
-        Brush.verticalGradient(listOf(FUR_TOP, FUR_BOTTOM), startY = c.y - ry * 1.1f, endY = c.y + ry * 1.6f),
-        Offset(c.x - rx, c.y - ry),
-        Size(rx * 2f, ry * 2f)
-    )
-
-    // Tabby marks: the M on the forehead, lines on the cheeks, rings round the back.
-    headStroke(v, -16f, 60f, -11f, 34f)
-    headStroke(v, 0f, 66f, 0f, 38f)
-    headStroke(v, 16f, 60f, 11f, 34f)
-    for (side in floatArrayOf(-1f, 1f)) {
-        headStroke(v, 64f * side, 8f, 84f * side, 4f)
-        headStroke(v, 62f * side, -8f, 82f * side, -12f)
+    /** Puts the convex hull of the first [n] points of hx/hy into [path]. */
+    private fun hullPath(n: Int) {
+        for (i in 0 until n) hullOrder[i] = i
+        for (i in 1 until n) {
+            val p = hullOrder[i]
+            var j = i - 1
+            while (j >= 0 && (hx[hullOrder[j]] > hx[p] || (hx[hullOrder[j]] == hx[p] && hy[hullOrder[j]] > hy[p]))) {
+                hullOrder[j + 1] = hullOrder[j]
+                j--
+            }
+            hullOrder[j + 1] = p
+        }
+        var m = 0
+        for (i in 0 until n) {
+            val p = hullOrder[i]
+            while (m >= 2 && cross(hull[m - 2], hull[m - 1], p) <= 0f) m--
+            hull[m++] = p
+        }
+        val lower = m + 1
+        for (i in n - 2 downTo 0) {
+            val p = hullOrder[i]
+            while (m >= lower && cross(hull[m - 2], hull[m - 1], p) <= 0f) m--
+            hull[m++] = p
+        }
+        path.reset()
+        path.moveTo(hx[hull[0]], hy[hull[0]])
+        for (i in 1 until m - 1) path.lineTo(hx[hull[i]], hy[hull[i]])
+        path.close()
     }
-    for (el in floatArrayOf(44f, 26f, 8f)) headStroke(v, 118f, el, 180f, el + 4f, 242f, el)
 
-    // The face.
-    val front = v.facing(0f)
-    if (front >= 0f) drawSnout(v, k)
-    // The meme's stare: big dark eyes in a pale rim, lids half down, one a touch larger.
-    for (side in floatArrayOf(-1f, 1f)) {
-        val f = v.headFacing(29f * side, 6f)
-        if (f <= 0.04f) continue
-        val eye = v.at(headPoint(29f * side, 6f))
-        val big = if (side > 0f) 1.08f else 1f
-        val ex = 10.5f * big * f * k * s
-        val ey = 11.5f * big * k * s
-        val alpha = (f * 4f).coerceAtMost(1f)
-        if (blink) {
-            drawLine(INK.copy(alpha = alpha), Offset(eye.x - ex, eye.y), Offset(eye.x + ex, eye.y), 3f * s, StrokeCap.Round)
-            continue
-        }
-        // Pale fur round the eye, the eye itself, and a pale lid over its top third.
-        ellipseAt(eye, ex * 1.3f, ey * 1.22f, EYE_RIM.copy(alpha = alpha * 0.9f), false, s)
-        val ball = Path().apply { addOval(Rect(eye.x - ex, eye.y - ey, eye.x + ex, eye.y + ey)) }
-        drawPath(ball, INK.copy(alpha = alpha))
-        if (f > 0.3f) {
-            drawCircle(Color.White.copy(alpha = 0.9f), 2.6f * k * s * f, Offset(eye.x + 3.6f * f * k * s, eye.y - 0.5f * k * s))
-        }
-        val lid = eye.y - ey + ey * 0.62f
-        clipPath(ball) {
-            drawRect(EYE_RIM.copy(alpha = alpha), Offset(eye.x - ex, eye.y - ey), Size(ex * 2f, lid - (eye.y - ey)))
-        }
-        drawLine(INK.copy(alpha = alpha), Offset(eye.x - ex * 1.08f, lid), Offset(eye.x + ex * 1.08f, lid), 2.8f * s, StrokeCap.Round)
-    }
-    if (front >= 0f) drawSnoutFace(v, k)
-
-    drawOval(INK, Offset(c.x - rx, c.y - ry), Size(rx * 2f, ry * 2f), style = Stroke(3f * s))
+    private fun cross(o: Int, a: Int, b: Int) =
+        (hx[a] - hx[o]) * (hy[b] - hy[o]) - (hy[a] - hy[o]) * (hx[b] - hx[o])
 }
 
-private val LEGS = listOf(-27f to 34f, 27f to 34f, -27f to -68f, 27f to -68f)
-
-/** The cat, turned [angle] degrees about its vertical axis; 0 faces the viewer. */
-private fun DrawScope.drawCatOnce(angle: Float, blink: Boolean) {
-    val v = CatView(size, angle)
-    // The legs never cover the body, so they go first, the far ones before the near.
-    for ((lx, lz) in LEGS.sortedBy { (x, z) -> v.depth(x, z) }) drawLeg(v, lx, lz)
-    // The rest by depth. Side on, the head sits over the front of the body and the tail
-    // over its back, hence the small leads they are given.
-    val parts = listOf<Pair<Float, () -> Unit>>(
-        v.depth(0f, BODY_Z) to { drawBody(v) },
-        v.depth(0f, HEAD_Z) + 20f to { drawHead(v, blink) },
-        TAIL.map { v.depth(it.x, it.z) }.average().toFloat() + 10f to { drawTail(v) }
-    )
-    for ((_, draw) in parts.sortedBy { it.first }) draw()
-}
-
-/**
- * The cat with its shadow, turned [angle] degrees. [speed], in degrees a second, adds a
- * blur of fainter copies behind a fast turn.
- */
-internal fun DrawScope.drawSpinningCat(angle: Float, blink: Boolean = false, speed: Float = 0f) {
-    val v = CatView(size, angle)
-    val ground = v.at(0f, 0f, BODY_Z)
-    val half = sqrt((62f * v.cosA).let { it * it } + (100f * v.sinA).let { it * it }) * v.s
-    drawOval(
-        Color.Black.copy(alpha = 0.16f),
-        topLeft = Offset(ground.x - half, ground.y - 7f * v.s),
-        size = Size(half * 2f, 14f * v.s)
-    )
-    if (abs(speed) > 500f) {
-        val step = speed / 160f
-        for ((i, alpha) in listOf(3 to 0.07f, 2 to 0.12f, 1 to 0.2f)) {
-            drawIntoCanvas { it.saveLayer(Rect(Offset.Zero, size), Paint().apply { this.alpha = alpha }) }
-            drawCatOnce(angle - step * i, blink)
-            drawIntoCanvas { it.restore() }
+/** Sorts the first [n] of [order] by [key], ascending; n is tiny. */
+private fun sortBy(order: IntArray, key: FloatArray, n: Int) {
+    for (i in 1 until n) {
+        val p = order[i]
+        var j = i - 1
+        while (j >= 0 && key[order[j]] > key[p]) {
+            order[j + 1] = order[j]
+            j--
         }
+        order[j + 1] = p
     }
-    drawCatOnce(angle, blink)
 }
+
+private fun sq(x: Float) = x * x

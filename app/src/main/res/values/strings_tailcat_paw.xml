@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tailcat_paw_show_cd">A cat spinning to U I I A I</string>
+    <string name="aside_count_spins">The cat has been spun up %1$d times. U I I A I.</string>
+</resources>

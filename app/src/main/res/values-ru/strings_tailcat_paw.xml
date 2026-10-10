@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tailcat_paw_show_cd">Кот крутится под «у-и-и-а-и»</string>
+    <string name="aside_count_spins">Кота раскручивали %1$d раз. У И И А И.</string>
+</resources>

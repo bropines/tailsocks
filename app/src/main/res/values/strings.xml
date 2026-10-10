@@ -1131,8 +1131,6 @@
     <string name="aside_count_toggles">The service has been switched on and off %1$d times. It remembers every one.</string>
     <string name="aside_count_pings">Ping all has been pressed %1$d times. The nodes know your footsteps by now.</string>
     <string name="aside_count_switches">The account has changed %1$d times. Still not the right one.</string>
-    <string name="aside_count_spins">The cat has been spun up %1$d times. U I I A I.</string>
-    <string name="oiia_cd">A cat spinning to U I I A I</string>
     <string name="aside_first">First time. It gets worse.</string>
     <string name="aside_ten">Ten holds. Technically a habit.</string>
     <string name="aside_fortytwo">Forty-two. The answer is here, the question has been lost.</string>

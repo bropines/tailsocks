@@ -1,5 +1,6 @@
 package io.github.bropines.tailscaled.ui
 
+import android.animation.ValueAnimator
 import android.content.Context
 import android.media.AudioAttributes
 import android.os.Build
@@ -8,12 +9,11 @@ import android.os.VibrationAttributes
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.provider.Settings
 import android.view.HapticFeedbackConstants
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -22,7 +22,6 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -32,7 +31,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -48,11 +46,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.FloatState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -60,8 +58,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.isSpecified
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionOnScreen
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -79,117 +90,190 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.cos
-import kotlin.math.roundToLong
+import kotlin.math.min
 import kotlin.math.sin
 
 /*
  * TailCat's add button, and what a paw on it leads to.
  */
 
-/** How long a combo waits for the next tap. */
-private const val COMBO_WINDOW_MS = 1200L
+/** The last few taps on the paw, each throwing a handful of paw prints. */
+internal class PawBursts {
+    val at = FloatArray(4) { -1e6f }
+    val combo = IntArray(4)
+    private var next = 0
 
-/** How long an idle paw stays a paw. */
-private const val PAW_IDLE_MS = 2500L
-
-private const val COMBO_GOAL = 10
+    fun add(time: Float, combo: Int) {
+        at[next] = time
+        this.combo[next] = combo
+        next = (next + 1) % at.size
+    }
+}
 
 /**
- * A tap adds a connection. A long press turns the plus into a paw, and taps on the paw
- * count up a combo instead; the paw turns back after a moment of rest.
+ * A tap adds a connection. A long press turns the plus into a paw, and taps on the paw count
+ * up a combo instead; the paw turns back after a moment of rest, and the tenth tap in a row
+ * lets out what it was hiding.
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun TailcatAddButton(onAdd: () -> Unit) {
     val view = LocalView.current
-    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val inPreview = LocalInspectionMode.current
+    val vibes = remember { if (inPreview) null else PawVibes(context) }
     var paw by remember { mutableStateOf(false) }
     var combo by remember { mutableIntStateOf(0) }
     // Kept apart from the count, so a lost combo fades out still showing its number.
     var comboAlive by remember { mutableStateOf(false) }
-    var spinning by remember { mutableStateOf(false) }
-    val squish = remember { Animatable(1f) }
+    val clock = remember { mutableFloatStateOf(0f) }
+    val lastTap = remember { mutableFloatStateOf(-1e6f) }
+    val bursts = remember { PawBursts() }
+    var showFrom by remember { mutableStateOf<Long?>(null) }
+    val fab = remember { mutableStateOf(Offset.Unspecified) }
 
     LaunchedEffect(paw, combo, comboAlive) {
         if (!paw) return@LaunchedEffect
         if (comboAlive) {
-            delay(COMBO_WINDOW_MS)
+            delay(PawHype.COMBO_WINDOW_MS)
             comboAlive = false
         } else {
-            delay(PAW_IDLE_MS)
+            delay(PawHype.PAW_IDLE_MS)
             paw = false
         }
     }
+    // The badge, the prints and the charge move on their own clock while the paw is out,
+    // and until the last prints have landed.
+    LaunchedEffect(paw) {
+        val start = withFrameNanos { it } - (clock.floatValue * 1e6f).toLong()
+        val tick: (Long) -> Unit = { clock.floatValue = (it - start) / 1e6f }
+        while (paw || clock.floatValue < lastTap.floatValue + PawHype.BURST_MS) withFrameNanos(tick)
+    }
 
-    if (spinning) OiiaScene(onDismiss = { spinning = false })
+    showFrom?.let { tappedAt ->
+        PawShowOverlay(origin = { fab.value }, tappedAt = tappedAt, vibes = vibes, onDismiss = { showFrom = null })
+    }
 
-    Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    TailcatAddButtonFace(
+        paw = paw,
+        combo = combo,
+        comboShown = comboAlive,
+        now = clock,
+        lastTap = lastTap,
+        bursts = bursts,
+        modifier = Modifier.onGloballyPositioned {
+            val p = it.positionOnScreen()
+            fab.value = Offset(p.x + it.size.width / 2f, p.y + it.size.height / 2f)
+        },
+        onClick = {
+            if (!paw) {
+                onAdd()
+                return@TailcatAddButtonFace
+            }
+            combo = if (comboAlive) combo + 1 else 1
+            comboAlive = true
+            lastTap.floatValue = clock.floatValue
+            bursts.add(clock.floatValue, combo)
+            when {
+                combo >= PawHype.GOAL -> {
+                    vibes?.thump() ?: view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                    comboAlive = false
+                    paw = false
+                    showFrom = SystemClock.uptimeMillis()
+                }
+                combo == PawHype.GOAL - 1 -> vibes?.charge() ?: view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                else -> vibes?.tap(combo) ?: view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+            }
+        },
+        onLongClick = {
+            if (!paw) {
+                paw = true
+                comboAlive = false
+                combo = 0
+                view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+            }
+        }
+    )
+}
+
+/**
+ * The button as it looks: a plus or a paw, the combo badge over it, and the paw prints and
+ * the charge drawn round it. [now] and [lastTap] are ms on the paw's clock, read only while
+ * drawing, so the hype animates without recomposing.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+internal fun TailcatAddButtonFace(
+    paw: Boolean,
+    combo: Int,
+    comboShown: Boolean,
+    now: FloatState,
+    lastTap: FloatState,
+    bursts: PawBursts,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit = {},
+    onLongClick: () -> Unit = {}
+) {
+    val scheme = MaterialTheme.colorScheme
+    val printColors = remember(scheme) { arrayOf(scheme.primary, scheme.tertiary, scheme.secondary) }
+    Column(
+        horizontalAlignment = Alignment.End,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        // The prints fly from behind the button and behind the badge.
+        modifier = Modifier.drawBehind {
+            val fab = Offset(size.width - 28.dp.toPx(), size.height - 28.dp.toPx())
+            drawPrints(bursts, now.floatValue, fab, printColors)
+        }
+    ) {
         AnimatedVisibility(
-            visible = comboAlive && combo >= 2,
+            visible = comboShown && combo >= 2,
             enter = scaleIn(initialScale = 0.5f) + fadeIn(),
             exit = scaleOut(targetScale = 0.5f) + fadeOut()
         ) {
-            ComboBadge(combo)
+            ComboBadge(combo, now, lastTap)
         }
-        Surface(
-            shape = FloatingActionButtonDefaults.shape,
-            color = FloatingActionButtonDefaults.containerColor,
-            contentColor = contentColorFor(FloatingActionButtonDefaults.containerColor),
-            shadowElevation = 6.dp
+        Box(
+            modifier = modifier
+                .size(56.dp)
+                .drawBehind {
+                    val t = now.floatValue
+                    val charge = if (paw) PawHype.charge(combo, t) else 0f
+                    if (charge > 0f) drawCharge(charge, t, scheme.primary)
+                }
+                .graphicsLayer { translationX = if (paw) PawHype.tremble(combo, now.floatValue).dp.toPx() else 0f }
         ) {
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .combinedClickable(
-                        onClick = {
-                            if (!paw) {
-                                onAdd()
-                                return@combinedClickable
-                            }
-                            combo = if (comboAlive) combo + 1 else 1
-                            comboAlive = true
-                            scope.launch {
-                                squish.snapTo(0.78f)
-                                squish.animateTo(1f, spring(dampingRatio = 0.35f, stiffness = Spring.StiffnessMediumLow))
-                            }
-                            if (combo >= COMBO_GOAL) {
-                                view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                                comboAlive = false
-                                paw = false
-                                spinning = true
-                            } else {
-                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                            }
-                        },
-                        onLongClick = {
-                            if (!paw) {
-                                paw = true
-                                comboAlive = false
-                                view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                            }
-                        }
-                    ),
-                contentAlignment = Alignment.Center
+            Surface(
+                shape = FloatingActionButtonDefaults.shape,
+                color = FloatingActionButtonDefaults.containerColor,
+                contentColor = contentColorFor(FloatingActionButtonDefaults.containerColor),
+                shadowElevation = 6.dp
             ) {
-                AnimatedContent(
-                    targetState = paw,
-                    transitionSpec = {
-                        (scaleIn(initialScale = 0.3f) + fadeIn()) togetherWith (scaleOut(targetScale = 0.3f) + fadeOut())
-                    },
-                    label = "paw"
-                ) { isPaw ->
-                    if (isPaw) {
-                        Icon(
-                            Icons.Default.Pets,
-                            null,
-                            modifier = Modifier.graphicsLayer {
-                                scaleX = squish.value
-                                scaleY = squish.value
-                                rotationZ = if (combo % 2 == 0) -8f else 8f
-                            }
-                        )
-                    } else {
-                        Icon(Icons.Default.Add, stringResource(R.string.tailcat_add))
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+                    contentAlignment = Alignment.Center
+                ) {
+                    AnimatedContent(
+                        targetState = paw,
+                        transitionSpec = {
+                            (scaleIn(initialScale = 0.3f) + fadeIn()) togetherWith (scaleOut(targetScale = 0.3f) + fadeOut())
+                        },
+                        label = "paw"
+                    ) { isPaw ->
+                        if (isPaw) {
+                            Icon(
+                                Icons.Default.Pets,
+                                null,
+                                modifier = Modifier.graphicsLayer {
+                                    val k = PawHype.pawScale(now.floatValue - lastTap.floatValue)
+                                    scaleX = k
+                                    scaleY = k
+                                    rotationZ = if (combo % 2 == 0) -8f else 8f
+                                }
+                            )
+                        } else {
+                            Icon(Icons.Default.Add, stringResource(R.string.tailcat_add))
+                        }
                     }
                 }
             }
@@ -197,20 +281,25 @@ internal fun TailcatAddButton(onAdd: () -> Unit) {
     }
 }
 
+/** The count, swelling and rattling harder as it climbs, and hotter in colour. */
 @Composable
-private fun ComboBadge(combo: Int) {
-    val pop = remember { Animatable(1f) }
-    LaunchedEffect(combo) {
-        pop.snapTo(1.3f)
-        pop.animateTo(1f, spring(dampingRatio = 0.4f, stiffness = Spring.StiffnessMedium))
+private fun ComboBadge(combo: Int, now: FloatState, lastTap: FloatState) {
+    val scheme = MaterialTheme.colorScheme
+    val (container, content) = when {
+        combo >= PawHype.GOAL - 1 -> scheme.primary to scheme.onPrimary
+        combo >= 5 -> scheme.tertiary to scheme.onTertiary
+        else -> scheme.tertiaryContainer to scheme.onTertiaryContainer
     }
     Surface(
         shape = CircleShape,
-        color = MaterialTheme.colorScheme.tertiaryContainer,
-        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+        color = container,
+        contentColor = content,
         modifier = Modifier.graphicsLayer {
-            scaleX = pop.value
-            scaleY = pop.value
+            val k = PawHype.badgeScale(combo, now.floatValue - lastTap.floatValue)
+            scaleX = k
+            scaleY = k
+            rotationZ = PawHype.badgeTilt(combo, now.floatValue)
+            transformOrigin = TransformOrigin(0.7f, 1f)
         }
     ) {
         Row(
@@ -224,196 +313,115 @@ private fun ComboBadge(combo: Int) {
     }
 }
 
+/** Paw prints thrown out of the button by each tap, more and farther as the combo climbs. */
+private fun DrawScope.drawPrints(bursts: PawBursts, now: Float, from: Offset, colors: Array<Color>) {
+    val dp = density
+    for (b in bursts.at.indices) {
+        val age = now - bursts.at[b]
+        if (age < 0f || age > PawHype.BURST_MS) continue
+        val combo = bursts.combo[b]
+        val u = age / PawHype.BURST_MS
+        val out = PawShow.easeOutCubic(u)
+        val n = PawHype.burstSize(combo)
+        for (j in 0 until n) {
+            // Up and to the left, away from the corner the button sits in, fanned evenly.
+            val spread = (j + 0.5f) / n - 0.5f + (PawShow.noise(combo, j) - 0.5f) * 0.3f / n
+            val a = (-125f + spread * 130f) * (PI / 180).toFloat()
+            val reach = (46f + 22f * PawShow.noise(combo, j + 50) + 5f * combo) * dp
+            val x = from.x + cos(a) * reach * out
+            val y = from.y + sin(a) * reach * out
+            val size = (4.2f + 1.2f * PawShow.noise(combo, j + 90)) * dp * (1f - 0.3f * u)
+            val color = colors[(j + combo) % colors.size].copy(alpha = 1f - u * u)
+            drawPrint(x, y, size, a + (PI / 2).toFloat(), color)
+        }
+    }
+}
+
+/** A paw print: a pad and four toes, turned to [heading]. */
+private fun DrawScope.drawPrint(x: Float, y: Float, size: Float, heading: Float, color: Color) {
+    val c = cos(heading)
+    val s = sin(heading)
+    drawOval(color, Offset(x - size, y - size * 0.82f), androidx.compose.ui.geometry.Size(size * 2f, size * 1.64f))
+    for (t in 0..3) {
+        val tx = (t - 1.5f) * size * 0.78f
+        val ty = -size * (if (t == 0 || t == 3) 1.25f else 1.6f)
+        drawCircle(color, size * 0.42f, Offset(x + tx * c - ty * s, y + tx * s + ty * c))
+    }
+}
+
+/** One tap from the goal: a ring breathes round the button and sparks are drawn into it. */
+private fun DrawScope.drawCharge(charge: Float, now: Float, color: Color) {
+    val dp = density
+    drawCircle(
+        color.copy(alpha = 0.25f + 0.3f * charge),
+        radius = (34f + 5f * charge) * dp,
+        style = Stroke(width = (2f + 1.5f * charge) * dp)
+    )
+    for (j in 0 until 8) {
+        val phase = (now / 520f + j / 8f) % 1f
+        val a = (j * 45f + now * 0.12f) * (PI / 180).toFloat()
+        val d = (72f - 40f * phase) * dp
+        drawCircle(
+            color.copy(alpha = 0.7f * sin(PI.toFloat() * phase)),
+            radius = 2.6f * dp,
+            center = Offset(center.x + cos(a) * d, center.y + sin(a) * d)
+        )
+    }
+}
+
 // ---------------------------------------------------------------------------------------------
-// U I I A I.
-
-private const val WORD = "UIIAI"
-
-/** How long each letter of [WORD] lasts at the slow pace, seconds. */
-private val LETTER_SECONDS = floatArrayOf(0.40f, 0.21f, 0.21f, 0.50f, 0.40f)
+// The show.
 
 /**
- * One beat of the loop. A sung beat lights [letter], an index into [WORD]; the cat makes
- * [turns] turns through the whole run of letters it belongs to, which starts at
- * [runStart] and lasts [runSeconds].
- */
-private class Beat(
-    val letter: Int?,
-    val start: Float,
-    val seconds: Float,
-    val runStart: Float,
-    val runSeconds: Float,
-    val turns: Int
-)
-
-/** The cat stands, sings slowly, stops, sings fast, and stands again as the loop comes round. */
-private val OIIA: List<Beat> = buildList {
-    var at = 0f
-    fun stand(seconds: Float) {
-        add(Beat(null, at, seconds, at, seconds, 0))
-        at += seconds
-    }
-    fun sing(pace: Float, turns: Int) {
-        val runStart = at
-        val runSeconds = LETTER_SECONDS.sum() / pace
-        LETTER_SECONDS.forEachIndexed { i, s ->
-            add(Beat(i, at, s / pace, runStart, runSeconds, turns))
-            at += s / pace
-        }
-    }
-    stand(0.6f)
-    sing(1f, 2)
-    stand(0.5f)
-    sing(2f, 2)
-}
-
-private val OIIA_LOOP = OIIA.last().let { it.start + it.seconds }
-
-/** Where [t] seconds of playing falls: its beat, and the time within the loop. */
-private class Moment(val beat: Beat, val time: Float) {
-    val progress get() = ((time - beat.start) / beat.seconds).coerceIn(0f, 1f)
-}
-
-private fun momentAt(t: Float): Moment {
-    val time = ((t % OIIA_LOOP) + OIIA_LOOP) % OIIA_LOOP
-    return Moment(OIIA.lastOrNull { it.start <= time } ?: OIIA.first(), time)
-}
-
-/**
- * How far the cat has turned, in degrees: a run of letters turns it whole times, easing in
- * and out so it faces the viewer again when the run ends.
- */
-private fun angleAt(m: Moment): Float {
-    val beat = m.beat
-    if (beat.letter == null) return 0f
-    val r = ((m.time - beat.runStart) / beat.runSeconds).coerceIn(0f, 1f)
-    return 360f * beat.turns * (r - sin(2f * PI.toFloat() * r) / (2f * PI.toFloat()))
-}
-
-/** How fast the cat is turning, degrees a second. */
-private fun speedAt(m: Moment): Float {
-    val beat = m.beat
-    if (beat.letter == null) return 0f
-    val r = ((m.time - beat.runStart) / beat.runSeconds).coerceIn(0f, 1f)
-    return 360f * beat.turns * (1f - cos(2f * PI.toFloat() * r)) / beat.runSeconds
-}
-
-/** The cat blinks once, early in the first stand. */
-private fun blinkAt(m: Moment) = m.beat === OIIA.first() && (m.time - m.beat.start) in 0.3f..0.42f
-
-/** How long the motor rests between two letters, so they do not run together, ms. */
-private const val PART_MS = 40L
-
-/** A tap closes the cat only after this long without one: the taps that summoned it run on. */
-private const val CALM_MS = 700L
-
-/** The loop as a vibration: each letter buzzes for as long as it lasts, the rest is still. */
-private fun oiiaWaveform(): Pair<LongArray, IntArray> {
-    val timings = mutableListOf<Long>()
-    val levels = mutableListOf<Int>()
-    fun add(ms: Long, level: Int) {
-        if (ms <= 0) return
-        if (levels.lastOrNull() == level) timings[timings.lastIndex] += ms
-        else {
-            timings += ms
-            levels += level
-        }
-    }
-    for (b in OIIA) {
-        // Measured from the loop's start, so rounding never adds up along the loop.
-        val ms = ((b.start + b.seconds) * 1000).roundToLong() - (b.start * 1000).roundToLong()
-        if (b.letter == null) add(ms, 0)
-        else {
-            add(ms - PART_MS, if (WORD[b.letter] == 'A') 255 else 180)
-            add(PART_MS, 0)
-        }
-    }
-    return timings.toLongArray() to levels.toIntArray()
-}
-
-/**
- * Starts the loop's vibration, repeating until cancelled. A motor without amplitude
- * control gives every letter the same strength.
- */
-private fun startOiiaBuzz(context: Context): Vibrator? {
-    val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        context.getSystemService(VibratorManager::class.java)?.defaultVibrator
-    } else {
-        @Suppress("DEPRECATION")
-        context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
-    }
-    if (vibrator == null || !vibrator.hasVibrator()) return null
-    val (timings, levels) = oiiaWaveform()
-    runCatching {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val amplitudes = if (vibrator.hasAmplitudeControl()) levels
-            else IntArray(levels.size) { if (levels[it] > 0) 255 else 0 }
-            val effect = VibrationEffect.createWaveform(timings, amplitudes, 0)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                vibrator.vibrate(effect, VibrationAttributes.createForUsage(VibrationAttributes.USAGE_MEDIA))
-            } else {
-                @Suppress("DEPRECATION")
-                vibrator.vibrate(effect, AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_GAME).build())
-            }
-        } else {
-            // Before Android 8 a pattern alternates off and on, off first.
-            val pattern = mutableListOf(0L)
-            var on = false
-            for (k in timings.indices) {
-                val letter = levels[k] > 0
-                if (letter == on) pattern[pattern.lastIndex] += timings[k]
-                else {
-                    pattern += timings[k]
-                    on = letter
-                }
-            }
-            @Suppress("DEPRECATION")
-            vibrator.vibrate(pattern.toLongArray(), 0)
-        }
-    }
-    return vibrator
-}
-
-/**
- * The cat, full screen on the theme's own surface (black under AMOLED), until a calm tap,
- * Back, or the app leaving the screen.
+ * The cat, full screen on the theme's own background (black under AMOLED), until a calm tap,
+ * Back, or the app leaving the screen. [tappedAt] is the uptime of the tap that summoned it.
  */
 @Composable
-private fun OiiaScene(onDismiss: () -> Unit) {
+private fun PawShowOverlay(origin: () -> Offset, tappedAt: Long, vibes: PawVibes?, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val inPreview = LocalInspectionMode.current
     val scope = rememberCoroutineScope()
-    val buzz = remember { mutableStateOf<Vibrator?>(null) }
-    var lastTap by remember { mutableLongStateOf(SystemClock.uptimeMillis()) }
-    val shown = remember { Animatable(0f) }
+    val calm = remember { !inPreview && !animationsOn(context) }
+    val guard = remember { TapGuard(tappedAt) }
+    val time = remember { mutableFloatStateOf(0f) }
     val gone = remember { Animatable(0f) }
     var leaving by remember { mutableStateOf(false) }
-    var t by remember { mutableFloatStateOf(0f) }
+    val stage = remember { mutableStateOf(Offset.Zero) }
     val leave: () -> Unit = {
         if (!leaving) {
             leaving = true
-            buzz.value?.cancel()
+            vibes?.stop()
             scope.launch {
-                gone.animateTo(1f, tween(250))
+                gone.animateTo(1f, tween(if (calm) 0 else 200))
                 onDismiss()
             }
         }
     }
 
     DisposableEffect(lifecycleOwner) {
-        StatusAsides.bump(context, StatusAsides.SPINS)
+        if (!inPreview) StatusAsides.bump(context, StatusAsides.SPINS)
         val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_STOP) onDismiss() }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    LaunchedEffect(Unit) { shown.animateTo(1f, tween(250)) }
+    // One clock for the picture and the motor: each frame buzzes for the letter it crossed.
     LaunchedEffect(Unit) {
         val start = withFrameNanos { it }
+        var previous = -1f
+        val tick: (Long) -> Unit = { now ->
+            val t = (now - start) / 1e6f
+            if (!leaving) {
+                val cue = PawShow.lastCue(previous, t)
+                if (cue >= 0) vibes?.letter(cue)
+            }
+            previous = t
+            time.floatValue = t
+        }
         try {
-            buzz.value = startOiiaBuzz(context)
-            while (true) withFrameNanos { now -> t = (now - start) / 1e9f }
+            while (true) withFrameNanos(tick)
         } finally {
-            buzz.value?.cancel()
+            vibes?.stop()
         }
     }
 
@@ -421,46 +429,147 @@ private fun OiiaScene(onDismiss: () -> Unit) {
         onDismissRequest = leave,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
     ) {
-        val description = stringResource(R.string.oiia_cd)
-        val moment = momentAt(t)
-        val p = moment.progress
-        Box(
+        val description = stringResource(R.string.tailcat_paw_show_cd)
+        val close = stringResource(R.string.action_close)
+        PawShowStage(
+            time = time,
+            calm = calm,
+            origin = {
+                val o = origin()
+                if (o.isSpecified) o - stage.value else Offset.Unspecified
+            },
             modifier = Modifier
                 .fillMaxSize()
-                .graphicsLayer { alpha = shown.value * (1f - gone.value) }
-                .background(MaterialTheme.colorScheme.surface)
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
-                    val now = SystemClock.uptimeMillis()
-                    val calm = now - lastTap >= CALM_MS
-                    lastTap = now
-                    if (calm) leave()
+                .onGloballyPositioned { stage.value = it.positionOnScreen() }
+                .graphicsLayer {
+                    // Without motion the show fades in instead of opening as a circle.
+                    alpha = (if (calm) min(1f, time.floatValue / 200f) else 1f) * (1f - gone.value)
                 }
-                .semantics { contentDescription = description },
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                val ink = MaterialTheme.colorScheme.onSurface
-                Canvas(Modifier.size(width = 320.dp, height = 224.dp)) {
-                    drawSpinningCat(angleAt(moment), blinkAt(moment), speedAt(moment))
-                }
-                Spacer(Modifier.height(32.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    WORD.forEachIndexed { j, letter ->
-                        val active = moment.beat.letter == j
-                        Text(
-                            letter.toString(),
-                            style = MaterialTheme.typography.displayMedium,
-                            fontWeight = FontWeight.Black,
-                            color = if (active) ink else ink.copy(alpha = 0.2f),
-                            modifier = Modifier.graphicsLayer {
-                                val k = if (active) 1f + 0.3f * sin(PI.toFloat() * p) else 1f
-                                scaleX = k
-                                scaleY = k
-                            }
-                        )
-                    }
-                }
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClickLabel = close
+                ) { if (guard.tap(SystemClock.uptimeMillis())) leave() }
+                .semantics { contentDescription = description }
+        )
+    }
+}
+
+/**
+ * The show at [time] ms, drawn; [origin] is where on this canvas the circle opens from. Time is
+ * read only while drawing, so the show plays without recomposing.
+ */
+@Composable
+internal fun PawShowStage(
+    time: FloatState,
+    calm: Boolean,
+    modifier: Modifier = Modifier,
+    origin: () -> Offset = { Offset.Unspecified }
+) {
+    val stage = remember { PawStage() }
+    val scene = remember { PawScene() }
+    val scheme = MaterialTheme.colorScheme
+    val colors = remember(scheme) {
+        PawColors(
+            background = scheme.surface.toArgb(),
+            ink = scheme.onSurface.toArgb(),
+            accent = scheme.primary.toArgb(),
+            accent2 = scheme.tertiary.toArgb(),
+            tint = scheme.primaryContainer.toArgb()
+        )
+    }
+    Canvas(modifier) {
+        PawShow.sceneAt(time.floatValue, calm, scene)
+        // Where the circle opens from matters only while it opens.
+        val o = if (scene.reveal < 1f) origin() else Offset.Unspecified
+        val ox = if (o.isSpecified) o.x else size.width - 44.dp.toPx()
+        val oy = if (o.isSpecified) o.y else size.height - 44.dp.toPx()
+        drawIntoCanvas { stage.draw(it.nativeCanvas, size.width, size.height, scene, colors, ox, oy) }
+    }
+}
+
+private fun animationsOn(context: Context): Boolean =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        ValueAnimator.areAnimatorsEnabled()
+    } else {
+        Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f
+    }
+
+// ---------------------------------------------------------------------------------------------
+// The motor.
+
+/**
+ * The buzzes: one per sung letter, as long as its syllable; taps on the paw that grow with
+ * the combo, a rising charge on the ninth and a thump on the tenth. Every effect is built
+ * once; without a motor all of it is silent, and before Android 8 it buzzes at one strength.
+ */
+internal class PawVibes(context: Context) {
+    private val vibrator: Vibrator? = run {
+        val v = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            context.getSystemService(VibratorManager::class.java)?.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+        }
+        v?.takeIf { it.hasVibrator() }
+    }
+    private val levels = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && vibrator?.hasAmplitudeControl() == true
+
+    // Typed as Any so that nothing names VibrationEffect below Android 8.
+    private val letters: Array<Any?> = Array(PawShow.CUES) { c ->
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) oneShot(PawShow.BUZZ_MS[c], PawShow.BUZZ_LEVEL[c]) else null
+    }
+    private val taps: Array<Any?> = Array(PawHype.GOAL) { n ->
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) oneShot(12 + n, 50 + n * 20) else null
+    }
+    private val chargeEffect: Any? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        if (levels) VibrationEffect.createWaveform(longArrayOf(30, 30, 30, 30, 30, 40), intArrayOf(40, 70, 105, 145, 195, 255), -1)
+        else VibrationEffect.createWaveform(longArrayOf(0, 20, 40, 25, 25, 35), -1)
+    } else null
+    private val thumpEffect: Any? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) oneShot(80, 255) else null
+
+    // Letters are media, taps are touch: each follows its own intensity setting.
+    private val media: Any? = attributes(media = true)
+    private val touch: Any? = attributes(media = false)
+
+    fun letter(cue: Int) = play(letters[cue], PawShow.BUZZ_MS[cue].toLong(), media)
+    fun tap(combo: Int) = play(taps[(combo - 1).coerceIn(0, taps.size - 1)], 12L + combo, touch)
+    fun charge() = play(chargeEffect, 120L, touch)
+    fun thump() = play(thumpEffect, 80L, touch)
+
+    fun stop() {
+        try {
+            vibrator?.cancel()
+        } catch (_: RuntimeException) {
+        }
+    }
+
+    private fun oneShot(ms: Int, level: Int): Any? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            VibrationEffect.createOneShot(ms.toLong(), if (levels) level else VibrationEffect.DEFAULT_AMPLITUDE)
+        } else null
+
+    private fun attributes(media: Boolean): Any? = when {
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ->
+            VibrationAttributes.createForUsage(if (media) VibrationAttributes.USAGE_MEDIA else VibrationAttributes.USAGE_TOUCH)
+        else -> AudioAttributes.Builder()
+            .setUsage(if (media) AudioAttributes.USAGE_GAME else AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+            .build()
+    }
+
+    private fun play(effect: Any?, fallbackMs: Long, attributes: Any?) {
+        val v = vibrator ?: return
+        try {
+            when {
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ->
+                    v.vibrate(effect as VibrationEffect, attributes as VibrationAttributes)
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ->
+                    @Suppress("DEPRECATION") v.vibrate(effect as VibrationEffect, attributes as AudioAttributes)
+                else ->
+                    @Suppress("DEPRECATION") v.vibrate(fallbackMs, attributes as AudioAttributes)
             }
+        } catch (_: RuntimeException) {
+            // A motor that refuses is no reason to stop the show.
         }
     }
 }

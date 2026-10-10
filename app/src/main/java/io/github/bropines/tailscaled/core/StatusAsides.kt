@@ -8,8 +8,9 @@ import io.github.bropines.tailscaled.R
  *
  * Some of them count: how often the card has been held, how often the service has been
  * turned on or off, how many times every node has been pinged at once, how many times the
- * account has changed, how many times the cat has been spun up. The counters live in a preference file of their own, nothing but
- * these lines ever reads them, and they leave the device in exactly one way — they do not.
+ * account has changed, how many times the cat has been spun up. The counters live in a
+ * preference file of their own, nothing but these lines ever reads them, and they leave the
+ * device in exactly one way — they do not.
  */
 object StatusAsides {
     private const val PREFS = "status_asides"
