@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tablet_licenses_pane_empty">Здесь появится лицензия выбранного компонента</string>
+</resources>

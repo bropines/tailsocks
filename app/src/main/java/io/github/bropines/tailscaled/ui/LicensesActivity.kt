@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -23,11 +24,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -35,6 +36,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -45,6 +47,8 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -114,6 +118,10 @@ fun LicensesScreen(onBack: () -> Unit) {
 internal fun LicensesContent(doc: LicenseDoc?, onBack: () -> Unit, initialOpen: String? = null) {
     var openName by rememberSaveable { mutableStateOf(initialOpen) }
     val total = doc?.sections?.sumOf { it.components.size } ?: 0
+    // From an expanded window up the text stands beside the list instead of in a sheet
+    // over it, so one licence after another can be read without opening and closing.
+    val window = rememberWindowLayout()
+    val twoPane = window.listDetail && doc != null
     Scaffold(
         topBar = {
             AppTopBar(
@@ -131,42 +139,74 @@ internal fun LicensesContent(doc: LicenseDoc?, onBack: () -> Unit, initialOpen: 
             )
             return@Scaffold
         }
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp)
-        ) {
-            item(key = "intro") {
-                HelpText(stringResource(R.string.licenses_help), modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp))
-            }
-            for (section in doc.sections) {
-                item(key = "h-" + section.id) {
-                    Text(
-                        sectionTitle(section.id),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(start = 4.dp, top = 16.dp, bottom = 6.dp)
-                    )
+        fun keyOf(section: LicenseSection, c: LicenseComponent) = section.id + "/" + c.name
+        val open = openName?.let { key ->
+            doc.sections.firstNotNullOfOrNull { s -> s.components.firstOrNull { keyOf(s, it) == key } }
+        }
+        // Two-pane, what the pane shows: the component picked, the first one until then.
+        val shownKey = if (!twoPane) null else openName?.takeIf { open != null }
+            ?: doc.sections.firstOrNull { it.components.isNotEmpty() }?.let { keyOf(it, it.components.first()) }
+        val list: @Composable (Modifier) -> Unit = { modifier ->
+            LazyColumn(
+                modifier = modifier,
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp)
+            ) {
+                item(key = "intro") {
+                    HelpText(stringResource(R.string.licenses_help), modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp))
                 }
-                item(key = "s-" + section.id) {
-                    Surface(
-                        shape = MaterialTheme.shapes.large,
-                        color = MaterialTheme.colorScheme.surfaceContainerLow,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column {
-                            section.components.forEachIndexed { i, c ->
-                                if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                                LicenseRow(c) { openName = section.id + "/" + c.name }
+                for (section in doc.sections) {
+                    item(key = "h-" + section.id) {
+                        Text(
+                            sectionTitle(section.id),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(start = 4.dp, top = 16.dp, bottom = 6.dp)
+                        )
+                    }
+                    item(key = "s-" + section.id) {
+                        Surface(
+                            shape = MaterialTheme.shapes.large,
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column {
+                                section.components.forEachIndexed { i, c ->
+                                    if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                                    LicenseRow(c, selected = keyOf(section, c) == shownKey) { openName = keyOf(section, c) }
+                                }
                             }
                         }
                     }
                 }
             }
         }
-        val open = openName?.let { key ->
-            doc.sections.firstNotNullOfOrNull { s -> s.components.firstOrNull { s.id + "/" + it.name == key } }
+        if (twoPane) {
+            val shown = shownKey?.let { key ->
+                doc.sections.firstNotNullOfOrNull { s -> s.components.firstOrNull { keyOf(s, it) == key } }
+            }
+            ListDetailLayout(
+                window = window,
+                twoPane = true,
+                modifier = Modifier.padding(padding).fillMaxSize(),
+                list = { list(Modifier.fillMaxSize()) },
+                detail = {
+                    if (shown != null) {
+                        // A pane shows whatever is picked; there is nothing to close.
+                        key(shownKey) { LicenseSheet(shown, doc.texts) {} }
+                    } else {
+                        PaneEmptyState(Icons.Default.Description, stringResource(R.string.tablet_licenses_pane_empty))
+                    }
+                }
+            )
+        } else {
+            if (window.isPhone) {
+                list(Modifier.fillMaxSize().padding(padding))
+            } else {
+                // A medium window: the rows held to a readable width; see ReadableWidth.
+                ReadableWidth { list(Modifier.fillMaxSize().padding(padding)) }
+            }
+            if (open != null) LicenseSheet(open, doc.texts) { openName = null }
         }
-        if (open != null) LicenseSheet(open, doc.texts) { openName = null }
     }
 }
 
@@ -181,12 +221,19 @@ private fun sectionTitle(id: String): String = stringResource(
     }
 )
 
+/** [selected]: the row whose licence the pane beside the list is showing; only two panes have one. */
 @Composable
-private fun LicenseRow(c: LicenseComponent, onClick: () -> Unit) {
+private fun LicenseRow(c: LicenseComponent, selected: Boolean = false, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 56.dp)
+            .then(
+                if (selected) Modifier
+                    .background(MaterialTheme.colorScheme.secondaryContainer)
+                    .semantics { this.selected = true }
+                else Modifier
+            )
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -213,6 +260,10 @@ private fun LicenseRow(c: LicenseComponent, onClick: () -> Unit) {
     }
 }
 
+/**
+ * A component's licence: a sheet over the list on a phone, the pane beside it
+ * on a large window (see [SheetOrPane]).
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LicenseSheet(c: LicenseComponent, texts: Map<String, String>, onDismiss: () -> Unit) {
@@ -223,7 +274,9 @@ private fun LicenseSheet(c: LicenseComponent, texts: Map<String, String>, onDism
     val resources = LocalResources.current
     val includesLabel = stringResource(R.string.licenses_includes)
     val pageLabel = stringResource(R.string.licenses_open_page)
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberFullSheetState()) {
+    // A sheet has its handle above the text; a pane starts at its own edge.
+    val top = if (LocalInPane.current) 20.dp else 0.dp
+    SheetOrPane(onDismiss = onDismiss) {
         CompositionLocalProvider(
             LocalContext provides context,
             LocalConfiguration provides configuration,
@@ -231,7 +284,7 @@ private fun LicenseSheet(c: LicenseComponent, texts: Map<String, String>, onDism
         ) {
             LazyColumn(
                 modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
-                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp),
+                contentPadding = PaddingValues(start = 20.dp, top = top, end = 20.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 item {

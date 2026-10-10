@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Large-window layouts of Settings, onboarding and the licenses (ui/AdaptivePanes.kt). -->
+<resources>
+    <!-- Licenses, two-pane: the text pane when there is no component to show -->
+    <string name="tablet_licenses_pane_empty">The license of the component you pick appears here</string>
+</resources>
