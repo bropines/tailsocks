@@ -176,7 +176,7 @@
         <item quantity="many">подходят %d устройств</item>
         <item quantity="other">подходят %d устройства</item>
     </plurals>
-    <string name="admin_pvd_approved_for">Для</string>
+    <string name="admin_pvd_approved_for">Одобряется для</string>
     <string name="admin_pvd_routes_title">Маршруты в подсети</string>
     <string name="admin_pvd_routes_empty">Каждый маршрут ждёт администратора</string>
     <string name="admin_pvd_route_new">Новый маршрут</string>

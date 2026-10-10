@@ -135,7 +135,8 @@ internal fun DefinitionsPage(
             twoPane = true,
             list = list,
             detail = {
-                if (editorKey != null) EditorFrame(onCloseEditor) { key(editorKey) { editor() } }
+                // A pane starts each element's editor at its top.
+                if (editorKey != null) key(editorKey) { EditorFrame(onCloseEditor) { editor() } }
                 else PaneEmptyState(paneEmpty.first, paneEmpty.second)
             },
         )

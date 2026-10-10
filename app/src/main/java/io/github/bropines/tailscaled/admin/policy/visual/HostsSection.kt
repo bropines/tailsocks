@@ -129,7 +129,8 @@ fun HostsSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) {
 /** "100.64.0.20 · nas · used in 2 places": the address, the device at it, the uses. */
 private fun hostSubtitle(ctx: android.content.Context, h: HostAlias, env: VisualEnv, places: Int): String = listOfNotNull(
     h.address,
-    Definitions.hostDevices(h.address, env.devices).singleOrNull()?.shortName,
+    // The device at it, when it goes by another name than the alias.
+    Definitions.hostDevices(h.address, env.devices).singleOrNull()?.shortName?.takeIf { it != h.name },
     placesText(ctx, places),
 ).joinToString(" · ")
 

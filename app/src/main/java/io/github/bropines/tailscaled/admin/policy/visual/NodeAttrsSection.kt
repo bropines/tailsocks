@@ -291,7 +291,11 @@ internal fun AttrEditor(r: NodeAttr, env: VisualEnv, actions: VisualActions, lay
     }
     OtherAttrs(r.attr, editable, ::attrs)
     if (r.app.isNotEmpty() || r.ipPool.isNotEmpty()) {
-        EditorBlock(ctx.getString(R.string.admin_pvd_attr_json_only), ctx.getString(R.string.admin_pvd_attr_json_only_help)) { AttrExtras(r) }
+        EditorBlock(ctx.getString(R.string.admin_pvd_attr_json_only), ctx.getString(R.string.admin_pvd_attr_json_only_help)) {
+            AttrExtras(r)
+            // Headscale parses an IP pool and refuses it (ErrNodeAttrIPPoolUnsupported).
+            if (env.headscale && r.ipPool.isNotEmpty()) WarningLine(ctx.getString(R.string.admin_pvd_not_on_headscale))
+        }
     }
     if (env.devices.isNotEmpty()) {
         val c = RuleCoverage.of(r.target, policy, env.view)
