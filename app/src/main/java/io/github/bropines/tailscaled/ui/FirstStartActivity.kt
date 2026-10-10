@@ -83,6 +83,13 @@ fun FirstStartScreen(onFinished: () -> Unit, initialPage: Int = 0) {
     val activeAccount = remember { io.github.bropines.tailscaled.core.AccountManager.getActiveAccount(context) }
     val profilePrefs = remember(activeAccount) { context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE) }
 
+    val window = rememberWindowLayout()
+    val slideLayout = when {
+        window.isPhone -> SlideLayout.PHONE
+        window.widthClass >= WindowWidthClass.EXPANDED || window.fold is Fold.Vertical -> SlideLayout.SIDE_BY_SIDE
+        else -> SlideLayout.TALL
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             bottomBar = {
@@ -163,17 +170,7 @@ fun FirstStartScreen(onFinished: () -> Unit, initialPage: Int = 0) {
                     .padding(paddingValues),
                 userScrollEnabled = false
             ) { page ->
-                // The whole page scrolls, so the slides fit a phone on its side;
-                // held to a readable width, so they do not sprawl on a tablet.
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .readableWidth()
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
+                val slide: @Composable () -> Unit = {
                     when (page) {
                         0 -> SlideWelcome()
                         1 -> SlideHowItWorks()
@@ -181,6 +178,34 @@ fun FirstStartScreen(onFinished: () -> Unit, initialPage: Int = 0) {
                         3 -> SlideBypassSetup()
                         4 -> SlideLogin(profilePrefs)
                         5 -> SlidePermissions()
+                    }
+                }
+                CompositionLocalProvider(LocalSlideLayout provides slideLayout) {
+                    if (slideLayout == SlideLayout.SIDE_BY_SIDE) {
+                        // SlideContainer lays out the two halves and scrolls its own.
+                        Box(Modifier.fillMaxSize()) { slide() }
+                    } else {
+                        // The whole page scrolls, so the slides fit a phone on its side;
+                        // held to a readable width, so they do not sprawl on a tablet —
+                        // a narrower one on a medium window, around a larger picture.
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState())
+                                .then(
+                                    if (slideLayout == SlideLayout.TALL) {
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .wrapContentWidth(Alignment.CenterHorizontally)
+                                            .widthIn(max = SlideColumnWidth + 48.dp)
+                                    } else Modifier.readableWidth()
+                                )
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            slide()
+                        }
                     }
                 }
             }
@@ -202,6 +227,30 @@ fun FirstStartScreen(onFinished: () -> Unit, initialPage: Int = 0) {
     }
 }
 
+/** How a slide stands in its window; see [SlideContainer]. */
+private enum class SlideLayout {
+    /** A phone, either way up: one column, as the slides were written for. */
+    PHONE,
+
+    /** A medium window: the phone's column, narrower than the window and around a larger picture. */
+    TALL,
+
+    /** Expanded and wider, or a foldable open like a book: the picture on one side, the step on the other. */
+    SIDE_BY_SIDE,
+}
+
+private val LocalSlideLayout = staticCompositionLocalOf { SlideLayout.PHONE }
+
+/** The step's column on a tablet: its words and its controls, not the window's width. */
+private val SlideColumnWidth = 560.dp
+
+/**
+ * One slide: its picture, its title, a line on what it is for, and [content].
+ * On a phone a column, top to bottom. On a large window the picture and the
+ * title take one half and the step the other, so a slide reads as a page of
+ * the window rather than a phone's column in the middle of it; on a foldable
+ * open like a book the hinge is between the two.
+ */
 @Composable
 fun SlideContainer(
     icon: ImageVector,
@@ -209,9 +258,18 @@ fun SlideContainer(
     description: String,
     content: @Composable () -> Unit = {}
 ) {
+    when (LocalSlideLayout.current) {
+        SlideLayout.SIDE_BY_SIDE -> SlideSideBySide(icon, title, description, content)
+        SlideLayout.TALL -> SlideColumn(icon, title, description, hero = 128.dp, content = content)
+        SlideLayout.PHONE -> SlideColumn(icon, title, description, hero = 96.dp, content = content)
+    }
+}
+
+@Composable
+private fun SlideHero(icon: ImageVector, size: androidx.compose.ui.unit.Dp) {
     Box(
         modifier = Modifier
-            .size(96.dp)
+            .size(size)
             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), shape = CircleShape),
         contentAlignment = Alignment.Center
     ) {
@@ -219,17 +277,13 @@ fun SlideContainer(
             imageVector = icon,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(48.dp)
+            modifier = Modifier.size(size / 2)
         )
     }
-    Spacer(modifier = Modifier.height(24.dp))
-    Text(
-        text = title,
-        style = MaterialTheme.typography.headlineMedium,
-        fontWeight = FontWeight.Bold,
-        textAlign = TextAlign.Center
-    )
-    Spacer(modifier = Modifier.height(16.dp))
+}
+
+@Composable
+private fun SlideDescription(description: String) {
     HelpText(
         description,
         lines = 3,
@@ -238,6 +292,72 @@ fun SlideContainer(
         lineHeight = 22.sp,
         modifier = Modifier.padding(horizontal = 8.dp)
     )
+}
+
+@Composable
+private fun SlideSideBySide(icon: ImageVector, title: String, description: String, content: @Composable () -> Unit) {
+    val fold = rememberWindowLayout().fold as? Fold.Vertical
+    Row(Modifier.fillMaxSize()) {
+        // The picture's half: a pane of its own colour, so the two halves read as one page.
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            shape = MaterialTheme.shapes.large,
+            modifier = (if (fold != null) Modifier.width(fold.start) else Modifier.weight(1f))
+                .fillMaxHeight()
+                .padding(start = PaneDefaults.Gap, top = PaneDefaults.Gap, bottom = PaneDefaults.Gap)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                SlideHero(icon, if (fold != null) 128.dp else 160.dp)
+                Spacer(modifier = Modifier.height(32.dp))
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+        if (fold != null) Spacer(Modifier.width(fold.end - fold.start))
+        Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
+            Column(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .widthIn(max = SlideColumnWidth + 48.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                SlideDescription(description)
+                Spacer(modifier = Modifier.height(24.dp))
+                content()
+            }
+        }
+    }
+}
+
+@Composable
+private fun SlideColumn(
+    icon: ImageVector,
+    title: String,
+    description: String,
+    hero: androidx.compose.ui.unit.Dp,
+    content: @Composable () -> Unit
+) {
+    SlideHero(icon, hero)
+    Spacer(modifier = Modifier.height(24.dp))
+    Text(
+        text = title,
+        style = MaterialTheme.typography.headlineMedium,
+        fontWeight = FontWeight.Bold,
+        textAlign = TextAlign.Center
+    )
+    Spacer(modifier = Modifier.height(16.dp))
+    SlideDescription(description)
     Spacer(modifier = Modifier.height(24.dp))
     content()
 }
