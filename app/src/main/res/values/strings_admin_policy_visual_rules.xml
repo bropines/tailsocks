@@ -126,6 +126,8 @@
     <string name="admin_pv_f_ports">Ports and protocols</string>
     <string name="admin_pv_f_via">Only through</string>
     <string name="admin_pv_f_via_help">The traffic must go through devices with these tags: an exit node, a subnet router or an app connector.</string>
+    <string name="admin_pv_f_via_acl_help">Only grants go through devices: picking one here turns this rule into a grant.</string>
+    <string name="admin_pv_f_via_acl_ports">Only grants go through devices, and one grant has one port list: give every destination the same ports, or use Convert to grant.</string>
     <string name="admin_pv_f_posture">Only from devices that pass</string>
     <string name="admin_pv_f_posture_help">The source device must meet these device postures at the moment it connects.</string>
     <string name="admin_pv_f_proto">Protocol</string>

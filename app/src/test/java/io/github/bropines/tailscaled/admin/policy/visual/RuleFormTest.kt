@@ -230,6 +230,29 @@ class RuleFormTest {
     }
 
     @Test
+    fun anAclGivenAViaBecomesAGrant() {
+        val rule = model.acls[4] // tag:server → tag:master:80,443
+        val grant = RuleForms.grantWithVia(rule, listOf("tag:exit-node"), RuleForms.newOrigin(model, Section.GRANTS))!!
+        assertEquals(listOf("tag:master"), grant.dst)
+        assertEquals(listOf("80", "443"), grant.ip)
+        assertEquals(listOf("tag:exit-node"), grant.via)
+        val after = RuleForms.replaceWithGrant(sample, rule, grant)
+        val m = read(after)
+        assertEquals(13, m.acls.size)
+        assertEquals(grant.copy(origin = m.grants.last().origin), m.grants.last())
+
+        // A protocol goes with the ports; different ports per destination cannot be one grant.
+        val tcp = RuleForms.grantWithVia(rule.copy(proto = "tcp"), listOf("tag:exit-node"), grant.origin)!!
+        assertEquals(listOf("tcp:80", "tcp:443"), tcp.ip)
+        assertNull(RuleForms.grantWithVia(rule.copy(dst = listOf("tag:master:22", "tag:dns:53")), listOf("tag:exit-node"), grant.origin))
+        // The guests' rule keeps its note on the way.
+        val guests = model.acls[11]
+        val g = read(RuleForms.replaceWithGrant(sample, guests, RuleForms.grantWithVia(guests, listOf("tag:exit-node"), grant.origin)!!)).grants.last()
+        assertEquals(guests.origin.note, g.origin.note)
+        assertEquals(listOf("*"), g.ip)
+    }
+
+    @Test
     fun aTestFromARuleAndOneThatKeepsADeletedRuleClosed() {
         val rule = model.acls[12] // carol@example.com → tag:lab:*
         val f = PolicyEdits.testFrom(rule)!!

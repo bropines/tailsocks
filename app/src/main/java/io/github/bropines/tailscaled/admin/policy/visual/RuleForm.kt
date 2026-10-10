@@ -165,6 +165,24 @@ object RuleForms {
         return out
     }
 
+    /**
+     * [rule] as one grant that also goes [via] these tags: what an ACL becomes when it is given
+     * something only grants have. Null when its destinations have different ports — one grant
+     * cannot say that; Convert to grant makes one per port list.
+     */
+    fun grantWithVia(rule: AclRule, via: List<String>, origin: Origin): GrantRule? {
+        val ports = rule.destinations.map { it.ports ?: "*" }.distinct()
+        if (ports.size > 1) return null
+        val ip = ports.singleOrNull()?.let { p -> PortWords.parts(p).map { if (rule.proto != null) "${rule.proto}:$it" else it } }.orEmpty()
+        return GrantRule(origin, rule.src, rule.destinations.map { it.host }.distinct(), ip, emptyList(), via, rule.srcPosture)
+    }
+
+    /** The edit that replaces the ACL at [rule] by [grant], keeping its note; the grant goes at the end of `grants`. */
+    fun replaceWithGrant(text: String, rule: AclRule, grant: GrantRule): String {
+        val out = PolicyEdits.removeRule(text, rule.origin.path)
+        return PolicyEdits.addRule(out, Section.GRANTS, fields(grant), note = rule.origin.note)
+    }
+
     /** A copy of the rule at [path] right after it, written exactly as the original is — its unknown fields and app capabilities too. */
     fun duplicate(text: String, path: PolicyPath): String {
         val t = SourceTree.parse(text)

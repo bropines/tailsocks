@@ -120,6 +120,8 @@
     <string name="admin_pv_f_ports">Порты и протоколы</string>
     <string name="admin_pv_f_via">Только через</string>
     <string name="admin_pv_f_via_help">Трафик должен идти через устройства с этими тегами: exit-ноду, subnet router или app connector.</string>
+    <string name="admin_pv_f_via_acl_help">Через устройства умеют только grants: если выбрать их здесь, правило станет grant.</string>
+    <string name="admin_pv_f_via_acl_ports">Через устройства умеют только grants, а у одного grant один список портов: дайте всем назначениям одинаковые порты или нажмите «Превратить в grant».</string>
     <string name="admin_pv_f_posture">Только с устройств, прошедших проверку</string>
     <string name="admin_pv_f_posture_help">Устройство-источник должно соответствовать этим условиям в момент подключения.</string>
     <string name="admin_pv_f_proto">Протокол</string>

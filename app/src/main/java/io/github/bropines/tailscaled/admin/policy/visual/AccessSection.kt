@@ -99,8 +99,18 @@ fun AccessSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) 
     fun change(old: AccessRule, new: AccessRule) {
         val p = pending
         if (p != null) {
-            val next = p.copy(rule = new)
+            // A form that turned into a grant goes to the end of the grants, not to its place among the acls.
+            val next = if (new.section != p.rule.section) PendingRule(new) else p.copy(rule = new)
             if (!RuleForms.complete(new) || !write(next)) pending = next
+            return
+        }
+        if (old is AccessRule.Acl && new is AccessRule.Grant) {
+            // Given a via, the ACL became a grant: it moves to the grants, its note with it.
+            val at = m.grants.size
+            if (actions.edit { RuleForms.replaceWithGrant(it, old.rule, new.rule) }) {
+                select(PolicyPath.of(Section.GRANTS.key, at))
+                actions.notify(ctx.resources.getQuantityString(R.plurals.admin_pv_converted, 1, 1))
+            }
             return
         }
         val diff = RuleForms.changed(RuleForms.fields(old), RuleForms.fields(new))

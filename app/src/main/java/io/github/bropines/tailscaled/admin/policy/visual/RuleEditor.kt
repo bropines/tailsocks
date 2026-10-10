@@ -98,7 +98,11 @@ fun AccessRuleEditorContent(
         if (isNew) NewFormNote(ctx.getString(if (rule is AccessRule.Grant) R.string.admin_pv_rule_new_note_grant else R.string.admin_pv_rule_new_note))
 
         when (rule) {
-            is AccessRule.Acl -> AclFields(rule.rule, fe, isNew) { onChange(AccessRule.Acl(it)) }
+            is AccessRule.Acl -> AclFields(rule.rule, fe, isNew, viaOk = moves.convert || (isNew && env.model?.let { RuleForms.canConvert(it, env.headscale) } == true), onChange = { onChange(AccessRule.Acl(it)) }) { via ->
+                // Only grants go through devices: the rule becomes one, at the end of the grants.
+                val m = env.model ?: return@AclFields
+                RuleForms.grantWithVia(rule.rule, via, RuleForms.newOrigin(m, Section.GRANTS))?.let { onChange(AccessRule.Grant(it)) }
+            }
             is AccessRule.Grant -> GrantFields(rule.rule, fe, actions, isNew) { onChange(AccessRule.Grant(it)) }
         }
 
@@ -135,7 +139,7 @@ fun AccessRuleEditorContent(
 }
 
 @Composable
-private fun AclFields(r: AclRule, env: VisualEnv, isNew: Boolean, onChange: (AclRule) -> Unit) {
+private fun AclFields(r: AclRule, env: VisualEnv, isNew: Boolean, viaOk: Boolean, onChange: (AclRule) -> Unit, onVia: (List<String>) -> Unit) {
     val ctx = LocalContext.current
     SelectorField(ctx.getString(R.string.admin_pv_f_who), r.src, SelectorSlot.ACL_SRC, env, onChange = { onChange(r.copy(src = it)) })
     DestinationsField(
@@ -152,6 +156,17 @@ private fun AclFields(r: AclRule, env: VisualEnv, isNew: Boolean, onChange: (Acl
     ) {
         ProtocolField(r.proto, env) { onChange(r.copy(proto = it)) }
         PostureField(r.srcPosture, env) { onChange(r.copy(srcPosture = it)) }
+        if (viaOk) {
+            val sameHosts = r.destinations.map { it.ports }.distinct().size <= 1
+            SelectorField(
+                ctx.getString(R.string.admin_pv_f_via),
+                emptyList(),
+                SelectorSlot.GRANT_VIA,
+                if (sameHosts) env else env.copy(canWrite = false),
+                onChange = { if (it.isNotEmpty()) onVia(it) },
+                help = ctx.getString(if (sameHosts) R.string.admin_pv_f_via_acl_help else R.string.admin_pv_f_via_acl_ports),
+            )
+        }
     }
 }
 
