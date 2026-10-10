@@ -49,6 +49,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import io.github.bropines.tailscaled.ui.theme.findActivity
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -170,6 +172,21 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
     }
 
     // Launcher for directory picker (SAF)
+    // Below Android 11 the access is the Storage permission itself, asked for here; once it is
+    // refused for good only the app's settings can give it back.
+    val storageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        hasStoragePermission = checkStoragePermission(context)
+        if (!hasStoragePermission) {
+            val activity = context.findActivity()
+            if (activity == null || LEGACY_STORAGE.none { ActivityCompat.shouldShowRequestPermissionRationale(activity, it) }) {
+                openAppSettings(context)
+            }
+        }
+    }
+    val askStorage: () -> Unit = {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) requestAllFilesAccess(context) else storageLauncher.launch(LEGACY_STORAGE)
+    }
+
     val dirPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
             val rawPath = getAbsolutePathFromDocumentUri(context, uri)
@@ -302,13 +319,13 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
                 Text(stringResource(R.string.taildrive_perm_required), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(4.dp))
                 HelpText(
-                    stringResource(R.string.taildrive_perm_desc),
+                    stringResource(if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) R.string.taildrive_perm_desc else R.string.taildrive_perm_desc_storage),
                     color = MaterialTheme.colorScheme.onErrorContainer
                 )
                 Spacer(Modifier.height(12.dp))
                 Button(
                     onClick = {
-                        requestStoragePermission(context)
+                        askStorage()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
@@ -336,7 +353,7 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
                 checked = isEnabled && hasStoragePermission
             ) { checked ->
                 if (checked && !checkStoragePermission(context)) {
-                    requestStoragePermission(context)
+                    askStorage()
                 } else {
                     isEnabled = checked
                     prefs.edit().putBoolean("taildrive_enabled", checked).apply()
@@ -355,7 +372,7 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
             ) { checked ->
                 if (checked) {
                     if (!checkStoragePermission(context)) {
-                        requestStoragePermission(context)
+                        askStorage()
                     }
                     if (!shares.any { isFullStoragePath(it.path) }) {
                         shares.add(LocalShare("sdcard", "/storage/emulated/0"))
@@ -811,6 +828,12 @@ private class CommittedText(var text: String)
 
 private fun isFullStoragePath(path: String) = path == "/storage/emulated/0" || path == "/storage/emulated/0/"
 
+private val LEGACY_STORAGE = arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+
+/**
+ * Whether the daemon can open the shared folders by path: all-files access from Android 11,
+ * the Storage permission (read and write, with legacy storage on Android 10) below that.
+ */
 private fun checkStoragePermission(context: Context): Boolean {
     return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
         Environment.isExternalStorageManager()
@@ -820,19 +843,27 @@ private fun checkStoragePermission(context: Context): Boolean {
     }
 }
 
-private fun requestStoragePermission(context: Context) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        try {
-            val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
-                data = Uri.parse("package:${context.packageName}")
-            }
-            context.startActivity(intent)
-        } catch (e: Exception) {
-            val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
-            context.startActivity(intent)
+@androidx.annotation.RequiresApi(Build.VERSION_CODES.R)
+private fun requestAllFilesAccess(context: Context) {
+    try {
+        val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+            data = Uri.parse("package:${context.packageName}")
         }
-    } else {
-        Toast.makeText(context, context.getString(R.string.taildrive_err_grant_storage), Toast.LENGTH_LONG).show()
+        context.startActivity(intent)
+    } catch (e: Exception) {
+        val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+        context.startActivity(intent)
+    }
+}
+
+/** The app's own settings page, where a Storage permission refused for good is given back. */
+private fun openAppSettings(context: Context) {
+    Toast.makeText(context, context.getString(R.string.taildrive_err_grant_storage), Toast.LENGTH_LONG).show()
+    runCatching {
+        context.startActivity(
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
     }
 }
 

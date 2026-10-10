@@ -731,6 +731,7 @@
     <string name="taildrive_cd_add">Add Share</string>
     <string name="taildrive_perm_required">Storage Permission Required</string>
     <string name="taildrive_perm_desc">Taildrive needs permission to access all files in order to expose shared directories to your Tailnet.</string>
+    <string name="taildrive_perm_desc_storage">Taildrive needs the Storage permission to open the shared folders to your tailnet.</string>
     <string name="taildrive_grant_perm">Grant Permission</string>
     <string name="taildrive_enable_title">Enable Taildrive</string>
     <string name="taildrive_enable_desc">Share local directories with other nodes in your Tailnet.</string>

@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Fixed
+
+- Taildrive on Android 10 and older: it asks for the Storage permission itself, and the shared folders open (#13).
+
 ## [4.9.0] - 2026-10-10
 
 ### Added

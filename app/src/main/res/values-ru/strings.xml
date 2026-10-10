@@ -713,6 +713,7 @@
     <string name="taildrive_cd_add">Добавить папку</string>
     <string name="taildrive_perm_required">Требуется разрешение на доступ к хранилищу</string>
     <string name="taildrive_perm_desc">Taildrive требует разрешение на доступ ко всем файлам, чтобы открывать папки для вашей сети Tailnet.</string>
+    <string name="taildrive_perm_desc_storage">Taildrive нужно разрешение «Хранилище», чтобы открывать общие папки для вашего tailnet.</string>
     <string name="taildrive_grant_perm">Предоставить разрешение</string>
     <string name="taildrive_enable_title">Включить Taildrive</string>
     <string name="taildrive_enable_desc">Делиться локальными папками с другими узлами в сети Tailnet.</string>
