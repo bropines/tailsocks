@@ -63,5 +63,6 @@
     <string name="admin_pv_issue_list">A field holds something other than a list of names.</string>
     <string name="admin_pv_issue_duplicate">A field is written twice; only the last one counts.</string>
     <string name="admin_pv_issue_case">A field is spelled differently from the documented name.</string>
+    <string name="admin_pv_issue_legacy">A legacy field (users, ports or allow) says part of it.</string>
     <string name="admin_pv_server_error">The server refused this</string>
 </resources>

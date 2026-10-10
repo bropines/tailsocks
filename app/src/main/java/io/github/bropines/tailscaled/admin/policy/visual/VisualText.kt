@@ -61,6 +61,7 @@ object VisualText {
             ShapeIssue.NOT_A_LIST, ShapeIssue.NOT_STRINGS, ShapeIssue.NOT_A_STRING, ShapeIssue.NOT_AN_OBJECT -> R.string.admin_pv_issue_list
             ShapeIssue.DUPLICATE_KEY -> R.string.admin_pv_issue_duplicate
             ShapeIssue.ODD_CASE -> R.string.admin_pv_issue_case
+            ShapeIssue.LEGACY_FIELD -> R.string.admin_pv_issue_legacy
         }
     )
 

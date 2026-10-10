@@ -98,7 +98,9 @@ class PolicyModelTest {
 
         val first = PolicyModel.read(text.replace("\"acls\": []", "\"other\": []"))!!.acls
         assertEquals(listOf("users"), first[0].origin.extra)
-        assertTrue(first[0].origin.editable)
+        // A legacy "users" beside src/dst: shown, edited in JSON.
+        assertTrue(ShapeIssue.LEGACY_FIELD in first[0].origin.issues)
+        assertFalse(first[0].origin.editable)
         assertTrue(ShapeIssue.ODD_CASE in first[1].origin.issues)
         assertTrue(ShapeIssue.NOT_STRINGS in first[1].origin.issues)
         assertEquals(listOf("tag:a"), first[1].src)

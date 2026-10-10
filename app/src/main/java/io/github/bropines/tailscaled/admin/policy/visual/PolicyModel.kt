@@ -51,6 +51,11 @@ enum class ShapeIssue {
     DUPLICATE_KEY,
     /** A key in another spelling than documented (`Action`, `regions`): the server reads it, the editor leaves it alone. */
     ODD_CASE,
+    /**
+     * A legacy field that says what a visual field would (an ACL's `users`/`ports`, a test's
+     * `allow`): editing the new one beside it would show half the rule.
+     */
+    LEGACY_FIELD,
 }
 
 /**
@@ -207,6 +212,7 @@ private class Reader(private val t: SourceTree) {
         val obj = m.value as? SrcObject
         val extra = if (known != null && obj != null) obj.members.mapNotNull { it.key }.filter { it !in known }.distinct() else emptyList()
         val all = issues.toMutableSet()
+        if (known != null && extra.any { it in LEGACY_KEYS }) all += ShapeIssue.LEGACY_FIELD
         if (obj != null) {
             if (obj.duplicateKeys.isNotEmpty()) all += ShapeIssue.DUPLICATE_KEY
             if (known != null && extra.any { e -> known.any { it.equals(e, ignoreCase = true) } }) all += ShapeIssue.ODD_CASE
@@ -366,5 +372,7 @@ private class Reader(private val t: SourceTree) {
         val NODE_ATTR_KEYS = setOf("target", "attr", "app", "ipPool")
         val TEST_KEYS = setOf("src", "proto", "accept", "deny", "srcPostureAttrs")
         val SSH_TEST_KEYS = setOf("src", "dst", "accept", "check", "deny")
+        /** ACL `users`/`ports` (before src/dst), test `allow` (before accept). */
+        val LEGACY_KEYS = setOf("users", "ports", "allow")
     }
 }
