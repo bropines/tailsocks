@@ -15,6 +15,9 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Admin console: Headscale servers (0.25–0.30) with registration by QR code or link; the audit log filtered on the server with before → after; Services created, renamed and deleted.
 - Admin console keeps an encrypted copy of its lists and opens on it at once, refreshing in place; nothing is changed from the copy.
 - Admin console: a device with an update links to its page in the Tailscale console, where Start update lives (the API has none).
+- Admin console: a visual policy editor beside the JSON one — rules, SSH, tests, groups, tags, hosts, auto-approval, device attributes and posture as cards; every edit keeps the file's comments and layout and saves through the same checks.
+- Tablets and unfolded foldables: the home screen is a dashboard that fills the window, and Peers, Licenses and the admin console open details beside their lists.
+- Tablets: Settings, Serve, TailCat, Netcheck, DNS, Taildrop, Taildrive, Logs and the console lay their cards out in columns instead of one narrow strip.
 
 ### Changed
 
