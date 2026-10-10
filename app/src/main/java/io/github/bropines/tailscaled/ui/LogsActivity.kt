@@ -311,6 +311,9 @@ private fun demoLogEntries(lines: List<String>): List<LogEntry> {
     return out
 }
 
+/** The widest the category chips get beside the search field before they scroll. */
+private val LogFilterChipsMaxWidth = 560.dp
+
 /** One row of the list: an entry, or the divider that opens a new day. */
 private sealed interface LogRow {
     data class Entry(val log: LogEntry) : LogRow
@@ -638,6 +641,12 @@ fun LogsScreen(onBack: () -> Unit, initialCategory: String = "ALL") {
         }
     }
 
+    // From an expanded window up the search and the category chips share one row: two
+    // full-width rows of chrome over a log that wants the height, with the chips bunched at
+    // one end of a bar across the window, was what a tablet got.
+    val window = rememberWindowLayout()
+    val filtersInOneRow = !window.isPhone && window.widthClass >= WindowWidthClass.EXPANDED
+
     PredictiveBackContainer(
         onBack = onBack,
         // Back here only closes the Activity, so the container installs no callback and
@@ -696,26 +705,49 @@ fun LogsScreen(onBack: () -> Unit, initialCategory: String = "ALL") {
                         }
                     )
                     
-                    CompactSearchBar(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        placeholderText = stringResource(R.string.logs_search_placeholder),
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                    )
-
                     val selectedCategoryIndex = categories.indexOf(selectedCategory).coerceAtLeast(0)
-                    ScrollableSlidingSegmentedChips(
-                        items = categoryItems,
-                        selectedIndex = selectedCategoryIndex,
-                        onOptionSelected = { idx ->
-                            selectedCategory = categories[idx]
-                            isAutoScroll = true
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 4.dp),
-                        height = 36.dp
-                    )
+                    val chips: @Composable (Modifier) -> Unit = { modifier ->
+                        ScrollableSlidingSegmentedChips(
+                            items = categoryItems,
+                            selectedIndex = selectedCategoryIndex,
+                            onOptionSelected = { idx ->
+                                selectedCategory = categories[idx]
+                                isAutoScroll = true
+                            },
+                            modifier = modifier,
+                            height = 36.dp
+                        )
+                    }
+                    if (filtersInOneRow) {
+                        // The field takes what the chips leave; the chips as wide as they are,
+                        // up to a cap past which they scroll — not a bar across the window.
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            CompactSearchBar(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                placeholderText = stringResource(R.string.logs_search_placeholder),
+                                modifier = Modifier.weight(1f)
+                            )
+                            chips(Modifier.widthIn(max = LogFilterChipsMaxWidth))
+                        }
+                    } else {
+                        CompactSearchBar(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            placeholderText = stringResource(R.string.logs_search_placeholder),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        )
+
+                        chips(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 4.dp)
+                        )
+                    }
                 }
             },
         floatingActionButton = {
