@@ -32,6 +32,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.ViewAgenda
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -42,6 +43,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -78,6 +80,10 @@ import io.github.bropines.tailscaled.admin.api.AdminArea
 import io.github.bropines.tailscaled.admin.console.AdminConsoleViewModel
 import io.github.bropines.tailscaled.admin.console.ConsoleState
 import io.github.bropines.tailscaled.admin.console.ConsoleText
+import io.github.bropines.tailscaled.admin.policy.visual.PolicyLocator
+import io.github.bropines.tailscaled.admin.policy.visual.SourceTree
+import io.github.bropines.tailscaled.admin.policy.visual.VisualEditorScreen
+import io.github.bropines.tailscaled.admin.policy.visual.elementLabel
 import io.github.bropines.tailscaled.admin.safety.SafetyStep
 import io.github.bropines.tailscaled.admin.settings.NoteTone
 import io.github.bropines.tailscaled.admin.settings.ConfigNote
@@ -114,8 +120,11 @@ fun PolicyEditorHost(state: ConsoleState, vm: AdminConsoleViewModel?) {
         parent.Provide {
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                 val review = editor.review
-                if (review == null) PolicyEditorScreen(editor, vm, onClose = close)
-                else PolicyReviewScreen(state, editor, review, vm)
+                when {
+                    review != null -> PolicyReviewScreen(state, editor, review, vm)
+                    editor.visual -> VisualEditorScreen(state, editor, vm, onClose = close)
+                    else -> PolicyEditorScreen(editor, vm, readOnly = !state.canWrite(AdminArea.POLICY) || state.settings.value?.aclsExternallyManagedOn == true, onClose = close)
+                }
             }
         }
     }
@@ -170,10 +179,12 @@ fun ConflictContent(c: PolicyConflict, onChoice: (ConflictChoice) -> Unit) {
 /**
  * The text itself: monospace, coloured as it is typed, numbered, not wrapped — a line of the
  * file is a line on screen, so the numbers stay true. Under the bar, the local check of what
- * is typed so far.
+ * is typed so far. The bar's switch goes to the visual view, at the element under the cursor.
+ * [readOnly] (a credential that may only read, a policy managed elsewhere) shows the text with
+ * no way to change it: reached from the visual view's "Edit in JSON".
  */
 @Composable
-fun PolicyEditorScreen(editor: PolicyEditorState, vm: AdminConsoleViewModel?, onClose: () -> Unit) {
+fun PolicyEditorScreen(editor: PolicyEditorState, vm: AdminConsoleViewModel?, readOnly: Boolean = false, onClose: () -> Unit) {
     val ctx = LocalContext.current
     val colors = rememberPolicyColors()
     val transformation = remember(colors) { HuJsonTransformation(colors) }
@@ -219,7 +230,10 @@ fun PolicyEditorScreen(editor: PolicyEditorState, vm: AdminConsoleViewModel?, on
                 subtitle = ctx.getString(R.string.admin_cfg_policy_editor_base, editor.base.etag?.let(::shortEtag) ?: "—"),
                 onBack = onClose,
                 actions = {
-                    TextButton(onClick = { vm?.policy?.review() }, enabled = issues.isEmpty() && editor.changed) {
+                    IconButton(onClick = { vm?.policy?.setView(true, HuJson.Lines(tfv.text).lineOf(tfv.selection.start)) }) {
+                        Icon(Icons.Default.ViewAgenda, ctx.getString(R.string.admin_pv_shell_to_visual))
+                    }
+                    if (!readOnly) TextButton(onClick = { vm?.policy?.review() }, enabled = issues.isEmpty() && editor.changed) {
                         Text(ctx.getString(R.string.admin_cfg_policy_review))
                         Spacer(Modifier.width(4.dp))
                         Icon(Icons.AutoMirrored.Filled.ArrowForward, null, Modifier.size(18.dp))
@@ -247,6 +261,7 @@ fun PolicyEditorScreen(editor: PolicyEditorState, vm: AdminConsoleViewModel?, on
                                 tfv = it
                                 vm?.policy?.edit(it.text)
                             },
+                            readOnly = readOnly,
                             textStyle = style.copy(color = MaterialTheme.colorScheme.onSurface),
                             visualTransformation = transformation,
                             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
@@ -294,6 +309,9 @@ private fun LocalCheckStrip(issues: List<HuIssue>, onGoTo: (Int) -> Unit) {
 
 private enum class StepState { WAITING, RUNNING, PASSED, WARNED, FAILED }
 
+/** The most elements a refusal's "Show" buttons name. */
+private const val MAX_SHOWN = 4
+
 /**
  * The review: each check as it ends, then what the server said, what this phone stands to
  * lose, what the change opens, and the diff — and the button that takes it to the gates.
@@ -307,6 +325,13 @@ fun PolicyReviewScreen(state: ConsoleState, editor: PolicyEditorState, review: P
     val canSend = review.passed && review.candidate == editor.text && state.canWrite(AdminArea.POLICY) &&
         state.settings.value?.aclsExternallyManagedOn != true && state.safety == SafetyStep.Idle
     val goTo: (Int) -> Unit = { vm?.policy?.backToEditor(it) }
+    // The visual view also goes to an element a message names without a line: a group, a tag.
+    val tree = remember(review.candidate, editor.visual) { if (editor.visual) SourceTree.parseOrNull(review.candidate) else null }
+    fun placesOf(messages: List<String>): List<Pair<String, () -> Unit>> = tree?.let { t ->
+        messages.filter { PolicyText.lineHints(it).isEmpty() }.flatMap { PolicyLocator.locate(t, it) }.distinct().take(MAX_SHOWN).map { p ->
+            ctx.getString(R.string.admin_pv_shell_show, elementLabel(ctx, p)) to { vm?.policy?.backToEditor(focus = p); Unit }
+        }
+    }.orEmpty()
 
     fun stepState(step: PolicyStep): StepState = when {
         review.running == step -> StepState.RUNNING
@@ -372,7 +397,12 @@ fun PolicyReviewScreen(state: ConsoleState, editor: PolicyEditorState, review: P
             }
             review.validation?.takeIf { !it.ok }?.let { v ->
                 val messages = listOfNotNull(v.message) + v.details
-                item { Problem(ctx.getString(R.string.admin_cfg_step_server_failed), messages, messages.flatMap { PolicyText.lineHints(it) }.distinct(), goTo) }
+                item {
+                    Problem(
+                        ctx.getString(R.string.admin_cfg_step_server_failed), messages, messages.flatMap { PolicyText.lineHints(it) }.distinct(), goTo,
+                        places = placesOf(messages),
+                    )
+                }
             }
             review.access?.let { access ->
                 item { AccessCard(access) }
@@ -418,7 +448,14 @@ private fun StepRow(label: String, s: StepState) {
 /** A step's failure: what it said, and the lines it names, each a way back into the editor. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun Problem(title: String, lines: List<String>, gotoLines: List<Int> = emptyList(), onGoTo: (Int) -> Unit = {}, action: (@Composable () -> Unit)? = null) {
+private fun Problem(
+    title: String,
+    lines: List<String>,
+    gotoLines: List<Int> = emptyList(),
+    onGoTo: (Int) -> Unit = {},
+    places: List<Pair<String, () -> Unit>> = emptyList(),
+    action: (@Composable () -> Unit)? = null,
+) {
     val ctx = LocalContext.current
     Card(
         Modifier.fillMaxWidth(),
@@ -432,8 +469,9 @@ private fun Problem(title: String, lines: List<String>, gotoLines: List<Int> = e
                 Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             }
             lines.forEach { Text(it, style = codeStyle()) }
-            if (gotoLines.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (gotoLines.isNotEmpty() || places.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 gotoLines.forEach { line -> AssistChip(onClick = { onGoTo(line) }, label = { Text(ctx.getString(R.string.admin_cfg_policy_goto, line)) }) }
+                places.forEach { (label, show) -> AssistChip(onClick = show, label = { Text(label) }) }
             }
             action?.invoke()
         }

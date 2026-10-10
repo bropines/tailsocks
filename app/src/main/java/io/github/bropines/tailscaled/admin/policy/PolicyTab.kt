@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.filled.Policy
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.TravelExplore
+import androidx.compose.material.icons.filled.ViewAgenda
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
@@ -145,10 +147,25 @@ fun PolicyTab(state: ConsoleState, vm: AdminConsoleViewModel?) {
                         }
                         HelpText(ctx.getString(R.string.admin_cfg_policy_help))
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            if (canEdit) Button(onClick = { vm?.policy?.openEditor() }, shape = MaterialTheme.shapes.medium) {
-                                Icon(Icons.Default.Edit, null, Modifier.size(18.dp))
-                                Spacer(Modifier.width(6.dp))
-                                Text(ctx.getString(R.string.admin_cfg_policy_edit))
+                            // Edit opens the view this profile used last; the other one stands beside it.
+                            if (canEdit) {
+                                Button(onClick = { vm?.policy?.openEditor() }, shape = MaterialTheme.shapes.medium) {
+                                    Icon(Icons.Default.Edit, null, Modifier.size(18.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(ctx.getString(R.string.admin_cfg_policy_edit))
+                                }
+                                OutlinedButton(onClick = { vm?.policy?.openEditor(visual = !policy.visual) }, shape = MaterialTheme.shapes.medium) {
+                                    Icon(if (policy.visual) Icons.Default.Code else Icons.Default.ViewAgenda, null, Modifier.size(18.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(ctx.getString(if (policy.visual) R.string.admin_pv_shell_edit_json else R.string.admin_pv_shell_edit_visual))
+                                }
+                            } else {
+                                // Read-only, the rules can still be read in plain words.
+                                OutlinedButton(onClick = { vm?.policy?.openEditor(visual = true) }, shape = MaterialTheme.shapes.medium) {
+                                    Icon(Icons.Default.ViewAgenda, null, Modifier.size(18.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(ctx.getString(R.string.admin_pv_shell_view_rules))
+                                }
                             }
                             OutlinedButton(onClick = { reachOpen = true }, shape = MaterialTheme.shapes.medium) {
                                 Icon(Icons.Default.TravelExplore, null, Modifier.size(18.dp))

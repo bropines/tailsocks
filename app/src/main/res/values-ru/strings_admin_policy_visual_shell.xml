@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="admin_pv_shell_to_json">Править как JSON</string>
+    <string name="admin_pv_shell_to_visual">Править визуально</string>
+    <string name="admin_pv_shell_undo">Отменить</string>
+    <string name="admin_pv_shell_redo">Повторить</string>
+    <string name="admin_pv_shell_edit_json">Править JSON</string>
+    <string name="admin_pv_shell_edit_visual">Править визуально</string>
+    <string name="admin_pv_shell_view_rules">Посмотреть правила</string>
+    <string name="admin_pv_shell_view_title">Правила политики</string>
+    <string name="admin_pv_shell_refused">Здесь это изменить не получилось. Поправьте в JSON.</string>
+
+    <string name="admin_pv_shell_unparsable_title">Файл не читается как политика</string>
+    <string name="admin_pv_shell_unparsable_text">Страницам нужен читаемый файл. Исправьте это в JSON, и они вернутся.</string>
+    <string name="admin_pv_shell_open_json_at">Открыть JSON на строке %1$d</string>
+    <string name="admin_pv_shell_undo_last">Отменить последнее изменение</string>
+    <string name="admin_pv_shell_duplicate_title">Записано дважды: %1$s</string>
+    <string name="admin_pv_shell_duplicate_text">Действует только последняя копия, и правка здесь могла бы попасть не в ту. Пока это не исправлено в JSON, страницы только показывают политику.</string>
+    <string name="admin_pv_shell_refusal_title">Сервер отклонил политику</string>
+    <plurals name="admin_pv_shell_refusal_places">
+        <item quantity="one">Отмечено на %d карточке</item>
+        <item quantity="few">Отмечено на %d карточках</item>
+        <item quantity="many">Отмечено на %d карточках</item>
+        <item quantity="other">Отмечено на %d карточках</item>
+    </plurals>
+    <string name="admin_pv_shell_refusal_unplaced">Сообщение не указывает ни на одно правило отсюда.</string>
+    <string name="admin_pv_shell_refusal_stale">С тех пор изменено. Проверьте ещё раз.</string>
+    <string name="admin_pv_shell_refusal_prev">Предыдущая карточка</string>
+    <string name="admin_pv_shell_refusal_next">Следующая карточка</string>
+
+    <string name="admin_pv_shell_short_approvers">Одобрение</string>
+    <string name="admin_pv_shell_short_hosts">Хосты</string>
+    <string name="admin_pv_shell_short_attributes">Атрибуты</string>
+    <string name="admin_pv_shell_short_posture">Состояние</string>
+    <string name="admin_pv_shell_short_network">Сеть</string>
+
+    <string name="admin_pv_shell_el_acl">Правило доступа %1$d</string>
+    <string name="admin_pv_shell_el_grant">Грант %1$d</string>
+    <string name="admin_pv_shell_el_ssh">Правило SSH %1$d</string>
+    <string name="admin_pv_shell_el_attr">Правило атрибутов %1$d</string>
+    <string name="admin_pv_shell_el_test">Тест %1$d</string>
+    <string name="admin_pv_shell_el_ssh_test">Тест SSH %1$d</string>
+    <string name="admin_pv_shell_show">Показать: %1$s</string>
+
+    <string name="admin_pv_net_options">Параметры соединений</string>
+    <string name="admin_pv_net_random_port">Случайный порт клиента</string>
+    <string name="admin_pv_net_random_port_help">Устройства берут случайный UDP-порт вместо 41641 — некоторым файрволам так нужно. Атрибут устройства randomize-client-port делает то же только для выбранных устройств.</string>
+    <string name="admin_pv_net_no_ipv4">Без адресов IPv4</string>
+    <string name="admin_pv_net_no_ipv4_help">Устройства получают в тейлнете только адреса IPv6, без 100.x. Атрибут устройства disable-ipv4 делает это для выбранных устройств, и документация теперь советует его.</string>
+    <string name="admin_pv_net_cgnat">Маршрут к тейлнету на Mac</string>
+    <string name="admin_pv_net_cgnat_help">Как маки прокладывают маршрут к 100.64.0.0/10. «Автоматически» — один маршрут на весь диапазон, если другая сеть на маке его не занимает.</string>
+    <string name="admin_pv_net_cgnat_auto">Автоматически</string>
+    <string name="admin_pv_net_cgnat_always">Один маршрут на весь диапазон</string>
+    <string name="admin_pv_net_cgnat_never">Маршрут к каждому устройству</string>
+    <string name="admin_pv_net_cgnat_other">Как написано: %1$s</string>
+    <string name="admin_pv_net_odd_value">Записано значение, которого эта страница не знает.</string>
+    <string name="admin_pv_net_derp">Ретрансляторы (DERP)</string>
+    <string name="admin_pv_net_derp_defaults_on">Ретрансляторы Tailscale используются</string>
+    <string name="admin_pv_net_derp_defaults_off">Ретрансляторы Tailscale не используются</string>
+    <string name="admin_pv_net_derp_off">Отключены: %1$s</string>
+    <string name="admin_pv_net_derp_region">регион %1$s</string>
+    <string name="admin_pv_net_derp_custom">Свои ретрансляторы</string>
+    <plurals name="admin_pv_net_derp_servers">
+        <item quantity="one">%d сервер</item>
+        <item quantity="few">%d сервера</item>
+        <item quantity="many">%d серверов</item>
+        <item quantity="other">%d сервера</item>
+    </plurals>
+    <string name="admin_pv_net_derp_help">Ретрансляторы передают трафик, когда два устройства не могут соединиться напрямую. Карта ретрансляторов правится в JSON, а здесь — что она делает.</string>
+    <string name="admin_pv_net_other">Другие разделы</string>
+    <string name="admin_pv_net_other_help">Хранятся в точности как написаны. Визуальный редактор их не трогает.</string>
+    <string name="admin_pv_net_line">Строка %1$d</string>
+    <plurals name="admin_pv_net_fields">
+        <item quantity="one">%d поле</item>
+        <item quantity="few">%d поля</item>
+        <item quantity="many">%d полей</item>
+        <item quantity="other">%d поля</item>
+    </plurals>
+    <plurals name="admin_pv_net_items">
+        <item quantity="one">%d элемент</item>
+        <item quantity="few">%d элемента</item>
+        <item quantity="many">%d элементов</item>
+        <item quantity="other">%d элемента</item>
+    </plurals>
+</resources>

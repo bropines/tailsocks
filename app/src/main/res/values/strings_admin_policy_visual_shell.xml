@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The visual policy editor's frame: the switch between the views, undo, the page navigation,
+     the states of the whole editor, and the Network page. -->
+<resources>
+    <!-- The views. -->
+    <string name="admin_pv_shell_to_json">Edit as JSON</string>
+    <string name="admin_pv_shell_to_visual">Edit visually</string>
+    <string name="admin_pv_shell_undo">Undo</string>
+    <string name="admin_pv_shell_redo">Redo</string>
+    <string name="admin_pv_shell_edit_json">Edit JSON</string>
+    <string name="admin_pv_shell_edit_visual">Edit visually</string>
+    <string name="admin_pv_shell_view_rules">View rules</string>
+    <string name="admin_pv_shell_view_title">Policy rules</string>
+    <string name="admin_pv_shell_json" translatable="false">JSON</string>
+    <string name="admin_pv_shell_refused">This change could not be made here. Edit it in JSON.</string>
+
+    <!-- The whole editor's states. -->
+    <string name="admin_pv_shell_unparsable_title">The file does not read as a policy</string>
+    <string name="admin_pv_shell_unparsable_text">The pages need a file that reads. Fix this in JSON and they come back.</string>
+    <string name="admin_pv_shell_open_json_at">Open JSON at line %1$d</string>
+    <string name="admin_pv_shell_undo_last">Undo the last change</string>
+    <string name="admin_pv_shell_duplicate_title">Written twice: %1$s</string>
+    <string name="admin_pv_shell_duplicate_text">Only the last copy counts, so an edit here could land in the wrong one. Until this is fixed in JSON, the pages only show the policy.</string>
+    <string name="admin_pv_shell_refusal_title">The server refused this policy</string>
+    <plurals name="admin_pv_shell_refusal_places">
+        <item quantity="one">Marked on %d card</item>
+        <item quantity="other">Marked on %d cards</item>
+    </plurals>
+    <string name="admin_pv_shell_refusal_unplaced">The message names no rule that is here.</string>
+    <string name="admin_pv_shell_refusal_stale">Edited since. Review again to check.</string>
+    <string name="admin_pv_shell_refusal_prev">Previous card</string>
+    <string name="admin_pv_shell_refusal_next">Next card</string>
+
+    <!-- The page rail's short names, where a name stands under its icon. -->
+    <string name="admin_pv_shell_short_approvers">Approval</string>
+    <string name="admin_pv_shell_short_hosts">Hosts</string>
+    <string name="admin_pv_shell_short_attributes">Attributes</string>
+    <string name="admin_pv_shell_short_posture">Posture</string>
+    <string name="admin_pv_shell_short_network">Network</string>
+
+    <!-- An element, named in the review's "Show" buttons. -->
+    <string name="admin_pv_shell_el_acl">Access rule %1$d</string>
+    <string name="admin_pv_shell_el_grant">Grant %1$d</string>
+    <string name="admin_pv_shell_el_ssh">SSH rule %1$d</string>
+    <string name="admin_pv_shell_el_attr">Attribute rule %1$d</string>
+    <string name="admin_pv_shell_el_test">Test %1$d</string>
+    <string name="admin_pv_shell_el_ssh_test">SSH test %1$d</string>
+    <string name="admin_pv_shell_show">Show: %1$s</string>
+
+    <!-- The Network page. -->
+    <string name="admin_pv_net_options">Connection options</string>
+    <string name="admin_pv_net_random_port">Random client port</string>
+    <string name="admin_pv_net_random_port_help">Devices use a random UDP port instead of 41641, which some firewalls need. The device attribute randomize-client-port does the same for chosen devices only.</string>
+    <string name="admin_pv_net_no_ipv4">No IPv4 addresses</string>
+    <string name="admin_pv_net_no_ipv4_help">Devices get only IPv6 tailnet addresses, no 100.x one. The device attribute disable-ipv4 does this for chosen devices and is the documented way now.</string>
+    <string name="admin_pv_net_cgnat">Route to the tailnet on Macs</string>
+    <string name="admin_pv_net_cgnat_help">How Macs route 100.64.0.0/10. Automatic: one route for the whole range, unless another network on the Mac uses it.</string>
+    <string name="admin_pv_net_cgnat_auto">Automatic</string>
+    <string name="admin_pv_net_cgnat_always">One route for the whole range</string>
+    <string name="admin_pv_net_cgnat_never">A route per device</string>
+    <string name="admin_pv_net_cgnat_other">As written: %1$s</string>
+    <string name="admin_pv_net_odd_value">Written as a value this page does not know.</string>
+    <string name="admin_pv_net_derp">Relay servers (DERP)</string>
+    <string name="admin_pv_net_derp_defaults_on">Tailscale\'s relays are used</string>
+    <string name="admin_pv_net_derp_defaults_off">Tailscale\'s relays are not used</string>
+    <string name="admin_pv_net_derp_off">Turned off: %1$s</string>
+    <string name="admin_pv_net_derp_region">region %1$s</string>
+    <string name="admin_pv_net_derp_custom">Own relays</string>
+    <plurals name="admin_pv_net_derp_servers">
+        <item quantity="one">%d server</item>
+        <item quantity="other">%d servers</item>
+    </plurals>
+    <string name="admin_pv_net_derp_help">Relays carry traffic when two devices cannot connect directly. The relay map is edited in JSON; here is what it does.</string>
+    <string name="admin_pv_net_other">Other sections</string>
+    <string name="admin_pv_net_other_help">Kept exactly as written. The visual editor leaves them alone.</string>
+    <string name="admin_pv_net_line">Line %1$d</string>
+    <plurals name="admin_pv_net_fields">
+        <item quantity="one">%d field</item>
+        <item quantity="other">%d fields</item>
+    </plurals>
+    <plurals name="admin_pv_net_items">
+        <item quantity="one">%d item</item>
+        <item quantity="other">%d items</item>
+    </plurals>
+</resources>
