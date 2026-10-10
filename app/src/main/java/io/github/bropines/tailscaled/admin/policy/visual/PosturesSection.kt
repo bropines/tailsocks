@@ -56,7 +56,7 @@ fun PosturesSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 PageIntro(
                     ctx.getString(R.string.admin_pvd_postures_help), addLabel.takeIf { postures.isNotEmpty() }, add,
-                    sectionNotes(model, Section.POSTURES), sectionErrors(env, Section.POSTURES),
+                    defsSectionNotes(model, Section.POSTURES), sectionErrors(env, Section.POSTURES),
                 )
                 if (env.headscale) WarningLine(ctx.getString(R.string.admin_pvd_not_on_headscale))
             }

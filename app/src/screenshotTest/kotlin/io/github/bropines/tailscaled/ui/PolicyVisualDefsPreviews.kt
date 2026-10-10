@@ -16,7 +16,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.android.tools.screenshot.PreviewTest
 import io.github.bropines.tailscaled.admin.policy.visual.Definitions
-import io.github.bropines.tailscaled.admin.policy.visual.EditorColumn
+import io.github.bropines.tailscaled.admin.policy.visual.DefsEditorColumn
 import io.github.bropines.tailscaled.admin.policy.visual.GroupEditor
 import io.github.bropines.tailscaled.admin.policy.visual.HostEditor
 import io.github.bropines.tailscaled.admin.policy.visual.IpSetEditor
@@ -114,7 +114,7 @@ private fun Sheet(dark: Boolean = true, content: @Composable ColumnScope.() -> U
         ) {
             Column {
                 BottomSheetDefaults.DragHandle(Modifier.align(androidx.compose.ui.Alignment.CenterHorizontally))
-                EditorColumn(content = content)
+                DefsEditorColumn(content = content)
             }
         }
     }

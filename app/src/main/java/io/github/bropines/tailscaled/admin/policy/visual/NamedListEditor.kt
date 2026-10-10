@@ -136,30 +136,30 @@ internal fun DefinitionsPage(
             list = list,
             detail = {
                 // A pane starts each element's editor at its top.
-                if (editorKey != null) key(editorKey) { EditorFrame(onCloseEditor) { editor() } }
+                if (editorKey != null) key(editorKey) { DefsEditorFrame(onCloseEditor) { editor() } }
                 else PaneEmptyState(paneEmpty.first, paneEmpty.second)
             },
         )
     } else {
         ReadableWidth { list() }
         // Keyed inside the sheet: a rename moves the editor to the new name without closing it.
-        if (editorKey != null) EditorFrame(onCloseEditor) { key(editorKey) { editor() } }
+        if (editorKey != null) DefsEditorFrame(onCloseEditor) { key(editorKey) { editor() } }
     }
 }
 
 /** An editor's frame: a full-height sheet on a phone, the pane's scrolling column on a large window. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EditorFrame(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+private fun DefsEditorFrame(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     val parent = rememberParentLocals()
     SheetOrPane(onDismiss = onDismiss) {
-        parent.Provide { InPaneWidth { EditorColumn(content = content) } }
+        parent.Provide { InPaneWidth { DefsEditorColumn(content = content) } }
     }
 }
 
 /** The editor's scrolling column, apart so that a preview can draw an editor without its sheet. */
 @Composable
-internal fun EditorColumn(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+internal fun DefsEditorColumn(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier
             .fillMaxWidth()
@@ -636,7 +636,7 @@ internal fun DevicesBlock(title: String, devices: List<ApiDevice>, none: String,
 private const val MAX_DEVICES = 12
 
 /** One action of an editor's bottom row: an icon and a word, never in a menu. */
-internal data class EditorAction(val icon: ImageVector, val label: String, val enabled: Boolean = true, val danger: Boolean = false, val onClick: () -> Unit)
+internal data class DefsEditorAction(val icon: ImageVector, val label: String, val enabled: Boolean = true, val danger: Boolean = false, val onClick: () -> Unit)
 
 /**
  * The editor's last rows: the delete — refused, with why, while [places] still use the element —
@@ -651,7 +651,7 @@ internal fun EditorBottom(
     onDelete: (() -> Unit)?,
     places: Int = 0,
     deleteNote: String? = null,
-    more: List<EditorAction> = emptyList(),
+    more: List<DefsEditorAction> = emptyList(),
 ) {
     val ctx = LocalContext.current
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -665,9 +665,9 @@ internal fun EditorBottom(
             HelpText(deleteNote)
         }
         val all = buildList {
-            if (deleteLabel != null && onDelete != null) add(EditorAction(Icons.Default.Delete, deleteLabel, enabled = places == 0, danger = true, onClick = onDelete))
+            if (deleteLabel != null && onDelete != null) add(DefsEditorAction(Icons.Default.Delete, deleteLabel, enabled = places == 0, danger = true, onClick = onDelete))
             addAll(more)
-            if (origin != null) add(EditorAction(Icons.Default.Code, ctx.getString(R.string.admin_pv_edit_in_json)) { actions.openJson(origin.line) })
+            if (origin != null) add(DefsEditorAction(Icons.Default.Code, ctx.getString(R.string.admin_pv_edit_in_json)) { actions.openJson(origin.line) })
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             all.forEach { a ->
@@ -805,7 +805,7 @@ fun placeLabel(ctx: Context, path: PolicyPath): String {
 }
 
 /** The page's sections' own comments (the comment over `"groups": {`), as headings over the list. */
-fun sectionNotes(model: PolicyModel, vararg sections: Section): List<String> =
+fun defsSectionNotes(model: PolicyModel, vararg sections: Section): List<String> =
     model.sections.filter { it.section in sections }.mapNotNull { it.origin.note ?: it.origin.header }
 
 /** Server messages about a whole section rather than one element of it. */

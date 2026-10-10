@@ -82,7 +82,7 @@ fun ApproversSection(env: VisualEnv, actions: VisualActions, layout: VisualLayou
     val items = buildList {
         add(PageItem("intro") {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                PageIntro(ctx.getString(R.string.admin_pvd_approvers_help), null, null, sectionNotes(model, Section.AUTO_APPROVERS), sectionErrors(env, Section.AUTO_APPROVERS))
+                PageIntro(ctx.getString(R.string.admin_pvd_approvers_help), null, null, defsSectionNotes(model, Section.AUTO_APPROVERS), sectionErrors(env, Section.AUTO_APPROVERS))
                 if (aa != null && !aa.origin.editable) {
                     ElementCard(aa.origin, env, actions) { DefinitionHeader(Icons.Default.ThumbUp, Section.AUTO_APPROVERS.key, null) }
                 }

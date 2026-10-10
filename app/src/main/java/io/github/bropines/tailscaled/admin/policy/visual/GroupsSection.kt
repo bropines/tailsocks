@@ -34,7 +34,7 @@ fun GroupsSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) 
 
     val items = buildList {
         add(PageItem("intro") {
-            PageIntro(ctx.getString(R.string.admin_pvd_groups_help), addLabel.takeIf { groups.isNotEmpty() }, add, sectionNotes(model, Section.GROUPS), sectionErrors(env, Section.GROUPS))
+            PageIntro(ctx.getString(R.string.admin_pvd_groups_help), addLabel.takeIf { groups.isNotEmpty() }, add, defsSectionNotes(model, Section.GROUPS), sectionErrors(env, Section.GROUPS))
         })
         if (groups.isEmpty()) add(PageItem("empty") { EmptySection(Icons.Default.Groups, ctx.getString(R.string.admin_pvd_groups_empty), addLabel.takeIf { add != null }, add) })
         groups.forEachIndexed { i, g ->

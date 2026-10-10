@@ -71,7 +71,7 @@ fun HostsSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) {
 
     val items = buildList {
         add(PageItem("intro") {
-            PageIntro(ctx.getString(R.string.admin_pvd_hosts_help), null, null, sectionNotes(model, Section.HOSTS, Section.IPSETS), sectionErrors(env, Section.HOSTS, Section.IPSETS))
+            PageIntro(ctx.getString(R.string.admin_pvd_hosts_help), null, null, defsSectionNotes(model, Section.HOSTS, Section.IPSETS), sectionErrors(env, Section.HOSTS, Section.IPSETS))
         })
         add(PageItem("hosts") {
             SubsectionHeader(ctx.getString(R.string.admin_pvd_hosts_title), ctx.getString(R.string.admin_pvd_host_new).takeIf { env.editable }, { open(DefKind.HOST) })

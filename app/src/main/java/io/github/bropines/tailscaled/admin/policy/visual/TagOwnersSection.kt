@@ -63,7 +63,7 @@ fun TagOwnersSection(env: VisualEnv, actions: VisualActions, layout: VisualLayou
 
     val items = buildList {
         add(PageItem("intro") {
-            PageIntro(ctx.getString(R.string.admin_pvd_tags_help), addLabel.takeIf { tags.isNotEmpty() }, add, sectionNotes(model, Section.TAG_OWNERS), sectionErrors(env, Section.TAG_OWNERS))
+            PageIntro(ctx.getString(R.string.admin_pvd_tags_help), addLabel.takeIf { tags.isNotEmpty() }, add, defsSectionNotes(model, Section.TAG_OWNERS), sectionErrors(env, Section.TAG_OWNERS))
         })
         if (unowned.isNotEmpty()) add(PageItem("unowned") { UnownedBanner(unowned, env, ::addUnowned) })
         if (tags.isEmpty()) add(PageItem("empty") { EmptySection(Icons.AutoMirrored.Filled.Label, ctx.getString(R.string.admin_pvd_tags_empty), addLabel.takeIf { add != null }, add) })

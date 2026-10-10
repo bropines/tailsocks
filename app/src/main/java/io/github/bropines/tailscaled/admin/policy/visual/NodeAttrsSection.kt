@@ -68,7 +68,7 @@ fun NodeAttrsSection(env: VisualEnv, actions: VisualActions, layout: VisualLayou
 
     val items = buildList {
         add(PageItem("intro") {
-            PageIntro(ctx.getString(R.string.admin_pvd_attrs_help), addLabel.takeIf { rules.isNotEmpty() }, add, sectionNotes(model, Section.NODE_ATTRS), sectionErrors(env, Section.NODE_ATTRS))
+            PageIntro(ctx.getString(R.string.admin_pvd_attrs_help), addLabel.takeIf { rules.isNotEmpty() }, add, defsSectionNotes(model, Section.NODE_ATTRS), sectionErrors(env, Section.NODE_ATTRS))
         })
         if (rules.isEmpty()) add(PageItem("empty") { EmptySection(Icons.Default.Hub, ctx.getString(R.string.admin_pvd_attrs_empty), addLabel.takeIf { add != null }, add) })
         rules.forEachIndexed { i, r ->
@@ -309,13 +309,13 @@ internal fun AttrEditor(r: NodeAttr, env: VisualEnv, actions: VisualActions, lay
     NoteField(r.origin, tree, editable, actions)
     val count = model.nodeAttrs.size
     val more = if (!editable) emptyList() else listOf(
-        EditorAction(Icons.Default.ContentCopy, ctx.getString(R.string.admin_pvd_duplicate), enabled = r.app.isEmpty() && r.ipPool.isEmpty() && r.origin.extra.isEmpty()) {
+        DefsEditorAction(Icons.Default.ContentCopy, ctx.getString(R.string.admin_pvd_duplicate), enabled = r.app.isEmpty() && r.ipPool.isEmpty() && r.origin.extra.isEmpty()) {
             if (actions.edit { Definitions.duplicateNodeAttr(it, r) }) layout.onSelect(path.parent() + (index + 1))
         },
-        EditorAction(Icons.Default.KeyboardArrowUp, ctx.getString(R.string.admin_pvd_move_up), enabled = index > 0) {
+        DefsEditorAction(Icons.Default.KeyboardArrowUp, ctx.getString(R.string.admin_pvd_move_up), enabled = index > 0) {
             if (actions.edit { PolicyEdits.moveRule(it, Section.NODE_ATTRS, index, index - 1) }) layout.onSelect(path.parent() + (index - 1))
         },
-        EditorAction(Icons.Default.KeyboardArrowDown, ctx.getString(R.string.admin_pvd_move_down), enabled = index < count - 1) {
+        DefsEditorAction(Icons.Default.KeyboardArrowDown, ctx.getString(R.string.admin_pvd_move_down), enabled = index < count - 1) {
             if (actions.edit { PolicyEdits.moveRule(it, Section.NODE_ATTRS, index, index + 1) }) layout.onSelect(path.parent() + (index + 1))
         },
     )
