@@ -82,7 +82,7 @@ import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 /** 2026-10-09T12:00:00Z. */
 private const val NOW = 1_791_547_200_000L
 
-private object KeysUsersDemo {
+internal object KeysUsersDemo {
     private fun auth(id: String, desc: String, created: String, expires: String, reusable: Boolean, ephemeral: Boolean = false, preauth: Boolean = false, tags: List<String> = emptyList(), revoked: String? = null) =
         ApiKey(
             id = id, keyType = "auth", description = desc, created = created, expires = expires, revoked = revoked, invalid = revoked != null,

@@ -65,7 +65,7 @@ fun ReleaseScale80() = Scaled(0.8f)
 fun ReleaseScale120() = Scaled(1.2f)
 
 /** A made-up TailCat setup: two connections up (one with a SOCKS5 proxy), one off, and the phone serving a port. */
-private val demoTailcat = DemoTailcat(
+internal val demoTailcat = DemoTailcat(
     publicKey = "nodekey:5c1e8a07d2b94f6e31a8c0d7e9b2f4a6c8e0d1b3f5a7c9e2d4b6f8a0c2e4b6d8",
     connections = listOf(
         TailcatConnection(id = "nas", name = "home-nas", address = "tcpGFwWCCaDemoHomeNas", ports = "8080, 2222:22", enabled = true),

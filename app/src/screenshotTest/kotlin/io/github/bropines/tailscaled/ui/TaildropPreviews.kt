@@ -34,7 +34,7 @@ import kotlinx.serialization.encodeToString
  * drawn without their window (the renderer has none), on the sheet's own surface.
  */
 
-private object TaildropDemo {
+internal object TaildropDemo {
     private fun peer(
         id: String, host: String, os: String, v4: String, online: Boolean, taildrop: Int,
         curAddr: String = "", relay: String = "fra", tags: List<String> = emptyList(), user: Int = 1
