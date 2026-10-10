@@ -23,6 +23,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
+import androidx.compose.foundation.lazy.staggeredgrid.items as gridItems
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -251,6 +255,61 @@ fun TailcatScreen(onBack: () -> Unit, page: ServePage? = null, importText: Strin
     }
     if (page != null) SideEffect { page.actions.value = actions }
 
+    // The screen's pieces, the same in the phone's list and in a large window's columns.
+    val intro: @Composable () -> Unit = {
+        HelpText(stringResource(R.string.tailcat_intro), modifier = Modifier.padding(horizontal = 4.dp))
+    }
+    val keyCard: @Composable () -> Unit = {
+        KeyCard(
+            publicKey = publicKey,
+            onCreate = { publicKey = TailcatKey.create(context) },
+            onReplace = { confirmNewKey = true },
+            onCopy = { copy(it) }
+        )
+    }
+    val connectionCard: @Composable (TailcatConnection) -> Unit = { conn ->
+        val status = statuses[conn.id]
+        ConnectionCard(
+            conn = conn,
+            status = status,
+            on = running(conn.id),
+            open = openId == conn.id,
+            output = if (openId == conn.id) output else "",
+            onToggleOpen = { openId = if (openId == conn.id) null else conn.id; output = "" },
+            onSwitch = { on -> if (on) TailcatService.start(context, conn.id) else TailcatService.stop(context, conn.id) },
+            onEdit = { editor = conn },
+            onDelete = { deleting = conn },
+            onCopy = { copy(it) },
+            onOpen = { openInBrowser(it) },
+            onQr = { qrConnection = conn },
+            onLogs = { openLogs() }
+        )
+    }
+    val serverCard: @Composable () -> Unit = {
+        ServerCard(
+            address = serverAddress,
+            config = serverConfig,
+            status = serverStatus,
+            on = serverOn,
+            creating = creatingServer,
+            onCreate = { createServerAddress() },
+            onNewAddress = { confirmNewAddress = true },
+            onSwitch = { on ->
+                if (on) TailcatService.startServer(context) else TailcatService.stopServer(context)
+                serverConfig = TailcatServer.load(context)
+            },
+            onEdit = { editingServer = true },
+            onCopy = { copy(it) },
+            onShare = { share(it) },
+            onQr = { serverQr = true },
+            onLogs = { openLogs() }
+        )
+    }
+    // A large window: this device's own side (its key, its server) in a column of its own,
+    // the connections beside it in as many columns as fit; a medium one keeps the phone's
+    // order with the connections in columns. A phone keeps its list, exactly as it was.
+    val window = rememberWindowLayout()
+
     val scaffold: @Composable () -> Unit = {
         Scaffold(
             topBar = { if (page == null) AppTopBar(title = stringResource(R.string.tailcat_title), onBack = onBack, actions = actions) },
@@ -262,62 +321,61 @@ fun TailcatScreen(onBack: () -> Unit, page: ServePage? = null, importText: Strin
                 }) { Icon(Icons.Default.Add, stringResource(R.string.tailcat_add)) }
             }
         ) { padding ->
-            ReadableWidth {
-                LazyColumn(
+            val line = StaggeredGridItemSpan.FullLine
+            when {
+                window.listDetail -> SideBySide(window, Modifier.padding(padding).fillMaxSize(), start = { side ->
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = side.with(top = 8.dp, bottom = 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        item { intro() }
+                        item { keyCard() }
+                        item { SectionHeading(stringResource(R.string.tailcat_server_heading)) }
+                        item { serverCard() }
+                    }
+                }, end = { side ->
+                    LazyVerticalStaggeredGrid(
+                        columns = StaggeredGridCells.Adaptive(320.dp),
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = side.with(top = 8.dp, bottom = 96.dp),
+                        verticalItemSpacing = 12.dp,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        item(span = line) { SectionHeading(stringResource(R.string.tailcat_heading_connections)) }
+                        if (connections.isEmpty()) item(span = line) { EmptyConnectionsCard(onScan = scanQr) }
+                        else gridItems(connections, key = { it.id }) { conn -> connectionCard(conn) }
+                    }
+                })
+                window.multiColumn -> LazyVerticalStaggeredGrid(
+                    columns = StaggeredGridCells.Adaptive(320.dp),
                     modifier = Modifier.padding(padding).fillMaxSize(),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    contentPadding = PaddingValues(start = window.margin, end = window.margin, top = 8.dp, bottom = 96.dp),
+                    verticalItemSpacing = 12.dp,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    item { HelpText(stringResource(R.string.tailcat_intro), modifier = Modifier.padding(horizontal = 4.dp)) }
-                    item {
-                        KeyCard(
-                            publicKey = publicKey,
-                            onCreate = { publicKey = TailcatKey.create(context) },
-                            onReplace = { confirmNewKey = true },
-                            onCopy = { copy(it) }
-                        )
-                    }
-                    item { SectionHeading(stringResource(R.string.tailcat_heading_connections)) }
-                    if (connections.isEmpty()) {
-                        item { EmptyConnectionsCard(onScan = scanQr) }
-                    } else items(connections, key = { it.id }) { conn ->
-                        val status = statuses[conn.id]
-                        ConnectionCard(
-                            conn = conn,
-                            status = status,
-                            on = running(conn.id),
-                            open = openId == conn.id,
-                            output = if (openId == conn.id) output else "",
-                            onToggleOpen = { openId = if (openId == conn.id) null else conn.id; output = "" },
-                            onSwitch = { on -> if (on) TailcatService.start(context, conn.id) else TailcatService.stop(context, conn.id) },
-                            onEdit = { editor = conn },
-                            onDelete = { deleting = conn },
-                            onCopy = { copy(it) },
-                            onOpen = { openInBrowser(it) },
-                            onQr = { qrConnection = conn },
-                            onLogs = { openLogs() }
-                        )
-                    }
-                    item { SectionHeading(stringResource(R.string.tailcat_server_heading)) }
-                    item {
-                        ServerCard(
-                            address = serverAddress,
-                            config = serverConfig,
-                            status = serverStatus,
-                            on = serverOn,
-                            creating = creatingServer,
-                            onCreate = { createServerAddress() },
-                            onNewAddress = { confirmNewAddress = true },
-                            onSwitch = { on ->
-                                if (on) TailcatService.startServer(context) else TailcatService.stopServer(context)
-                                serverConfig = TailcatServer.load(context)
-                            },
-                            onEdit = { editingServer = true },
-                            onCopy = { copy(it) },
-                            onShare = { share(it) },
-                            onQr = { serverQr = true },
-                            onLogs = { openLogs() }
-                        )
+                    item(span = line) { intro() }
+                    item(span = line) { keyCard() }
+                    item(span = line) { SectionHeading(stringResource(R.string.tailcat_heading_connections)) }
+                    if (connections.isEmpty()) item(span = line) { EmptyConnectionsCard(onScan = scanQr) }
+                    else gridItems(connections, key = { it.id }) { conn -> connectionCard(conn) }
+                    item(span = line) { SectionHeading(stringResource(R.string.tailcat_server_heading)) }
+                    item(span = line) { serverCard() }
+                }
+                else -> ReadableWidth {
+                    LazyColumn(
+                        modifier = Modifier.padding(padding).fillMaxSize(),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        item { intro() }
+                        item { keyCard() }
+                        item { SectionHeading(stringResource(R.string.tailcat_heading_connections)) }
+                        if (connections.isEmpty()) {
+                            item { EmptyConnectionsCard(onScan = scanQr) }
+                        } else items(connections, key = { it.id }) { conn -> connectionCard(conn) }
+                        item { SectionHeading(stringResource(R.string.tailcat_server_heading)) }
+                        item { serverCard() }
                     }
                 }
             }
