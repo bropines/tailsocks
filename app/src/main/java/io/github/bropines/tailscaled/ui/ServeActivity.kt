@@ -148,8 +148,10 @@ fun ServeHost(startTab: Int, onBack: () -> Unit, activity: FragmentActivity? = n
     val scope = rememberCoroutineScope()
     val pages = remember { List(2) { ServePage(mutableStateOf({})) } }
     // The switch stands over the pages at their own margins: on a large window those are
-    // the window's, and the pages fill it (a phone keeps its 16dp, which is the same).
+    // the window's, and the pages fill it (a phone keeps its 16dp, which is the same); a
+    // foldable open like a book lays a phone's width on each half, with a phone's margins.
     val window = rememberWindowLayout()
+    val switchMargin = if (window.fold is Fold.Vertical) 16.dp else window.margin
     PredictiveBackContainer(onBack = onBack, popsInAppState = false) {
         Scaffold(
             topBar = {
@@ -168,7 +170,7 @@ fun ServeHost(startTab: Int, onBack: () -> Unit, activity: FragmentActivity? = n
                         selectedIndex = pager.currentPage,
                         onOptionSelected = { scope.launch { pager.animateScrollToPage(it) } },
                         positionOffset = pager.currentPage + pager.currentPageOffsetFraction,
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = window.margin, vertical = 4.dp)
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = switchMargin, vertical = 4.dp)
                     )
                 }
             }
