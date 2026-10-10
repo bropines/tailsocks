@@ -165,13 +165,88 @@ class RuleFormTest {
     @Test
     fun moveDownCrossesTheNextHeadingAndStopsAtTheEnd() {
         assertNull(RuleForms.moveDown(headers, headers.lastIndex))
-        // acls[5] is the last of its run: it goes under "2. DNS", below the rule that opens it.
-        assertEquals(6 to Anchor.AFTER_PREVIOUS, RuleForms.moveDown(headers, 5))
-        val after = PolicyEdits.moveRule(sample, Section.ACLS, 5, 6, Anchor.AFTER_PREVIOUS)
+        // acls[5] is the last of its run: it goes under "2. DNS", the first rule of that run now.
+        assertEquals(5 to Anchor.BEFORE_NEXT, RuleForms.moveDown(headers, 5))
+        val after = PolicyEdits.moveRule(sample, Section.ACLS, 5, 5, Anchor.BEFORE_NEXT)
         val m = read(after)
         assertTrue(m.acls[5].origin.header!!.contains("DNS"))
-        assertEquals(model.acls[5].dst, m.acls[6].dst)
-        assertMeaning(moveAt(parsed(sample), listOf("acls"), 5, 6), after)
+        assertNull(m.acls[6].origin.header)
+        assertEquals(model.acls[5].dst, m.acls[5].dst)
+        assertEquals(model.acls[6].dst, m.acls[6].dst)
+        // Only the heading and the rule changed places: the same rules in the same order.
+        assertEquals(HuJson.canonical(parsed(sample)), HuJson.canonical(parsed(after)))
+
+        // Inside a run, a rule swaps with the one below it and both stay under their heading.
+        assertEquals(7 to Anchor.AFTER_PREVIOUS, RuleForms.moveDown(headers, 6))
+        val swapped = PolicyEdits.moveRule(sample, Section.ACLS, 6, 7, Anchor.AFTER_PREVIOUS)
+        val s = read(swapped)
+        assertTrue(s.acls[6].origin.header!!.contains("DNS"))
+        assertEquals(model.acls[6].dst, s.acls[7].dst)
+        assertMeaning(moveAt(parsed(sample), listOf("acls"), 6, 7), swapped)
+    }
+
+    private fun originsOf(m: PolicyModel, section: Section): List<Origin> = when (section) {
+        Section.ACLS -> m.acls.map { it.origin }
+        Section.SSH -> m.ssh.map { it.origin }
+        Section.TESTS -> m.tests.map { it.origin }
+        Section.NODE_ATTRS -> m.nodeAttrs.map { it.origin }
+        else -> error("no moves on $section")
+    }
+
+    private fun headersOf(m: PolicyModel, section: Section): List<Boolean> = originsOf(m, section).map { it.header != null }
+
+    /** Where one step takes rule [i], as the card's arrows do it: the new text and the rule's new index. */
+    private fun step(text: String, section: Section, i: Int, down: Boolean): Pair<String, Int>? {
+        val h = headersOf(read(text), section)
+        val (to, anchor) = (if (down) RuleForms.moveDown(h, i) else RuleForms.moveUp(h, i)) ?: return null
+        return PolicyEdits.moveRule(text, section, i, to, anchor) to to
+    }
+
+    /**
+     * A step the text cannot take back exactly, by the comment rules (Trivia): a note the step
+     * puts right under a heading, or at the top of the list, reads as part of that heading
+     * afterwards; a heading the step leaves over no rule heads none any more. The meaning is
+     * kept either way, and undo restores the bytes.
+     */
+    private fun blursComments(origins: List<Origin>, i: Int, down: Boolean): Boolean {
+        val h = origins.map { it.header != null }
+        val last = origins.lastIndex
+        val involved = if (down) listOf(i, i + 1) else listOfNotNull(i, i - 1, (i + 1).takeIf { h[i] && it <= last })
+        val emptied = if (down) h[i] && h[i + 1] else h[i] && (i == last || h[i + 1])
+        return emptied || involved.any { origins[it].note != null }
+    }
+
+    @Test
+    fun oneStepAndOneBackPutEveryRuleBackByteForByte() {
+        var checked = 0
+        for (section in listOf(Section.ACLS, Section.SSH, Section.TESTS, Section.NODE_ATTRS)) {
+            val origins = originsOf(model, section)
+            for (i in origins.indices) for (down in listOf(true, false)) {
+                val (moved, at) = step(sample, section, i, down) ?: continue
+                val what = "$section[$i] ${if (down) "down" else "up"}"
+                assertMeaning(moveAt(parsed(sample), listOf(section.key), i, at), moved)
+                if (blursComments(origins, i, down)) continue
+                val (back, home) = step(moved, section, at, !down) ?: error("$what: no way back")
+                assertEquals("$what and back", i, home)
+                assertEquals("$what and back", sample, back)
+                checked++
+            }
+        }
+        // Most steps of the sample are plain ones: across its headings and between rules alike.
+        assertTrue("only $checked steps checked", checked >= 20)
+    }
+
+    @Test
+    fun theRuleOpenInAPaneFollowsAMove() {
+        // The moved rule itself goes where it was taken.
+        assertEquals(2, RuleForms.indexAfterMove(5, 5, 2))
+        // A rule moved down past the open one lifts it by one; moved up past it, pushes it down.
+        assertEquals(3, RuleForms.indexAfterMove(4, 2, 4))
+        assertEquals(5, RuleForms.indexAfterMove(4, 6, 2))
+        // Rules outside the stretch stay; a move that keeps its index changes nothing.
+        assertEquals(1, RuleForms.indexAfterMove(1, 2, 4))
+        assertEquals(7, RuleForms.indexAfterMove(7, 2, 4))
+        assertEquals(3, RuleForms.indexAfterMove(3, 5, 5))
     }
 
     @Test

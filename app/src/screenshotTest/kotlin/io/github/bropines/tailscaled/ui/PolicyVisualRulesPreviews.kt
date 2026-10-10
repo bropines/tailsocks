@@ -34,11 +34,12 @@ import io.github.bropines.tailscaled.admin.policy.visual.AccessCard
 import io.github.bropines.tailscaled.admin.policy.visual.AccessRule
 import io.github.bropines.tailscaled.admin.policy.visual.AccessRuleEditorContent
 import io.github.bropines.tailscaled.admin.policy.visual.AccessSection
+import io.github.bropines.tailscaled.admin.policy.visual.CardMoves
 import io.github.bropines.tailscaled.admin.policy.visual.DestinationContent
 import io.github.bropines.tailscaled.admin.policy.visual.PolicyEdits
 import io.github.bropines.tailscaled.admin.policy.visual.PolicyPath
 import io.github.bropines.tailscaled.admin.policy.visual.RuleForms
-import io.github.bropines.tailscaled.admin.policy.visual.RuleMoves
+import io.github.bropines.tailscaled.admin.policy.visual.RuleOffers
 import io.github.bropines.tailscaled.admin.policy.visual.Section
 import io.github.bropines.tailscaled.admin.policy.visual.SelectorField
 import io.github.bropines.tailscaled.admin.policy.visual.SelectorPickerContent
@@ -254,10 +255,11 @@ fun AccessCards() = Theme {
     val env = RulesDemo.env(policy = RulesDemo.cards, errors = RulesDemo.error)
     val m = env.model!!
     Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        AccessCard(AccessRule.Acl(m.acls[12]), env, PolicyVisualDemo.actions) {}
-        AccessCard(AccessRule.Acl(m.acls[14]), env, PolicyVisualDemo.actions, selected = true) {}
-        AccessCard(AccessRule.Acl(m.acls[15]), env, PolicyVisualDemo.actions) {}
-        AccessCard(AccessRule.Grant(m.grants[1]), env, PolicyVisualDemo.actions) {}
+        // The arrows: both ways, the last of its list (no way down), the first (no way up), none where nothing may be written.
+        AccessCard(AccessRule.Acl(m.acls[12]), env, PolicyVisualDemo.actions, moves = CardMoves(up = true, down = true) {}) {}
+        AccessCard(AccessRule.Acl(m.acls[14]), env, PolicyVisualDemo.actions, selected = true, moves = CardMoves(up = true, down = true) {}) {}
+        AccessCard(AccessRule.Acl(m.acls[15]), env, PolicyVisualDemo.actions, moves = CardMoves(up = true, down = false) {}) {}
+        AccessCard(AccessRule.Grant(m.grants[1]), env, PolicyVisualDemo.actions, moves = CardMoves(up = false, down = true) {}) {}
         AccessCard(AccessRule.Grant(m.grants[0]), env, PolicyVisualDemo.actions) {}
     }
 }
@@ -266,28 +268,28 @@ fun AccessCards() = Theme {
 fun AccessEditorAcl() = Sheet {
     val env = RulesDemo.env()
     val rule = AccessRule.Acl(env.model!!.acls[9])
-    AccessRuleEditorContent(rule, env, PolicyVisualDemo.actions, isNew = false, moves = RuleMoves(up = true, down = true, test = true, convert = true), onChange = {}, onAction = {})
+    AccessRuleEditorContent(rule, env, PolicyVisualDemo.actions, isNew = false, offers = RuleOffers(test = true, convert = true), onChange = {}, onAction = {})
 }
 
 @PreviewTest @RulesPhoneRu @Composable
 fun AccessEditorAclRu() = Sheet(dark = false) {
     val env = RulesDemo.env(errors = RulesDemo.error)
     val rule = AccessRule.Acl(env.model!!.acls[12])
-    AccessRuleEditorContent(rule, env, PolicyVisualDemo.actions, isNew = false, moves = RuleMoves(up = true, down = true, test = true, convert = true), onChange = {}, onAction = {})
+    AccessRuleEditorContent(rule, env, PolicyVisualDemo.actions, isNew = false, offers = RuleOffers(test = true, convert = true), onChange = {}, onAction = {})
 }
 
 @PreviewTest @RulesPhone @Composable
 fun AccessEditorGrant() = Sheet {
     val env = RulesDemo.env()
     val rule = AccessRule.Grant(env.model!!.grants[1])
-    AccessRuleEditorContent(rule, env, PolicyVisualDemo.actions, isNew = false, moves = RuleMoves(up = true), onChange = {}, onAction = {})
+    AccessRuleEditorContent(rule, env, PolicyVisualDemo.actions, isNew = false, offers = RuleOffers(), onChange = {}, onAction = {})
 }
 
 @PreviewTest @RulesPhone @Composable
 fun AccessEditorApps() = Sheet(dark = false) {
     val env = RulesDemo.env()
     val rule = AccessRule.Grant(env.model!!.grants[0])
-    AccessRuleEditorContent(rule, env, PolicyVisualDemo.actions, isNew = false, moves = RuleMoves(down = true), onChange = {}, onAction = {})
+    AccessRuleEditorContent(rule, env, PolicyVisualDemo.actions, isNew = false, offers = RuleOffers(), onChange = {}, onAction = {})
 }
 
 @PreviewTest @RulesPhone @Composable
@@ -295,7 +297,7 @@ fun AccessEditorNew() = Sheet {
     val env = RulesDemo.env()
     val m = env.model!!
     val form = RuleForms.template(io.github.bropines.tailscaled.admin.policy.visual.AccessTemplate.GUESTS_INTERNET, m, RuleForms.newAccessSection(m, false))
-    AccessRuleEditorContent(form, env, PolicyVisualDemo.actions, isNew = true, moves = RuleMoves(), onChange = {}, onAction = {})
+    AccessRuleEditorContent(form, env, PolicyVisualDemo.actions, isNew = true, offers = RuleOffers(), onChange = {}, onAction = {})
 }
 
 // ---- SSH ----
@@ -315,7 +317,7 @@ fun SshTabletLight() = Shell(VisualSection.SSH, wide = true, dark = false) { Ssh
 @PreviewTest @RulesPhone @Composable
 fun SshEditor() = Sheet {
     val env = RulesDemo.env()
-    SshRuleEditorContent(env.model!!.ssh[3], env, PolicyVisualDemo.actions, isNew = false, moves = RuleMoves(up = true), onChange = {}, onAction = {}, onAddAccess = {})
+    SshRuleEditorContent(env.model!!.ssh[3], env, PolicyVisualDemo.actions, isNew = false, onChange = {}, onAction = {}, onAddAccess = {})
 }
 
 // ---- Tests ----
@@ -335,11 +337,11 @@ fun TestsEmpty() = Shell(VisualSection.TESTS, wide = false, dark = false) { Test
 @PreviewTest @RulesPhone @Composable
 fun TestEditor() = Sheet {
     val env = RulesDemo.env()
-    TestEditorContent(env.model!!.tests[0], env, PolicyVisualDemo.actions, isNew = false, moves = RuleMoves(down = true), onChange = {}, onAction = {})
+    TestEditorContent(env.model!!.tests[0], env, PolicyVisualDemo.actions, isNew = false, onChange = {}, onAction = {})
 }
 
 @PreviewTest @RulesPhone @Composable
 fun SshTestEditor() = Sheet(dark = false) {
     val env = RulesDemo.env()
-    SshTestEditorContent(env.model!!.sshTests[0], env, PolicyVisualDemo.actions, isNew = false, moves = RuleMoves(), onChange = {}, onAction = {})
+    SshTestEditorContent(env.model!!.sshTests[0], env, PolicyVisualDemo.actions, isNew = false, onChange = {}, onAction = {})
 }

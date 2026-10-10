@@ -72,14 +72,17 @@ fun TestsSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) {
     val rows = remember(m) {
         pageRows(m.tests, Section.TESTS) { it.origin } + PageRow.Divider(Section.SSH_TESTS.key, Section.SSH_TESTS) + pageRows(m.sshTests, Section.SSH_TESTS) { it.origin }
     }
-    ScrollTo(listState, rows, layout.selected ?: env.focus)
+    val testHeaders = remember(m) { m.tests.map { it.origin.header != null } }
+    val sshTestHeaders = remember(m) { m.sshTests.map { it.origin.header != null } }
+    // The page's header, and the line that says there are no access tests, stand over the rows.
+    val before = if (m.tests.isEmpty()) 2 else 1
+    val mover = rememberCardMover(listState) { p -> rowIndex(rows, p, before) }
+    ScrollTo(listState, rows, layout.selected ?: env.focus, before = before, skip = mover.followed)
 
     fun select(p: PolicyPath?) {
         pending = null
         layout.onSelect(p)
     }
-
-    fun headers(section: Section) = if (section == Section.TESTS) m.tests.map { it.origin.header != null } else m.sshTests.map { it.origin.header != null }
 
     fun delete(path: PolicyPath) {
         if (actions.edit { PolicyEdits.removeRule(it, path) }) {
@@ -97,11 +100,6 @@ fun TestsSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) {
             RuleAction.DUPLICATE -> if (actions.edit { RuleForms.duplicate(it, path) }) {
                 layout.onSelect(PolicyPath.of(section.key, i + 1))
                 actions.notify(ctx.getString(R.string.admin_pv_test_duplicated))
-            }
-            RuleAction.MOVE_UP, RuleAction.MOVE_DOWN -> {
-                val h = headers(section)
-                val to = (if (a == RuleAction.MOVE_UP) RuleForms.moveUp(h, i) else RuleForms.moveDown(h, i)) ?: return
-                if (actions.edit { PolicyEdits.moveRule(it, section, i, to.first, to.second) }) layout.onSelect(PolicyPath.of(section.key, to.first))
             }
             else -> Unit
         }
@@ -175,8 +173,18 @@ fun TestsSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) {
                             if (m.sshTests.isEmpty()) NoneYet(ctx.getString(R.string.admin_pv_sshtests_none))
                         }
                         is PageRow.Item<*> -> when (val t = row.item) {
-                            is AclTest -> TestCard(t, env, actions, selected = twoPane && pending == null && shownPath(shown) == t.origin.path) { select(t.origin.path) }
-                            is SshTest -> SshTestCard(t, env, actions, selected = twoPane && pending == null && shownPath(shown) == t.origin.path) { select(t.origin.path) }
+                            is AclTest -> TestCard(
+                                t, env, actions,
+                                selected = twoPane && pending == null && shownPath(shown) == t.origin.path,
+                                moves = mover.moves(Section.TESTS, testHeaders, t.index, env, actions, layout),
+                                modifier = mover.decor(t.origin.path, env.draft.text),
+                            ) { select(t.origin.path) }
+                            is SshTest -> SshTestCard(
+                                t, env, actions,
+                                selected = twoPane && pending == null && shownPath(shown) == t.origin.path,
+                                moves = mover.moves(Section.SSH_TESTS, sshTestHeaders, t.index, env, actions, layout),
+                                modifier = mover.decor(t.origin.path, env.draft.text),
+                            ) { select(t.origin.path) }
                         }
                     }
                 }
@@ -188,7 +196,7 @@ fun TestsSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) {
                 is AclTest -> EditorFrame(onDismiss = { select(null) }) {
                     key(t.origin.path, isNew) {
                         TestEditorContent(
-                            t, env, actions, isNew, movesOf(headers(Section.TESTS), t.index),
+                            t, env, actions, isNew,
                             onChange = { changeAccess(t, it) }, onAction = { act(t.origin, Section.TESTS, it) },
                         )
                     }
@@ -196,7 +204,7 @@ fun TestsSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) {
                 is SshTest -> EditorFrame(onDismiss = { select(null) }) {
                     key(t.origin.path, isNew) {
                         SshTestEditorContent(
-                            t, env, actions, isNew, movesOf(headers(Section.SSH_TESTS), t.index),
+                            t, env, actions, isNew,
                             onChange = { changeSsh(t, it) }, onAction = { act(t.origin, Section.SSH_TESTS, it) },
                         )
                     }

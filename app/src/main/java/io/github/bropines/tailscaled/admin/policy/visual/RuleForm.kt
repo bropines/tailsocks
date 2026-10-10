@@ -212,10 +212,26 @@ object RuleForms {
         return end + 1
     }
 
-    /** Where Move down takes rule [i]: below the next one, across its heading if it has one. Null at the bottom. */
+    /**
+     * Where Move down takes rule [i], the mirror of [moveUp]: the last rule before a heading goes
+     * under it (the first of that run, keeping its index); any other swaps with the one below it,
+     * staying in its run. Null at the bottom. One step down and one up put a rule back as it was.
+     */
     fun moveDown(headers: List<Boolean>, i: Int): Pair<Int, Anchor>? = when {
         i < 0 || i >= headers.lastIndex -> null
+        headers[i + 1] -> i to Anchor.BEFORE_NEXT
         else -> i + 1 to Anchor.AFTER_PREVIOUS
+    }
+
+    /**
+     * Where the element at [selected] of a list is after the element at [from] moved to [to]:
+     * so that the one open in a pane stays open as it moves, or as another moves past it.
+     */
+    fun indexAfterMove(selected: Int, from: Int, to: Int): Int = when {
+        selected == from -> to
+        from < to && selected in (from + 1)..to -> selected - 1
+        to < from && selected in to until from -> selected + 1
+        else -> selected
     }
 
     /**

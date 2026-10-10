@@ -312,8 +312,9 @@ object SourceEdits {
     /**
      * Move member [from] of the container at [path] so that it becomes member [to], with its note
      * and trailing comment and exactly its own text. [anchor] decides on which side of a header
-     * between two members it lands ([Anchor]). Moving a member to its own index with
-     * [Anchor.AFTER_PREVIOUS] lifts it above its own header.
+     * between two members it lands ([Anchor]). Moving a member to its own index crosses a header
+     * and nothing else: with [Anchor.AFTER_PREVIOUS] it lifts the member above its own header,
+     * with [Anchor.BEFORE_NEXT] it drops it below the header of the member after it.
      */
     fun move(text: String, path: PolicyPath, from: Int, to: Int, anchor: Anchor = Anchor.AFTER_PREVIOUS): String {
         val t = tree(text)
@@ -323,8 +324,12 @@ object SourceEdits {
         val m = ms[from]
         val cm = Trivia.comments(t, c, from)
         val lines = Trivia.lines(t, c, from)
-        // Only a member with a header above it has somewhere to go without changing its index.
-        if (from == to && (ms.size == 1 || !lines.ownLines || cm.header == null)) return text
+        // At its own index a member only crosses a header: its own, or the one over the next member.
+        val crosses = when (anchor) {
+            Anchor.AFTER_PREVIOUS -> cm.header != null
+            Anchor.BEFORE_NEXT -> from < ms.lastIndex && Trivia.comments(t, c, from + 1).header != null
+        }
+        if (from == to && (ms.size == 1 || !lines.ownLines || !crosses)) return text
         val src = t.text
         val note: List<String>?
         val body: String

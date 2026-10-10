@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Визуальный редактор политики: перемещение элементов с их карточек. -->
+<resources>
+    <string name="admin_pv_nav_move_up">Переместить выше</string>
+    <string name="admin_pv_nav_move_down">Переместить ниже</string>
+</resources>

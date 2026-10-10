@@ -49,7 +49,8 @@ fun SshSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) {
     val rows = remember(m) { pageRows(m.ssh, Section.SSH) { it.origin } }
     val headers = remember(m) { m.ssh.map { it.origin.header != null } }
     val policy = rememberPolicy(env)
-    ScrollTo(listState, rows, layout.selected ?: env.focus)
+    val mover = rememberCardMover(listState) { p -> rowIndex(rows, p, 1) }
+    ScrollTo(listState, rows, layout.selected ?: env.focus, skip = mover.followed)
 
     fun select(p: PolicyPath?) {
         pending = null
@@ -88,10 +89,6 @@ fun SshSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) {
             RuleAction.DUPLICATE -> if (actions.edit { RuleForms.duplicate(it, path) }) {
                 layout.onSelect(PolicyPath.of(Section.SSH.key, i + 1))
                 actions.notify(ctx.getString(R.string.admin_pv_rule_duplicated))
-            }
-            RuleAction.MOVE_UP, RuleAction.MOVE_DOWN -> {
-                val to = (if (a == RuleAction.MOVE_UP) RuleForms.moveUp(headers, i) else RuleForms.moveDown(headers, i)) ?: return
-                if (actions.edit { PolicyEdits.moveRule(it, Section.SSH, i, to.first, to.second) }) layout.onSelect(PolicyPath.of(Section.SSH.key, to.first))
             }
             else -> Unit
         }
@@ -141,7 +138,14 @@ fun SshSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) {
                         is PageRow.Divider -> Unit
                         is PageRow.Item<*> -> {
                             val rule = row.item as SshRule
-                            SshCard(rule, env, actions, selected = twoPane && pending == null && shown?.origin?.path == rule.origin.path, policy = policy) { select(rule.origin.path) }
+                            val i = (rule.origin.path.last as? PathStep.Index)?.index ?: 0
+                            SshCard(
+                                rule, env, actions,
+                                selected = twoPane && pending == null && shown?.origin?.path == rule.origin.path,
+                                policy = policy,
+                                moves = mover.moves(Section.SSH, headers, i, env, actions, layout),
+                                modifier = mover.decor(rule.origin.path, env.draft.text),
+                            ) { select(rule.origin.path) }
                         }
                     }
                 }
@@ -155,13 +159,11 @@ fun SshSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) {
             }
             EditorFrame(onDismiss = { select(null) }) {
                 key(rule.origin.path, pending != null) {
-                    val i = (rule.origin.path.last as? PathStep.Index)?.index ?: 0
                     SshRuleEditorContent(
                         rule = rule,
                         env = env,
                         actions = actions,
                         isNew = pending != null,
-                        moves = movesOf(headers, i),
                         onChange = { change(rule, it) },
                         onAction = { act(rule, it) },
                         onAddAccess = { addAccess(rule) },
@@ -172,7 +174,7 @@ fun SshSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) {
     )
 }
 
-/** One SSH rule as a card: who, to which devices, as whom; accept or check; the port-22 reminder. */
+/** One SSH rule as a card: who, to which devices, as whom; accept or check; the port-22 reminder; [moves] at its end. */
 @Composable
 fun SshCard(
     rule: SshRule,
@@ -180,13 +182,15 @@ fun SshCard(
     actions: VisualActions,
     selected: Boolean = false,
     policy: HuObject? = rememberPolicy(env),
+    moves: CardMoves? = null,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
     val ctx = LocalContext.current
     val m = env.model ?: return
     val hosts = remember(m) { m.hosts.map { it.name }.toSet() }
     fun problem(slot: SelectorSlot): (String) -> SelectorProblem? = { v -> SelectorRules.check(v, slot, m, env.headscale)?.takeIf { it != SelectorProblem.EMPTY } }
-    ElementCard(rule.origin, env, actions, selected = selected, onClick = onClick) {
+    ElementCard(rule.origin, env, actions, modifier, selected = selected, onClick = onClick, trailing = moves?.let { { CardMoveButtons(it) } }) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             CardRow(ctx.getString(R.string.admin_pv_c_who)) {
                 if (rule.src.isEmpty()) NothingYet() else SelectorLabels(rule.src, hosts = hosts, max = CARD_MAX, problem = problem(SelectorSlot.SSH_SRC))

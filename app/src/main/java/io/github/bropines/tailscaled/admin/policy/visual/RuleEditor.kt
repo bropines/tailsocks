@@ -15,8 +15,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.FactCheck
 import androidx.compose.material.icons.filled.Apps
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
@@ -57,11 +55,11 @@ import io.github.bropines.tailscaled.ui.HelpText
  * takes it back); a new rule is a form until it says enough to be written.
  */
 
-/** What an editor's action row asks of its page. */
-enum class RuleAction { DELETE, DUPLICATE, MOVE_UP, MOVE_DOWN, ADD_TEST, CONVERT, DISCARD }
+/** What an editor's action row asks of its page. Moves are on the cards (CardMoves), not here. */
+enum class RuleAction { DELETE, DUPLICATE, ADD_TEST, CONVERT, DISCARD }
 
-/** What a rule's actions may do here: decided by the page, which knows the rule's neighbours. */
-data class RuleMoves(val up: Boolean = false, val down: Boolean = false, val test: Boolean = false, val convert: Boolean = false)
+/** The actions an access rule's editor offers besides Delete and Duplicate: decided by the page. */
+data class RuleOffers(val test: Boolean = false, val convert: Boolean = false)
 
 /** The draft parsed for coverage, once per text. */
 @Composable
@@ -80,7 +78,7 @@ fun AccessRuleEditorContent(
     env: VisualEnv,
     actions: VisualActions,
     isNew: Boolean,
-    moves: RuleMoves,
+    offers: RuleOffers,
     onChange: (AccessRule) -> Unit,
     onAction: (RuleAction) -> Unit,
 ) {
@@ -98,7 +96,7 @@ fun AccessRuleEditorContent(
         if (isNew) NewFormNote(ctx.getString(if (rule is AccessRule.Grant) R.string.admin_pv_rule_new_note_grant else R.string.admin_pv_rule_new_note))
 
         when (rule) {
-            is AccessRule.Acl -> AclFields(rule.rule, fe, isNew, viaOk = moves.convert || (isNew && env.model?.let { RuleForms.canConvert(it, env.headscale) } == true), onChange = { onChange(AccessRule.Acl(it)) }) { via ->
+            is AccessRule.Acl -> AclFields(rule.rule, fe, isNew, viaOk = offers.convert || (isNew && env.model?.let { RuleForms.canConvert(it, env.headscale) } == true), onChange = { onChange(AccessRule.Acl(it)) }) { via ->
                 // Only grants go through devices: the rule becomes one, at the end of the grants.
                 val m = env.model ?: return@AclFields
                 RuleForms.grantWithVia(rule.rule, via, RuleForms.newOrigin(m, Section.GRANTS))?.let { onChange(AccessRule.Grant(it)) }
@@ -127,13 +125,10 @@ fun AccessRuleEditorContent(
                 } else {
                     EditorAction(Icons.Default.Delete, ctx.getString(R.string.admin_pv_action_delete), { onAction(RuleAction.DELETE) }, danger = true)
                     EditorAction(Icons.Default.ContentCopy, ctx.getString(R.string.admin_pv_action_duplicate), { onAction(RuleAction.DUPLICATE) })
-                    EditorAction(Icons.Default.ArrowUpward, ctx.getString(R.string.admin_pv_action_up), { onAction(RuleAction.MOVE_UP) }, enabled = moves.up)
-                    EditorAction(Icons.Default.ArrowDownward, ctx.getString(R.string.admin_pv_action_down), { onAction(RuleAction.MOVE_DOWN) }, enabled = moves.down)
-                    if (moves.test) EditorAction(Icons.AutoMirrored.Filled.FactCheck, ctx.getString(R.string.admin_pv_action_test), { onAction(RuleAction.ADD_TEST) })
-                    if (moves.convert) EditorAction(Icons.Default.SwapHoriz, ctx.getString(R.string.admin_pv_action_convert), { onAction(RuleAction.CONVERT) })
+                    if (offers.test) EditorAction(Icons.AutoMirrored.Filled.FactCheck, ctx.getString(R.string.admin_pv_action_test), { onAction(RuleAction.ADD_TEST) })
+                    if (offers.convert) EditorAction(Icons.Default.SwapHoriz, ctx.getString(R.string.admin_pv_action_convert), { onAction(RuleAction.CONVERT) })
                 }
             }
-            if (!isNew) HelpText(ctx.getString(R.string.admin_pv_order_help))
         }
     }
 }

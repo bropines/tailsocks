@@ -340,6 +340,21 @@ class SourceEditsTest {
     }
 
     @Test
+    fun movingToItsOwnIndexBeforeTheNextCrossesOnlyTheNextHeader() {
+        // acls[5] stands right above the "2. DNS" header; BEFORE_NEXT at its own index drops it under it.
+        val rule = "\t\t{\n\t\t\t\"action\": \"accept\",\n\t\t\t\"src\":    [\"tag:master\", \"tag:server\"],\n\t\t\t\"dst\":    [\"tag:exit-node:*\", \"autogroup:internet:*\"],\n\t\t},\n"
+        val header = "\n\t\t// --- 2. DNS ПРАВИЛА ---\n"
+        assertTrue(sample.contains(rule + header))
+        val dropped = SourceEdits.move(sample, p("acls"), 5, 5, Anchor.BEFORE_NEXT)
+        // The two swap places, byte for byte; nothing else of the file changes.
+        assertEquals(sample.replace(rule + header, header + rule), dropped)
+        // And lifting it above its new header puts the file back as it was.
+        assertEquals(sample, SourceEdits.move(dropped, p("acls"), 5, 5, Anchor.AFTER_PREVIOUS))
+        // Without a header over the next member there is nowhere to go.
+        assertEquals(sample, SourceEdits.move(sample, p("acls"), 3, 3, Anchor.BEFORE_NEXT))
+    }
+
+    @Test
     fun moveEveryRuleToEveryPlaceKeepsTheMeaning() {
         val n = (SourceTree.parse(sample).root["ssh"] as SrcArray).members.size
         for (from in 0 until n) for (to in 0 until n) for (anchor in Anchor.entries) {

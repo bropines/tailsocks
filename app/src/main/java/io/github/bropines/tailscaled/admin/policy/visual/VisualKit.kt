@@ -409,7 +409,8 @@ fun TextListField(
  * The card one element sits in: its note on top (folded to two lines), [content], then what
  * the checks say about it — a server error, a new risk — each with its icon, and, for an
  * element the visual editor only shows, why and the way to the JSON editor. [selected] or the
- * environment's focus outlines it.
+ * environment's focus outlines it. [trailing] stands at the card's end, from its top, beside
+ * all of that: the arrows that move it.
  */
 @Composable
 fun ElementCard(
@@ -419,6 +420,7 @@ fun ElementCard(
     modifier: Modifier = Modifier,
     selected: Boolean = false,
     onClick: (() -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val ctx = LocalContext.current
@@ -430,8 +432,8 @@ fun ElementCard(
         outlined -> BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
         else -> null
     }
-    val body: @Composable ColumnScope.() -> Unit = {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    val inner: @Composable (Modifier) -> Unit = { padding ->
+        Column(padding, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             origin.note?.let { HelpText(noteText(it), inClickableRow = onClick != null) }
             content()
             errors.forEach { m -> StatusLine(Icons.Default.ErrorOutline, m, MaterialTheme.colorScheme.error) }
@@ -450,6 +452,13 @@ fun ElementCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
+    }
+    val body: @Composable ColumnScope.() -> Unit = {
+        if (trailing == null) inner(Modifier.padding(16.dp))
+        else Row {
+            inner(Modifier.weight(1f).padding(start = 16.dp, top = 16.dp, bottom = 16.dp))
+            Box(Modifier.padding(top = 4.dp, end = 4.dp)) { trailing() }
         }
     }
     val colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)

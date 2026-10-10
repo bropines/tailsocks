@@ -73,7 +73,15 @@ fun AccessSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) 
         val secondSection = if (aclsFirst) Section.GRANTS else Section.ACLS
         if (first.isNotEmpty() && second.isNotEmpty()) first + PageRow.Divider(secondSection.key, secondSection) + second else first + second
     }
-    ScrollTo(listState, rows, layout.selected ?: env.focus)
+    val headerMap = remember(m) { listOf(Section.ACLS, Section.GRANTS).associateWith { s -> rules.filter { it.section == s }.map { it.origin.header != null } } }
+    fun headers(section: Section) = headerMap[section].orEmpty()
+    // The offer of a test after a delete, while the undo stack still ends at the delete.
+    val offer = deleted?.takeIf { d -> env.draft.undoStack.lastOrNull() == d.before && env.draft.text != d.before }
+        ?.let { d -> testOf(d.rule, accept = false) }
+    // The page's header, and that offer, stand over the rows.
+    val before = if (offer != null) 2 else 1
+    val mover = rememberCardMover(listState) { p -> rowIndex(rows, p, before) }
+    ScrollTo(listState, rows, layout.selected ?: env.focus, before = before, skip = mover.followed)
 
     fun select(p: PolicyPath?) {
         pending = null
@@ -117,8 +125,6 @@ fun AccessSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) 
         if (diff.isNotEmpty()) actions.edit { PolicyEdits.updateRule(it, old.origin.path, diff) }
     }
 
-    fun headers(section: Section) = rules.filter { it.section == section }.map { it.origin.header != null }
-
     fun act(rule: AccessRule, a: RuleAction) {
         val path = rule.origin.path
         when (a) {
@@ -134,13 +140,6 @@ fun AccessSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) 
             RuleAction.DUPLICATE -> if (actions.edit { RuleForms.duplicate(it, path) }) {
                 layout.onSelect(PolicyPath.of(rule.section.key, rule.index + 1))
                 actions.notify(ctx.getString(R.string.admin_pv_rule_duplicated))
-            }
-            RuleAction.MOVE_UP, RuleAction.MOVE_DOWN -> {
-                val h = headers(rule.section)
-                val to = (if (a == RuleAction.MOVE_UP) RuleForms.moveUp(h, rule.index) else RuleForms.moveDown(h, rule.index)) ?: return
-                if (actions.edit { PolicyEdits.moveRule(it, rule.section, rule.index, to.first, to.second) }) {
-                    layout.onSelect(PolicyPath.of(rule.section.key, to.first))
-                }
             }
             RuleAction.ADD_TEST -> {
                 val f = testOf(rule, accept = true) ?: return actions.notify(ctx.getString(R.string.admin_pv_test_none))
@@ -182,20 +181,16 @@ fun AccessSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) 
                         notes = sectionNotes(m, Section.ACLS, Section.GRANTS),
                     )
                 }
-                val d = deleted
-                if (d != null && env.draft.undoStack.lastOrNull() == d.before && env.draft.text != d.before) {
-                    val test = testOf(d.rule, accept = false)
-                    if (test != null) item(key = "deleted") {
-                        DeletedOffer(
-                            text = ctx.getString(R.string.admin_pv_deleted_offer),
-                            action = ctx.getString(R.string.admin_pv_deleted_offer_action),
-                            onAction = {
-                                if (actions.edit { PolicyEdits.addRule(it, Section.TESTS, test) }) actions.notify(ctx.getString(R.string.admin_pv_test_added))
-                                deleted = null
-                            },
-                            onDismiss = { deleted = null },
-                        )
-                    }
+                if (offer != null) item(key = "deleted") {
+                    DeletedOffer(
+                        text = ctx.getString(R.string.admin_pv_deleted_offer),
+                        action = ctx.getString(R.string.admin_pv_deleted_offer_action),
+                        onAction = {
+                            if (actions.edit { PolicyEdits.addRule(it, Section.TESTS, offer) }) actions.notify(ctx.getString(R.string.admin_pv_test_added))
+                            deleted = null
+                        },
+                        onDismiss = { deleted = null },
+                    )
                 }
                 items(rows, key = { it.key }) { row ->
                     when (row) {
@@ -208,7 +203,13 @@ fun AccessSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) 
                         is PageRow.Divider -> ListDivider(ctx.getString(if (row.section == Section.GRANTS) R.string.admin_pv_divider_grants else R.string.admin_pv_divider_acls))
                         is PageRow.Item<*> -> {
                             val rule = row.item as AccessRule
-                            AccessCard(rule, env, actions, selected = twoPane && shown?.origin?.path == rule.origin.path && pending == null, policy = policy) { select(rule.origin.path) }
+                            AccessCard(
+                                rule, env, actions,
+                                selected = twoPane && shown?.origin?.path == rule.origin.path && pending == null,
+                                policy = policy,
+                                moves = mover.moves(rule.section, headers(rule.section), rule.index, env, actions, layout),
+                                modifier = mover.decor(rule.origin.path, env.draft.text),
+                            ) { select(rule.origin.path) }
                         }
                     }
                 }
@@ -222,8 +223,7 @@ fun AccessSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) 
             }
             EditorFrame(onDismiss = { select(null) }) {
                 key(rule.origin.path, pending != null) {
-                    val h = headers(rule.section)
-                    val moves = movesOf(h, rule.index).copy(
+                    val offers = RuleOffers(
                         test = testOf(rule, accept = true) != null,
                         convert = rule is AccessRule.Acl && rule.origin.editable && RuleForms.canConvert(m, env.headscale),
                     )
@@ -232,7 +232,7 @@ fun AccessSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) 
                         env = env,
                         actions = actions,
                         isNew = pending != null,
-                        moves = moves,
+                        offers = offers,
                         onChange = { change(rule, it) },
                         onAction = { act(rule, it) },
                     )
@@ -256,7 +256,8 @@ private fun AccessRule.withPath(path: PolicyPath): AccessRule = when (this) {
 
 /**
  * One rule as a card: who, where, on which ports, and the rarer parts when it has them; under
- * them which devices it connects, and whether it is an ACL or a grant.
+ * them which devices it connects, and whether it is an ACL or a grant. [moves] puts the arrows
+ * that move it at its end.
  */
 @Composable
 fun AccessCard(
@@ -265,13 +266,15 @@ fun AccessCard(
     actions: VisualActions,
     selected: Boolean = false,
     policy: HuObject? = rememberPolicy(env),
+    moves: CardMoves? = null,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
     val ctx = LocalContext.current
     val m = env.model ?: return
     val hosts = remember(m) { m.hosts.map { it.name }.toSet() }
     fun problem(slot: SelectorSlot): (String) -> SelectorProblem? = { v -> SelectorRules.check(v, slot, m, env.headscale)?.takeIf { it != SelectorProblem.EMPTY } }
-    ElementCard(rule.origin, env, actions, selected = selected, onClick = onClick) {
+    ElementCard(rule.origin, env, actions, modifier, selected = selected, onClick = onClick, trailing = moves?.let { { CardMoveButtons(it) } }) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             CardRow(ctx.getString(R.string.admin_pv_c_who)) {
                 SelectorLabels(rule.src, hosts = hosts, max = CARD_MAX, problem = problem(if (rule is AccessRule.Grant) SelectorSlot.GRANT_SRC else SelectorSlot.ACL_SRC))

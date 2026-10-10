@@ -3,8 +3,6 @@ package io.github.bropines.tailscaled.admin.policy.visual
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -15,6 +13,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -37,7 +36,6 @@ fun TestEditorContent(
     env: VisualEnv,
     actions: VisualActions,
     isNew: Boolean,
-    moves: RuleMoves,
     onChange: (AclTest) -> Unit,
     onAction: (RuleAction) -> Unit,
 ) {
@@ -85,7 +83,7 @@ fun TestEditorContent(
             }
         }
         if (!isNew) NoteField(test.origin, env, actions)
-        TestActions(env, isNew, moves, onAction)
+        TestActions(env, isNew, onAction)
     }
 }
 
@@ -96,7 +94,6 @@ fun SshTestEditorContent(
     env: VisualEnv,
     actions: VisualActions,
     isNew: Boolean,
-    moves: RuleMoves,
     onChange: (SshTest) -> Unit,
     onAction: (RuleAction) -> Unit,
 ) {
@@ -133,12 +130,12 @@ fun SshTestEditorContent(
             help = ctx.getString(R.string.admin_pv_f_sshtest_deny_help),
         )
         if (!isNew) NoteField(test.origin, env, actions)
-        TestActions(env, isNew, moves, onAction)
+        TestActions(env, isNew, onAction)
     }
 }
 
 @Composable
-private fun TestActions(env: VisualEnv, isNew: Boolean, moves: RuleMoves, onAction: (RuleAction) -> Unit) {
+private fun TestActions(env: VisualEnv, isNew: Boolean, onAction: (RuleAction) -> Unit) {
     if (!env.editable) return
     val ctx = LocalContext.current
     EditorActions {
@@ -147,8 +144,6 @@ private fun TestActions(env: VisualEnv, isNew: Boolean, moves: RuleMoves, onActi
         } else {
             EditorAction(Icons.Default.Delete, ctx.getString(R.string.admin_pv_action_delete), { onAction(RuleAction.DELETE) }, danger = true)
             EditorAction(Icons.Default.ContentCopy, ctx.getString(R.string.admin_pv_action_duplicate), { onAction(RuleAction.DUPLICATE) })
-            EditorAction(Icons.Default.ArrowUpward, ctx.getString(R.string.admin_pv_action_up), { onAction(RuleAction.MOVE_UP) }, enabled = moves.up)
-            EditorAction(Icons.Default.ArrowDownward, ctx.getString(R.string.admin_pv_action_down), { onAction(RuleAction.MOVE_DOWN) }, enabled = moves.down)
         }
     }
 }
@@ -156,13 +151,21 @@ private fun TestActions(env: VisualEnv, isNew: Boolean, moves: RuleMoves, onActi
 /** A test card's labels carry an icon (✓, ⊘, a clock) and need the room. */
 private val TEST_LABEL = 108.dp
 
-/** An access test as a card: from where, what it must reach (✓) and what must stay closed (⊘). */
+/** An access test as a card: from where, what it must reach (✓) and what must stay closed (⊘); [moves] at its end. */
 @Composable
-fun TestCard(test: AclTest, env: VisualEnv, actions: VisualActions, selected: Boolean = false, onClick: () -> Unit) {
+fun TestCard(
+    test: AclTest,
+    env: VisualEnv,
+    actions: VisualActions,
+    selected: Boolean = false,
+    moves: CardMoves? = null,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
     val ctx = LocalContext.current
     val m = env.model ?: return
     val hosts = remember(m) { m.hosts.map { it.name }.toSet() }
-    ElementCard(test.origin, env, actions, selected = selected, onClick = onClick) {
+    ElementCard(test.origin, env, actions, modifier, selected = selected, onClick = onClick, trailing = moves?.let { { CardMoveButtons(it) } }) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             CardRow(ctx.getString(R.string.admin_pv_c_from), labelWidth = TEST_LABEL) {
                 if (test.src.isBlank()) NothingYet()
@@ -183,13 +186,21 @@ fun TestCard(test: AclTest, env: VisualEnv, actions: VisualActions, selected: Bo
     }
 }
 
-/** An SSH test as a card: from where to which devices, the logins allowed, checked and refused. */
+/** An SSH test as a card: from where to which devices, the logins allowed, checked and refused; [moves] at its end. */
 @Composable
-fun SshTestCard(test: SshTest, env: VisualEnv, actions: VisualActions, selected: Boolean = false, onClick: () -> Unit) {
+fun SshTestCard(
+    test: SshTest,
+    env: VisualEnv,
+    actions: VisualActions,
+    selected: Boolean = false,
+    moves: CardMoves? = null,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
     val ctx = LocalContext.current
     val m = env.model ?: return
     val hosts = remember(m) { m.hosts.map { it.name }.toSet() }
-    ElementCard(test.origin, env, actions, selected = selected, onClick = onClick) {
+    ElementCard(test.origin, env, actions, modifier, selected = selected, onClick = onClick, trailing = moves?.let { { CardMoveButtons(it) } }) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             CardRow(ctx.getString(R.string.admin_pv_c_from), labelWidth = TEST_LABEL) { if (test.src.isBlank()) NothingYet() else SelectorLabels(listOf(test.src), hosts = hosts) }
             CardRow(ctx.getString(R.string.admin_pv_c_ssh_to), labelWidth = TEST_LABEL) { if (test.dst.isEmpty()) NothingYet() else SelectorLabels(test.dst, hosts = hosts, max = CARD_MAX) }

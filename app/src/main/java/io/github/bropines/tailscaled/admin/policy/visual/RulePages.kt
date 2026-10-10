@@ -2,6 +2,9 @@ package io.github.bropines.tailscaled.admin.policy.visual
 
 import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,6 +38,8 @@ import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
@@ -44,6 +49,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -52,15 +58,23 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -79,7 +93,9 @@ import io.github.bropines.tailscaled.ui.HelpText
 import io.github.bropines.tailscaled.ui.ListDetailLayout
 import io.github.bropines.tailscaled.ui.SheetOrPane
 import io.github.bropines.tailscaled.ui.readableWidth
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /*
  * What the Access, SSH and Tests pages share: the list beside or under its editor, the editor's
@@ -391,7 +407,7 @@ internal fun EditorAction(icon: ImageVector, label: String, onClick: () -> Unit,
     }
 }
 
-/** The editor's actions, wrapped: Delete, Duplicate, Move up and down, and what the page adds. */
+/** The editor's actions, wrapped: Delete, Duplicate, and what the page adds. Moves are on the cards. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun EditorActions(content: @Composable () -> Unit) {
@@ -511,24 +527,169 @@ internal fun <T> pageRows(items: List<T>, section: Section, origin: (T) -> Origi
     }
 }
 
-/** Where Move up and Move down may take the element at [i] of a list with these [headers]. */
-internal fun movesOf(headers: List<Boolean>, i: Int) = RuleMoves(up = RuleForms.moveUp(headers, i) != null, down = RuleForms.moveDown(headers, i) != null)
-
 /**
  * The list scrolls to [target] when it changes and is out of sight: an element opened from
- * elsewhere (a server error, the JSON cursor), just added or just moved. A card tapped in view
- * stays where it is.
+ * elsewhere (a server error, the JSON cursor) or just added. A card tapped in view stays where
+ * it is, and so does [skip], the element a move from the cards carried along (CardMover).
  */
 @Composable
-internal fun ScrollTo(state: LazyListState, rows: List<PageRow>, target: PolicyPath?, before: Int = 1) {
+internal fun ScrollTo(state: LazyListState, rows: List<PageRow>, target: PolicyPath?, before: Int = 1, skip: PolicyPath? = null) {
     LaunchedEffect(target) {
-        val i = target?.let { t -> rows.indexOfFirst { it is PageRow.Item<*> && it.path == t } } ?: -1
+        val i = target?.takeIf { it != skip }?.let { t -> rows.indexOfFirst { it is PageRow.Item<*> && it.path == t } } ?: -1
         if (i < 0) return@LaunchedEffect
         // [before] items (the page's header) come first; the rows follow them.
         val item = state.layoutInfo.visibleItemsInfo.firstOrNull { it.index == i + before }
         val whole = item != null && item.offset >= state.layoutInfo.viewportStartOffset &&
             item.offset + item.size <= state.layoutInfo.viewportEndOffset
         if (!whole) state.animateScrollToItem(i + before)
+    }
+}
+
+/** The row of [path] in a list that holds [rows] after [before] items of its own (the page's header). */
+internal fun rowIndex(rows: List<PageRow>, path: PolicyPath, before: Int): Int? =
+    rows.indexOfFirst { it is PageRow.Item<*> && it.path == path }.takeIf { it >= 0 }?.plus(before)
+
+// ---- moving from the cards ----
+
+/** Move up and Move down on one card: whether each may go, and what a tap does ([onMove] gets true for down). */
+class CardMoves(val up: Boolean, val down: Boolean, val onMove: (down: Boolean) -> Unit)
+
+/** The arrows at a card's end: one 48dp target each, off at the ends of the list, said in words to a screen reader. */
+@Composable
+internal fun CardMoveButtons(moves: CardMoves) {
+    val ctx = LocalContext.current
+    val colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant)
+    Column {
+        IconButton(onClick = { moves.onMove(false) }, enabled = moves.up, colors = colors) {
+            Icon(Icons.Default.KeyboardArrowUp, ctx.getString(R.string.admin_pv_nav_move_up))
+        }
+        IconButton(onClick = { moves.onMove(true) }, enabled = moves.down, colors = colors) {
+            Icon(Icons.Default.KeyboardArrowDown, ctx.getString(R.string.admin_pv_nav_move_down))
+        }
+    }
+}
+
+/** One move made from a card: where the element went. A new one each time, so a second move to the same place still shows. */
+internal class MovedMark(val path: PolicyPath)
+
+private const val SETTLE_MS = 300L
+private const val GLOW_HOLD_MS = 700L
+private const val GLOW_FADE_MS = 700
+
+/**
+ * A page's moves from its cards. A step goes through the engine and across a heading as
+ * RuleForms says; the element open in a pane, or outlined, stays with its rule; the moved card
+ * stays under the finger — the list scrolls instead, so a second tap moves the same card again —
+ * and is outlined a moment so the eye finds it.
+ */
+@Stable
+internal class CardMover(private val list: LazyListState, private val scope: CoroutineScope) {
+    /** The last move. Its card is outlined for a moment. */
+    var mark by mutableStateOf<MovedMark?>(null)
+        private set
+
+    /** Where the last move took the element open or outlined: the page does not scroll to it as to something new. */
+    var followed by mutableStateOf<PolicyPath?>(null)
+        private set
+
+    /** Where the list holds an element (its item index), for a card a move took out of sight. */
+    var indexOf: (PolicyPath) -> Int? = { null }
+
+    /** Where each card stood when last laid out, in the window: what a move keeps. */
+    private val tops = HashMap<PolicyPath, Float>()
+    private var hold: Hold? = null
+
+    private class Hold(val mark: MovedMark, val top: Float, val before: String)
+
+    /** The arrows of the element at [i] of [section], whose list has headings where [headers] says; none where nothing may be written. */
+    fun moves(section: Section, headers: List<Boolean>, i: Int, env: VisualEnv, actions: VisualActions, layout: VisualLayout): CardMoves? {
+        if (!env.editable) return null
+        return CardMoves(up = RuleForms.moveUp(headers, i) != null, down = RuleForms.moveDown(headers, i) != null) { down ->
+            step(section, headers, i, down, env, actions, layout)
+        }
+    }
+
+    private fun step(section: Section, headers: List<Boolean>, i: Int, down: Boolean, env: VisualEnv, actions: VisualActions, layout: VisualLayout) {
+        val (to, anchor) = (if (down) RuleForms.moveDown(headers, i) else RuleForms.moveUp(headers, i)) ?: return
+        val list = PolicyPath.of(section.key)
+        val before = env.draft.text
+        val top = tops[list + i]
+        if (!actions.edit { PolicyEdits.moveRule(it, section, i, to, anchor) }) return
+        fun follow(p: PolicyPath?): PolicyPath? {
+            if (p == null || p.parent() != list) return null
+            val k = (p.last as? PathStep.Index)?.index ?: return null
+            return (list + RuleForms.indexAfterMove(k, i, to)).takeIf { it != p }
+        }
+        val open = layout.selected
+        followed = if (open != null) follow(open)?.also(layout.onSelect) else follow(env.focus)?.also(actions::show)
+        val m = MovedMark(list + to)
+        hold = top?.let { Hold(m, it, before) }
+        mark = m
+    }
+
+    /** A card's place, reported as it is laid out; the moved card's first place after the move scrolls the list back under it. */
+    fun place(path: PolicyPath, text: String): Modifier = Modifier.onGloballyPositioned { c ->
+        val y = c.positionInRoot().y
+        tops[path] = y
+        val h = hold ?: return@onGloballyPositioned
+        if (h.mark.path != path || text == h.before) return@onGloballyPositioned
+        hold = null
+        if (y != h.top) scope.launch { list.scrollBy(y - h.top) }
+    }
+
+    /** A moment after a move: a card that was not laid out where it went is out of sight, and the list goes to it. */
+    suspend fun settle(m: MovedMark) {
+        if (followed != null) followed = null
+        val h = hold ?: return
+        if (h.mark !== m) return
+        hold = null
+        val i = indexOf(m.path) ?: return
+        if (list.layoutInfo.visibleItemsInfo.none { it.index == i }) list.animateScrollToItem(i)
+    }
+}
+
+/** A page's [CardMover] over its [list]; [indexOf] gives an element's item index in it. */
+@Composable
+internal fun rememberCardMover(list: LazyListState, indexOf: (PolicyPath) -> Int?): CardMover {
+    val scope = rememberCoroutineScope()
+    val mover = remember(list, scope) { CardMover(list, scope) }
+    SideEffect { mover.indexOf = indexOf }
+    val mark = mover.mark
+    LaunchedEffect(mark) {
+        if (mark == null) return@LaunchedEffect
+        delay(SETTLE_MS)
+        mover.settle(mark)
+    }
+    return mover
+}
+
+/**
+ * What a card wears on a page with moves: its place reported to [CardMover], and, just moved,
+ * an outline and a tint that fade, so the eye follows it to where it went.
+ */
+@Composable
+internal fun CardMover.decor(path: PolicyPath, text: String): Modifier {
+    val mine = mark?.takeIf { it.path == path }
+    val glow = remember { Animatable(0f) }
+    LaunchedEffect(mine) {
+        if (mine == null) {
+            glow.snapTo(0f)
+            return@LaunchedEffect
+        }
+        glow.snapTo(1f)
+        delay(GLOW_HOLD_MS)
+        glow.animateTo(0f, tween(GLOW_FADE_MS))
+    }
+    val color = MaterialTheme.colorScheme.primary
+    val shape = MaterialTheme.shapes.large
+    return place(path, text).drawWithContent {
+        drawContent()
+        val a = glow.value
+        if (a > 0f) {
+            val outline = shape.createOutline(size, layoutDirection, this)
+            drawOutline(outline, color.copy(alpha = 0.12f * a))
+            drawOutline(outline, color.copy(alpha = a), style = Stroke(2.5.dp.toPx()))
+        }
     }
 }
 

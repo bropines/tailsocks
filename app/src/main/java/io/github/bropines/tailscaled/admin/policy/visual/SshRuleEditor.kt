@@ -14,8 +14,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -83,7 +81,6 @@ fun SshRuleEditorContent(
     env: VisualEnv,
     actions: VisualActions,
     isNew: Boolean,
-    moves: RuleMoves,
     onChange: (SshRule) -> Unit,
     onAction: (RuleAction) -> Unit,
     onAddAccess: () -> Unit,
@@ -157,11 +154,8 @@ fun SshRuleEditorContent(
                 } else {
                     EditorAction(Icons.Default.Delete, ctx.getString(R.string.admin_pv_action_delete), { onAction(RuleAction.DELETE) }, danger = true)
                     EditorAction(Icons.Default.ContentCopy, ctx.getString(R.string.admin_pv_action_duplicate), { onAction(RuleAction.DUPLICATE) })
-                    EditorAction(Icons.Default.ArrowUpward, ctx.getString(R.string.admin_pv_action_up), { onAction(RuleAction.MOVE_UP) }, enabled = moves.up)
-                    EditorAction(Icons.Default.ArrowDownward, ctx.getString(R.string.admin_pv_action_down), { onAction(RuleAction.MOVE_DOWN) }, enabled = moves.down)
                 }
             }
-            if (!isNew) HelpText(ctx.getString(R.string.admin_pv_ssh_order_help))
         }
     }
 }

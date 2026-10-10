@@ -83,8 +83,6 @@
     <string name="admin_pv_note_heading_help">Этот комментарий — заголовок для правил под ним: правка меняет заголовок, а при переносе или удалении правила он остаётся на месте.</string>
     <string name="admin_pv_action_delete">Удалить</string>
     <string name="admin_pv_action_duplicate">Дублировать</string>
-    <string name="admin_pv_action_up">Выше</string>
-    <string name="admin_pv_action_down">Ниже</string>
     <string name="admin_pv_action_test">Добавить тест</string>
     <string name="admin_pv_action_convert">Превратить в grant</string>
     <string name="admin_pv_action_discard">Отменить</string>
@@ -136,7 +134,6 @@
     <string name="admin_pv_app_tsidp">Вход через tsidp</string>
     <string name="admin_pv_app_kubernetes">API Kubernetes</string>
     <string name="admin_pv_app_relay">Peer relay</string>
-    <string name="admin_pv_order_help">Для доступа порядок ничего не меняет: Tailscale учитывает все правила разом. Переставляйте их, только чтобы держать похожие рядом.</string>
     <string name="admin_pv_rule_deleted">Правило удалено</string>
     <string name="admin_pv_rule_duplicated">Копия добавлена под правилом</string>
     <plurals name="admin_pv_converted">
@@ -186,7 +183,6 @@
     <string name="admin_pv_ssh_port22_help">Tailscale SSH нужно ещё и само соединение: правило доступа, которое пускает тех же людей на эти устройства по порту 22.</string>
     <string name="admin_pv_ssh_port22_add">Добавить такое правило доступа</string>
     <string name="admin_pv_ssh_port22_added">Правило доступа на порт 22 добавлено</string>
-    <string name="admin_pv_ssh_order_help">Порядок ничего не меняет: правила с проверкой применяются раньше тех, что пускают сразу, где бы они ни стояли.</string>
     <string name="admin_pv_ssh_deleted">Правило SSH удалено</string>
 
     <plurals name="admin_pv_tests_count">

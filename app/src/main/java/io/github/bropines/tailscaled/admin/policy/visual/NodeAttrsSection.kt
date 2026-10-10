@@ -11,14 +11,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Hub
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
@@ -65,6 +64,14 @@ fun NodeAttrsSection(env: VisualEnv, actions: VisualActions, layout: VisualLayou
     val shown = shownOf(layout.selected, layout, rules) { it.origin.path }
     val add = if (env.editable) ({ creating = true; layout.onSelect(null) }) else null
     val addLabel = ctx.getString(R.string.admin_pvd_attr_new)
+    val listState = rememberLazyListState()
+    // Moved from their cards, under the file's headings as the rule pages move theirs.
+    val headers = remember(model) { rules.map { it.origin.header != null } }
+    // A card's item: after the intro, each rule's own, with its heading's before it.
+    val mover = rememberCardMover(listState) { p ->
+        val k = rules.indexOfFirst { it.origin.path == p }
+        if (k < 0) null else 1 + (0..k).count { headers[it] } + k
+    }
 
     val items = buildList {
         add(PageItem("intro") {
@@ -74,7 +81,12 @@ fun NodeAttrsSection(env: VisualEnv, actions: VisualActions, layout: VisualLayou
         rules.forEachIndexed { i, r ->
             r.origin.header?.let { add(PageItem("h$i") { CommentHeading(it) }) }
             add(PageItem("a$i", r.origin.path) {
-                AttrCard(r, env, actions, policy, selected = layout.twoPane && !creating && shown == r) {
+                AttrCard(
+                    r, env, actions, policy,
+                    selected = layout.twoPane && !creating && shown == r,
+                    moves = mover.moves(Section.NODE_ATTRS, headers, i, env, actions, layout),
+                    modifier = mover.decor(r.origin.path, text),
+                ) {
                     creating = false
                     layout.onSelect(r.origin.path)
                 }
@@ -87,7 +99,8 @@ fun NodeAttrsSection(env: VisualEnv, actions: VisualActions, layout: VisualLayou
         editorKey = if (creating) "new" else shown?.origin?.path,
         onCloseEditor = { creating = false; layout.onSelect(null) },
         paneEmpty = Icons.Default.Hub to ctx.getString(R.string.admin_pvd_attrs_pane_empty),
-        scrollTo = env.focus ?: layout.selected,
+        scrollTo = (env.focus ?: layout.selected).takeIf { it != mover.followed },
+        state = listState,
     ) {
         if (creating) NewAttrForm(env, actions) { p -> creating = false; layout.onSelect(p) }
         else shown?.let { AttrEditor(it, env, actions, layout, tree, policy, findings[it.origin.path].orEmpty()) }
@@ -156,9 +169,18 @@ private fun AttrExtras(r: NodeAttr) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AttrCard(r: NodeAttr, env: VisualEnv, actions: VisualActions, policy: HuObject?, selected: Boolean, onClick: () -> Unit) {
+private fun AttrCard(
+    r: NodeAttr,
+    env: VisualEnv,
+    actions: VisualActions,
+    policy: HuObject?,
+    selected: Boolean,
+    moves: CardMoves?,
+    modifier: Modifier,
+    onClick: () -> Unit,
+) {
     val ctx = LocalContext.current
-    ElementCard(r.origin, env, actions, selected = selected, onClick = onClick) {
+    ElementCard(r.origin, env, actions, modifier, selected = selected, onClick = onClick, trailing = moves?.let { { CardMoveButtons(it) } }) {
         LimitedLabels(r.target, env.model?.hosts?.map { it.name }?.toSet().orEmpty(), caption = ctx.getString(R.string.admin_pvd_attr_targets))
         if (r.attr.isNotEmpty() || r.app.isEmpty()) {
             LimitedLabels(
@@ -269,7 +291,7 @@ private fun OtherAttrs(attrs: List<String>, enabled: Boolean, onChange: (List<St
 
 /**
  * A rule's editor: the devices it applies to, the attributes it turns on, what it carries
- * besides (shown), the devices it reaches, its note; delete, duplicate, move.
+ * besides (shown), the devices it reaches, its note; delete, duplicate. Moves are on its card.
  */
 @Composable
 internal fun AttrEditor(r: NodeAttr, env: VisualEnv, actions: VisualActions, layout: VisualLayout, tree: SourceTree?, policy: HuObject?, risks: List<RiskFinding>) {
@@ -307,16 +329,9 @@ internal fun AttrEditor(r: NodeAttr, env: VisualEnv, actions: VisualActions, lay
         )
     }
     NoteField(r.origin, tree, editable, actions)
-    val count = model.nodeAttrs.size
     val more = if (!editable) emptyList() else listOf(
         DefsEditorAction(Icons.Default.ContentCopy, ctx.getString(R.string.admin_pvd_duplicate), enabled = r.app.isEmpty() && r.ipPool.isEmpty() && r.origin.extra.isEmpty()) {
             if (actions.edit { Definitions.duplicateNodeAttr(it, r) }) layout.onSelect(path.parent() + (index + 1))
-        },
-        DefsEditorAction(Icons.Default.KeyboardArrowUp, ctx.getString(R.string.admin_pvd_move_up), enabled = index > 0) {
-            if (actions.edit { PolicyEdits.moveRule(it, Section.NODE_ATTRS, index, index - 1) }) layout.onSelect(path.parent() + (index - 1))
-        },
-        DefsEditorAction(Icons.Default.KeyboardArrowDown, ctx.getString(R.string.admin_pvd_move_down), enabled = index < count - 1) {
-            if (actions.edit { PolicyEdits.moveRule(it, Section.NODE_ATTRS, index, index + 1) }) layout.onSelect(path.parent() + (index + 1))
         },
     )
     EditorBottom(r.origin, actions, ctx.getString(R.string.admin_pvd_delete).takeIf { editable }, {

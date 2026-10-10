@@ -90,8 +90,6 @@
     <string name="admin_pv_note_heading_help">This comment heads the rules below it: changing it changes the heading, and it stays when this rule is moved or deleted.</string>
     <string name="admin_pv_action_delete">Delete</string>
     <string name="admin_pv_action_duplicate">Duplicate</string>
-    <string name="admin_pv_action_up">Move up</string>
-    <string name="admin_pv_action_down">Move down</string>
     <string name="admin_pv_action_test">Add a test</string>
     <string name="admin_pv_action_convert">Convert to grant</string>
     <string name="admin_pv_action_discard">Discard</string>
@@ -142,7 +140,6 @@
     <string name="admin_pv_app_tsidp">Sign-in with tsidp</string>
     <string name="admin_pv_app_kubernetes">Kubernetes API</string>
     <string name="admin_pv_app_relay">Peer relay</string>
-    <string name="admin_pv_order_help">Order changes nothing for access: Tailscale combines every rule. Move rules only to keep related ones together.</string>
     <string name="admin_pv_rule_deleted">Rule deleted</string>
     <string name="admin_pv_rule_duplicated">Copy added below the rule</string>
     <plurals name="admin_pv_converted">
@@ -189,7 +186,6 @@
     <string name="admin_pv_ssh_port22_help">Tailscale SSH needs a connection as well as this rule: an access rule that lets the same people reach these devices on port 22.</string>
     <string name="admin_pv_ssh_port22_add">Add that access rule</string>
     <string name="admin_pv_ssh_port22_added">Access rule for port 22 added</string>
-    <string name="admin_pv_ssh_order_help">Order changes nothing: rules that check are applied before rules that accept, wherever they stand.</string>
     <string name="admin_pv_ssh_deleted">SSH rule deleted</string>
 
     <!-- Tests page. -->
