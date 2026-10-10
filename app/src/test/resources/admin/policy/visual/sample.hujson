@@ -1,0 +1,263 @@
+{
+	// Отключение дефолтной DERP-ноды 28 (Helsinki / HEL)
+	"derpMap": {
+		"Regions": {
+			"28": null,
+		},
+	},
+
+	// --- 1. ОПРЕДЕЛЕНИЕ ГРУПП (USER-DEFINED GROUPS) ---
+	"groups": {
+		"group:prod-admin": [
+			"alice@example.com",
+			"bob@example.com",
+		],
+		"group:dev-admin": [
+			"alice@example.com",
+			"bob@example.com",
+		],
+		"group:guest-users": [
+			"guest@example.com",
+		],
+	},
+
+	"tagOwners": {
+		// PRODUCTION
+		"tag:master": ["group:prod-admin"],
+		"tag:server": ["group:prod-admin"],
+
+		// DEV / SANDBOX / LAB
+		"tag:lab":           ["group:dev-admin"],
+		"tag:reverse-proxy": ["group:dev-admin"],
+		"tag:lab-proxy":     ["group:dev-admin"],
+		"tag:homelab":       ["group:dev-admin"],
+		"tag:android":       ["group:dev-admin"],
+		"tag:taildrop":      ["group:dev-admin"],
+		"tag:guest":         ["group:dev-admin"],
+
+		// --- INFRASTRUCTURE ---
+		"tag:exit-node": ["group:prod-admin", "group:dev-admin"],
+		"tag:dns":       ["group:prod-admin", "group:dev-admin"],
+	},
+
+	"autoApprovers": {
+		"exitNode": ["tag:exit-node"],
+	},
+
+	"acls": [
+		// --- 0. ПРАВИЛА ДЛЯ АДМИНИСТРАТОРОВ (ИЗ ГРУПП) ---
+		// Явный список вместо "*:*": гости в него не входят, поэтому
+		// устройства админов не видны гостевым устройствам.
+		{
+			"action": "accept",
+			"src":    ["group:prod-admin"],
+			"dst": [
+				"group:prod-admin:*",
+				"group:dev-admin:*",
+				"tag:master:*",
+				"tag:server:*",
+				"tag:lab:*",
+				"tag:reverse-proxy:*",
+				"tag:lab-proxy:*",
+				"tag:homelab:*",
+				"tag:android:*",
+				"tag:taildrop:*",
+				"tag:guest:*",
+				"tag:exit-node:*",
+				"tag:dns:*",
+				"autogroup:internet:*",
+			],
+		},
+		{
+			"action": "accept",
+			"src":    ["group:dev-admin"],
+			"dst": [
+				"tag:lab:*",
+				"tag:reverse-proxy:*",
+				"tag:lab-proxy:*",
+				"tag:homelab:*",
+				"tag:android:*",
+				"tag:taildrop:*",
+				"tag:guest:*",
+				"tag:exit-node:*",
+				"tag:dns:*",
+				"autogroup:internet:*",
+			],
+		},
+
+		// --- 1. PRODUCTION CORE ---
+		{
+			"action": "accept",
+			"src":    ["tag:master"],
+			"dst":    ["tag:master:*"],
+		},
+		{
+			"action": "accept",
+			"src":    ["tag:master"],
+			"dst":    ["tag:server:*"],
+		},
+		{
+			"action": "accept",
+			"src":    ["tag:server"],
+			"dst":    ["tag:master:80,443"],
+		},
+		{
+			"action": "accept",
+			"src":    ["tag:master", "tag:server"],
+			"dst":    ["tag:exit-node:*", "autogroup:internet:*"],
+		},
+
+		// --- 2. DNS ПРАВИЛА ---
+		{
+			"action": "accept",
+			"src":    ["*"],
+			"dst":    ["tag:dns:53"],
+		},
+		{
+			"action": "accept",
+			"src":    ["group:prod-admin", "group:dev-admin"],
+			"dst":    ["tag:dns:4000"],
+		},
+
+		// --- 3. DEV / SANDBOX / LAB AREA ---
+		{
+			"action": "accept",
+			"src": [
+				"tag:lab",
+				"tag:reverse-proxy",
+				"tag:lab-proxy",
+				"tag:homelab",
+				"tag:android",
+			],
+			"dst": [
+				"tag:lab:*",
+				"tag:reverse-proxy:*",
+				"tag:lab-proxy:*",
+				"tag:homelab:*",
+				"tag:android:*",
+				"tag:taildrop:*",
+			],
+		},
+		{
+			"action": "accept",
+			"src":    ["tag:reverse-proxy"],
+			"dst":    ["tag:homelab:80,443,8096,4566,56569,8680,8443,7777"],
+		},
+
+		// --- 4. GUESTS & OTHERS ---
+		{
+			"action": "accept",
+			"src":    ["tag:guest"],
+			"dst":    ["autogroup:internet:*", "tag:exit-node:*"],
+		},
+		// --- 4.2 ГОСТИ-ПОЛЬЗОВАТЕЛИ: только выход в интернет через exit-ноды ---
+		// К самим нодам (ssh, панели) доступа нет: для выхода хватает autogroup:internet.
+		{
+			"action": "accept",
+			"src":    ["group:guest-users"],
+			"dst":    ["autogroup:internet:*"],
+		},
+		// --- 4.1 ACCESS FOR EXTERNAL USER ---
+		{
+			"action": "accept",
+			"src":    ["carol@example.com"],
+			"dst":    ["tag:lab:*"],
+		},
+
+		// --- 5. ANDROID SELF-ACCESS ---
+		{
+			"action": "accept",
+			"src":    ["tag:android"],
+			"dst":    ["tag:android:*"],
+		},
+	],
+
+	"ssh": [
+		{
+			"action": "accept",
+			"src":    ["group:prod-admin"],
+			"dst": [
+				"tag:master",
+				"tag:server",
+				"tag:lab",
+				"tag:exit-node",
+				"tag:dns",
+			],
+			"users": ["root", "autogroup:nonroot", "administrator", "mini", "worker"],
+		},
+		{
+			"action": "accept",
+			"src":    ["group:dev-admin"],
+			"dst": [
+				"tag:lab",
+				"tag:reverse-proxy",
+				"tag:lab-proxy",
+				"tag:homelab",
+				"tag:android",
+				"tag:exit-node",
+			],
+			"users": ["root", "autogroup:nonroot", "administrator", "mini", "worker"],
+		},
+		{
+			"action": "accept",
+			"src":    ["tag:lab"],
+			"dst":    ["tag:lab"],
+			"users":  ["root", "worker", "autogroup:nonroot"],
+		},
+	],
+
+	"nodeAttrs": [
+		{
+			"target": ["tag:taildrop", "tag:android", "tag:homelab"],
+			"attr": [
+				"cap:web-client",
+				"cap:taildrop",
+				"cap:advertise-services",
+				"funnel",
+				"drive:share",
+				"drive:access",
+			],
+		},
+		// Funnel только своим: гости не публикуют устройства под доменом тейлнета.
+		{
+			"target": ["group:prod-admin", "group:dev-admin"],
+			"attr":   ["funnel"],
+		},
+	],
+
+	"grants": [
+		{
+			"src": [
+				"tag:homelab",
+				"tag:android",
+				"tag:taildrop",
+				"group:prod-admin",
+				"group:dev-admin",
+			],
+			"dst": ["tag:homelab", "tag:android", "tag:taildrop"],
+			"app": {
+				"tailscale.com/cap/drive": [
+					{
+						"shares": ["*"],
+						"access": "rw",
+					},
+				],
+			},
+		},
+	],
+
+	// Сервер не примет политику, если гостю случайно откроется лишнее.
+	"tests": [
+		{
+			"src":  "guest@example.com",
+			"deny": [
+				"tag:exit-node:22",
+				"tag:master:443",
+				"tag:server:22",
+				"tag:homelab:80",
+				"tag:dns:4000",
+				"alice@example.com:22",
+			],
+		},
+	],
+}
