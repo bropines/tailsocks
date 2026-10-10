@@ -71,16 +71,21 @@ class FilesActivity : ComponentActivity() {
     }
 }
 
+/**
+ * TailDrive and TailDrop. [openTaildrop] opens it on the Taildrop page; [openEntryAt] on that
+ * page with the history entry of that time open — in a sheet on a phone, beside the inbox on
+ * a large window — if the history known when the screen is composed (a demo's) holds one.
+ */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false) {
+fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false, openEntryAt: Long? = null) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     // In a preview the inbox, the tailnet and the history come from LocalDemo, parsed here
     // and now: nothing started from LaunchedEffect would land before the picture is taken.
     val demo = LocalDemo.current
     val inPreview = LocalInspectionMode.current
-    val mainPagerState = rememberPagerState(initialPage = if (openTaildrop) 1 else 0, pageCount = { 2 })
+    val mainPagerState = rememberPagerState(initialPage = if (openTaildrop || openEntryAt != null) 1 else 0, pageCount = { 2 })
     // The daemon's verdict per peer, in the app's language; resolved here because the
     // sheets' own windows follow the system locale (wrapContextWithLocale()).
     val taildropStrings = remember { TaildropReasonStrings.from(context) }
@@ -118,7 +123,7 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false) {
     var sendProgressText by remember { mutableStateOf("") }
     var showAllDevices by remember { mutableStateOf(false) }
     var showHistory by remember { mutableStateOf(false) }
-    var openEntry by remember { mutableStateOf<TaildropHistoryEntry?>(null) }
+    var openEntry by remember { mutableStateOf(openEntryAt?.let { at -> history.firstOrNull { it.timestamp == at } }) }
     var confirmClear by remember { mutableStateOf(false) }
 
     fun reloadHistory() {
@@ -338,6 +343,18 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false) {
         }
     }
 
+    fun deleteEntry(entry: TaildropHistoryEntry) {
+        scope.launch(Dispatchers.IO) {
+            TaildropHistory.remove(context, entry)
+            reloadHistory()
+        }
+    }
+
+    // From an expanded window up the Taildrop page is two panes, and an entry of the history
+    // opens in the one beside the inbox rather than in a sheet; see TaildropPage.
+    val window = rememberWindowLayout()
+    val twoPane = window.listDetail
+
     PredictiveBackContainer(
         onBack = onBack,
         // Back here only closes the Activity, so the container installs no callback and
@@ -369,9 +386,13 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false) {
                             scope.launch { mainPagerState.animateScrollToPage(index) }
                         },
                         positionOffset = pagePosition,
-                        modifier = Modifier
-                            .readableWidth()
-                            .padding(horizontal = 24.dp, vertical = 6.dp),
+                        // Over the pages' content, as wide as it is: a phone's column, a larger
+                        // window's whole width inside its margins.
+                        modifier = if (window.isPhone) {
+                            Modifier.readableWidth().padding(horizontal = 24.dp, vertical = 6.dp)
+                        } else {
+                            Modifier.fillMaxWidth().padding(horizontal = window.margin, vertical = 6.dp)
+                        },
                         height = 44.dp
                     )
                 }
@@ -388,54 +409,61 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false) {
                 }
             }
         ) { padding ->
-            // Held to a readable width on a tablet; see ReadableWidth.
-            ReadableWidth {
-        PullToRefreshBox(
-            isRefreshing = isLoading,
-            onRefresh = { refreshData() },
-            modifier = Modifier.padding(padding).fillMaxSize()
-        ) {
-            HorizontalPager(state = mainPagerState, modifier = Modifier.fillMaxSize()) { mainPage ->
-                if (mainPage == 0) {
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        TaildriveTabContent()
+            val pages: @Composable () -> Unit = {
+                PullToRefreshBox(
+                    isRefreshing = isLoading,
+                    onRefresh = { refreshData() },
+                    modifier = Modifier.padding(padding).fillMaxSize()
+                ) {
+                    HorizontalPager(state = mainPagerState, modifier = Modifier.fillMaxSize()) { mainPage ->
+                        if (mainPage == 0) {
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                TaildriveTabContent()
+                            }
+                        } else {
+                            TaildropPage(
+                                incoming = incoming,
+                                files = files,
+                                history = history,
+                                targets = targets,
+                                loaded = loaded,
+                                onOpenFile = { openTaildropFile(context, it) },
+                                onSaveFile = { handleSaveRequest(it) },
+                                onDeleteFile = { deleteFile(it) },
+                                onOpenSaved = { openSavedTaildropFile(context, it) },
+                                onShowSavedInFolder = { showSavedTaildropFolder(context, it) },
+                                onCopySavedFolderPath = { copySavedTaildropFolderPath(context, it) },
+                                onHideSaved = { hideSaved(it) },
+                                showFolderHint = taildropFolder == null && !folderHintDismissed,
+                                onChooseFolder = { folderPicker.launch(null) },
+                                onDismissFolderHint = {
+                                    folderHintDismissed = true
+                                    GlobalSettings.setTaildropFolderHintDismissed(context)
+                                },
+                                onSendTo = { pickFilesFor(it) },
+                                onAllDevices = { showAllDevices = true },
+                                onAllHistory = { showHistory = true },
+                                onEntry = { openEntry = it },
+                                window = window,
+                                openEntry = openEntry,
+                                onCloseEntry = { openEntry = null },
+                                onDeleteEntry = { deleteEntry(it) }
+                            )
+                        }
                     }
-                } else {
-                    TaildropPage(
-                        incoming = incoming,
-                        files = files,
-                        history = history,
-                        targets = targets,
-                        loaded = loaded,
-                        onOpenFile = { openTaildropFile(context, it) },
-                        onSaveFile = { handleSaveRequest(it) },
-                        onDeleteFile = { deleteFile(it) },
-                        onOpenSaved = { openSavedTaildropFile(context, it) },
-                        onShowSavedInFolder = { showSavedTaildropFolder(context, it) },
-                        onCopySavedFolderPath = { copySavedTaildropFolderPath(context, it) },
-                        onHideSaved = { hideSaved(it) },
-                        showFolderHint = taildropFolder == null && !folderHintDismissed,
-                        onChooseFolder = { folderPicker.launch(null) },
-                        onDismissFolderHint = {
-                            folderHintDismissed = true
-                            GlobalSettings.setTaildropFolderHintDismissed(context)
-                        },
-                        onSendTo = { pickFilesFor(it) },
-                        onAllDevices = { showAllDevices = true },
-                        onAllHistory = { showHistory = true },
-                        onEntry = { openEntry = it }
-                    )
+                    if (isSavingFile) LinearProgressIndicator(Modifier.fillMaxWidth())
+                    if (isSendingFile) Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(0.3f)), contentAlignment = Alignment.Center) {
+                        Card(shape = MaterialTheme.shapes.large) {
+                            Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                                LoadingIndicator(); Spacer(Modifier.height(16.dp)); Text(stringResource(R.string.files_sending)); Text(sendProgressText, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
                 }
             }
-            if (isSavingFile) LinearProgressIndicator(Modifier.fillMaxWidth())
-            if (isSendingFile) Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(0.3f)), contentAlignment = Alignment.Center) {
-                Card(shape = MaterialTheme.shapes.large) {
-                    Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                        LoadingIndicator(); Spacer(Modifier.height(16.dp)); Text(stringResource(R.string.files_sending)); Text(sendProgressText, style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            }
-        }
+            // A phone's pages are held to a readable width on its side; see ReadableWidth. A
+            // larger window's pages lay themselves out across it (TaildropPage, TaildriveTabContent).
+            if (window.isPhone) ReadableWidth { pages() } else pages()
 
         // The Send section's "All devices": a pick there opens the file picker for it.
         if (showAllDevices) {
@@ -458,27 +486,20 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false) {
         }
 
         if (showHistory) {
-            TaildropSheet(onDismiss = { showHistory = false }) {
+            TaildropSheet(onDismiss = { showHistory = false }) { hide ->
                 TaildropHistorySheetContent(
                     history = history,
-                    onEntry = { openEntry = it },
+                    // Two-pane, the entry opens in the pane, which the sheet would cover.
+                    onEntry = { openEntry = it; if (twoPane) hide() },
                     onExport = { exportHistory() },
                     onClear = { confirmClear = true }
                 )
             }
         }
 
-        // Over the History sheet when opened from it.
-        openEntry?.let { entry ->
-            TaildropSheet(onDismiss = { openEntry = null }) { hide ->
-                TaildropEntryDetails(entry) {
-                    hide()
-                    scope.launch(Dispatchers.IO) {
-                        TaildropHistory.remove(context, entry)
-                        reloadHistory()
-                    }
-                }
-            }
+        // Over the History sheet when opened from it. Two-pane, TaildropPage draws it in a pane.
+        if (!twoPane) openEntry?.let { entry ->
+            TaildropEntrySheet(entry, onDismiss = { openEntry = null }, onDelete = { deleteEntry(entry) })
         }
 
         if (confirmClear) {
@@ -496,6 +517,7 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false) {
                         onClick = {
                             confirmClear = false
                             showHistory = false
+                            openEntry = null
                             scope.launch(Dispatchers.IO) {
                                 TaildropHistory.clear(context)
                                 reloadHistory()
@@ -507,7 +529,6 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false) {
                 dismissButton = { TextButton(onClick = { confirmClear = false }) { Text(strCancel) } }
             )
         }
-            }
         }
 }
 }

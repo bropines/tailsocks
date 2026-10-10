@@ -3,7 +3,9 @@ package io.github.bropines.tailscaled.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.android.tools.screenshot.PreviewTest
+import io.github.bropines.tailscaled.core.TaildropHistory
 
 // Files, Taildrop, Taildrive, Logs and the console in every window size (AdaptivePreviews.kt).
 
@@ -23,6 +25,24 @@ fun TabletTaildropEmpty() = AdaptiveShowcase(TaildropDemo.empty) { FilesScreen(o
 @Preview(name = "5-tablet", device = "spec:width=1280dp,height=800dp,dpi=240")
 @Composable
 fun TabletTaildropNoFolder() = AdaptiveShowcase(TaildropDemo.noFolder) { FilesScreen(onBack = {}, openTaildrop = true) }
+
+/** An entry of the history picked: its details in the pane, in place of sending and the
+ *  history. Two-pane windows only — elsewhere they are a sheet, which the renderer does not draw. */
+@PreviewTest
+@Preview(name = "4-foldable", device = "spec:width=840dp,height=900dp,dpi=420")
+@Preview(name = "5-tablet", device = "spec:width=1280dp,height=800dp,dpi=240")
+@Composable
+fun TabletTaildropEntry() = AdaptiveShowcase(TaildropDemo.data) {
+    FilesScreen(onBack = {}, openEntryAt = TaildropHistory.decode(TaildropDemo.historyJson).first { it.attempt == 2 }.timestamp)
+}
+
+/** A foldable open like a book: the inbox on one half, sending and the history on the other. */
+@PreviewTest
+@Preview(name = "fold-book", device = "spec:width=673dp,height=841dp,dpi=420")
+@Composable
+fun FoldTaildropBook() = AdaptiveShowcase(TaildropDemo.data) {
+    CompositionLocalProvider(LocalPreviewFold provides Fold.Vertical(330.dp, 343.dp)) { FilesScreen(onBack = {}, openTaildrop = true) }
+}
 
 @PreviewTest @WindowSizes @Composable
 fun TabletTaildrive() = AdaptiveShowcase { TaildriveScreen(onBack = {}) }

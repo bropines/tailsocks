@@ -24,6 +24,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridScope
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
+import androidx.compose.foundation.lazy.staggeredgrid.items
+import androidx.compose.foundation.lazy.staggeredgrid.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -232,81 +239,265 @@ internal fun TaildropPage(
     onAllHistory: () -> Unit,
     onEntry: (TaildropHistoryEntry) -> Unit,
     modifier: Modifier = Modifier,
-    nowMillis: Long = System.currentTimeMillis()
+    nowMillis: Long = System.currentTimeMillis(),
+    window: WindowLayout = rememberWindowLayout(),
+    openEntry: TaildropHistoryEntry? = null,
+    onCloseEntry: () -> Unit = {},
+    onDeleteEntry: (TaildropHistoryEntry) -> Unit = {}
 ) {
     val saved = remember(files, history) { taildropSavedEntries(files, history) }
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        // The bottom leaves the last row clear of the send button.
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        val inboxCount = incoming.size + files.size + saved.size
-        item(key = "inbox-head") { TaildropSectionHeading(stringResource(R.string.taildrop_section_inbox), inboxCount.takeIf { it > 0 }) }
-        if (inboxCount == 0) {
-            if (loaded) item(key = "inbox-empty") { TaildropMutedLine(stringResource(R.string.files_empty_inbox), Icons.Default.Inbox) }
-        } else {
-            // Arriving first: what is happening now. Each makes way for its file once it is in.
-            items(incoming, key = { "incoming:" + it.key }) { TaildropIncomingCard(it) }
-            // Then waiting: they are the ones asking for something.
-            items(files, key = { "file:" + it.Path + it.Name }) { f ->
-                val entry = remember(f, history) { receivedEntryOf(f, history) }
-                val note = when {
-                    entry?.savedTo != null -> stringResource(R.string.taildrop_saved_to_format, entry.savedTo)
-                    entry?.saveError != null -> stringResource(R.string.taildrop_save_failed)
-                    else -> null
+    val inbox = TaildropInbox(
+        incoming, files, history, saved, loaded, onOpenFile, onSaveFile, onDeleteFile,
+        onOpenSaved, onShowSavedInFolder, onCopySavedFolderPath, onHideSaved,
+        showFolderHint, onChooseFolder, onDismissFolderHint
+    )
+    when {
+        // The inbox down one side, sending and the history on the other, both in view at once;
+        // an entry of the history opens in that pane in place of them. See ListDetailLayout.
+        window.listDetail -> ListDetailLayout(
+            window = window,
+            twoPane = true,
+            listWidth = if (window.widthClass >= WindowWidthClass.LARGE) TaildropInboxPaneWidth else window.listPaneWidth,
+            modifier = modifier.fillMaxSize(),
+            list = {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(start = window.margin, end = 16.dp, top = 8.dp, bottom = 96.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) { inboxPaneItems(inbox) }
+            },
+            detail = {
+                if (openEntry != null) {
+                    TaildropEntrySheet(openEntry, onDismiss = onCloseEntry, onDelete = { onDeleteEntry(openEntry) })
+                } else {
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            // The bottom leaves the last row clear of the send button.
+                            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 88.dp)
+                    ) {
+                        TaildropSendAndHistory(targets, history, loaded, nowMillis, onSendTo, onAllDevices, onAllHistory, onEntry)
+                    }
                 }
-                FileCard(
-                    f, { onOpenFile(f) }, { onSaveFile(f) }, { onDeleteFile(f) },
-                    sender = entry?.peerName?.takeIf { it.isNotEmpty() },
-                    note = note,
-                    noteIsError = entry?.savedTo == null && entry?.saveError != null
-                )
             }
-            // Keyed by position too: on the device's storage a document id is a path, so a
-            // copy saved under the name of one deleted earlier gets the same URI again.
-            itemsIndexed(saved, key = { i, e -> "saved:$i:" + e.savedUri }) { _, e ->
-                TaildropSavedCard(e, { onOpenSaved(e) }, { onShowSavedInFolder(e) }, { onCopySavedFolderPath(e) }, { onHideSaved(e) })
+        )
+        // A window wider than a phone but not wide enough for two panes: the inbox's cards in
+        // as many columns as fit, sending and the history side by side under them.
+        window.multiColumn -> LazyVerticalStaggeredGrid(
+            columns = StaggeredGridCells.Adaptive(320.dp),
+            modifier = modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = window.margin, end = window.margin, top = 8.dp, bottom = 96.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalItemSpacing = 8.dp
+        ) {
+            inboxGridItems(inbox)
+            item(key = "send-history", span = StaggeredGridItemSpan.FullLine) {
+                TaildropSendAndHistory(targets, history, loaded, nowMillis, onSendTo, onAllDevices, onAllHistory, onEntry)
             }
         }
-        if (showFolderHint && loaded) item(key = "inbox-folder-hint") { TaildropFolderHint(onChooseFolder, onDismissFolderHint) }
+        else -> LazyColumn(
+            modifier = modifier.fillMaxSize(),
+            // The bottom leaves the last row clear of the send button.
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            val inboxCount = inbox.count
+            item(key = "inbox-head") { TaildropSectionHeading(stringResource(R.string.taildrop_section_inbox), inboxCount.takeIf { it > 0 }) }
+            if (inboxCount == 0) {
+                if (loaded) item(key = "inbox-empty") { TaildropMutedLine(stringResource(R.string.files_empty_inbox), Icons.Default.Inbox) }
+            } else {
+                // Arriving first: what is happening now. Each makes way for its file once it is in.
+                items(incoming, key = { "incoming:" + it.key }) { TaildropIncomingCard(it) }
+                // Then waiting: they are the ones asking for something.
+                items(files, key = { "file:" + it.Path + it.Name }) { f -> inbox.WaitingCard(f) }
+                // Keyed by position too: on the device's storage a document id is a path, so a
+                // copy saved under the name of one deleted earlier gets the same URI again.
+                itemsIndexed(saved, key = { i, e -> "saved:$i:" + e.savedUri }) { _, e -> inbox.SavedCard(e) }
+            }
+            if (showFolderHint && loaded) item(key = "inbox-folder-hint") { TaildropFolderHint(onChooseFolder, onDismissFolderHint) }
 
-        item(key = "send-head") { TaildropSectionHeading(stringResource(R.string.taildrop_section_send), null) }
-        if (targets.all.isEmpty()) {
-            if (loaded) item(key = "send-empty") { TaildropMutedLine(stringResource(R.string.taildrop_send_empty), Icons.Default.Devices) }
-        } else {
-            item(key = "send-rows") {
-                TaildropGroup {
-                    targets.all.take(SEND_ROWS).forEachIndexed { i, t ->
-                        if (i > 0) TaildropRowDivider()
-                        TaildropDeviceRow(t) { onSendTo(t.peer) }
-                    }
-                    if (targets.all.size > SEND_ROWS) {
-                        TaildropRowDivider(inset = false)
-                        TaildropMoreRow(stringResource(R.string.taildrop_all_devices_format, targets.all.size), onAllDevices)
-                    }
-                }
+            item(key = "send-head") { TaildropSectionHeading(stringResource(R.string.taildrop_section_send), null) }
+            if (targets.all.isEmpty()) {
+                if (loaded) item(key = "send-empty") { TaildropMutedLine(stringResource(R.string.taildrop_send_empty), Icons.Default.Devices) }
+            } else {
+                item(key = "send-rows") { TaildropSendGroup(targets, onSendTo, onAllDevices) }
             }
-        }
-        if (targets.refused.isNotEmpty()) item(key = "send-refused") { TaildropRefusedNote(targets.refused) }
+            if (targets.refused.isNotEmpty()) item(key = "send-refused") { TaildropRefusedNote(targets.refused) }
 
-        item(key = "history-head") { TaildropSectionHeading(stringResource(R.string.taildrop_section_history), null) }
-        if (history.isEmpty()) {
-            if (loaded) item(key = "history-empty") { TaildropMutedLine(stringResource(R.string.files_empty_history), Icons.Default.History) }
-        } else {
-            item(key = "history-rows") {
-                TaildropGroup {
-                    history.take(HISTORY_ROWS).forEachIndexed { i, e ->
-                        if (i > 0) TaildropRowDivider()
-                        TaildropHistoryRow(e, nowMillis) { onEntry(e) }
-                    }
-                    // Always there, not only past five: it is also the way to search,
-                    // export and clear.
-                    TaildropRowDivider(inset = false)
-                    TaildropMoreRow(stringResource(R.string.taildrop_all_history_format, history.size), onAllHistory)
-                }
+            item(key = "history-head") { TaildropSectionHeading(stringResource(R.string.taildrop_section_history), null) }
+            if (history.isEmpty()) {
+                if (loaded) item(key = "history-empty") { TaildropMutedLine(stringResource(R.string.files_empty_history), Icons.Default.History) }
+            } else {
+                item(key = "history-rows") { TaildropHistoryGroup(history, nowMillis, onEntry, onAllHistory) }
             }
         }
+    }
+}
+
+/** The inbox pane's width on a large window: wide enough for a card's three buttons in any language. */
+private val TaildropInboxPaneWidth = 440.dp
+
+/**
+ * What the inbox lists and does, gathered once so that the phone's list, the grid and the
+ * pane draw the same cards from it.
+ */
+private class TaildropInbox(
+    val incoming: List<IncomingTransfer>,
+    val files: List<TaildropFile>,
+    val history: List<TaildropHistoryEntry>,
+    val saved: List<TaildropHistoryEntry>,
+    val loaded: Boolean,
+    val onOpenFile: (TaildropFile) -> Unit,
+    val onSaveFile: (TaildropFile) -> Unit,
+    val onDeleteFile: (TaildropFile) -> Unit,
+    val onOpenSaved: (TaildropHistoryEntry) -> Unit,
+    val onShowSavedInFolder: (TaildropHistoryEntry) -> Unit,
+    val onCopySavedFolderPath: (TaildropHistoryEntry) -> Unit,
+    val onHideSaved: (TaildropHistoryEntry) -> Unit,
+    val showFolderHint: Boolean,
+    val onChooseFolder: () -> Unit,
+    val onDismissFolderHint: () -> Unit
+) {
+    val count: Int get() = incoming.size + files.size + saved.size
+
+    /** A file waiting in the app, with who sent it and what became of a save, from the history. */
+    @Composable
+    fun WaitingCard(f: TaildropFile) {
+        val entry = remember(f, history) { receivedEntryOf(f, history) }
+        val note = when {
+            entry?.savedTo != null -> stringResource(R.string.taildrop_saved_to_format, entry.savedTo)
+            entry?.saveError != null -> stringResource(R.string.taildrop_save_failed)
+            else -> null
+        }
+        FileCard(
+            f, { onOpenFile(f) }, { onSaveFile(f) }, { onDeleteFile(f) },
+            sender = entry?.peerName?.takeIf { it.isNotEmpty() },
+            note = note,
+            noteIsError = entry?.savedTo == null && entry?.saveError != null
+        )
+    }
+
+    @Composable
+    fun SavedCard(e: TaildropHistoryEntry) {
+        TaildropSavedCard(e, { onOpenSaved(e) }, { onShowSavedInFolder(e) }, { onCopySavedFolderPath(e) }, { onHideSaved(e) })
+    }
+}
+
+/**
+ * The inbox as a pane of its own. An empty one is a pane's worth of empty space, so it says
+ * so in the middle of the pane rather than in one line at the top, the folder hint over it.
+ */
+private fun LazyListScope.inboxPaneItems(inbox: TaildropInbox) {
+    val hint = inbox.showFolderHint && inbox.loaded
+    item(key = "inbox-head") { TaildropSectionHeading(stringResource(R.string.taildrop_section_inbox), inbox.count.takeIf { it > 0 }) }
+    if (inbox.count == 0) {
+        if (hint) item(key = "inbox-folder-hint") { TaildropFolderHint(inbox.onChooseFolder, inbox.onDismissFolderHint) }
+        if (inbox.loaded) item(key = "inbox-empty") {
+            EmptyState(
+                icon = Icons.Default.Inbox,
+                text = stringResource(R.string.files_empty_inbox),
+                modifier = Modifier.fillParentMaxWidth().fillParentMaxHeight(0.6f)
+            )
+        }
+    } else {
+        items(inbox.incoming, key = { "incoming:" + it.key }) { TaildropIncomingCard(it) }
+        items(inbox.files, key = { "file:" + it.Path + it.Name }) { f -> inbox.WaitingCard(f) }
+        itemsIndexed(inbox.saved, key = { i, e -> "saved:$i:" + e.savedUri }) { _, e -> inbox.SavedCard(e) }
+        if (hint) item(key = "inbox-folder-hint") { TaildropFolderHint(inbox.onChooseFolder, inbox.onDismissFolderHint) }
+    }
+}
+
+/** The inbox's cards in the medium window's grid; the heading and the hint span its width. */
+private fun LazyStaggeredGridScope.inboxGridItems(inbox: TaildropInbox) {
+    item(key = "inbox-head", span = StaggeredGridItemSpan.FullLine) {
+        TaildropSectionHeading(stringResource(R.string.taildrop_section_inbox), inbox.count.takeIf { it > 0 })
+    }
+    if (inbox.count == 0) {
+        if (inbox.loaded) item(key = "inbox-empty", span = StaggeredGridItemSpan.FullLine) {
+            TaildropMutedLine(stringResource(R.string.files_empty_inbox), Icons.Default.Inbox)
+        }
+    } else {
+        items(inbox.incoming, key = { "incoming:" + it.key }) { TaildropIncomingCard(it) }
+        items(inbox.files, key = { "file:" + it.Path + it.Name }) { f -> inbox.WaitingCard(f) }
+        itemsIndexed(inbox.saved, key = { i, e -> "saved:$i:" + e.savedUri }) { _, e -> inbox.SavedCard(e) }
+    }
+    if (inbox.showFolderHint && inbox.loaded) item(key = "inbox-folder-hint", span = StaggeredGridItemSpan.FullLine) {
+        TaildropFolderHint(inbox.onChooseFolder, inbox.onDismissFolderHint)
+    }
+}
+
+/**
+ * The Send section and the History section side by side where two columns fit, one over
+ * the other where they do not — the same sections the phone's list holds under its inbox.
+ * The history shows as many rows as the devices, so that side by side the two cards end
+ * on one line.
+ */
+@Composable
+private fun TaildropSendAndHistory(
+    targets: TaildropTargets,
+    history: List<TaildropHistoryEntry>,
+    loaded: Boolean,
+    nowMillis: Long,
+    onSendTo: (PeerData) -> Unit,
+    onAllDevices: () -> Unit,
+    onAllHistory: () -> Unit,
+    onEntry: (TaildropHistoryEntry) -> Unit
+) {
+    CardColumns(minColumnWidth = 320.dp, maxColumns = 2, spacing = 16.dp) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            TaildropSectionHeading(stringResource(R.string.taildrop_section_send), null)
+            if (targets.all.isEmpty()) {
+                if (loaded) TaildropMutedLine(stringResource(R.string.taildrop_send_empty), Icons.Default.Devices)
+            } else {
+                TaildropSendGroup(targets, onSendTo, onAllDevices)
+            }
+            if (targets.refused.isNotEmpty()) TaildropRefusedNote(targets.refused)
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            TaildropSectionHeading(stringResource(R.string.taildrop_section_history), null)
+            if (history.isEmpty()) {
+                if (loaded) TaildropMutedLine(stringResource(R.string.files_empty_history), Icons.Default.History)
+            } else {
+                TaildropHistoryGroup(history, nowMillis, onEntry, onAllHistory, rows = SEND_ROWS)
+            }
+        }
+    }
+}
+
+/** The Send section's card: the first devices, then "All devices" when there are more. */
+@Composable
+private fun TaildropSendGroup(targets: TaildropTargets, onSendTo: (PeerData) -> Unit, onAllDevices: () -> Unit) {
+    TaildropGroup {
+        targets.all.take(SEND_ROWS).forEachIndexed { i, t ->
+            if (i > 0) TaildropRowDivider()
+            TaildropDeviceRow(t) { onSendTo(t.peer) }
+        }
+        if (targets.all.size > SEND_ROWS) {
+            TaildropRowDivider(inset = false)
+            TaildropMoreRow(stringResource(R.string.taildrop_all_devices_format, targets.all.size), onAllDevices)
+        }
+    }
+}
+
+/** The History section's card: the latest entries and "All history". */
+@Composable
+private fun TaildropHistoryGroup(
+    history: List<TaildropHistoryEntry>,
+    nowMillis: Long,
+    onEntry: (TaildropHistoryEntry) -> Unit,
+    onAllHistory: () -> Unit,
+    rows: Int = HISTORY_ROWS
+) {
+    TaildropGroup {
+        history.take(rows).forEachIndexed { i, e ->
+            if (i > 0) TaildropRowDivider()
+            TaildropHistoryRow(e, nowMillis) { onEntry(e) }
+        }
+        // Always there, not only past five: it is also the way to search,
+        // export and clear.
+        TaildropRowDivider(inset = false)
+        TaildropMoreRow(stringResource(R.string.taildrop_all_history_format, history.size), onAllHistory)
     }
 }
 
@@ -850,6 +1041,23 @@ internal fun TaildropHistorySheetContent(
     }
 }
 
+/**
+ * One entry of the history in full: a sheet over the page on a phone, the pane beside the
+ * inbox on a two-pane window ([LocalInPane]) — where there is no swipe to dismiss it, so
+ * it has a close button, and Delete closes it as the sheet slides away. [onDelete] removes
+ * the entry once the details are going.
+ */
+@Composable
+internal fun TaildropEntrySheet(entry: TaildropHistoryEntry, onDismiss: () -> Unit, onDelete: () -> Unit) {
+    if (LocalInPane.current) {
+        TaildropEntryDetails(entry, onClose = onDismiss) { onDismiss(); onDelete() }
+    } else {
+        TaildropSheet(onDismiss = onDismiss) { hide ->
+            TaildropEntryDetails(entry) { hide(); onDelete() }
+        }
+    }
+}
+
 /** One label and its value in the details sheet. */
 private data class DetailRow(val label: String, val value: String, val monospace: Boolean = false, val isError: Boolean = false)
 
@@ -860,7 +1068,9 @@ private data class DetailRow(val label: String, val value: String, val monospace
  * grew is a name, a device and a date, and shows as just that.
  */
 @Composable
-internal fun TaildropEntryDetails(entry: TaildropHistoryEntry, onDelete: () -> Unit) {
+internal fun TaildropEntryDetails(entry: TaildropHistoryEntry, onClose: (() -> Unit)? = null, onDelete: () -> Unit) {
+    // In a pane (onClose given) nothing sits over it, and the send button sits in its corner.
+    val inPane = onClose != null
     val locale = LocalConfiguration.current.locales[0]
     val (icon, tint) = entryLook(entry)
     val full = remember(locale) { SimpleDateFormat("d MMMM yyyy, HH:mm:ss", locale) }
@@ -938,7 +1148,7 @@ internal fun TaildropEntryDetails(entry: TaildropHistoryEntry, onDelete: () -> U
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
             .navigationBarsPadding()
-            .padding(start = 20.dp, end = 20.dp, bottom = 16.dp),
+            .padding(start = 20.dp, end = 20.dp, top = if (inPane) 16.dp else 0.dp, bottom = if (inPane) 88.dp else 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -955,15 +1165,22 @@ internal fun TaildropEntryDetails(entry: TaildropHistoryEntry, onDelete: () -> U
                     color = if (entry.failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            if (onClose != null) {
+                IconButton(onClick = onClose) { Icon(Icons.Default.Close, stringResource(R.string.action_close)) }
+            }
         }
         // Selectable: a hash, an address or an error is what one comes here to copy.
         SelectionContainer {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            val groups: @Composable () -> Unit = {
                 DetailsGroup(stringResource(R.string.taildrop_details_transfer), transferRows)
                 DetailsGroup(stringResource(R.string.taildrop_details_device), deviceRows)
                 DetailsGroup(stringResource(R.string.taildrop_details_file), fileRows)
                 DetailsGroup(stringResource(R.string.taildrop_details_on_phone), phoneRows)
             }
+            // A pane on a large window is twice a sheet's width: the groups take two columns
+            // there, rather than rows with the value a hand's width from its label.
+            if (inPane) CardColumns(minColumnWidth = 320.dp, maxColumns = 2, spacing = 12.dp) { groups() }
+            else Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { groups() }
         }
         OutlinedButton(
             onClick = onDelete,
