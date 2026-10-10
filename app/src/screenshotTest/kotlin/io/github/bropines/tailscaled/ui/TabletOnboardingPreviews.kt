@@ -1,6 +1,9 @@
 package io.github.bropines.tailscaled.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.android.tools.screenshot.PreviewTest
 
 // The screens around Settings — permissions, the apps the tunnel leaves alone, onboarding —
@@ -62,3 +65,13 @@ fun PhoneFirstStartMode() = AdaptiveShowcase { FirstStartScreen(onFinished = {},
 
 @PreviewTest @PhoneSizes @Composable
 fun PhoneFirstStartLogin() = AdaptiveShowcase { FirstStartScreen(onFinished = {}, initialPage = 4) }
+
+/** A foldable open like a book: the picture on one half, the step on the other. */
+@PreviewTest
+@Preview(name = "fold-book", device = "spec:width=673dp,height=841dp,dpi=420")
+@Composable
+fun FoldFirstStartBook() = AdaptiveShowcase {
+    CompositionLocalProvider(LocalPreviewFold provides Fold.Vertical(330.dp, 343.dp)) {
+        FirstStartScreen(onFinished = {}, initialPage = 1)
+    }
+}

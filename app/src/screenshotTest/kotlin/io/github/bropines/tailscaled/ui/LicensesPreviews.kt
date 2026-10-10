@@ -40,7 +40,7 @@ fun TabletLicenses() = AdaptiveShowcase { LicensesContent(doc = loadLicenses(Loc
 @Preview(name = "5-tablet", device = "spec:width=1280dp,height=800dp,dpi=240")
 @Composable
 fun TabletLicensesPicked() = AdaptiveShowcase {
-    LicensesContent(doc = loadLicenses(LocalContext.current), onBack = {}, initialOpen = "android/androidx.activity")
+    LicensesContent(doc = loadLicenses(LocalContext.current), onBack = {}, initialOpen = "go/github.com/aws/aws-sdk-go-v2")
 }
 
 @PreviewTest
