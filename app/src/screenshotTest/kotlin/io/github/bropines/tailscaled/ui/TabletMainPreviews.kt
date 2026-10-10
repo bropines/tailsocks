@@ -79,6 +79,12 @@ fun TabletMainRu() = AdaptiveShowcase { Main() }
 @Composable
 fun TabletMainLargeFont() = AdaptiveShowcase { Main() }
 
+/** A desktop-sized window (a 13" tablet on its side, a freeform window): the menu in one row. */
+@PreviewTest
+@Preview(name = "6-desktop", device = "spec:width=1920dp,height=1080dp,dpi=160")
+@Composable
+fun TabletMainDesktop() = AdaptiveShowcase { Main() }
+
 @PreviewTest @PhoneSizes @Composable
 fun PhoneMain() = AdaptiveShowcase { Main() }
 
