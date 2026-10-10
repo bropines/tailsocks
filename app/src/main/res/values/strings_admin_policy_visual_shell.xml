@@ -28,6 +28,7 @@
     </plurals>
     <string name="admin_pv_shell_refusal_unplaced">The message names no rule that is here.</string>
     <string name="admin_pv_shell_refusal_stale">Edited since. Review again to check.</string>
+    <string name="admin_pv_shell_show_one">Show</string>
     <string name="admin_pv_shell_refusal_prev">Previous card</string>
     <string name="admin_pv_shell_refusal_next">Next card</string>
 

@@ -55,6 +55,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -416,9 +418,11 @@ private fun RefusalBanner(refusal: PolicyRefusal, places: List<PolicyPath>, stal
                         Icon(Icons.Default.KeyboardArrowDown, ctx.getString(R.string.admin_pv_shell_refusal_next))
                     }
                 } else if (places.size == 1) {
-                    IconButton(onClick = { onShow(places.first()) }) {
-                        Icon(Icons.Default.KeyboardArrowDown, ctx.getString(R.string.admin_pv_shell_show, elementLabel(ctx, places.first())))
-                    }
+                    TextButton(
+                        onClick = { onShow(places.first()) },
+                        colors = ButtonDefaults.textButtonColors(contentColor = scheme.onErrorContainer),
+                        modifier = Modifier.semantics { contentDescription = ctx.getString(R.string.admin_pv_shell_show, elementLabel(ctx, places.first())) },
+                    ) { Text(ctx.getString(R.string.admin_pv_shell_show_one)) }
                 }
             }
             if (refusal.messages.isNotEmpty()) {

@@ -25,6 +25,7 @@
     </plurals>
     <string name="admin_pv_shell_refusal_unplaced">Сообщение не указывает ни на одно правило отсюда.</string>
     <string name="admin_pv_shell_refusal_stale">С тех пор изменено. Проверьте ещё раз.</string>
+    <string name="admin_pv_shell_show_one">Показать</string>
     <string name="admin_pv_shell_refusal_prev">Предыдущая карточка</string>
     <string name="admin_pv_shell_refusal_next">Следующая карточка</string>
 
