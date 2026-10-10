@@ -116,6 +116,16 @@ fun TabletServeStopped() = Serve(null, DemoTailnet.data.copy(running = false))
 @PreviewTest @PhoneSizes @Composable
 fun PhoneServeStopped() = Serve(null, DemoTailnet.data.copy(running = false))
 
+/** The node's card opened: its three gates side by side on a large window. */
+@PreviewTest
+@Preview(name = "3-tablet-portrait", device = "spec:width=800dp,height=1280dp,dpi=240")
+@Preview(name = "5-tablet", device = TABLET)
+@Composable
+fun TabletServeNodeOpen() = Serve(DemoServe(serveStatusJson, demoServe.configJson, demoServe.pausedJson, demoServe.health, nodeCardOpen = true))
+
+@PreviewTest @PhoneSizes @Composable
+fun PhoneServeNodeOpen() = Serve(DemoServe(serveStatusJson, demoServe.configJson, demoServe.pausedJson, demoServe.health, nodeCardOpen = true))
+
 @PreviewTest @Preview(name = "fold-book", device = BOOK) @Composable
 fun FoldServeBook() = Book { Serve() }
 
@@ -186,3 +196,19 @@ fun PhoneDnsStopped() = Dns(null, DemoTailnet.data.copy(running = false))
 
 @PreviewTest @Preview(name = "fold-book", device = BOOK) @Composable
 fun FoldDnsBook() = Book { Dns() }
+
+// The narrowest two-pane window in Russian, whose strings run longest: nothing clipped.
+
+private const val FOLDABLE = "spec:width=840dp,height=900dp,dpi=420"
+
+@PreviewTest @Preview(name = "4-foldable-ru", device = FOLDABLE, locale = "ru") @Composable
+fun TabletServeRu() = Serve()
+
+@PreviewTest @Preview(name = "4-foldable-ru", device = FOLDABLE, locale = "ru") @Composable
+fun TabletTailcatRu() = AdaptiveShowcase(tailcatData) { ServeHost(startTab = 1, onBack = {}) }
+
+@PreviewTest @Preview(name = "4-foldable-ru", device = FOLDABLE, locale = "ru") @Composable
+fun TabletNetcheckRu() = AdaptiveShowcase(netcheckData) { NetcheckScreen(onBack = {}) }
+
+@PreviewTest @Preview(name = "4-foldable-ru", device = FOLDABLE, locale = "ru") @Composable
+fun TabletDnsRu() = Dns()
