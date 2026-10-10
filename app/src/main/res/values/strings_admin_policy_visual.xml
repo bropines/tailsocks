@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The visual policy editor's shared parts: selector chips, the selector picker, element cards. -->
+<resources>
+    <!-- Selectors in plain words: the chip shows these, the picker adds the explanation. -->
+    <string name="admin_pv_sel_any">Everyone</string>
+    <string name="admin_pv_sel_any_help">Every device and user of the tailnet, devices shared in included.</string>
+    <string name="admin_pv_ag_member">All members</string>
+    <string name="admin_pv_ag_member_help">Every direct member of the tailnet, on the devices they own; not devices shared in, not tagged ones.</string>
+    <string name="admin_pv_ag_tagged">Tagged devices</string>
+    <string name="admin_pv_ag_tagged_help">Every device that carries a tag.</string>
+    <string name="admin_pv_ag_self">Their own devices</string>
+    <string name="admin_pv_ag_self_help">For each user, the devices that user owns. Only as a destination, and only for users and groups as the source.</string>
+    <string name="admin_pv_ag_internet">Internet</string>
+    <string name="admin_pv_ag_internet_help">The public internet through exit nodes. Only as a destination.</string>
+    <string name="admin_pv_ag_nonroot">Any user but root</string>
+    <string name="admin_pv_ag_nonroot_help">Any login name on the destination machine except root.</string>
+    <string name="admin_pv_ag_shared">Users it is shared with</string>
+    <string name="admin_pv_ag_shared_help">Users who accepted a share of a device from this tailnet.</string>
+    <string name="admin_pv_ag_admin">Admins</string>
+    <string name="admin_pv_ag_owner">The owner</string>
+    <string name="admin_pv_ag_it_admin">IT admins</string>
+    <string name="admin_pv_ag_network_admin">Network admins</string>
+    <string name="admin_pv_ag_billing_admin">Billing admins</string>
+    <string name="admin_pv_ag_auditor">Auditors</string>
+    <string name="admin_pv_ag_role_help">The users who hold this role in the tailnet, on the devices they own.</string>
+    <string name="admin_pv_ag_danger_all">Anyone at all</string>
+    <string name="admin_pv_ag_danger_all_help">Everyone, outside the tailnet too. Only as a source; almost never what you want.</string>
+
+    <!-- Picker groups. -->
+    <string name="admin_pv_group_everyone">Everyone and automatic groups</string>
+    <string name="admin_pv_group_groups">Groups</string>
+    <string name="admin_pv_group_tags">Tags</string>
+    <string name="admin_pv_group_users">Users</string>
+    <string name="admin_pv_group_hosts">Hosts</string>
+    <string name="admin_pv_group_ipsets">IP sets</string>
+    <string name="admin_pv_group_postures">Device postures</string>
+
+    <string name="admin_pv_picker_search">Search, or type a name or address</string>
+    <string name="admin_pv_picker_use">Use “%1$s”</string>
+    <string name="admin_pv_picker_none">Nothing matches</string>
+    <string name="admin_pv_picker_done">Done</string>
+    <string name="admin_pv_tag_undefined">Not in tag owners yet</string>
+    <plurals name="admin_pv_devices">
+        <item quantity="one">%d device</item>
+        <item quantity="other">%d devices</item>
+    </plurals>
+
+    <!-- Why a selector cannot go where it was put. -->
+    <string name="admin_pv_problem_empty">Empty</string>
+    <string name="admin_pv_problem_not_here">Not allowed here</string>
+    <string name="admin_pv_problem_undefined">Not defined in this policy</string>
+    <string name="admin_pv_problem_headscale">Headscale does not accept this</string>
+    <string name="admin_pv_problem_ports">Not a port list: 22, 80,443, 1000-2000 or *</string>
+    <string name="admin_pv_problem_one_port">A test needs one port number</string>
+    <string name="admin_pv_problem_unknown">Not a user, group, tag, host or address</string>
+
+    <!-- Element cards. -->
+    <string name="admin_pv_add">Add</string>
+    <string name="admin_pv_remove">Remove %1$s</string>
+    <string name="admin_pv_edit_in_json">Edit in JSON</string>
+    <string name="admin_pv_more_in_json">More in JSON: %1$s</string>
+    <string name="admin_pv_read_only">Shown as written; edit it in JSON.</string>
+    <string name="admin_pv_issue_list">A field holds something other than a list of names.</string>
+    <string name="admin_pv_issue_duplicate">A field is written twice; only the last one counts.</string>
+    <string name="admin_pv_issue_case">A field is spelled differently from the documented name.</string>
+    <string name="admin_pv_server_error">The server refused this</string>
+</resources>

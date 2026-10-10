@@ -84,6 +84,19 @@ class VisualSupportTest {
         assertEquals(p("ssh", 3), PolicyLocator.element(SourceTree.parse(risky), finding))
     }
 
+    @Test
+    fun theEnvironmentPlacesRisksAndServerErrorsOnElements() {
+        val risky = PolicyEdits.addRule(sample, Section.ACLS, PolicyEdits.aclFields(listOf("*"), listOf("tag:master:*")))
+        val risks = VisualEnv.risks(sample, risky)
+        assertEquals(setOf(p("acls", 14)), risks.keys)
+        assertTrue(VisualEnv.risks(sample, sample).isEmpty())
+        val errors = VisualEnv.errors(sample, listOf("tag \"tag:taildrop\" is invalid", "internal error"))
+        assertTrue(p("nodeAttrs", 0) in errors.keys)
+        assertTrue(p("tagOwners", "tag:taildrop") in errors.keys)
+        assertTrue(errors.values.flatten().none { it == "internal error" })
+        assertEquals(VisualEnv(PolicyDraft("{")).editable, false)
+    }
+
     // ---- selector rules ----
 
     @Test

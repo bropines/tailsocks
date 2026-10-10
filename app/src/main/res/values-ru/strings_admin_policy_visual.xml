@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="admin_pv_sel_any">Все</string>
+    <string name="admin_pv_sel_any_help">Все устройства и пользователи тейлнета, включая расшаренные сюда устройства.</string>
+    <string name="admin_pv_ag_member">Все участники</string>
+    <string name="admin_pv_ag_member_help">Все прямые участники тейлнета на своих устройствах; без расшаренных сюда и без устройств с тегами.</string>
+    <string name="admin_pv_ag_tagged">Устройства с тегами</string>
+    <string name="admin_pv_ag_tagged_help">Любое устройство, у которого есть тег.</string>
+    <string name="admin_pv_ag_self">Свои устройства</string>
+    <string name="admin_pv_ag_self_help">Для каждого пользователя — его собственные устройства. Только как назначение и только если источник — пользователи или группы.</string>
+    <string name="admin_pv_ag_internet">Интернет</string>
+    <string name="admin_pv_ag_internet_help">Публичный интернет через exit-ноды. Только как назначение.</string>
+    <string name="admin_pv_ag_nonroot">Любой пользователь, кроме root</string>
+    <string name="admin_pv_ag_nonroot_help">Любое имя входа на целевой машине, кроме root.</string>
+    <string name="admin_pv_ag_shared">Те, с кем поделились</string>
+    <string name="admin_pv_ag_shared_help">Пользователи, принявшие приглашение к устройству из этого тейлнета.</string>
+    <string name="admin_pv_ag_admin">Администраторы</string>
+    <string name="admin_pv_ag_owner">Владелец</string>
+    <string name="admin_pv_ag_it_admin">IT-администраторы</string>
+    <string name="admin_pv_ag_network_admin">Сетевые администраторы</string>
+    <string name="admin_pv_ag_billing_admin">Администраторы оплаты</string>
+    <string name="admin_pv_ag_auditor">Аудиторы</string>
+    <string name="admin_pv_ag_role_help">Пользователи с этой ролью в тейлнете, на своих устройствах.</string>
+    <string name="admin_pv_ag_danger_all">Вообще кто угодно</string>
+    <string name="admin_pv_ag_danger_all_help">Все, в том числе за пределами тейлнета. Только как источник; почти никогда не то, что нужно.</string>
+
+    <string name="admin_pv_group_everyone">Все и автоматические группы</string>
+    <string name="admin_pv_group_groups">Группы</string>
+    <string name="admin_pv_group_tags">Теги</string>
+    <string name="admin_pv_group_users">Пользователи</string>
+    <string name="admin_pv_group_hosts">Хосты</string>
+    <string name="admin_pv_group_ipsets">Наборы IP</string>
+    <string name="admin_pv_group_postures">Состояние устройств</string>
+
+    <string name="admin_pv_picker_search">Поиск, или введите имя или адрес</string>
+    <string name="admin_pv_picker_use">Использовать «%1$s»</string>
+    <string name="admin_pv_picker_none">Ничего не найдено</string>
+    <string name="admin_pv_picker_done">Готово</string>
+    <string name="admin_pv_tag_undefined">Ещё нет во владельцах тегов</string>
+    <plurals name="admin_pv_devices">
+        <item quantity="one">%d устройство</item>
+        <item quantity="few">%d устройства</item>
+        <item quantity="many">%d устройств</item>
+        <item quantity="other">%d устройства</item>
+    </plurals>
+
+    <string name="admin_pv_problem_empty">Пусто</string>
+    <string name="admin_pv_problem_not_here">Здесь так нельзя</string>
+    <string name="admin_pv_problem_undefined">Не определено в этой политике</string>
+    <string name="admin_pv_problem_headscale">Headscale такое не принимает</string>
+    <string name="admin_pv_problem_ports">Не список портов: 22, 80,443, 1000-2000 или *</string>
+    <string name="admin_pv_problem_one_port">Тесту нужен один номер порта</string>
+    <string name="admin_pv_problem_unknown">Не пользователь, группа, тег, хост или адрес</string>
+
+    <string name="admin_pv_add">Добавить</string>
+    <string name="admin_pv_remove">Убрать %1$s</string>
+    <string name="admin_pv_edit_in_json">Править в JSON</string>
+    <string name="admin_pv_more_in_json">Ещё в JSON: %1$s</string>
+    <string name="admin_pv_read_only">Показано как написано; правится в JSON.</string>
+    <string name="admin_pv_issue_list">В поле не список имён, а что-то другое.</string>
+    <string name="admin_pv_issue_duplicate">Поле записано дважды; действует только последнее.</string>
+    <string name="admin_pv_issue_case">Поле написано не так, как в документации.</string>
+    <string name="admin_pv_server_error">Сервер это отклонил</string>
+</resources>
