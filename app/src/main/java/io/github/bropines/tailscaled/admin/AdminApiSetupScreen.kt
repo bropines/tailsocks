@@ -4,12 +4,14 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -55,6 +57,7 @@ import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.admin.console.ProfileDraft
@@ -70,6 +73,7 @@ import io.github.bropines.tailscaled.admin.secure.findFragmentActivity
 import io.github.bropines.tailscaled.core.SlidingSegmentedChips
 import io.github.bropines.tailscaled.ui.AppTopBar
 import io.github.bropines.tailscaled.ui.HelpText
+import io.github.bropines.tailscaled.ui.rememberWindowLayout
 
 /**
  * One admin profile: a name, a credential and how to reach the server. The window is kept out
@@ -116,16 +120,19 @@ fun AdminProfileEditorScreen(
             )
         }
     ) { padding ->
-        // A form: on a tablet or in landscape it keeps a readable width instead of spanning the screen.
-        Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.TopCenter) {
+        // A form: on a tablet or in landscape it keeps a readable width instead of spanning the
+        // screen; on a tablet, shorter than the window, it stands in the middle of it rather than
+        // at the top of an empty page. [viewport] is the window's height there, null on a phone.
+        val form: @Composable (viewport: Dp?) -> Unit = { viewport ->
             Column(
                 modifier = Modifier
                     .widthIn(max = 640.dp)
                     .fillMaxSize()
                     .imePadding()
                     .verticalScroll(rememberScrollState())
+                    .then(if (viewport != null) Modifier.heightIn(min = viewport) else Modifier)
                     .padding(horizontal = 24.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = if (viewport != null) Arrangement.spacedBy(16.dp, Alignment.CenterVertically) else Arrangement.spacedBy(16.dp),
             ) {
                 if (firstProfile) {
                     Icon(Icons.Default.AdminPanelSettings, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(56.dp).align(Alignment.CenterHorizontally))
@@ -295,6 +302,11 @@ fun AdminProfileEditorScreen(
                     }
                 }
             }
+        }
+        if (rememberWindowLayout().isPhone) {
+            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.TopCenter) { form(null) }
+        } else {
+            BoxWithConstraints(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.TopCenter) { form(maxHeight) }
         }
     }
 

@@ -16,6 +16,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
+import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -70,6 +74,7 @@ import io.github.bropines.tailscaled.ui.EmptyState
 import io.github.bropines.tailscaled.ui.HelpText
 import io.github.bropines.tailscaled.ui.PickerOption
 import io.github.bropines.tailscaled.ui.PickerSheet
+import io.github.bropines.tailscaled.ui.rememberWindowLayout
 
 private enum class CreateWhat { AUTH_KEY, OAUTH_CLIENT }
 
@@ -164,7 +169,30 @@ fun KeysList(
     val ctx = LocalContext.current
     val sections = remember(keys.value, now) { KeyList.sections(keys.value.orEmpty(), now) }
     Box(Modifier.fillMaxSize()) {
-        LazyColumn(
+        // Wider than a phone, a section's cards stand in as many columns as fit, under its header.
+        if (rememberWindowLayout().multiColumn) LazyVerticalStaggeredGrid(
+            columns = StaggeredGridCells.Adaptive(320.dp),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
+            verticalItemSpacing = 8.dp,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            item(key = "problems", span = StaggeredGridItemSpan.FullLine) { LoadProblems(keys, onRetry) }
+            when {
+                sections.isEmpty() && keys.loading -> item(key = "loading", span = StaggeredGridItemSpan.FullLine) {
+                    Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) { LoadingIndicator() }
+                }
+                sections.isEmpty() -> item(key = "empty", span = StaggeredGridItemSpan.FullLine) {
+                    EmptyState(Icons.Default.VpnKey, ctx.getString(R.string.admin_k_none), Modifier.fillMaxWidth().padding(vertical = 48.dp))
+                }
+                else -> sections.forEach { section ->
+                    item(key = "h-${section.group}", span = StaggeredGridItemSpan.FullLine) { SectionHeader(section) }
+                    items(section.keys, key = { "k-${it.id}" }) { k ->
+                        KeyCard(k, own = ownKeyId != null && k.id == ownKeyId, now = now, canRevoke = canRevoke(k.type), onRevoke = { onRevoke(k) })
+                    }
+                }
+            }
+        } else LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),

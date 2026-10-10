@@ -51,20 +51,26 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.bropines.tailscaled.R
+import io.github.bropines.tailscaled.admin.CardPage
 import io.github.bropines.tailscaled.admin.LoadProblems
+import io.github.bropines.tailscaled.admin.ReadableIf
 import io.github.bropines.tailscaled.admin.api.AdminArea
 import io.github.bropines.tailscaled.admin.api.BackendFeature
 import io.github.bropines.tailscaled.admin.api.DnsConfiguration
 import io.github.bropines.tailscaled.admin.api.DnsResolver
+import io.github.bropines.tailscaled.admin.cardPage
 import io.github.bropines.tailscaled.admin.console.AdminConsoleViewModel
 import io.github.bropines.tailscaled.admin.console.ConsoleState
 import io.github.bropines.tailscaled.admin.console.ConsoleTab
+import io.github.bropines.tailscaled.admin.settings.CONFIG_CARD_MIN_WIDTH
 import io.github.bropines.tailscaled.admin.settings.ConfigCard
 import io.github.bropines.tailscaled.admin.settings.ConfigNote
 import io.github.bropines.tailscaled.admin.settings.ConfigNotLoaded
 import io.github.bropines.tailscaled.admin.settings.ConfigSwitchRow
 import io.github.bropines.tailscaled.admin.settings.NoteTone
+import io.github.bropines.tailscaled.ui.CardColumns
 import io.github.bropines.tailscaled.ui.HelpText
+import io.github.bropines.tailscaled.ui.rememberWindowLayout
 
 /**
  * The tailnet's DNS: MagicDNS and Override local DNS, the global nameservers (each with its
@@ -85,58 +91,67 @@ fun DnsTab(state: ConsoleState, vm: AdminConsoleViewModel?) {
     val canWrite = state.canWrite(AdminArea.DNS)
     val propose: (DnsEdit) -> Unit = { edit -> vm?.let { it.propose(DnsChanges.plan(it.text, edit, cfg, combined, it.tailnetLabel)) } }
     val overrideOn = cfg.preferences.overrideLocalDNS == true
+    // Wider than a phone the cards keep to a readable column, and from an expanded window up
+    // stand in columns: no switch a tablet's width from its label.
+    val page = rememberWindowLayout().cardPage
 
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        LoadProblems(state.dns, onRetry = { vm?.refresh(ConsoleTab.DNS, force = true) })
-        if (!canWrite && state.writeBlock == null) ConfigNote(ctx.getString(R.string.admin_cfg_scope_missing, AdminArea.DNS.scope), NoteTone.LOCKED)
+    ReadableIf(page == CardPage.READABLE) {
+        Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            LoadProblems(state.dns, onRetry = { vm?.refresh(ConsoleTab.DNS, force = true) })
+            if (!canWrite && state.writeBlock == null) ConfigNote(ctx.getString(R.string.admin_cfg_scope_missing, AdminArea.DNS.scope), NoteTone.LOCKED)
 
-        ConfigCard(ctx.getString(R.string.admin_cfg_dns_preferences)) {
-            ConfigSwitchRow(
-                title = ctx.getString(R.string.admin_cfg_dns_magic),
-                help = ctx.getString(R.string.admin_cfg_dns_magic_help),
-                checked = cfg.magicDns,
-                enabled = canWrite,
-                onToggle = { propose(DnsEdit.MagicDns(it)) },
-                note = if (!cfg.magicDns && cfg.nameservers.isEmpty()) ctx.getString(R.string.admin_cfg_dns_magic_needs_ns) else null,
-            )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            val needsNs = !overrideOn && cfg.nameservers.isEmpty()
-            ConfigSwitchRow(
-                title = ctx.getString(R.string.admin_cfg_dns_override),
-                help = ctx.getString(R.string.admin_cfg_dns_override_help),
-                checked = if (combined) overrideOn else null,
-                enabled = canWrite && combined && !needsNs,
-                onToggle = { propose(DnsEdit.OverrideLocal(it)) },
-                note = when {
-                    !combined -> ctx.getString(R.string.admin_cfg_dns_legacy_only)
-                    needsNs -> ctx.getString(R.string.admin_cfg_dns_override_needs_ns)
-                    else -> null
-                },
-            )
-        }
+            @Composable
+            fun Cards() {
+                ConfigCard(ctx.getString(R.string.admin_cfg_dns_preferences)) {
+                    ConfigSwitchRow(
+                        title = ctx.getString(R.string.admin_cfg_dns_magic),
+                        help = ctx.getString(R.string.admin_cfg_dns_magic_help),
+                        checked = cfg.magicDns,
+                        enabled = canWrite,
+                        onToggle = { propose(DnsEdit.MagicDns(it)) },
+                        note = if (!cfg.magicDns && cfg.nameservers.isEmpty()) ctx.getString(R.string.admin_cfg_dns_magic_needs_ns) else null,
+                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    val needsNs = !overrideOn && cfg.nameservers.isEmpty()
+                    ConfigSwitchRow(
+                        title = ctx.getString(R.string.admin_cfg_dns_override),
+                        help = ctx.getString(R.string.admin_cfg_dns_override_help),
+                        checked = if (combined) overrideOn else null,
+                        enabled = canWrite && combined && !needsNs,
+                        onToggle = { propose(DnsEdit.OverrideLocal(it)) },
+                        note = when {
+                            !combined -> ctx.getString(R.string.admin_cfg_dns_legacy_only)
+                            needsNs -> ctx.getString(R.string.admin_cfg_dns_override_needs_ns)
+                            else -> null
+                        },
+                    )
+                }
 
-        NameserversCard(cfg, combined, canWrite) { propose(DnsEdit.Nameservers(it)) }
-        SplitDnsCard(cfg, combined, canWrite, propose)
-        SearchPathsCard(cfg, canWrite) { propose(DnsEdit.SearchPaths(it)) }
+                NameserversCard(cfg, combined, canWrite) { propose(DnsEdit.Nameservers(it)) }
+                SplitDnsCard(cfg, combined, canWrite, propose)
+                SearchPathsCard(cfg, canWrite) { propose(DnsEdit.SearchPaths(it)) }
 
-        val uri = LocalUriHandler.current
-        ConfigCard(ctx.getString(R.string.admin_dns_tailnet_name_title)) {
-            HelpText(ctx.getString(R.string.admin_dns_tailnet_name_desc))
-            OutlinedButton(
-                onClick = {
-                    runCatching { uri.openUri("https://login.tailscale.com/admin/dns") }
-                        .onFailure { Toast.makeText(ctx, ctx.getString(R.string.cannot_open_browser), Toast.LENGTH_SHORT).show() }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.medium,
-            ) {
-                Icon(Icons.Default.OpenInBrowser, null)
-                Spacer(Modifier.width(8.dp))
-                Text(ctx.getString(R.string.admin_dns_rename_web))
+                val uri = LocalUriHandler.current
+                ConfigCard(ctx.getString(R.string.admin_dns_tailnet_name_title)) {
+                    HelpText(ctx.getString(R.string.admin_dns_tailnet_name_desc))
+                    OutlinedButton(
+                        onClick = {
+                            runCatching { uri.openUri("https://login.tailscale.com/admin/dns") }
+                                .onFailure { Toast.makeText(ctx, ctx.getString(R.string.cannot_open_browser), Toast.LENGTH_SHORT).show() }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.medium,
+                    ) {
+                        Icon(Icons.Default.OpenInBrowser, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(ctx.getString(R.string.admin_dns_rename_web))
+                    }
+                }
             }
+            if (page == CardPage.COLUMNS) CardColumns(minColumnWidth = CONFIG_CARD_MIN_WIDTH, spacing = 16.dp) { Cards() } else Cards()
         }
     }
 }

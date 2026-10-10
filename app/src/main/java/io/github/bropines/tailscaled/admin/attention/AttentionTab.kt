@@ -19,10 +19,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.AltRoute
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -89,9 +93,12 @@ import io.github.bropines.tailscaled.admin.console.WriteBlock
 import io.github.bropines.tailscaled.admin.notify.AttentionChecks
 import io.github.bropines.tailscaled.admin.notify.AttentionNotifier
 import io.github.bropines.tailscaled.admin.ConsoleLinks
+import io.github.bropines.tailscaled.ui.CardColumns
 import io.github.bropines.tailscaled.ui.HelpText
 import io.github.bropines.tailscaled.ui.PickerOption
 import io.github.bropines.tailscaled.ui.PickerSheet
+import io.github.bropines.tailscaled.ui.ReadableContentWidth
+import io.github.bropines.tailscaled.ui.rememberWindowLayout
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /** A fixed "now" for previews, whose expiry lines must not drift with the calendar. */
@@ -192,6 +199,12 @@ fun AttentionTabContent(
         ctx.getString(R.string.admin_attention_source_keys).takeIf { !keysReadable || state.keys.error is AdminApiException.Forbidden },
     )
 
+    // From a medium window up the sections stand side by side, each a column of its rows.
+    if (rememberWindowLayout().multiColumn) {
+        AttentionColumns(state, attention, now, onRetry, actions, items, sections, devicesRead, usersReadable, keysReadable, notChecked)
+        return
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
@@ -254,6 +267,91 @@ fun AttentionTabContent(
                 onAllow = actions.allowNotifications,
                 modifier = Modifier.padding(top = 8.dp),
             )
+        }
+    }
+}
+
+/**
+ * [AttentionTabContent] on a window wider than a phone: the same rows, a section to a column
+ * block in as many columns as fit (CardColumns), the background checks as one more block —
+ * instead of one column of rows the width of a tablet with half of it empty below.
+ */
+@Composable
+private fun AttentionColumns(
+    state: ConsoleState,
+    attention: AttentionUiState,
+    now: Long,
+    onRetry: () -> Unit,
+    actions: AttentionActions,
+    items: List<AttentionItem>,
+    sections: Map<AttentionSection, List<AttentionItem>>,
+    devicesRead: Boolean,
+    usersReadable: Boolean,
+    keysReadable: Boolean,
+    notChecked: List<String>,
+) {
+    val ctx = LocalContext.current
+    val checks: @Composable (Modifier) -> Unit = { modifier ->
+        BackgroundChecksCard(
+            checks = attention.checks,
+            readOnlyProfile = state.active?.readOnly == true,
+            notificationsAllowed = attention.notificationsAllowed,
+            onToggle = { actions.setChecks(it, items) },
+            onInterval = actions.setInterval,
+            onAllow = actions.allowNotifications,
+            modifier = modifier,
+        )
+    }
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        if (items.isNotEmpty()) Text(
+            ctx.resources.getQuantityString(R.plurals.admin_attention_count, items.size, items.size),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.outline,
+            modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 4.dp),
+        ) else Spacer(Modifier.height(4.dp))
+        if (state.devices.error !is AdminApiException.Unauthorized) LoadProblems(state.devices, onRetry)
+        if (usersReadable) Problems(state.users, onRetry)
+        if (keysReadable) Problems(state.keys, onRetry)
+        when {
+            items.isEmpty() && !devicesRead && state.devices.error == null ->
+                Box(Modifier.fillMaxWidth().padding(vertical = 48.dp), contentAlignment = Alignment.Center) { LoadingIndicatorCompat() }
+            // Nothing to do: the calm message, and the checks that will say when there is, held
+            // to a readable width in the middle rather than a third of the window at its edge.
+            items.isEmpty() && devicesRead -> Column(Modifier.fillMaxWidth().wrapContentWidth().widthIn(max = ReadableContentWidth)) {
+                CalmCard()
+                checks(Modifier)
+            }
+            else -> CardColumns(minColumnWidth = 320.dp) {
+                sections.forEach { (section, list) ->
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            AttentionText.section(ctx, section),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(top = 8.dp, start = 4.dp),
+                        )
+                        list.forEach { item -> AttentionRow(item, now, writeBlocked(ctx, state, item.kind.area), actions) }
+                    }
+                }
+                checks(Modifier.padding(top = 8.dp))
+            }
+        }
+        if (attention.scanning || attention.scanTotal > attention.scanned || notChecked.isNotEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(horizontal = 4.dp)) {
+                if (attention.scanning) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text(ctx.getString(R.string.admin_attention_scanning), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                } else if (attention.scanTotal > attention.scanned) {
+                    HelpText(ctx.resources.getQuantityString(R.plurals.admin_attention_scan_capped, attention.scanTotal, attention.scanned, attention.scanTotal))
+                }
+                if (notChecked.isNotEmpty()) HelpText(ctx.getString(R.string.admin_attention_not_checked, notChecked.joinToString(", ")))
+            }
         }
     }
 }

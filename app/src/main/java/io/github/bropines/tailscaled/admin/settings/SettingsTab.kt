@@ -43,18 +43,23 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.bropines.tailscaled.R
+import io.github.bropines.tailscaled.admin.CardPage
 import io.github.bropines.tailscaled.admin.LoadProblems
+import io.github.bropines.tailscaled.admin.ReadableIf
 import io.github.bropines.tailscaled.admin.api.RouteSelection
 import io.github.bropines.tailscaled.admin.api.TailnetSettingKey
 import io.github.bropines.tailscaled.admin.api.TailnetSettings
+import io.github.bropines.tailscaled.admin.cardPage
 import io.github.bropines.tailscaled.admin.console.AdminConsoleViewModel
 import io.github.bropines.tailscaled.admin.console.ConsoleChanges
 import io.github.bropines.tailscaled.admin.console.ConsoleState
 import io.github.bropines.tailscaled.admin.console.ConsoleTab
 import io.github.bropines.tailscaled.admin.console.ConsoleText
+import io.github.bropines.tailscaled.ui.CardColumns
 import io.github.bropines.tailscaled.ui.HelpText
 import io.github.bropines.tailscaled.ui.PickerOption
 import io.github.bropines.tailscaled.ui.PickerSheet
+import io.github.bropines.tailscaled.ui.rememberWindowLayout
 
 /**
  * Every field of the tailnet's settings, each saved on its own: a credential without the
@@ -116,53 +121,63 @@ fun SettingsTab(state: ConsoleState, vm: AdminConsoleViewModel?, onManageKeys: (
     @Composable
     fun RowDivider() = HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-    Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        LoadProblems(state.settings, onRetry = { vm?.refresh(ConsoleTab.SETTINGS, force = true) })
+    // Wider than a phone the cards keep to a readable column, and from an expanded window up
+    // stand in columns: no switch a tablet's width from its label.
+    val page = rememberWindowLayout().cardPage
 
-        Card(modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.large).clickable(onClick = onManageKeys), shape = MaterialTheme.shapes.large) {
-            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(ctx.getString(R.string.admin_settings_auth_keys_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    HelpText(ctx.getString(R.string.admin_settings_auth_keys_desc))
+    ReadableIf(page == CardPage.READABLE) {
+        Column(
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            LoadProblems(state.settings, onRetry = { vm?.refresh(ConsoleTab.SETTINGS, force = true) })
+
+            @Composable
+            fun Cards() {
+                Card(modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.large).clickable(onClick = onManageKeys), shape = MaterialTheme.shapes.large) {
+                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(ctx.getString(R.string.admin_settings_auth_keys_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            HelpText(ctx.getString(R.string.admin_settings_auth_keys_desc))
+                        }
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null)
+                    }
                 }
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null)
-            }
-        }
 
-        ConfigCard(ctx.getString(R.string.admin_settings_access_title)) {
-            SwitchRow(TailnetSettingKey.DEVICES_APPROVAL)
-            RowDivider()
-            SwitchRow(TailnetSettingKey.USERS_APPROVAL)
-            RowDivider()
-            PickerRow(TailnetSettingKey.DEVICES_KEY_DURATION)
-            RowDivider()
-            PickerRow(TailnetSettingKey.USERS_EXTERNAL_ROLE)
-        }
-        ConfigCard(ctx.getString(R.string.admin_settings_software_title)) {
-            SwitchRow(TailnetSettingKey.DEVICES_AUTO_UPDATES)
-        }
-        ConfigCard(ctx.getString(R.string.admin_cfg_set_network)) {
-            SwitchRow(TailnetSettingKey.HTTPS)
-            RowDivider()
-            PickerRow(TailnetSettingKey.ROUTE_SELECTION)
-            settings.regionalRoutingOn?.let { ConfigNote(ctx.getString(R.string.admin_cfg_set_regional_routing, ConsoleText.onOff(ctx, it)), NoteTone.INFO) }
-        }
-        ConfigCard(ctx.getString(R.string.admin_cfg_set_logging)) {
-            SwitchRow(TailnetSettingKey.NETWORK_FLOW_LOGGING)
-            RowDivider()
-            SwitchRow(TailnetSettingKey.POSTURE_IDENTITY)
-        }
-        ConfigCard(ctx.getString(R.string.admin_cfg_set_policy)) {
-            SwitchRow(TailnetSettingKey.ACLS_EXTERNALLY_MANAGED)
-            RowDivider()
-            // An empty link is unset, not unreadable, when the policy scope lets its neighbour be read.
-            val linkNote = if (settings.aclsExternallyManagedOn == null) note(TailnetSettingKey.ACLS_EXTERNAL_LINK)
-            else ctx.getString(R.string.admin_cfg_scope_needed, TailnetSettingKey.ACLS_EXTERNAL_LINK.scopeArea.scope)
-                .takeIf { state.writeBlock == null && !canWrite(TailnetSettingKey.ACLS_EXTERNAL_LINK) }
-            LinkRow(settings, canWrite(TailnetSettingKey.ACLS_EXTERNAL_LINK), linkNote) { editLink = true }
+                ConfigCard(ctx.getString(R.string.admin_settings_access_title)) {
+                    SwitchRow(TailnetSettingKey.DEVICES_APPROVAL)
+                    RowDivider()
+                    SwitchRow(TailnetSettingKey.USERS_APPROVAL)
+                    RowDivider()
+                    PickerRow(TailnetSettingKey.DEVICES_KEY_DURATION)
+                    RowDivider()
+                    PickerRow(TailnetSettingKey.USERS_EXTERNAL_ROLE)
+                }
+                ConfigCard(ctx.getString(R.string.admin_settings_software_title)) {
+                    SwitchRow(TailnetSettingKey.DEVICES_AUTO_UPDATES)
+                }
+                ConfigCard(ctx.getString(R.string.admin_cfg_set_network)) {
+                    SwitchRow(TailnetSettingKey.HTTPS)
+                    RowDivider()
+                    PickerRow(TailnetSettingKey.ROUTE_SELECTION)
+                    settings.regionalRoutingOn?.let { ConfigNote(ctx.getString(R.string.admin_cfg_set_regional_routing, ConsoleText.onOff(ctx, it)), NoteTone.INFO) }
+                }
+                ConfigCard(ctx.getString(R.string.admin_cfg_set_logging)) {
+                    SwitchRow(TailnetSettingKey.NETWORK_FLOW_LOGGING)
+                    RowDivider()
+                    SwitchRow(TailnetSettingKey.POSTURE_IDENTITY)
+                }
+                ConfigCard(ctx.getString(R.string.admin_cfg_set_policy)) {
+                    SwitchRow(TailnetSettingKey.ACLS_EXTERNALLY_MANAGED)
+                    RowDivider()
+                    // An empty link is unset, not unreadable, when the policy scope lets its neighbour be read.
+                    val linkNote = if (settings.aclsExternallyManagedOn == null) note(TailnetSettingKey.ACLS_EXTERNAL_LINK)
+                    else ctx.getString(R.string.admin_cfg_scope_needed, TailnetSettingKey.ACLS_EXTERNAL_LINK.scopeArea.scope)
+                        .takeIf { state.writeBlock == null && !canWrite(TailnetSettingKey.ACLS_EXTERNAL_LINK) }
+                    LinkRow(settings, canWrite(TailnetSettingKey.ACLS_EXTERNAL_LINK), linkNote) { editLink = true }
+                }
+            }
+            if (page == CardPage.COLUMNS) CardColumns(minColumnWidth = CONFIG_CARD_MIN_WIDTH, spacing = 16.dp) { Cards() } else Cards()
         }
     }
 

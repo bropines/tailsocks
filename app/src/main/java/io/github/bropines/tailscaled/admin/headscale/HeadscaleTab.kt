@@ -74,7 +74,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.bropines.tailscaled.R
+import io.github.bropines.tailscaled.admin.CardPage
 import io.github.bropines.tailscaled.admin.LoadProblems
+import io.github.bropines.tailscaled.admin.ReadableIf
 import io.github.bropines.tailscaled.admin.api.AdminArea
 import io.github.bropines.tailscaled.admin.api.ApiUser
 import io.github.bropines.tailscaled.admin.api.AuthKeyRequest
@@ -84,16 +86,20 @@ import io.github.bropines.tailscaled.admin.api.headscale.HeadscaleServer
 import io.github.bropines.tailscaled.admin.api.headscale.HsApiKey
 import io.github.bropines.tailscaled.admin.api.headscale.PolicyMode
 import io.github.bropines.tailscaled.admin.api.headscale.RegistrationLink
+import io.github.bropines.tailscaled.admin.cardPage
 import io.github.bropines.tailscaled.admin.console.AdminConsoleViewModel
 import io.github.bropines.tailscaled.admin.console.ConsoleState
 import io.github.bropines.tailscaled.admin.console.ConsoleTab
 import io.github.bropines.tailscaled.admin.console.Loadable
 import io.github.bropines.tailscaled.admin.logs.LocalRecordCard
+import io.github.bropines.tailscaled.admin.settings.CONFIG_CARD_MIN_WIDTH
+import io.github.bropines.tailscaled.ui.CardColumns
 import io.github.bropines.tailscaled.ui.HelpText
 import io.github.bropines.tailscaled.ui.PickerOption
 import io.github.bropines.tailscaled.ui.PickerSheet
 import io.github.bropines.tailscaled.ui.readText
 import io.github.bropines.tailscaled.ui.rememberQrScanner
+import io.github.bropines.tailscaled.ui.rememberWindowLayout
 import kotlinx.coroutines.launch
 
 /**
@@ -119,67 +125,95 @@ fun HeadscaleTab(
     val server = hs.server.value
     val ownPrefix = state.caps?.ownKeyId
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        item(key = "server") { ServerCard(server, state.active?.baseUrl.orEmpty(), hs, onRetry = { vm?.refresh(ConsoleTab.SERVER, force = true) }) }
-        item(key = "register") {
-            RegisterCard(
-                hs = hs,
-                server = server,
-                users = users,
-                canWrite = state.canWrite(AdminArea.DEVICES),
-                serverHost = console?.serverHost ?: state.active?.baseUrl?.let { runCatching { java.net.URI(it).host }.getOrNull() },
-                onLinkText = { console?.onLinkText(it) },
-                onClear = { console?.clearLink() },
-                onRegister = { link, user -> console?.register(link, user) },
-                onReject = { console?.reject(it) },
-            )
-        }
-        item(key = "keys") {
-            SectionCard(Icons.Default.VpnKey, ctx.getString(R.string.admin_hs_keys_title)) {
-                HelpText(ctx.getString(R.string.admin_hs_keys_help, state.active?.baseUrl.orEmpty()))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = onManageKeys, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium) {
-                        Text(ctx.getString(R.string.admin_hs_keys_all), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                    FilledTonalButton(onClick = { newKey = true }, enabled = state.canWrite(AdminArea.AUTH_KEYS), modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium) {
-                        Icon(Icons.Default.Add, null, Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(ctx.getString(R.string.admin_hs_keys_new), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
+    val serverCard = @Composable { ServerCard(server, state.active?.baseUrl.orEmpty(), hs, onRetry = { vm?.refresh(ConsoleTab.SERVER, force = true) }) }
+    val register = @Composable {
+        RegisterCard(
+            hs = hs,
+            server = server,
+            users = users,
+            canWrite = state.canWrite(AdminArea.DEVICES),
+            serverHost = console?.serverHost ?: state.active?.baseUrl?.let { runCatching { java.net.URI(it).host }.getOrNull() },
+            onLinkText = { console?.onLinkText(it) },
+            onClear = { console?.clearLink() },
+            onRegister = { link, user -> console?.register(link, user) },
+            onReject = { console?.reject(it) },
+        )
+    }
+    val keysCard = @Composable {
+        SectionCard(Icons.Default.VpnKey, ctx.getString(R.string.admin_hs_keys_title)) {
+            HelpText(ctx.getString(R.string.admin_hs_keys_help, state.active?.baseUrl.orEmpty()))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onManageKeys, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium) {
+                    Text(ctx.getString(R.string.admin_hs_keys_all), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                FilledTonalButton(onClick = { newKey = true }, enabled = state.canWrite(AdminArea.AUTH_KEYS), modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium) {
+                    Icon(Icons.Default.Add, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(ctx.getString(R.string.admin_hs_keys_new), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
-        item(key = "users") {
-            UsersCard(
-                users = users,
-                loading = state.users,
-                canWrite = state.canWrite(AdminArea.USERS),
-                onAdd = { newUser = true },
-                onRename = { renaming = it.id },
-                onDelete = { vm?.deleteUser(it) },
-                onRetry = { vm?.refresh(ConsoleTab.SERVER, force = true) },
-            )
+    }
+    val usersCard = @Composable {
+        UsersCard(
+            users = users,
+            loading = state.users,
+            canWrite = state.canWrite(AdminArea.USERS),
+            onAdd = { newUser = true },
+            onRename = { renaming = it.id },
+            onDelete = { vm?.deleteUser(it) },
+            onRetry = { vm?.refresh(ConsoleTab.SERVER, force = true) },
+        )
+    }
+    val apiKeys = @Composable {
+        ApiKeysCard(hs, ownPrefix, state.canWrite(AdminArea.API_TOKENS), now, onNew = { newApiKey = true }, onExpire = { console?.expireApiKey(it) },
+            onRetry = { vm?.refresh(ConsoleTab.SERVER, force = true) })
+    }
+    val localTitle = @Composable {
+        Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.History, null, tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(8.dp))
+            Text(ctx.getString(R.string.admin_log_section_phone), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            if (state.localLog.isNotEmpty()) TextButton(onClick = { vm?.clearLocalLog() }) { Text(ctx.getString(R.string.admin_log_phone_clear)) }
         }
-        item(key = "apikeys") {
-            ApiKeysCard(hs, ownPrefix, state.canWrite(AdminArea.API_TOKENS), now, onNew = { newApiKey = true }, onExpire = { console?.expireApiKey(it) },
-                onRetry = { vm?.refresh(ConsoleTab.SERVER, force = true) })
-        }
-        item(key = "local-title") {
-            Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.History, null, tint = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.width(8.dp))
-                Text(ctx.getString(R.string.admin_log_section_phone), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                if (state.localLog.isNotEmpty()) TextButton(onClick = { vm?.clearLocalLog() }) { Text(ctx.getString(R.string.admin_log_phone_clear)) }
+    }
+    val localEmpty = @Composable {
+        Text(ctx.getString(R.string.admin_log_phone_empty), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
+    }
+
+    val page = rememberWindowLayout().cardPage
+    if (page == CardPage.COLUMNS) {
+        // From an expanded window up the cards stand in columns, this phone's changes one more
+        // block; a medium window keeps the phone's list, held to a readable width.
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp)) {
+            CardColumns(minColumnWidth = CONFIG_CARD_MIN_WIDTH) {
+                serverCard()
+                register()
+                keysCard()
+                usersCard()
+                apiKeys()
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    localTitle()
+                    if (state.localLog.isEmpty()) localEmpty()
+                    state.localLog.take(LOCAL_SHOWN).forEach { LocalRecordCard(it) }
+                }
             }
         }
-        if (state.localLog.isEmpty()) item(key = "local-empty") {
-            Text(ctx.getString(R.string.admin_log_phone_empty), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
+    } else ReadableIf(page == CardPage.READABLE) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item(key = "server") { serverCard() }
+            item(key = "register") { register() }
+            item(key = "keys") { keysCard() }
+            item(key = "users") { usersCard() }
+            item(key = "apikeys") { apiKeys() }
+            item(key = "local-title") { localTitle() }
+            if (state.localLog.isEmpty()) item(key = "local-empty") { localEmpty() }
+            items(state.localLog.take(LOCAL_SHOWN), key = { "local-${it.time}-${it.targetId}-${it.kind}" }) { LocalRecordCard(it) }
         }
-        items(state.localLog.take(LOCAL_SHOWN), key = { "local-${it.time}-${it.targetId}-${it.kind}" }) { LocalRecordCard(it) }
     }
 
     if (newKey) {

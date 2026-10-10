@@ -77,6 +77,12 @@ fun <T> ConfigNotLoaded(state: Loadable<T>, onRetry: () -> Unit) {
     }
 }
 
+/**
+ * The narrowest a configuration card stands in a column of its own (DNS, Settings, the
+ * Headscale server): a switch row's title, its folded explanation and the switch.
+ */
+val CONFIG_CARD_MIN_WIDTH = 360.dp
+
 /** A card on the screen background, [title] over its rows. */
 @Composable
 fun ConfigCard(title: String?, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {

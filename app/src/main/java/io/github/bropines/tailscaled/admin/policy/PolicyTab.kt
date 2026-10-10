@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CornerSize
@@ -68,6 +69,8 @@ import io.github.bropines.tailscaled.admin.console.ConsoleState
 import io.github.bropines.tailscaled.admin.safety.ReadOnlyBanner
 import io.github.bropines.tailscaled.admin.settings.ConfigLoading
 import io.github.bropines.tailscaled.ui.HelpText
+import io.github.bropines.tailscaled.ui.ReadableContentWidth
+import io.github.bropines.tailscaled.ui.rememberWindowLayout
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -112,9 +115,12 @@ fun PolicyTab(state: ConsoleState, vm: AdminConsoleViewModel?) {
     }
 
     val gutter = gutterWidth(plain.size)
+    // Wider than a phone the file keeps the width — code wants it — and the card over it, words
+    // and buttons, keeps to a readable one: no revert button a tablet's width from its line.
+    val readable = if (rememberWindowLayout().multiColumn) Modifier.widthIn(max = ReadableContentWidth) else Modifier
     LazyColumn(state = list, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(readable.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 LoadProblems(policy.file, onRetry = { vm?.policy?.load(force = true) })
                 when {
                     external -> ExternalBanner(externalLink)

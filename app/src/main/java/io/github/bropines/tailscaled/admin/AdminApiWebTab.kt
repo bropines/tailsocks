@@ -30,80 +30,90 @@ import androidx.compose.ui.unit.sp
 fun AdminApiWebTabContent() {
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
+    // A readable column on a medium window; from an expanded one up the links stand in columns
+    // instead of a strip of cards a window wide.
+    val page = rememberWindowLayout().cardPage
+    val columns = page == CardPage.COLUMNS
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Text(
-            text = stringResource(R.string.admin_web_title),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 4.dp)
-        )
-        Text(
-            text = stringResource(R.string.admin_web_desc),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.outline,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
+    ReadableIf(page == CardPage.READABLE) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.admin_web_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+            Text(
+                text = stringResource(R.string.admin_web_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.outline,
+                modifier = (if (columns) Modifier.widthIn(max = ReadableContentWidth) else Modifier).padding(bottom = 8.dp)
+            )
 
-        WebLinkCard(
-            title = stringResource(R.string.admin_web_billing_title),
-            description = stringResource(R.string.admin_web_billing_desc),
-            icon = Icons.Default.CreditCard,
-            url = "https://login.tailscale.com/admin/settings/billing",
-            uriHandler = uriHandler,
-            context = context
-        )
+            @Composable
+            fun Links() {
+                WebLinkCard(
+                    title = stringResource(R.string.admin_web_billing_title),
+                    description = stringResource(R.string.admin_web_billing_desc),
+                    icon = Icons.Default.CreditCard,
+                    url = "https://login.tailscale.com/admin/settings/billing",
+                    uriHandler = uriHandler,
+                    context = context
+                )
 
-        WebLinkCard(
-            title = stringResource(R.string.admin_web_idp_title),
-            description = stringResource(R.string.admin_web_idp_desc),
-            icon = Icons.Default.Security,
-            url = "https://login.tailscale.com/admin/settings/identity-provider",
-            uriHandler = uriHandler,
-            context = context
-        )
+                WebLinkCard(
+                    title = stringResource(R.string.admin_web_idp_title),
+                    description = stringResource(R.string.admin_web_idp_desc),
+                    icon = Icons.Default.Security,
+                    url = "https://login.tailscale.com/admin/settings/identity-provider",
+                    uriHandler = uriHandler,
+                    context = context
+                )
 
-        WebLinkCard(
-            title = stringResource(R.string.admin_web_acl_title),
-            description = stringResource(R.string.admin_web_acl_desc),
-            icon = Icons.Default.Code,
-            url = "https://login.tailscale.com/admin/acls",
-            uriHandler = uriHandler,
-            context = context
-        )
+                WebLinkCard(
+                    title = stringResource(R.string.admin_web_acl_title),
+                    description = stringResource(R.string.admin_web_acl_desc),
+                    icon = Icons.Default.Code,
+                    url = "https://login.tailscale.com/admin/acls",
+                    uriHandler = uriHandler,
+                    context = context
+                )
 
-        WebLinkCard(
-            title = stringResource(R.string.admin_web_lock_title),
-            description = stringResource(R.string.admin_web_lock_desc),
-            icon = Icons.Default.Lock,
-            url = "https://login.tailscale.com/admin/settings/tailnet-lock",
-            uriHandler = uriHandler,
-            context = context
-        )
+                WebLinkCard(
+                    title = stringResource(R.string.admin_web_lock_title),
+                    description = stringResource(R.string.admin_web_lock_desc),
+                    icon = Icons.Default.Lock,
+                    url = "https://login.tailscale.com/admin/settings/tailnet-lock",
+                    uriHandler = uriHandler,
+                    context = context
+                )
 
-        WebLinkCard(
-            title = stringResource(R.string.admin_web_apps_title),
-            description = stringResource(R.string.admin_web_apps_desc),
-            icon = Icons.Default.Extension,
-            url = "https://login.tailscale.com/admin/settings/apps",
-            uriHandler = uriHandler,
-            context = context
-        )
+                WebLinkCard(
+                    title = stringResource(R.string.admin_web_apps_title),
+                    description = stringResource(R.string.admin_web_apps_desc),
+                    icon = Icons.Default.Extension,
+                    url = "https://login.tailscale.com/admin/settings/apps",
+                    uriHandler = uriHandler,
+                    context = context
+                )
 
-        WebLinkCard(
-            title = stringResource(R.string.admin_web_domain_title),
-            description = stringResource(R.string.admin_web_domain_desc),
-            icon = Icons.Default.SettingsEthernet,
-            url = "https://login.tailscale.com/admin/settings/general",
-            uriHandler = uriHandler,
-            context = context
-        )
+                WebLinkCard(
+                    title = stringResource(R.string.admin_web_domain_title),
+                    description = stringResource(R.string.admin_web_domain_desc),
+                    icon = Icons.Default.SettingsEthernet,
+                    url = "https://login.tailscale.com/admin/settings/general",
+                    uriHandler = uriHandler,
+                    context = context
+                )
+            }
+            if (columns) CardColumns(minColumnWidth = 300.dp) { Links() } else Links()
+        }
     }
 }
 
