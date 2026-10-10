@@ -274,3 +274,25 @@ fun PawNoDark() = NoFrames(Look.DARK)
 @PreviewTest @Preview(name = "no-light", device = "spec:width=820dp,height=380dp,dpi=160") @Composable
 fun PawNoLight() = NoFrames(Look.LIGHT)
 
+@Composable
+private fun StampedShow(look: Look) = Themed(look) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(8.dp)) {
+        val t = at(3, 400f)
+        for ((label, kind, since) in listOf(Triple("30: one", PawHype.No.ONE, 120f), Triple("40: hail", PawHype.No.MANY, 420f))) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(Modifier.size(190.dp, 342.dp)) {
+                    PawShowStage(frozen(t), calm = false, modifier = Modifier.fillMaxSize())
+                    PawNoStamps(listOf((t - since) to kind), frozen(t), calm = false, modifier = Modifier.fillMaxSize())
+                }
+                Text(label, style = MaterialTheme.typography.labelSmall)
+            }
+        }
+    }
+}
+
+@PreviewTest @Preview(name = "stamps-dark", device = "spec:width=420dp,height=390dp,dpi=160") @Composable
+fun PawStampsDark() = StampedShow(Look.DARK)
+
+@PreviewTest @Preview(name = "stamps-light", device = "spec:width=420dp,height=390dp,dpi=160") @Composable
+fun PawStampsLight() = StampedShow(Look.LIGHT)
+

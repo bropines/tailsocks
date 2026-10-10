@@ -325,12 +325,20 @@ class PawTimelineTest {
     }
 
     @Test
-    fun everyFifthLaunchSaysNo() {
-        assertEquals(listOf(5, 10, 15), (0..16).filter { PawHype.refuses(it) })
-        // The stamp lands big and crooked, and is still by the time the link opens.
+    fun theComboKeepsCountingIntoNo() {
+        assertEquals(
+            mapOf(30 to PawHype.No.ONE, 40 to PawHype.No.MANY, 50 to PawHype.No.BIG),
+            (PawHype.GOAL..60).mapNotNull { n -> PawHype.noAt(n)?.let { n to it } }.toMap(),
+        )
+        // The stamps land inside the stage, the hail one after another, and each fades out.
+        (PawHype.HAIL + PawHype.ONE_STAMP).forEach { assertTrue(it.x in 0f..1f && it.y in 0f..1f && it.width in 0.2f..0.8f) }
+        assertEquals(PawHype.HAIL.map { it.delay }.sorted(), PawHype.HAIL.map { it.delay })
+        assertEquals(0f, PawHype.stampAlpha(-1f))
+        assertEquals(1f, PawHype.stampAlpha(100f))
+        assertEquals(0f, PawHype.stampAlpha(PawHype.STAMP_MS))
+        // The full-screen stamp is still by the time the link opens.
         assertTrue(PawHype.noScale(0f) > 2f)
         assertEquals(1f, PawHype.noScale(PawHype.NO_HOLD_MS), 0.01f)
-        assertEquals(-7f, PawHype.noTilt(PawHype.NO_HOLD_MS), 0.05f)
         assertTrue(PawHype.NO_LINK.startsWith("https://"))
     }
 }

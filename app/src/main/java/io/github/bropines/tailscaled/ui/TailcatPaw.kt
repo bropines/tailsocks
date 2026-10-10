@@ -33,10 +33,13 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -55,6 +58,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -161,7 +165,16 @@ internal fun TailcatAddButton(onAdd: () -> Unit) {
     }
 
     showFrom?.let { tappedAt ->
-        PawShowOverlay(origin = { fab.value }, tappedAt = tappedAt, vibes = vibes, onDismiss = { showFrom = null })
+        PawShowOverlay(
+            origin = { fab.value },
+            tappedAt = tappedAt,
+            vibes = vibes,
+            onDismiss = { showFrom = null },
+            onRefuse = {
+                showFrom = null
+                refusing = true
+            },
+        )
     }
     if (refusing) PawNoOverlay(vibes = vibes, onDismiss = { refusing = false })
 
@@ -190,8 +203,7 @@ internal fun TailcatAddButton(onAdd: () -> Unit) {
                     vibes?.thump() ?: view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                     comboAlive = false
                     paw = false
-                    val launch = if (inPreview) 1 else StatusAsides.bump(context, LAUNCHES)
-                    if (PawHype.refuses(launch)) refusing = true else showFrom = SystemClock.uptimeMillis()
+                    showFrom = SystemClock.uptimeMillis()
                 }
                 combo == PawHype.GOAL - 1 -> vibes?.charge() ?: view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                 else -> vibes?.tap(combo) ?: view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
@@ -393,7 +405,7 @@ private fun DrawScope.drawCharge(charge: Float, now: Float, color: Color, ring: 
  * Back, or the app leaving the screen. [tappedAt] is the uptime of the tap that summoned it.
  */
 @Composable
-private fun PawShowOverlay(origin: () -> Offset, tappedAt: Long, vibes: PawVibes?, onDismiss: () -> Unit) {
+private fun PawShowOverlay(origin: () -> Offset, tappedAt: Long, vibes: PawVibes?, onDismiss: () -> Unit, onRefuse: () -> Unit) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val inPreview = LocalInspectionMode.current
@@ -404,6 +416,10 @@ private fun PawShowOverlay(origin: () -> Offset, tappedAt: Long, vibes: PawVibes
     val gone = remember { Animatable(0f) }
     var leaving by remember { mutableStateOf(false) }
     val stage = remember { mutableStateOf(Offset.Zero) }
+    // The paw's combo goes on while the show is up: fast taps keep counting.
+    val combo = remember { mutableIntStateOf(PawHype.GOAL) }
+    val lastTap = remember { mutableFloatStateOf(-1e6f) }
+    val stamps = remember { mutableStateListOf<Pair<Float, PawHype.No>>() }
     val leave: () -> Unit = {
         if (!leaving) {
             leaving = true
@@ -447,16 +463,9 @@ private fun PawShowOverlay(origin: () -> Offset, tappedAt: Long, vibes: PawVibes
     ) {
         val description = stringResource(R.string.tailcat_paw_show_cd)
         val close = stringResource(R.string.action_close)
-        PawShowStage(
-            time = time,
-            calm = calm,
-            origin = {
-                val o = origin()
-                if (o.isSpecified) o - stage.value else Offset.Unspecified
-            },
-            modifier = Modifier
+        Box(
+            Modifier
                 .fillMaxSize()
-                .onGloballyPositioned { stage.value = it.positionOnScreen() }
                 .graphicsLayer {
                     // Without motion the show fades in instead of opening as a circle.
                     alpha = (if (calm) min(1f, time.floatValue / 200f) else 1f) * (1f - gone.value)
@@ -465,14 +474,93 @@ private fun PawShowOverlay(origin: () -> Offset, tappedAt: Long, vibes: PawVibes
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     onClickLabel = close
-                ) { if (guard.tap(SystemClock.uptimeMillis())) leave() }
+                ) {
+                    if (leaving) return@clickable
+                    if (guard.tap(SystemClock.uptimeMillis())) {
+                        leave()
+                        return@clickable
+                    }
+                    // A tap that does not close keeps the combo going.
+                    val n = ++combo.intValue
+                    lastTap.floatValue = time.floatValue
+                    when (val no = PawHype.noAt(n)) {
+                        PawHype.No.ONE, PawHype.No.MANY -> {
+                            stamps += time.floatValue to no
+                            vibes?.thump()
+                        }
+                        PawHype.No.BIG -> {
+                            leaving = true
+                            vibes?.stop()
+                            onRefuse()
+                        }
+                        null -> Unit
+                    }
+                }
                 .semantics { contentDescription = description }
-        )
+        ) {
+            PawShowStage(
+                time = time,
+                calm = calm,
+                origin = {
+                    val o = origin()
+                    if (o.isSpecified) o - stage.value else Offset.Unspecified
+                },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .onGloballyPositioned { stage.value = it.positionOnScreen() }
+            )
+            PawNoStamps(stamps, time, calm, Modifier.fillMaxSize())
+            if (combo.intValue > PawHype.GOAL) {
+                Box(Modifier.align(Alignment.TopEnd).windowInsetsPadding(WindowInsets.safeDrawing).padding(16.dp)) {
+                    ComboBadge(combo.intValue, time, lastTap)
+                }
+            }
+        }
     }
 }
 
 /**
- * Every fifth launch: "NO!" stamped over the theme's background instead of the show, then the
+ * The "NO!"s stamped over the show at the combo's marks: one, then a hail. Each lands big,
+ * settles crooked and fades; time is read only while drawing.
+ */
+@Composable
+internal fun PawNoStamps(stamps: List<Pair<Float, PawHype.No>>, time: FloatState, calm: Boolean, modifier: Modifier = Modifier) {
+    if (stamps.isEmpty()) return
+    val style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Black)
+    val measurer = rememberTextMeasurer()
+    val natural = remember(style) { measurer.measure(NO_TEXT, style).size.width.toFloat().coerceAtLeast(1f) }
+    BoxWithConstraints(modifier.clipToBounds(), contentAlignment = Alignment.Center) {
+        val w = with(LocalDensity.current) { maxWidth.toPx() }
+        val h = with(LocalDensity.current) { maxHeight.toPx() }
+        for ((start, kind) in stamps) {
+            for (s in if (kind == PawHype.No.MANY) PawHype.HAIL else PawHype.ONE_STAMP) {
+                Text(
+                    NO_TEXT,
+                    style = style,
+                    color = MaterialTheme.colorScheme.error,
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier
+                        .wrapContentSize(unbounded = true)
+                        .graphicsLayer {
+                            val t = time.floatValue - start - s.delay
+                            alpha = PawHype.stampAlpha(t)
+                            val k = s.width * w / natural * (if (calm) 1f else PawHype.noScale(t))
+                            scaleX = k
+                            scaleY = k
+                            // The settle's wobble around the stamp's own tilt.
+                            rotationZ = s.tilt + if (calm) 0f else PawHype.noTilt(t) + 7f
+                            translationX = (s.x - 0.5f) * w
+                            translationY = (s.y - 0.5f) * h
+                        }
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The combo's last mark: "NO!" stamped full screen over the theme's background, then the
  * long version opens in whatever plays YouTube links. Taps are swallowed (the combo is still
  * going); Back, or the app leaving the screen, ends it without the link.
  */
@@ -681,8 +769,6 @@ internal class PawVibes(context: Context) {
     }
 }
 
-/** Launches of the show, refusals included; the SPINS aside counts only what was shown. */
-private const val LAUNCHES = "paw_launches"
 private const val NO_TEXT = "NO!"
 /** The settled stamp's share of the stage's width. */
 private const val NO_WIDTH = 0.72f

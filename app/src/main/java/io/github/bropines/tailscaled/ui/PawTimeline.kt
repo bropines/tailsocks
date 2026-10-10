@@ -523,14 +523,50 @@ internal class TapGuard(private val openedAt: Long) {
  */
 internal object PawHype {
     const val GOAL = 10
-    /** Every this-many-th launch the button refuses: a stamped "NO!", then the long version elsewhere. */
-    const val REFUSE_EVERY = 5
-    /** How long the "NO!" holds before the link opens. */
+    /** How long the full-screen "NO!" holds before the link opens. */
     const val NO_HOLD_MS = 1100f
     const val NO_LINK = "https://youtu.be/LOWBjYeK5U4"
 
-    /** Whether launch number [launch] (from 1) is one that says no. */
-    fun refuses(launch: Int): Boolean = launch > 0 && launch % REFUSE_EVERY == 0
+    /**
+     * Taps that keep coming once the show is up count on from [GOAL]: one "NO!" at the first
+     * mark, a hail of them at the second, and at the last the long version elsewhere.
+     */
+    const val NO_ONE = 30
+    const val NO_MANY = 40
+    const val NO_BIG = 50
+
+    enum class No { ONE, MANY, BIG }
+
+    fun noAt(combo: Int): No? = when (combo) {
+        NO_ONE -> No.ONE
+        NO_MANY -> No.MANY
+        NO_BIG -> No.BIG
+        else -> null
+    }
+
+    /** One stamp over the show: where (fractions of the stage), tilt, width (fraction), and its delay. */
+    data class Stamp(val x: Float, val y: Float, val tilt: Float, val width: Float, val delay: Float)
+
+    val ONE_STAMP = listOf(Stamp(0.5f, 0.42f, -7f, 0.62f, 0f))
+
+    /** The hail: fixed, so it lands the same every time and in previews. */
+    val HAIL = listOf(
+        Stamp(0.30f, 0.20f, -14f, 0.42f, 0f),
+        Stamp(0.72f, 0.30f, 11f, 0.36f, 70f),
+        Stamp(0.48f, 0.50f, -5f, 0.66f, 140f),
+        Stamp(0.24f, 0.70f, 9f, 0.40f, 210f),
+        Stamp(0.78f, 0.64f, -10f, 0.46f, 280f),
+        Stamp(0.56f, 0.86f, 6f, 0.34f, 350f),
+    )
+
+    /** How long a stamp over the show lives; it fades over its last quarter. */
+    const val STAMP_MS = 1000f
+
+    fun stampAlpha(t: Float): Float = when {
+        t < 0f || t >= STAMP_MS -> 0f
+        t < STAMP_MS * 0.75f -> 1f
+        else -> (STAMP_MS - t) / (STAMP_MS * 0.25f)
+    }
 
     /** The stamp lands oversized and settles with a bounce by about 300 ms. */
     fun noScale(t: Float): Float = if (t <= 0f) 2.2f else 1f + 1.2f * exp(-t / 70f) * cos(t / 40f)
