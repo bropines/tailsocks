@@ -65,4 +65,16 @@
     <string name="admin_pv_issue_case">A field is spelled differently from the documented name.</string>
     <string name="admin_pv_issue_legacy">A legacy field (users, ports or allow) says part of it.</string>
     <string name="admin_pv_server_error">The server refused this</string>
+    <!-- The pages of the visual editor. -->
+    <string name="admin_pv_section_access">Access</string>
+    <string name="admin_pv_section_ssh">SSH</string>
+    <string name="admin_pv_section_approvers">Auto approval</string>
+    <string name="admin_pv_section_tests">Tests</string>
+    <string name="admin_pv_section_groups">Groups</string>
+    <string name="admin_pv_section_tags">Tags</string>
+    <string name="admin_pv_section_hosts">Hosts and IP sets</string>
+    <string name="admin_pv_section_attributes">Device attributes</string>
+    <string name="admin_pv_section_posture">Device posture</string>
+    <string name="admin_pv_section_network">Network and other</string>
+    <string name="admin_pv_section_pending">%1$s will be edited here soon; until then, in JSON.</string>
 </resources>

@@ -75,3 +75,16 @@ interface VisualActions {
     /** A short message over the editor; with [undoable], an Undo that steps the draft back once (after a delete). */
     fun notify(message: String, undoable: Boolean = false) {}
 }
+
+/**
+ * How a section lays itself out, decided by the shell from the window. Two-pane, the section
+ * draws its list and the selected element's editor side by side (ListDetailLayout, the editor
+ * in SheetOrPane's pane); otherwise the editor of [selected] is a sheet over the list. The shell
+ * owns the selection so that [VisualActions.show] can open an element from anywhere.
+ */
+data class VisualLayout(
+    val twoPane: Boolean = false,
+    /** The element whose editor is open; null for none (two-pane: the section shows its first). */
+    val selected: PolicyPath? = null,
+    val onSelect: (PolicyPath?) -> Unit = {},
+)

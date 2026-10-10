@@ -62,4 +62,15 @@
     <string name="admin_pv_issue_case">Поле написано не так, как в документации.</string>
     <string name="admin_pv_issue_legacy">Часть написана устаревшими полями (users, ports или allow).</string>
     <string name="admin_pv_server_error">Сервер это отклонил</string>
+    <string name="admin_pv_section_access">Доступ</string>
+    <string name="admin_pv_section_ssh">SSH</string>
+    <string name="admin_pv_section_approvers">Автоодобрение</string>
+    <string name="admin_pv_section_tests">Тесты</string>
+    <string name="admin_pv_section_groups">Группы</string>
+    <string name="admin_pv_section_tags">Теги</string>
+    <string name="admin_pv_section_hosts">Хосты и наборы IP</string>
+    <string name="admin_pv_section_attributes">Атрибуты устройств</string>
+    <string name="admin_pv_section_posture">Состояние устройств</string>
+    <string name="admin_pv_section_network">Сеть и прочее</string>
+    <string name="admin_pv_section_pending">Раздел «%1$s» скоро можно будет править здесь; пока — в JSON.</string>
 </resources>
