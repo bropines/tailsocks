@@ -91,6 +91,9 @@ object PolicyEdits {
         return out
     }
 
+    /** The comment above a rule or definition, as its card shows it; null or blank removes it. */
+    fun setComment(text: String, path: PolicyPath, comment: String?): String = SourceEdits.setComment(text, path, comment)
+
     fun removeRule(text: String, path: PolicyPath): String = SourceEdits.remove(text, path, withNote = true)
 
     fun moveRule(text: String, section: Section, from: Int, to: Int, anchor: Anchor = Anchor.AFTER_PREVIOUS): String =

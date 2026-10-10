@@ -372,6 +372,26 @@ object SourceEdits {
         return edits
     }
 
+    // ---- comments ----
+
+    /**
+     * Write [comment] as the comment block directly above the member [path] names, replacing the
+     * one there — its note, or the heading glued to it ([MemberComments.blockStart]) — or remove
+     * that block when [comment] is null or blank. Only for a member on lines of its own.
+     */
+    fun setComment(text: String, path: PolicyPath, comment: String?): String {
+        val t = tree(text)
+        val (c, m) = t.memberAt(path) ?: throw PolicyEditException("nothing at $path")
+        val index = c.members.indexOf(m)
+        val lines = Trivia.lines(t, c, index)
+        if (!lines.ownLines) throw PolicyEditException("$path shares its line; comment it in the JSON editor")
+        val cm = Trivia.comments(t, c, index)
+        val from = if (cm.blockStart >= 0) cm.blockStart else lines.lineStart
+        val written = comment?.takeIf { it.isNotBlank() }?.let { noteLines(it).joinToString("") { line -> lines.indent + line + "\n" } }.orEmpty()
+        if (text.substring(from, lines.lineStart) == written) return text
+        return done(text, listOf(Edit(from, lines.lineStart, written)))
+    }
+
     // ---- lists of strings ----
 
     /**

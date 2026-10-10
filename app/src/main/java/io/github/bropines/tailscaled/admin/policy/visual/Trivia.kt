@@ -25,6 +25,8 @@ data class MemberComments(
     val trailing: String?,
     /** [trailing] exactly as written, markers included, for moving it along. */
     val trailingRaw: String? = null,
+    /** Start of the first line of the comment block glued above the member, note or header; -1 without one. */
+    val blockStart: Int = -1,
 )
 
 /**
@@ -120,9 +122,10 @@ internal object Trivia {
         val isHeader = c !== t.root && (blank || (index == 0 && c.members.size > 1))
         val note = if (!isHeader) joined else null
         val header = if (isHeader) joined else null
-        val noteStart = if (note != null) lineStart(text, block.first().start) else -1
+        val blockStart = if (block.isNotEmpty()) lineStart(text, block.first().start) else -1
+        val noteStart = if (note != null) blockStart else -1
         val tail = trailing(t, m)
-        return MemberComments(note, noteStart, header, tail?.let { commentText(it) }, tail)
+        return MemberComments(note, noteStart, header, tail?.let { commentText(it) }, tail, blockStart)
     }
 
     /** The comment after [m] on its last line, as written. */

@@ -368,6 +368,31 @@ class SourceEditsTest {
         assertEquals("{\"a\": [\"x\", /* added * / today */ \"z\", \"y\"]}", after)
     }
 
+    @Test
+    fun commentsAreWrittenReplacedAndRemoved() {
+        // A new note on a rule without one, a blank line above it kept.
+        val added = SourceEdits.setComment(sample, p("acls", 7), "Admins reach the DNS panel")
+        assertTrue(added.contains("\t\t},\n\t\t// Admins reach the DNS panel\n\t\t{\n\t\t\t\"action\": \"accept\",\n\t\t\t\"src\":    [\"group:prod-admin\", \"group:dev-admin\"],"))
+        assertEquals("Admins reach the DNS panel", SourceTree.parse(added).commentsOf(SourceTree.parse(added).root["acls"] as SrcArray, 7).note)
+        assertEquals(sample, SourceEdits.setComment(added, p("acls", 7), null))
+        // Replacing a two-line note with one line, and writing the same note back changes nothing.
+        val replaced = SourceEdits.setComment(sample, p("acls", 11), "Guests: internet only")
+        assertTrue(replaced.contains("\t\t},\n\t\t// Guests: internet only\n\t\t{"))
+        assertFalse(replaced.contains("К самим нодам"))
+        val note = "--- 4.2 ГОСТИ-ПОЛЬЗОВАТЕЛИ: только выход в интернет через exit-ноды ---\nК самим нодам (ssh, панели) доступа нет: для выхода хватает autogroup:internet."
+        assertEquals(sample, SourceEdits.setComment(sample, p("acls", 11), note))
+        // A heading glued to a rule is the block that rule's comment edits.
+        val heading = SourceEdits.setComment(sample, p("acls", 6), "--- 2. DNS ---")
+        assertTrue(heading.contains("\n\n\t\t// --- 2. DNS ---\n\t\t{"))
+        // Top-level sections too; and a one-line list member is refused, not mangled.
+        assertTrue(SourceEdits.setComment(sample, p("tests"), null).endsWith("\t],\n\n\t\"tests\": [\n\t\t{\n\t\t\t\"src\":  \"guest@example.com\",\n\t\t\t\"deny\": [\n\t\t\t\t\"tag:exit-node:22\",\n\t\t\t\t\"tag:master:443\",\n\t\t\t\t\"tag:server:22\",\n\t\t\t\t\"tag:homelab:80\",\n\t\t\t\t\"tag:dns:4000\",\n\t\t\t\t\"alice@example.com:22\",\n\t\t\t],\n\t\t},\n\t],\n}\n"))
+        try {
+            SourceEdits.setComment(sample, p("acls", 2, "src", 0), "x")
+            fail()
+        } catch (_: PolicyEditException) {
+        }
+    }
+
     // ---- rename ----
 
     @Test
