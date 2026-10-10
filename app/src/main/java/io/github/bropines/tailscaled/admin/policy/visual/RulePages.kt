@@ -51,6 +51,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -78,6 +79,7 @@ import io.github.bropines.tailscaled.ui.HelpText
 import io.github.bropines.tailscaled.ui.ListDetailLayout
 import io.github.bropines.tailscaled.ui.SheetOrPane
 import io.github.bropines.tailscaled.ui.readableWidth
+import kotlinx.coroutines.delay
 
 /*
  * What the Access, SSH and Tests pages share: the list beside or under its editor, the editor's
@@ -334,20 +336,29 @@ internal fun MoreSection(open: Boolean, summary: String?, content: @Composable C
 }
 
 /**
- * The comment above an element as a text field, written to the file when the field loses
- * focus or the check is tapped (not on every key: each write is an undo step). When the
- * element has no note but a heading glued to it, the field edits that heading and says so.
+ * The comment above an element as a text field, written to the file a second after typing
+ * stops, when the field loses focus or when the check is tapped — not on every key: each write
+ * is an undo step. When the element has no note but a heading glued to it, the field edits
+ * that heading and says so.
  */
 @Composable
 internal fun NoteField(origin: Origin, env: VisualEnv, actions: VisualActions) {
     val ctx = LocalContext.current
     val heading = origin.note == null && origin.header != null
     val saved = origin.note ?: origin.header.orEmpty()
-    var text by remember(origin.path, saved) { mutableStateOf(saved) }
+    var text by remember(origin.path) { mutableStateOf(saved) }
     var focused by remember { mutableStateOf(false) }
     val changed = text.trim() != saved.trim()
     fun save() {
-        if (changed) actions.edit { PolicyEdits.setComment(it, origin.path, text.trim().ifEmpty { null }) }
+        if (text.trim() != saved.trim()) actions.edit { PolicyEdits.setComment(it, origin.path, text.trim().ifEmpty { null }) }
+    }
+    // Undo or the JSON editor changed the comment: show it, unless the person is typing over it.
+    LaunchedEffect(saved) { if (!focused) text = saved }
+    LaunchedEffect(text) {
+        if (focused && changed) {
+            delay(1000)
+            save()
+        }
     }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         OutlinedTextField(
@@ -509,7 +520,7 @@ internal fun movesOf(headers: List<Boolean>, i: Int) = RuleMoves(up = RuleForms.
  */
 @Composable
 internal fun ScrollTo(state: LazyListState, rows: List<PageRow>, target: PolicyPath?, before: Int = 1) {
-    androidx.compose.runtime.LaunchedEffect(target) {
+    LaunchedEffect(target) {
         val i = target?.let { t -> rows.indexOfFirst { it is PageRow.Item<*> && it.path == t } } ?: -1
         // [before] items (the page's header) come first; the rows follow them.
         if (i >= 0) state.animateScrollToItem(i + before)

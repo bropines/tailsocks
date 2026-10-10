@@ -97,12 +97,11 @@ fun SshSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) {
         }
     }
 
+    // The reminder goes away by itself once the rule is in; the page stays where the person is.
     fun addAccess(rule: SshRule) {
         val section = RuleForms.newAccessSection(m, env.headscale)
-        val at = if (section == Section.GRANTS) m.grants.size else m.acls.size
         if (actions.edit { PolicyEdits.addRule(it, section, RuleForms.accessForSsh(rule, section)) }) {
             actions.notify(ctx.getString(R.string.admin_pv_ssh_port22_added))
-            actions.show(PolicyPath.of(section.key, at))
         }
     }
 

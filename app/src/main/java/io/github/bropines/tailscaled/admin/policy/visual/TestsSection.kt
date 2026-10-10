@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
@@ -292,11 +293,13 @@ private fun TestsEmpty(env: VisualEnv, onAdd: () -> Unit, onFromRule: () -> Unit
             onAction = onAdd.takeIf { env.editable },
         )
         if (env.editable) {
-            OutlinedButton(onClick = onFromRule, shape = MaterialTheme.shapes.medium) { Text(ctx.getString(R.string.admin_pv_test_from_rule)) }
-            TextButton(onClick = onAddSsh) {
-                Icon(Icons.Default.Add, null, Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(ctx.getString(R.string.admin_pv_sshtest_add))
+            Row(Modifier.offset(y = (-16).dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onFromRule, shape = MaterialTheme.shapes.medium) { Text(ctx.getString(R.string.admin_pv_test_from_rule)) }
+                TextButton(onClick = onAddSsh) {
+                    Icon(Icons.Default.Add, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(ctx.getString(R.string.admin_pv_sshtest_add))
+                }
             }
         }
     }

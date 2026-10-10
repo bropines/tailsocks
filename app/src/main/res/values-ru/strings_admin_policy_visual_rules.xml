@@ -13,11 +13,11 @@
     <string name="admin_pv_c_ports">Порты</string>
     <string name="admin_pv_c_via">Через</string>
     <string name="admin_pv_c_apps">Ещё</string>
-    <string name="admin_pv_c_posture">Проверка</string>
+    <string name="admin_pv_c_posture">Состояние</string>
     <string name="admin_pv_c_proto_only">только %1$s</string>
     <string name="admin_pv_c_nothing">Пока ничего</string>
     <string name="admin_pv_c_ssh_to">SSH на</string>
-    <string name="admin_pv_c_ssh_as">Под</string>
+    <string name="admin_pv_c_ssh_as">Логин</string>
     <string name="admin_pv_c_from">Откуда</string>
     <string name="admin_pv_c_test_accept">Доступно</string>
     <string name="admin_pv_c_test_deny">Закрыто</string>
@@ -82,11 +82,11 @@
     <string name="admin_pv_note_help">Пишется комментарием // прямо над правилом и переезжает и удаляется вместе с ним.</string>
     <string name="admin_pv_note_heading_help">Этот комментарий — заголовок для правил под ним: правка меняет заголовок, а при переносе или удалении правила он остаётся на месте.</string>
     <string name="admin_pv_action_delete">Удалить</string>
-    <string name="admin_pv_action_duplicate">Копия</string>
+    <string name="admin_pv_action_duplicate">Дублировать</string>
     <string name="admin_pv_action_up">Выше</string>
     <string name="admin_pv_action_down">Ниже</string>
     <string name="admin_pv_action_test">Добавить тест</string>
-    <string name="admin_pv_action_convert">Сделать grant</string>
+    <string name="admin_pv_action_convert">Превратить в grant</string>
     <string name="admin_pv_action_discard">Отменить</string>
 
     <plurals name="admin_pv_access_count">
