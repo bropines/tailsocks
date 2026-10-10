@@ -24,6 +24,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -289,8 +291,333 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
         )
     }
 
+    // The page's pieces: items of a phone's list, columns on a larger window.
+    val permissionCard: @Composable () -> Unit = {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+            shape = MaterialTheme.shapes.large,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(stringResource(R.string.taildrive_perm_required), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(4.dp))
+                HelpText(
+                    stringResource(R.string.taildrive_perm_desc),
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+                Spacer(Modifier.height(12.dp))
+                Button(
+                    onClick = {
+                        requestStoragePermission(context)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text(stringResource(R.string.taildrive_grant_perm))
+                }
+            }
+        }
+    }
+
+    // The switches, as rows in the style Settings uses, stacked at the rows' own spacing.
+    val switches: @Composable () -> Unit = {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // Shown as it is in effect, not as it is stored. Without
+            // all-files access the server still runs, but the folders it
+            // offers are closed to it, so an ON here promised what the
+            // device was not doing. Tapping it then asks for the access,
+            // which is what turning it on takes anyway.
+            SettingsSwitchItem(
+                title = stringResource(R.string.taildrive_enable_title),
+                subtitle = stringResource(
+                    if (hasStoragePermission) R.string.taildrive_enable_desc
+                    else R.string.taildrive_enable_needs_access
+                ),
+                icon = Icons.Default.FolderShared,
+                checked = isEnabled && hasStoragePermission
+            ) { checked ->
+                if (checked && !checkStoragePermission(context)) {
+                    requestStoragePermission(context)
+                } else {
+                    isEnabled = checked
+                    prefs.edit().putBoolean("taildrive_enabled", checked).apply()
+                    triggerServiceSettingsUpdate(context)
+                }
+            }
+
+            // Read off the list itself, so deleting the "sdcard" share below
+            // turns this off as well — a remembered copy kept it on.
+            val isFullStorageShared = shares.any { isFullStoragePath(it.path) }
+            SettingsSwitchItem(
+                title = stringResource(R.string.taildrive_share_full_storage),
+                subtitle = stringResource(R.string.taildrive_share_full_storage_desc),
+                icon = Icons.Default.SdCard,
+                checked = isFullStorageShared
+            ) { checked ->
+                if (checked) {
+                    if (!checkStoragePermission(context)) {
+                        requestStoragePermission(context)
+                    }
+                    if (!shares.any { isFullStoragePath(it.path) }) {
+                        shares.add(LocalShare("sdcard", "/storage/emulated/0"))
+                        saveShares(prefs, shares)
+                        triggerServiceSettingsUpdate(context)
+                    }
+                } else {
+                    shares.removeAll { isFullStoragePath(it.path) }
+                    saveShares(prefs, shares)
+                    triggerServiceSettingsUpdate(context)
+                }
+            }
+
+            // Local WebDAV proxy to the tailnet's shares
+            SettingsSwitchItem(
+                title = stringResource(R.string.taildrive_enable_proxy_title),
+                subtitle = stringResource(R.string.taildrive_enable_proxy_desc),
+                icon = Icons.Default.Lan,
+                checked = isProxyEnabled
+            ) { checked ->
+                isProxyEnabled = checked
+                prefs.edit().putBoolean("taildrive_proxy_enabled", checked).apply()
+                triggerServiceSettingsUpdate(context)
+            }
+
+            if (isProxyEnabled) {
+                Column(
+                    modifier = Modifier.padding(vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    ProxySettingField(
+                        value = proxyIp,
+                        label = stringResource(R.string.taildrive_proxy_ip),
+                        placeholder = "127.0.0.1",
+                        keyboardType = KeyboardType.Uri
+                    ) { ip ->
+                        proxyIp = ip
+                        prefs.edit().putString("taildrive_proxy_ip", ip).apply()
+                        triggerServiceSettingsUpdate(context)
+                    }
+
+                    ProxySettingField(
+                        value = proxyPort,
+                        label = stringResource(R.string.taildrive_proxy_port),
+                        keyboardType = KeyboardType.Number,
+                        accept = { port ->
+                            val cleanPort = port.filter { it.isDigit() }
+                            val num = cleanPort.toIntOrNull()
+                            cleanPort.takeIf { it.length <= 5 && (num == null || num <= 65535) }
+                        }
+                    ) { port ->
+                        proxyPort = port
+                        prefs.edit().putString("taildrive_proxy_port", port).apply()
+                        triggerServiceSettingsUpdate(context)
+                    }
+                }
+
+                SettingsSwitchItem(
+                    title = stringResource(R.string.taildrive_require_auth),
+                    subtitle = stringResource(R.string.taildrive_require_auth_desc),
+                    icon = Icons.Default.Lock,
+                    checked = isProxyAuthEnabled
+                ) { checked ->
+                    isProxyAuthEnabled = checked
+                    prefs.edit().putBoolean("taildrive_proxy_auth_enabled", checked).apply()
+                    triggerServiceSettingsUpdate(context)
+                }
+
+                if (isProxyAuthEnabled) {
+                    Column(
+                        modifier = Modifier.padding(vertical = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        ProxySettingField(
+                            value = proxyUsername,
+                            label = stringResource(R.string.taildrive_username)
+                        ) { user ->
+                            proxyUsername = user
+                            prefs.edit().putString("taildrive_proxy_username", user).apply()
+                            triggerServiceSettingsUpdate(context)
+                        }
+
+                        ProxySettingField(
+                            value = proxyPassword,
+                            label = stringResource(R.string.taildrive_password),
+                            keyboardType = KeyboardType.Password,
+                            visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                            trailingIcon = {
+                                IconButton(onClick = { showPassword = !showPassword }) {
+                                    Icon(
+                                        if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                        contentDescription = stringResource(
+                                            if (showPassword) R.string.taildrive_hide_password
+                                            else R.string.taildrive_show_password
+                                        )
+                                    )
+                                }
+                            }
+                        ) { pass ->
+                            proxyPassword = pass
+                            prefs.edit().putString("taildrive_proxy_password", pass).apply()
+                            triggerServiceSettingsUpdate(context)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Copyable URL Card. Built from the stored values, not the
+                // ones still being typed: it names what the proxy serves.
+                val hasCredentials = isProxyAuthEnabled && proxyUsername.isNotEmpty() && proxyPassword.isNotEmpty()
+                val formattedUrl = remember(proxyIp, proxyPort, hasCredentials, proxyUsername, proxyPassword) {
+                    if (hasCredentials) {
+                        "http://$proxyUsername:$proxyPassword@$proxyIp:$proxyPort"
+                    } else {
+                        "http://$proxyIp:$proxyPort"
+                    }
+                }
+                // The password field hides the password; printing it in the
+                // URL right under it would undo that. The copy stays whole.
+                val shownUrl = if (hasCredentials && !showPassword) {
+                    "http://$proxyUsername:••••••••@$proxyIp:$proxyPort"
+                } else formattedUrl
+                val copyUrl = {
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    val clip = android.content.ClipData.newPlainText("WebDAV URL", formattedUrl)
+                    clipboard.setPrimaryClip(clip)
+                    Toast.makeText(context, context.getString(R.string.taildrive_copied_url), Toast.LENGTH_SHORT).show()
+                }
+
+                // The whole card copies, as its label says; the icon stays as
+                // the visible and spoken affordance.
+                Card(
+                    onClick = copyUrl,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(stringResource(R.string.taildrive_webdav_url_title), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = shownUrl,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                        IconButton(onClick = copyUrl) {
+                            Icon(
+                                imageVector = Icons.Default.ContentCopy,
+                                contentDescription = stringResource(R.string.action_copy),
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    val sharesHeading: @Composable () -> Unit = {
+        Text(stringResource(R.string.taildrive_shared_folders), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+    }
+
+    val sharingOffNote: @Composable () -> Unit = {
+        Box(Modifier.fillMaxWidth().height(150.dp), contentAlignment = Alignment.Center) {
+            Text(stringResource(R.string.taildrive_disabled_msg), color = MaterialTheme.colorScheme.outline)
+        }
+    }
+
+    val noSharesNote: @Composable () -> Unit = {
+        Box(Modifier.fillMaxWidth().height(150.dp), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                Text(stringResource(R.string.taildrive_empty_shares), color = MaterialTheme.colorScheme.outline)
+                Spacer(Modifier.height(8.dp))
+                TextButton(onClick = {
+                    dirPickerLauncher.launch(null)
+                }) {
+                    Text(stringResource(R.string.taildrive_share_a_folder))
+                }
+            }
+        }
+    }
+
+    val shareCard: @Composable (LocalShare) -> Unit = { share ->
+        Card(
+            shape = MaterialTheme.shapes.medium,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(share.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
+                    Text(share.path, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Row {
+                    IconButton(onClick = {
+                        showEditShareDialog(share) { updatedShare ->
+                            val index = shares.indexOf(share)
+                            if (index != -1) {
+                                if (shares.any { it != share && it.name.lowercase() == updatedShare.name.lowercase() }) {
+                                    Toast.makeText(context, context.getString(R.string.taildrive_err_name_exists), Toast.LENGTH_SHORT).show()
+                                } else {
+                                    shares[index] = updatedShare
+                                    saveShares(prefs, shares)
+                                    triggerServiceSettingsUpdate(context)
+                                }
+                            }
+                        }
+                    }) {
+                        Icon(Icons.Default.Edit, stringResource(R.string.action_edit), tint = MaterialTheme.colorScheme.primary)
+                    }
+                    IconButton(onClick = {
+                        shares.remove(share)
+                        saveShares(prefs, shares)
+                        triggerServiceSettingsUpdate(context)
+                    }) {
+                        Icon(Icons.Default.Delete, stringResource(R.string.action_delete), tint = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+        }
+    }
+
+    val window = rememberWindowLayout()
     val mainContent = @Composable { paddingValues: PaddingValues ->
-        LazyColumn(
+        if (window.multiColumn) {
+            // From a medium window up, the switches in one column and the shared folders in
+            // the other, the permission banner across both: one column across the window put
+            // every switch a window's width away from its label, over a screen of nothing.
+            Column(
+                modifier = Modifier
+                    .padding(paddingValues)
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = window.margin, end = window.margin, top = 12.dp, bottom = 88.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                if (!hasStoragePermission) permissionCard()
+                CardColumns(minColumnWidth = 320.dp, maxColumns = 2, spacing = 24.dp) {
+                    switches()
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        sharesHeading()
+                        when {
+                            !isEnabled -> sharingOffNote()
+                            shares.isEmpty() -> noSharesNote()
+                            else -> shares.forEach { shareCard(it) }
+                        }
+                    }
+                }
+            }
+        } else LazyColumn(
             modifier = Modifier
                 .padding(paddingValues)
                 .fillMaxSize()
@@ -300,306 +627,20 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
         ) {
             // Permission Card
             if (!hasStoragePermission) {
-                item {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                        shape = MaterialTheme.shapes.large,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(stringResource(R.string.taildrive_perm_required), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                            Spacer(Modifier.height(4.dp))
-                            HelpText(
-                                stringResource(R.string.taildrive_perm_desc),
-                                color = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                            Spacer(Modifier.height(12.dp))
-                            Button(
-                                onClick = {
-                                    requestStoragePermission(context)
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                            ) {
-                                Text(stringResource(R.string.taildrive_grant_perm))
-                            }
-                        }
-                    }
-                }
+                item { permissionCard() }
             }
 
-            // The switches, as rows in the style Settings uses. One item, so they
-            // stack at the rows' own spacing rather than at the list's.
-            item {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    // Shown as it is in effect, not as it is stored. Without
-                    // all-files access the server still runs, but the folders it
-                    // offers are closed to it, so an ON here promised what the
-                    // device was not doing. Tapping it then asks for the access,
-                    // which is what turning it on takes anyway.
-                    SettingsSwitchItem(
-                        title = stringResource(R.string.taildrive_enable_title),
-                        subtitle = stringResource(
-                            if (hasStoragePermission) R.string.taildrive_enable_desc
-                            else R.string.taildrive_enable_needs_access
-                        ),
-                        icon = Icons.Default.FolderShared,
-                        checked = isEnabled && hasStoragePermission
-                    ) { checked ->
-                        if (checked && !checkStoragePermission(context)) {
-                            requestStoragePermission(context)
-                        } else {
-                            isEnabled = checked
-                            prefs.edit().putBoolean("taildrive_enabled", checked).apply()
-                            triggerServiceSettingsUpdate(context)
-                        }
-                    }
+            // One item, so the switches stack at the rows' own spacing rather than at the list's.
+            item { switches() }
 
-                    // Read off the list itself, so deleting the "sdcard" share below
-                    // turns this off as well — a remembered copy kept it on.
-                    val isFullStorageShared = shares.any { isFullStoragePath(it.path) }
-                    SettingsSwitchItem(
-                        title = stringResource(R.string.taildrive_share_full_storage),
-                        subtitle = stringResource(R.string.taildrive_share_full_storage_desc),
-                        icon = Icons.Default.SdCard,
-                        checked = isFullStorageShared
-                    ) { checked ->
-                        if (checked) {
-                            if (!checkStoragePermission(context)) {
-                                requestStoragePermission(context)
-                            }
-                            if (!shares.any { isFullStoragePath(it.path) }) {
-                                shares.add(LocalShare("sdcard", "/storage/emulated/0"))
-                                saveShares(prefs, shares)
-                                triggerServiceSettingsUpdate(context)
-                            }
-                        } else {
-                            shares.removeAll { isFullStoragePath(it.path) }
-                            saveShares(prefs, shares)
-                            triggerServiceSettingsUpdate(context)
-                        }
-                    }
-
-                    // Local WebDAV proxy to the tailnet's shares
-                    SettingsSwitchItem(
-                        title = stringResource(R.string.taildrive_enable_proxy_title),
-                        subtitle = stringResource(R.string.taildrive_enable_proxy_desc),
-                        icon = Icons.Default.Lan,
-                        checked = isProxyEnabled
-                    ) { checked ->
-                        isProxyEnabled = checked
-                        prefs.edit().putBoolean("taildrive_proxy_enabled", checked).apply()
-                        triggerServiceSettingsUpdate(context)
-                    }
-
-                    if (isProxyEnabled) {
-                        Column(
-                            modifier = Modifier.padding(vertical = 4.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            ProxySettingField(
-                                value = proxyIp,
-                                label = stringResource(R.string.taildrive_proxy_ip),
-                                placeholder = "127.0.0.1",
-                                keyboardType = KeyboardType.Uri
-                            ) { ip ->
-                                proxyIp = ip
-                                prefs.edit().putString("taildrive_proxy_ip", ip).apply()
-                                triggerServiceSettingsUpdate(context)
-                            }
-
-                            ProxySettingField(
-                                value = proxyPort,
-                                label = stringResource(R.string.taildrive_proxy_port),
-                                keyboardType = KeyboardType.Number,
-                                accept = { port ->
-                                    val cleanPort = port.filter { it.isDigit() }
-                                    val num = cleanPort.toIntOrNull()
-                                    cleanPort.takeIf { it.length <= 5 && (num == null || num <= 65535) }
-                                }
-                            ) { port ->
-                                proxyPort = port
-                                prefs.edit().putString("taildrive_proxy_port", port).apply()
-                                triggerServiceSettingsUpdate(context)
-                            }
-                        }
-
-                        SettingsSwitchItem(
-                            title = stringResource(R.string.taildrive_require_auth),
-                            subtitle = stringResource(R.string.taildrive_require_auth_desc),
-                            icon = Icons.Default.Lock,
-                            checked = isProxyAuthEnabled
-                        ) { checked ->
-                            isProxyAuthEnabled = checked
-                            prefs.edit().putBoolean("taildrive_proxy_auth_enabled", checked).apply()
-                            triggerServiceSettingsUpdate(context)
-                        }
-
-                        if (isProxyAuthEnabled) {
-                            Column(
-                                modifier = Modifier.padding(vertical = 4.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                ProxySettingField(
-                                    value = proxyUsername,
-                                    label = stringResource(R.string.taildrive_username)
-                                ) { user ->
-                                    proxyUsername = user
-                                    prefs.edit().putString("taildrive_proxy_username", user).apply()
-                                    triggerServiceSettingsUpdate(context)
-                                }
-
-                                ProxySettingField(
-                                    value = proxyPassword,
-                                    label = stringResource(R.string.taildrive_password),
-                                    keyboardType = KeyboardType.Password,
-                                    visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
-                                    trailingIcon = {
-                                        IconButton(onClick = { showPassword = !showPassword }) {
-                                            Icon(
-                                                if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                                contentDescription = stringResource(
-                                                    if (showPassword) R.string.taildrive_hide_password
-                                                    else R.string.taildrive_show_password
-                                                )
-                                            )
-                                        }
-                                    }
-                                ) { pass ->
-                                    proxyPassword = pass
-                                    prefs.edit().putString("taildrive_proxy_password", pass).apply()
-                                    triggerServiceSettingsUpdate(context)
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Copyable URL Card. Built from the stored values, not the
-                        // ones still being typed: it names what the proxy serves.
-                        val hasCredentials = isProxyAuthEnabled && proxyUsername.isNotEmpty() && proxyPassword.isNotEmpty()
-                        val formattedUrl = remember(proxyIp, proxyPort, hasCredentials, proxyUsername, proxyPassword) {
-                            if (hasCredentials) {
-                                "http://$proxyUsername:$proxyPassword@$proxyIp:$proxyPort"
-                            } else {
-                                "http://$proxyIp:$proxyPort"
-                            }
-                        }
-                        // The password field hides the password; printing it in the
-                        // URL right under it would undo that. The copy stays whole.
-                        val shownUrl = if (hasCredentials && !showPassword) {
-                            "http://$proxyUsername:••••••••@$proxyIp:$proxyPort"
-                        } else formattedUrl
-                        val copyUrl = {
-                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                            val clip = android.content.ClipData.newPlainText("WebDAV URL", formattedUrl)
-                            clipboard.setPrimaryClip(clip)
-                            Toast.makeText(context, context.getString(R.string.taildrive_copied_url), Toast.LENGTH_SHORT).show()
-                        }
-
-                        // The whole card copies, as its label says; the icon stays as
-                        // the visible and spoken affordance.
-                        Card(
-                            onClick = copyUrl,
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                            shape = MaterialTheme.shapes.medium,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(stringResource(R.string.taildrive_webdav_url_title), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = shownUrl,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                                    )
-                                }
-                                IconButton(onClick = copyUrl) {
-                                    Icon(
-                                        imageVector = Icons.Default.ContentCopy,
-                                        contentDescription = stringResource(R.string.action_copy),
-                                        tint = MaterialTheme.colorScheme.onSecondaryContainer
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            item {
-                Text(stringResource(R.string.taildrive_shared_folders), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            }
+            item { sharesHeading() }
 
             if (!isEnabled) {
-                item {
-                    Box(Modifier.fillMaxWidth().height(150.dp), contentAlignment = Alignment.Center) {
-                        Text(stringResource(R.string.taildrive_disabled_msg), color = MaterialTheme.colorScheme.outline)
-                    }
-                }
+                item { sharingOffNote() }
             } else if (shares.isEmpty()) {
-                item {
-                    Box(Modifier.fillMaxWidth().height(150.dp), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                            Text(stringResource(R.string.taildrive_empty_shares), color = MaterialTheme.colorScheme.outline)
-                            Spacer(Modifier.height(8.dp))
-                            TextButton(onClick = {
-                                dirPickerLauncher.launch(null)
-                            }) {
-                                Text(stringResource(R.string.taildrive_share_a_folder))
-                            }
-                        }
-                    }
-                }
+                item { noSharesNote() }
             } else {
-                items(shares) { share ->
-                    Card(
-                        shape = MaterialTheme.shapes.medium,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(share.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
-                                Text(share.path, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Row {
-                                IconButton(onClick = {
-                                    showEditShareDialog(share) { updatedShare ->
-                                        val index = shares.indexOf(share)
-                                        if (index != -1) {
-                                            if (shares.any { it != share && it.name.lowercase() == updatedShare.name.lowercase() }) {
-                                                Toast.makeText(context, context.getString(R.string.taildrive_err_name_exists), Toast.LENGTH_SHORT).show()
-                                            } else {
-                                                shares[index] = updatedShare
-                                                saveShares(prefs, shares)
-                                                triggerServiceSettingsUpdate(context)
-                                            }
-                                        }
-                                    }
-                                }) {
-                                    Icon(Icons.Default.Edit, stringResource(R.string.action_edit), tint = MaterialTheme.colorScheme.primary)
-                                }
-                                IconButton(onClick = {
-                                    shares.remove(share)
-                                    saveShares(prefs, shares)
-                                    triggerServiceSettingsUpdate(context)
-                                }) {
-                                    Icon(Icons.Default.Delete, stringResource(R.string.action_delete), tint = MaterialTheme.colorScheme.error)
-                                }
-                            }
-                        }
-                    }
-                }
+                items(shares) { share -> shareCard(share) }
             }
         }
 
@@ -690,10 +731,9 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
                 }
             }
         ) { padding ->
-            // Held to a readable width on a tablet; see ReadableWidth.
-            ReadableWidth {
-            mainContent(padding)
-            }
+            // Held to a readable width on a phone on its side; see ReadableWidth. A larger
+            // window lays the page out in columns of its own.
+            if (window.multiColumn) mainContent(padding) else ReadableWidth { mainContent(padding) }
         }
     } else {
         Box(modifier = Modifier.fillMaxSize()) {
