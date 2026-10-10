@@ -41,6 +41,7 @@ import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -471,6 +472,9 @@ fun NetcheckScreen(onBack: () -> Unit) {
         }
     }
 
+    // A phone keeps its single column; a medium window and up lays the report out (NetcheckWide).
+    val window = rememberWindowLayout()
+
     PredictiveBackContainer(
         onBack = onBack,
         // Back here only closes the Activity, so the container installs no callback and
@@ -499,6 +503,16 @@ fun NetcheckScreen(onBack: () -> Unit) {
             )
         }
     ) { padding ->
+        val wideResult = result.takeIf { window.multiColumn && errorMessage == null }
+        if (wideResult != null) {
+            // A report on a medium window and up: cards side by side, the relays in columns.
+            Box(
+                modifier = Modifier
+                    .padding(padding)
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+            ) { NetcheckWide(wideResult, window) }
+        } else {
         // Held to a readable width on a tablet; see ReadableWidth.
         ReadableWidth {
         Box(
@@ -601,17 +615,8 @@ fun NetcheckScreen(onBack: () -> Unit) {
 
                 else -> {
                     // Success State Dashboard
-                    val status = shown.connection
                     val report = shown.diagnostics
                     val derpLatencies = shown.derpLatencies
-                    val homeMissing = status.homeDerp.isEmpty()
-                    // Online without a home relay is connected in name only for every
-                    // peer it has no direct path to, so it gets a warning, not a tick.
-                    val (statusIcon, statusTint) = when {
-                        !status.online -> Icons.Default.Cancel to MaterialTheme.colorScheme.error
-                        homeMissing -> Icons.Default.Warning to MaterialTheme.colorScheme.error
-                        else -> Icons.Default.CheckCircle to MaterialTheme.colorScheme.primary
-                    }
 
                     LazyColumn(
                         modifier = Modifier
@@ -622,201 +627,318 @@ fun NetcheckScreen(onBack: () -> Unit) {
                     ) {
                         item {
                             Spacer(modifier = Modifier.height(8.dp))
-
-                            // Overview Card. The tint is flattened onto the background: an
-                            // elevated card with a see-through container shows its own shadow
-                            // through it, a grey cast over the whole card in a light theme.
-                            ElevatedCard(
-                                colors = CardDefaults.elevatedCardColors(
-                                    containerColor = (if (status.online) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
-                                                     else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f))
-                                        .compositeOver(MaterialTheme.colorScheme.background)
-                                ),
-                                shape = MaterialTheme.shapes.large,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(48.dp)
-                                            .clip(CircleShape)
-                                            .background(statusTint.copy(alpha = 0.15f)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = statusIcon,
-                                            contentDescription = null,
-                                            tint = statusTint,
-                                            modifier = Modifier.size(28.dp)
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width(16.dp))
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = if (status.online) stringResource(R.string.netcheck_connected) else stringResource(R.string.netcheck_offline),
-                                            fontWeight = FontWeight.Bold,
-                                            style = MaterialTheme.typography.titleMedium,
-                                            color = if (status.online) MaterialTheme.colorScheme.onPrimaryContainer
-                                                    else MaterialTheme.colorScheme.onErrorContainer
-                                        )
-                                        Text(
-                                            text = stringResource(R.string.netcheck_ip_label, status.tailscaleIp),
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                        if (homeMissing) {
-                                            Text(
-                                                text = stringResource(R.string.netcheck_no_home_derp),
-                                                style = MaterialTheme.typography.bodySmall,
-                                                fontWeight = FontWeight.SemiBold,
-                                                color = MaterialTheme.colorScheme.error
-                                            )
-                                            HelpText(stringResource(R.string.netcheck_no_home_derp_help))
-                                        } else {
-                                            Text(
-                                                text = status.homeDerpLatencyMs?.let {
-                                                    stringResource(R.string.netcheck_home_derp_latency, status.homeDerp, it.roundToInt())
-                                                } ?: stringResource(R.string.netcheck_home_derp, status.homeDerp),
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-                                    }
-                                }
-                            }
+                            NetcheckOverviewCard(shown.connection)
                         }
 
                         // Protocol capabilities Card
-                        item {
-                            Card(
-                                shape = MaterialTheme.shapes.large,
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    Text(
-                                        text = stringResource(R.string.netcheck_sect_protocol),
-                                        fontWeight = FontWeight.Bold,
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f))
-
-                                    CapabilityRow(
-                                        label = stringResource(R.string.netcheck_udp_stun),
-                                        success = report.udpWorking,
-                                        successText = stringResource(R.string.netcheck_working),
-                                        failText = stringResource(R.string.netcheck_blocked)
-                                    )
-
-                                    CapabilityRow(
-                                        label = stringResource(R.string.netcheck_ipv4_conn),
-                                        success = report.ipv4Working,
-                                        successText = stringResource(R.string.netcheck_available),
-                                        failText = stringResource(R.string.netcheck_unavailable),
-                                        subText = report.ipv4Address
-                                    )
-
-                                    // Plenty of networks have no IPv6 and Tailscale works on
-                                    // IPv4 alone: worth knowing, not an error.
-                                    CapabilityRow(
-                                        label = stringResource(R.string.netcheck_ipv6_conn),
-                                        success = report.ipv6Working,
-                                        successText = stringResource(R.string.netcheck_available),
-                                        failText = stringResource(R.string.netcheck_unavailable),
-                                        subText = report.ipv6Address,
-                                        warnStyle = true
-                                    )
-
-                                    CapabilityRow(
-                                        label = stringResource(R.string.netcheck_nat_varies),
-                                        success = !report.mappingVaries,
-                                        successText = stringResource(R.string.netcheck_nat_varies_no),
-                                        failText = stringResource(R.string.netcheck_nat_varies_yes),
-                                        warnStyle = true
-                                    )
-
-                                    CapabilityRow(
-                                        label = stringResource(R.string.netcheck_peers_map),
-                                        success = report.onlinePeers > 0,
-                                        successText = stringResource(R.string.netcheck_peers_online_format, report.onlinePeers, report.totalPeers),
-                                        failText = stringResource(R.string.netcheck_peers_online_none, report.totalPeers)
-                                    )
-                                }
-                            }
-                        }
+                        item { NetcheckProtocolCard(report) }
 
                         // DERP Server Latencies Card
                         if (derpLatencies.isNotEmpty()) {
-                            item {
-                                Card(
-                                    shape = MaterialTheme.shapes.large,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                                ) {
-                                    Column(modifier = Modifier.padding(16.dp)) {
-                                        Row(
-                                             modifier = Modifier.fillMaxWidth(),
-                                             verticalAlignment = Alignment.CenterVertically
-                                         ) {
-                                             Text(
-                                                 text = stringResource(R.string.netcheck_sect_derp),
-                                                 fontWeight = FontWeight.Bold,
-                                                 style = MaterialTheme.typography.titleSmall,
-                                                 color = MaterialTheme.colorScheme.primary
-                                             )
-                                             if (report.preferredDerpId != 0) {
-                                                 Text(
-                                                     text = stringResource(R.string.netcheck_nearest_format, report.preferredDerpName),
-                                                     style = MaterialTheme.typography.bodySmall,
-                                                     fontWeight = FontWeight.Medium,
-                                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                     textAlign = TextAlign.End,
-                                                     modifier = Modifier
-                                                         .weight(1f)
-                                                         .padding(start = 8.dp)
-                                                 )
-                                             }
-                                         }
-                                        Spacer(modifier = Modifier.height(12.dp))
-                                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f))
-                                        Spacer(modifier = Modifier.height(8.dp))
-
-                                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                            derpLatencies.forEach { item ->
-                                                DerpLatencyRow(item = item)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                            item { NetcheckDerpCard(report, derpLatencies) }
                         }
 
-                        item {
-                            Text(
-                                text = stringResource(R.string.netcheck_hint),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 4.dp)
-                            )
-                        }
+                        item { NetcheckHint() }
                     }
                 }
             }
         }
         }
+        }
     }
 }
 }
+
+
+/**
+ * The verdict: online or not, this node's address, its home relay. [fill] stretches its
+ * content to the card's height, for a card that stands beside a taller one.
+ */
+@Composable
+private fun NetcheckOverviewCard(status: ConnectionStatus, modifier: Modifier = Modifier, fill: Boolean = false) {
+    val homeMissing = status.homeDerp.isEmpty()
+    // Online without a home relay is connected in name only for every
+    // peer it has no direct path to, so it gets a warning, not a tick.
+    val (statusIcon, statusTint) = when {
+        !status.online -> Icons.Default.Cancel to MaterialTheme.colorScheme.error
+        homeMissing -> Icons.Default.Warning to MaterialTheme.colorScheme.error
+        else -> Icons.Default.CheckCircle to MaterialTheme.colorScheme.primary
+    }
+
+    // Overview Card. The tint is flattened onto the background: an
+    // elevated card with a see-through container shows its own shadow
+    // through it, a grey cast over the whole card in a light theme.
+    ElevatedCard(
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = (if (status.online) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                             else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f))
+                .compositeOver(MaterialTheme.colorScheme.background)
+        ),
+        shape = MaterialTheme.shapes.large,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(if (fill) Modifier.fillMaxHeight() else Modifier)
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(statusTint.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = statusIcon,
+                    contentDescription = null,
+                    tint = statusTint,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (status.online) stringResource(R.string.netcheck_connected) else stringResource(R.string.netcheck_offline),
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (status.online) MaterialTheme.colorScheme.onPrimaryContainer
+                            else MaterialTheme.colorScheme.onErrorContainer
+                )
+                Text(
+                    text = stringResource(R.string.netcheck_ip_label, status.tailscaleIp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (homeMissing) {
+                    Text(
+                        text = stringResource(R.string.netcheck_no_home_derp),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    HelpText(stringResource(R.string.netcheck_no_home_derp_help))
+                } else {
+                    Text(
+                        text = status.homeDerpLatencyMs?.let {
+                            stringResource(R.string.netcheck_home_derp_latency, status.homeDerp, it.roundToInt())
+                        } ?: stringResource(R.string.netcheck_home_derp, status.homeDerp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** UDP, IPv4, IPv6, the NAT's mapping, the peers in the map: each working or not. */
+@Composable
+private fun NetcheckProtocolCard(report: DiagnosticsReport, modifier: Modifier = Modifier) {
+    Card(
+        shape = MaterialTheme.shapes.large,
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.netcheck_sect_protocol),
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f))
+
+            CapabilityRow(
+                label = stringResource(R.string.netcheck_udp_stun),
+                success = report.udpWorking,
+                successText = stringResource(R.string.netcheck_working),
+                failText = stringResource(R.string.netcheck_blocked)
+            )
+
+            CapabilityRow(
+                label = stringResource(R.string.netcheck_ipv4_conn),
+                success = report.ipv4Working,
+                successText = stringResource(R.string.netcheck_available),
+                failText = stringResource(R.string.netcheck_unavailable),
+                subText = report.ipv4Address
+            )
+
+            // Plenty of networks have no IPv6 and Tailscale works on
+            // IPv4 alone: worth knowing, not an error.
+            CapabilityRow(
+                label = stringResource(R.string.netcheck_ipv6_conn),
+                success = report.ipv6Working,
+                successText = stringResource(R.string.netcheck_available),
+                failText = stringResource(R.string.netcheck_unavailable),
+                subText = report.ipv6Address,
+                warnStyle = true
+            )
+
+            CapabilityRow(
+                label = stringResource(R.string.netcheck_nat_varies),
+                success = !report.mappingVaries,
+                successText = stringResource(R.string.netcheck_nat_varies_no),
+                failText = stringResource(R.string.netcheck_nat_varies_yes),
+                warnStyle = true
+            )
+
+            CapabilityRow(
+                label = stringResource(R.string.netcheck_peers_map),
+                success = report.onlinePeers > 0,
+                successText = stringResource(R.string.netcheck_peers_online_format, report.onlinePeers, report.totalPeers),
+                failText = stringResource(R.string.netcheck_peers_online_none, report.totalPeers)
+            )
+        }
+    }
+}
+
+/**
+ * Every relay that answered, nearest first. With [minRowWidth] its rows stand in as many
+ * columns of at least that width as the card has room for; without, in one.
+ */
+@Composable
+private fun NetcheckDerpCard(
+    report: DiagnosticsReport,
+    derpLatencies: List<DerpLatencyItem>,
+    modifier: Modifier = Modifier,
+    minRowWidth: Dp? = null,
+) {
+    Card(
+        shape = MaterialTheme.shapes.large,
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                 modifier = Modifier.fillMaxWidth(),
+                 verticalAlignment = Alignment.CenterVertically
+             ) {
+                 Text(
+                     text = stringResource(R.string.netcheck_sect_derp),
+                     fontWeight = FontWeight.Bold,
+                     style = MaterialTheme.typography.titleSmall,
+                     color = MaterialTheme.colorScheme.primary
+                 )
+                 if (report.preferredDerpId != 0) {
+                     Text(
+                         text = stringResource(R.string.netcheck_nearest_format, report.preferredDerpName),
+                         style = MaterialTheme.typography.bodySmall,
+                         fontWeight = FontWeight.Medium,
+                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                         textAlign = TextAlign.End,
+                         modifier = Modifier
+                             .weight(1f)
+                             .padding(start = 8.dp)
+                     )
+                 }
+             }
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (minRowWidth == null) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    derpLatencies.forEach { item ->
+                        DerpLatencyRow(item = item)
+                    }
+                }
+            } else {
+                // As many columns of relays as fit, read down and then across:
+                // the list is sorted by latency, nearest first, and should read so.
+                BoxWithConstraints {
+                    val columns = columnsFor(maxWidth, minRowWidth, spacing = 24.dp)
+                    val chunks = derpLatencies.chunked(((derpLatencies.size + columns - 1) / columns).coerceAtLeast(1))
+                    Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                        chunks.forEach { chunk ->
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                chunk.forEach { item -> DerpLatencyRow(item = item) }
+                            }
+                        }
+                        // A list shorter than the columns: the rest stay empty.
+                        repeat(columns - chunks.size) { Spacer(Modifier.weight(1f)) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NetcheckHint() {
+    Text(
+        text = stringResource(R.string.netcheck_hint),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 4.dp)
+    )
+}
+
+/**
+ * The report on a medium window and up. From expanded, the verdict and the protocol checks
+ * in a column of their own and the relays beside them, in as many columns as fit — the
+ * whole report on one screen of a tablet on its side. On a medium window the verdict and
+ * the checks side by side when both fit, the relays across under them.
+ */
+@Composable
+private fun NetcheckWide(shown: NetcheckResult, window: WindowLayout) {
+    val status = shown.connection
+    val report = shown.diagnostics
+    val derpLatencies = shown.derpLatencies
+    if (window.listDetail && derpLatencies.isNotEmpty()) {
+        SideBySide(window, Modifier.fillMaxSize(), start = { side ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = side.start, end = side.end, top = 8.dp, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                NetcheckOverviewCard(status)
+                NetcheckProtocolCard(report)
+                NetcheckHint()
+            }
+        }, end = { side ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = side.start, end = side.end, top = 8.dp, bottom = 24.dp)
+            ) {
+                NetcheckDerpCard(report, derpLatencies, minRowWidth = DerpRowMinWidth)
+            }
+        })
+    } else {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(start = window.margin, end = window.margin, top = 8.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            if (columnsFor(window.width - window.margin * 2, 340.dp, 16.dp, maxColumns = 2) == 2) {
+                Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    NetcheckOverviewCard(status, Modifier.weight(1f).fillMaxHeight(), fill = true)
+                    NetcheckProtocolCard(report, Modifier.weight(1f).fillMaxHeight())
+                }
+            } else {
+                NetcheckOverviewCard(status)
+                NetcheckProtocolCard(report)
+            }
+            if (derpLatencies.isNotEmpty()) NetcheckDerpCard(report, derpLatencies, minRowWidth = DerpRowMinWidth)
+            NetcheckHint()
+        }
+    }
+}
+
+/** What a relay's row needs: its code and name, the latency and its bar. */
+private val DerpRowMinWidth = 240.dp
 
 /**
  * One line of the capabilities card. [warnStyle] marks a check whose failure
