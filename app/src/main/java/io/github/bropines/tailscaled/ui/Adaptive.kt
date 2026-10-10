@@ -8,13 +8,98 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+
+/**
+ * Material 3's window width classes, the large and extra-large of 2024
+ * included. A phone is compact upright; a 7-8" tablet and an upright 11" one
+ * are medium; a book-style foldable opened flat and a small tablet on its side
+ * are expanded; an 11" tablet on its side (1280dp) is large.
+ */
+enum class WindowWidthClass(val minWidth: Dp) {
+    COMPACT(0.dp), MEDIUM(600.dp), EXPANDED(840.dp), LARGE(1200.dp), EXTRA_LARGE(1600.dp);
+
+    companion object {
+        fun of(width: Dp): WindowWidthClass = entries.last { width >= it.minWidth }
+    }
+}
+
+/**
+ * Material 3's window height classes. Compact is a phone on its side (some
+ * 400dp); a tablet is medium on its side and expanded upright.
+ */
+enum class WindowHeightClass(val minHeight: Dp) {
+    COMPACT(0.dp), MEDIUM(480.dp), EXPANDED(900.dp);
+
+    companion object {
+        fun of(height: Dp): WindowHeightClass = entries.last { height >= it.minHeight }
+    }
+}
+
+/**
+ * The window a screen lays itself out in, and the decisions every screen
+ * takes from it in the same way — so that "two panes" or "more than one
+ * column" means the same window on every screen.
+ *
+ * A phone is never laid out differently by any of these: [isPhone] covers it
+ * upright and on its side, and every flag below is false there except where a
+ * fold says otherwise. That is the guarantee the tablet layouts rest on — a
+ * phone keeps the layout it always had.
+ */
+@Immutable
+class WindowLayout(val width: Dp, val height: Dp, val fold: Fold? = null) {
+    val widthClass: WindowWidthClass = WindowWidthClass.of(width)
+    val heightClass: WindowHeightClass = WindowHeightClass.of(height)
+
+    /** A phone, held either way: compact width, or compact height — a phone on
+     *  its side is 891dp wide, as wide as a foldable, and still a phone. */
+    val isPhone: Boolean get() = widthClass == WindowWidthClass.COMPACT || heightClass == WindowHeightClass.COMPACT
+
+    /** List and detail side by side, the detail in a pane instead of a sheet:
+     *  an expanded window or wider that is not a phone, or a foldable open like
+     *  a book, whose halves are the two panes. */
+    val listDetail: Boolean get() = fold is Fold.Vertical || (!isPhone && widthClass >= WindowWidthClass.EXPANDED)
+
+    /** Room for cards to stand in more than one column: medium and wider, not a phone. */
+    val multiColumn: Boolean get() = !isPhone && widthClass >= WindowWidthClass.MEDIUM
+
+    /** Between the window's edge and the content: Material's 16dp on a phone, 24dp above. */
+    val margin: Dp get() = if (isPhone) 16.dp else 24.dp
+
+    /** The list's side of a list-detail layout: 360dp, 400dp from a large window up. */
+    val listPaneWidth: Dp get() = if (widthClass >= WindowWidthClass.LARGE) 400.dp else 360.dp
+
+    override fun equals(other: Any?): Boolean =
+        other is WindowLayout && other.width == width && other.height == height && other.fold == fold
+
+    override fun hashCode(): Int = (width.hashCode() * 31 + height.hashCode()) * 31 + fold.hashCode()
+
+    override fun toString(): String = "WindowLayout($width x $height, $widthClass/$heightClass, fold=$fold)"
+}
+
+/**
+ * The window this composition draws in: its whole size, as the size classes
+ * are defined on, not what is left under a top bar. In a split screen it is
+ * the app's half. The preview renderer reports the preview's device size.
+ */
+@Composable
+fun rememberWindowLayout(): WindowLayout {
+    val size = LocalWindowInfo.current.containerSize
+    val density = LocalDensity.current
+    val fold = rememberFold()
+    return remember(size, density, fold) {
+        with(density) { WindowLayout(size.width.toDp(), size.height.toDp(), fold) }
+    }
+}
 
 /**
  * The widest a column of text and controls should get.
@@ -31,7 +116,9 @@ val ReadableContentWidth = 720.dp
  * foldable the window is narrower and this does nothing at all.
  *
  * Meant for the body of a Scaffold: the top bar stays the width of the window,
- * as it should, and only what is under it is held in.
+ * as it should, and only what is under it is held in. A form or a page of
+ * text keeps it; a collection of cards does better in [CardColumns], and a
+ * list with a detail in [ListDetailLayout].
  */
 @Composable
 fun ReadableWidth(content: @Composable BoxScope.() -> Unit) {
