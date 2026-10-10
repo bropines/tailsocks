@@ -78,6 +78,9 @@ class PolicyEditsTest {
         val route = PolicyEdits.setRouteApprovers(sample, "192.168.0.0/24", listOf("tag:homelab"))
         assertTrue(route, route.contains("\t\"autoApprovers\": {\n\t\t\"routes\": {\n\t\t\t\"192.168.0.0/24\": [\"tag:homelab\"],\n\t\t},\n\t\t\"exitNode\": [\"tag:exit-node\"],\n\t},"))
         assertEquals(sample, PolicyEdits.setRouteApprovers(route, "192.168.0.0/24", emptyList()).replace("\t\t\"routes\": {},\n", ""))
+        val svc = PolicyEdits.setServiceApprovers(sample, "svc:web", listOf("tag:homelab"))
+        assertTrue(svc, svc.contains("\t\t\"exitNode\": [\"tag:exit-node\"],\n\t\t\"services\": {\n\t\t\t\"svc:web\": [\"tag:homelab\"],\n\t\t},\n\t},"))
+        assertEquals(listOf("svc:web"), PolicyModel.read(svc)!!.autoApprovers!!.services.map { it.name })
     }
 
     @Test

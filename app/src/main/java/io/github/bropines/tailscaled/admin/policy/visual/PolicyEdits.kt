@@ -211,16 +211,20 @@ object PolicyEdits {
     // ---- auto approvers and options ----
 
     /** Who may advertise [cidr] without an admin's approval; an empty list removes the route. */
-    fun setRouteApprovers(text: String, cidr: String, approvers: List<String>): String {
-        var out = SourceEdits.ensureSection(text, Section.AUTO_APPROVERS.key, PolicyValue.Obj(emptyList()))
+    fun setRouteApprovers(text: String, cidr: String, approvers: List<String>): String = setApprovers(text, "routes", cidr, approvers)
+
+    /** Who may host Tailscale Service [service] (`svc:name`) without an admin's approval; empty removes it. */
+    fun setServiceApprovers(text: String, service: String, approvers: List<String>): String = setApprovers(text, "services", service, approvers)
+
+    private fun setApprovers(text: String, map: String, key: String, approvers: List<String>): String {
         val base = PolicyPath.of(Section.AUTO_APPROVERS.key)
         if (approvers.isEmpty()) {
-            return if (SourceEdits.tree(out).at(base + "routes" + cidr) != null) SourceEdits.remove(out, base + "routes" + cidr) else out
+            return if (SourceEdits.tree(text).at(base + map + key) != null) SourceEdits.remove(text, base + map + key) else text
         }
-        if (SourceEdits.tree(out).at(base + "routes") == null) out = SourceEdits.put(out, base, "routes", PolicyValue.Obj(emptyList()), APPROVER_ORDER)
-        val routes = base + "routes"
-        return if (SourceEdits.tree(out).at(routes + cidr) is SrcArray) SourceEdits.setStrings(out, routes + cidr, approvers, emptyList())
-        else SourceEdits.put(out, routes, cidr, approvers.pv(), emptyList())
+        var out = SourceEdits.ensureSection(text, Section.AUTO_APPROVERS.key, PolicyValue.Obj(emptyList()))
+        if (SourceEdits.tree(out).at(base + map) == null) out = SourceEdits.put(out, base, map, PolicyValue.Obj(emptyList()), APPROVER_ORDER)
+        return if (SourceEdits.tree(out).at(base + map + key) is SrcArray) SourceEdits.setStrings(out, base + map + key, approvers, emptyList())
+        else SourceEdits.put(out, base + map, key, approvers.pv(), emptyList())
     }
 
     /** Who may offer an exit node without an admin's approval; empty removes the field. */
