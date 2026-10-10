@@ -459,6 +459,21 @@ class TailscaleBackend(
         return PolicyFile(resp.body, resp.header("ETag"))
     }
 
+    /**
+     * Public, from the control plane rather than the API, so it goes without the credential:
+     * nothing of the profile's goes to another host. Through the same transport (the profile's
+     * proxy) and the same retries as every other read.
+     */
+    override suspend fun defaultDerpMap(): ApiDerpMap {
+        val request = HttpRequest("GET", DERP_MAP_URL, mapOf("Accept" to "application/json"))
+        val resp = send(request, write = false, path = "/derpmap/default")
+        if (resp.status !in 200..299) throw errorFor(resp, area = null, write = false)
+        val map = decodeObject<ApiDerpMap>(resp, "relay map")
+        // An answer with no region in it is not a map to plan exclusions from.
+        if (map.regions.isEmpty()) throw AdminApiException.Decode("relay map", resp.requestId)
+        return map
+    }
+
     // ---------------------------------------------------------------- webhooks
 
     override suspend fun listWebhooks(): Listing<ApiWebhook> =
@@ -737,6 +752,8 @@ class TailscaleBackend(
 
     companion object {
         const val DEFAULT_BASE_URL = "https://api.tailscale.com"
+        /** Tailscale's default relay map; login.tailscale.com serves the same. */
+        const val DERP_MAP_URL = "https://controlplane.tailscale.com/derpmap/default"
         private const val HUJSON = "application/hujson"
 
         /** An ETag as If-Match wants it: quoted, as the GET sent it, or quoted here when it came bare. */

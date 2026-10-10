@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.admin.api.AdminApiException
 import io.github.bropines.tailscaled.admin.api.ApiDevice
+import io.github.bropines.tailscaled.admin.api.BackendKind
 import io.github.bropines.tailscaled.admin.api.PolicyFile
 import io.github.bropines.tailscaled.admin.api.PolicyPreview
 import io.github.bropines.tailscaled.admin.api.PolicyPreviewType
@@ -54,6 +55,27 @@ class PolicyConsole internal constructor(private val vm: AdminConsoleViewModel) 
             if (vm.backend !== b) return@launch
             set { s ->
                 s.copy(file = r.fold({ Loadable(it, false, null, loadedAt = System.currentTimeMillis()) }, { s.file.copy(loading = false, error = it) }))
+            }
+        }
+    }
+
+    /**
+     * Tailscale's default relay map, for the visual editor's Relays page: once a session (a copy
+     * from disk is replaced by the server's), again on [force]. A Tailscale profile only:
+     * Headscale serves the map of its own configuration.
+     */
+    fun loadDerpMap(force: Boolean = false) {
+        val b = vm.backend ?: return
+        if (b.kind != BackendKind.TAILSCALE) return
+        val current = state.derpMap
+        val have = current.value != null && !current.fromDisk && current.error == null
+        if (current.loading || (have && !force)) return
+        set { it.copy(derpMap = current.copy(loading = true, error = null)) }
+        vm.viewModelScope.launch {
+            val r = attempt { b.defaultDerpMap() }
+            if (vm.backend !== b) return@launch
+            set { s ->
+                s.copy(derpMap = r.fold({ Loadable(it, false, null, loadedAt = System.currentTimeMillis()) }, { s.derpMap.copy(loading = false, error = it) }))
             }
         }
     }

@@ -477,6 +477,42 @@ class TailscaleBackendTest {
     }
 
     @Test
+    fun theDefaultRelayMapIsReadWithoutTheCredentialAndRetried() = runBlocking {
+        val body = """{"Regions":{"1":{"RegionID":1,"RegionCode":"nyc","RegionName":"New York City","Latitude":40.7,
+            "Nodes":[{"Name":"1f","RegionID":1,"HostName":"derp1f.tailscale.com","IPv4":"199.38.181.104","CanPort80":true}]},
+            "28":{"RegionID":28,"RegionCode":"hel","RegionName":"Helsinki","Nodes":[]}}}"""
+        val sleeps = mutableListOf<Long>()
+        val t = FakeTransport().on("GET", "/derpmap/default", null, true, status(503), { HttpResponse(200, body) })
+        val map = testBackend(t, sleeps = sleeps).defaultDerpMap()
+        assertEquals(setOf("1", "28"), map.regions.keys)
+        assertEquals("nyc", map.regions.getValue("1").code)
+        assertEquals("Helsinki", map.regions.getValue("28").name)
+        assertEquals("derp1f.tailscale.com", map.regions.getValue("1").nodes.single().hostName)
+        assertEquals("a 503 is retried like any read", 2, t.requests.size)
+        assertEquals(1, sleeps.size)
+        val req = t.requests.last()
+        assertEquals(TailscaleBackend.DERP_MAP_URL, req.url)
+        assertTrue(req.idempotent)
+        assertNull("the credential never goes to another host", req.headers["Authorization"])
+    }
+
+    @Test
+    fun aRelayMapWithoutRegionsIsNotAMap() = runBlocking {
+        val t = FakeTransport().ok("GET", "/derpmap/default", """{"Regions":{}}""")
+        try {
+            testBackend(t).defaultDerpMap()
+            fail()
+        } catch (_: AdminApiException.Decode) {
+        }
+        val refused = FakeTransport().on("GET", "/derpmap/default", null, true, status(404))
+        try {
+            testBackend(refused).defaultDerpMap()
+            fail()
+        } catch (_: AdminApiException.NotFound) {
+        }
+    }
+
+    @Test
     fun customBaseUrlAndTailnetId() = runBlocking {
         val t = FakeTransport().ok("GET", "/tailnet/T1234CNTRL/devices", """{"devices":[]}""")
         TailscaleBackend(

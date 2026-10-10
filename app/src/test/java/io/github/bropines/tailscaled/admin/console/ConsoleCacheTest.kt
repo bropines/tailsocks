@@ -2,6 +2,9 @@ package io.github.bropines.tailscaled.admin.console
 
 import io.github.bropines.tailscaled.admin.api.Access
 import io.github.bropines.tailscaled.admin.api.AdminArea
+import io.github.bropines.tailscaled.admin.api.ApiDerpMap
+import io.github.bropines.tailscaled.admin.api.ApiDerpNode
+import io.github.bropines.tailscaled.admin.api.ApiDerpRegion
 import io.github.bropines.tailscaled.admin.api.ApiDevice
 import io.github.bropines.tailscaled.admin.api.ApiKey
 import io.github.bropines.tailscaled.admin.api.ApiUser
@@ -11,6 +14,7 @@ import io.github.bropines.tailscaled.admin.api.Capabilities
 import io.github.bropines.tailscaled.admin.api.CredentialKind
 import io.github.bropines.tailscaled.admin.api.DnsConfiguration
 import io.github.bropines.tailscaled.admin.api.TailscaleBackend
+import io.github.bropines.tailscaled.admin.policy.PolicyState
 import io.github.bropines.tailscaled.admin.profile.SoftwareSecretBox
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -105,6 +109,21 @@ class ConsoleCacheTest {
         assertNull(ConsoleCache.writeKey(ConsoleState()))
         val refreshed = seeded.copy(devices = Loadable(devices, loadedAt = 9_000))
         assertNotNull(ConsoleCache.writeKey(refreshed))
+    }
+
+    @Test
+    fun tailscalesRelayMapIsKeptAndRefreshed() {
+        val derp = ApiDerpMap(mapOf("28" to ApiDerpRegion(28, "hel", "Helsinki", listOf(ApiDerpNode("28a", "derp28a.tailscale.com")))))
+        val state = loaded().copy(policy = PolicyState(derpMap = Loadable(derp, loadedAt = 6_000)))
+        val cache = ConsoleCache(tmp.root, SoftwareSecretBox())
+        cache.write("p1", ConsoleCache.snapshotOf(state))
+        val seeded = ConsoleCache.seed(ConsoleState(), cache.read("p1"))
+        assertEquals(derp, seeded.policy.derpMap.value)
+        assertTrue(seeded.policy.derpMap.fromDisk)
+        assertEquals(6_000, seeded.policy.derpMap.loadedAt)
+        // Read again from the server: worth writing, as any other list.
+        val fresh = seeded.copy(policy = seeded.policy.copy(derpMap = Loadable(derp, loadedAt = 9_000)))
+        assertNotNull(ConsoleCache.writeKey(fresh))
     }
 
     @Test

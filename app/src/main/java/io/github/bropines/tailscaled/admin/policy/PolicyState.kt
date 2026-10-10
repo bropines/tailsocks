@@ -1,6 +1,7 @@
 package io.github.bropines.tailscaled.admin.policy
 
 import android.content.Context
+import io.github.bropines.tailscaled.admin.api.ApiDerpMap
 import io.github.bropines.tailscaled.admin.api.PolicyFile
 import io.github.bropines.tailscaled.admin.api.PolicyPreview
 import io.github.bropines.tailscaled.admin.api.PolicyPreviewType
@@ -30,6 +31,8 @@ data class PolicyState(
     val reach: Loadable<PolicyPreview> = Loadable(),
     /** The editor's view this profile used last ([PolicyViewPrefs]): the visual one until JSON is picked. */
     val visual: Boolean = true,
+    /** Tailscale's default relay map, for the visual editor's Relays page: read once a session, kept in the console's copy. */
+    val derpMap: Loadable<ApiDerpMap> = Loadable(),
 )
 
 /**

@@ -1,6 +1,7 @@
 package io.github.bropines.tailscaled.admin.console
 
 import io.github.bropines.tailscaled.admin.api.AdminArea
+import io.github.bropines.tailscaled.admin.api.ApiDerpMap
 import io.github.bropines.tailscaled.admin.api.ApiDevice
 import io.github.bropines.tailscaled.admin.api.ApiKey
 import io.github.bropines.tailscaled.admin.api.ApiService
@@ -19,6 +20,7 @@ import java.io.File
  * data directory holds only ciphertext, and a restore on another phone finds it unreadable and
  * starts empty (files/admin is out of backups anyway). Left out: webhooks (their URLs often
  * carry a token), invites (their links admit people), the audit log and the policy file.
+ * Tailscale's public relay map is kept: the policy editor's Relays page opens on it at once.
  */
 class ConsoleCache(private val dir: File, private val box: SecretBox) {
 
@@ -35,6 +37,7 @@ class ConsoleCache(private val dir: File, private val box: SecretBox) {
         val settings: Entry<TailnetSettings>? = null,
         val services: Entry<List<ApiService>>? = null,
         val policyTags: List<String> = emptyList(),
+        val derpMap: Entry<ApiDerpMap>? = null,
     )
 
     /** The profile's snapshot; null when there is none or it cannot be opened (then it is dropped). */
@@ -93,6 +96,7 @@ class ConsoleCache(private val dir: File, private val box: SecretBox) {
             settings = s.settings.entry(s, AdminArea.SETTINGS),
             services = s.services.entry(s, AdminArea.SERVICES),
             policyTags = s.policyTags,
+            derpMap = s.policy.derpMap.let { d -> d.value?.let { Entry(it, d.loadedAt) } },
         )
 
         private fun <T> Loadable<T>.entry(s: ConsoleState, area: AdminArea): Entry<T>? =
@@ -103,7 +107,7 @@ class ConsoleCache(private val dir: File, private val box: SecretBox) {
          * while everything on screen still came from disk, when there is nothing new to keep.
          */
         fun writeKey(s: ConsoleState): List<Any>? {
-            val parts = listOf(s.devices, s.users, s.keys, s.dns, s.settings, s.services)
+            val parts = listOf(s.devices, s.users, s.keys, s.dns, s.settings, s.services, s.policy.derpMap)
             if (parts.none { it.value != null && !it.fromDisk }) return null
             return parts.map { it.loadedAt } + s.policyTags.hashCode()
         }
@@ -120,6 +124,7 @@ class ConsoleCache(private val dir: File, private val box: SecretBox) {
                 settings = snapshot.settings.loadable(s.settings),
                 services = snapshot.services.loadable(s.services),
                 policyTags = s.policyTags.ifEmpty { snapshot.policyTags },
+                policy = s.policy.copy(derpMap = snapshot.derpMap.loadable(s.policy.derpMap)),
             )
         }
     }

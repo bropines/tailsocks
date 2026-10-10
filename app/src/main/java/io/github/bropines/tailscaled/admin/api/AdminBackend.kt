@@ -120,6 +120,11 @@ interface AdminBackend {
      * ETag is [ifMatch]: a 412 ([AdminApiException.PreconditionFailed]) when someone changed it.
      */
     suspend fun setPolicyFile(text: String, ifMatch: String): PolicyFile = unsupported(BackendFeature.POLICY)
+    /**
+     * The relay map every tailnet starts from, before a policy's derpMap changes it: Tailscale's
+     * public one. Headscale serves the map of its own server configuration and has none of this.
+     */
+    suspend fun defaultDerpMap(): ApiDerpMap = unsupported(BackendFeature.POLICY)
 
     /** Replaces the whole DNS configuration (/dns/configuration); the older endpoints are the methods above. */
     suspend fun setDnsConfiguration(config: DnsConfiguration): DnsConfiguration = unsupported(BackendFeature.DNS_CONFIGURATION)
