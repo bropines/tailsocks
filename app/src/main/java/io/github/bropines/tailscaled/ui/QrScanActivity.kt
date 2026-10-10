@@ -100,6 +100,8 @@ import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -426,6 +428,13 @@ private fun CameraLayout(
     // the viewfinder as it draws, in the same frame: it keeps clear of both.
     val clearTop = remember { mutableIntStateOf(0) }
     val clearBottom = remember { mutableIntStateOf(0) }
+    val clearEnd = remember { mutableIntStateOf(0) }
+    // A tablet: the square grows with the window, so it frames as much of the picture
+    // as it does on a phone; on its side the controls stand beside the picture, where
+    // the hands are, and leave it the whole height. A phone keeps its own layout.
+    val window = rememberWindowLayout()
+    val finderSide = if (window.isPhone) 280.dp else minOf(window.width, window.height) * 0.5f
+    val sideControls = !window.isPhone && window.width > window.height
     BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black)) {
         // A phone on its side has no height to spare for the second line.
         val roomy = maxHeight >= 520.dp
@@ -433,7 +442,13 @@ private fun CameraLayout(
         Layout(
             modifier = Modifier.fillMaxSize(),
             content = {
-                Viewfinder(Modifier.fillMaxSize(), clearTop = { clearTop.intValue }, clearBottom = { clearBottom.intValue })
+                Viewfinder(
+                    Modifier.fillMaxSize(),
+                    clearTop = { clearTop.intValue },
+                    clearBottom = { clearBottom.intValue },
+                    clearEnd = { clearEnd.intValue },
+                    maxSide = finderSide
+                )
                 AppTopBar(
                     title = stringResource(R.string.qr_scan_title),
                     onBack = onBack,
@@ -485,14 +500,30 @@ private fun CameraLayout(
             val height = constraints.maxHeight
             val row = Constraints(minWidth = width, maxWidth = width, maxHeight = height)
             val bar = measurables[1].measure(row)
-            val controls = measurables[2].measure(row)
-            clearTop.intValue = bar.height
-            clearBottom.intValue = controls.height
-            val finder = measurables[0].measure(Constraints.fixed(width, height))
-            layout(width, height) {
-                finder.place(0, 0)
-                bar.place(0, 0)
-                controls.place(0, height - controls.height)
+            if (sideControls) {
+                // A column at the end, centred in the height under the bar.
+                val side = minOf(width * 2 / 5, 360.dp.roundToPx())
+                val controls = measurables[2].measure(Constraints(minWidth = side, maxWidth = side, maxHeight = height - bar.height))
+                clearTop.intValue = bar.height
+                clearBottom.intValue = 0
+                clearEnd.intValue = controls.width
+                val finder = measurables[0].measure(Constraints.fixed(width, height))
+                layout(width, height) {
+                    finder.place(0, 0)
+                    bar.place(0, 0)
+                    controls.placeRelative(width - controls.width, ((height - controls.height) / 2).coerceAtLeast(bar.height))
+                }
+            } else {
+                val controls = measurables[2].measure(row)
+                clearTop.intValue = bar.height
+                clearBottom.intValue = controls.height
+                clearEnd.intValue = 0
+                val finder = measurables[0].measure(Constraints.fixed(width, height))
+                layout(width, height) {
+                    finder.place(0, 0)
+                    bar.place(0, 0)
+                    controls.place(0, height - controls.height)
+                }
             }
         }
     }
@@ -501,17 +532,29 @@ private fun CameraLayout(
 /**
  * The camera's picture dimmed but for a rounded square, its corners marked.
  * The square sits in the middle of the picture, where the lens points, and
- * moves up or shrinks only as far as it must to stay clear of the top
- * [clearTop] and the bottom [clearBottom] pixels.
+ * moves up, aside or shrinks only as far as it must to stay clear of the top
+ * [clearTop], the bottom [clearBottom] and the end [clearEnd] pixels; it is at
+ * most [maxSide].
  */
 @Composable
-private fun Viewfinder(modifier: Modifier, clearTop: () -> Int, clearBottom: () -> Int) {
+private fun Viewfinder(
+    modifier: Modifier,
+    clearTop: () -> Int,
+    clearBottom: () -> Int,
+    clearEnd: () -> Int = { 0 },
+    maxSide: Dp = 280.dp,
+) {
     Canvas(modifier.graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }) {
         val margin = 12.dp.toPx()
         val roomTop = clearTop() + margin
         val roomBottom = size.height - clearBottom() - margin
-        val side = minOf(size.width * 0.8f, roomBottom - roomTop, 280.dp.toPx()).coerceAtLeast(0f)
-        val left = (size.width - side) / 2
+        val roomWidth = size.width - clearEnd()
+        val side = minOf(roomWidth * 0.8f, roomBottom - roomTop, maxSide.toPx()).coerceAtLeast(0f)
+        // In the middle while it clears the controls at the end (the right, or the left in
+        // a right-to-left layout), moved away from them only as far as it must.
+        val centred = (size.width - side) / 2
+        val left = if (layoutDirection == LayoutDirection.Rtl) centred.coerceAtLeast(clearEnd().toFloat())
+            else centred.coerceAtMost(roomWidth - side)
         val top = ((size.height - side) / 2).coerceAtMost(roomBottom - side).coerceAtLeast(roomTop)
         val right = left + side
         val bottom = top + side
