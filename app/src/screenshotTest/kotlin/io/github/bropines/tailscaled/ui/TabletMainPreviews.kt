@@ -16,7 +16,7 @@ import com.android.tools.screenshot.PreviewTest
 /** The author's tablet, upright and on its side. */
 @Preview(name = "3-tablet-portrait", device = "spec:width=800dp,height=1280dp,dpi=240")
 @Preview(name = "5-tablet", device = "spec:width=1280dp,height=800dp,dpi=240")
-internal annotation class TabletSizes
+internal annotation class MainTabletSizes
 
 private val relayTrouble = """
     [{"Code": "no-derp-connection", "Title": "No DERP connection",
@@ -55,15 +55,15 @@ fun TabletMainStopped() = AdaptiveShowcase(stopped) { Main() }
 fun TabletMainProblem() = AdaptiveShowcase(troubled) { Main() }
 
 /** Connected, every app's traffic on its own way out: no exit node chosen. */
-@PreviewTest @TabletSizes @Composable
+@PreviewTest @MainTabletSizes @Composable
 fun TabletMainNoExit() = AdaptiveShowcase(noExit) { Main() }
 
 /** Two problems at once, no exit node: the banner under the card at its tallest. */
-@PreviewTest @TabletSizes @Composable
+@PreviewTest @MainTabletSizes @Composable
 fun TabletMainIssues() = AdaptiveShowcase(noExit.copy(healthJson = twoTroubles)) { Main() }
 
 /** The daemon is up and still waiting for its map. */
-@PreviewTest @TabletSizes @Composable
+@PreviewTest @MainTabletSizes @Composable
 fun TabletMainConnecting() = AdaptiveShowcase(DemoTailnet.data.copy(backendState = "Starting")) { Main() }
 
 /** The longer words: every label on the dashboard in Russian. */
