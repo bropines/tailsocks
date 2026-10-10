@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The visual policy editor's rule pages: Access, SSH, Tests; their editors; and the kit's later additions. -->
+<resources>
+    <!-- Kit additions. -->
+    <string name="admin_pv_more_count">+%1$d</string>
+    <string name="admin_pv_picker_broad">Opens to more than most rules need</string>
+    <string name="admin_pv_group_logins">Login names</string>
+    <string name="admin_pv_json">JSON</string>
+    <string name="admin_pv_line">Line %1$d</string>
+    <string name="admin_pv_not_now">Not now</string>
+    <string name="admin_pv_pane_empty">Pick a rule to see it here</string>
+
+    <!-- Card rows: short, they stand in a narrow column. -->
+    <string name="admin_pv_c_who">Who</string>
+    <string name="admin_pv_c_reach">Reaches</string>
+    <string name="admin_pv_c_ports">Ports</string>
+    <string name="admin_pv_c_via">Through</string>
+    <string name="admin_pv_c_apps">Also</string>
+    <string name="admin_pv_c_posture">Posture</string>
+    <string name="admin_pv_c_proto_only">%1$s only</string>
+    <string name="admin_pv_c_nothing">Nothing yet</string>
+    <string name="admin_pv_c_ssh_to">SSH to</string>
+    <string name="admin_pv_c_ssh_as">As</string>
+    <string name="admin_pv_c_from">From</string>
+    <string name="admin_pv_c_test_accept">Reaches</string>
+    <string name="admin_pv_c_test_deny">Blocked</string>
+    <string name="admin_pv_c_sshtest_accept">Gets in</string>
+    <string name="admin_pv_c_sshtest_check">Re-checked</string>
+    <string name="admin_pv_c_sshtest_deny">Refused</string>
+    <string name="admin_pv_kind_acl">ACL</string>
+    <string name="admin_pv_kind_grant">Grant</string>
+
+    <!-- Ports in words. -->
+    <string name="admin_pv_port_all">all ports</string>
+    <string name="admin_pv_port_ssh">SSH (22)</string>
+    <string name="admin_pv_port_https">HTTPS (443)</string>
+    <string name="admin_pv_port_web">web (80, 443)</string>
+    <string name="admin_pv_port_http">HTTP (80)</string>
+    <string name="admin_pv_port_dns">DNS (53)</string>
+    <string name="admin_pv_port_rdp">RDP (3389)</string>
+    <string name="admin_pv_ip_proto_all">%1$s, all ports</string>
+    <string name="admin_pv_ip_proto_ports">%1$s %2$s</string>
+    <string name="admin_pv_chip_all">All ports</string>
+    <string name="admin_pv_chip_ssh">SSH</string>
+    <string name="admin_pv_chip_https">HTTPS</string>
+    <string name="admin_pv_chip_web">Web</string>
+    <string name="admin_pv_chip_http">HTTP</string>
+    <string name="admin_pv_chip_dns">DNS</string>
+    <string name="admin_pv_chip_rdp">RDP</string>
+    <string name="admin_pv_chip_other">Other…</string>
+    <string name="admin_pv_ports_list">Ports</string>
+    <string name="admin_pv_ports_hint">22, 80,443, 8000-8999 or *</string>
+    <string name="admin_pv_port_one">Port</string>
+    <string name="admin_pv_port_one_hint">One port number: the test tries exactly that one.</string>
+    <string name="admin_pv_ip_other">Another port or protocol</string>
+    <string name="admin_pv_ip_hint">8080, tcp:8443, udp:3478 or icmp:*</string>
+    <string name="admin_pv_ip_none">No ports chosen: this grant opens nothing yet.</string>
+    <string name="admin_pv_ip_none_apps">No ports: this grant gives only its app capabilities, no network access.</string>
+
+    <!-- Destinations. -->
+    <string name="admin_pv_dest_title">Destination</string>
+    <string name="admin_pv_dest_ports_for">Ports on %1$s</string>
+    <string name="admin_pv_dest_host">Device or address</string>
+    <string name="admin_pv_dest_ports">Which ports</string>
+    <string name="admin_pv_dest_port">Which port</string>
+    <string name="admin_pv_dest_remove">Remove</string>
+
+    <!-- Coverage. -->
+    <string name="admin_pv_cov_title">Who this connects</string>
+    <string name="admin_pv_cov_internet">the internet</string>
+    <string name="admin_pv_cov_self">their own devices</string>
+    <string name="admin_pv_cov_more">more</string>
+    <string name="admin_pv_and">%1$s and %2$s</string>
+    <string name="admin_pv_cov_from">From</string>
+    <string name="admin_pv_cov_to">To</string>
+    <string name="admin_pv_cov_said">Connects %1$s</string>
+    <string name="admin_pv_cov_help">Counted on this phone from the console\'s device list. The server is the authority: it also knows devices shared in and what the phone cannot resolve.</string>
+    <string name="admin_pv_server_check">Ask the server what %1$s reaches</string>
+    <string name="admin_pv_server_none">Under this draft %1$s reaches nothing.</string>
+    <string name="admin_pv_server_failed">The server could not answer. Try again, or check it in Review.</string>
+
+    <!-- Editors: shared. -->
+    <string name="admin_pv_more_options">More options</string>
+    <string name="admin_pv_more_summary">Protocol, device posture</string>
+    <string name="admin_pv_note">Note</string>
+    <string name="admin_pv_note_heading">Heading above this rule</string>
+    <string name="admin_pv_note_placeholder">Why this exists, who asked for it</string>
+    <string name="admin_pv_note_save">Save</string>
+    <string name="admin_pv_note_help">Written as a // comment right above it in the file; it moves and goes with it.</string>
+    <string name="admin_pv_note_heading_help">This comment heads the rules below it: changing it changes the heading, and it stays when this rule is moved or deleted.</string>
+    <string name="admin_pv_action_delete">Delete</string>
+    <string name="admin_pv_action_duplicate">Duplicate</string>
+    <string name="admin_pv_action_up">Move up</string>
+    <string name="admin_pv_action_down">Move down</string>
+    <string name="admin_pv_action_test">Add a test</string>
+    <string name="admin_pv_action_convert">Convert to grant</string>
+    <string name="admin_pv_action_discard">Discard</string>
+
+    <!-- Access page. -->
+    <plurals name="admin_pv_access_count">
+        <item quantity="one">%d access rule</item>
+        <item quantity="other">%d access rules</item>
+    </plurals>
+    <string name="admin_pv_access_help">Rules add up: a connection is allowed when any rule allows it, and nothing else is. Their order only groups them for you.</string>
+    <string name="admin_pv_add_rule">Add rule</string>
+    <string name="admin_pv_add_here">Add a rule under “%1$s”</string>
+    <string name="admin_pv_divider_grants">Grants</string>
+    <string name="admin_pv_divider_acls">ACL rules</string>
+    <string name="admin_pv_access_empty">No access rules in this policy yet</string>
+    <string name="admin_pv_templates">Start from a template</string>
+    <string name="admin_pv_tpl_own">Everyone reaches their own devices</string>
+    <string name="admin_pv_tpl_own_help">Every member, on every port, to the devices they own. Added at once.</string>
+    <string name="admin_pv_tpl_admins">Admins reach everything</string>
+    <string name="admin_pv_tpl_admins_help">Users with the Admin role, to every device on every port. Added at once.</string>
+    <string name="admin_pv_tpl_guests">Guests use exit nodes only</string>
+    <string name="admin_pv_tpl_guests_help">The internet through exit nodes and nothing in the tailnet. Pick who the guests are.</string>
+    <string name="admin_pv_tpl_group_tag">A group reaches a tag on chosen ports</string>
+    <string name="admin_pv_tpl_group_tag_help">Pick the group, the tag and the ports.</string>
+    <string name="admin_pv_rule_title">Access rule</string>
+    <string name="admin_pv_rule_new">New access rule</string>
+    <string name="admin_pv_rule_new_note">Written to the policy as soon as it says who and where. Until then nothing changes.</string>
+    <string name="admin_pv_rule_new_note_grant">Written to the policy as soon as it says who, where and on which ports. Until then nothing changes.</string>
+    <string name="admin_pv_f_who">Who</string>
+    <string name="admin_pv_f_reach">Can reach</string>
+    <string name="admin_pv_f_reach_acl_help">Each destination has its own ports: tap one to change them.</string>
+    <string name="admin_pv_f_ports">Ports and protocols</string>
+    <string name="admin_pv_f_via">Only through</string>
+    <string name="admin_pv_f_via_help">The traffic must go through devices with these tags: an exit node, a subnet router or an app connector.</string>
+    <string name="admin_pv_f_posture">Only from devices that pass</string>
+    <string name="admin_pv_f_posture_help">The source device must meet these device postures at the moment it connects.</string>
+    <string name="admin_pv_f_proto">Protocol</string>
+    <string name="admin_pv_f_proto_help">Any means TCP, UDP and ICMP. Pick one to allow only that.</string>
+    <string name="admin_pv_proto_any">Any</string>
+    <string name="admin_pv_proto_other">Protocol name or number</string>
+    <string name="admin_pv_proto_hint">sctp, gre, esp, or an IANA number from 0 to 255</string>
+    <string name="admin_pv_proto_bad">Not a protocol name or a number from 0 to 255</string>
+    <string name="admin_pv_f_apps">App capabilities</string>
+    <string name="admin_pv_f_apps_help">What an application on the destination lets these people do. Their settings are edited in JSON; the rest of this grant here.</string>
+    <string name="admin_pv_app_drive">Taildrive shares</string>
+    <string name="admin_pv_app_tsidp">Sign-in with tsidp</string>
+    <string name="admin_pv_app_kubernetes">Kubernetes API</string>
+    <string name="admin_pv_app_relay">Peer relay</string>
+    <string name="admin_pv_order_help">Order changes nothing for access: Tailscale combines every rule. Move rules only to keep related ones together.</string>
+    <string name="admin_pv_rule_deleted">Rule deleted</string>
+    <string name="admin_pv_rule_duplicated">Copy added below the rule</string>
+    <plurals name="admin_pv_converted">
+        <item quantity="one">Converted to a grant</item>
+        <item quantity="other">Converted to %d grants</item>
+    </plurals>
+    <string name="admin_pv_deleted_offer">That access is gone. Add a test that fails if it ever comes back?</string>
+    <string name="admin_pv_deleted_offer_action">Add test</string>
+    <string name="admin_pv_test_added">Test added</string>
+    <string name="admin_pv_test_none">Nothing in this rule a test can check: it needs one user, group, tag or host as the source and a port.</string>
+
+    <!-- SSH page. -->
+    <plurals name="admin_pv_ssh_count">
+        <item quantity="one">%d SSH rule</item>
+        <item quantity="other">%d SSH rules</item>
+    </plurals>
+    <string name="admin_pv_ssh_help">Who may open Tailscale SSH sessions to which devices, and as which login. A rule that asks for a check wins over one that accepts.</string>
+    <string name="admin_pv_ssh_add">Add SSH rule</string>
+    <string name="admin_pv_ssh_empty">No SSH rules: nobody can use Tailscale SSH yet</string>
+    <string name="admin_pv_ssh_title">SSH rule</string>
+    <string name="admin_pv_ssh_new">New SSH rule</string>
+    <string name="admin_pv_ssh_new_note">Written to the policy as soon as it says who, to which devices and as whom. Until then nothing changes.</string>
+    <string name="admin_pv_f_ssh_to">Can SSH to</string>
+    <string name="admin_pv_f_ssh_to_help">Tagged devices, a user\'s own devices, or Their own devices for everyone at once.</string>
+    <string name="admin_pv_f_ssh_as">As</string>
+    <string name="admin_pv_f_ssh_as_help">Login names on the destination: root, a name, or Any user but root.</string>
+    <string name="admin_pv_f_ssh_mode">Mode</string>
+    <string name="admin_pv_ssh_accept">Accept</string>
+    <string name="admin_pv_ssh_check">Check</string>
+    <string name="admin_pv_ssh_accept_help">The session opens straight away for anyone the rule names.</string>
+    <string name="admin_pv_ssh_check_help">The person signs in again in a browser when their last check is older than the period below; then the session opens.</string>
+    <string name="admin_pv_ssh_check_every">Check every %1$s</string>
+    <string name="admin_pv_ssh_check_always">Check every time</string>
+    <string name="admin_pv_hours">%1$s h</string>
+    <string name="admin_pv_f_ssh_period">Check again after</string>
+    <string name="admin_pv_ssh_period_always">Every time</string>
+    <string name="admin_pv_ssh_period_hint">30m, 2h or 1h30m: from a minute to 168 hours</string>
+    <string name="admin_pv_ssh_period_bad">From 1m to 168h, like 30m, 2h or 1h30m</string>
+    <string name="admin_pv_ssh_more_summary">Environment variables, device posture</string>
+    <string name="admin_pv_f_env">Environment variables a session may set</string>
+    <string name="admin_pv_f_env_help">Names the SSH client may pass on, such as GIT_* for Git; * and ? match any characters.</string>
+    <string name="admin_pv_f_env_bad">Letters, digits, _ and the wildcards * and ?</string>
+    <string name="admin_pv_ssh_port22">The access rules do not open port 22 for all of them</string>
+    <string name="admin_pv_ssh_port22_help">Tailscale SSH needs a connection as well as this rule: an access rule that lets the same people reach these devices on port 22.</string>
+    <string name="admin_pv_ssh_port22_add">Add that access rule</string>
+    <string name="admin_pv_ssh_port22_added">Access rule for port 22 added</string>
+    <string name="admin_pv_ssh_order_help">Order changes nothing: rules that check are applied before rules that accept, wherever they stand.</string>
+    <string name="admin_pv_ssh_deleted">SSH rule deleted</string>
+
+    <!-- Tests page. -->
+    <plurals name="admin_pv_tests_count">
+        <item quantity="one">%d test</item>
+        <item quantity="other">%d tests</item>
+    </plurals>
+    <plurals name="admin_pv_sshtests_count">
+        <item quantity="one">%d SSH test</item>
+        <item quantity="other">%d SSH tests</item>
+    </plurals>
+    <string name="admin_pv_tests_help">The server runs every test when the policy is saved and refuses a policy that fails one.</string>
+    <string name="admin_pv_tests_empty">Tests prove the policy keeps allowing or blocking what matters</string>
+    <string name="admin_pv_tests_none">No access tests yet.</string>
+    <string name="admin_pv_sshtests_none">No SSH tests yet.</string>
+    <string name="admin_pv_divider_sshtests">SSH tests</string>
+    <string name="admin_pv_test_add">Add test</string>
+    <string name="admin_pv_sshtest_add">Add SSH test</string>
+    <string name="admin_pv_test_from_rule">From a rule</string>
+    <string name="admin_pv_test_from_rule_title">A test from which rule?</string>
+    <string name="admin_pv_test_title">Access test</string>
+    <string name="admin_pv_test_new">New access test</string>
+    <string name="admin_pv_test_new_note">Written to the policy as soon as it has a source and one destination. Until then nothing changes.</string>
+    <string name="admin_pv_sshtest_title">SSH test</string>
+    <string name="admin_pv_sshtest_new">New SSH test</string>
+    <string name="admin_pv_sshtest_new_note">Written to the policy as soon as it has a source, a device and a login. Until then nothing changes.</string>
+    <string name="admin_pv_f_test_src">From</string>
+    <string name="admin_pv_f_test_src_help">One user, group, tag, host or address: the test checks from there.</string>
+    <string name="admin_pv_f_sshtest_src_help">One user, group or tag: the test checks as them.</string>
+    <string name="admin_pv_f_test_accept">Must reach</string>
+    <string name="admin_pv_f_test_accept_help">The policy is refused if any of these cannot be reached on its port.</string>
+    <string name="admin_pv_f_test_deny">Must not reach</string>
+    <string name="admin_pv_f_test_deny_help">The policy is refused if any of these can be reached on its port.</string>
+    <string name="admin_pv_test_more_summary">Protocol</string>
+    <string name="admin_pv_f_test_posture">Device posture attributes</string>
+    <string name="admin_pv_f_test_posture_help">The source device is tested as if it had these attributes. Edited in JSON.</string>
+    <string name="admin_pv_f_sshtest_accept">Gets in as</string>
+    <string name="admin_pv_f_sshtest_accept_help">The policy is refused unless these logins open without a check.</string>
+    <string name="admin_pv_f_sshtest_check">Gets in after a check as</string>
+    <string name="admin_pv_f_sshtest_check_help">The policy is refused unless these logins ask for a fresh sign-in.</string>
+    <string name="admin_pv_f_sshtest_deny">Refused as</string>
+    <string name="admin_pv_f_sshtest_deny_help">The policy is refused if any of these logins can open a session.</string>
+    <string name="admin_pv_test_deleted">Test deleted</string>
+    <string name="admin_pv_test_duplicated">Copy added below the test</string>
+    <string name="admin_pv_test_delete_title">Delete this test?</string>
+    <string name="admin_pv_test_delete_text">Tests guard the policy: the server refuses a change that breaks one. Without it, a change that opens or closes this access goes through unnoticed. Undo brings it back.</string>
+</resources>
