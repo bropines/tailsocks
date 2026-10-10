@@ -15,6 +15,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
@@ -154,6 +157,8 @@ fun TunExcludedAppsScreen(onBack: () -> Unit, initialApps: List<AppItem>? = null
         }
     }
 
+    val window = rememberWindowLayout()
+
     PredictiveBackContainer(
         onBack = { saveAndExit() },
         // Back here only closes the Activity, so the container installs no callback and
@@ -179,22 +184,15 @@ fun TunExcludedAppsScreen(onBack: () -> Unit, initialApps: List<AppItem>? = null
                 )
             }
         ) { padding ->
-            // Held to a readable width on a tablet; see ReadableWidth.
-            ReadableWidth {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(horizontal = 16.dp)
-            ) {
-                // Search Bar
+            val searchBar: @Composable (Modifier) -> Unit = { modifier ->
                 CompactSearchBar(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
                     placeholderText = stringResource(R.string.logs_search_placeholder),
-                    modifier = Modifier.padding(vertical = 8.dp)
+                    modifier = modifier
                 )
-
+            }
+            val filterChips: @Composable (Modifier) -> Unit = { modifier ->
                 val filterOptions = listOf(
                     stringResource(R.string.tun_apps_filter_all) + " (${apps.size})",
                     stringResource(R.string.tun_apps_filter_excluded) + " (${excluded.value.size})"
@@ -203,53 +201,125 @@ fun TunExcludedAppsScreen(onBack: () -> Unit, initialApps: List<AppItem>? = null
                     options = filterOptions,
                     selectedIndex = if (showOnlyExcluded) 1 else 0,
                     onOptionSelected = { idx -> showOnlyExcluded = (idx == 1) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 8.dp),
+                    modifier = modifier,
                     height = 38.dp
                 )
-
-            if (loading) {
-                Box(Modifier.fillMaxSize().weight(1f), contentAlignment = Alignment.Center) {
-                    LoadingIndicator()
+            }
+            val toggle: (AppItem) -> Unit = { app ->
+                val isExcluded = app.packageName in excluded.value
+                excluded.value = if (isExcluded) {
+                    excluded.value - app.packageName
+                } else {
+                    excluded.value + app.packageName
                 }
-            } else if (filteredApps.isEmpty()) {
-                Box(Modifier.fillMaxSize().weight(1f), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = stringResource(R.string.settings_exit_node_empty),
-                        color = MaterialTheme.colorScheme.outline,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                    contentPadding = PaddingValues(bottom = 16.dp)
-                ) {
-                    items(filteredApps, key = { it.packageName }) { app ->
-                        val isExcluded = app.packageName in excluded.value
-                        AppExclusionCard(
-                            app = app,
-                            isExcluded = isExcluded,
-                            onToggle = {
-                                excluded.value = if (isExcluded) {
-                                    excluded.value - app.packageName
-                                } else {
-                                    excluded.value + app.packageName
-                                }
-                            }
+            }
+            // Loading, or nothing to list: in place of the list, whatever its shape.
+            val noList: @Composable ColumnScope.() -> Unit = {
+                if (loading) {
+                    Box(Modifier.fillMaxSize().weight(1f), contentAlignment = Alignment.Center) {
+                        LoadingIndicator()
+                    }
+                } else {
+                    Box(Modifier.fillMaxSize().weight(1f), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = stringResource(R.string.settings_exit_node_empty),
+                            color = MaterialTheme.colorScheme.outline,
+                            style = MaterialTheme.typography.bodyMedium
                         )
                     }
                 }
             }
-        }
+            // A phone's list, and a tablet's where two columns do not fit.
+            val oneColumn: @Composable () -> Unit = {
+                // Held to a readable width on a tablet; see ReadableWidth.
+                ReadableWidth {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(padding)
+                            .padding(horizontal = 16.dp)
+                    ) {
+                        searchBar(Modifier.padding(vertical = 8.dp))
+                        filterChips(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp)
+                        )
+                        if (loading || filteredApps.isEmpty()) {
+                            noList()
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                                contentPadding = PaddingValues(bottom = 16.dp)
+                            ) {
+                                items(filteredApps, key = { it.packageName }) { app ->
+                                    AppExclusionCard(
+                                        app = app,
+                                        isExcluded = app.packageName in excluded.value,
+                                        onToggle = { toggle(app) }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (!window.multiColumn) {
+                oneColumn()
+                return@Scaffold
+            }
+            // From a medium window up the apps stand in a grid, the search and the filter on
+            // one line over it, at its width.
+            BoxWithConstraints(Modifier.fillMaxSize()) {
+                if (columnsFor(maxWidth - window.margin * 2, AppColumnWidth) < 2) {
+                    oneColumn()
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(padding)
+                            .padding(horizontal = window.margin)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            searchBar(Modifier.weight(1f))
+                            filterChips(Modifier.width(AppColumnWidth))
+                        }
+                        if (loading || filteredApps.isEmpty()) {
+                            noList()
+                        } else {
+                            LazyVerticalGrid(
+                                columns = GridCells.Adaptive(AppColumnWidth),
+                                modifier = Modifier.fillMaxWidth().weight(1f),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp)
+                            ) {
+                                gridItems(filteredApps, key = { it.packageName }) { app ->
+                                    AppExclusionCard(
+                                        app = app,
+                                        isExcluded = app.packageName in excluded.value,
+                                        onToggle = { toggle(app) }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
 }
+
+/** The narrowest column of app rows: an icon, a name and a switch. */
+private val AppColumnWidth = 320.dp
 
 @Composable
 private fun AppExclusionCard(app: AppItem, isExcluded: Boolean, onToggle: () -> Unit) {

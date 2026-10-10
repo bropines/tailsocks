@@ -333,14 +333,17 @@ fun PermissionsScreen(onBack: () -> Unit) {
         }
     ).sortedBy { it.state.urgency }
 
-    Scaffold(
-        topBar = {
-            AppTopBar(
-                title = stringResource(R.string.perm_title),
-                onBack = onBack
-            )
-        }
-    ) { padding ->
+    val window = rememberWindowLayout()
+    val intro: @Composable () -> Unit = {
+        Text(
+            stringResource(R.string.perm_intro),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(vertical = 12.dp)
+        )
+    }
+    // A phone's column, and a tablet's where two columns do not fit.
+    val oneColumn: @Composable (PaddingValues) -> Unit = { padding ->
         // Held to a readable width on a tablet; see ReadableWidth.
         ReadableWidth {
         Column(
@@ -350,12 +353,7 @@ fun PermissionsScreen(onBack: () -> Unit) {
                 .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            Text(
-                stringResource(R.string.perm_intro),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(vertical = 12.dp)
-            )
+            intro()
 
             entries.forEach { entry ->
                 key(entry.id) { PermissionRow(entry) }
@@ -365,7 +363,47 @@ fun PermissionsScreen(onBack: () -> Unit) {
         }
         }
     }
+
+    Scaffold(
+        topBar = {
+            AppTopBar(
+                title = stringResource(R.string.perm_title),
+                onBack = onBack
+            )
+        }
+    ) { padding ->
+        if (!window.multiColumn) {
+            oneColumn(padding)
+            return@Scaffold
+        }
+        // From a medium window up the rows stand in columns, the way the system's own
+        // settings lay out tiles, instead of a strip of five down the middle.
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            if (columnsFor(maxWidth - window.margin * 2, PermissionColumnWidth) < 2) {
+                oneColumn(padding)
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .padding(horizontal = window.margin)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    intro()
+                    CardColumns(minColumnWidth = PermissionColumnWidth) {
+                        entries.forEach { entry ->
+                            key(entry.id) { PermissionRow(entry, spaced = false) }
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                }
+            }
+        }
+    }
 }
+
+/** The narrowest column of permission rows: the title, "Open" and the glyph on one line. */
+private val PermissionColumnWidth = 340.dp
 
 /**
  * One permission, in two lines. What the system says about it is a glyph at the
@@ -377,7 +415,11 @@ fun PermissionsScreen(onBack: () -> Unit) {
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun PermissionRow(entry: PermEntry) {
+private fun PermissionRow(
+    entry: PermEntry,
+    /** The rows' own space between them, in a column; columns of rows are spaced by theirs. */
+    spaced: Boolean = true
+) {
     val state = entry.state
     val stateLabel = stringResource(
         when (state) {
@@ -406,7 +448,7 @@ private fun PermissionRow(entry: PermEntry) {
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp)
+            .then(if (spaced) Modifier.padding(vertical = 4.dp) else Modifier)
             .clip(shape)
             // A long press unfolds the note, as on the settings rows.
             .combinedClickable(
