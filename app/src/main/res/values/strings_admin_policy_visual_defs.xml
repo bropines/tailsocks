@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The visual policy editor's definitions pages: groups, tags, hosts and IP sets, auto approval, device attributes, postures. -->
+<resources>
+    <!-- Shared by the pages' editors. -->
+    <string name="admin_pvd_name">Name</string>
+    <string name="admin_pvd_rename">Rename</string>
+    <string name="admin_pvd_rename_title">Rename %1$s?</string>
+    <plurals name="admin_pvd_rename_text">
+        <item quantity="one">%1$s becomes %2$s in its definition and in the %3$d place that uses it.</item>
+        <item quantity="other">%1$s becomes %2$s in its definition and in the %3$d places that use it.</item>
+    </plurals>
+    <string name="admin_pvd_rename_text_unused">%1$s becomes %2$s. Nothing in the policy uses it yet.</string>
+    <plurals name="admin_pvd_rename_hint">
+        <item quantity="one">Renamed in its %d use too</item>
+        <item quantity="other">Renamed in all %d uses too</item>
+    </plurals>
+    <string name="admin_pvd_apply">Apply</string>
+    <string name="admin_pvd_note">Note</string>
+    <string name="admin_pvd_note_help">Kept in the file as a comment above it.</string>
+    <string name="admin_pvd_heading">Heading above it</string>
+    <string name="admin_pvd_heading_help">This comment heads the items under it; changing it changes their heading.</string>
+    <string name="admin_pvd_used_in">Used in</string>
+    <string name="admin_pvd_unused">Not used anywhere yet</string>
+    <plurals name="admin_pvd_places">
+        <item quantity="one">used in %d place</item>
+        <item quantity="other">used in %d places</item>
+    </plurals>
+    <string name="admin_pvd_line">line %d</string>
+    <string name="admin_pvd_show_all">Show all %d</string>
+    <string name="admin_pvd_more">+%d more</string>
+    <string name="admin_pvd_and_more">%s and more</string>
+    <plurals name="admin_pvd_delete_blocked">
+        <item quantity="one">Used in %d place: take it out of there first, then delete it.</item>
+        <item quantity="other">Used in %d places: take it out of them first, then delete it.</item>
+    </plurals>
+    <string name="admin_pvd_deleted">%s deleted</string>
+    <string name="admin_pvd_delete">Delete</string>
+    <string name="admin_pvd_duplicate">Duplicate</string>
+    <string name="admin_pvd_move_up">Move up</string>
+    <string name="admin_pvd_move_down">Move down</string>
+    <string name="admin_pvd_remove_row">Remove this row</string>
+    <string name="admin_pvd_create">Create</string>
+    <string name="admin_pvd_create_needs_name">Give it a name the server takes first.</string>
+    <string name="admin_pvd_not_on_headscale">Headscale does not support these: the server will refuse the policy while it has them.</string>
+
+    <!-- Names and addresses. -->
+    <string name="admin_pvd_name_empty">Give it a name</string>
+    <string name="admin_pvd_name_tag_start">A tag name starts with a letter</string>
+    <string name="admin_pvd_name_tag_chars">Letters, digits and dashes only</string>
+    <string name="admin_pvd_name_service_chars">Lowercase letters, digits and dashes only</string>
+    <string name="admin_pvd_name_host_chars">Letters, digits, dots, dashes and underscores; not an address</string>
+    <string name="admin_pvd_name_chars">Letters, digits, dots, dashes and underscores only</string>
+    <string name="admin_pvd_name_taken">This name is taken</string>
+    <string name="admin_pvd_addr_empty">Enter an address</string>
+    <string name="admin_pvd_addr_bad">Not an IP address or network: 100.64.0.20, 192.168.1.0/24, fd7a:115c:a1e0::1</string>
+    <string name="admin_pvd_addr_needs_prefix">Add the prefix length: 192.168.1.0/24</string>
+    <string name="admin_pvd_addr_bits">The prefix length is out of range: 0–32 for IPv4, 0–128 for IPv6</string>
+
+    <!-- Where a name is used, as the rows that lead there say it. -->
+    <string name="admin_pvd_place_acl">Access rule %d</string>
+    <string name="admin_pvd_place_grant">Grant %d</string>
+    <string name="admin_pvd_place_ssh">SSH rule %d</string>
+    <string name="admin_pvd_place_attr">Device attributes %d</string>
+    <string name="admin_pvd_place_test">Test %d</string>
+    <string name="admin_pvd_place_ssh_test">SSH test %d</string>
+    <string name="admin_pvd_place_owners">Owners of %s</string>
+    <string name="admin_pvd_place_members">Members of %s</string>
+    <string name="admin_pvd_place_ipset">IP set %s</string>
+    <string name="admin_pvd_place_posture">Posture %s</string>
+    <string name="admin_pvd_place_default_posture">Default posture</string>
+    <string name="admin_pvd_place_route">Auto approval of %s</string>
+    <string name="admin_pvd_place_exit">Auto approval of exit nodes</string>
+    <string name="admin_pvd_place_service">Auto approval of %s</string>
+
+    <!-- Groups. -->
+    <string name="admin_pvd_groups_help">A group names a set of users, so a rule can say group:admins instead of listing people. A user\'s tagged devices belong to their tags, not to the user\'s groups.</string>
+    <string name="admin_pvd_groups_empty">Groups name sets of users, to use in rules</string>
+    <string name="admin_pvd_groups_pane_empty">Pick a group to see and change it</string>
+    <string name="admin_pvd_group_new">New group</string>
+    <string name="admin_pvd_group_members">Members</string>
+    <string name="admin_pvd_group_members_help">Users by login, picked from the tailnet\'s list; a login it does not show yet can be typed.</string>
+    <string name="admin_pvd_group_no_members">No members yet: rules that use the group reach no one.</string>
+    <plurals name="admin_pvd_n_members">
+        <item quantity="one">%d member</item>
+        <item quantity="other">%d members</item>
+    </plurals>
+    <string name="admin_pvd_group_devices">Their devices</string>
+    <string name="admin_pvd_group_devices_help">Devices the members own and have not tagged: what a rule with this group as its source covers.</string>
+    <string name="admin_pvd_group_no_devices">The members have no untagged devices</string>
+    <string name="admin_pvd_group_delete">Delete group</string>
+
+    <!-- Tags. -->
+    <string name="admin_pvd_tags_help">A tag names a role of devices: rules reach tag:server rather than somebody\'s devices. Its owners are who may put the tag on a device.</string>
+    <string name="admin_pvd_tags_empty">Tags name roles of devices and say who may assign them</string>
+    <string name="admin_pvd_tags_pane_empty">Pick a tag to see and change it</string>
+    <string name="admin_pvd_tag_new">New tag</string>
+    <string name="admin_pvd_tag_owners">Owners</string>
+    <string name="admin_pvd_tag_owners_help">Who may assign this tag to a device: users, groups, other tags, Admins.</string>
+    <string name="admin_pvd_tag_owners_empty">No owners: only admins can assign it.</string>
+    <string name="admin_pvd_tag_owned_by">Owned by</string>
+    <string name="admin_pvd_tag_admins_only">Admins only</string>
+    <string name="admin_pvd_tag_devices">Devices with this tag</string>
+    <string name="admin_pvd_tag_no_devices">No device carries it</string>
+    <string name="admin_pvd_tag_delete">Delete tag</string>
+    <plurals name="admin_pvd_tag_delete_carried">
+        <item quantity="one">%d device carries this tag. It keeps it, but the tag will be defined nowhere.</item>
+        <item quantity="other">%d devices carry this tag. They keep it, but the tag will be defined nowhere.</item>
+    </plurals>
+    <plurals name="admin_pvd_tag_rename_carried">
+        <item quantity="one">%1$d device carries %2$s and keeps the old tag: retag it in the device list.</item>
+        <item quantity="other">%1$d devices carry %2$s and keep the old tag: retag them in the device list.</item>
+    </plurals>
+    <plurals name="admin_pvd_unowned_title">
+        <item quantity="one">%d tag is in use but has no owner</item>
+        <item quantity="other">%d tags are in use but have no owner</item>
+    </plurals>
+    <string name="admin_pvd_unowned_help">The server refuses rules that use a tag missing from tag owners, and no one can assign it. Add it with Admins as owners, then change them if you like.</string>
+    <string name="admin_pvd_unowned_help_hs">The server refuses rules that use a tag missing from tag owners. Add it, then pick who may assign it.</string>
+    <string name="admin_pvd_unowned_add">Add</string>
+    <string name="admin_pvd_unowned_added">%s added to tag owners</string>
+
+    <!-- Hosts and IP sets. -->
+    <string name="admin_pvd_hosts_help">A host gives an address a name: a rule can reach nas:443 instead of 100.64.0.20:443. An IP set gathers addresses, networks, ranges and hosts under one name.</string>
+    <string name="admin_pvd_hosts_pane_empty">Pick a host or an IP set to see and change it</string>
+    <string name="admin_pvd_hosts_title">Hosts</string>
+    <string name="admin_pvd_hosts_empty">No hosts yet</string>
+    <string name="admin_pvd_hosts_empty_page">Hosts name addresses, to use in rules</string>
+    <string name="admin_pvd_host_new">New host</string>
+    <string name="admin_pvd_host_address">Address</string>
+    <string name="admin_pvd_host_address_help">An IP address or a network: 100.64.0.20, 192.168.1.0/24, fd7a:115c:a1e0::1</string>
+    <string name="admin_pvd_host_devices">Devices at this address</string>
+    <string name="admin_pvd_host_no_device">No device of the tailnet has this address</string>
+    <string name="admin_pvd_host_delete">Delete host</string>
+    <string name="admin_pvd_host_create_hint">Give it a name and an address first.</string>
+    <string name="admin_pvd_ipsets_title">IP sets</string>
+    <string name="admin_pvd_ipsets_help">Addresses, networks, ranges, hosts and other sets, added and taken out in order; rules use the set as ipset:name.</string>
+    <string name="admin_pvd_ipsets_empty">No IP sets yet</string>
+    <string name="admin_pvd_ipset_new">New IP set</string>
+    <string name="admin_pvd_ipset_rows">Addresses</string>
+    <string name="admin_pvd_ipset_rows_help">Applied top to bottom: a later row can take out part of what an earlier one added.</string>
+    <plurals name="admin_pvd_n_rows">
+        <item quantity="one">%d row</item>
+        <item quantity="other">%d rows</item>
+    </plurals>
+    <string name="admin_pvd_ipset_op_add">Add</string>
+    <string name="admin_pvd_ipset_op_remove">Take out</string>
+    <string name="admin_pvd_ipset_target">Address, range, network, host:name or ipset:name</string>
+    <string name="admin_pvd_ipset_target_short">Address, network or name</string>
+    <string name="admin_pvd_ipset_add_row">One more row</string>
+    <string name="admin_pvd_ipset_first_row">First address</string>
+    <string name="admin_pvd_ipset_create_hint">Give it a name and a first address first.</string>
+    <string name="admin_pvd_ipset_delete">Delete IP set</string>
+
+    <!-- Auto approval. -->
+    <string name="admin_pvd_approvers_help">Routes, exit nodes and services that devices advertise wait for an admin to approve them; these devices skip the wait.</string>
+    <string name="admin_pvd_approvers_pane_empty">Pick an approval to see and change it</string>
+    <string name="admin_pvd_approvers">Approved automatically for</string>
+    <string name="admin_pvd_approvers_help_short">Devices of these users and groups, and devices with these tags.</string>
+    <string name="admin_pvd_approvers_empty">No one: an admin approves it by hand.</string>
+    <string name="admin_pvd_approvers_create_hint">Pick who it is approved for first.</string>
+    <string name="admin_pvd_approver_devices">Devices that qualify</string>
+    <string name="admin_pvd_approver_no_devices">No device qualifies yet</string>
+    <plurals name="admin_pvd_qualify">
+        <item quantity="one">%d device qualifies</item>
+        <item quantity="other">%d devices qualify</item>
+    </plurals>
+    <string name="admin_pvd_approved_for">Approved for</string>
+    <string name="admin_pvd_routes_title">Subnet routes</string>
+    <string name="admin_pvd_routes_empty">Every route waits for an admin</string>
+    <string name="admin_pvd_route_new">New route</string>
+    <string name="admin_pvd_route_prefix">Route</string>
+    <string name="admin_pvd_route_prefix_help">The network, with its prefix length: 192.168.1.0/24. A device advertising it, or a part of it, is approved.</string>
+    <string name="admin_pvd_route_taken">This route is already here</string>
+    <string name="admin_pvd_route_delete">Delete route</string>
+    <string name="admin_pvd_route_create_hint">Enter the route and pick who it is approved for first.</string>
+    <string name="admin_pvd_exit_title">Exit nodes</string>
+    <string name="admin_pvd_exit_card">Any exit node</string>
+    <string name="admin_pvd_exit_help">A device offering itself as an exit node is approved at once when it qualifies.</string>
+    <string name="admin_pvd_exit_empty">Every exit node waits for an admin</string>
+    <string name="admin_pvd_exit_new">Approve automatically</string>
+    <string name="admin_pvd_exit_delete">Stop approving automatically</string>
+    <string name="admin_pvd_exit_deleted">Exit nodes wait for an admin again</string>
+    <string name="admin_pvd_services_title">Services</string>
+    <string name="admin_pvd_services_empty">Every service host waits for an admin</string>
+    <string name="admin_pvd_service_new">New service</string>
+    <string name="admin_pvd_service_help">Devices that may host this Tailscale Service without an admin approving each.</string>
+    <string name="admin_pvd_service_delete">Delete</string>
+    <string name="admin_pvd_service_create_hint">Give the service a name and pick who it is approved for first.</string>
+
+    <!-- Device attributes. -->
+    <string name="admin_pvd_attrs_help">Device attributes turn features on for chosen devices: Funnel, Taildrive, Mullvad, a NextDNS profile. Rules add up; their order does not matter.</string>
+    <string name="admin_pvd_attrs_empty">Device attributes turn on features such as Funnel and Taildrive for chosen devices</string>
+    <string name="admin_pvd_attrs_pane_empty">Pick a rule to see and change it</string>
+    <string name="admin_pvd_attr_new">New rule</string>
+    <string name="admin_pvd_attr_create">Add rule</string>
+    <string name="admin_pvd_attr_create_hint">Pick the devices and at least one attribute; nothing is written before both are set.</string>
+    <string name="admin_pvd_attr_targets">Applies to</string>
+    <string name="admin_pvd_attr_turns_on">Turns on</string>
+    <string name="admin_pvd_attr_none">No attributes</string>
+    <string name="admin_pvd_attr_other">Other attributes</string>
+    <string name="admin_pvd_attr_other_help">Written as they are: cap: names and attributes this editor does not explain.</string>
+    <string name="admin_pvd_attr_type">Type an attribute</string>
+    <string name="admin_pvd_attr_type_problem">One attribute, without spaces or quotes</string>
+    <string name="admin_pvd_attr_profile">Profile ID</string>
+    <string name="admin_pvd_attr_profile_problem">The profile ID, without spaces</string>
+    <string name="admin_pvd_attr_app">Also grants %s</string>
+    <string name="admin_pvd_attr_ip_pool">Addresses from %s</string>
+    <string name="admin_pvd_attr_json_only">Edited in JSON</string>
+    <string name="admin_pvd_attr_json_only_help">Application capabilities and IP pools stay as written; edit them in the JSON editor.</string>
+    <string name="admin_pvd_attr_devices">Devices it applies to</string>
+    <string name="admin_pvd_attr_no_devices">No device matches yet</string>
+    <string name="admin_pvd_attr_unresolved">Also %s, which only the server can tell.</string>
+    <string name="admin_pvd_rule_deleted">Rule deleted</string>
+    <string name="admin_pvd_attr_funnel">Funnel</string>
+    <string name="admin_pvd_attr_funnel_help">These devices may publish a service to the public internet with Funnel. Headscale has no Funnel.</string>
+    <string name="admin_pvd_attr_drive_share">Taildrive: share folders</string>
+    <string name="admin_pvd_attr_drive_share_help">These devices may share folders with Taildrive. Who may open the shares is a grant of the drive capability.</string>
+    <string name="admin_pvd_attr_drive_access">Taildrive: open shares</string>
+    <string name="admin_pvd_attr_drive_access_help">These devices may open folders others share with Taildrive.</string>
+    <string name="admin_pvd_attr_mullvad">Mullvad exit nodes</string>
+    <string name="admin_pvd_attr_mullvad_help">These devices may use Mullvad\'s exit nodes. Needs the Mullvad add-on on the tailnet.</string>
+    <string name="admin_pvd_attr_random_port">Random WireGuard port</string>
+    <string name="admin_pvd_attr_random_port_help">A random UDP port instead of 41641, for firewalls that mishandle many devices on one port. Replaces the policy-wide randomizeClientPort.</string>
+    <string name="admin_pvd_attr_no_ipv4">No Tailscale IPv4</string>
+    <string name="admin_pvd_attr_no_ipv4_help">These devices get no 100.x address, only their Tailscale IPv6 one.</string>
+    <string name="admin_pvd_attr_no_captive">No captive portal check</string>
+    <string name="admin_pvd_attr_no_captive_help">The client stops looking for sign-in pages of hotel and airport Wi-Fi.</string>
+    <string name="admin_pvd_attr_aaaa">IPv6 in MagicDNS</string>
+    <string name="admin_pvd_attr_aaaa_help">MagicDNS answers with the devices\' IPv6 addresses (AAAA records) too.</string>
+    <string name="admin_pvd_attr_nextdns_private">NextDNS without device info</string>
+    <string name="admin_pvd_attr_nextdns_private_help">Device names and models are not sent to NextDNS.</string>
+    <string name="admin_pvd_attr_nextdns">NextDNS profile</string>
+    <string name="admin_pvd_attr_nextdns_help">These devices use this NextDNS profile, with NextDNS as the tailnet\'s resolver.</string>
+    <string name="admin_pvd_attr_controld">Control D profile</string>
+    <string name="admin_pvd_attr_controld_help">These devices use this Control D profile, with Control D as the tailnet\'s resolver.</string>
+
+    <!-- Device posture. -->
+    <string name="admin_pvd_postures_help">A posture lists conditions a device must meet — its OS, client version, security software — before rules that require it let the device through.</string>
+    <string name="admin_pvd_postures_empty">Postures set conditions devices must meet before rules let them in</string>
+    <string name="admin_pvd_postures_pane_empty">Pick a posture to see and change it</string>
+    <string name="admin_pvd_posture_new">New posture</string>
+    <string name="admin_pvd_posture_conditions">Conditions</string>
+    <string name="admin_pvd_posture_conditions_help">One per row, all must hold: node:os == \'macos\', node:tsVersion &gt;= \'1.80\', node:tsReleaseTrack == \'stable\'. The server checks the syntax.</string>
+    <string name="admin_pvd_posture_condition">Condition %d</string>
+    <string name="admin_pvd_posture_condition_empty">Write the condition, or remove the row</string>
+    <string name="admin_pvd_posture_add_condition">One more condition</string>
+    <plurals name="admin_pvd_n_conditions">
+        <item quantity="one">%d condition</item>
+        <item quantity="other">%d conditions</item>
+    </plurals>
+    <string name="admin_pvd_posture_on_failure">When a device fails it: %s. Edit in JSON.</string>
+    <string name="admin_pvd_posture_delete">Delete posture</string>
+    <string name="admin_pvd_posture_create_hint">Give it a name and a first condition first.</string>
+    <string name="admin_pvd_default_posture">Default posture</string>
+    <string name="admin_pvd_default_posture_help">Required by every access rule that names no posture of its own.</string>
+    <string name="admin_pvd_default_posture_none">None: rules without a posture of their own let every device through.</string>
+</resources>
