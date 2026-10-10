@@ -23,8 +23,10 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -40,6 +42,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.focus.focusRequester
@@ -432,6 +436,88 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
         }
     }
 
+    // From an expanded window up the quick commands and the history are a column beside the
+    // terminal, the field under the terminal alone: a row of chips and a field the width of
+    // a tablet, and the history in a sheet over the output, were what a tablet got.
+    val window = rememberWindowLayout()
+    val sideColumn = !window.isPhone && window.widthClass >= WindowWidthClass.EXPANDED
+
+    val insertPreset: (String) -> Unit = { preset ->
+        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+        currentCommand = preset
+        focusRequester.requestFocus()
+    }
+    val openPresetMenu: (String) -> Unit = { preset ->
+        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+        presetMenuFor = preset
+    }
+
+    val historyButton: @Composable () -> Unit = {
+        IconButton(onClick = { historyMenuOpen = true }, enabled = commandHistory.isNotEmpty()) {
+            Icon(Icons.Default.History, contentDescription = stringResource(R.string.console_cd_history))
+        }
+    }
+    // The command line. Beside a history column it has no history button: the column is it.
+    val commandField: @Composable (Modifier) -> Unit = { modifier ->
+        OutlinedTextField(
+            value = currentCommand,
+            onValueChange = { currentCommand = it },
+            modifier = modifier,
+            placeholder = { Text(stringResource(R.string.console_placeholder)) },
+            singleLine = true,
+            textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { executeCmd(currentCommand) }),
+            shape = CircleShape,
+            leadingIcon = if (sideColumn) null else historyButton,
+            trailingIcon = {
+                IconButton(onClick = { executeCmd(currentCommand) }, enabled = !isExecuting) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.console_cd_run), tint = if (isExecuting) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary)
+                }
+            }
+        )
+    }
+
+    val terminal: @Composable (Modifier) -> Unit = { modifier ->
+        val scheme = MaterialTheme.colorScheme
+        val colors = remember(scheme) {
+            ConsoleColors(
+                prompt = scheme.primary, error = scheme.error, dim = scheme.outline, default = scheme.onSurface,
+                jsonKey = scheme.primary, jsonString = scheme.tertiary, jsonNumber = scheme.secondary
+            )
+        }
+        val styled = remember(outputText, colors) {
+            styleScrollback(outputText, colors)
+        }
+        SelectionContainer(
+            modifier = modifier
+                .background(MaterialTheme.colorScheme.surface)
+                .pointerInput(Unit) {
+                    detectTransformGestures { _, _, zoom, _ ->
+                        scale = (scale * zoom).coerceIn(0.5f, 4f)
+                    }
+                }
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(if (!softWrap) Modifier.horizontalScroll(horizontalScrollState) else Modifier)
+                    .verticalScroll(verticalScrollState)
+            ) {
+                // Inside the scroll, not filling it: as the scrolled node itself the
+                // text took the viewport's height as its minimum, so every frame of
+                // the keyboard animation measured up to 200 KB of text again.
+                Text(
+                    text = styled,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = (14 * scale).sp,
+                    softWrap = softWrap,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                )
+            }
+        }
+    }
+
     PredictiveBackContainer(
         onBack = onBack,
         // Back here only closes the Activity, so the container installs no callback and
@@ -476,113 +562,82 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
             }
         },
         bottomBar = {
-            // One row of preset chips and one input row. The history arrows used to
-            // stand in a column beside the field and made this bar almost twice as
-            // tall as the field; with the keyboard up the output had a third of the
-            // screen. History is now a sheet behind the field's leading icon, Run
-            // its trailing icon.
-            Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 8.dp) {
-                Column(modifier = Modifier.navigationBarsPadding()) {
-                    LazyRow(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        item {
-                            TextButton(
-                                onClick = { showAddPresetDialog = true },
-                                contentPadding = PaddingValues(horizontal = 8.dp),
-                                modifier = Modifier.height(32.dp)
-                            ) { Text(stringResource(R.string.console_add_preset)) }
+            if (!sideColumn) {
+                // One row of preset chips and one input row. The history arrows used to
+                // stand in a column beside the field and made this bar almost twice as
+                // tall as the field; with the keyboard up the output had a third of the
+                // screen. History is now a sheet behind the field's leading icon, Run
+                // its trailing icon.
+                Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 8.dp) {
+                    Column(modifier = Modifier.navigationBarsPadding()) {
+                        LazyRow(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            item {
+                                TextButton(
+                                    onClick = { showAddPresetDialog = true },
+                                    contentPadding = PaddingValues(horizontal = 8.dp),
+                                    modifier = Modifier.height(32.dp)
+                                ) { Text(stringResource(R.string.console_add_preset)) }
+                            }
+                            items(BASE_PRESETS) { preset ->
+                                PresetChip(
+                                    command = preset,
+                                    onClick = { executeCmd(preset) },
+                                    onLongClick = { insertPreset(preset) }
+                                )
+                            }
+                            items(customPresets) { preset ->
+                                PresetChip(
+                                    command = preset,
+                                    onClick = { executeCmd(preset) },
+                                    onLongClick = { openPresetMenu(preset) }
+                                )
+                            }
                         }
-                        items(BASE_PRESETS) { preset ->
-                            PresetChip(
-                                command = preset,
-                                onClick = { executeCmd(preset) },
-                                onLongClick = {
-                                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
-                                    currentCommand = preset
-                                    focusRequester.requestFocus()
-                                }
-                            )
-                        }
-                        items(customPresets) { preset ->
-                            PresetChip(
-                                command = preset,
-                                onClick = { executeCmd(preset) },
-                                onLongClick = {
-                                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
-                                    presetMenuFor = preset
-                                }
-                            )
-                        }
+                        commandField(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 6.dp)
+                                .focusRequester(focusRequester)
+                        )
                     }
-                    OutlinedTextField(
-                        value = currentCommand,
-                        onValueChange = { currentCommand = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 6.dp)
-                            .focusRequester(focusRequester),
-                        placeholder = { Text(stringResource(R.string.console_placeholder)) },
-                        singleLine = true,
-                        textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = { executeCmd(currentCommand) }),
-                        shape = CircleShape,
-                        leadingIcon = {
-                            IconButton(onClick = { historyMenuOpen = true }, enabled = commandHistory.isNotEmpty()) {
-                                Icon(Icons.Default.History, contentDescription = stringResource(R.string.console_cd_history))
-                            }
-                        },
-                        trailingIcon = {
-                            IconButton(onClick = { executeCmd(currentCommand) }, enabled = !isExecuting) {
-                                Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.console_cd_run), tint = if (isExecuting) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary)
-                            }
-                        }
-                    )
                 }
             }
         }
     ) { padding ->
-        val scheme = MaterialTheme.colorScheme
-        val colors = remember(scheme) {
-            ConsoleColors(
-                prompt = scheme.primary, error = scheme.error, dim = scheme.outline, default = scheme.onSurface,
-                jsonKey = scheme.primary, jsonString = scheme.tertiary, jsonNumber = scheme.secondary
-            )
-        }
-        val styled = remember(outputText, colors) {
-            styleScrollback(outputText, colors)
-        }
-        SelectionContainer(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .background(MaterialTheme.colorScheme.surface)
-                .pointerInput(Unit) {
-                    detectTransformGestures { _, _, zoom, _ ->
-                        scale = (scale * zoom).coerceIn(0.5f, 4f)
+        if (sideColumn) {
+            Row(Modifier.fillMaxSize().padding(padding)) {
+                Column(Modifier.weight(1f).fillMaxHeight()) {
+                    terminal(Modifier.weight(1f).fillMaxWidth())
+                    Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 8.dp) {
+                        commandField(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 6.dp)
+                                .focusRequester(focusRequester)
+                        )
                     }
                 }
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .then(if (!softWrap) Modifier.horizontalScroll(horizontalScrollState) else Modifier)
-                    .verticalScroll(verticalScrollState)
-            ) {
-                // Inside the scroll, not filling it: as the scrolled node itself the
-                // text took the viewport's height as its minimum, so every frame of
-                // the keyboard animation measured up to 200 KB of text again.
-                Text(
-                    text = styled,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = (14 * scale).sp,
-                    softWrap = softWrap,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                VerticalDivider()
+                ConsoleSideColumn(
+                    customPresets = customPresets,
+                    history = commandHistory,
+                    onRun = { executeCmd(it) },
+                    onInsert = { insertPreset(it) },
+                    onCustomPresetLongPress = { openPresetMenu(it) },
+                    onAddPreset = { showAddPresetDialog = true },
+                    onPickHistory = { past ->
+                        currentCommand = past
+                        focusRequester.requestFocus()
+                    },
+                    modifier = Modifier.width(ConsoleSideColumnWidth).fillMaxHeight()
                 )
             }
+        } else {
+            terminal(Modifier.fillMaxSize().padding(padding))
         }
     }
 
@@ -666,6 +721,100 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
         )
     }
 }
+}
+
+/** The column beside the terminal on a large window. */
+private val ConsoleSideColumnWidth = 300.dp
+
+/**
+ * The quick commands and the command history as a column beside the terminal: a preset
+ * runs on a tap and goes into the field on a long press (a preset of one's own opens its
+ * menu), as the chips do on a phone; a past command goes into the field, as the history
+ * sheet puts it there. Newest first, the whole history kept.
+ */
+@Composable
+private fun ConsoleSideColumn(
+    customPresets: List<String>,
+    history: List<String>,
+    onRun: (String) -> Unit,
+    onInsert: (String) -> Unit,
+    onCustomPresetLongPress: (String) -> Unit,
+    onAddPreset: () -> Unit,
+    onPickHistory: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val runLabel = stringResource(R.string.console_cd_run)
+    val insertLabel = stringResource(R.string.console_preset_insert)
+    val presetLabel = stringResource(R.string.console_preset_dialog_title)
+    Surface(modifier = modifier, color = MaterialTheme.colorScheme.surfaceContainerLow) {
+        LazyColumn(contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 16.dp)) {
+            item(key = "presets-head") {
+                Row(Modifier.fillMaxWidth().padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    ConsoleSideHeading(stringResource(R.string.tablet_console_quick_commands), Modifier.weight(1f))
+                    TextButton(onClick = onAddPreset, contentPadding = PaddingValues(horizontal = 8.dp)) {
+                        Text(stringResource(R.string.console_add_preset))
+                    }
+                }
+            }
+            items(BASE_PRESETS, key = { "base:$it" }) { preset ->
+                ConsoleCommandRow(preset, Icons.Default.PlayArrow, runLabel, { onRun(preset) }, insertLabel) { onInsert(preset) }
+            }
+            items(customPresets, key = { "custom:$it" }) { preset ->
+                ConsoleCommandRow(preset, Icons.Default.PlayArrow, runLabel, { onRun(preset) }, presetLabel) { onCustomPresetLongPress(preset) }
+            }
+            item(key = "history-head") {
+                ConsoleSideHeading(stringResource(R.string.console_cd_history), Modifier.padding(start = 8.dp, top = 16.dp, bottom = 4.dp))
+            }
+            if (history.isEmpty()) item(key = "history-empty") {
+                Text(
+                    stringResource(R.string.tablet_console_history_empty),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+            }
+            // Indexed: the same command can stand twice, run at different times.
+            itemsIndexed(history.asReversed(), key = { i, cmd -> "history:$i:$cmd" }) { _, cmd ->
+                ConsoleCommandRow(cmd, Icons.Default.History, insertLabel, { onPickHistory(cmd) })
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConsoleSideHeading(text: String, modifier: Modifier = Modifier) {
+    Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = modifier)
+}
+
+/** A command in the side column: its icon says what a tap does, the command is in the terminal's face. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ConsoleCommandRow(
+    command: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    clickLabel: String,
+    onClick: () -> Unit,
+    longClickLabel: String? = null,
+    onLongClick: (() -> Unit)? = null
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .combinedClickable(onClickLabel = clickLabel, onLongClickLabel = longClickLabel, onLongClick = onLongClick, onClick = onClick)
+            .heightIn(min = 40.dp)
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.width(10.dp))
+        Text(
+            command,
+            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
 }
 
 /** A command shortcut: tap runs it, long press hands it to the caller. */

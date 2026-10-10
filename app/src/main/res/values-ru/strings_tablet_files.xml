@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tablet_console_quick_commands">Быстрые команды</string>
+    <string name="tablet_console_history_empty">Здесь появятся команды, которые вы запустите</string>
+</resources>

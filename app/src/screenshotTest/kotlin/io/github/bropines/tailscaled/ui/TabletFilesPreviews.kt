@@ -155,7 +155,7 @@ private val demoConsole = ConsoleDemo(
         append("# 2.4 s\n")
         append("$ ")
     },
-    history = listOf("netcheck", "status", "ip -4 homelab-nas", "whois 100.94.210.8", "ping 100.88.12.4", "/GET /localapi/v0/prefs", "exit-node list", "status"),
+    history = listOf("netcheck", "ip -4 homelab-nas", "whois 100.94.210.8", "ping 100.88.12.4", "/GET /localapi/v0/prefs", "exit-node list", "status"),
     presets = listOf("exit-node list"),
 )
 

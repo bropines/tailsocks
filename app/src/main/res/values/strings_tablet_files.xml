@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Large-window layouts of Files, Taildrop, Taildrive, Logs and the console. -->
+<resources>
+    <!-- Console, from an expanded window up: the column beside the terminal -->
+    <string name="tablet_console_quick_commands">Quick commands</string>
+    <string name="tablet_console_history_empty">The commands you run will be listed here</string>
+</resources>
