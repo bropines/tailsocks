@@ -2,6 +2,8 @@ package io.github.bropines.tailscaled.admin.policy.visual
 
 import io.github.bropines.tailscaled.admin.api.ApiDevice
 import io.github.bropines.tailscaled.admin.api.ApiUser
+import io.github.bropines.tailscaled.admin.api.PolicyPreview
+import io.github.bropines.tailscaled.admin.api.PolicyPreviewType
 import io.github.bropines.tailscaled.admin.policy.HuJson
 import io.github.bropines.tailscaled.admin.policy.PolicyLint
 import io.github.bropines.tailscaled.admin.policy.RiskFinding
@@ -60,4 +62,16 @@ interface VisualActions {
 
     /** Bring an element into view: its section, its card, its editor on a two-pane window. */
     fun show(path: PolicyPath)
+
+    /**
+     * Ask the server about the draft, not the saved policy: what user [previewFor] reaches
+     * ([PolicyPreviewType.USER]) or who reaches `ip:port` ([PolicyPreviewType.IP_PORT]).
+     * Tailscale only; the default answers that it cannot.
+     */
+    fun previewDraft(type: PolicyPreviewType, previewFor: String, onResult: (Result<PolicyPreview>) -> Unit) {
+        onResult(Result.failure(UnsupportedOperationException("no preview here")))
+    }
+
+    /** A short message over the editor; with [undoable], an Undo that steps the draft back once (after a delete). */
+    fun notify(message: String, undoable: Boolean = false) {}
 }
