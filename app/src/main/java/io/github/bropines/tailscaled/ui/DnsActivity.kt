@@ -12,6 +12,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -305,6 +308,328 @@ fun DnsScreen(onBack: () -> Unit) {
 
     LaunchedEffect(Unit) { if (!inPreview) refresh(doFlush = false) }
 
+    // The screen's cards, the same in the phone's list and in a large window's columns.
+    val errorCard: @Composable (String) -> Unit = { msg ->
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.errorContainer
+            )
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    stringResource(R.string.dns_status_unavailable),
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    msg,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+            }
+        }
+    }
+    val localServerCard: @Composable () -> Unit = {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+            shape = MaterialTheme.shapes.small
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    // The title takes what is left after the button, and
+                    // the button never shrinks: with both sized by their
+                    // own text, the Russian strings collided and the
+                    // button was drawn over the title.
+                    Text(
+                        stringResource(R.string.dns_test_local_server_title),
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Button(
+                        onClick = { runLocalDnsTest() },
+                        enabled = !isTestingLocal,
+                        shape = MaterialTheme.shapes.small,
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        modifier = Modifier.height(36.dp)
+                    ) {
+                        if (isTestingLocal) {
+                            CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                        } else {
+                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                stringResource(R.string.dns_test_btn),
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
+                    }
+                }
+                localTestResult?.let { res ->
+                    Spacer(Modifier.height(8.dp))
+                    val isSuccess = res.startsWith("Success")
+                    val latency = if (isSuccess) {
+                        res.substringAfter("latency: ").substringBefore(" ms").toIntOrNull() ?: 0
+                    } else 0
+                    val textMsg = if (isSuccess) {
+                        stringResource(R.string.dns_test_success_format, 512, latency)
+                    } else {
+                        stringResource(R.string.dns_test_failed_format, res.substringAfter("Failed: "))
+                    }
+                    Surface(
+                        color = (if (isSuccess) androidx.compose.ui.graphics.Color(0xFF4CAF50) else MaterialTheme.colorScheme.error).copy(alpha = 0.12f),
+                        shape = MaterialTheme.shapes.small,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = textMsg,
+                            color = if (isSuccess) androidx.compose.ui.graphics.Color(0xFF4CAF50) else MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+    val lookupCard: @Composable () -> Unit = {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(stringResource(R.string.dns_lookup_tool), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer, style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CompactSearchBar(
+                        value = queryDomain,
+                        onValueChange = { queryDomain = it },
+                        placeholderText = stringResource(R.string.dns_lookup_placeholder),
+                        modifier = Modifier.weight(1f),
+                        onSearch = { performQuery(queryDomain) }
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    FilledIconButton(
+                        onClick = { performQuery(queryDomain) },
+                        shape = MaterialTheme.shapes.medium,
+                        modifier = Modifier.size(height = 40.dp, width = 50.dp)
+                    ) {
+                        if (isQuerying) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Default.Search, contentDescription = stringResource(R.string.dns_cd_query), modifier = Modifier.size(18.dp))
+                        }
+                    }
+                }
+                if (queryResult != null) {
+                    Spacer(Modifier.height(12.dp))
+                    Surface(
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = MaterialTheme.shapes.small,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = queryResult!!,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 13.sp,
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+    val configHeading: @Composable () -> Unit = {
+        Text(stringResource(R.string.dns_config_status), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 4.dp))
+    }
+    val magicDnsCard: @Composable (DnsStatus) -> Unit = { data ->
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("MagicDNS", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleSmall)
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(stringResource(R.string.dns_magic_status), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
+                    val magicActive = data.tailnet?.enabled ?: false
+                    Surface(
+                        color = (if (magicActive) androidx.compose.ui.graphics.Color(0xFF4CAF50) else MaterialTheme.colorScheme.outline).copy(alpha = 0.12f),
+                        shape = MaterialTheme.shapes.small
+                    ) {
+                        Text(
+                            text = if (magicActive) stringResource(R.string.dns_magic_enabled) else stringResource(R.string.dns_magic_disabled),
+                            color = if (magicActive) androidx.compose.ui.graphics.Color(0xFF4CAF50) else MaterialTheme.colorScheme.outline,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+                data.tailnet?.suffix?.let { suffix ->
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(stringResource(R.string.dns_network_domain), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
+                        Text(suffix, fontFamily = FontFamily.Monospace, fontSize = 13.sp)
+                    }
+                }
+                data.tailnet?.selfName?.let { name ->
+                    Spacer(Modifier.height(8.dp))
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.dns_device_name), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
+                        Spacer(Modifier.height(2.dp))
+                        // Surface(onClick), so the ripple keeps to the corners.
+                        Surface(
+                            onClick = {
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                clipboard.setPrimaryClip(ClipData.newPlainText("SelfName", name))
+                                Toast.makeText(context, context.getString(R.string.dns_domain_copied), Toast.LENGTH_SHORT).show()
+                            },
+                            shape = MaterialTheme.shapes.small,
+                            color = MaterialTheme.colorScheme.surface,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(name, fontFamily = FontFamily.Monospace, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                                Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.outline)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    val splitRouteCard: @Composable (String, List<DnsAddr>) -> Unit = { domain, ips ->
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+            shape = MaterialTheme.shapes.small
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(stringResource(R.string.dns_split_route), color = MaterialTheme.colorScheme.outline, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val cleanDomain = domain.trimEnd('.')
+                    Text(cleanDomain, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                    IconButton(onClick = {
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        clipboard.setPrimaryClip(ClipData.newPlainText("Domain", cleanDomain))
+                        Toast.makeText(context, context.getString(R.string.dns_domain_copied), Toast.LENGTH_SHORT).show()
+                    }, modifier = Modifier.size(28.dp)) {
+                        Icon(Icons.Default.ContentCopy, stringResource(R.string.dns_cd_copy_domain), modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
+                ips.forEach { dnsAddr ->
+                    val ip = dnsAddr.addr
+                    val key = "${domain}_${ip}"
+                    val testRes = routeTestResults[key]
+                    val isTesting = routeTestingState[key] ?: false
+
+                    Spacer(Modifier.height(6.dp))
+                    Surface(
+                        shape = MaterialTheme.shapes.small,
+                        color = MaterialTheme.colorScheme.surface,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(ip, fontFamily = FontFamily.Monospace, fontSize = 13.sp)
+                                if (testRes != null) {
+                                    val isSuccess = testRes.startsWith("Success")
+                                    val latency = if (isSuccess) {
+                                        testRes.substringAfter("latency: ").substringBefore(" ms").toIntOrNull() ?: 0
+                                    } else 0
+                                    Text(
+                                        text = if (isSuccess) "Ping: $latency ms" else "Failed",
+                                        fontSize = 11.sp,
+                                        color = if (isSuccess) androidx.compose.ui.graphics.Color(0xFF4CAF50) else MaterialTheme.colorScheme.error,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+
+                            // Test button
+                            IconButton(
+                                onClick = { runRouteTest(domain, ip) },
+                                modifier = Modifier.size(28.dp),
+                                enabled = !isTesting
+                            ) {
+                                if (isTesting) {
+                                    CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.PlayArrow,
+                                        contentDescription = stringResource(R.string.dns_cd_test_server),
+                                        modifier = Modifier.size(16.dp),
+                                        tint = if (testRes != null && testRes.startsWith("Success")) androidx.compose.ui.graphics.Color(0xFF4CAF50) else MaterialTheme.colorScheme.outline
+                                    )
+                                }
+                            }
+
+                            Spacer(Modifier.width(4.dp))
+
+                            // Copy button
+                            IconButton(
+                                onClick = {
+                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                    clipboard.setPrimaryClip(ClipData.newPlainText("IP", ip))
+                                    Toast.makeText(context, context.getString(R.string.dns_ips_copied), Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ContentCopy,
+                                    contentDescription = stringResource(R.string.dns_cd_copy_ip),
+                                    modifier = Modifier.size(14.dp),
+                                    tint = MaterialTheme.colorScheme.outline
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // Two columns from a medium window that has room for two of 320dp, and on a foldable
+    // open like a book: the tools on one side, with their answers growing under them, the
+    // configuration on the other. A phone keeps its single list, exactly as it was.
+    val window = rememberWindowLayout()
+    val twoColumns = window.listDetail ||
+        (window.multiColumn && columnsFor(window.width - window.margin * 2, 320.dp, 16.dp, maxColumns = 2) == 2)
+
     PredictiveBackContainer(
         onBack = onBack,
         // Back here only closes the Activity, so the container installs no callback and
@@ -320,6 +645,37 @@ fun DnsScreen(onBack: () -> Unit) {
                 )
             }
         ) { padding ->
+            if (twoColumns && !daemonStopped) {
+                SideBySide(window, Modifier.padding(padding).fillMaxSize(), start = { side ->
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = side.with(top = 8.dp, bottom = 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        item { localServerCard() }
+                        item { lookupCard() }
+                    }
+                }, end = { side ->
+                    // The configuration's cards in two columns where they fit, so a tablet on
+                    // its side shows every split route without scrolling.
+                    val line = StaggeredGridItemSpan.FullLine
+                    LazyVerticalStaggeredGrid(
+                        columns = StaggeredGridCells.Adaptive(300.dp),
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = side.with(top = 8.dp, bottom = 24.dp),
+                        verticalItemSpacing = 16.dp,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        errorText?.let { msg -> item(span = line) { errorCard(msg) } }
+                        status?.let { data ->
+                            item(span = line) { configHeading() }
+                            item { magicDnsCard(data) }
+                            data.splitRoutes?.forEach { (domain, ips) -> item { splitRouteCard(domain, ips) } }
+                        }
+                        if (loading) item(span = line) { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+                    }
+                })
+            } else {
             // Held to a readable width on a tablet; see ReadableWidth.
             ReadableWidth {
             if (daemonStopped) {
@@ -337,338 +693,33 @@ fun DnsScreen(onBack: () -> Unit) {
                 errorText?.let { msg ->
                     item {
                         Spacer(Modifier.height(8.dp))
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer
-                            )
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    stringResource(R.string.dns_status_unavailable),
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onErrorContainer
-                                )
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    msg,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onErrorContainer
-                                )
-                            }
-                        }
+                        errorCard(msg)
                     }
                 }
 
 
 
                 // 1.5 LOCAL DNS SERVER TEST CARD
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
-                        shape = MaterialTheme.shapes.small
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                // The title takes what is left after the button, and
-                                // the button never shrinks: with both sized by their
-                                // own text, the Russian strings collided and the
-                                // button was drawn over the title.
-                                Text(
-                                    stringResource(R.string.dns_test_local_server_title),
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                Spacer(Modifier.width(12.dp))
-                                Button(
-                                    onClick = { runLocalDnsTest() },
-                                    enabled = !isTestingLocal,
-                                    shape = MaterialTheme.shapes.small,
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                                    modifier = Modifier.height(36.dp)
-                                ) {
-                                    if (isTestingLocal) {
-                                        CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
-                                    } else {
-                                        Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
-                                        Spacer(Modifier.width(4.dp))
-                                        Text(
-                                            stringResource(R.string.dns_test_btn),
-                                            fontSize = 12.sp,
-                                            maxLines = 1,
-                                            softWrap = false
-                                        )
-                                    }
-                                }
-                            }
-                            localTestResult?.let { res ->
-                                Spacer(Modifier.height(8.dp))
-                                val isSuccess = res.startsWith("Success")
-                                val latency = if (isSuccess) {
-                                    res.substringAfter("latency: ").substringBefore(" ms").toIntOrNull() ?: 0
-                                } else 0
-                                val textMsg = if (isSuccess) {
-                                    stringResource(R.string.dns_test_success_format, 512, latency)
-                                } else {
-                                    stringResource(R.string.dns_test_failed_format, res.substringAfter("Failed: "))
-                                }
-                                Surface(
-                                    color = (if (isSuccess) androidx.compose.ui.graphics.Color(0xFF4CAF50) else MaterialTheme.colorScheme.error).copy(alpha = 0.12f),
-                                    shape = MaterialTheme.shapes.small,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text(
-                                        text = textMsg,
-                                        color = if (isSuccess) androidx.compose.ui.graphics.Color(0xFF4CAF50) else MaterialTheme.colorScheme.error,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp,
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+                item { localServerCard() }
 
                 // 2. DNS QUERY TOOL
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(stringResource(R.string.dns_lookup_tool), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer, style = MaterialTheme.typography.titleMedium)
-                            Spacer(Modifier.height(10.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                CompactSearchBar(
-                                    value = queryDomain,
-                                    onValueChange = { queryDomain = it },
-                                    placeholderText = stringResource(R.string.dns_lookup_placeholder),
-                                    modifier = Modifier.weight(1f),
-                                    onSearch = { performQuery(queryDomain) }
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                FilledIconButton(
-                                    onClick = { performQuery(queryDomain) },
-                                    shape = MaterialTheme.shapes.medium,
-                                    modifier = Modifier.size(height = 40.dp, width = 50.dp)
-                                ) {
-                                    if (isQuerying) {
-                                        CircularProgressIndicator(modifier = Modifier.size(18.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
-                                    } else {
-                                        Icon(Icons.Default.Search, contentDescription = stringResource(R.string.dns_cd_query), modifier = Modifier.size(18.dp))
-                                    }
-                                }
-                            }
-                            if (queryResult != null) {
-                                Spacer(Modifier.height(12.dp))
-                                Surface(
-                                    color = MaterialTheme.colorScheme.surface,
-                                    shape = MaterialTheme.shapes.small,
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text(
-                                        text = queryResult!!,
-                                        fontFamily = FontFamily.Monospace,
-                                        fontSize = 13.sp,
-                                        modifier = Modifier.padding(12.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+                item { lookupCard() }
 
                 // 3. CONFIG STATUS & PEERS
                 status?.let { data ->
-                    item {
-                        Text(stringResource(R.string.dns_config_status), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 4.dp))
-                    }
-                    
-                    item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text("MagicDNS", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleSmall)
-                                Spacer(Modifier.height(8.dp))
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text(stringResource(R.string.dns_magic_status), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
-                                    val magicActive = data.tailnet?.enabled ?: false
-                                    Surface(
-                                        color = (if (magicActive) androidx.compose.ui.graphics.Color(0xFF4CAF50) else MaterialTheme.colorScheme.outline).copy(alpha = 0.12f),
-                                        shape = MaterialTheme.shapes.small
-                                    ) {
-                                        Text(
-                                            text = if (magicActive) stringResource(R.string.dns_magic_enabled) else stringResource(R.string.dns_magic_disabled),
-                                            color = if (magicActive) androidx.compose.ui.graphics.Color(0xFF4CAF50) else MaterialTheme.colorScheme.outline,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 11.sp,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                        )
-                                    }
-                                }
-                                data.tailnet?.suffix?.let { suffix ->
-                                    Spacer(Modifier.height(8.dp))
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Text(stringResource(R.string.dns_network_domain), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
-                                        Text(suffix, fontFamily = FontFamily.Monospace, fontSize = 13.sp)
-                                    }
-                                }
-                                data.tailnet?.selfName?.let { name ->
-                                    Spacer(Modifier.height(8.dp))
-                                    Column(modifier = Modifier.fillMaxWidth()) {
-                                        Text(stringResource(R.string.dns_device_name), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
-                                        Spacer(Modifier.height(2.dp))
-                                        // Surface(onClick), so the ripple keeps to the corners.
-                                        Surface(
-                                            onClick = {
-                                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                                clipboard.setPrimaryClip(ClipData.newPlainText("SelfName", name))
-                                                Toast.makeText(context, context.getString(R.string.dns_domain_copied), Toast.LENGTH_SHORT).show()
-                                            },
-                                            shape = MaterialTheme.shapes.small,
-                                            color = MaterialTheme.colorScheme.surface,
-                                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                            Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                                Text(name, fontFamily = FontFamily.Monospace, fontSize = 12.sp, modifier = Modifier.weight(1f))
-                                                Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.outline)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    item { configHeading() }
+
+                    item { magicDnsCard(data) }
 
                     // 4. Split DNS Routes
                     data.splitRoutes?.forEach { (domain, ips) ->
-                        item {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
-                                shape = MaterialTheme.shapes.small
-                            ) {
-                                Column(modifier = Modifier.padding(16.dp)) {
-                                    Text(stringResource(R.string.dns_split_route), color = MaterialTheme.colorScheme.outline, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        val cleanDomain = domain.trimEnd('.')
-                                        Text(cleanDomain, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-                                        IconButton(onClick = {
-                                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                            clipboard.setPrimaryClip(ClipData.newPlainText("Domain", cleanDomain))
-                                            Toast.makeText(context, context.getString(R.string.dns_domain_copied), Toast.LENGTH_SHORT).show()
-                                        }, modifier = Modifier.size(28.dp)) {
-                                            Icon(Icons.Default.ContentCopy, stringResource(R.string.dns_cd_copy_domain), modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
-                                        }
-                                    }
-                                    Spacer(Modifier.height(6.dp))
-                                    ips.forEach { dnsAddr ->
-                                        val ip = dnsAddr.addr
-                                        val key = "${domain}_${ip}"
-                                        val testRes = routeTestResults[key]
-                                        val isTesting = routeTestingState[key] ?: false
-                                        
-                                        Spacer(Modifier.height(6.dp))
-                                        Surface(
-                                            shape = MaterialTheme.shapes.small,
-                                            color = MaterialTheme.colorScheme.surface,
-                                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Column(modifier = Modifier.weight(1f)) {
-                                                    Text(ip, fontFamily = FontFamily.Monospace, fontSize = 13.sp)
-                                                    if (testRes != null) {
-                                                        val isSuccess = testRes.startsWith("Success")
-                                                        val latency = if (isSuccess) {
-                                                            testRes.substringAfter("latency: ").substringBefore(" ms").toIntOrNull() ?: 0
-                                                        } else 0
-                                                        Text(
-                                                            text = if (isSuccess) "Ping: $latency ms" else "Failed",
-                                                            fontSize = 11.sp,
-                                                            color = if (isSuccess) androidx.compose.ui.graphics.Color(0xFF4CAF50) else MaterialTheme.colorScheme.error,
-                                                            fontWeight = FontWeight.Bold
-                                                        )
-                                                    }
-                                                }
-                                                
-                                                // Test button
-                                                IconButton(
-                                                    onClick = { runRouteTest(domain, ip) },
-                                                    modifier = Modifier.size(28.dp),
-                                                    enabled = !isTesting
-                                                ) {
-                                                    if (isTesting) {
-                                                        CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
-                                                    } else {
-                                                        Icon(
-                                                            imageVector = Icons.Default.PlayArrow,
-                                                            contentDescription = stringResource(R.string.dns_cd_test_server),
-                                                            modifier = Modifier.size(16.dp),
-                                                            tint = if (testRes != null && testRes.startsWith("Success")) androidx.compose.ui.graphics.Color(0xFF4CAF50) else MaterialTheme.colorScheme.outline
-                                                        )
-                                                    }
-                                                }
-                                                
-                                                Spacer(Modifier.width(4.dp))
-                                                
-                                                // Copy button
-                                                IconButton(
-                                                    onClick = {
-                                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                                        clipboard.setPrimaryClip(ClipData.newPlainText("IP", ip))
-                                                        Toast.makeText(context, context.getString(R.string.dns_ips_copied), Toast.LENGTH_SHORT).show()
-                                                    },
-                                                    modifier = Modifier.size(28.dp)
-                                                ) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.ContentCopy,
-                                                        contentDescription = stringResource(R.string.dns_cd_copy_ip),
-                                                        modifier = Modifier.size(14.dp),
-                                                        tint = MaterialTheme.colorScheme.outline
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        item { splitRouteCard(domain, ips) }
                     }
                 }
 
                 if (loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
                 item { Spacer(Modifier.height(24.dp)) }
+            }
             }
             }
         }
