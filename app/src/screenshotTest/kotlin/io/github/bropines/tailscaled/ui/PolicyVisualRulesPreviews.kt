@@ -77,6 +77,9 @@ annotation class RulesTabletRu
 @Preview(name = "portrait", device = "spec:width=800dp,height=1280dp,dpi=240")
 annotation class RulesPortrait
 
+@Preview(name = "tablet7", device = "spec:width=600dp,height=960dp,dpi=213")
+annotation class RulesSmallTablet
+
 /** The demo policy and what the rule pages also need to show. */
 private object RulesDemo {
     val text: String by lazy {
@@ -225,6 +228,20 @@ fun AccessTabletRu() = Shell(VisualSection.ACCESS, wide = true) { AccessSection(
 
 @PreviewTest @RulesPortrait @Composable
 fun AccessPortrait() = Shell(VisualSection.ACCESS, wide = false) { AccessSection(RulesDemo.env(), PolicyVisualDemo.actions, phone) }
+
+@PreviewTest @RulesSmallTablet @Composable
+fun AccessSmallTablet() = Shell(VisualSection.ACCESS, wide = false, dark = false) { AccessSection(RulesDemo.env(), PolicyVisualDemo.actions, phone) }
+
+/** Headscale: no role autogroups, no postures; the server's refusal outlined on its card, which is open. */
+@PreviewTest @RulesTablet @Composable
+fun AccessHeadscaleError() = Shell(VisualSection.ACCESS, wide = true) {
+    AccessSection(RulesDemo.env(headscale = true, errors = RulesDemo.error), PolicyVisualDemo.actions, pane(PolicyPath.of("acls", 12)))
+}
+
+@PreviewTest @RulesPhone @Composable
+fun AccessEmptyHeadscale() = Shell(VisualSection.ACCESS, wide = false, dark = false) {
+    AccessSection(RulesDemo.env(policy = RulesDemo.noAccess, headscale = true), PolicyVisualDemo.actions, phone)
+}
 
 @PreviewTest @RulesPhone @Composable
 fun AccessEmpty() = Shell(VisualSection.ACCESS, wide = false) { AccessSection(RulesDemo.env(policy = RulesDemo.noAccess), PolicyVisualDemo.actions, phone) }

@@ -515,15 +515,20 @@ internal fun <T> pageRows(items: List<T>, section: Section, origin: (T) -> Origi
 internal fun movesOf(headers: List<Boolean>, i: Int) = RuleMoves(up = RuleForms.moveUp(headers, i) != null, down = RuleForms.moveDown(headers, i) != null)
 
 /**
- * The list scrolls to [target] when it changes: an element opened from elsewhere (a server
- * error, the JSON cursor) or just added.
+ * The list scrolls to [target] when it changes and is out of sight: an element opened from
+ * elsewhere (a server error, the JSON cursor), just added or just moved. A card tapped in view
+ * stays where it is.
  */
 @Composable
 internal fun ScrollTo(state: LazyListState, rows: List<PageRow>, target: PolicyPath?, before: Int = 1) {
     LaunchedEffect(target) {
         val i = target?.let { t -> rows.indexOfFirst { it is PageRow.Item<*> && it.path == t } } ?: -1
+        if (i < 0) return@LaunchedEffect
         // [before] items (the page's header) come first; the rows follow them.
-        if (i >= 0) state.animateScrollToItem(i + before)
+        val item = state.layoutInfo.visibleItemsInfo.firstOrNull { it.index == i + before }
+        val whole = item != null && item.offset >= state.layoutInfo.viewportStartOffset &&
+            item.offset + item.size <= state.layoutInfo.viewportEndOffset
+        if (!whole) state.animateScrollToItem(i + before)
     }
 }
 
