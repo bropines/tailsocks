@@ -39,6 +39,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
+import androidx.compose.foundation.lazy.staggeredgrid.items as gridItems
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -143,6 +147,9 @@ fun ServeHost(startTab: Int, onBack: () -> Unit, activity: FragmentActivity? = n
     val pager = rememberPagerState(initialPage = startTab) { 2 }
     val scope = rememberCoroutineScope()
     val pages = remember { List(2) { ServePage(mutableStateOf({})) } }
+    // The switch stands over the pages at their own margins: on a large window those are
+    // the window's, and the pages fill it (a phone keeps its 16dp, which is the same).
+    val window = rememberWindowLayout()
     PredictiveBackContainer(onBack = onBack, popsInAppState = false) {
         Scaffold(
             topBar = {
@@ -161,7 +168,7 @@ fun ServeHost(startTab: Int, onBack: () -> Unit, activity: FragmentActivity? = n
                         selectedIndex = pager.currentPage,
                         onOptionSelected = { scope.launch { pager.animateScrollToPage(it) } },
                         positionOffset = pager.currentPage + pager.currentPageOffsetFraction,
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = window.margin, vertical = 4.dp)
                     )
                 }
             }
@@ -538,6 +545,8 @@ class DemoServe(
     val configJson: String,
     val pausedJson: String = "[]",
     val health: Map<String, Boolean> = emptyMap(),
+    /** The node's card opened, its capabilities shown; the app remembers the user's choice. */
+    val nodeCardOpen: Boolean = false,
 )
 
 val LocalDemoServe = staticCompositionLocalOf<DemoServe?> { null }
@@ -904,6 +913,43 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
     }
     if (page != null) SideEffect { page.actions.value = actions }
 
+    // A rule group's card and a service's heading, the same in the phone's list and in the
+    // large window's grid.
+    val ruleCard: @Composable (RuleGroup, String?) -> Unit = { group, service ->
+        RuleCard(
+            group = group,
+            url = ruleUrl(group.first, caps),
+            description = ruleDescription(context, group.first),
+            health = if (group.first.paused) null else healthMap[group.first.target],
+            context = context,
+            onEdit = { editor = RuleEditorState(group.rules, group.first) },
+            onCopy = { copyText(ruleUrl(group.first, caps)) },
+            onQr = { qrRule = group.first },
+            onPublish = if (service == null || group.first.paused) null else ({ publishFor = service }),
+            onPauseResume = { pauseOrResume(group) },
+            onDelete = { deleteGroup(group) }
+        )
+    }
+    val serviceHeading: @Composable (String, Modifier, Boolean) -> Unit = { service, modifier, wide ->
+        ServiceHeading(
+            service = service,
+            addresses = caps.serviceHosts[service],
+            log = publishLogs[service],
+            logExpanded = service in logExpanded,
+            onToggleLog = { logExpanded = if (service in logExpanded) logExpanded - service else logExpanded + service },
+            context = context,
+            onPublish = {
+                if (adminSettings() != null) publishService(service, rules.filter { it.service == service }.map { it.port })
+                else publishFor = service
+            },
+            modifier = modifier,
+            wide = wide
+        )
+    }
+    // Medium windows and up: the node's card across the top, the rules in as many columns
+    // as fit under it. A phone keeps its single list below, exactly as it was.
+    val window = rememberWindowLayout()
+
     val scaffold: @Composable () -> Unit = {
         Scaffold(
             topBar = { if (page == null) AppTopBar(title = stringResource(R.string.serve_title), onBack = onBack, actions = actions) },
@@ -918,6 +964,27 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
                 }
             }
         ) { padding ->
+            if (window.multiColumn) {
+                PullToRefreshBox(
+                    isRefreshing = isLoading && !daemonStopped,
+                    onRefresh = { refresh() },
+                    modifier = Modifier.padding(padding).fillMaxSize()
+                ) {
+                    if (daemonStopped) LazyColumn(Modifier.fillMaxSize()) {
+                        item { DaemonStoppedState(onStarted = { refresh() }, modifier = Modifier.fillParentMaxSize()) }
+                    } else ServeRulesGrid(
+                        window = window,
+                        nodeCard = { NodeCard(caps, context, onCopy = { copyText(it) }, wide = true, demoOpen = demoServe?.nodeCardOpen) },
+                        loading = config == null && isLoading,
+                        empty = allRules.isEmpty(),
+                        groups = remember(allRules) { groupsOf(allRules) },
+                        rulesHeading = context.getString(R.string.serve_rules_heading),
+                        ruleCard = ruleCard,
+                        serviceHeading = serviceHeading,
+                        emptyCard = { EmptyRulesCard(context) },
+                    )
+                }
+            } else {
             // Held to a readable width on a tablet; see ReadableWidth.
             ReadableWidth {
             PullToRefreshBox(
@@ -933,7 +1000,7 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    item { NodeCard(caps, context, onCopy = { copyText(it) }) }
+                    item { NodeCard(caps, context, onCopy = { copyText(it) }, demoOpen = demoServe?.nodeCardOpen) }
 
                     when {
                         config == null && isLoading -> item {
@@ -945,56 +1012,16 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
                             val nodeGroups = groups.filter { it.first.service == null }
                             if (nodeGroups.isNotEmpty()) {
                                 item { SectionHeading(context.getString(R.string.serve_rules_heading)) }
-                                items(nodeGroups) { group ->
-                                    RuleCard(
-                                        group = group,
-                                        url = ruleUrl(group.first, caps),
-                                        description = ruleDescription(context, group.first),
-                                        health = if (group.first.paused) null else healthMap[group.first.target],
-                                        context = context,
-                                        onEdit = { editor = RuleEditorState(group.rules, group.first) },
-                                        onCopy = { copyText(ruleUrl(group.first, caps)) },
-                                        onQr = { qrRule = group.first },
-                                        onPublish = null,
-                                        onPauseResume = { pauseOrResume(group) },
-                                        onDelete = { deleteGroup(group) }
-                                    )
-                                }
+                                items(nodeGroups) { group -> ruleCard(group, null) }
                             }
                             groups.filter { it.first.service != null }.groupBy { it.first.service!! }.forEach { (service, list) ->
-                                item {
-                                    ServiceHeading(
-                                        service = service,
-                                        addresses = caps.serviceHosts[service],
-                                        log = publishLogs[service],
-                                        logExpanded = service in logExpanded,
-                                        onToggleLog = { logExpanded = if (service in logExpanded) logExpanded - service else logExpanded + service },
-                                        context = context,
-                                        onPublish = {
-                                            if (adminSettings() != null) publishService(service, rules.filter { it.service == service }.map { it.port })
-                                            else publishFor = service
-                                        }
-                                    )
-                                }
-                                items(list) { group ->
-                                    RuleCard(
-                                        group = group,
-                                        url = ruleUrl(group.first, caps),
-                                        description = ruleDescription(context, group.first),
-                                        health = if (group.first.paused) null else healthMap[group.first.target],
-                                        context = context,
-                                        onEdit = { editor = RuleEditorState(group.rules, group.first) },
-                                        onCopy = { copyText(ruleUrl(group.first, caps)) },
-                                        onQr = { qrRule = group.first },
-                                        onPublish = if (group.first.paused) null else ({ publishFor = service }),
-                                        onPauseResume = { pauseOrResume(group) },
-                                        onDelete = { deleteGroup(group) }
-                                    )
-                                }
+                                item { serviceHeading(service, Modifier, false) }
+                                items(list) { group -> ruleCard(group, service) }
                             }
                         }
                     }
                 }
+            }
             }
             }
         }
@@ -1153,6 +1180,72 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
 // Pieces
 // ---------------------------------------------------------------------------------------------
 
+/**
+ * Serve on a medium window and up: the node's card across the top, the rules in as many
+ * columns of at least 360dp as fit — two on a tablet held upright, three on its side —
+ * each service's heading across the columns above its own rules. The same pieces as the
+ * phone's list, laid out for the width.
+ *
+ * A foldable open like a book gets a column on each half, the hinge between them, and
+ * nothing laid across it: the node's card stands in the first column like a rule.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun ServeRulesGrid(
+    window: WindowLayout,
+    nodeCard: @Composable () -> Unit,
+    loading: Boolean,
+    empty: Boolean,
+    groups: List<RuleGroup>,
+    rulesHeading: String,
+    ruleCard: @Composable (RuleGroup, String?) -> Unit,
+    serviceHeading: @Composable (String, Modifier, Boolean) -> Unit,
+    emptyCard: @Composable () -> Unit,
+) {
+    val line = StaggeredGridItemSpan.FullLine
+    val fold = window.fold as? Fold.Vertical
+    // On a book: a phone's margins outside, a lane on each half, the gap around the hinge.
+    val margin = if (fold != null) 16.dp else window.margin
+    val lane = fold?.let { it.start - margin - 8.dp }
+    val gap = fold?.let { it.end - it.start + 16.dp } ?: 12.dp
+    // A card that would cross the hinge stays in its lane instead.
+    val wide = if (fold != null) StaggeredGridItemSpan.SingleLane else line
+    LazyVerticalStaggeredGrid(
+        columns = if (fold != null) StaggeredGridCells.Fixed(2) else StaggeredGridCells.Adaptive(360.dp),
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(
+            start = margin,
+            end = if (lane != null) window.width - margin - lane * 2 - gap else margin,
+            top = 8.dp,
+            bottom = 96.dp
+        ),
+        verticalItemSpacing = 12.dp,
+        horizontalArrangement = Arrangement.spacedBy(gap)
+    ) {
+        item(span = wide) { nodeCard() }
+        when {
+            loading -> item(span = wide) {
+                Box(Modifier.fillMaxWidth().height(120.dp), Alignment.Center) { LoadingIndicator() }
+            }
+            empty -> item(span = wide) { emptyCard() }
+            else -> {
+                val nodeGroups = groups.filter { it.first.service == null }
+                if (nodeGroups.isNotEmpty()) {
+                    item(span = line) { SectionHeading(rulesHeading) }
+                    gridItems(nodeGroups) { group -> ruleCard(group, null) }
+                }
+                groups.filter { it.first.service != null }.groupBy { it.first.service!! }.forEach { (service, list) ->
+                    // Its status line and its Publish button stay together, not a window apart.
+                    item(span = line) {
+                        serviceHeading(service, Modifier.wrapContentWidth(Alignment.Start).widthIn(max = lane ?: ReadableContentWidth), true)
+                    }
+                    gridItems(list) { group -> ruleCard(group, service) }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun SectionHeading(text: String) {
     Text(
@@ -1164,12 +1257,20 @@ private fun SectionHeading(text: String) {
 }
 
 /** What the node can do, before any rule: the address rules are reached at, and the three
- *  gates the tailnet policy holds — certificate, Funnel with its ports, services. */
+ *  gates the tailnet policy holds — certificate, Funnel with its ports, services.
+ *  [wide]: the card spans a large window, so the copy button keeps to the name and the
+ *  three gates, opened, stand side by side instead of one under another. */
 @Composable
-private fun NodeCard(caps: ServeCapabilities, context: Context, onCopy: (String) -> Unit) {
+private fun NodeCard(
+    caps: ServeCapabilities,
+    context: Context,
+    onCopy: (String) -> Unit,
+    wide: Boolean = false,
+    demoOpen: Boolean? = null,
+) {
     // Collapsed by default: the name is what one comes back for, the
     // capabilities are read once. The choice is remembered.
-    var expanded by remember { mutableStateOf(GlobalSettings.getBoolean(context, NODE_CARD_EXPANDED_PREF, false)) }
+    var expanded by remember { mutableStateOf(demoOpen ?: GlobalSettings.getBoolean(context, NODE_CARD_EXPANDED_PREF, false)) }
     val scheme = MaterialTheme.colorScheme
     Card(
         shape = MaterialTheme.shapes.large,
@@ -1188,24 +1289,37 @@ private fun NodeCard(caps: ServeCapabilities, context: Context, onCopy: (String)
                     Icon(Icons.Default.Dns, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
                 }
                 Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        context.getString(R.string.serve_node_card_title),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        if (caps.dnsName.isEmpty()) context.getString(R.string.serve_waiting_dns) else caps.dnsName.withBreakOpportunities(),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                if (caps.dnsName.isNotEmpty()) {
-                    IconButton(onClick = { onCopy("https://${caps.dnsName}") }) {
-                        Icon(Icons.Default.ContentCopy, context.getString(R.string.action_copy), modifier = Modifier.size(18.dp))
+                val name: @Composable (Modifier) -> Unit = { modifier ->
+                    Column(modifier) {
+                        Text(
+                            context.getString(R.string.serve_node_card_title),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            if (caps.dnsName.isEmpty()) context.getString(R.string.serve_waiting_dns) else caps.dnsName.withBreakOpportunities(),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
+                }
+                val copy: @Composable () -> Unit = {
+                    if (caps.dnsName.isNotEmpty()) {
+                        IconButton(onClick = { onCopy("https://${caps.dnsName}") }) {
+                            Icon(Icons.Default.ContentCopy, context.getString(R.string.action_copy), modifier = Modifier.size(18.dp))
+                        }
+                    }
+                }
+                if (wide) {
+                    Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                        name(Modifier.weight(1f, fill = false))
+                        copy()
+                    }
+                } else {
+                    name(Modifier.weight(1f))
+                    copy()
                 }
                 Icon(
                     if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
@@ -1239,36 +1353,51 @@ private fun NodeCard(caps: ServeCapabilities, context: Context, onCopy: (String)
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             Spacer(Modifier.height(4.dp))
             val unknown = context.getString(R.string.serve_cap_unknown)
-            CapabilityRow(
-                icon = Icons.Default.Lock,
-                label = context.getString(R.string.serve_cap_cert),
-                value = when {
-                    !caps.loaded -> unknown
-                    caps.certDomains.isNotEmpty() -> context.getString(R.string.serve_cap_cert_ok, caps.certDomains.joinToString(", ")).withBreakOpportunities()
-                    else -> context.getString(R.string.serve_cap_cert_no)
-                },
-                ok = caps.loaded && caps.certDomains.isNotEmpty()
-            )
-            CapabilityRow(
-                icon = Icons.Default.Public,
-                label = context.getString(R.string.serve_cap_funnel),
-                value = when {
-                    !caps.loaded -> unknown
-                    caps.funnel -> context.getString(R.string.serve_cap_funnel_ok, caps.funnelPorts.joinToString(", "))
-                    else -> context.getString(R.string.serve_cap_funnel_no)
-                },
-                ok = caps.loaded && caps.funnel
-            )
-            CapabilityRow(
-                icon = Icons.Default.Hub,
-                label = context.getString(R.string.serve_cap_services),
-                value = when {
-                    !caps.loaded -> unknown
-                    caps.services -> context.getString(R.string.serve_cap_services_ok)
-                    else -> context.getString(R.string.serve_cap_services_no)
-                },
-                ok = caps.loaded && caps.services
-            )
+            val cert: @Composable () -> Unit = {
+                CapabilityRow(
+                    icon = Icons.Default.Lock,
+                    label = context.getString(R.string.serve_cap_cert),
+                    value = when {
+                        !caps.loaded -> unknown
+                        caps.certDomains.isNotEmpty() -> context.getString(R.string.serve_cap_cert_ok, caps.certDomains.joinToString(", ")).withBreakOpportunities()
+                        else -> context.getString(R.string.serve_cap_cert_no)
+                    },
+                    ok = caps.loaded && caps.certDomains.isNotEmpty()
+                )
+            }
+            val funnel: @Composable () -> Unit = {
+                CapabilityRow(
+                    icon = Icons.Default.Public,
+                    label = context.getString(R.string.serve_cap_funnel),
+                    value = when {
+                        !caps.loaded -> unknown
+                        caps.funnel -> context.getString(R.string.serve_cap_funnel_ok, caps.funnelPorts.joinToString(", "))
+                        else -> context.getString(R.string.serve_cap_funnel_no)
+                    },
+                    ok = caps.loaded && caps.funnel
+                )
+            }
+            val services: @Composable () -> Unit = {
+                CapabilityRow(
+                    icon = Icons.Default.Hub,
+                    label = context.getString(R.string.serve_cap_services),
+                    value = when {
+                        !caps.loaded -> unknown
+                        caps.services -> context.getString(R.string.serve_cap_services_ok)
+                        else -> context.getString(R.string.serve_cap_services_no)
+                    },
+                    ok = caps.loaded && caps.services
+                )
+            }
+            if (wide) {
+                Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                    for (gate in listOf(cert, funnel, services)) Box(Modifier.weight(1f)) { gate() }
+                }
+            } else {
+                cert()
+                funnel()
+                services()
+            }
             }
             }
         }
@@ -1290,9 +1419,11 @@ private fun ServiceHeading(
     logExpanded: Boolean,
     onToggleLog: () -> Unit,
     context: Context,
-    onPublish: () -> Unit
+    onPublish: () -> Unit,
+    modifier: Modifier = Modifier,
+    wide: Boolean = false
 ) {
-    Column {
+    Column(modifier) {
         SectionHeading(context.getString(R.string.serve_service_heading, service))
         Row(
             modifier = Modifier.fillMaxWidth().padding(start = 4.dp, top = 2.dp),
@@ -1305,7 +1436,8 @@ private fun ServiceHeading(
                     context.getString(R.string.serve_svc_status_published, addresses.firstOrNull { ':' !in it } ?: addresses.firstOrNull() ?: ""),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f)
+                    // Wide, the button follows the line it acts on, not a window's width away.
+                    modifier = Modifier.weight(1f, fill = !wide)
                 )
                 // Re-sync the definition's endpoints with this node's rules after a change.
                 TextButton(onClick = onPublish, contentPadding = PaddingValues(horizontal = 8.dp)) {
@@ -1318,7 +1450,7 @@ private fun ServiceHeading(
                     context.getString(R.string.serve_svc_status_unpublished),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f, fill = !wide)
                 )
                 TextButton(onClick = onPublish, contentPadding = PaddingValues(horizontal = 8.dp)) {
                     Text(context.getString(R.string.serve_svc_publish_button))
