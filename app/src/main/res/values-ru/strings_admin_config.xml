@@ -93,7 +93,7 @@
     <string name="admin_cfg_access_lost_ipport">До этого телефона по %1$s больше не достают: %2$s</string>
     <string name="admin_cfg_access_skipped">Этот телефон не узел этого tailnet, поэтому его собственный доступ не проверялся.</string>
     <string name="admin_cfg_access_failed">Проверить доступ не удалось: %1$s</string>
-    <string name="admin_cfg_access_help">Сервер показывает, какие правила подходят пользователю этого телефона и его адресу на портах 22 и 443 — по текущей политике и по новой. Правило, переписанное другими словами, здесь тоже всплывёт.</string>
+    <string name="admin_cfg_access_help">Сервер показывает, какие правила подходят пользователю этого телефона и его адресу на портах 22 и 443 — по текущей политике и по новой. Совпадения затем сверяются со списком устройств: о правиле, которое лишь переписано, так и будет сказано, а потеря назовёт устройства и порты.</string>
 
     <string name="admin_cfg_risk_wildcard_src">Источник — все</string>
     <string name="admin_cfg_risk_wildcard_src_help">«*» в источнике отдаёт это правило каждому пользователю и устройству tailnet.</string>
@@ -282,4 +282,19 @@
     <string name="admin_cfg_set_acls_external_on">Политику больше нельзя будет править ни в консоли, ни здесь: её ждут из вашего внешнего конвейера.</string>
     <string name="admin_cfg_set_acls_external_off">Политику снова можно будет править в консоли; внешний конвейер может эти правки перезаписать.</string>
     <string name="admin_cfg_set_acls_link_effect">Консоль будет ссылаться на этот адрес как на место, где ведётся политика.</string>
+    <string name="admin_cfg_access_rewritten_user">Как %1$s: правила переписаны (%2$s), но ни одно нынешнее устройство не потеряно.</string>
+    <string name="admin_cfg_access_rewritten_ipport">Кто достаёт до этого телефона по %1$s: правила переписаны (%2$s), но никто из нынешних устройств доступа не теряет.</string>
+    <string name="admin_cfg_access_ports_but">все порты, кроме %1$s</string>
+    <plurals name="admin_cfg_access_ports">
+        <item quantity="one">порт %1$s</item>
+        <item quantity="few">порты %1$s</item>
+        <item quantity="many">порты %1$s</item>
+        <item quantity="other">порты %1$s</item>
+    </plurals>
+    <plurals name="admin_cfg_access_more">
+        <item quantity="one">и ещё %1$d</item>
+        <item quantity="few">и ещё %1$d</item>
+        <item quantity="many">и ещё %1$d</item>
+        <item quantity="other">и ещё %1$d</item>
+    </plurals>
 </resources>

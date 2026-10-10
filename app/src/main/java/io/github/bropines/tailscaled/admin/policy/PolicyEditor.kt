@@ -443,7 +443,8 @@ private fun Problem(title: String, lines: List<String>, gotoLines: List<Int> = e
 @Composable
 private fun AccessCard(access: AccessReport) {
     val ctx = LocalContext.current
-    val lost = access.probes.filter { it.lost.isNotEmpty() }
+    val lost = access.probes.filter { it.warns }
+    val rewritten = access.probes.filter { it.rewritten }
     Card(
         Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
@@ -454,8 +455,9 @@ private fun AccessCard(access: AccessReport) {
             Text(ctx.getString(R.string.admin_cfg_access_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             when {
                 lost.isNotEmpty() -> lost.forEach { ConfigNote(PolicyText.lostLine(ctx, it), NoteTone.WARNING) }
-                access.ran -> ConfigNote(ctx.getString(R.string.admin_cfg_access_kept), NoteTone.INFO)
+                access.ran && rewritten.isEmpty() -> ConfigNote(ctx.getString(R.string.admin_cfg_access_kept), NoteTone.INFO)
             }
+            rewritten.forEach { ConfigNote(PolicyText.rewrittenLine(ctx, it), NoteTone.INFO) }
             if (!access.ran) ConfigNote(PolicyText.accessUnchecked(ctx, access), NoteTone.WARNING)
             HelpText(ctx.getString(R.string.admin_cfg_access_help))
         }

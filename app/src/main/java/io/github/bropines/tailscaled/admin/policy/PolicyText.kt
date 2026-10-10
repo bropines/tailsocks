@@ -50,11 +50,51 @@ object PolicyText {
         }
     )
 
-    /** One probe's loss as a sentence: what this phone's user stops reaching, or who stops reaching it. */
-    fun lostLine(ctx: Context, p: AccessProbe): String = when (p.type) {
-        PolicyPreviewType.USER -> ctx.getString(R.string.admin_cfg_access_lost_user, p.previewFor, p.lost.joinToString(", "))
-        PolicyPreviewType.IP_PORT -> ctx.getString(R.string.admin_cfg_access_lost_ipport, p.previewFor, p.lost.joinToString(", "))
+    /**
+     * One probe's loss as a sentence: what this phone's user stops reaching, or who stops
+     * reaching it — by device when the loss was resolved, else as the rules spell it.
+     */
+    fun lostLine(ctx: Context, p: AccessProbe): String {
+        val what = p.resolved?.let { lostList(ctx, p.type, it) } ?: p.lost.joinToString(", ")
+        return when (p.type) {
+            PolicyPreviewType.USER -> ctx.getString(R.string.admin_cfg_access_lost_user, p.previewFor, what)
+            PolicyPreviewType.IP_PORT -> ctx.getString(R.string.admin_cfg_access_lost_ipport, p.previewFor, what)
+        }
     }
+
+    /** A probe whose rules were reworded without costing any device. */
+    fun rewrittenLine(ctx: Context, p: AccessProbe): String {
+        val words = p.lost.take(MAX_DEVICES).joinToString(", ")
+        return when (p.type) {
+            PolicyPreviewType.USER -> ctx.getString(R.string.admin_cfg_access_rewritten_user, p.previewFor, words)
+            PolicyPreviewType.IP_PORT -> ctx.getString(R.string.admin_cfg_access_rewritten_ipport, p.previewFor, words)
+        }
+    }
+
+    private fun lostList(ctx: Context, type: PolicyPreviewType, loss: ResolvedLoss): String {
+        val items = loss.devices.map { deviceLoss(ctx, type, it) } + loss.unresolved
+        val shown = items.take(MAX_DEVICES).joinToString(", ")
+        val more = items.size - MAX_DEVICES
+        return if (more > 0) shown + " " + ctx.resources.getQuantityString(R.plurals.admin_cfg_access_more, more, more) else shown
+    }
+
+    /** "lenovo-tab (alice@example.com)", "dns-1 (tag:dns, port 4000)", "nas (tag:nas, all ports but 443)". */
+    private fun deviceLoss(ctx: Context, type: PolicyPreviewType, l: LostDevice): String {
+        val d = l.device
+        val owner = if (d.isTagged) d.tags.joinToString(", ") else d.user.orEmpty()
+        fun listed(p: PortSet) = ctx.resources.getQuantityString(R.plurals.admin_cfg_access_ports, p.parts.coerceAtLeast(1), p.text())
+        val ports = when {
+            // A source that stops reaching this phone loses the one port asked; it is in the sentence.
+            type == PolicyPreviewType.IP_PORT || l.ports.isAll -> null
+            l.kept.isEmpty -> listed(l.ports)
+            (l.ports + l.kept).isAll && l.kept.parts <= 3 -> ctx.getString(R.string.admin_cfg_access_ports_but, l.kept.text())
+            else -> listed(l.ports)
+        }
+        val tail = listOfNotNull(owner.takeIf { it.isNotBlank() }, ports).joinToString(", ")
+        return if (tail.isEmpty()) d.shortName else "${d.shortName} ($tail)"
+    }
+
+    private const val MAX_DEVICES = 8
 
     /** Why the access check did not run, or not all of it. */
     fun accessUnchecked(ctx: Context, a: AccessReport): String = when {

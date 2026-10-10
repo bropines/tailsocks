@@ -97,8 +97,11 @@ class PolicyConsole internal constructor(private val vm: AdminConsoleViewModel) 
         val ed = state.editor ?: return
         reviewJob?.cancel()
         val subject = subject()
+        val s = vm.state.value
+        // What the previews' words mean in devices; without a list they are compared as written.
+        val view = s.devices.value?.let { TailnetView(it, s.users.value) }
         reviewJob = vm.viewModelScope.launch {
-            PolicyPipeline.review(b, ed.base, ed.text, subject, ed.isRevert) { r ->
+            PolicyPipeline.review(b, ed.base, ed.text, subject, ed.isRevert, view) { r ->
                 // A review of a text since edited is stale: dropped.
                 setEditor { e -> if (e.text == r.candidate && e.base == r.base) e.copy(review = r, sendError = null) else e }
             }
@@ -241,7 +244,7 @@ class PolicyConsole internal constructor(private val vm: AdminConsoleViewModel) 
             risks.take(MAX_LISTED).forEach { add(PolicyText.riskTitle(t, it.kind) + ": " + it.detail) }
             if (risks.size > MAX_LISTED) add(t.resources.getQuantityString(R.plurals.admin_cfg_policy_more, risks.size - MAX_LISTED, risks.size - MAX_LISTED))
             review.access?.let { a ->
-                a.probes.filter { it.lost.isNotEmpty() }.forEach { add(PolicyText.lostLine(t, it)) }
+                a.probes.filter { it.warns }.forEach { add(PolicyText.lostLine(t, it)) }
                 if (!a.ran) add(PolicyText.accessUnchecked(t, a))
             }
         }

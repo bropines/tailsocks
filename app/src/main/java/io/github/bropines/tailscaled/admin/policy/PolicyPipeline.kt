@@ -30,8 +30,9 @@ data class AccessSubject(val login: String?, val ipv4: String?, val ports: List<
 /**
  * One /acl/preview asked of the current policy and of the candidate. [lost] is what the
  * candidate no longer matches: for a user, destinations it could reach; for an ip:port,
- * sources that could reach it. Compared as the rules spell them, so a rule rewritten to say
- * the same thing differently shows up too — it warns, it never blocks.
+ * sources that could reach it — compared as the rules spell them. [resolved] is the same loss
+ * in devices (ReachResolver), when the console had the device list: a rule only rewritten
+ * then reads as [rewritten], not as a loss. It warns, it never blocks.
  */
 data class AccessProbe(
     val type: PolicyPreviewType,
@@ -39,7 +40,14 @@ data class AccessProbe(
     val before: PolicyPreview? = null,
     val after: PolicyPreview? = null,
     val error: Throwable? = null,
+    val resolved: ResolvedLoss? = null,
 ) {
+    /** Something to warn about: devices really lost, or without a device list, any lost word. */
+    val warns: Boolean get() = resolved?.let { !it.isEmpty } ?: lost.isNotEmpty()
+
+    /** The words changed, yet every device keeps what it had. */
+    val rewritten: Boolean get() = resolved?.isEmpty == true && lost.isNotEmpty()
+
     val lost: List<String>
         get() {
             val b = before ?: return emptyList()
@@ -56,7 +64,7 @@ enum class AccessSkip {
 
 data class AccessReport(val probes: List<AccessProbe>, val skipped: AccessSkip? = null) {
     val ran: Boolean get() = skipped == null && probes.isNotEmpty() && probes.all { it.error == null }
-    val lostCount: Int get() = probes.sumOf { it.lost.size }
+    val lostCount: Int get() = probes.sumOf { p -> p.resolved?.let { it.devices.size + it.unresolved.size } ?: p.lost.size }
 }
 
 /**
@@ -122,6 +130,7 @@ object PolicyPipeline {
         candidate: String,
         subject: AccessSubject?,
         isRevert: Boolean = false,
+        view: TailnetView? = null,
         publish: (PolicyReview) -> Unit = {},
     ): PolicyReview {
         var r = PolicyReview(base, candidate, isRevert)
@@ -146,22 +155,32 @@ object PolicyPipeline {
         r = r.copy(risks = risks, running = PolicyStep.ACCESS)
         publish(r)
 
-        r = r.copy(access = access(backend, base.text, candidate, subject), running = null)
+        r = r.copy(access = access(backend, base.text, candidate, subject, view), running = null)
         publish(r)
         return r
     }
 
-    /** The "don't lock yourself out" previews: this phone's user and address, before and after. */
-    suspend fun access(backend: AdminBackend, before: String, after: String, subject: AccessSubject?): AccessReport {
+    /**
+     * The "don't lock yourself out" previews: this phone's user and address, before and after;
+     * with [view], each loss resolved into the devices it really costs.
+     */
+    suspend fun access(backend: AdminBackend, before: String, after: String, subject: AccessSubject?, view: TailnetView? = null): AccessReport {
         if (subject == null || (subject.login == null && subject.ipv4 == null)) return AccessReport(emptyList(), AccessSkip.NOT_IN_TAILNET)
         val asks = buildList {
             subject.login?.let { add(PolicyPreviewType.USER to it) }
             subject.ipv4?.let { ip -> subject.ports.forEach { add(PolicyPreviewType.IP_PORT to "$ip:$it") } }
         }
+        val beforePolicy = HuJson.parseOrNull(before)
+        val afterPolicy = HuJson.parseOrNull(after)
         return AccessReport(asks.map { (type, what) ->
             val b = attempt { backend.previewPolicy(before, type, what) }
             val a = if (b.isSuccess) attempt { backend.previewPolicy(after, type, what) } else b
-            AccessProbe(type, what, b.getOrNull(), a.getOrNull(), b.exceptionOrNull() ?: a.exceptionOrNull())
+            val bp = b.getOrNull()
+            val ap = a.getOrNull()
+            val resolved = if (view != null && bp != null && ap != null) {
+                runCatching { ReachResolver.resolve(type, what, bp, ap, beforePolicy, afterPolicy, view, subject.login) }.getOrNull()
+            } else null
+            AccessProbe(type, what, bp, ap, b.exceptionOrNull() ?: a.exceptionOrNull(), resolved)
         })
     }
 

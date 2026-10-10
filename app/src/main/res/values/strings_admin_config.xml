@@ -89,7 +89,7 @@
     <string name="admin_cfg_access_lost_ipport">No longer allowed to reach this phone at %1$s: %2$s</string>
     <string name="admin_cfg_access_skipped">This phone is not a node of this tailnet, so its own access was not checked.</string>
     <string name="admin_cfg_access_failed">The access check could not run: %1$s</string>
-    <string name="admin_cfg_access_help">The server previews which rules match this phone\'s user and its address on ports 22 and 443, under the current policy and under the new one. A rule rewritten to say the same thing differently shows up here too.</string>
+    <string name="admin_cfg_access_help">The server previews which rules match this phone\'s user and its address on ports 22 and 443, under the current policy and under the new one. What they match is then checked against the device list: a rule only reworded is said to be so, and a loss names the devices and ports it costs.</string>
 
     <string name="admin_cfg_risk_wildcard_src">Everyone as a source</string>
     <string name="admin_cfg_risk_wildcard_src_help">“*” as a source lets every user and device of the tailnet use this rule.</string>
@@ -280,4 +280,15 @@
     <string name="admin_cfg_set_acls_external_on">The policy can no longer be edited in the console or here; it is expected to come from your external pipeline.</string>
     <string name="admin_cfg_set_acls_external_off">The policy can be edited in the console again; an external pipeline may overwrite those edits.</string>
     <string name="admin_cfg_set_acls_link_effect">The console links to this address as where the policy is managed.</string>
+    <string name="admin_cfg_access_rewritten_user">As %1$s: the rules are reworded (%2$s), but no device of the tailnet is lost.</string>
+    <string name="admin_cfg_access_rewritten_ipport">Who reaches this phone at %1$s: the rules are reworded (%2$s), but no device loses access.</string>
+    <string name="admin_cfg_access_ports_but">all ports but %1$s</string>
+    <plurals name="admin_cfg_access_ports">
+        <item quantity="one">port %1$s</item>
+        <item quantity="other">ports %1$s</item>
+    </plurals>
+    <plurals name="admin_cfg_access_more">
+        <item quantity="one">and %1$d more</item>
+        <item quantity="other">and %1$d more</item>
+    </plurals>
 </resources>

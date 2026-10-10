@@ -11,7 +11,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Admin console opens on "Needs attention"; optional background checks notify of approvals and expiring keys, with Approve and Reject behind the unlock.
 - Admin console: the Devices tab gets search, filters, badges, a full device sheet (routes, IPv4, one-tap copy) and bulk tag changes with a dry run.
 - Admin console: Keys tab (key types, expiry warnings, OAuth clients, reveal with QR) and a Users tab with roles explained, invites and device sharing.
-- Admin console: a policy editor with server validation, diff, risk lint, a lock-out check, conflict-safe saving and revert; DNS, webhooks and tailnet settings completed.
+- Admin console: a policy editor with server validation, diff, risk lint, a lock-out check that names the devices a change costs, conflict-safe saving and revert; DNS, webhooks and tailnet settings completed.
 - Admin console: Headscale servers (0.25–0.30) with registration by QR code or link; the audit log filtered on the server with before → after; Services created, renamed and deleted.
 - Admin console keeps an encrypted copy of its lists and opens on it at once, refreshing in place; nothing is changed from the copy.
 - Admin console: a device with an update links to its page in the Tailscale console, where Start update lives (the API has none).
