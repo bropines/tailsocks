@@ -83,6 +83,10 @@ fun IssueReportDialog(onDismiss: () -> Unit) {
     val copied = stringResource(R.string.issue_report_copied)
     val close = stringResource(R.string.action_close)
     val template = stringResource(R.string.issue_report_template)
+    // Read here, not inside the dialog, whose own window would answer for itself. A tall
+    // tablet has the room to show more of the report before it has to be scrolled.
+    val window = rememberWindowLayout()
+    val reportHeight = if (!window.isPhone && window.heightClass == WindowHeightClass.EXPANDED) 480.dp else 260.dp
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -94,7 +98,7 @@ fun IssueReportDialog(onDismiss: () -> Unit) {
                 Surface(
                     shape = MaterialTheme.shapes.medium,
                     color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                    modifier = Modifier.fillMaxWidth().heightIn(max = 260.dp)
+                    modifier = Modifier.fillMaxWidth().heightIn(max = reportHeight)
                 ) {
                     Text(
                         report ?: gathering,
