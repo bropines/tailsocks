@@ -68,9 +68,14 @@ class TunExcludedAppsActivity : ComponentActivity() {
     }
 }
 
+/**
+ * The apps the tunnel leaves alone. [initialApps] stands in for the installed
+ * apps and is shown from the first frame: the preview renderer has no package
+ * manager to list and draws only that frame.
+ */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun TunExcludedAppsScreen(onBack: () -> Unit) {
+fun TunExcludedAppsScreen(onBack: () -> Unit, initialApps: List<AppItem>? = null) {
     val context = LocalContext.current
     val initialExcluded = remember { 
         GlobalSettings.getTunExcludedApps(context)
@@ -78,14 +83,15 @@ fun TunExcludedAppsScreen(onBack: () -> Unit) {
             .toSet() 
     }
     val excluded = remember { mutableStateOf(initialExcluded) }
-    var apps by remember { mutableStateOf<List<AppItem>>(emptyList()) }
-    var loading by remember { mutableStateOf(true) }
+    var apps by remember { mutableStateOf(initialApps ?: emptyList()) }
+    var loading by remember { mutableStateOf(initialApps == null) }
     
     // UI states
     var searchQuery by remember { mutableStateOf("") }
     var showOnlyExcluded by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
+        if (initialApps != null) return@LaunchedEffect
         val installed = withContext(Dispatchers.IO) { loadInstalledApps(context) }
         // Packages excluded earlier but gone from the phone still count against
         // the list; show them greyed so they can be seen and removed.

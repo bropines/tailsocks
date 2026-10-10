@@ -73,11 +73,12 @@ class FirstStartActivity : ComponentActivity() {
     }
 }
 
+/** The onboarding slides; [initialPage] opens on a later one, for the previews. */
 @Composable
-fun FirstStartScreen(onFinished: () -> Unit) {
+fun FirstStartScreen(onFinished: () -> Unit, initialPage: Int = 0) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val pagerState = rememberPagerState(pageCount = { 6 })
+    val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { 6 })
 
     val activeAccount = remember { io.github.bropines.tailscaled.core.AccountManager.getActiveAccount(context) }
     val profilePrefs = remember(activeAccount) { context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE) }

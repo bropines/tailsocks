@@ -105,11 +105,14 @@ fun LicensesScreen(onBack: () -> Unit) {
     LicensesContent(doc, onBack)
 }
 
-/** The screen without its loading, for the preview renderer. */
+/**
+ * The screen without its loading, for the preview renderer. [initialOpen] opens
+ * a component's text at once, as "section/name".
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun LicensesContent(doc: LicenseDoc?, onBack: () -> Unit) {
-    var openName by rememberSaveable { mutableStateOf<String?>(null) }
+internal fun LicensesContent(doc: LicenseDoc?, onBack: () -> Unit, initialOpen: String? = null) {
+    var openName by rememberSaveable { mutableStateOf(initialOpen) }
     val total = doc?.sections?.sumOf { it.components.size } ?: 0
     Scaffold(
         topBar = {
