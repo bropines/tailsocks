@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tablet_admin_rail_attention">Внимание</string>
+    <string name="tablet_admin_rail_users">Люди</string>
+    <string name="tablet_admin_rail_web">Веб</string>
+    <string name="tablet_admin_user_pane_empty">Здесь появятся сведения о выбранном пользователе</string>
+    <string name="tablet_admin_service_pane_empty">Здесь появятся устройства выбранной службы</string>
+    <string name="tablet_admin_webhook_pane_empty">Здесь появятся события выбранного эндпоинта</string>
+    <string name="tablet_admin_log_pane_empty">Здесь появится, что изменило выбранное событие</string>
+</resources>

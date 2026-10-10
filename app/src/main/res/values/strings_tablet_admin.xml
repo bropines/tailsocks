@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The admin console on large windows: the tab rail and the detail panes (admin/AdminAdaptive.kt). -->
+<resources>
+    <!-- The narrow tab rail (840–1199dp) has about 80dp under each icon: the tabs whose names do not fit -->
+    <string name="tablet_admin_rail_attention">Attention</string>
+    <string name="tablet_admin_rail_users">Users</string>
+    <string name="tablet_admin_rail_web">Web</string>
+    <!-- Two-pane, the detail pane when there is nothing in the list to show -->
+    <string name="tablet_admin_user_pane_empty">The details of the user you pick appear here</string>
+    <string name="tablet_admin_service_pane_empty">The hosts of the service you pick appear here</string>
+    <string name="tablet_admin_webhook_pane_empty">The events of the webhook you pick appear here</string>
+    <string name="tablet_admin_log_pane_empty">What the event you pick changed appears here</string>
+</resources>

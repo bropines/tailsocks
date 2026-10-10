@@ -34,6 +34,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -78,7 +79,10 @@ import io.github.bropines.tailscaled.admin.console.ConsoleText
 import io.github.bropines.tailscaled.admin.console.Loadable
 import io.github.bropines.tailscaled.admin.safety.ReadOnlyBanner
 import io.github.bropines.tailscaled.admin.ConsoleLinks
+import io.github.bropines.tailscaled.ui.CardColumns
 import io.github.bropines.tailscaled.ui.HelpText
+import io.github.bropines.tailscaled.ui.LocalInPane
+import io.github.bropines.tailscaled.ui.SheetOrPane
 import kotlin.math.roundToInt
 
 /** What the sheet's controls do; the defaults do nothing, for previews. */
@@ -110,6 +114,7 @@ internal fun withDetail(listed: ApiDevice, full: ApiDevice?): ApiDevice = if (fu
  * safety pipeline; this sheet asks nothing itself. A device shared in from another tailnet
  * shows, explains why, and offers no change.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DeviceDetailSheet(device: ApiDevice, state: ConsoleState, vm: AdminConsoleViewModel?, selfNodeId: String?, onDismiss: () -> Unit) {
     val dvm: DevicesViewModel? = if (vm != null) viewModel() else null
@@ -123,31 +128,35 @@ fun DeviceDetailSheet(device: ApiDevice, state: ConsoleState, vm: AdminConsoleVi
     var dialog by rememberSaveable(device.pathId) { mutableStateOf<String?>(null) }
     val self = state.self.nodeId
 
-    DeviceSheet(onDismiss) {
-        DeviceDetailContent(
-            device = withDetail(device, full?.value),
-            full = full,
-            routes = routes,
-            now = now,
-            isThisPhone = selfNodeId != null && device.nodeId == selfNodeId,
-            canWriteDevices = state.canWrite(AdminArea.DEVICES),
-            canWriteRoutes = state.canWrite(AdminArea.ROUTES),
-            canSetIp = state.caps?.has(BackendFeature.DEVICE_IPV4) != false,
-            actions = DeviceActions(
-                onRename = { dialog = DIALOG_RENAME },
-                onTags = { dialog = DIALOG_TAGS },
-                onSetIp = { dialog = DIALOG_IP },
-                onKeyExpiryDisabled = { vm?.setKeyExpiryDisabled(device, it) },
-                onAuthorize = { vm?.setDeviceAuthorized(device, it) },
-                onExpire = { vm?.expireDevice(device) },
-                onDelete = { vm?.deleteDevice(device) },
-                onSetRoutes = { before, after ->
-                    vm?.let { v -> v.propose(DeviceChanges.setRoutes(v.text, device, before, after, self), after = { v.loadRoutes(device) }) }
-                },
-                onRetryRoutes = { vm?.loadRoutes(device) },
-                onRetryDetail = { if (vm != null) dvm?.loadDetail(vm, device.pathId) },
-            ),
-        )
+    // A sheet over the list on a phone, the pane beside it on a large window (see DevicesTab).
+    val parent = parentLocale()
+    SheetOrPane(onDismiss) {
+        WithLocale(parent) {
+            DeviceDetailContent(
+                device = withDetail(device, full?.value),
+                full = full,
+                routes = routes,
+                now = now,
+                isThisPhone = selfNodeId != null && device.nodeId == selfNodeId,
+                canWriteDevices = state.canWrite(AdminArea.DEVICES),
+                canWriteRoutes = state.canWrite(AdminArea.ROUTES),
+                canSetIp = state.caps?.has(BackendFeature.DEVICE_IPV4) != false,
+                actions = DeviceActions(
+                    onRename = { dialog = DIALOG_RENAME },
+                    onTags = { dialog = DIALOG_TAGS },
+                    onSetIp = { dialog = DIALOG_IP },
+                    onKeyExpiryDisabled = { vm?.setKeyExpiryDisabled(device, it) },
+                    onAuthorize = { vm?.setDeviceAuthorized(device, it) },
+                    onExpire = { vm?.expireDevice(device) },
+                    onDelete = { vm?.deleteDevice(device) },
+                    onSetRoutes = { before, after ->
+                        vm?.let { v -> v.propose(DeviceChanges.setRoutes(v.text, device, before, after, self), after = { v.loadRoutes(device) }) }
+                    },
+                    onRetryRoutes = { vm?.loadRoutes(device) },
+                    onRetryDetail = { if (vm != null) dvm?.loadDetail(vm, device.pathId) },
+                ),
+            )
+        }
     }
 
     // In the parent composition, after the sheet: a dialog window over it, with this screen's language.
@@ -213,9 +222,14 @@ fun DeviceDetailContent(
     val knownRoutes = DeviceQueries.knownRoutes(device, routes?.value)
     val badges = DeviceQueries.badges(device, now, knownRoutes, if (isThisPhone) device.nodeId else null)
     val maxHeight = (LocalConfiguration.current.screenHeightDp * 0.9f).dp
+    // In the pane beside the list rather than a sheet: no drag handle above the name, and on a
+    // pane as wide as a phone is tall the sections stand in two columns.
+    val inPane = LocalInPane.current
 
     Column(
-        Modifier.fillMaxWidth().heightIn(max = maxHeight).verticalScroll(rememberScrollState()).padding(bottom = 24.dp),
+        Modifier.fillMaxWidth().heightIn(max = maxHeight).verticalScroll(rememberScrollState())
+            .then(if (inPane) Modifier.padding(top = 24.dp) else Modifier)
+            .padding(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Column(
@@ -242,34 +256,50 @@ fun DeviceDetailContent(
         if (device.authorized == false && !shared) ApprovalCard(writable, actions)
         Problems(device)
 
-        Section(ctx.getString(R.string.admin_dev_section_addresses)) {
-            device.addresses.forEach { a ->
-                val label = ctx.getString(if (':' in a) R.string.admin_dev_ipv6 else R.string.admin_dev_ipv4)
-                InfoRow(label, a, mono = true, onCopy = copy)
+        // [padded]: each with the sheet's margins, or none where the columns hold them.
+        @Composable
+        fun Sections(padded: Boolean) {
+            Section(ctx.getString(R.string.admin_dev_section_addresses), padded) {
+                device.addresses.forEach { a ->
+                    val label = ctx.getString(if (':' in a) R.string.admin_dev_ipv6 else R.string.admin_dev_ipv4)
+                    InfoRow(label, a, mono = true, onCopy = copy)
+                }
+                device.name.trimEnd('.').takeIf { it.isNotBlank() }?.let {
+                    InfoRow(ctx.getString(R.string.admin_dev_magicdns), it, mono = true, onCopy = copy)
+                }
             }
-            device.name.trimEnd('.').takeIf { it.isNotBlank() }?.let {
-                InfoRow(ctx.getString(R.string.admin_dev_magicdns), it, mono = true, onCopy = copy)
+
+            Section(ctx.getString(R.string.admin_dev_section_details), padded) { Details(device, now, copy) }
+
+            Section(ctx.getString(R.string.admin_dev_section_connectivity), padded) {
+                Connectivity(device.clientConnectivity, full, actions.onRetryDetail, copy)
+            }
+
+            if (!shared) {
+                Section(ctx.getString(R.string.admin_dev_routes_title), padded) {
+                    Routes(routes, knownRoutes, canWriteRoutes, actions)
+                }
+                // Under the columns in a pane, across both: three buttons in a row want the width.
+                if (!inPane) Actions(device, now, writable, canSetIp, isThisPhone, actions)
             }
         }
-
-        Section(ctx.getString(R.string.admin_dev_section_details)) { Details(device, now, copy) }
-
-        Section(ctx.getString(R.string.admin_dev_section_connectivity)) {
-            Connectivity(device.clientConnectivity, full, actions.onRetryDetail, copy)
-        }
-
-        if (!shared) {
-            Section(ctx.getString(R.string.admin_dev_routes_title)) {
-                Routes(routes, knownRoutes, canWriteRoutes, actions)
+        if (inPane) {
+            CardColumns(Modifier.padding(horizontal = 16.dp), minColumnWidth = PANE_SECTION_MIN_WIDTH, maxColumns = 2, spacing = 16.dp) {
+                Sections(padded = false)
             }
-            Actions(device, now, writable, canSetIp, isThisPhone, actions)
+            if (!shared) Actions(device, now, writable, canSetIp, isThisPhone, actions)
+        } else {
+            Sections(padded = true)
         }
     }
 }
 
+/** The narrowest a section stands in a column of its own in the pane: an IPv6 address in full. */
+private val PANE_SECTION_MIN_WIDTH = 300.dp
+
 @Composable
-private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+private fun Section(title: String, padded: Boolean = true, content: @Composable ColumnScope.() -> Unit) {
+    Column(Modifier.fillMaxWidth().then(if (padded) Modifier.padding(horizontal = 16.dp) else Modifier)) {
         Text(
             title,
             style = MaterialTheme.typography.labelLarge,

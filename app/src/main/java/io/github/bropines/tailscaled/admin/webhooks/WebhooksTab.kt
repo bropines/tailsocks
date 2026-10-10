@@ -1,5 +1,6 @@
 package io.github.bropines.tailscaled.admin.webhooks
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -38,7 +39,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -48,6 +48,7 @@ import androidx.compose.material3.TriStateCheckbox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -58,6 +59,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -66,6 +69,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.admin.DetailRow
+import io.github.bropines.tailscaled.admin.InPaneWidth
 import io.github.bropines.tailscaled.admin.LoadProblems
 import io.github.bropines.tailscaled.admin.api.AdminArea
 import io.github.bropines.tailscaled.admin.api.ApiWebhook
@@ -83,7 +87,11 @@ import io.github.bropines.tailscaled.admin.settings.Provide
 import io.github.bropines.tailscaled.admin.settings.rememberParentLocals
 import io.github.bropines.tailscaled.ui.EmptyState
 import io.github.bropines.tailscaled.ui.HelpText
-import io.github.bropines.tailscaled.ui.rememberFullSheetState
+import io.github.bropines.tailscaled.ui.ListDetailLayout
+import io.github.bropines.tailscaled.ui.LocalInPane
+import io.github.bropines.tailscaled.ui.PaneEmptyState
+import io.github.bropines.tailscaled.ui.SheetOrPane
+import io.github.bropines.tailscaled.ui.rememberWindowLayout
 
 /**
  * The tailnet's webhooks: a card each (endpoint, format, how many events, when made), a sheet
@@ -99,43 +107,66 @@ fun WebhooksTab(state: ConsoleState, vm: AdminConsoleViewModel?) {
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
     var creating by rememberSaveable { mutableStateOf(false) }
 
-    Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(ctx.getString(R.string.admin_webhooks_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                HelpText(ctx.getString(R.string.admin_cfg_wh_help))
+    // A large window shows a webhook beside the list, where a phone opens a sheet: the one
+    // picked, or the first while nothing is.
+    val window = rememberWindowLayout()
+    val twoPane = window.listDetail
+    val shown = if (!twoPane) null else webhooks.firstOrNull { it.endpointId == selected } ?: webhooks.firstOrNull()
+
+    val list: @Composable () -> Unit = {
+        Column(Modifier.fillMaxSize()) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(ctx.getString(R.string.admin_webhooks_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    HelpText(ctx.getString(R.string.admin_cfg_wh_help))
+                }
+                if (canWrite) {
+                    Spacer(Modifier.width(12.dp))
+                    Button(onClick = { creating = true }, shape = MaterialTheme.shapes.medium, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)) {
+                        Icon(Icons.Default.Add, null)
+                        Spacer(Modifier.width(4.dp))
+                        Text(ctx.getString(R.string.admin_webhooks_add), maxLines = 1)
+                    }
+                }
             }
-            if (canWrite) {
-                Spacer(Modifier.width(12.dp))
-                Button(onClick = { creating = true }, shape = MaterialTheme.shapes.medium, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)) {
-                    Icon(Icons.Default.Add, null)
-                    Spacer(Modifier.width(4.dp))
-                    Text(ctx.getString(R.string.admin_webhooks_add), maxLines = 1)
+            LoadProblems(state.webhooks, { vm?.refresh(ConsoleTab.WEBHOOKS, force = true) }, Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+            if (!canWrite && state.writeBlock == null && state.webhooks.value != null) {
+                ConfigNote(ctx.getString(R.string.admin_cfg_scope_missing, AdminArea.WEBHOOKS.scope), NoteTone.LOCKED, Modifier.padding(horizontal = 16.dp))
+            }
+            when {
+                webhooks.isEmpty() && state.webhooks.loading -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { ConfigLoading() }
+                webhooks.isEmpty() -> EmptyState(Icons.Default.Webhook, ctx.getString(R.string.admin_webhooks_no_webhooks), Modifier.weight(1f).fillMaxWidth())
+                else -> LazyColumn(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    items(webhooks, key = { it.endpointId }) { w -> WebhookCard(w, shown = w.endpointId == shown?.endpointId) { selected = w.endpointId } }
                 }
             }
         }
-        LoadProblems(state.webhooks, { vm?.refresh(ConsoleTab.WEBHOOKS, force = true) }, Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
-        if (!canWrite && state.writeBlock == null && state.webhooks.value != null) {
-            ConfigNote(ctx.getString(R.string.admin_cfg_scope_missing, AdminArea.WEBHOOKS.scope), NoteTone.LOCKED, Modifier.padding(horizontal = 16.dp))
-        }
-        when {
-            webhooks.isEmpty() && state.webhooks.loading -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { ConfigLoading() }
-            webhooks.isEmpty() -> EmptyState(Icons.Default.Webhook, ctx.getString(R.string.admin_webhooks_no_webhooks), Modifier.weight(1f).fillMaxWidth())
-            else -> LazyColumn(
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                items(webhooks, key = { it.endpointId }) { w -> WebhookCard(w) { selected = w.endpointId } }
-            }
-        }
+    }
+    if (twoPane) {
+        ListDetailLayout(
+            window = window,
+            twoPane = true,
+            modifier = Modifier.fillMaxSize(),
+            list = list,
+            detail = {
+                if (shown != null) key(shown.endpointId) { WebhookSheet(shown, canWrite, vm, onDismiss = { selected = null }) }
+                else PaneEmptyState(Icons.Default.Webhook, ctx.getString(R.string.tablet_admin_webhook_pane_empty))
+            },
+        )
+    } else {
+        list()
     }
 
     selected?.let { id ->
         val w = webhooks.firstOrNull { it.endpointId == id }
         // Gone after a refresh (deleted): the sheet goes with it.
         LaunchedEffect(w == null) { if (w == null) selected = null }
-        if (w != null) WebhookSheet(w, canWrite, vm, onDismiss = { selected = null })
+        // Two-pane, the pane shows it instead.
+        if (w != null && !twoPane) WebhookSheet(w, canWrite, vm, onDismiss = { selected = null })
     }
     if (creating) {
         CreateWebhookDialog(onDismiss = { creating = false }) { url, provider, events ->
@@ -157,15 +188,18 @@ private fun createWebhook(vm: AdminConsoleViewModel, url: String, provider: Stri
     vm.propose(WebhookChanges.create(vm.text, url, provider, events, vm.tailnetLabel) { created = it }) { created?.let { reveal(vm, it) } }
 }
 
+/** One webhook; [shown] is the one whose events stand in the pane beside the list, outlined. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun WebhookCard(w: ApiWebhook, onClick: () -> Unit) {
+private fun WebhookCard(w: ApiWebhook, shown: Boolean = false, onClick: () -> Unit) {
     val ctx = LocalContext.current
     val scheme = MaterialTheme.colorScheme
     Surface(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)
+            .then(if (shown) Modifier.semantics { selected = true } else Modifier),
         shape = MaterialTheme.shapes.large,
         color = scheme.surfaceContainer,
+        border = if (shown) BorderStroke(2.dp, scheme.primary) else null,
     ) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(40.dp).background(scheme.secondaryContainer, MaterialTheme.shapes.medium), contentAlignment = Alignment.Center) {
@@ -189,13 +223,16 @@ private fun WebhookCard(w: ApiWebhook, onClick: () -> Unit) {
     }
 }
 
-/** One webhook: its details, its events to change, and its actions — no menu, each a button. */
+/**
+ * One webhook: its details, its events to change, and its actions — no menu, each a button. A
+ * sheet over the list on a phone, the pane beside it on a large window.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun WebhookSheet(w: ApiWebhook, canWrite: Boolean, vm: AdminConsoleViewModel?, onDismiss: () -> Unit) {
     val parent = rememberParentLocals()
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberFullSheetState()) {
-        parent.Provide { WebhookSheetContent(w, canWrite, vm) }
+    SheetOrPane(onDismiss = onDismiss) {
+        parent.Provide { InPaneWidth { WebhookSheetContent(w, canWrite, vm) } }
     }
 }
 
@@ -206,7 +243,9 @@ fun WebhookSheetContent(w: ApiWebhook, canWrite: Boolean, vm: AdminConsoleViewMo
     val events = remember(w.subscriptions) { mutableStateListOf(*w.subscriptions.toTypedArray()) }
     val changed = events.toSet() != w.subscriptions.toSet()
     Column(
-        Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 16.dp).navigationBarsPadding(),
+        Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 16.dp)
+            // A pane stands inside the screen's insets already; a sheet reaches the bottom edge.
+            .then(if (LocalInPane.current) Modifier else Modifier.navigationBarsPadding()),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(WebhookInput.host(w.endpointUrl), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)

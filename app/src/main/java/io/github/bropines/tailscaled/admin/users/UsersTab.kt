@@ -1,5 +1,6 @@
 package io.github.bropines.tailscaled.admin.users
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -46,6 +47,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -55,6 +57,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -74,8 +78,11 @@ import io.github.bropines.tailscaled.admin.keys.Chip
 import io.github.bropines.tailscaled.admin.keys.relativeText
 import io.github.bropines.tailscaled.admin.parseIso
 import io.github.bropines.tailscaled.ui.EmptyState
+import io.github.bropines.tailscaled.ui.ListDetailLayout
+import io.github.bropines.tailscaled.ui.PaneEmptyState
 import io.github.bropines.tailscaled.ui.PickerOption
 import io.github.bropines.tailscaled.ui.PickerSheet
+import io.github.bropines.tailscaled.ui.rememberWindowLayout
 
 private const val ANY = "\u0000any"
 
@@ -115,90 +122,135 @@ fun UsersTab(state: ConsoleState, vm: AdminConsoleViewModel?, now: Long = rememb
     val inviteAccess = state.inviteAccess(BackendFeature.USER_INVITES)
     val shareAccess = state.inviteAccess(BackendFeature.DEVICE_INVITES)
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        item(key = "problems") { LoadProblems(state.users, { vm?.refresh(ConsoleTab.USERS, force = true) }) }
-        item(key = "search") {
-            OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
-                placeholder = { Text(ctx.getString(R.string.admin_u_search)) },
-                leadingIcon = { Icon(Icons.Default.Search, null) },
-                trailingIcon = if (query.isNotEmpty()) {
-                    { IconButton(onClick = { query = "" }) { Icon(Icons.Default.Clear, ctx.getString(R.string.admin_u_search_clear)) } }
-                } else null,
-                singleLine = true,
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-        item(key = "filters") {
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
-                    selected = filter.role != null,
-                    onClick = { picking = "role" },
-                    label = { Text(filter.role?.let { ConsoleText.role(ctx, it) } ?: ctx.getString(R.string.admin_u_filter_role)) },
-                    trailingIcon = { Icon(Icons.Default.ArrowDropDown, null, Modifier.size(18.dp)) },
-                )
-                FilterChip(
-                    selected = filter.status != null,
-                    onClick = { picking = "status" },
-                    label = { Text(filter.status?.let { ConsoleText.status(ctx, it) } ?: ctx.getString(R.string.admin_u_filter_status)) },
-                    trailingIcon = { Icon(Icons.Default.ArrowDropDown, null, Modifier.size(18.dp)) },
+    // A large window shows a user beside the list, where a phone opens a sheet: the one picked
+    // while the tailnet still has them, the first row otherwise — never an empty pane while
+    // there is a row.
+    val window = rememberWindowLayout()
+    val twoPane = window.listDetail
+    val paneUser = if (!twoPane) null else all.firstOrNull { it.id == selectedUserId } ?: users.firstOrNull()
+
+    // One user, as the sheet over the list on a phone and as the pane beside it on a large window.
+    val userDetail: @Composable (ApiUser) -> Unit = { user ->
+        UserDetailSheet(
+            user = user,
+            own = state.isOwnUser(user),
+            canWrite = state.canWrite(AdminArea.USERS),
+            tailscale = (state.caps?.backend ?: BackendKind.TAILSCALE) == BackendKind.TAILSCALE,
+            now = now,
+            onDismiss = { selectedUserId = null },
+            onAction = { action, role ->
+                val c = vm?.usersTab ?: return@UserDetailSheet
+                when (action) {
+                    UserAction.APPROVE -> c.approve(user)
+                    UserAction.CHANGE_ROLE -> role?.let { c.setRole(user, it) }
+                    UserAction.SUSPEND -> c.suspend(user)
+                    UserAction.RESTORE -> c.restore(user)
+                    UserAction.DELETE -> c.delete(user)
+                }
+            },
+        )
+    }
+
+    val list: @Composable () -> Unit = {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            item(key = "problems") { LoadProblems(state.users, { vm?.refresh(ConsoleTab.USERS, force = true) }) }
+            item(key = "search") {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    placeholder = { Text(ctx.getString(R.string.admin_u_search)) },
+                    leadingIcon = { Icon(Icons.Default.Search, null) },
+                    trailingIcon = if (query.isNotEmpty()) {
+                        { IconButton(onClick = { query = "" }) { Icon(Icons.Default.Clear, ctx.getString(R.string.admin_u_search_clear)) } }
+                    } else null,
+                    singleLine = true,
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
-        }
-        if (inviteAccess != InviteAccess.NOT_SUPPORTED || shareAccess != InviteAccess.NOT_SUPPORTED) {
-            item(key = "invites") {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (inviteAccess != InviteAccess.NOT_SUPPORTED) {
-                        val open = state.userInvites.value?.size
-                        EntryCard(
-                            icon = Icons.Default.MailOutline,
-                            title = ctx.getString(R.string.admin_u_invites),
-                            subtitle = when {
-                                open != null -> ctx.resources.getQuantityString(R.plurals.admin_u_invites_open, open, open)
-                                state.userInvites.error != null -> ctx.getString(R.string.admin_u_invites_unavailable)
-                                else -> ctx.getString(R.string.admin_u_invites_loading)
-                            },
-                            modifier = Modifier.weight(1f),
-                        ) { invitesOpen = true }
-                    }
-                    if (shareAccess != InviteAccess.NOT_SUPPORTED) {
-                        EntryCard(
-                            icon = Icons.Default.Share,
-                            title = ctx.getString(R.string.admin_u_share_device),
-                            subtitle = ctx.getString(R.string.admin_u_share_device_sub),
-                            modifier = Modifier.weight(1f),
-                        ) { choosingDevice = true }
+            item(key = "filters") {
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = filter.role != null,
+                        onClick = { picking = "role" },
+                        label = { Text(filter.role?.let { ConsoleText.role(ctx, it) } ?: ctx.getString(R.string.admin_u_filter_role)) },
+                        trailingIcon = { Icon(Icons.Default.ArrowDropDown, null, Modifier.size(18.dp)) },
+                    )
+                    FilterChip(
+                        selected = filter.status != null,
+                        onClick = { picking = "status" },
+                        label = { Text(filter.status?.let { ConsoleText.status(ctx, it) } ?: ctx.getString(R.string.admin_u_filter_status)) },
+                        trailingIcon = { Icon(Icons.Default.ArrowDropDown, null, Modifier.size(18.dp)) },
+                    )
+                }
+            }
+            if (inviteAccess != InviteAccess.NOT_SUPPORTED || shareAccess != InviteAccess.NOT_SUPPORTED) {
+                item(key = "invites") {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (inviteAccess != InviteAccess.NOT_SUPPORTED) {
+                            val open = state.userInvites.value?.size
+                            EntryCard(
+                                icon = Icons.Default.MailOutline,
+                                title = ctx.getString(R.string.admin_u_invites),
+                                subtitle = when {
+                                    open != null -> ctx.resources.getQuantityString(R.plurals.admin_u_invites_open, open, open)
+                                    state.userInvites.error != null -> ctx.getString(R.string.admin_u_invites_unavailable)
+                                    else -> ctx.getString(R.string.admin_u_invites_loading)
+                                },
+                                modifier = Modifier.weight(1f),
+                            ) { invitesOpen = true }
+                        }
+                        if (shareAccess != InviteAccess.NOT_SUPPORTED) {
+                            EntryCard(
+                                icon = Icons.Default.Share,
+                                title = ctx.getString(R.string.admin_u_share_device),
+                                subtitle = ctx.getString(R.string.admin_u_share_device_sub),
+                                modifier = Modifier.weight(1f),
+                            ) { choosingDevice = true }
+                        }
                     }
                 }
             }
+            when {
+                all.isEmpty() && state.users.loading -> item(key = "loading") {
+                    Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) { LoadingIndicator() }
+                }
+                users.isEmpty() -> item(key = "empty") {
+                    EmptyState(
+                        Icons.Default.Group,
+                        ctx.getString(if (all.isEmpty()) R.string.admin_users_no_users else R.string.admin_u_none_match),
+                        Modifier.fillMaxWidth().padding(vertical = 32.dp),
+                        actionLabel = if (filter.isActive) ctx.getString(R.string.admin_u_clear_filters) else null,
+                        onAction = {
+                            query = ""
+                            roleWire = null
+                            statusWire = null
+                        },
+                    )
+                }
+                else -> items(users, key = { it.id }) { u ->
+                    UserRow(u, own = state.isOwnUser(u), now = now, shown = u.id == paneUser?.id) { selectedUserId = u.id }
+                }
+            }
         }
-        when {
-            all.isEmpty() && state.users.loading -> item(key = "loading") {
-                Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) { LoadingIndicator() }
-            }
-            users.isEmpty() -> item(key = "empty") {
-                EmptyState(
-                    Icons.Default.Group,
-                    ctx.getString(if (all.isEmpty()) R.string.admin_users_no_users else R.string.admin_u_none_match),
-                    Modifier.fillMaxWidth().padding(vertical = 32.dp),
-                    actionLabel = if (filter.isActive) ctx.getString(R.string.admin_u_clear_filters) else null,
-                    onAction = {
-                        query = ""
-                        roleWire = null
-                        statusWire = null
-                    },
-                )
-            }
-            else -> items(users, key = { it.id }) { u ->
-                UserRow(u, own = state.isOwnUser(u), now = now) { selectedUserId = u.id }
-            }
-        }
+    }
+    if (twoPane) {
+        ListDetailLayout(
+            window = window,
+            twoPane = true,
+            modifier = Modifier.fillMaxSize(),
+            list = list,
+            detail = {
+                if (paneUser != null) key(paneUser.id) { userDetail(paneUser) }
+                else PaneEmptyState(Icons.Default.Group, ctx.getString(R.string.tablet_admin_user_pane_empty))
+            },
+        )
+    } else {
+        list()
     }
 
     when (picking) {
@@ -224,26 +276,8 @@ fun UsersTab(state: ConsoleState, vm: AdminConsoleViewModel?, now: Long = rememb
         val user = all.firstOrNull { it.id == id }
         // Gone after a refresh (deleted, say): the sheet closes with it.
         LaunchedEffect(user == null) { if (user == null) selectedUserId = null }
-        if (user != null) {
-            UserDetailSheet(
-                user = user,
-                own = state.isOwnUser(user),
-                canWrite = state.canWrite(AdminArea.USERS),
-                tailscale = (state.caps?.backend ?: BackendKind.TAILSCALE) == BackendKind.TAILSCALE,
-                now = now,
-                onDismiss = { selectedUserId = null },
-                onAction = { action, role ->
-                    val c = vm?.usersTab ?: return@UserDetailSheet
-                    when (action) {
-                        UserAction.APPROVE -> c.approve(user)
-                        UserAction.CHANGE_ROLE -> role?.let { c.setRole(user, it) }
-                        UserAction.SUSPEND -> c.suspend(user)
-                        UserAction.RESTORE -> c.restore(user)
-                        UserAction.DELETE -> c.delete(user)
-                    }
-                },
-            )
-        }
+        // Two-pane, the pane shows them instead.
+        if (user != null && !twoPane) userDetail(user)
     }
 
     if (invitesOpen) {
@@ -293,15 +327,18 @@ internal fun presenceText(ctx: android.content.Context, u: ApiUser, now: Long): 
     else -> parseIso(u.lastSeen)?.time?.let { ctx.getString(R.string.admin_u_last_seen, relativeText(ctx, it - now)) }
 }
 
+/** One user; [shown] is the one whose details stand in the pane beside the list, outlined. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun UserRow(user: ApiUser, own: Boolean, now: Long, onClick: () -> Unit) {
+fun UserRow(user: ApiUser, own: Boolean, now: Long, shown: Boolean = false, onClick: () -> Unit) {
     val ctx = LocalContext.current
     val scheme = MaterialTheme.colorScheme
     Surface(
-        modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.large).clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.large).clickable(onClick = onClick)
+            .then(if (shown) Modifier.semantics { selected = true } else Modifier),
         shape = MaterialTheme.shapes.large,
         color = scheme.surfaceContainer,
+        border = if (shown) BorderStroke(2.dp, scheme.primary) else null,
     ) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             UserAvatar(user)

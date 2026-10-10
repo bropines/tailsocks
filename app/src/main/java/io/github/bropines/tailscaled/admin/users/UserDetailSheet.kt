@@ -25,6 +25,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -45,14 +46,17 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.admin.DetailRow
+import io.github.bropines.tailscaled.admin.InPaneWidth
 import io.github.bropines.tailscaled.admin.api.ApiUser
 import io.github.bropines.tailscaled.admin.api.UserRole
 import io.github.bropines.tailscaled.admin.console.ConsoleText
 import io.github.bropines.tailscaled.admin.formatExpires
-import io.github.bropines.tailscaled.admin.keys.LocaleSheet
+import io.github.bropines.tailscaled.admin.settings.Provide
+import io.github.bropines.tailscaled.admin.settings.rememberParentLocals
 import io.github.bropines.tailscaled.ui.HelpText
 import io.github.bropines.tailscaled.ui.PickerOption
 import io.github.bropines.tailscaled.ui.PickerSheet
+import io.github.bropines.tailscaled.ui.SheetOrPane
 
 /** Where ownership is transferred: the Users page of Tailscale's admin console. */
 const val OWNER_TRANSFER_URL = "https://login.tailscale.com/admin/users"
@@ -62,6 +66,7 @@ const val OWNER_TRANSFER_URL = "https://login.tailscale.com/admin/users"
  * The user the console acts as, a user of another tailnet and the owner get no actions, with
  * the reason in words; the safety runner refuses the first anyway.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun UserDetailSheet(
     user: ApiUser,
@@ -85,8 +90,13 @@ internal fun UserDetailSheet(
         )
     }
 
-    LocaleSheet(onDismiss) { _ ->
-        UserDetailContent(user, own, canWrite, tailscale, now, onAction, onPickRole = { rolePicker = true })
+    // A sheet over the list on a phone, the pane beside it on a large window (see UsersTab); the
+    // sheet's window answers in the system language, so the parent's is provided inside.
+    val parent = rememberParentLocals()
+    SheetOrPane(onDismiss) {
+        parent.Provide {
+            InPaneWidth { UserDetailContent(user, own, canWrite, tailscale, now, onAction, onPickRole = { rolePicker = true }) }
+        }
     }
 }
 

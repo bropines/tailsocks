@@ -55,6 +55,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -66,6 +67,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -84,8 +87,11 @@ import io.github.bropines.tailscaled.admin.console.ConsoleTab
 import io.github.bropines.tailscaled.admin.console.ConsoleText
 import io.github.bropines.tailscaled.ui.EmptyState
 import io.github.bropines.tailscaled.ui.HelpText
+import io.github.bropines.tailscaled.ui.ListDetailLayout
+import io.github.bropines.tailscaled.ui.PaneEmptyState
 import io.github.bropines.tailscaled.ui.PickerOption
 import io.github.bropines.tailscaled.ui.PickerSheet
+import io.github.bropines.tailscaled.ui.rememberWindowLayout
 
 /** What the list's controls do; the defaults do nothing, for previews. */
 class DevicesListActions(
@@ -103,6 +109,10 @@ class DevicesListActions(
  * The Devices tab: search, filter chips, the list in its order, and the selection that leads to
  * bulk tags. Reads the console's [state] and the tab's own [DevicesViewModel]; every change goes
  * to [vm]. In previews [vm] is null and [preview] stands in for the tab's state.
+ *
+ * On a window with room for two panes ([WindowLayout.listDetail]) [paneDetail] draws a device
+ * beside the list — the one [paneDeviceId] names, or the first row while nothing is picked —
+ * where a phone opens the dashboard's sheet.
  */
 @Composable
 fun DevicesTab(
@@ -111,7 +121,10 @@ fun DevicesTab(
     selfNodeId: String?,
     onDeviceClick: (ApiDevice) -> Unit,
     preview: DevicesUi = DevicesUi(),
+    paneDeviceId: String? = null,
+    paneDetail: (@Composable (ApiDevice) -> Unit)? = null,
 ) {
+    val ctx = LocalContext.current
     val dvm: DevicesViewModel? = if (vm != null) viewModel() else null
     val ui = dvm?.ui?.collectAsState()?.value ?: preview
     val now = if (LocalInspectionMode.current) PREVIEW_NOW else remember(state.devices.loadedAt) { System.currentTimeMillis() }
@@ -125,23 +138,45 @@ fun DevicesTab(
     LaunchedEffect(routersOn, state.devices.loadedAt) { if (routersOn && vm != null) dvm?.sweepRoutes(vm, all) }
     BackHandler(enabled = ui.selecting && ui.bulk == null) { dvm?.stopSelecting() }
 
-    DevicesListContent(
-        state = state,
-        ui = ui,
-        now = now,
-        selfNodeId = selfNodeId,
-        canSelect = state.canWrite(AdminArea.DEVICES),
-        actions = DevicesListActions(
-            onQuery = { dvm?.setQuery(it) },
-            onRetry = { vm?.refresh(ConsoleTab.DEVICES, force = true) },
-            onDeviceClick = onDeviceClick,
-            onStartSelecting = { dvm?.startSelecting() },
-            onStopSelecting = { dvm?.stopSelecting() },
-            onToggle = { dvm?.toggle(it.pathId) },
-            onSelectOnly = { dvm?.selectOnly(it) },
-            onBulkTags = { dvm?.openBulk() },
-        ),
-    )
+    val list: @Composable (shownId: String?) -> Unit = { shownId ->
+        DevicesListContent(
+            state = state,
+            ui = ui,
+            now = now,
+            selfNodeId = selfNodeId,
+            canSelect = state.canWrite(AdminArea.DEVICES),
+            actions = DevicesListActions(
+                onQuery = { dvm?.setQuery(it) },
+                onRetry = { vm?.refresh(ConsoleTab.DEVICES, force = true) },
+                onDeviceClick = onDeviceClick,
+                onStartSelecting = { dvm?.startSelecting() },
+                onStopSelecting = { dvm?.stopSelecting() },
+                onToggle = { dvm?.toggle(it.pathId) },
+                onSelectOnly = { dvm?.selectOnly(it) },
+                onBulkTags = { dvm?.openBulk() },
+            ),
+            shownId = shownId,
+        )
+    }
+    val window = rememberWindowLayout()
+    if (paneDetail != null && window.listDetail) {
+        // The device picked — from this list or from Needs attention — while the tailnet still
+        // has it, the first row of the list otherwise: a pane is never empty while there is one.
+        val shown = shownDevices(state, ui, now)
+        val device = all.firstOrNull { it.pathId == paneDeviceId } ?: shown.firstOrNull()
+        ListDetailLayout(
+            window = window,
+            twoPane = true,
+            modifier = Modifier.fillMaxSize(),
+            list = { list(device?.pathId) },
+            detail = {
+                if (device != null) key(device.pathId) { paneDetail(device) }
+                else PaneEmptyState(Icons.Default.Devices, ctx.getString(R.string.tablet_peers_pane_empty))
+            },
+        )
+    } else {
+        list(null)
+    }
 
     ui.bulk?.let { draft ->
         BulkTagsSheet(
@@ -156,7 +191,19 @@ fun DevicesTab(
     }
 }
 
-/** The tab without its ViewModel: what previews draw. */
+/** The devices the list shows, in its order: [ui]'s search, filters and sort over [state]'s devices. */
+@Composable
+private fun shownDevices(state: ConsoleState, ui: DevicesUi, now: Long): List<ApiDevice> {
+    val q = ui.query
+    val all = state.devices.value.orEmpty()
+    val serverFilters = DeviceQueries.serverFilters(q)
+    // The server's answer for the exact-match part, once it is there; the phone's filtering on top either way.
+    val source = if (serverFilters.isEmpty()) all else ui.served?.takeIf { it.filters == serverFilters }?.list?.value ?: all
+    val routesOf: (ApiDevice) -> DeviceRoutes? = { DeviceQueries.knownRoutes(it, state.routes[it.pathId]?.value) }
+    return remember(source, q, now, state.routes) { DeviceQueries.apply(source, q, now, routesOf) }
+}
+
+/** The tab without its ViewModel: what previews draw. [shownId] is the device in the pane beside the list, outlined. */
 @Composable
 fun DevicesListContent(
     state: ConsoleState,
@@ -165,15 +212,13 @@ fun DevicesListContent(
     selfNodeId: String?,
     canSelect: Boolean,
     actions: DevicesListActions,
+    shownId: String? = null,
 ) {
     val ctx = LocalContext.current
     val q = ui.query
     val all = state.devices.value.orEmpty()
-    val serverFilters = DeviceQueries.serverFilters(q)
-    // The server's answer for the exact-match part, once it is there; the phone's filtering on top either way.
-    val source = if (serverFilters.isEmpty()) all else ui.served?.takeIf { it.filters == serverFilters }?.list?.value ?: all
     val routesOf: (ApiDevice) -> DeviceRoutes? = { DeviceQueries.knownRoutes(it, state.routes[it.pathId]?.value) }
-    val shown = remember(source, q, now, state.routes) { DeviceQueries.apply(source, q, now, routesOf) }
+    val shown = shownDevices(state, ui, now)
     val myLogin = state.self.loginName?.takeIf { state.phoneInTailnet }
         ?: state.caps?.ownUserId?.let { id -> state.users.value?.firstOrNull { it.id == id }?.loginName }
 
@@ -205,6 +250,7 @@ fun DevicesListContent(
                         selecting = ui.selecting,
                         selected = d.pathId in ui.selected,
                         onClick = { if (ui.selecting) actions.onToggle(d) else actions.onDeviceClick(d) },
+                        shown = d.pathId == shownId,
                     )
                 }
             }
@@ -449,21 +495,33 @@ private fun SweepLine(sweep: RouteSweep, routersOn: Boolean) {
 
 /**
  * One device: its OS, name, presence in words, address, badges and tags. In selection a checkbox
- * leads, and a shared-in device cannot be picked — it is not this tailnet's to change.
+ * leads, and a shared-in device cannot be picked — it is not this tailnet's to change. [shown]
+ * is the device whose details stand in the pane beside the list, outlined as a picked one is —
+ * except while picking for bulk tags, when the outline means picked.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun DeviceCard(d: ApiDevice, badges: List<DeviceBadge>, now: Long, selecting: Boolean, selected: Boolean, onClick: () -> Unit) {
+internal fun DeviceCard(
+    d: ApiDevice,
+    badges: List<DeviceBadge>,
+    now: Long,
+    selecting: Boolean,
+    selected: Boolean,
+    onClick: () -> Unit,
+    shown: Boolean = false,
+) {
     val scheme = MaterialTheme.colorScheme
     val selectable = !d.isShared
+    val inPane = shown && !selecting
     val interaction = if (selecting) Modifier.toggleable(value = selected, enabled = selectable, role = Role.Checkbox) { onClick() }
     else Modifier.clickable(onClick = onClick)
     Surface(
-        modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.large).then(interaction),
+        modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.large).then(interaction)
+            .then(if (inPane) Modifier.semantics { this.selected = true } else Modifier),
         shape = MaterialTheme.shapes.large,
         // An outline rather than a fill: the badges and tags keep their contrast.
         color = scheme.surfaceContainer,
-        border = if (selected) BorderStroke(2.dp, scheme.primary) else null,
+        border = if (selected || inPane) BorderStroke(2.dp, scheme.primary) else null,
     ) {
         Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.Top) {
             if (selecting) {

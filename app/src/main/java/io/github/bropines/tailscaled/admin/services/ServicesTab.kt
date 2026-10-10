@@ -1,6 +1,7 @@
 package io.github.bropines.tailscaled.admin.services
 
 import android.content.Context
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -43,7 +44,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -63,11 +63,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.bropines.tailscaled.R
+import io.github.bropines.tailscaled.admin.InPaneWidth
 import io.github.bropines.tailscaled.admin.LoadProblems
 import io.github.bropines.tailscaled.admin.LoadingIndicatorCompat
 import io.github.bropines.tailscaled.admin.api.ApiDevice
@@ -76,6 +79,8 @@ import io.github.bropines.tailscaled.admin.api.ApiServiceHost
 import io.github.bropines.tailscaled.admin.console.Loadable
 import io.github.bropines.tailscaled.ui.EmptyState
 import io.github.bropines.tailscaled.ui.HelpText
+import io.github.bropines.tailscaled.ui.LocalInPane
+import io.github.bropines.tailscaled.ui.SheetOrPane
 import io.github.bropines.tailscaled.ui.rememberFullSheetState
 
 /**
@@ -90,6 +95,8 @@ fun ServicesTab(
     onRetry: () -> Unit,
     onServiceClick: (ApiService) -> Unit,
     onCreate: () -> Unit,
+    /** The service whose hosts stand in the pane beside the list, on a large window. */
+    shownName: String? = null,
 ) {
     val ctx = LocalContext.current
     val services = state.value.orEmpty().sortedBy { it.name }
@@ -114,7 +121,7 @@ fun ServicesTab(
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(services, key = { it.name }) { s -> ServiceCard(s) { onServiceClick(s) } }
+                items(services, key = { it.name }) { s -> ServiceCard(s, shown = s.name == shownName) { onServiceClick(s) } }
             }
         }
     }
@@ -133,15 +140,18 @@ internal fun SmallTag(text: String, container: Color, content: Color, mono: Bool
     }
 }
 
+/** One service; [shown] is the one whose hosts stand in the pane beside the list, outlined. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ServiceCard(service: ApiService, onClick: () -> Unit) {
+fun ServiceCard(service: ApiService, shown: Boolean = false, onClick: () -> Unit) {
     val ctx = LocalContext.current
     val scheme = MaterialTheme.colorScheme
     Surface(
-        modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.large).clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.large).clickable(onClick = onClick)
+            .then(if (shown) Modifier.semantics { selected = true } else Modifier),
         shape = MaterialTheme.shapes.large,
         color = scheme.surfaceContainer,
+        border = if (shown) BorderStroke(2.dp, scheme.primary) else null,
     ) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.Top) {
             Box(
@@ -191,7 +201,10 @@ fun configuredText(ctx: Context, configured: String?): String? = when (configure
     else -> configured.replace('_', ' ').replace('-', ' ')
 }
 
-/** One service and its hosts. Strings are resolved here: the sheet's window ignores the app's language. */
+/**
+ * One service and its hosts: a sheet over the list on a phone, the pane beside it on a large
+ * window. Strings are resolved here: the sheet's window ignores the app's language.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ServiceSheet(
@@ -208,8 +221,8 @@ fun ServiceSheet(
     val sheetState = rememberFullSheetState()
     LaunchedEffect(service.name) { if (hosts == null) onLoadHosts() }
     val ctx = LocalContext.current
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        ServiceSheetContent(ctx, service, hosts, allDevices, canWrite, onLoadHosts, onSetHost, onEdit, onDelete)
+    SheetOrPane(onDismiss = onDismiss, sheetState = sheetState) {
+        InPaneWidth { ServiceSheetContent(ctx, service, hosts, allDevices, canWrite, onLoadHosts, onSetHost, onEdit, onDelete) }
     }
 }
 
@@ -229,7 +242,9 @@ fun ServiceSheetContent(
 ) {
     val scheme = MaterialTheme.colorScheme
     Column(
-        Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 24.dp).navigationBarsPadding(),
+        Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 24.dp)
+            // A pane stands inside the screen's insets already; a sheet reaches the bottom edge.
+            .then(if (LocalInPane.current) Modifier else Modifier.navigationBarsPadding()),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
