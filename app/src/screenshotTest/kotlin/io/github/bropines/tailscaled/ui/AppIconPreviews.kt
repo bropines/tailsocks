@@ -1,5 +1,6 @@
 package io.github.bropines.tailscaled.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
@@ -7,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Translate
+import androidx.compose.foundation.shape.ZeroCornerSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -49,10 +51,10 @@ fun AppIconSheetDark() = AppIconSample(dark = true)
 
 @Composable
 private fun AsTabletSheet(content: @Composable () -> Unit) = AdaptiveShowcase {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.BottomCenter) {
         Surface(
             color = MaterialTheme.colorScheme.surfaceContainerLow,
-            shape = MaterialTheme.shapes.extraLarge,
+            shape = MaterialTheme.shapes.extraLarge.copy(bottomStart = ZeroCornerSize, bottomEnd = ZeroCornerSize),
             modifier = Modifier.width(640.dp)
         ) { content() }
     }
