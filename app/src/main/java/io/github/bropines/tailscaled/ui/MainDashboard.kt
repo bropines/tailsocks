@@ -344,22 +344,28 @@ private fun GlanceMessage(text: String, modifier: Modifier) {
  * list to scroll, and this is not one — the Peers screen is. Unbounded, everything is placed.
  */
 @Composable
-private fun FittingGrid(modifier: Modifier = Modifier, spacing: Dp = 4.dp, content: @Composable () -> Unit) {
+private fun FittingGrid(
+    modifier: Modifier = Modifier,
+    columnGap: Dp = 16.dp,
+    rowGap: Dp = 4.dp,
+    content: @Composable () -> Unit,
+) {
     Layout(content = content, modifier = modifier) { measurables, constraints ->
-        val gap = spacing.roundToPx()
+        val hGap = columnGap.roundToPx()
+        val vGap = rowGap.roundToPx()
         val width = constraints.maxWidth
-        val columns = columnsFor(width.toDp(), GLANCE_MIN_CELL, spacing, maxColumns = 3)
-        val cell = ((width - gap * (columns - 1)) / columns).coerceAtLeast(0)
+        val columns = columnsFor(width.toDp(), GLANCE_MIN_CELL, columnGap, maxColumns = 3)
+        val cell = ((width - hGap * (columns - 1)) / columns).coerceAtLeast(0)
         val placed = mutableListOf<Triple<Placeable, Int, Int>>()
         var y = 0
         for (row in measurables.chunked(columns)) {
             val cells = row.map { it.measure(Constraints.fixedWidth(cell)) }
             val height = cells.maxOf { it.height }
             if (constraints.hasBoundedHeight && y + height > constraints.maxHeight) break
-            cells.forEachIndexed { i, p -> placed += Triple(p, i * (cell + gap), y) }
-            y += height + gap
+            cells.forEachIndexed { i, p -> placed += Triple(p, i * (cell + hGap), y) }
+            y += height + vGap
         }
-        val height = if (constraints.hasBoundedHeight) constraints.maxHeight else (y - gap).coerceAtLeast(0)
+        val height = if (constraints.hasBoundedHeight) constraints.maxHeight else (y - vGap).coerceAtLeast(0)
         layout(width, height) { placed.forEach { (p, x, top) -> p.placeRelative(x, top) } }
     }
 }

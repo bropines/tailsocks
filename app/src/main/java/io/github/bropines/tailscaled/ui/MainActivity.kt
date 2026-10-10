@@ -592,7 +592,7 @@ fun MainScreen(
         )
     }
     // The other devices, from the same status read as the summary: what a large window's
-    // devices card lists (MainDashboard.kt). A phone has no such card and never reads it.
+    // devices card lists (MainDashboard.kt). A phone has no such card and shows none of it.
     var tailnetPeers by remember {
         mutableStateOf(
             demo?.statusJson?.let { json ->
@@ -1589,7 +1589,7 @@ fun MainScreen(
             // status and the half lying flat holds the menu, under the thumbs.
             val fold = rememberFold()
             val window = rememberWindowLayout()
-            val insetStart =paddingValues.calculateStartPadding(androidx.compose.ui.platform.LocalLayoutDirection.current)
+            val insetStart = paddingValues.calculateStartPadding(androidx.compose.ui.platform.LocalLayoutDirection.current)
             val insetTop = paddingValues.calculateTopPadding()
             // Two panes want width and a window lying on its side. Upright, a
             // tablet's 600dp is one comfortable column; split in two it was a
