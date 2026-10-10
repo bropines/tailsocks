@@ -60,6 +60,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
@@ -72,6 +73,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionOnScreen
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -215,6 +217,10 @@ internal fun TailcatAddButtonFace(
 ) {
     val scheme = MaterialTheme.colorScheme
     val printColors = remember(scheme) { arrayOf(scheme.primary, scheme.tertiary, scheme.secondary) }
+    val density = LocalDensity.current
+    val ring = remember(density) { Stroke(width = with(density) { 2.5.dp.toPx() }) }
+    // Only a combo still going holds a charge: a lapsed one starts again from one.
+    val live = paw && comboShown
     Column(
         horizontalAlignment = Alignment.End,
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -236,15 +242,18 @@ internal fun TailcatAddButtonFace(
                 .size(56.dp)
                 .drawBehind {
                     val t = now.floatValue
-                    val charge = if (paw) PawHype.charge(combo, t) else 0f
-                    if (charge > 0f) drawCharge(charge, t, scheme.primary)
+                    val charge = if (live) PawHype.charge(combo, t) else 0f
+                    if (charge > 0f) drawCharge(charge, t, scheme.primary, ring)
                 }
-                .graphicsLayer { translationX = if (paw) PawHype.tremble(combo, now.floatValue).dp.toPx() else 0f }
+                .graphicsLayer { translationX = if (live) PawHype.tremble(combo, now.floatValue).dp.toPx() else 0f }
         ) {
+            // One tap from the goal the button runs hot.
+            val charged = live && combo >= PawHype.GOAL - 1
+            val container = if (charged) scheme.primary else FloatingActionButtonDefaults.containerColor
             Surface(
                 shape = FloatingActionButtonDefaults.shape,
-                color = FloatingActionButtonDefaults.containerColor,
-                contentColor = contentColorFor(FloatingActionButtonDefaults.containerColor),
+                color = container,
+                contentColor = contentColorFor(container),
                 shadowElevation = 6.dp
             ) {
                 Box(
@@ -341,7 +350,7 @@ private fun DrawScope.drawPrints(bursts: PawBursts, now: Float, from: Offset, co
 private fun DrawScope.drawPrint(x: Float, y: Float, size: Float, heading: Float, color: Color) {
     val c = cos(heading)
     val s = sin(heading)
-    drawOval(color, Offset(x - size, y - size * 0.82f), androidx.compose.ui.geometry.Size(size * 2f, size * 1.64f))
+    drawOval(color, Offset(x - size, y - size * 0.82f), Size(size * 2f, size * 1.64f))
     for (t in 0..3) {
         val tx = (t - 1.5f) * size * 0.78f
         val ty = -size * (if (t == 0 || t == 3) 1.25f else 1.6f)
@@ -350,13 +359,9 @@ private fun DrawScope.drawPrint(x: Float, y: Float, size: Float, heading: Float,
 }
 
 /** One tap from the goal: a ring breathes round the button and sparks are drawn into it. */
-private fun DrawScope.drawCharge(charge: Float, now: Float, color: Color) {
+private fun DrawScope.drawCharge(charge: Float, now: Float, color: Color, ring: Stroke) {
     val dp = density
-    drawCircle(
-        color.copy(alpha = 0.25f + 0.3f * charge),
-        radius = (34f + 5f * charge) * dp,
-        style = Stroke(width = (2f + 1.5f * charge) * dp)
-    )
+    drawCircle(color.copy(alpha = 0.25f + 0.35f * charge), radius = (34f + 5f * charge) * dp, style = ring)
     for (j in 0 until 8) {
         val phase = (now / 520f + j / 8f) % 1f
         val a = (j * 45f + now * 0.12f) * (PI / 180).toFloat()

@@ -97,6 +97,21 @@ fun PawStripCycle4Amoled() = Filmstrip(4, Look.AMOLED)
 @PreviewTest @Preview(name = "strip-calm", device = STRIP) @Composable
 fun PawStripCalm() = Filmstrip(3, Look.DARK, calm = true)
 
+/** The fast run every other frame at 60 Hz: does the turn read as a turn at full speed? */
+@PreviewTest @Preview(name = "strip-fast-run", device = "spec:width=790dp,height=1080dp,dpi=160") @Composable
+fun PawStripFastRun() = Themed(Look.DARK) {
+    Column(Modifier.padding(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        for (row in 0..4) Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            for (col in 0..4) {
+                val local = PawShow.RUN_START[1] - 20f + (row * 5 + col) * 1000f / 30f
+                val s = PawShow.sceneAt(at(4, local))
+                val sung = if (s.letter >= 0) " " + PawShow.WORD[s.letter] else ""
+                Frame(at(4, local), "${local.toInt()}$sung ${s.angle.toInt()}°", width = 150.dp, height = 190.dp)
+            }
+        }
+    }
+}
+
 private val INTRO_FRAMES = floatArrayOf(0f, 80f, 160f, 240f, 300f, 360f, 420f, 450f, 520f, 640f, 740f, 880f)
 
 @PreviewTest @Preview(name = "strip-intro", device = "spec:width=790dp,height=1110dp,dpi=160") @Composable
