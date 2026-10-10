@@ -89,7 +89,7 @@ internal fun MainDashboard(
     menu: @Composable (columns: Int, cardHeight: Dp) -> Unit,
     peers: List<PeerData>?,
     connected: Boolean,
-    onOpenPeers: () -> Unit,
+    onOpenPeers: (peerId: String?) -> Unit,
 ) {
     val margin = window.margin
     val inner = width - margin * 2
@@ -270,7 +270,8 @@ internal fun DevicesGlance(
     connected: Boolean,
     pings: Map<String, String>,
     nowMillis: Long,
-    onOpenPeers: () -> Unit,
+    /** Null for the list as a whole, a node's id for its details. */
+    onOpenPeers: (peerId: String?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // The live state card's look: the two stand side by side on the dashboard.
@@ -299,7 +300,7 @@ internal fun DevicesGlance(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
                 )
-                TextButton(onClick = onOpenPeers) {
+                TextButton(onClick = { onOpenPeers(null) }) {
                     Text(stringResource(R.string.tablet_main_peers_all), maxLines = 1)
                     Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, modifier = Modifier.size(18.dp))
                 }
@@ -322,7 +323,7 @@ internal fun DevicesGlance(
                                 nowMillis = nowMillis,
                                 selectedLabel = selectedLabel,
                                 offeredLabel = offeredLabel,
-                                onClick = onOpenPeers,
+                                onClick = { onOpenPeers(peer.id) },
                             )
                         }
                     }

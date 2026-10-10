@@ -74,7 +74,13 @@ class PeersActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { TailSocksTheme { PeersScreen(onBack = { finish() }) } }
+        val peerId = intent.getStringExtra(EXTRA_PEER_ID)
+        setContent { TailSocksTheme { PeersScreen(onBack = { finish() }, initialPeerId = peerId) } }
+    }
+
+    companion object {
+        /** A node's id: the screen opens on its details (the home dashboard's device rows). */
+        const val EXTRA_PEER_ID = "peer_id"
     }
 }
 

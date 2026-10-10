@@ -1640,7 +1640,9 @@ fun MainScreen(
                     menu = { columns, rowHeight -> menuPane(columns, rowHeight) },
                     peers = tailnetPeers.takeIf { proxyState != "STOPPED" },
                     connected = proxyState == "ACTIVE" || proxyState == "STARTING",
-                    onOpenPeers = { context.startActivity(Intent(context, PeersActivity::class.java)) },
+                    onOpenPeers = { id ->
+                        context.startActivity(Intent(context, PeersActivity::class.java).apply { id?.let { putExtra(PeersActivity.EXTRA_PEER_ID, it) } })
+                    },
                 )
             } else if (wideEnoughForTwoPanes) {
                 // The status column is clamped: a share of the width so it
