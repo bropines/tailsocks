@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tablet_main_peers_all">Все узлы</string>
+    <string name="tablet_main_peers_waiting">Ждём список устройств…</string>
+    <string name="tablet_main_peers_offline">Устройства сети появятся здесь, когда вы подключитесь</string>
+    <string name="tablet_main_peers_none">Других устройств в этой сети пока нет</string>
+</resources>

@@ -591,6 +591,15 @@ fun MainScreen(
             }
         )
     }
+    // The other devices, from the same status read as the summary: what a large window's
+    // devices card lists (MainDashboard.kt). A phone has no such card and never reads it.
+    var tailnetPeers by remember {
+        mutableStateOf(
+            demo?.statusJson?.let { json ->
+                runCatching { listablePeers(AppJson.decodeFromString<StatusResponse>(json)) }.getOrNull()
+            }
+        )
+    }
     var reconnectingRelays by remember { mutableStateOf(false) }
     // Off for anyone who prefers the screen as it was: on a phone of the
     // right size everything, menu included, fits without scrolling, and the
@@ -752,15 +761,21 @@ fun MainScreen(
                     lastSummaryAt = summaryNow
                     val ipForExit = exitNodeIp
                     scope.launch(Dispatchers.IO) {
-                        val built = runCatching {
+                        val status = runCatching {
                             val json = appctr.Appctr.getStatusFromAPI()
                             if (json.isBlank() || json.startsWith("Error")) null
-                            else summarize(AppJson.decodeFromString<StatusResponse>(json), ipForExit)
+                            else AppJson.decodeFromString<StatusResponse>(json)
                         }.getOrNull()
-                        withContext(Dispatchers.Main) { connectionSummary = built }
+                        val built = status?.let { runCatching { summarize(it, ipForExit) }.getOrNull() }
+                        val peers = status?.let { runCatching { listablePeers(it) }.getOrNull() }
+                        withContext(Dispatchers.Main) {
+                            connectionSummary = built
+                            tailnetPeers = peers
+                        }
                     }
                 } else if (backendState != "Running") {
                     connectionSummary = null
+                    tailnetPeers = null
                 }
 
                 // Background avatar sync
@@ -1573,7 +1588,8 @@ fun MainScreen(
             // is a pane; half open like a laptop, the upright half shows the
             // status and the half lying flat holds the menu, under the thumbs.
             val fold = rememberFold()
-            val insetStart = paddingValues.calculateStartPadding(androidx.compose.ui.platform.LocalLayoutDirection.current)
+            val window = rememberWindowLayout()
+            val insetStart =paddingValues.calculateStartPadding(androidx.compose.ui.platform.LocalLayoutDirection.current)
             val insetTop = paddingValues.calculateTopPadding()
             // Two panes want width and a window lying on its side. Upright, a
             // tablet's 600dp is one comfortable column; split in two it was a
@@ -1611,6 +1627,21 @@ fun MainScreen(
                         menuPane(menuColumns, cardHeight)
                     }
                 }
+            } else if (!window.isPhone && fold == null) {
+                // Not a phone either way up, and no fold to lay out around: a tablet, a
+                // desktop window. A dashboard that fills it (MainDashboard.kt) instead of
+                // the phone's column or pair of panes parked at the top of the window. The
+                // branches around this one are a phone's and a foldable's, as they were.
+                MainDashboard(
+                    window = window,
+                    width = maxWidth,
+                    height = maxHeight,
+                    status = { statusPane(false) },
+                    menu = { columns, rowHeight -> menuPane(columns, rowHeight) },
+                    peers = tailnetPeers.takeIf { proxyState != "STOPPED" },
+                    connected = proxyState == "ACTIVE" || proxyState == "STARTING",
+                    onOpenPeers = { context.startActivity(Intent(context, PeersActivity::class.java)) },
+                )
             } else if (wideEnoughForTwoPanes) {
                 // The status column is clamped: a share of the width so it
                 // keeps its proportion in landscape, but never the half of a
