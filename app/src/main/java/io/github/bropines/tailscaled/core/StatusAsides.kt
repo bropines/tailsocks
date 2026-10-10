@@ -64,6 +64,6 @@ object StatusAsides {
         count(context, SWITCHES).takeIf { it > 0 }
             ?.let { add(context.getString(R.string.aside_count_switches, it)) }
         count(context, SPINS).takeIf { it > 1 }
-            ?.let { add(context.getString(R.string.aside_count_spins, it)) }
+            ?.let { add(context.resources.getQuantityString(R.plurals.aside_count_spins, it, it)) }
     }
 }

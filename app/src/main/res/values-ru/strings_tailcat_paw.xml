@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="tailcat_paw_show_cd">Кот крутится под «у-и-и-а-и»</string>
-    <string name="aside_count_spins">Кота раскручивали %1$d раз. У И И А И.</string>
+    <plurals name="aside_count_spins">
+        <item quantity="one">Кота раскручивали %1$d раз. У И И А И.</item>
+        <item quantity="few">Кота раскручивали %1$d раза. У И И А И.</item>
+        <item quantity="many">Кота раскручивали %1$d раз. У И И А И.</item>
+        <item quantity="other">Кота раскручивали %1$d раза. У И И А И.</item>
+    </plurals>
 </resources>
