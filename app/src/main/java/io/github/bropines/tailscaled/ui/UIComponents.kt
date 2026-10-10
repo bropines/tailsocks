@@ -29,6 +29,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
@@ -42,6 +43,10 @@ import androidx.compose.foundation.gestures.horizontalDrag
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
+import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.util.VelocityTracker
@@ -65,6 +70,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.draw.clip
@@ -136,6 +142,8 @@ private const val PEER_COPIED_ACK_MS = 1500L
 /** The largest font scale at which Send file and Copy as… still share a row. Android's next
  *  step up is 1.5, where one word of either label no longer fits half a 360dp phone. */
 private const val PEER_ACTIONS_SIDE_BY_SIDE_MAX_FONT_SCALE = 1.3f
+/** The narrowest a details card gets in a pane before the pane holds the cards in one column. */
+private val PEER_PANE_CARD_MIN_WIDTH = 340.dp
 
 /** Material's spatial spring, told what "finished" means in pixels. Every field but the
  *  threshold is the scheme's, so the motion is still the theme's and not this file's; a spec
@@ -759,6 +767,9 @@ internal fun PeerItem(
     nowMillis: Long = System.currentTimeMillis(),
     onLongClick: (() -> Unit)? = null,
     onLongClickLabel: String? = null,
+    /** The row whose details the pane beside the list is showing; only a two-pane layout
+     *  has one. Outlined, so this device's tinted row can be the selected one as well. */
+    selected: Boolean = false,
     onClick: () -> Unit
 ) {
     val context = LocalContext.current
@@ -790,9 +801,13 @@ internal fun PeerItem(
                 onLongClick = onLongClick,
                 onClick = onClick
             )
-            .semantics { stateDescription = spokenState },
+            .semantics {
+                stateDescription = spokenState
+                if (selected) this.selected = true
+            },
         shape = shape,
-        color = if (isSelf) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer
+        color = if (isSelf) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer,
+        border = if (selected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
     ) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             val (osIcon, osColor) = getOsVisuals(peer.os)
@@ -1137,7 +1152,11 @@ fun PeerDetailsModal(
     onCopyAsClick: ((PeerData) -> Unit)? = null,
     /** Turn to a peer this sheet was handed. By the time this is called the page-turn has
      *  already carried that peer's content to the centre of the sheet. */
-    onSelectPeer: (PeerData) -> Unit = {}
+    onSelectPeer: (PeerData) -> Unit = {},
+    /** Drawn as the detail pane beside the list (see ListDetailLayout) instead of as a sheet
+     *  over it: the same pages and the same page-turn, filling the pane, and on a pane wide
+     *  enough the cards in two columns. */
+    inPane: Boolean = LocalInPane.current
 ) {
     val page = peerAt(0) ?: return
     val peer = page.peer
@@ -1293,202 +1312,216 @@ fun PeerDetailsModal(
     /** An arrow exists exactly when there is a page to turn to, and turns to that page. */
     fun turnTo(target: PeerPage?): (() -> Unit)? = target?.let { { onSelectPeer(it.peer) } }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState
-    ) {
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .heightIn(max = maxHeight)
-                // The page leaving stops at the edge of the sheet, which on a tablet is
-                // narrower than the window it sits in.
-                .clipToBounds()
-                // Keyed on nothing: a peer change, or a refresh that flips whether there is
-                // a peer on either side, must not restart this node — a restart in the middle
-                // of a drag leaves horizontalDrag hanging and the content stuck off-centre.
-                // The neighbours are read through rememberUpdatedState instead.
-                .pointerInput(Unit) {
-                    // The sheet content, not the window: ModalBottomSheet caps its width at
-                    // SheetMaxWidth, so on a tablet the window is much the wider of the two.
-                    fun pageWidth(): Float = size.width.toFloat().takeIf { it > 0f } ?: 1f
-                    // A page and a bit is all there is to show, so the finger cannot drag
-                    // the current page past the arriving one and leave the sheet empty.
-                    // Which neighbour belongs on screen at a given offset: the current page
-                    // moving right uncovers the sheet's left half, which is where the
-                    // previous peer lives, and the other way round. At rest the step stands
-                    // as it is — there is no side to fill.
-                    fun stepFor(offset: Float): Int = when {
-                        offset > 0f -> -1
-                        offset < 0f -> 1
-                        else -> incomingStep
+    // The page leaving stops at the edge of the sheet, which on a tablet is narrower than the
+    // window it sits in.
+    val turns = Modifier
+        .clipToBounds()
+        // Keyed on nothing: a peer change, or a refresh that flips whether there is a peer
+        // on either side, must not restart this node — a restart in the middle of a drag
+        // leaves horizontalDrag hanging and the content stuck off-centre. The neighbours are
+        // read through rememberUpdatedState instead.
+        .pointerInput(Unit) {
+            // The sheet content, not the window: ModalBottomSheet caps its width at
+            // SheetMaxWidth, so on a tablet the window is much the wider of the two.
+            fun pageWidth(): Float = size.width.toFloat().takeIf { it > 0f } ?: 1f
+            // A page and a bit is all there is to show, so the finger cannot drag
+            // the current page past the arriving one and leave the sheet empty.
+            // Which neighbour belongs on screen at a given offset: the current page
+            // moving right uncovers the sheet's left half, which is where the
+            // previous peer lives, and the other way round. At rest the step stands
+            // as it is — there is no side to fill.
+            fun stepFor(offset: Float): Int = when {
+                offset > 0f -> -1
+                offset < 0f -> 1
+                else -> incomingStep
+            }
+            fun place(travelled: Float) {
+                val offset = resistedOffset(travelled).coerceIn(-pageWidth(), pageWidth())
+                swipeOffset = offset
+                val step = stepFor(offset)
+                if (step != incomingStep) incomingStep = step
+            }
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false)
+                var overSlop = 0f
+                // The gesture is claimed only once the finger is clearly moving
+                // sideways — twice as much horizontally as vertically. A diagonal
+                // drag is left unconsumed, so the ModalBottomSheet keeps its own
+                // drag-to-dismiss; the detector keeps asking, so a drag that
+                // straightens out later is still picked up.
+                val drag = awaitTouchSlopOrCancellation(down.id) { change, over ->
+                    if (abs(over.x) > abs(over.y) * PEER_SWIPE_DIRECTION_RATIO) {
+                        change.consume()
+                        overSlop = over.x
                     }
-                    fun place(travelled: Float) {
-                        val offset = resistedOffset(travelled).coerceIn(-pageWidth(), pageWidth())
-                        swipeOffset = offset
-                        val step = stepFor(offset)
-                        if (step != incomingStep) incomingStep = step
+                }
+                if (drag != null) {
+                    // A settle still in flight is abandoned where it stands. Both
+                    // pages are on screen either way, so there is nothing to finish
+                    // or unwind: the finger picks the motion up from there.
+                    settleJob?.cancel()
+                    var travelled = swipeOffset + overSlop
+                    val tracker = VelocityTracker()
+                    tracker.addPosition(drag.uptimeMillis, drag.position)
+                    place(travelled)
+                    val finished = horizontalDrag(drag.id) { change ->
+                        travelled = (travelled + change.positionChange().x)
+                            .coerceIn(-pageWidth(), pageWidth())
+                        tracker.addPosition(change.uptimeMillis, change.position)
+                        change.consume()
+                        place(travelled)
                     }
-                    awaitEachGesture {
-                        val down = awaitFirstDown(requireUnconsumed = false)
-                        var overSlop = 0f
-                        // The gesture is claimed only once the finger is clearly moving
-                        // sideways — twice as much horizontally as vertically. A diagonal
-                        // drag is left unconsumed, so the ModalBottomSheet keeps its own
-                        // drag-to-dismiss; the detector keeps asking, so a drag that
-                        // straightens out later is still picked up.
-                        val drag = awaitTouchSlopOrCancellation(down.id) { change, over ->
-                            if (abs(over.x) > abs(over.y) * PEER_SWIPE_DIRECTION_RATIO) {
-                                change.consume()
-                                overSlop = over.x
-                            }
-                        }
-                        if (drag != null) {
-                            // A settle still in flight is abandoned where it stands. Both
-                            // pages are on screen either way, so there is nothing to finish
-                            // or unwind: the finger picks the motion up from there.
-                            settleJob?.cancel()
-                            var travelled = swipeOffset + overSlop
-                            val tracker = VelocityTracker()
-                            tracker.addPosition(drag.uptimeMillis, drag.position)
-                            place(travelled)
-                            val finished = horizontalDrag(drag.id) { change ->
-                                travelled = (travelled + change.positionChange().x)
-                                    .coerceIn(-pageWidth(), pageWidth())
-                                tracker.addPosition(change.uptimeMillis, change.position)
-                                change.consume()
-                                place(travelled)
-                            }
-                            // Distance or velocity: a fast flick that never covers the
-                            // threshold is the natural way to page through a list, and a
-                            // slow deliberate crawl past it is the other one.
-                            val velocity = tracker.calculateVelocity().x
-                            val direction = when {
-                                abs(velocity) > flingVelocityPx -> if (velocity > 0f) 1 else -1
-                                travelled > swipeThresholdPx -> 1
-                                travelled < -swipeThresholdPx -> -1
-                                else -> 0
-                            }
-                            val target = when {
-                                !finished -> null
-                                direction > 0 -> currentPrev
-                                direction < 0 -> currentNext
-                                else -> null
-                            }
-                            val exitTo = if (direction > 0) pageWidth() else -pageWidth()
-                            // A rubber-banded page moved at a quarter of the finger's speed,
-                            // so it must not be handed the whole of it on release.
-                            val resisted = (swipeOffset > 0f && currentPrev == null) ||
-                                (swipeOffset < 0f && currentNext == null)
-                            val settleVelocity = if (resisted) velocity * PEER_SWIPE_RESISTANCE else velocity
-                            // The page drawn alongside now follows the direction that was
-                            // committed, not whatever the last place() wrote. A drag one way
-                            // ended by a fast flick back the other decides on the velocity
-                            // before it has crossed zero, so the two disagree exactly there:
-                            // without this the neighbour leaves by the same edge as the page
-                            // it is replacing and the sheet turns blank for the whole settle.
-                            if (target != null) incomingStep = -direction
-                            // Settled from the composition scope, not this one: this scope
-                            // dies with the gesture, and the settle outlives the finger.
-                            settleJob = scope.launch {
-                                if (target != null) {
-                                    if (animateSwipe) {
-                                        // Carried on from where the finger left the page, at
-                                        // the speed it left it — one motion, not a new one.
-                                        // The step is re-derived every frame, not frozen at
-                                        // release: these springs are underdamped and carry
-                                        // the finger's velocity, so the page regularly swings
-                                        // back across zero on its way out. Whichever half of
-                                        // the sheet it uncovers has the matching neighbour in
-                                        // it, all the way to the end.
-                                        animate(swipeOffset, exitTo, settleVelocity, currentTurnSpec) { value, _ ->
-                                            swipeOffset = value
-                                            val step = stepFor(value)
-                                            if (step != incomingStep) incomingStep = step
-                                        }
-                                    }
-                                    // The arriving page is already centred, so this moves
-                                    // nothing: it makes that page the current one and zeroes
-                                    // the offset it is drawn at. One snapshot, so no frame
-                                    // can fall between the two and show the old page back at
-                                    // the centre.
-                                    Snapshot.withMutableSnapshot {
-                                        swipeOffset = 0f
-                                        incomingStep = 0
-                                        currentOnSelect(target.peer)
-                                    }
-                                } else {
-                                    if (animateSwipe) {
-                                        animate(swipeOffset, 0f, settleVelocity, currentReturnSpec) { value, _ ->
-                                            swipeOffset = value
-                                            val step = stepFor(value)
-                                            if (step != incomingStep) incomingStep = step
-                                        }
-                                    }
-                                    swipeOffset = 0f
-                                    incomingStep = 0
+                    // Distance or velocity: a fast flick that never covers the
+                    // threshold is the natural way to page through a list, and a
+                    // slow deliberate crawl past it is the other one.
+                    val velocity = tracker.calculateVelocity().x
+                    val direction = when {
+                        abs(velocity) > flingVelocityPx -> if (velocity > 0f) 1 else -1
+                        travelled > swipeThresholdPx -> 1
+                        travelled < -swipeThresholdPx -> -1
+                        else -> 0
+                    }
+                    val target = when {
+                        !finished -> null
+                        direction > 0 -> currentPrev
+                        direction < 0 -> currentNext
+                        else -> null
+                    }
+                    val exitTo = if (direction > 0) pageWidth() else -pageWidth()
+                    // A rubber-banded page moved at a quarter of the finger's speed,
+                    // so it must not be handed the whole of it on release.
+                    val resisted = (swipeOffset > 0f && currentPrev == null) ||
+                        (swipeOffset < 0f && currentNext == null)
+                    val settleVelocity = if (resisted) velocity * PEER_SWIPE_RESISTANCE else velocity
+                    // The page drawn alongside now follows the direction that was
+                    // committed, not whatever the last place() wrote. A drag one way
+                    // ended by a fast flick back the other decides on the velocity
+                    // before it has crossed zero, so the two disagree exactly there:
+                    // without this the neighbour leaves by the same edge as the page
+                    // it is replacing and the sheet turns blank for the whole settle.
+                    if (target != null) incomingStep = -direction
+                    // Settled from the composition scope, not this one: this scope
+                    // dies with the gesture, and the settle outlives the finger.
+                    settleJob = scope.launch {
+                        if (target != null) {
+                            if (animateSwipe) {
+                                // Carried on from where the finger left the page, at
+                                // the speed it left it — one motion, not a new one.
+                                // The step is re-derived every frame, not frozen at
+                                // release: these springs are underdamped and carry
+                                // the finger's velocity, so the page regularly swings
+                                // back across zero on its way out. Whichever half of
+                                // the sheet it uncovers has the matching neighbour in
+                                // it, all the way to the end.
+                                animate(swipeOffset, exitTo, settleVelocity, currentTurnSpec) { value, _ ->
+                                    swipeOffset = value
+                                    val step = stepFor(value)
+                                    if (step != incomingStep) incomingStep = step
                                 }
                             }
+                            // The arriving page is already centred, so this moves
+                            // nothing: it makes that page the current one and zeroes
+                            // the offset it is drawn at. One snapshot, so no frame
+                            // can fall between the two and show the old page back at
+                            // the centre.
+                            Snapshot.withMutableSnapshot {
+                                swipeOffset = 0f
+                                incomingStep = 0
+                                currentOnSelect(target.peer)
+                            }
+                        } else {
+                            if (animateSwipe) {
+                                animate(swipeOffset, 0f, settleVelocity, currentReturnSpec) { value, _ ->
+                                    swipeOffset = value
+                                    val step = stepFor(value)
+                                    if (step != incomingStep) incomingStep = step
+                                }
+                            }
+                            swipeOffset = 0f
+                            incomingStep = 0
                         }
                     }
                 }
-        ) {
-            // The neighbour, drawn a page width away in the drag direction and moving with
-            // the current one: what is coming next is on screen from the first millimetre of
-            // the drag, which is the whole point. It is measured against the sheet rather
-            // than with the sheet, so more open cards on the next peer cannot resize
-            // the sheet under the finger.
-            val step = incomingStep
-            val incoming = if (step != 0) peerAt(step) else null
-            if (incoming != null) {
-                PeerDetailsPage(
-                    page = incoming,
-                    strings = strings,
-                    // No ping of its own can be in flight on a page nobody has landed on yet.
-                    ping = PeerPingState.Idle,
-                    selfAddress = selfAddress,
-                    expanded = expandedGroups,
-                    // Nothing has been copied off a page nobody has landed on either.
-                    copied = null,
-                    onPing = {},
-                    onToggleGroup = onToggleGroup,
-                    onSendFileClick = { onSendFileClick(incoming.peer) },
-                    onCopyAsClick = onCopyAsClick?.let { { it(incoming.peer) } },
-                    // The arriving page's own neighbours, so its arrows are already right
-                    // when it lands and nothing pops in after the motion ends.
-                    onPrevPeer = turnTo(peerAt(step - 1)),
-                    onNextPeer = turnTo(peerAt(step + 1)),
-                    onCopyDetail = onCopyDetail,
-                    modifier = Modifier
-                        .matchParentSize()
-                        // Off screen, and a second copy of a peer's whole set of cards: it
-                        // is there for the eye during the turn, not for a screen reader,
-                        // which reaches the same peer through the page that lands.
-                        .clearAndSetSemantics { }
-                        .graphicsLayer { peerPageTransform(swipeOffset + step * size.width) }
-                )
             }
+        }
+
+    // What the sheet or the pane holds: the page on screen and, during a turn, the one
+    // arriving beside it; the cards in [cardColumns] columns under each page's header.
+    val pages: @Composable BoxScope.(cardColumns: Int) -> Unit = { cardColumns ->
+        // The neighbour, drawn a page width away in the drag direction and moving with
+        // the current one: what is coming next is on screen from the first millimetre of
+        // the drag, which is the whole point. It is measured against the sheet rather
+        // than with the sheet, so more open cards on the next peer cannot resize
+        // the sheet under the finger.
+        val step = incomingStep
+        val incoming = if (step != 0) peerAt(step) else null
+        if (incoming != null) {
             PeerDetailsPage(
-                page = page,
+                page = incoming,
                 strings = strings,
-                ping = pingState,
+                // No ping of its own can be in flight on a page nobody has landed on yet.
+                ping = PeerPingState.Idle,
                 selfAddress = selfAddress,
                 expanded = expandedGroups,
-                copied = copiedDetail,
+                // Nothing has been copied off a page nobody has landed on either.
+                copied = null,
+                onPing = {},
                 onToggleGroup = onToggleGroup,
-                onPing = {
-                    pingResult = PING_IN_FLIGHT
-                    scope.launch { pingResult = pingPeer(peer.getPrimaryIp()) }
-                },
-                onSendFileClick = { onSendFileClick(peer) },
-                onCopyAsClick = onCopyAsClick?.let { { it(peer) } },
-                onPrevPeer = turnTo(prevPage),
-                onNextPeer = turnTo(nextPage),
+                onSendFileClick = { onSendFileClick(incoming.peer) },
+                onCopyAsClick = onCopyAsClick?.let { { it(incoming.peer) } },
+                // The arriving page's own neighbours, so its arrows are already right
+                // when it lands and nothing pops in after the motion ends.
+                onPrevPeer = turnTo(peerAt(step - 1)),
+                onNextPeer = turnTo(peerAt(step + 1)),
                 onCopyDetail = onCopyDetail,
+                columns = cardColumns,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .graphicsLayer { peerPageTransform(swipeOffset) }
+                    .matchParentSize()
+                    // Off screen, and a second copy of a peer's whole set of cards: it
+                    // is there for the eye during the turn, not for a screen reader,
+                    // which reaches the same peer through the page that lands.
+                    .clearAndSetSemantics { }
+                    .graphicsLayer { peerPageTransform(swipeOffset + step * size.width) }
             )
+        }
+        PeerDetailsPage(
+            page = page,
+            strings = strings,
+            ping = pingState,
+            selfAddress = selfAddress,
+            expanded = expandedGroups,
+            copied = copiedDetail,
+            onToggleGroup = onToggleGroup,
+            onPing = {
+                pingResult = PING_IN_FLIGHT
+                scope.launch { pingResult = pingPeer(peer.getPrimaryIp()) }
+            },
+            onSendFileClick = { onSendFileClick(peer) },
+            onCopyAsClick = onCopyAsClick?.let { { it(peer) } },
+            onPrevPeer = turnTo(prevPage),
+            onNextPeer = turnTo(nextPage),
+            onCopyDetail = onCopyDetail,
+            columns = cardColumns,
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(if (inPane) Modifier.fillMaxHeight() else Modifier)
+                .graphicsLayer { peerPageTransform(swipeOffset) }
+        )
+    }
+
+    SheetOrPane(
+        onDismiss = onDismiss,
+        inPane = inPane,
+        sheetState = sheetState
+    ) {
+        if (inPane) {
+            // A sheet is a column of cards on any window; a pane beside the list may be as
+            // wide as a phone is tall, and there the cards stand in two columns.
+            BoxWithConstraints(Modifier.fillMaxSize().then(turns)) {
+                pages(columnsFor(maxWidth, PEER_PANE_CARD_MIN_WIDTH, maxColumns = 2))
+            }
+        } else {
+            Box(Modifier.fillMaxWidth().heightIn(max = maxHeight).then(turns)) { pages(1) }
         }
     }
 }
@@ -1518,225 +1551,255 @@ private fun PeerDetailsPage(
     onPrevPeer: (() -> Unit)?,
     onNextPeer: (() -> Unit)?,
     onCopyDetail: (PeerDetail) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** How many columns the cards stand in under the header; one in a sheet. */
+    columns: Int = 1
 ) {
     val peer = page.peer
     // A cache, not state: the cards only change when the page does (the peer, or the version
     // the Admin API answered for it), and during a turn this runs for two peers at once.
     val cards = remember(page, strings) { peerCards(peer, strings, page.version, page.isSelf) }
     val taildrop = remember(page, strings) { peerTaildropStatus(peer, page.isSelf, strings) }
+    // The page's parts. A sheet lists them one under another; a pane wide enough for it
+    // keeps the header across the top and stands the cards in a staggered grid under it.
+    val identity: @Composable () -> Unit = {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (onPrevPeer != null) {
+                IconButton(onClick = onPrevPeer) {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = strings.prevPeer)
+                }
+            } else {
+                Spacer(Modifier.size(48.dp))
+            }
+
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                val (osIcon, osColor) = getOsVisuals(peer.os)
+                val statusColor = if (peer.online == true) PEER_ONLINE_GREEN else PEER_OFFLINE_GREY
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier
+                        .clip(MaterialTheme.shapes.medium)
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Icon(osIcon, null, modifier = Modifier.size(16.dp), tint = osColor)
+                    Spacer(Modifier.width(8.dp))
+                    // Weighted, or a long node name pushes the status dot out of the chip.
+                    Text(
+                        peer.getDisplayName(),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Box(Modifier.size(8.dp).clip(CircleShape).background(statusColor))
+                }
+                // Under the chip rather than inside it: here there is room for the words,
+                // and "selected as exit node" vs "available as exit node" is a difference
+                // no one should have to read out of two shades of the same icon.
+                ExitNodeBadge(
+                    peer = peer,
+                    selectedLabel = strings.exitNodeSelected,
+                    offeredLabel = strings.exitNodeOffered,
+                    modifier = Modifier.padding(top = 6.dp),
+                    showLabel = true
+                )
+            }
+
+            if (onNextPeer != null) {
+                IconButton(onClick = onNextPeer) {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = strings.nextPeer)
+                }
+            } else {
+                Spacer(Modifier.size(48.dp))
+            }
+        }
+    }
+
+    // The whole state of the peer, in words, before anything has been asked of the
+    // network. It sits outside the identity row rather than inside it: between the two
+    // arrows there is not enough width left for chips that are allowed to wrap.
+    val statusStrip: @Composable () -> Unit = {
+        PeerStatusStrip(
+            peer = peer,
+            ping = ping,
+            strings = strings,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)
+        )
+    }
+
+    // The actions left up here: the ping moved into the connection card, which is the
+    // thing it measures. Send file stays a button because it leaves the app. When the
+    // daemon says the peer will not take a file the button is dead and the daemon's
+    // reason stands beside it in the user's language — for a peer of another user's
+    // that reason is an ACL grant, and the words say which one. A peer the control
+    // plane calls offline keeps a live button under the same kind of note: the Online
+    // bit lags, and a peer that woke a moment ago would otherwise show a dead button.
+    // Copy as… shares the row: it opens a picker over the sheet, which is no place for
+    // a card of its own, and the cards' copy icons copy one value each, not a command.
+    val actions: @Composable () -> Unit = {
+        // The reason is a tooltip, not a standing line: it costs no height in the
+        // sheet, and it appears at the moment a person presses the button and
+        // wonders why nothing happened. A blocked peer keeps a visible but dimmed
+        // button for the same reason — a control that vanishes teaches nothing.
+        val taildropNote = when (taildrop) {
+            TaildropStatus.Available -> null
+            is TaildropStatus.Offline -> taildrop.reason
+            is TaildropStatus.Blocked -> taildrop.reason
+        }
+        val refusedHere = taildrop is TaildropStatus.Blocked
+        val tooltipState = rememberTooltipState(isPersistent = true)
+        val scope = rememberCoroutineScope()
+        // Each button takes its place from the layout below: side by side, or stacked.
+        // The Box is where that place lands — TooltipBox hands its own modifier to the
+        // anchor inside it, where a Row never sees a weight.
+        val sendButton: @Composable (Modifier) -> Unit = { place ->
+            Box(place) {
+                TooltipBox(
+                    positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
+                    tooltip = {
+                        if (taildropNote != null) {
+                            RichTooltip(
+                                title = { Text(strings.sendFile) },
+                                action = {
+                                    TextButton(onClick = { scope.launch { tooltipState.dismiss() } }) {
+                                        Text(strings.tooltipDismiss)
+                                    }
+                                }
+                            ) { Text(taildropNote) }
+                        }
+                    },
+                    state = tooltipState,
+                    enableUserInput = false
+                ) {
+                    Button(
+                        onClick = {
+                            if (refusedHere) scope.launch { tooltipState.show() } else onSendFileClick()
+                        },
+                        // Enabled even when refused: a disabled button swallows the tap,
+                        // and the tap is what the explanation hangs on. The dimmed
+                        // colours say it will not send.
+                        colors = if (refusedHere) {
+                            ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else ButtonDefaults.buttonColors(),
+                        // heightIn rather than height: «Отправить файл» wraps at a large font
+                        // scale, and a fixed height cuts the second line off.
+                        modifier = Modifier.fillMaxWidth().fillMaxHeight().heightIn(min = 46.dp)
+                            .semantics { if (taildropNote != null) stateDescription = taildropNote },
+                        shape = MaterialTheme.shapes.medium,
+                        contentPadding = PaddingValues(horizontal = 8.dp)
+                    ) {
+                        Icon(
+                            if (refusedHere) Icons.Default.Info else Icons.AutoMirrored.Filled.Send,
+                            null,
+                            Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        PeerActionLabel(strings.sendFile)
+                    }
+                }
+            }
+        }
+        val copyAsButton: (@Composable (Modifier) -> Unit)? = onCopyAsClick?.let { onClick ->
+            { place ->
+                FilledTonalButton(
+                    onClick = onClick,
+                    modifier = place.heightIn(min = 46.dp),
+                    shape = MaterialTheme.shapes.medium,
+                    contentPadding = PaddingValues(horizontal = 8.dp)
+                ) {
+                    Icon(Icons.Default.ContentCopy, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    PeerActionLabel(strings.copyAs)
+                }
+            }
+        }
+        val actionsArea = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 10.dp)
+        // Stacked once half the sheet no longer holds one word of a label: side by side,
+        // a 2× font broke «Отправить» and «Копировать» in the middle.
+        if (copyAsButton != null && LocalDensity.current.fontScale > PEER_ACTIONS_SIDE_BY_SIDE_MAX_FONT_SCALE) {
+            Column(actionsArea, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                sendButton(Modifier.fillMaxWidth())
+                copyAsButton(Modifier.fillMaxWidth())
+            }
+        } else {
+            // Intrinsic height, so the two stand equally tall when one label wraps.
+            Row(actionsArea.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                sendButton(Modifier.weight(1f).fillMaxHeight())
+                copyAsButton?.invoke(Modifier.weight(1f).fillMaxHeight())
+            }
+        }
+    }
+
+    val connection: @Composable (Modifier) -> Unit = { place ->
+        PeerConnectionCard(
+            page = page,
+            selfAddress = selfAddress,
+            ping = ping,
+            strings = strings,
+            onPing = onPing,
+            modifier = place
+        )
+    }
+    val infoCard: @Composable (PeerCard, Modifier) -> Unit = { card, place ->
+        PeerInfoCard(
+            card = card,
+            peer = peer,
+            strings = strings,
+            expanded = card.group in expanded,
+            copied = copied,
+            onToggle = { onToggleGroup(card.group) },
+            onCopyDetail = onCopyDetail,
+            modifier = place
+        )
+    }
+
     // Everything scrolls together, header included. The header is some 300dp of identity
     // row, status strip, button and connection card, and the sheet is capped at 85% of the
     // screen: in landscape, or in portrait at a large font scale, a fixed header over a
     // weighted card column left the column measured into nothing at all, and the cards it
     // could not fit were clipped with no way to scroll to them.
-    LazyColumn(
-        modifier = modifier,
-        contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp)
-    ) {
-        item(key = "identity") {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (onPrevPeer != null) {
-                    IconButton(onClick = onPrevPeer) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = strings.prevPeer)
-                    }
-                } else {
-                    Spacer(Modifier.size(48.dp))
-                }
-
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    val (osIcon, osColor) = getOsVisuals(peer.os)
-                    val statusColor = if (peer.online == true) PEER_ONLINE_GREEN else PEER_OFFLINE_GREY
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier
-                            .clip(MaterialTheme.shapes.medium)
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Icon(osIcon, null, modifier = Modifier.size(16.dp), tint = osColor)
-                        Spacer(Modifier.width(8.dp))
-                        // Weighted, or a long node name pushes the status dot out of the chip.
-                        Text(
-                            peer.getDisplayName(),
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Box(Modifier.size(8.dp).clip(CircleShape).background(statusColor))
-                    }
-                    // Under the chip rather than inside it: here there is room for the words,
-                    // and "selected as exit node" vs "available as exit node" is a difference
-                    // no one should have to read out of two shades of the same icon.
-                    ExitNodeBadge(
-                        peer = peer,
-                        selectedLabel = strings.exitNodeSelected,
-                        offeredLabel = strings.exitNodeOffered,
-                        modifier = Modifier.padding(top = 6.dp),
-                        showLabel = true
-                    )
-                }
-
-                if (onNextPeer != null) {
-                    IconButton(onClick = onNextPeer) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = strings.nextPeer)
-                    }
-                } else {
-                    Spacer(Modifier.size(48.dp))
-                }
+    if (columns <= 1) {
+        LazyColumn(
+            modifier = modifier,
+            contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp)
+        ) {
+            item(key = "identity") { identity() }
+            item(key = "status-strip") { statusStrip() }
+            item(key = "actions") { actions() }
+            item(key = "connection") { connection(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) }
+            // One item per card, keyed on the group: a card's open/closed reveal is its own
+            // business and must not re-lay the cards around it.
+            items(cards, key = { it.group.name }) { card ->
+                infoCard(card, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp))
             }
         }
-
-        // The whole state of the peer, in words, before anything has been asked of the
-        // network. It sits outside the identity row rather than inside it: between the two
-        // arrows there is not enough width left for chips that are allowed to wrap.
-        item(key = "status-strip") {
-            PeerStatusStrip(
-                peer = peer,
-                ping = ping,
-                strings = strings,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)
-            )
-        }
-
-        // The actions left up here: the ping moved into the connection card, which is the
-        // thing it measures. Send file stays a button because it leaves the app. When the
-        // daemon says the peer will not take a file the button is dead and the daemon's
-        // reason stands beside it in the user's language — for a peer of another user's
-        // that reason is an ACL grant, and the words say which one. A peer the control
-        // plane calls offline keeps a live button under the same kind of note: the Online
-        // bit lags, and a peer that woke a moment ago would otherwise show a dead button.
-        // Copy as… shares the row: it opens a picker over the sheet, which is no place for
-        // a card of its own, and the cards' copy icons copy one value each, not a command.
-        item(key = "actions") {
-            // The reason is a tooltip, not a standing line: it costs no height in the
-            // sheet, and it appears at the moment a person presses the button and
-            // wonders why nothing happened. A blocked peer keeps a visible but dimmed
-            // button for the same reason — a control that vanishes teaches nothing.
-            val taildropNote = when (taildrop) {
-                TaildropStatus.Available -> null
-                is TaildropStatus.Offline -> taildrop.reason
-                is TaildropStatus.Blocked -> taildrop.reason
+    } else {
+        // Staggered, not a grid of rows: one card opening pushes down only its own column.
+        LazyVerticalStaggeredGrid(
+            columns = StaggeredGridCells.Fixed(columns),
+            modifier = modifier,
+            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 16.dp)
+        ) {
+            item(key = "identity", span = StaggeredGridItemSpan.FullLine) { identity() }
+            item(key = "status-strip", span = StaggeredGridItemSpan.FullLine) { statusStrip() }
+            item(key = "actions", span = StaggeredGridItemSpan.FullLine) { actions() }
+            item(key = "connection", span = StaggeredGridItemSpan.FullLine) {
+                connection(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp))
             }
-            val refusedHere = taildrop is TaildropStatus.Blocked
-            val tooltipState = rememberTooltipState(isPersistent = true)
-            val scope = rememberCoroutineScope()
-            // Each button takes its place from the layout below: side by side, or stacked.
-            // The Box is where that place lands — TooltipBox hands its own modifier to the
-            // anchor inside it, where a Row never sees a weight.
-            val sendButton: @Composable (Modifier) -> Unit = { place ->
-                Box(place) {
-                    TooltipBox(
-                        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
-                        tooltip = {
-                            if (taildropNote != null) {
-                                RichTooltip(
-                                    title = { Text(strings.sendFile) },
-                                    action = {
-                                        TextButton(onClick = { scope.launch { tooltipState.dismiss() } }) {
-                                            Text(strings.tooltipDismiss)
-                                        }
-                                    }
-                                ) { Text(taildropNote) }
-                            }
-                        },
-                        state = tooltipState,
-                        enableUserInput = false
-                    ) {
-                        Button(
-                            onClick = {
-                                if (refusedHere) scope.launch { tooltipState.show() } else onSendFileClick()
-                            },
-                            // Enabled even when refused: a disabled button swallows the tap,
-                            // and the tap is what the explanation hangs on. The dimmed
-                            // colours say it will not send.
-                            colors = if (refusedHere) {
-                                ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            } else ButtonDefaults.buttonColors(),
-                            // heightIn rather than height: «Отправить файл» wraps at a large font
-                            // scale, and a fixed height cuts the second line off.
-                            modifier = Modifier.fillMaxWidth().fillMaxHeight().heightIn(min = 46.dp)
-                                .semantics { if (taildropNote != null) stateDescription = taildropNote },
-                            shape = MaterialTheme.shapes.medium,
-                            contentPadding = PaddingValues(horizontal = 8.dp)
-                        ) {
-                            Icon(
-                                if (refusedHere) Icons.Default.Info else Icons.AutoMirrored.Filled.Send,
-                                null,
-                                Modifier.size(18.dp)
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            PeerActionLabel(strings.sendFile)
-                        }
-                    }
-                }
+            items(cards, key = { it.group.name }) { card ->
+                infoCard(card, Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp))
             }
-            val copyAsButton: (@Composable (Modifier) -> Unit)? = onCopyAsClick?.let { onClick ->
-                { place ->
-                    FilledTonalButton(
-                        onClick = onClick,
-                        modifier = place.heightIn(min = 46.dp),
-                        shape = MaterialTheme.shapes.medium,
-                        contentPadding = PaddingValues(horizontal = 8.dp)
-                    ) {
-                        Icon(Icons.Default.ContentCopy, null, Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        PeerActionLabel(strings.copyAs)
-                    }
-                }
-            }
-            val actionsArea = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 10.dp)
-            // Stacked once half the sheet no longer holds one word of a label: side by side,
-            // a 2× font broke «Отправить» and «Копировать» in the middle.
-            if (copyAsButton != null && LocalDensity.current.fontScale > PEER_ACTIONS_SIDE_BY_SIDE_MAX_FONT_SCALE) {
-                Column(actionsArea, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    sendButton(Modifier.fillMaxWidth())
-                    copyAsButton(Modifier.fillMaxWidth())
-                }
-            } else {
-                // Intrinsic height, so the two stand equally tall when one label wraps.
-                Row(actionsArea.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    sendButton(Modifier.weight(1f).fillMaxHeight())
-                    copyAsButton?.invoke(Modifier.weight(1f).fillMaxHeight())
-                }
-            }
-        }
-
-        item(key = "connection") {
-            PeerConnectionCard(
-                page = page,
-                selfAddress = selfAddress,
-                ping = ping,
-                strings = strings,
-                onPing = onPing,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
-            )
-        }
-
-        // One item per card, keyed on the group: a card's open/closed reveal is its own
-        // business and must not re-lay the cards around it.
-        items(cards, key = { it.group.name }) { card ->
-            PeerInfoCard(
-                card = card,
-                peer = peer,
-                strings = strings,
-                expanded = card.group in expanded,
-                copied = copied,
-                onToggle = { onToggleGroup(card.group) },
-                onCopyDetail = onCopyDetail,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
-            )
         }
     }
 }

@@ -80,11 +80,12 @@ class PeersActivity : ComponentActivity() {
 
 /**
  * The tailnet's devices. [initialQuery] opens the screen with the search out and filled in;
- * [initialTab] opens it on a tab, where the user's last choice would otherwise decide.
+ * [initialTab] opens it on a tab, where the user's last choice would otherwise decide;
+ * [initialPeerId] opens it on that node's details.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerTab? = null) {
+fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerTab? = null, initialPeerId: String? = null) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     // In a preview the list comes from LocalDemo, parsed here and now: nothing
@@ -107,7 +108,9 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
     var peersList by remember { mutableStateOf(demoStatus?.let(::listablePeers) ?: emptyList()) }
     // Saveable, with the tab and the field's place: a rotation keeps what is being looked for.
     var searchQuery by rememberSaveable { mutableStateOf(initialQuery) }
-    var selectedPeer by remember { mutableStateOf<PeerData?>(null) }
+    var selectedPeer by remember {
+        mutableStateOf(initialPeerId?.let { id -> (listOfNotNull(selfPeer) + peersList).firstOrNull { it.id == id } })
+    }
     var peerForFileDrop by remember { mutableStateOf<PeerData?>(null) }
     // The peer whose "Copy as…" is open — from a long press on its row, or from the details
     // sheet's button, over that sheet. Its forms are built when it opens, never for the list.
@@ -235,6 +238,188 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
             ?: System.currentTimeMillis()
     }
 
+    // A large window shows the list and the details of a peer side by side, the details in a
+    // pane where a phone opens them in a sheet; see ListDetailLayout. Not while the service is
+    // stopped or the load failed: there is no list then, and the message takes the width.
+    val window = rememberWindowLayout()
+    val twoPane = window.listDetail && !daemonStopped && errorMsg == null
+    // What the details page through: this tab's rows, under this search.
+    val allSelectablePeers = listOfNotNull(shownRows.self) + shownRows.peers
+    // The pane's peer: the one picked, while this tab and this search still list it, and the
+    // first row otherwise — a pane left empty until something is tapped would be the empty
+    // half-window this layout is here to fill. Matched by node id; see pagesAround.
+    val panePeer = if (!twoPane) null else selectedPeer
+        ?.let { picked -> allSelectablePeers.firstOrNull { if (picked.id != null) it.id == picked.id else it == picked } }
+        ?: allSelectablePeers.firstOrNull()
+
+    // The peers around [p] for the details to page through. The list is what they page
+    // through, so the list stays here and the details borrow a window onto it: the peer at 0
+    // (the refreshed instance, so they stop rendering the snapshot they were opened on), the
+    // two that can slide in under the finger, and the two beyond those, which only decide
+    // whether the arriving page draws an arrow of its own. Handing over the neighbouring
+    // PeerData rather than bare prev/next callbacks is what lets the next peer be drawn while
+    // the finger is still down; a callback can only be fired once it is up.
+    fun pagesAround(p: PeerData): (Int) -> PeerPage? {
+        // By node id, not by the object: PeerData is a data class whose equality covers
+        // the traffic counters and the last-seen stamps, so every refresh replaces the
+        // selected peer with an equal-looking but unequal instance. indexOf would then
+        // return -1, the left arrow would vanish and a swipe right would jump to the top
+        // of the list. The same reason self is compared by id below.
+        val currentIndex =
+            if (p.id != null) allSelectablePeers.indexOfFirst { it.id == p.id }
+            else allSelectablePeers.indexOf(p)
+        return { offset ->
+            // currentIndex is -1 when a refresh or a search has filtered the selected
+            // peer out from under the sheet: then it is the only page there is.
+            val target =
+                if (currentIndex < 0) p.takeIf { offset == 0 }
+                else allSelectablePeers.getOrNull(currentIndex + offset)
+            target?.let { peer ->
+                PeerPage(
+                    peer,
+                    isSelf = peer.id?.let { it == selfPeer?.id } ?: (peer === selfPeer),
+                    version = peer.id?.let { peerVersions[it] }
+                )
+            }
+        }
+    }
+
+    // The search field, folded away until a pull at the top of the list or the top bar's
+    // button brings it out. Nothing to search while the service is stopped. Out of the
+    // composition while folded, so neither a screen reader nor the keyboard finds a field
+    // nobody can see; the top bar's button is the way in for both.
+    val searchSlot: @Composable () -> Unit = {
+        if (!daemonStopped && searchOut) {
+            Box(
+                Modifier
+                    .clipToBounds()
+                    .layout { measurable, constraints ->
+                        // Measured whole, shown as far as it is out: it slides down
+                        // from under the top bar with the finger, fading in as it comes.
+                        val placeable = measurable.measure(constraints)
+                        reveal.heightPx = placeable.height.toFloat()
+                        val height = (placeable.height * reveal.fraction).roundToInt()
+                        layout(placeable.width, height) {
+                            placeable.placeWithLayer(0, height - placeable.height) { alpha = reveal.fraction }
+                        }
+                    }
+            ) {
+                CompactSearchBar(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholderText = stringResource(R.string.peers_search_placeholder),
+                    modifier = Modifier
+                        .readableWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .focusRequester(searchFocus)
+                        // A tap on a field let go of half-way opens it the rest of the way.
+                        .onFocusChanged { if (it.isFocused) reveal.animateTo(1f) }
+                )
+            }
+            LaunchedEffect(Unit) {
+                if (focusSearchOnOpen) {
+                    focusSearchOnOpen = false
+                    searchFocus.requestFocus()
+                }
+            }
+        }
+    }
+
+    // Only when there is a choice: a list that no filter narrows has just All.
+    val tabRow: @Composable () -> Unit = {
+        if (!daemonStopped && errorMsg == null && tabs.size > 1) {
+            ScrollableSlidingSegmentedChips(
+                items = tabs.map { SegmentedChipItem(stringResource(it.label), count = tabRows.getValue(it).size) },
+                selectedIndex = pager.currentPage,
+                onOptionSelected = { coroutineScope.launch { pager.animateScrollToPage(it) } },
+                modifier = Modifier.readableWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                height = 36.dp
+            )
+        }
+    }
+
+    // The rows, a page per tab.
+    val peerPages: @Composable () -> Unit = {
+        val searching = searchQuery.isNotBlank()
+        val copyAsLabel = stringResource(R.string.peer_copy_as)
+        key(pager) {
+        // A swipe across the list turns the tab, as in Serve & TailCat; the lists only
+        // scroll up and down, so the two gestures never compete. The pull that brings
+        // out the search reaches the connection from whichever page is under the finger.
+        HorizontalPager(
+            state = pager,
+            modifier = Modifier.fillMaxSize().nestedScroll(reveal.connection),
+            key = { tabs[it] }
+        ) { page ->
+            val tab = tabs[page]
+            val rows = tabRows.getValue(tab)
+            // Two-pane, the row whose details are beside the list is marked.
+            val isShown: (PeerData) -> Boolean = { p -> panePeer != null && (if (p.id != null) p.id == panePeer.id else p == panePeer) }
+            LazyColumn(Modifier.fillMaxSize(), state = listStates.getValue(tab), contentPadding = PaddingValues(bottom = 16.dp)) {
+                rows.self?.let { self ->
+                    item {
+                        PeerItem(
+                            self,
+                            true,
+                            pingStateOf(peerPings[self.getPrimaryIp()]),
+                            nowMillis,
+                            onLongClick = { copyAsPeer = self },
+                            onLongClickLabel = copyAsLabel,
+                            selected = isShown(self)
+                        ) { selectedPeer = self }
+                    }
+                }
+                items(rows.peers) { p ->
+                    PeerItem(
+                        p,
+                        false,
+                        pingStateOf(peerPings[p.getPrimaryIp()]),
+                        nowMillis,
+                        onLongClick = { copyAsPeer = p },
+                        onLongClickLabel = copyAsLabel,
+                        selected = isShown(p)
+                    ) { selectedPeer = p }
+                }
+                when {
+                    // Nothing in this tab matched, not even this device: say so, and
+                    // offer the way back. Without a search no tab is empty — one that
+                    // holds nothing is not shown.
+                    searching && rows.size == 0 -> item {
+                        EmptyState(
+                            icon = Icons.Default.SearchOff,
+                            text = stringResource(R.string.state_nothing_found),
+                            modifier = Modifier.fillParentMaxSize(),
+                            actionLabel = stringResource(R.string.state_clear_search),
+                            onAction = { searchQuery = "" }
+                        )
+                    }
+                    // Under this device's own row, so it takes a margin, not the page. Only
+                    // once this device has an address: before that — logged out, mid-login —
+                    // an empty list says nothing about who else is in the tailnet.
+                    tab == PeerTab.ALL && !searching && loaded && peersList.isEmpty() &&
+                        !selfPeer?.tailscaleIPs.isNullOrEmpty() -> item {
+                        EmptyState(
+                            icon = Icons.Default.Devices,
+                            text = stringResource(R.string.state_peers_alone),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 48.dp)
+                        )
+                    }
+                }
+            }
+        }
+        }
+        // A turn in the pane can land on a row scrolled out of sight; the list follows it.
+        if (panePeer != null) {
+            LaunchedEffect(panePeer.id, pager.currentPage) {
+                val index = allSelectablePeers.indexOfFirst { if (panePeer.id != null) it.id == panePeer.id else it == panePeer }
+                val state = listStates.getValue(tabs.getOrElse(pager.currentPage) { PeerTab.ALL })
+                if (index >= 0 && state.layoutInfo.visibleItemsInfo.none { it.index == index && it.offset >= 0 }) {
+                    state.animateScrollToItem(index)
+                }
+            }
+        }
+    }
+
     PredictiveBackContainer(
         onBack = onBack,
         // Back here only closes the Activity, so the container installs no callback and
@@ -295,58 +480,43 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
                         }
                     }
                 )
-
-                // Nothing to search while the service is stopped. Out of the composition
-                // while folded, so neither a screen reader nor the keyboard finds a field
-                // nobody can see; the top bar's button is the way in for both.
-                if (!daemonStopped && searchOut) {
-                    Box(
-                        Modifier
-                            .clipToBounds()
-                            .layout { measurable, constraints ->
-                                // Measured whole, shown as far as it is out: it slides down
-                                // from under the top bar with the finger, fading in as it comes.
-                                val placeable = measurable.measure(constraints)
-                                reveal.heightPx = placeable.height.toFloat()
-                                val height = (placeable.height * reveal.fraction).roundToInt()
-                                layout(placeable.width, height) {
-                                    placeable.placeWithLayer(0, height - placeable.height) { alpha = reveal.fraction }
-                                }
-                            }
-                    ) {
-                        CompactSearchBar(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            placeholderText = stringResource(R.string.peers_search_placeholder),
-                            modifier = Modifier
-                                .readableWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp)
-                                .focusRequester(searchFocus)
-                                // A tap on a field let go of half-way opens it the rest of the way.
-                                .onFocusChanged { if (it.isFocused) reveal.animateTo(1f) }
-                        )
-                    }
-                    LaunchedEffect(Unit) {
-                        if (focusSearchOnOpen) {
-                            focusSearchOnOpen = false
-                            searchFocus.requestFocus()
-                        }
-                    }
-                }
-
-                // Only when there is a choice: a list that no filter narrows has just All.
-                if (!daemonStopped && errorMsg == null && tabs.size > 1) {
-                    ScrollableSlidingSegmentedChips(
-                        items = tabs.map { SegmentedChipItem(stringResource(it.label), count = tabRows.getValue(it).size) },
-                        selectedIndex = pager.currentPage,
-                        onOptionSelected = { coroutineScope.launch { pager.animateScrollToPage(it) } },
-                        modifier = Modifier.readableWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                        height = 36.dp
-                    )
+                // Two-pane, the search and the tabs belong to the list and stand over it,
+                // not across the window over both panes.
+                if (!twoPane) {
+                    searchSlot()
+                    tabRow()
                 }
             }
         }
     ) { padding ->
+        if (twoPane) {
+            ListDetailLayout(
+                window = window,
+                twoPane = true,
+                modifier = Modifier.padding(padding).fillMaxSize(),
+                list = {
+                    Column(Modifier.fillMaxSize()) {
+                        searchSlot()
+                        tabRow()
+                        Box(Modifier.weight(1f)) { peerPages() }
+                    }
+                },
+                detail = {
+                    if (panePeer != null) {
+                        PeerDetailsModal(
+                            peerAt = pagesAround(panePeer),
+                            selfAddress = selfPeer?.tailscaleIPs?.firstOrNull(),
+                            onDismiss = { selectedPeer = null },
+                            onSendFileClick = { peer -> peerForFileDrop = peer; filePickerLauncher.launch("*/*") },
+                            onCopyAsClick = { peer -> copyAsPeer = peer },
+                            onSelectPeer = { peer -> selectedPeer = peer }
+                        )
+                    } else {
+                        PaneEmptyState(Icons.Default.Devices, stringResource(R.string.tablet_peers_pane_empty))
+                    }
+                }
+            )
+        } else {
         // Held to a readable width on a tablet; see ReadableWidth.
         ReadableWidth {
         Box(Modifier.padding(padding).fillMaxSize()) {
@@ -359,107 +529,16 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
                     Button(onClick = { loadPeers() }) { Text(stringResource(R.string.action_retry)) }
                 }
             } else {
-                val searching = searchQuery.isNotBlank()
-                val copyAsLabel = stringResource(R.string.peer_copy_as)
-                key(pager) {
-                // A swipe across the list turns the tab, as in Serve & TailCat; the lists only
-                // scroll up and down, so the two gestures never compete. The pull that brings
-                // out the search reaches the connection from whichever page is under the finger.
-                HorizontalPager(
-                    state = pager,
-                    modifier = Modifier.fillMaxSize().nestedScroll(reveal.connection),
-                    key = { tabs[it] }
-                ) { page ->
-                    val tab = tabs[page]
-                    val rows = tabRows.getValue(tab)
-                    LazyColumn(Modifier.fillMaxSize(), state = listStates.getValue(tab), contentPadding = PaddingValues(bottom = 16.dp)) {
-                        rows.self?.let { self ->
-                            item {
-                                PeerItem(
-                                    self,
-                                    true,
-                                    pingStateOf(peerPings[self.getPrimaryIp()]),
-                                    nowMillis,
-                                    onLongClick = { copyAsPeer = self },
-                                    onLongClickLabel = copyAsLabel
-                                ) { selectedPeer = self }
-                            }
-                        }
-                        items(rows.peers) { p ->
-                            PeerItem(
-                                p,
-                                false,
-                                pingStateOf(peerPings[p.getPrimaryIp()]),
-                                nowMillis,
-                                onLongClick = { copyAsPeer = p },
-                                onLongClickLabel = copyAsLabel
-                            ) { selectedPeer = p }
-                        }
-                        when {
-                            // Nothing in this tab matched, not even this device: say so, and
-                            // offer the way back. Without a search no tab is empty — one that
-                            // holds nothing is not shown.
-                            searching && rows.size == 0 -> item {
-                                EmptyState(
-                                    icon = Icons.Default.SearchOff,
-                                    text = stringResource(R.string.state_nothing_found),
-                                    modifier = Modifier.fillParentMaxSize(),
-                                    actionLabel = stringResource(R.string.state_clear_search),
-                                    onAction = { searchQuery = "" }
-                                )
-                            }
-                            // Under this device's own row, so it takes a margin, not the page. Only
-                            // once this device has an address: before that — logged out, mid-login —
-                            // an empty list says nothing about who else is in the tailnet.
-                            tab == PeerTab.ALL && !searching && loaded && peersList.isEmpty() &&
-                                !selfPeer?.tailscaleIPs.isNullOrEmpty() -> item {
-                                EmptyState(
-                                    icon = Icons.Default.Devices,
-                                    text = stringResource(R.string.state_peers_alone),
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 48.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-                }
+                peerPages()
             }
         }
+        }
+        }
 
-        selectedPeer?.let { p ->
-            val allSelectablePeers = listOfNotNull(shownRows.self) + shownRows.peers
-            // By node id, not by the object: PeerData is a data class whose equality covers
-            // the traffic counters and the last-seen stamps, so every refresh replaces the
-            // selected peer with an equal-looking but unequal instance. indexOf would then
-            // return -1, the left arrow would vanish and a swipe right would jump to the top
-            // of the list. The same reason self is compared by id below.
-            val currentIndex =
-                if (p.id != null) allSelectablePeers.indexOfFirst { it.id == p.id }
-                else allSelectablePeers.indexOf(p)
-            // The list is what the sheet pages through, so the list stays here and the sheet
-            // borrows a window onto it: the peer at 0 (the refreshed instance, so the sheet
-            // stops rendering the snapshot it was opened on), the two it can slide in under
-            // the finger, and the two beyond those, which only decide whether the arriving
-            // page draws an arrow of its own. Handing over the neighbouring PeerData rather
-            // than bare prev/next callbacks is what lets the sheet draw the next peer while
-            // the finger is still down; a callback can only be fired once it is up.
-            val peerAt: (Int) -> PeerPage? = { offset ->
-                // currentIndex is -1 when a refresh or a search has filtered the selected
-                // peer out from under the sheet: then it is the only page there is.
-                val target =
-                    if (currentIndex < 0) p.takeIf { offset == 0 }
-                    else allSelectablePeers.getOrNull(currentIndex + offset)
-                target?.let { peer ->
-                    PeerPage(
-                        peer,
-                        isSelf = peer.id?.let { it == selfPeer?.id } ?: (peer === selfPeer),
-                        version = peer.id?.let { peerVersions[it] }
-                    )
-                }
-            }
-
+        // Single-pane, the details are a sheet over the list, as on every phone.
+        if (!twoPane) selectedPeer?.let { p ->
             PeerDetailsModal(
-                peerAt = peerAt,
+                peerAt = pagesAround(p),
                 // The near end of every latency the sheet measures. Taken from selfPeer, not
                 // from the rows on screen: a tab or a search that hides this device from the
                 // list does not change which address the pings leave from.
@@ -500,7 +579,6 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
         peerQr?.let { (title, text) -> QrSheet(title = title, text = text, onDismiss = { peerQr = null }) }
         }
     }
-}
 }
 
 private fun sendFileToPeer(context: Context, uri: Uri, peer: PeerData, scope: CoroutineScope) {

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Large-window layouts: panes beside lists (ui/AdaptivePanes.kt). -->
+<resources>
+    <!-- Peers, two-pane: the details pane when the list holds nothing to show -->
+    <string name="tablet_peers_pane_empty">The details of the device you pick appear here</string>
+</resources>
