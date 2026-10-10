@@ -47,6 +47,26 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import appctr.Appctr
 
+/**
+ * True while a Settings section stands its cards in columns, on a pane wide
+ * enough for two: the columns space the cards, and a section's own long card
+ * splits its rows in two. A phone never sets it.
+ */
+internal val LocalSettingsColumns = staticCompositionLocalOf { false }
+
+/** The narrowest a column of Settings cards gets before the section keeps one column. */
+internal val SettingsColumnWidth = 360.dp
+
+/**
+ * The space between two cards of a section. In a phone's single column it is
+ * this spacer; in columns ([LocalSettingsColumns]) the columns keep the cards
+ * apart, and a spacer there would stand in a column as a card of its own.
+ */
+@Composable
+fun SettingsCardGap() {
+    if (!LocalSettingsColumns.current) Spacer(Modifier.height(12.dp))
+}
+
 @Composable
 fun SettingsCard(title: String, content: @Composable ColumnScope.() -> Unit) {
     Card(

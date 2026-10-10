@@ -85,22 +85,31 @@ private data class SettingsCategory(
     val id: String,
     val titleRes: Int,
     val descRes: Int,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector
+    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    /**
+     * How many cards the section's page holds, which decides whether a tablet
+     * stands them in columns: from two beside the categories, from three on a
+     * medium window showing the page alone. One block — a card, or the tunnel
+     * modes with what each one opens — stays a single readable column.
+     */
+    val cards: Int = 1,
+    /** One long card whose rows split into two columns instead (see [LocalSettingsColumns]). */
+    val splits: Boolean = false,
 )
 
 /** The 11 categories of the target structure, in their A..K order. */
 private val settingsCategories = listOf(
-    SettingsCategory("appearance", R.string.settings_cat_appearance, R.string.settings_cat_appearance_desc, Icons.Default.Palette),
-    SettingsCategory("account", R.string.settings_cat_account, R.string.settings_cat_account_desc, Icons.Default.AccountCircle),
+    SettingsCategory("appearance", R.string.settings_cat_appearance, R.string.settings_cat_appearance_desc, Icons.Default.Palette, cards = 2, splits = true),
+    SettingsCategory("account", R.string.settings_cat_account, R.string.settings_cat_account_desc, Icons.Default.AccountCircle, cards = 3),
     SettingsCategory("tunnel", R.string.settings_cat_tunnel, R.string.settings_cat_tunnel_desc, Icons.Default.VpnLock),
-    SettingsCategory("proxies", R.string.settings_cat_proxies, R.string.settings_cat_proxies_desc, Icons.Default.Lan),
-    SettingsCategory("dns", R.string.settings_cat_dns, R.string.settings_cat_dns_desc, Icons.Default.Dns),
-    SettingsCategory("bypass", R.string.settings_cat_bypass, R.string.settings_cat_bypass_desc, Icons.Default.Shield),
-    SettingsCategory("sharing", R.string.settings_cat_sharing, R.string.settings_cat_sharing_desc, Icons.Default.Share),
+    SettingsCategory("proxies", R.string.settings_cat_proxies, R.string.settings_cat_proxies_desc, Icons.Default.Lan, cards = 3),
+    SettingsCategory("dns", R.string.settings_cat_dns, R.string.settings_cat_dns_desc, Icons.Default.Dns, cards = 3),
+    SettingsCategory("bypass", R.string.settings_cat_bypass, R.string.settings_cat_bypass_desc, Icons.Default.Shield, cards = 2),
+    SettingsCategory("sharing", R.string.settings_cat_sharing, R.string.settings_cat_sharing_desc, Icons.Default.Share, cards = 3),
     SettingsCategory("background", R.string.settings_cat_background, R.string.settings_cat_background_desc, Icons.Default.Bolt),
     SettingsCategory("backup", R.string.settings_cat_backup, R.string.settings_cat_backup_desc, Icons.Default.Backup),
-    SettingsCategory("automation", R.string.settings_cat_automation, R.string.settings_cat_automation_desc, Icons.Default.SmartButton),
-    SettingsCategory("diagnostics", R.string.settings_cat_diagnostics, R.string.settings_cat_diagnostics_desc, Icons.Default.BugReport)
+    SettingsCategory("automation", R.string.settings_cat_automation, R.string.settings_cat_automation_desc, Icons.Default.SmartButton, cards = 2),
+    SettingsCategory("diagnostics", R.string.settings_cat_diagnostics, R.string.settings_cat_diagnostics_desc, Icons.Default.BugReport, cards = 4)
 )
 
 class SettingsActivity : ComponentActivity() {
@@ -868,7 +877,7 @@ fun SettingsScreen(
             )
         }
 
-        Spacer(Modifier.height(12.dp))
+        SettingsCardGap()
 
         SettingsCard(title = stringResource(R.string.settings_sect_service_ad)) {
             SettingsEditItem(
@@ -903,7 +912,7 @@ fun SettingsScreen(
             }
         }
 
-        Spacer(Modifier.height(12.dp))
+        SettingsCardGap()
 
         SettingsCard(title = stringResource(R.string.settings_sect_adv_profile)) {
             OutlinedButton(
@@ -1665,7 +1674,7 @@ fun SettingsScreen(
             }
         }
 
-        Spacer(Modifier.height(12.dp))
+        SettingsCardGap()
 
         SettingsCard(title = stringResource(R.string.settings_sect_http)) {
             val isHttpEnabled = httpProxy.isNotEmpty()
@@ -1706,7 +1715,7 @@ fun SettingsScreen(
             }
         }
 
-        Spacer(Modifier.height(12.dp))
+        SettingsCardGap()
 
         // Last in the section on purpose: it is the one switch here that can
         // expose the listeners above to anyone on the same Wi-Fi.
@@ -1833,7 +1842,7 @@ fun SettingsScreen(
             }
         }
 
-        Spacer(Modifier.height(12.dp))
+        SettingsCardGap()
 
         SettingsCard(title = stringResource(R.string.settings_sect_fallback_dns)) {
             SettingsEditItem(stringResource(R.string.settings_dns_fallbacks_title), dnsFallbacks, Icons.AutoMirrored.Filled.List, placeholder = stringResource(R.string.settings_dns_fallbacks_placeholder)) { dnsFallbacks = it; saveGlobalPref("dns_fallbacks", it) }
@@ -1841,7 +1850,7 @@ fun SettingsScreen(
             SettingsEditItem(stringResource(R.string.settings_doh_fallback_title), dohUrl, Icons.Default.Link, placeholder = stringResource(R.string.settings_doh_fallback_placeholder)) { dohUrl = it; saveGlobalPref("doh_url", it) }
         }
 
-        Spacer(Modifier.height(12.dp))
+        SettingsCardGap()
 
         SettingsCard(title = stringResource(R.string.settings_sect_tools)) {
             SettingsClickableItem(
@@ -1873,7 +1882,7 @@ fun SettingsScreen(
             ) { showProxyDialog = true }
         }
 
-        Spacer(Modifier.height(12.dp))
+        SettingsCardGap()
 
         SettingsCard(title = stringResource(R.string.settings_tab_byedpi)) {
             HelpText(
@@ -1972,7 +1981,7 @@ fun SettingsScreen(
             ) { folderPicker.launch(null) }
         }
 
-        Spacer(Modifier.height(12.dp))
+        SettingsCardGap()
 
         SettingsCard(title = stringResource(R.string.settings_sect_share_links)) {
             SettingsClickableItem(
@@ -1988,7 +1997,7 @@ fun SettingsScreen(
             ) { context.startActivity(Intent(context, ServeActivity::class.java)) }
         }
 
-        Spacer(Modifier.height(12.dp))
+        SettingsCardGap()
 
         SettingsCard(title = stringResource(R.string.settings_sect_web)) {
             SettingsSwitchItem(stringResource(R.string.settings_web_enable_title), stringResource(R.string.settings_web_enable_desc), Icons.Default.Web, enableWebUI) { enableWebUI = it; saveProfilePref("enable_webui", it) }
@@ -2068,7 +2077,10 @@ fun SettingsScreen(
 
     // H. Appearance & language
     val sectionAppearance: @Composable () -> Unit = {
-        SettingsCard(title = stringResource(R.string.settings_sect_personalization)) {
+        // One card in two halves, cut where they come out about as tall: one column on a
+        // phone, side by side where the section stands in columns — the card is the whole
+        // section, and alone in a column it would leave the pane's other half empty.
+        val firstHalf: @Composable () -> Unit = {
             // Theme selector (Chips row)
             val themeOptions = listOf(
                 Triple("system", Icons.Default.Settings, stringResource(R.string.settings_theme_system)),
@@ -2193,8 +2205,8 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(12.dp))
             AppIconRow()
-
-            Spacer(Modifier.height(12.dp))
+        }
+        val secondHalf: @Composable () -> Unit = {
             QrStyleSetting()
 
             // Dynamic Colors switcher (Android 12+)
@@ -2257,6 +2269,18 @@ fun SettingsScreen(
                     GlobalSettings.setUpdateCheckOnLaunch(context, it)
                     updateCheckOnLaunch = it
                 }
+            }
+        }
+        SettingsCard(title = stringResource(R.string.settings_sect_personalization)) {
+            if (LocalSettingsColumns.current) {
+                Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                    Column(Modifier.weight(1f)) { firstHalf() }
+                    Column(Modifier.weight(1f)) { secondHalf() }
+                }
+            } else {
+                firstHalf()
+                Spacer(Modifier.height(12.dp))
+                secondHalf()
             }
         }
     }
@@ -2436,7 +2460,7 @@ fun SettingsScreen(
             }
         }
 
-        Spacer(Modifier.height(12.dp))
+        SettingsCardGap()
 
         SettingsCard(title = stringResource(R.string.settings_sect_admin_api)) {
             SettingsClickableItem(
@@ -2457,7 +2481,7 @@ fun SettingsScreen(
         // First, because it is what this page is opened for when something is wrong:
         // the state right now, before the switches that might explain it.
         LiveDiagnosticsCard()
-        Spacer(Modifier.height(12.dp))
+        SettingsCardGap()
 
         SettingsCard(title = stringResource(R.string.settings_sect_flags_logs)) {
             SettingsSwitchItem(stringResource(R.string.settings_detailed_logs_title), stringResource(R.string.settings_detailed_logs_desc), Icons.Default.BugReport, detailedLogs) { detailedLogs = it; saveGlobalPref("detailed_logs", it) }
@@ -2472,7 +2496,7 @@ fun SettingsScreen(
         }
 
         if (rootModeActive) {
-            Spacer(Modifier.height(12.dp))
+            SettingsCardGap()
             SettingsCard(title = stringResource(R.string.settings_root_info_title)) {
                 val socketPath = "${context.filesDir.absolutePath}/tailscaled.sock"
                 val logsDir = File(context.filesDir.parentFile ?: context.filesDir, "logs").absolutePath
@@ -2564,7 +2588,7 @@ fun SettingsScreen(
             }
         }
 
-        Spacer(Modifier.height(12.dp))
+        SettingsCardGap()
 
         SettingsCard(title = stringResource(R.string.settings_sect_tools)) {
             SettingsClickableItem(
@@ -2586,7 +2610,7 @@ fun SettingsScreen(
             ) { context.startActivity(Intent(context, NetcheckActivity::class.java)) }
         }
 
-        Spacer(Modifier.height(12.dp))
+        SettingsCardGap()
 
         SettingsCard(title = stringResource(R.string.settings_sect_troubleshooting)) {
             SettingsClickableItem(
@@ -2627,6 +2651,7 @@ fun SettingsScreen(
     // backable: whether a section shows the arrow that returns to the hub. Beside
     // the hub, as the right pane of the wide layout, there is nothing to return
     // to — the hub is already on screen — so the arrow would be a lie.
+    val window = rememberWindowLayout()
     val settingsSurface: @Composable (String?, Boolean) -> Unit = { section, backable ->
         val openCategory = settingsCategories.firstOrNull { it.id == section }
         Scaffold(
@@ -2679,14 +2704,7 @@ fun SettingsScreen(
                 LaunchedEffect(sectionScroll, section) {
                     snapshotFlow { sectionScroll.value }.collect { sectionAnchors[section] = it }
                 }
-                ReadableWidth {
-                Column(
-                    modifier = Modifier
-                        .padding(padding)
-                        .fillMaxSize()
-                        .verticalScroll(sectionScroll)
-                        .padding(16.dp)
-                ) {
+                val sectionBody: @Composable () -> Unit = {
                     when (section) {
                         "account" -> sectionAccount()
                         "tunnel" -> sectionTunnel()
@@ -2700,8 +2718,50 @@ fun SettingsScreen(
                         "automation" -> sectionAutomation()
                         "diagnostics" -> sectionDiagnostics()
                     }
-                    Spacer(Modifier.height(32.dp))
                 }
+                // A phone's page, and any page a tablet has no columns for.
+                val oneColumn: @Composable () -> Unit = {
+                    ReadableWidth {
+                    Column(
+                        modifier = Modifier
+                            .padding(padding)
+                            .fillMaxSize()
+                            .verticalScroll(sectionScroll)
+                            .padding(16.dp)
+                    ) {
+                        sectionBody()
+                        Spacer(Modifier.height(32.dp))
+                    }
+                    }
+                }
+                // On a tablet a page of several cards stands them in two columns instead of
+                // one 720dp strip down the middle of the pane: beside the categories from two
+                // cards, alone on a medium window from three — two cards there would be two
+                // half-empty columns. Never on a phone, upright or turned: its two-pane keeps
+                // the single column it always had.
+                val cards = openCategory?.cards ?: 1
+                if (!window.isPhone && cards >= (if (backable) 3 else 2)) {
+                    BoxWithConstraints(Modifier.fillMaxSize()) {
+                        if (columnsFor(maxWidth - window.margin * 2, SettingsColumnWidth, maxColumns = 2) < 2) {
+                            oneColumn()
+                        } else {
+                            Column(
+                                modifier = Modifier
+                                    .padding(padding)
+                                    .fillMaxSize()
+                                    .verticalScroll(sectionScroll)
+                                    .padding(horizontal = window.margin, vertical = 16.dp)
+                            ) {
+                                CompositionLocalProvider(LocalSettingsColumns provides true) {
+                                    if (openCategory?.splits == true) sectionBody()
+                                    else CardColumns(minColumnWidth = SettingsColumnWidth, maxColumns = 2) { sectionBody() }
+                                }
+                                Spacer(Modifier.height(32.dp))
+                            }
+                        }
+                    }
+                } else {
+                    oneColumn()
                 }
             }
         }
@@ -2721,21 +2781,21 @@ fun SettingsScreen(
     // the transition or predictive-back machinery below is involved; back simply
     // leaves, as it does from the hub.
     // A foldable held open like a book gets the two panes on its two halves
-    // whatever its width, with the hinge itself as the divider.
-    val fold = rememberFold()
+    // whatever its width, with the hinge itself as the divider. The width is the
+    // content's, not the window's size class: a phone on its side (some 890dp) is
+    // two panes here, and always has been.
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-    if (maxWidth >= 840.dp || fold is Fold.Vertical) {
+    if (maxWidth >= 840.dp || window.fold is Fold.Vertical) {
         val shown = openSection ?: settingsCategories.first().id
-        Row(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-            if (fold is Fold.Vertical) {
-                Box(modifier = Modifier.width(fold.start).fillMaxHeight()) { settingsSurface(null, true) }
-                Spacer(modifier = Modifier.width(fold.end - fold.start))
-            } else {
-                Box(modifier = Modifier.width(340.dp).fillMaxHeight()) { settingsSurface(null, true) }
-                VerticalDivider()
-            }
-            Box(modifier = Modifier.weight(1f).fillMaxHeight()) { settingsSurface(shown, false) }
-        }
+        ListDetailLayout(
+            list = { settingsSurface(null, true) },
+            detail = { settingsSurface(shown, false) },
+            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+            window = window,
+            twoPane = true,
+            listWidth = 340.dp,
+            style = PaneStyle.FLAT
+        )
     } else
     AnimatedContent(
         targetState = openSection,
