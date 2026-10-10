@@ -3,6 +3,7 @@ package io.github.bropines.tailscaled.admin.logs
 import android.content.Context
 import android.text.format.DateFormat
 import android.text.format.DateUtils
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -17,10 +18,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
+import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.AddCircle
@@ -64,6 +71,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontFamily
@@ -72,6 +80,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.bropines.tailscaled.R
+import io.github.bropines.tailscaled.admin.InPaneWidth
 import io.github.bropines.tailscaled.admin.LoadProblems
 import io.github.bropines.tailscaled.admin.LoadingIndicatorCompat
 import io.github.bropines.tailscaled.admin.api.ApiAuditLogEntry
@@ -84,9 +93,15 @@ import io.github.bropines.tailscaled.admin.safety.ChangeClassBadge
 import io.github.bropines.tailscaled.admin.safety.Refusal
 import io.github.bropines.tailscaled.core.SlidingSegmentedChips
 import io.github.bropines.tailscaled.ui.EmptyState
+import io.github.bropines.tailscaled.ui.Fold
 import io.github.bropines.tailscaled.ui.HelpText
+import io.github.bropines.tailscaled.ui.ListDetailLayout
+import io.github.bropines.tailscaled.ui.PaneEmptyState
 import io.github.bropines.tailscaled.ui.PickerOption
 import io.github.bropines.tailscaled.ui.PickerSheet
+import io.github.bropines.tailscaled.ui.ReadableContentWidth
+import io.github.bropines.tailscaled.ui.WindowLayout
+import io.github.bropines.tailscaled.ui.rememberWindowLayout
 import java.util.Date
 
 /**
@@ -108,22 +123,41 @@ fun LogsTab(
 ) {
     val ctx = LocalContext.current
     var which by rememberSaveable { mutableIntStateOf(if (startOnLocal) 1 else 0) }
-    Column(Modifier.fillMaxSize()) {
+    val chips: @Composable (Modifier) -> Unit = { modifier ->
         SlidingSegmentedChips(
             options = listOf(ctx.getString(R.string.admin_log_section_tailnet), ctx.getString(R.string.admin_log_section_phone_short)),
             selectedIndex = which,
             onOptionSelected = { which = it },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             height = 36.dp,
         )
-        if (which == 0) TailnetLog(tailnetLog, query, onQuery, onRetry, now, expandedAtStart)
-        else LocalLogList(localLog, onClearLocal, now, Modifier.fillMaxSize())
+    }
+    // A large window: the tailnet's events in a list with the one picked opened beside it, the
+    // switch between the two logs over the list; this phone's changes, which open to nothing
+    // more, in columns under the same switch in the same place.
+    val window = rememberWindowLayout()
+    when {
+        !window.listDetail -> Column(Modifier.fillMaxSize()) {
+            chips(Modifier.fillMaxWidth())
+            if (which == 0) TailnetLog(tailnetLog, query, onQuery, onRetry, now, expandedAtStart)
+            else LocalLogList(localLog, onClearLocal, now, Modifier.fillMaxSize())
+        }
+        which == 0 -> TailnetLog(tailnetLog, query, onQuery, onRetry, now, expandedAtStart, pane = window, header = { chips(Modifier.fillMaxWidth()) })
+        else -> Column(Modifier.fillMaxSize()) {
+            chips(Modifier.width((window.fold as? Fold.Vertical)?.start ?: window.listPaneWidth))
+            LocalLogList(localLog, onClearLocal, now, Modifier.fillMaxSize(), columns = true)
+        }
     }
 }
 
 /** A stable key for one entry of a list that has no id of its own. */
 fun auditKey(e: ApiAuditLogEntry, index: Int): String = "${e.eventTime}|${e.eventGroupID}|${e.target?.id}|${e.target?.property}|$index"
 
+/**
+ * The tailnet's audit log. With [pane] — a window with room for two panes — an entry is picked
+ * rather than opened in place, and the one picked (the first until then) stands opened in the
+ * pane beside the list, [header] over the list.
+ */
 @Composable
 private fun TailnetLog(
     state: Loadable<List<ApiAuditLogEntry>>,
@@ -132,6 +166,8 @@ private fun TailnetLog(
     onRetry: () -> Unit,
     now: Long,
     expandedAtStart: Set<String>,
+    pane: WindowLayout? = null,
+    header: (@Composable () -> Unit)? = null,
 ) {
     val ctx = LocalContext.current
     var editing by remember { mutableStateOf<Filter?>(null) }
@@ -140,41 +176,64 @@ private fun TailnetLog(
     val entries = state.value.orEmpty()
     val keyed = remember(entries) { entries.mapIndexed { i, e -> auditKey(e, i) to e } }
     val days = remember(keyed) { LogDays.group(keyed, { Rfc3339.parse(it.second.eventTime) }) }
+    var picked by rememberSaveable { mutableStateOf<String?>(null) }
+    val paneEntry = if (pane == null) null else keyed.firstOrNull { it.first == picked } ?: keyed.firstOrNull()
 
-    Column(Modifier.fillMaxSize()) {
-        FilterBar(query, onQuery, onEdit = { editing = it }, onEvent = { eventPicker = true })
-        Text(
-            ctx.resources.getQuantityString(R.plurals.admin_log_count, entries.size, entries.size),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.outline,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-        )
-        LoadProblems(state, onRetry, Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
-        Box(Modifier.weight(1f).fillMaxWidth()) {
-            when {
-                entries.isEmpty() && state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { LoadingIndicatorCompat() }
-                entries.isEmpty() -> EmptyState(
-                    Icons.Default.History,
-                    ctx.getString(if (query.hasFilters) R.string.admin_log_empty_filtered else R.string.admin_log_empty),
-                    actionLabel = if (query.hasFilters) ctx.getString(R.string.admin_log_filter_clear_all) else null,
-                    onAction = { onQuery(query.cleared()) },
-                )
-                else -> LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    days.forEach { day ->
-                        item(key = "day-${day.dayStart}") { DayHeader(day.dayStart, now) }
-                        items(day.items, key = { it.first }) { (key, entry) ->
-                            AuditEntryCard(entry, key in expanded.value) {
-                                expanded.value = if (key in expanded.value) expanded.value - key else expanded.value + key
+    val list: @Composable () -> Unit = {
+        Column(Modifier.fillMaxSize()) {
+            header?.invoke()
+            FilterBar(query, onQuery, onEdit = { editing = it }, onEvent = { eventPicker = true })
+            Text(
+                ctx.resources.getQuantityString(R.plurals.admin_log_count, entries.size, entries.size),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.outline,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+            LoadProblems(state, onRetry, Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                when {
+                    entries.isEmpty() && state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { LoadingIndicatorCompat() }
+                    entries.isEmpty() -> EmptyState(
+                        Icons.Default.History,
+                        ctx.getString(if (query.hasFilters) R.string.admin_log_empty_filtered else R.string.admin_log_empty),
+                        actionLabel = if (query.hasFilters) ctx.getString(R.string.admin_log_filter_clear_all) else null,
+                        onAction = { onQuery(query.cleared()) },
+                    )
+                    else -> LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        days.forEach { day ->
+                            item(key = "day-${day.dayStart}") { DayHeader(day.dayStart, now) }
+                            items(day.items, key = { it.first }) { (key, entry) ->
+                                if (pane != null) {
+                                    AuditEntryCard(entry, expanded = false, onToggle = { picked = key }, picking = true, shown = key == paneEntry?.first)
+                                } else {
+                                    AuditEntryCard(entry, key in expanded.value) {
+                                        expanded.value = if (key in expanded.value) expanded.value - key else expanded.value + key
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
         }
+    }
+    if (pane != null) {
+        ListDetailLayout(
+            window = pane,
+            twoPane = true,
+            modifier = Modifier.fillMaxSize(),
+            list = list,
+            detail = {
+                if (paneEntry != null) AuditEntryDetail(paneEntry.second)
+                else PaneEmptyState(Icons.Default.History, ctx.getString(R.string.tablet_admin_log_pane_empty))
+            },
+        )
+    } else {
+        list()
     }
 
     editing?.let { f ->
@@ -314,17 +373,28 @@ internal fun ActionBadge(icon: ImageVector, tint: Color) {
     ) { Icon(icon, null, tint = tint, modifier = Modifier.size(18.dp)) }
 }
 
-/** One audit event: what, to what, by whom, when; opened, the before → after and the details. */
+/** The icon and colour of an event's kind of action: made, changed, taken away, other. */
 @Composable
-fun AuditEntryCard(e: ApiAuditLogEntry, expanded: Boolean, onToggle: () -> Unit) {
-    val ctx = LocalContext.current
+private fun actionLook(e: ApiAuditLogEntry): Pair<ImageVector, Color> {
     val scheme = MaterialTheme.colorScheme
-    val (icon, tint) = when (e.action?.uppercase()) {
+    return when (e.action?.uppercase()) {
         "CREATE", "APPROVE", "ENABLE", "RESTORE", "ACCEPT", "JOIN", "LOGIN" -> Icons.Default.AddCircle to scheme.primary
         "UPDATE" -> Icons.Default.Edit to scheme.tertiary
         "DELETE", "REVOKE", "SUSPEND", "DISABLE", "EXPIRED", "LEAVE", "CANCEL" -> Icons.Default.Delete to scheme.error
         else -> Icons.Default.Info to scheme.secondary
     }
+}
+
+/**
+ * One audit event: what, to what, by whom, when; opened, the before → after and the details.
+ * [picking]: a row of the list beside the pane that shows the event opened — a tap picks it
+ * instead of opening it in place, and [shown] outlines the one in the pane.
+ */
+@Composable
+fun AuditEntryCard(e: ApiAuditLogEntry, expanded: Boolean, picking: Boolean = false, shown: Boolean = false, onToggle: () -> Unit) {
+    val ctx = LocalContext.current
+    val scheme = MaterialTheme.colorScheme
+    val (icon, tint) = actionLook(e)
     val changes = remember(e) { AuditDiff.of(e.old, e.new) }
     val property = AuditText.property(ctx, e.target?.property)
     val stateText = ctx.getString(if (expanded) R.string.admin_log_entry_expanded else R.string.admin_log_entry_collapsed)
@@ -332,10 +402,15 @@ fun AuditEntryCard(e: ApiAuditLogEntry, expanded: Boolean, onToggle: () -> Unit)
         modifier = Modifier
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.large)
-            .clickable(role = Role.Button, onClickLabel = ctx.getString(R.string.admin_log_entry_toggle), onClick = onToggle)
-            .semantics { stateDescription = stateText },
+            .then(
+                if (picking) Modifier.clickable(role = Role.Button, onClick = onToggle).semantics { if (shown) selected = true }
+                else Modifier
+                    .clickable(role = Role.Button, onClickLabel = ctx.getString(R.string.admin_log_entry_toggle), onClick = onToggle)
+                    .semantics { stateDescription = stateText }
+            ),
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = scheme.surfaceContainerLow),
+        border = if (shown) BorderStroke(2.dp, scheme.primary) else null,
     ) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             ActionBadge(icon, tint)
@@ -375,7 +450,51 @@ fun AuditEntryCard(e: ApiAuditLogEntry, expanded: Boolean, onToggle: () -> Unit)
                 }
                 if (expanded) EntryDetails(e, changes, property)
             }
-            Icon(if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null, tint = scheme.outline)
+            if (!picking) Icon(if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null, tint = scheme.outline)
+        }
+    }
+}
+
+/** An event opened in the pane beside the list: what the card says, at length, and all it changed. */
+@Composable
+private fun AuditEntryDetail(e: ApiAuditLogEntry) {
+    val ctx = LocalContext.current
+    val scheme = MaterialTheme.colorScheme
+    val (icon, tint) = actionLook(e)
+    val changes = remember(e) { AuditDiff.of(e.old, e.new) }
+    val property = AuditText.property(ctx, e.target?.property)
+    val at = Rfc3339.parse(e.eventTime)
+    InPaneWidth {
+        Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                ActionBadge(icon, tint)
+                Column(Modifier.weight(1f)) {
+                    Text(AuditText.title(ctx, e) + (property?.let { " · $it" } ?: ""), style = MaterialTheme.typography.titleMedium, color = tint)
+                    if (at != null) Text(
+                        DateUtils.formatDateTime(
+                            ctx, at,
+                            DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_WEEKDAY or DateUtils.FORMAT_SHOW_TIME or DateUtils.FORMAT_ABBREV_ALL,
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = scheme.outline,
+                    )
+                }
+            }
+            (e.target?.name?.takeIf { it.isNotBlank() } ?: e.target?.id)?.let {
+                Text(it, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            }
+            Text(actorLine(ctx, e), style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
+            e.error?.takeIf { it.isNotBlank() }?.let {
+                Row(verticalAlignment = Alignment.Top) {
+                    Icon(Icons.Default.ErrorOutline, null, Modifier.size(16.dp).padding(top = 2.dp), tint = scheme.error)
+                    Spacer(Modifier.width(6.dp))
+                    Text(it, style = MaterialTheme.typography.bodyMedium, color = scheme.error)
+                }
+            }
+            EntryDetails(e, changes, property)
         }
     }
 }
@@ -491,18 +610,38 @@ fun AuditChangesBlock(changes: List<AuditChange>, property: String?) {
     }
 }
 
-/** The changes this phone sent or was stopped from sending, by day; kept on the phone only. */
+/**
+ * The changes this phone sent or was stopped from sending, by day; kept on the phone only. With
+ * [columns], on a large window, the cards stand in as many columns as fit.
+ */
 @Composable
-fun LocalLogList(records: List<AuditRecord>, onClear: () -> Unit, now: Long, modifier: Modifier = Modifier) {
+fun LocalLogList(records: List<AuditRecord>, onClear: () -> Unit, now: Long, modifier: Modifier = Modifier, columns: Boolean = false) {
     val ctx = LocalContext.current
     val days = remember(records) { LogDays.group(records, { it.time }) }
     Column(modifier) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        // The clear button next to what it clears, not a window's width away from it.
+        Row(
+            Modifier.fillMaxWidth().then(if (columns) Modifier.widthIn(max = ReadableContentWidth) else Modifier).padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             HelpText(ctx.getString(R.string.admin_log_phone_help), modifier = Modifier.weight(1f))
             if (records.isNotEmpty()) TextButton(onClick = onClear) { Text(ctx.getString(R.string.admin_log_phone_clear)) }
         }
         if (records.isEmpty()) {
             EmptyState(Icons.Default.History, ctx.getString(R.string.admin_log_phone_empty))
+        } else if (columns) {
+            LazyVerticalStaggeredGrid(
+                columns = StaggeredGridCells.Adaptive(320.dp),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                verticalItemSpacing = 8.dp,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                days.forEach { day ->
+                    item(key = "day-${day.dayStart}", span = StaggeredGridItemSpan.FullLine) { DayHeader(day.dayStart, now) }
+                    items(day.items, key = { "${it.time}|${it.targetId}|${it.kind}" }) { LocalRecordCard(it) }
+                }
+            }
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
