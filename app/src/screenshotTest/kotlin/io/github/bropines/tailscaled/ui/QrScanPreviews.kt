@@ -117,3 +117,12 @@ fun ScanResultTextDark() = ScanResult(
     text = "WIFI:T:WPA;S:Home network;P:correct horse battery staple;;",
     web = false
 )
+
+// The scanner in every window size (AdaptivePreviews.kt): the camera, and the reason
+// shown while Android asks for it.
+
+@PreviewTest @WindowSizes @Composable
+fun TabletQrScanCamera() = Scanner(dark = false, access = CameraAccess.GRANTED, torch = false)
+
+@PreviewTest @WindowSizes @Composable
+fun TabletQrScanAsking() = Scanner(dark = true, access = CameraAccess.ASKING)

@@ -177,29 +177,49 @@ class DnsActivity : ComponentActivity() {
     }
 }
 
+/**
+ * What [DnsScreen] gets from the daemon and from its tools, made up for the preview
+ * renderer, which has neither: the DNS status as Appctr.getDnsStatusJSON returns it,
+ * a lookup already made, and the tests' answers in the shape testDnsServer gives
+ * them (route tests keyed "<domain>_<address>"). The app never provides it.
+ */
+class DemoDns(
+    val statusJson: String,
+    val lookupDomain: String = "",
+    val lookupResult: String? = null,
+    val localTest: String? = null,
+    val routeTests: Map<String, String> = emptyMap(),
+)
+
+val LocalDemoDns = staticCompositionLocalOf<DemoDns?> { null }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DnsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
-    var status by remember { mutableStateOf<DnsStatus?>(null) }
-    var loading by remember { mutableStateOf(true) }
-    var errorText by remember { mutableStateOf<String?>(null) }
     // The preview renderer has no daemon and no native bridge: there the demo, or its
     // absence, says whether the service counts as running. In the app a load decides.
     val inPreview = LocalInspectionMode.current
     val demo = LocalDemo.current
+    // A preview's answers, in the first frame: nothing loaded later reaches the picture.
+    val demoDns = if (inPreview) LocalDemoDns.current else null
+    var status by remember {
+        mutableStateOf(demoDns?.let { d -> runCatching { AppJson.decodeFromString<DnsStatus>(d.statusJson) }.getOrNull() })
+    }
+    var loading by remember { mutableStateOf(demoDns == null) }
+    var errorText by remember { mutableStateOf<String?>(null) }
     var daemonStopped by remember { mutableStateOf(inPreview && demo?.running != true) }
 
-    var queryDomain by remember { mutableStateOf("") }
-    var queryResult by remember { mutableStateOf<String?>(null) }
+    var queryDomain by remember { mutableStateOf(demoDns?.lookupDomain ?: "") }
+    var queryResult by remember { mutableStateOf(demoDns?.lookupResult) }
     var isQuerying by remember { mutableStateOf(false) }
 
     // Split Route & Local DNS test states
-    var routeTestResults by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var routeTestResults by remember { mutableStateOf(demoDns?.routeTests ?: emptyMap()) }
     var routeTestingState by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
-    var localTestResult by remember { mutableStateOf<String?>(null) }
+    var localTestResult by remember { mutableStateOf(demoDns?.localTest) }
     var isTestingLocal by remember { mutableStateOf(false) }
 
     fun runLocalDnsTest() {

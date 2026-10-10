@@ -527,6 +527,21 @@ private fun newRuleTemplate(): ServeRule = ServeRule(
     target = "127.0.0.1:8080", funnel = false, proxyProtocol = 0, insecureBackend = false
 )
 
+/**
+ * What [ServeScreen] reads from the daemon and from its own storage, made up for the
+ * preview renderer, which has neither: the status it takes the node's capabilities
+ * from, the serve config, the rules paused in the app (PausedRuleDto's JSON) and the
+ * health of the rules' targets. Seeded into the first frame; the app never provides it.
+ */
+class DemoServe(
+    val statusJson: String,
+    val configJson: String,
+    val pausedJson: String = "[]",
+    val health: Map<String, Boolean> = emptyMap(),
+)
+
+val LocalDemoServe = staticCompositionLocalOf<DemoServe?> { null }
+
 // ---------------------------------------------------------------------------------------------
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -536,15 +551,25 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
     val context = LocalContext.current
     val clipboard = LocalClipboard.current
 
-    var config by remember { mutableStateOf<ServeConfig?>(null) }
-    var caps by remember { mutableStateOf(ServeCapabilities()) }
-    var isLoading by remember { mutableStateOf(true) }
     // The preview renderer has no daemon and no native bridge: there the demo, or its
     // absence, says whether the service counts as running. In the app a load decides.
     val inPreview = LocalInspectionMode.current
     val demo = LocalDemo.current
+    // A preview's rules and capabilities, parsed now: nothing a LaunchedEffect loads
+    // lands before the renderer takes its picture.
+    val demoServe = if (inPreview) LocalDemoServe.current else null
+    var config by remember {
+        mutableStateOf(demoServe?.let { d -> runCatching { AppJson.decodeFromString<ServeConfig>(d.configJson) }.getOrNull() })
+    }
+    var caps by remember {
+        mutableStateOf(
+            demoServe?.let { d -> runCatching { capabilitiesOf(AppJson.decodeFromString<StatusResponse>(d.statusJson)) }.getOrNull() }
+                ?: ServeCapabilities()
+        )
+    }
+    var isLoading by remember { mutableStateOf(demoServe == null) }
     var daemonStopped by remember { mutableStateOf(inPreview && demo?.running != true) }
-    var healthMap by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
+    var healthMap by remember { mutableStateOf(demoServe?.health ?: emptyMap()) }
     var editor by remember { mutableStateOf<RuleEditorState?>(null) }
     var menuOpen by remember { mutableStateOf(false) }
     var showClearDialog by remember { mutableStateOf(false) }
@@ -568,7 +593,13 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
     }
 
     val rules = remember(config) { config?.let { rulesOf(it) } ?: emptyList() }
-    var paused by remember { mutableStateOf(PausedRules.load(context)) }
+    var paused by remember {
+        mutableStateOf(
+            demoServe?.let { d ->
+                runCatching { AppJson.decodeFromString<List<PausedRuleDto>>(d.pausedJson) }.getOrDefault(emptyList()).map { it.toRule() }
+            } ?: PausedRules.load(context)
+        )
+    }
     /** Active rules from the daemon plus the paused ones the app holds; what the list shows. */
     val allRules = remember(rules, paused) { rules + paused }
     fun setPaused(list: List<ServeRule>) { paused = list; PausedRules.save(context, list) }
@@ -707,6 +738,8 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
 
     // One connect per distinct target whenever the rules change; the result rides on the card.
     LaunchedEffect(rules) {
+        // A preview's health comes with its demo; there is nothing to connect to.
+        if (inPreview) return@LaunchedEffect
         val targets = rules.filter { it.kind == RuleKind.PROXY || it.kind == RuleKind.TCP }
             .map { it.target }.filter { it.isNotBlank() }.distinct()
         if (targets.isEmpty()) { healthMap = emptyMap(); return@LaunchedEffect }

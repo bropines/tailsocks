@@ -100,6 +100,14 @@ fun QrServeLinkLight() = QrSample(
     help = stringResource(R.string.qr_serve_public_help)
 )
 
+/** The sheet as wide as a sheet gets on a tablet (640dp), on a window 800dp tall: the code stays its size. */
+@PreviewTest @Preview(name = "qr-sheet-tablet", device = "spec:width=640dp,height=800dp,dpi=240") @Composable
+fun QrSheetTablet() = QrSample(
+    dark = true,
+    title = stringResource(R.string.qr_tailcat_server_title),
+    variants = tailcatServerVariants()
+)
+
 @PreviewTest @Preview(name = "qr-too-long", device = "spec:width=393dp,height=852dp,dpi=420") @Composable
 fun QrTooLong() = QrSample(dark = true, title = "x", text = "x".repeat(3000), help = "")
 
