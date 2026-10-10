@@ -4,6 +4,8 @@ import io.github.bropines.tailscaled.admin.api.PolicyFile
 import io.github.bropines.tailscaled.admin.api.PolicyPreview
 import io.github.bropines.tailscaled.admin.api.PolicyPreviewType
 import io.github.bropines.tailscaled.admin.console.Loadable
+import io.github.bropines.tailscaled.admin.secure.SecretBox
+import io.github.bropines.tailscaled.core.AppJson
 import kotlinx.serialization.Serializable
 import java.io.File
 
@@ -66,20 +68,46 @@ data class StoredPolicy(val text: String, val savedAt: Long, val etagAfter: Stri
 
 /**
  * The policy as it was before this phone last changed it, one per admin profile, under
- * `files/admin/policy/` — outside backups, like the audit log.
+ * `files/admin/policy/` — outside backups, like the audit log, and sealed like the credentials
+ * (the whole policy: groups, people, addresses). A copy written in the clear by an earlier build
+ * is sealed on first read.
  */
-class PolicyStore(filesDir: File) {
+class PolicyStore(filesDir: File, private val box: SecretBox) {
     private val dir = File(File(filesDir, "admin"), "policy")
 
-    private fun fileFor(profileId: String) = File(dir, profileId.filter { it.isLetterOrDigit() || it == '-' || it == '_' }.ifEmpty { "default" } + ".json")
+    private fun name(profileId: String) = profileId.filter { it.isLetterOrDigit() || it == '-' || it == '_' }.ifEmpty { "default" }
+    private fun fileFor(profileId: String) = File(dir, name(profileId) + ".sealed")
+    private fun legacyFor(profileId: String) = File(dir, name(profileId) + ".json")
+    private fun aad(profileId: String) = "admin-policy:$profileId"
 
-    fun load(profileId: String): StoredPolicy? = runCatching {
+    fun load(profileId: String): StoredPolicy? {
+        val legacy = legacyFor(profileId)
+        if (legacy.exists()) {
+            val old = runCatching { AppJson.decodeFromString(StoredPolicy.serializer(), legacy.readText()) }.getOrNull()
+            if (old != null) runCatching { save(profileId, old) }
+            if (old == null || fileFor(profileId).exists()) legacy.delete()
+        }
         val f = fileFor(profileId)
-        if (!f.exists()) null else io.github.bropines.tailscaled.core.AppJson.decodeFromString(StoredPolicy.serializer(), f.readText())
-    }.getOrNull()
+        if (!f.exists()) return null
+        return try {
+            AppJson.decodeFromString(StoredPolicy.serializer(), box.open(f.readText(), aad(profileId)))
+        } catch (_: Exception) {
+            // Another phone's key or a reset Keystore: there is nothing to revert to.
+            f.delete()
+            null
+        }
+    }
 
     fun save(profileId: String, policy: StoredPolicy) {
         dir.mkdirs()
-        fileFor(profileId).writeText(io.github.bropines.tailscaled.core.AppJson.encodeToString(StoredPolicy.serializer(), policy))
+        val f = fileFor(profileId)
+        val tmp = File(dir, f.name + ".tmp")
+        tmp.writeText(box.seal(AppJson.encodeToString(StoredPolicy.serializer(), policy), aad(profileId)))
+        if (!tmp.renameTo(f)) tmp.delete()
+    }
+
+    fun clear(profileId: String) {
+        fileFor(profileId).delete()
+        legacyFor(profileId).delete()
     }
 }

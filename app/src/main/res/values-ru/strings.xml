@@ -168,8 +168,8 @@
     <string name="admin_web_billing_desc">Управление тарифным планом, просмотр счетов, баланса и платёжной информации вашей сети.</string>
     <string name="admin_web_idp_title">Провайдер идентификации (SSO/IdP)</string>
     <string name="admin_web_idp_desc">Настройка провайдера аутентификации (Google, Microsoft, GitHub, Okta и др.) для вашей сети.</string>
-    <string name="admin_web_acl_title">Списки контроля доступа (ACL)</string>
-    <string name="admin_web_acl_desc">Просмотр и редактирование политик доступа в формате HuJSON для разграничения прав устройств.</string>
+    <string name="admin_web_acl_title">Визуальный редактор политики</string>
+    <string name="admin_web_acl_desc">Редактор Tailscale: правила, группы и теги без HuJSON. Сам файл правится во вкладке «Политика».</string>
     <string name="admin_web_lock_title">Tailnet Lock</string>
     <string name="admin_web_lock_desc">Включение сквозного шифрования конфигурации для предотвращения добавления несанкционированных узлов.</string>
     <string name="admin_web_apps_title">Интеграции приложений</string>

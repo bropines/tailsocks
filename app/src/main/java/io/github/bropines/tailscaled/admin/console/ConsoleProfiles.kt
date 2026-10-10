@@ -65,6 +65,7 @@ class ConsoleProfiles internal constructor(private val vm: AdminConsoleViewModel
     fun delete(id: String) {
         vm.viewModelScope.launch {
             vm.forgetCopies(id)
+            vm.policy.forget(id)
             withContext(Dispatchers.IO) {
                 AdminProfiles.vault(vm.app).removeProfile(id)
                 AdminProfiles.store(vm.app).remove(id)
@@ -170,9 +171,10 @@ class ConsoleProfiles internal constructor(private val vm: AdminConsoleViewModel
                 }
             }
             // What another credential or server read is not this profile's to show any more.
-            if (existing != null && (credentialChanged || existing.backend != toSave.backend || existing.baseUrl != toSave.baseUrl || existing.tailnet != toSave.tailnet)) {
-                vm.forgetCopies(id)
-            }
+            val serverChanged = existing != null && (existing.backend != toSave.backend || existing.baseUrl != toSave.baseUrl || existing.tailnet != toSave.tailnet)
+            if (existing != null && (credentialChanged || serverChanged)) vm.forgetCopies(id)
+            // A policy to revert to belongs to its tailnet; a new credential for the same one keeps it.
+            if (serverChanged) vm.policy.forget(id)
             val ok = withContext(Dispatchers.IO) {
                 runCatching {
                     val vault = AdminProfiles.vault(vm.app)

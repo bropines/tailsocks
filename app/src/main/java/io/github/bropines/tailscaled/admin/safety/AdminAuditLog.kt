@@ -1,5 +1,7 @@
 package io.github.bropines.tailscaled.admin.safety
 
+import io.github.bropines.tailscaled.admin.secure.KeystoreSecretBox
+import io.github.bropines.tailscaled.admin.secure.SecretBox
 import io.github.bropines.tailscaled.core.AppJson
 import kotlinx.serialization.Serializable
 import java.io.File
@@ -41,26 +43,42 @@ data class AuditRecord(
  * The console's own record of every write it attempted, kept on this phone only (`files/admin/
  * audit.jsonl`, outside backups) — the tailnet's audit log says what changed, this one says what
  * this phone asked for, including what failed or was refused. Newest last on disk, the newest
- * [maxEntries] kept.
+ * [maxEntries] kept. With a [box] every line is sealed on its own (names, users, effects stay
+ * off the disk in the clear); lines an earlier build wrote in the clear are sealed on first read.
  */
-class AdminAuditLog(private val file: File, private val maxEntries: Int = 500) {
+class AdminAuditLog(private val file: File, private val maxEntries: Int = 500, private val box: SecretBox? = null) {
+
+    private fun encode(record: AuditRecord): String {
+        val json = AppJson.encodeToString(AuditRecord.serializer(), record)
+        return box?.seal(json, AAD) ?: json
+    }
+
+    private fun decode(line: String): AuditRecord? = runCatching {
+        val json = if (line.startsWith("{") || box == null) line else box.open(line, AAD)
+        AppJson.decodeFromString(AuditRecord.serializer(), json)
+    }.getOrNull()
+
+    private fun write(oldestFirst: List<AuditRecord>) {
+        file.parentFile?.mkdirs()
+        file.writeText(oldestFirst.joinToString("") { encode(it) + "\n" })
+    }
 
     @Synchronized
     fun append(record: AuditRecord) {
         file.parentFile?.mkdirs()
-        file.appendText(AppJson.encodeToString(AuditRecord.serializer(), record) + "\n")
+        file.appendText(encode(record) + "\n")
         val lines = file.readLines()
         if (lines.size > maxEntries + maxEntries / 5) file.writeText(lines.takeLast(maxEntries).joinToString("\n", postfix = "\n"))
     }
 
-    /** Newest first; [profileId] narrows to one profile. Lines that do not parse are skipped. */
+    /** Newest first; [profileId] narrows to one profile. Lines that do not parse or open are skipped. */
     @Synchronized
     fun records(profileId: String? = null): List<AuditRecord> {
         if (!file.exists()) return emptyList()
-        return file.readLines().asReversed().mapNotNull { line ->
-            if (line.isBlank()) null
-            else runCatching { AppJson.decodeFromString(AuditRecord.serializer(), line) }.getOrNull()
-        }.filter { profileId == null || it.profileId == profileId }.take(maxEntries)
+        val lines = file.readLines().filter { it.isNotBlank() }
+        val all = lines.mapNotNull(::decode)
+        if (box != null && lines.any { it.startsWith("{") }) runCatching { write(all) }
+        return all.asReversed().filter { profileId == null || it.profileId == profileId }.take(maxEntries)
     }
 
     @Synchronized
@@ -69,11 +87,15 @@ class AdminAuditLog(private val file: File, private val maxEntries: Int = 500) {
             file.delete()
             return
         }
-        val keep = records().filter { it.profileId != profileId }.asReversed()
-        file.writeText(keep.joinToString("") { AppJson.encodeToString(AuditRecord.serializer(), it) + "\n" })
+        write(records().filter { it.profileId != profileId }.asReversed())
     }
 
     companion object {
+        private const val AAD = "admin-audit-log"
+
         fun fileIn(filesDir: File) = File(File(filesDir, "admin"), "audit.jsonl")
+
+        /** The log as the app keeps it: sealed under the at-rest Keystore key. */
+        fun of(filesDir: File) = AdminAuditLog(fileIn(filesDir), box = KeystoreSecretBox())
     }
 }

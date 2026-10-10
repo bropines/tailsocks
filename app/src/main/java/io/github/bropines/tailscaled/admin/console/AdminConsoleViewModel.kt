@@ -94,7 +94,7 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
     /** What to do with a change's outcome, whatever it is: the policy editor answers a 412. */
     private val onOutcome = mutableMapOf<PlannedChange, (ChangeOutcome) -> Unit>()
     private var messageSeq = 0L
-    internal val audit = AdminAuditLog(AdminAuditLog.fileIn(app.filesDir))
+    internal val audit = AdminAuditLog.of(app.filesDir)
     private val cache = ConsoleCache.of(app.filesDir)
 
     val profiles = ConsoleProfiles(this)

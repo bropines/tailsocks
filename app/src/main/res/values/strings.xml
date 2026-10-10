@@ -173,8 +173,8 @@
     <string name="admin_web_billing_desc">Manage your billing plan, view invoices, balance, and payment information for your network.</string>
     <string name="admin_web_idp_title">Identity Provider (SSO/IdP)</string>
     <string name="admin_web_idp_desc">Configure the authentication provider (Google, Microsoft, GitHub, Okta, etc.) for your network.</string>
-    <string name="admin_web_acl_title">Access Control Lists (ACLs)</string>
-    <string name="admin_web_acl_desc">View and edit access policies in HuJSON format to control device permissions.</string>
+    <string name="admin_web_acl_title">Visual policy editor</string>
+    <string name="admin_web_acl_desc">Tailscale\'s own editor: rules, groups and tags without HuJSON. The file itself is edited on the Policy tab.</string>
     <string name="admin_web_lock_title">Tailnet Lock</string>
     <string name="admin_web_lock_desc">Enable end-to-end configuration encryption to prevent unauthorized nodes from joining.</string>
     <string name="admin_web_apps_title">App Integrations (Apps)</string>

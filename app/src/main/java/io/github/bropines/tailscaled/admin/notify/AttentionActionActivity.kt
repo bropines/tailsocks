@@ -247,7 +247,7 @@ class AttentionActionViewModel(app: Application) : AndroidViewModel(app) {
 
         val caps = backend.capabilities.value
         val lock = AdminWriteGate.lockState(app)
-        val run = SafeChangeRunner(backend, AdminAuditLog(AdminAuditLog.fileIn(app.filesDir)), {
+        val run = SafeChangeRunner(backend, AdminAuditLog.of(app.filesDir), {
             SafetyContext(
                 profileId = p.id,
                 profileName = p.displayName,

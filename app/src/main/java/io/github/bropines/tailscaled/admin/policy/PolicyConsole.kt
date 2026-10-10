@@ -1,5 +1,6 @@
 package io.github.bropines.tailscaled.admin.policy
 
+import io.github.bropines.tailscaled.admin.secure.KeystoreSecretBox
 import androidx.lifecycle.viewModelScope
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.admin.api.AdminApiException
@@ -26,7 +27,7 @@ import kotlinx.coroutines.withContext
 class PolicyConsole internal constructor(private val vm: AdminConsoleViewModel) {
 
     private var reviewJob: Job? = null
-    private val store by lazy { PolicyStore(vm.app.filesDir) }
+    private val store by lazy { PolicyStore(vm.app.filesDir, KeystoreSecretBox()) }
 
     private val state: PolicyState get() = vm.state.value.policy
     private fun set(change: (PolicyState) -> PolicyState) = vm.update { it.copy(policy = change(it.policy)) }
@@ -50,6 +51,12 @@ class PolicyConsole internal constructor(private val vm: AdminConsoleViewModel) 
                 s.copy(file = r.fold({ Loadable(it, false, null, loadedAt = System.currentTimeMillis()) }, { s.file.copy(loading = false, error = it) }))
             }
         }
+    }
+
+    /** Drops [profileId]'s copy to revert to: the profile is gone or points at another tailnet. */
+    internal suspend fun forget(profileId: String) {
+        withContext(Dispatchers.IO) { runCatching { store.clear(profileId) } }
+        if (vm.state.value.active?.id == profileId) set { it.copy(previous = null) }
     }
 
     private fun loadPrevious() {

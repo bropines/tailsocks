@@ -666,7 +666,7 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
             val outcome = withContext(Dispatchers.IO) {
                 runCatching {
                     val backend = AdminProfiles.newBackend(context, profile)
-                    val runner = SafeChangeRunner(backend, AdminAuditLog(AdminAuditLog.fileIn(context.filesDir)), {
+                    val runner = SafeChangeRunner(backend, AdminAuditLog.of(context.filesDir), {
                         SafetyContext(profile.id, profile.displayName, readOnlyProfile = profile.readOnly, lockState = AdminWriteGate.lockState(context))
                     })
                     runner.run(planned, GateEvidence(confirmed = true, grant = grant))
