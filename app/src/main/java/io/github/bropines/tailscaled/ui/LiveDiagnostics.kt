@@ -6,6 +6,8 @@ import android.content.Context
 import android.text.format.Formatter
 import android.widget.Toast
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -56,8 +58,10 @@ import kotlinx.coroutines.withTimeoutOrNull
 /*
  * The live state card at the top of Settings → Diagnostics: what the service is
  * doing this second, one monospace row per fact, red where it is wrong. It is
- * for the developer and for bug reports, so it lives on a page nobody opens by
- * accident — the everyday screens keep their plain language.
+ * for the developer and for bug reports, so on a phone it lives on a page nobody
+ * opens by accident — the everyday screens keep their plain language. A large
+ * window's home screen is the exception: it has the room, and the card stands
+ * under the status card there, as the status in detail (MainDashboard.kt).
  *
  * Split in two, like the rest of the previewed UI: a loader that owns the
  * polling, and a stateless card that draws a Diagnostics.Live, so a preview can
@@ -80,9 +84,13 @@ private val LABEL_WIDTH = 84.dp
  * Reads the live state every [REFRESH_MS] while the card is composed and the
  * page is in front, and draws it. In the preview renderer, which has no native
  * bridge, it draws [LocalDemo] instead and never touches Appctr.
+ *
+ * [fillHeight]: the card takes the height it is given and scrolls its rows
+ * inside it — on a tablet's home screen, where it stands beside other cards
+ * and ends on their line (MainDashboard.kt), instead of in a page that scrolls.
  */
 @Composable
-fun LiveDiagnosticsCard(modifier: Modifier = Modifier) {
+fun LiveDiagnosticsCard(modifier: Modifier = Modifier, fillHeight: Boolean = false) {
     val context = LocalContext.current
     val inPreview = LocalInspectionMode.current
     val demo = LocalDemo.current
@@ -126,6 +134,7 @@ fun LiveDiagnosticsCard(modifier: Modifier = Modifier) {
             }
         },
         onRecheck = { recheck.trySend(Unit) },
+        fillHeight = fillHeight,
     )
 }
 
@@ -153,14 +162,22 @@ fun LiveDiagnosticsCard(
     modifier: Modifier = Modifier,
     onCopy: () -> Unit = {},
     onRecheck: () -> Unit = {},
+    fillHeight: Boolean = false,
 ) {
     // SettingsCard's look, with a copy button beside the title that SettingsCard has no room for.
+    // Filling a height it is given, the card has no margin of its own: the cards beside it
+    // start and end where it does.
     Card(
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
-        modifier = modifier.fillMaxWidth().padding(vertical = 4.dp)
+        modifier = if (fillHeight) modifier.fillMaxWidth() else modifier.fillMaxWidth().padding(vertical = 4.dp)
     ) {
-        Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 16.dp)) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .then(if (fillHeight) Modifier.verticalScroll(rememberScrollState()) else Modifier)
+                .padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 16.dp)
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     stringResource(R.string.diag_live_title),
