@@ -141,6 +141,7 @@ fun VisualEditorScreen(state: ConsoleState, editor: PolicyEditorState, vm: Admin
         risks = risks,
         errors = errors,
         focus = editor.focus,
+        derpMap = state.policy.derpMap,
     )
 
     val page = editor.page
@@ -256,6 +257,10 @@ private fun rememberShellActions(vm: AdminConsoleViewModel?, snackbar: SnackbarH
             override fun previewDraft(type: PolicyPreviewType, previewFor: String, onResult: (Result<PolicyPreview>) -> Unit) {
                 val policy = vm?.policy ?: return super.previewDraft(type, previewFor, onResult)
                 policy.previewDraft(type, previewFor, onResult)
+            }
+
+            override fun loadDerpMap(force: Boolean) {
+                vm?.policy?.loadDerpMap(force)
             }
 
             override fun notify(message: String, undoable: Boolean) {

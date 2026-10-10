@@ -65,17 +65,6 @@
     <string name="admin_pv_net_cgnat_never">A route per device</string>
     <string name="admin_pv_net_cgnat_other">As written: %1$s</string>
     <string name="admin_pv_net_odd_value">Written as a value this page does not know.</string>
-    <string name="admin_pv_net_derp">Relay servers (DERP)</string>
-    <string name="admin_pv_net_derp_defaults_on">Tailscale\'s relays are used</string>
-    <string name="admin_pv_net_derp_defaults_off">Tailscale\'s relays are not used</string>
-    <string name="admin_pv_net_derp_off">Turned off: %1$s</string>
-    <string name="admin_pv_net_derp_region">region %1$s</string>
-    <string name="admin_pv_net_derp_custom">Own relays</string>
-    <plurals name="admin_pv_net_derp_servers">
-        <item quantity="one">%d server</item>
-        <item quantity="other">%d servers</item>
-    </plurals>
-    <string name="admin_pv_net_derp_help">Relays carry traffic when two devices cannot connect directly. The relay map is edited in JSON; here is what it does.</string>
     <string name="admin_pv_net_other">Other sections</string>
     <string name="admin_pv_net_other_help">Kept exactly as written. The visual editor leaves them alone.</string>
     <string name="admin_pv_net_line">Line %1$d</string>

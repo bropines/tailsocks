@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The visual policy editor's Relays page: Tailscale's DERP regions, excluded or used through the policy's derpMap. -->
+    <string name="admin_pv_derp_page">Relays</string>
+    <!-- Under the icon in the narrow page rail, about 80dp. -->
+    <string name="admin_pv_derp_page_short">Relays</string>
+    <string name="admin_pv_derp_title">Relay servers (DERP)</string>
+    <string name="admin_pv_derp_help">Relays carry traffic between devices that cannot connect directly, behind a strict NAT or firewall, and help them find a direct path. Excluding a region matters only for connections that go through a relay: devices that had it as their home relay move to the nearest one left. Latency is the median of what your devices last reported.</string>
+    <string name="admin_pv_derp_in_use">Tailscale regions in use: %1$d of %2$d</string>
+    <string name="admin_pv_derp_loading">Loading Tailscale\'s list of relays…</string>
+    <string name="admin_pv_derp_failed_hint">Without Tailscale\'s list only the regions the file already excludes are shown.</string>
+    <string name="admin_pv_derp_none_left">No relay is left: devices that cannot connect directly will not reach each other.</string>
+    <string name="admin_pv_derp_omit">OmitDefaultRegions is on: none of Tailscale\'s regions are used, only the file\'s own.</string>
+    <string name="admin_pv_derp_headscale">Headscale takes its relay map from its own configuration (the derp section of config.yaml), not from the policy. Here is what the file says; it is edited in JSON.</string>
+    <string name="admin_pv_derp_lock_spelling">The relay map is written as \"%1$s\". The server reads it; the editor leaves it to JSON.</string>
+    <string name="admin_pv_derp_lock_shape">The relay map is not written as an object of regions. Edit it in JSON.</string>
+    <string name="admin_pv_derp_lock_twice">Regions, or a region number, is written twice; only the last counts. Edit it in JSON.</string>
+
+    <string name="admin_pv_derp_group_home">Home relays of your devices</string>
+    <string name="admin_pv_derp_group_other">Other regions</string>
+    <string name="admin_pv_derp_group_all">Tailscale regions</string>
+    <string name="admin_pv_derp_group_file">Excluded in the file</string>
+    <string name="admin_pv_derp_group_own">Regions defined in the file</string>
+
+    <string name="admin_pv_derp_region">Region %1$s</string>
+    <plurals name="admin_pv_derp_servers">
+        <item quantity="one">%d&#160;server</item>
+        <item quantity="other">%d&#160;servers</item>
+    </plurals>
+    <plurals name="admin_pv_derp_home">
+        <item quantity="one">home to %d device</item>
+        <item quantity="other">home to %d devices</item>
+    </plurals>
+    <string name="admin_pv_derp_latency">%1$d&#160;ms</string>
+    <plurals name="admin_pv_derp_latency_desc">
+        <item quantity="one">median latency %1$d ms, from %2$d device</item>
+        <item quantity="other">median latency %1$d ms, from %2$d devices</item>
+    </plurals>
+    <string name="admin_pv_derp_used">In use</string>
+    <string name="admin_pv_derp_excluded">Excluded</string>
+    <string name="admin_pv_derp_replaced">Replaced by a region in the file</string>
+    <string name="admin_pv_derp_unknown">Not in Tailscale\'s current list</string>
+    <string name="admin_pv_derp_last">The last relay left; it cannot be excluded</string>
+    <string name="admin_pv_derp_odd_entry">Not written as a region; see JSON</string>
+
+    <string name="admin_pv_derp_confirm_title">Exclude %1$s?</string>
+    <plurals name="admin_pv_derp_confirm_homes">
+        <item quantity="one">It is the home relay of %1$d of your devices: %2$s. It will move to another relay, usually the nearest one left. Direct connections are not affected.</item>
+        <item quantity="other">It is the home relay of %1$d of your devices: %2$s. They will move to another relay, usually the nearest one left. Direct connections are not affected.</item>
+    </plurals>
+    <string name="admin_pv_derp_confirm_more">%1$s and %2$d more</string>
+    <string name="admin_pv_derp_confirm_only_own">Only the file\'s own regions will be left: %1$d. If they fail, devices that cannot connect directly lose each other.</string>
+    <string name="admin_pv_derp_confirm_ok">Exclude</string>
+</resources>

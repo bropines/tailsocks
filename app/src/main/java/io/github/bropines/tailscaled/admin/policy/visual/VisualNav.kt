@@ -101,6 +101,7 @@ private fun shortLabel(s: VisualSection): Int = when (s) {
     VisualSection.HOSTS -> R.string.admin_pv_shell_short_hosts
     VisualSection.ATTRIBUTES -> R.string.admin_pv_shell_short_attributes
     VisualSection.POSTURE -> R.string.admin_pv_shell_short_posture
+    VisualSection.RELAYS -> R.string.admin_pv_derp_page_short
     VisualSection.NETWORK -> R.string.admin_pv_shell_short_network
     else -> s.label
 }

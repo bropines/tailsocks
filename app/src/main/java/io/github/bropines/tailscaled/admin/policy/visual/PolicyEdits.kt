@@ -249,6 +249,61 @@ object PolicyEdits {
         }
     }
 
+    // ---- relays ----
+
+    /** derpMap's fields in the order Tailscale documents them: a new one is written in its place. */
+    private val DERP_ORDER = listOf("HomeParams", "Regions", "OmitDefaultRegions")
+
+    /**
+     * Stop using Tailscale's relay region [id] — `derpMap.Regions."<id>": null`, with derpMap
+     * and Regions written first when the file has neither — or, [excluded] false, use it again:
+     * that key goes with its comment, and so do a Regions and then a derpMap left empty, unless
+     * a comment is in or around them — the mirror of what an exclusion adds. Regions spelled
+     * another way (Go reads "regions" alike) are edited where they are. A region the file
+     * defines itself, or anything the editor would have to guess about (another spelling of
+     * derpMap, a key written twice), is refused.
+     */
+    fun setDerpRegionExcluded(text: String, id: String, excluded: Boolean): String {
+        val t = SourceEdits.tree(text)
+        val shape = DerpFile.read(t)
+        shape.lock?.let { throw PolicyEditException("the relay map cannot be edited visually: $it") }
+        val regionsPath = PolicyPath.of(Section.DERP_MAP.key, shape.regionsKey)
+        when (val current = shape.entries.filter { it.id == id }.let { if (it.size > 1) throw PolicyEditException("region $id is written twice") else it.singleOrNull() }) {
+            null -> if (!excluded) return text
+            else -> {
+                if (current.kind != DerpEntryKind.EXCLUDED) throw PolicyEditException("region $id is defined in the file; edit it in JSON")
+                if (excluded) return text
+                return dropEmptyDerpMap(SourceEdits.remove(text, regionsPath + id, withNote = true), shape.regionsKey)
+            }
+        }
+        var out = SourceEdits.ensureSection(text, Section.DERP_MAP.key, PolicyValue.Obj(emptyList()))
+        if (SourceEdits.tree(out).at(regionsPath) == null) {
+            out = SourceEdits.put(out, PolicyPath.of(Section.DERP_MAP.key), shape.regionsKey, PolicyValue.Obj(emptyList()), DERP_ORDER)
+        }
+        // Region ids in number order, the new one among them; a file written otherwise keeps its own order.
+        val keys = (SourceEdits.tree(out).at(regionsPath) as SrcObject).members.mapNotNull { it.key }
+        val order = (keys + id).distinct().sortedWith(compareBy<String>({ it.toIntOrNull() ?: Int.MAX_VALUE }, { it }))
+        return SourceEdits.put(out, regionsPath, id, PolicyValue.Null, order)
+    }
+
+    /** An empty Regions, then an empty derpMap, nothing commented in or around either: what an exclusion added, gone again. */
+    private fun dropEmptyDerpMap(text: String, regionsKey: String): String {
+        val derpPath = PolicyPath.of(Section.DERP_MAP.key)
+        val out = dropIfEmpty(text, derpPath + regionsKey)
+        return if (out == text) text else dropIfEmpty(out, derpPath)
+    }
+
+    /** The object at [path] removed when it holds nothing and no comment is written in, above or after it. */
+    private fun dropIfEmpty(text: String, path: PolicyPath): String {
+        val t = SourceEdits.tree(text)
+        val (c, m) = t.memberAt(path) ?: return text
+        val o = m.value as? SrcObject ?: return text
+        if (o.members.isNotEmpty() || Trivia.hasCommentBetween(t, o.open + 1, o.close)) return text
+        val cm = t.commentsOf(c, c.members.indexOf(m))
+        if (cm.note != null || cm.header != null || cm.trailing != null) return text
+        return SourceEdits.remove(text, path, withNote = false)
+    }
+
     // ---- derived rules ----
 
     /**

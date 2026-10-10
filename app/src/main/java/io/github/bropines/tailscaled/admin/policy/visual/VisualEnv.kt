@@ -1,9 +1,11 @@
 package io.github.bropines.tailscaled.admin.policy.visual
 
+import io.github.bropines.tailscaled.admin.api.ApiDerpMap
 import io.github.bropines.tailscaled.admin.api.ApiDevice
 import io.github.bropines.tailscaled.admin.api.ApiUser
 import io.github.bropines.tailscaled.admin.api.PolicyPreview
 import io.github.bropines.tailscaled.admin.api.PolicyPreviewType
+import io.github.bropines.tailscaled.admin.console.Loadable
 import io.github.bropines.tailscaled.admin.policy.HuJson
 import io.github.bropines.tailscaled.admin.policy.PolicyLint
 import io.github.bropines.tailscaled.admin.policy.RiskFinding
@@ -27,6 +29,8 @@ data class VisualEnv(
     val errors: Map<PolicyPath, List<String>> = emptyMap(),
     /** The element to bring into view and outline: a server error, the JSON cursor, a search hit. */
     val focus: PolicyPath? = null,
+    /** Tailscale's default relay map, for the Relays page; asked for with [VisualActions.loadDerpMap]. */
+    val derpMap: Loadable<ApiDerpMap> = Loadable(),
 ) {
     val model: PolicyModel? get() = draft.model
     val view: TailnetView get() = TailnetView(devices, users.takeIf { it.isNotEmpty() })
@@ -74,6 +78,9 @@ interface VisualActions {
 
     /** A short message over the editor; with [undoable], an Undo that steps the draft back once (after a delete). */
     fun notify(message: String, undoable: Boolean = false) {}
+
+    /** Read Tailscale's default relay map into [VisualEnv.derpMap], unless this session has it; [force] reads it again. */
+    fun loadDerpMap(force: Boolean = false) {}
 }
 
 /**

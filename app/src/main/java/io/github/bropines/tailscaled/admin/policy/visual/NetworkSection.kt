@@ -24,7 +24,6 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.Comment
 import androidx.compose.material.icons.filled.DataObject
 import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Warning
@@ -62,8 +61,8 @@ import io.github.bropines.tailscaled.ui.rememberWindowLayout
 
 /*
  * The NETWORK page: the policy's top-level options (a random client port, no IPv4 addresses,
- * the macOS CGNAT route), what the relay map does, and every section the visual editor does not
- * edit — kept exactly as written, each with its way to the JSON editor.
+ * the macOS CGNAT route) and every section the visual editor does not edit — kept exactly as
+ * written, each with its way to the JSON editor. The relay map has a page of its own (RelaysSection).
  */
 
 /** The OneCGNATRoute values the policy documents; "" is the default. */
@@ -82,9 +81,9 @@ fun NetworkSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout)
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = window.margin, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        // A column of its own on a wide window, as the cards under it: a switch at the far edge reads badly.
         CardColumns(minColumnWidth = 360.dp, maxColumns = if (layout.twoPane) 2 else 1) {
             OptionsCard(model, env, actions)
-            model.derpMap?.let { DerpCard(it, env, actions) }
         }
         if (others.isNotEmpty()) {
             Column(Modifier.padding(top = 8.dp, start = 4.dp, end = 4.dp)) {
@@ -101,7 +100,7 @@ fun NetworkSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout)
 /** Scrolls the card in when the shell asks for one of [paths] (a server error, the JSON cursor). */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun bringsIntoView(env: VisualEnv, paths: Set<PolicyPath>): Modifier {
+internal fun bringsIntoView(env: VisualEnv, paths: Set<PolicyPath>): Modifier {
     val requester = remember { BringIntoViewRequester() }
     val focus = env.focus
     LaunchedEffect(focus) { if (focus != null && focus in paths) runCatching { requester.bringIntoView() } }
@@ -206,7 +205,7 @@ private fun cgnatLabel(ctx: android.content.Context, value: String): String = wh
 }
 
 @Composable
-private fun CardTitle(icon: ImageVector, title: String) {
+internal fun CardTitle(icon: ImageVector, title: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
         Spacer(Modifier.width(10.dp))
@@ -308,50 +307,11 @@ private fun OptionFooter(origin: Origin?, locked: ShapeIssue?, env: VisualEnv, a
 }
 
 @Composable
-private fun StatusRow(icon: ImageVector, text: String, tint: androidx.compose.ui.graphics.Color) {
+internal fun StatusRow(icon: ImageVector, text: String, tint: androidx.compose.ui.graphics.Color) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, null, Modifier.size(16.dp), tint = tint)
         Spacer(Modifier.width(6.dp))
         Text(text, style = MaterialTheme.typography.bodySmall, color = tint)
-    }
-}
-
-// ---------------------------------------------------------------- the relay map
-
-@Composable
-private fun DerpCard(derp: DerpSummary, env: VisualEnv, actions: VisualActions) {
-    val ctx = LocalContext.current
-    ElementCard(derp.origin, env, actions, modifier = bringsIntoView(env, setOf(derp.origin.path))) {
-        CardTitle(Icons.Default.Hub, ctx.getString(R.string.admin_pv_net_derp))
-        Text(
-            ctx.getString(if (derp.omitDefaultRegions) R.string.admin_pv_net_derp_defaults_off else R.string.admin_pv_net_derp_defaults_on),
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        val off = derp.regions.filter { it.disabled }
-        if (off.isNotEmpty() && !derp.omitDefaultRegions) {
-            Text(
-                ctx.getString(R.string.admin_pv_net_derp_off, off.joinToString(", ") { ctx.getString(R.string.admin_pv_net_derp_region, it.id) }),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        }
-        val own = derp.regions.filter { !it.disabled }
-        if (own.isNotEmpty()) {
-            Text(ctx.getString(R.string.admin_pv_net_derp_custom), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            own.forEach { r ->
-                val name = listOfNotNull(r.code?.takeIf { it.isNotBlank() }, r.name?.takeIf { it.isNotBlank() }).joinToString(" · ").ifEmpty { ctx.getString(R.string.admin_pv_net_derp_region, r.id) }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(name, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        ctx.resources.getQuantityString(R.plurals.admin_pv_net_derp_servers, r.nodes, r.nodes),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
-        HelpText(ctx.getString(R.string.admin_pv_net_derp_help))
-        JsonButton(derp.origin.line, actions)
     }
 }
 

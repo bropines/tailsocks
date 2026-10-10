@@ -22,6 +22,7 @@ fun VisualSectionBody(section: VisualSection, env: VisualEnv, actions: VisualAct
         VisualSection.HOSTS -> HostsSection(env, actions, layout)
         VisualSection.ATTRIBUTES -> NodeAttrsSection(env, actions, layout)
         VisualSection.POSTURE -> PosturesSection(env, actions, layout)
+        VisualSection.RELAYS -> RelaysSection(env, actions, layout)
         VisualSection.NETWORK -> NetworkSection(env, actions, layout)
     }
 }

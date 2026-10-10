@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="admin_pv_derp_page">Ретрансляторы</string>
+    <string name="admin_pv_derp_page_short">DERP</string>
+    <string name="admin_pv_derp_title">Ретрансляторы (DERP)</string>
+    <string name="admin_pv_derp_help">Ретрансляторы передают трафик между устройствами, которые не могут соединиться напрямую — за строгим NAT или файрволом, — и помогают им найти прямой путь. Исключение региона касается только соединений через ретранслятор: устройства, для которых он был домашним, перейдут на ближайший из оставшихся. Задержка — медиана того, что последний раз сообщили ваши устройства.</string>
+    <string name="admin_pv_derp_in_use">Регионов Tailscale в работе: %1$d из %2$d</string>
+    <string name="admin_pv_derp_loading">Загружаю список ретрансляторов Tailscale…</string>
+    <string name="admin_pv_derp_failed_hint">Без списка Tailscale видны только регионы, уже исключённые в файле.</string>
+    <string name="admin_pv_derp_none_left">Не осталось ни одного ретранслятора: устройства, которые не могут соединиться напрямую, не свяжутся друг с другом.</string>
+    <string name="admin_pv_derp_omit">Включён OmitDefaultRegions: регионы Tailscale не используются, только свои из файла.</string>
+    <string name="admin_pv_derp_headscale">Headscale берёт карту ретрансляторов из своей конфигурации (раздел derp в config.yaml), а не из политики. Здесь — что написано в файле, правится в JSON.</string>
+    <string name="admin_pv_derp_lock_spelling">Карта ретрансляторов записана как «%1$s». Сервер её читает, а править её — в JSON.</string>
+    <string name="admin_pv_derp_lock_shape">Карта ретрансляторов записана не объектом регионов. Правьте её в JSON.</string>
+    <string name="admin_pv_derp_lock_twice">Regions или номер региона записан дважды, считается последний. Правьте в JSON.</string>
+
+    <string name="admin_pv_derp_group_home">Домашние для ваших устройств</string>
+    <string name="admin_pv_derp_group_other">Остальные регионы</string>
+    <string name="admin_pv_derp_group_all">Регионы Tailscale</string>
+    <string name="admin_pv_derp_group_file">Исключены в файле</string>
+    <string name="admin_pv_derp_group_own">Свои регионы в файле</string>
+
+    <string name="admin_pv_derp_region">Регион %1$s</string>
+    <plurals name="admin_pv_derp_servers">
+        <item quantity="one">%d&#160;сервер</item>
+        <item quantity="few">%d&#160;сервера</item>
+        <item quantity="many">%d&#160;серверов</item>
+        <item quantity="other">%d&#160;сервера</item>
+    </plurals>
+    <plurals name="admin_pv_derp_home">
+        <item quantity="one">домашний для %d устройства</item>
+        <item quantity="few">домашний для %d устройств</item>
+        <item quantity="many">домашний для %d устройств</item>
+        <item quantity="other">домашний для %d устройства</item>
+    </plurals>
+    <string name="admin_pv_derp_latency">%1$d&#160;мс</string>
+    <plurals name="admin_pv_derp_latency_desc">
+        <item quantity="one">медиана задержки %1$d мс по %2$d устройству</item>
+        <item quantity="few">медиана задержки %1$d мс по %2$d устройствам</item>
+        <item quantity="many">медиана задержки %1$d мс по %2$d устройствам</item>
+        <item quantity="other">медиана задержки %1$d мс по %2$d устройства</item>
+    </plurals>
+    <string name="admin_pv_derp_used">Используется</string>
+    <string name="admin_pv_derp_excluded">Исключён</string>
+    <string name="admin_pv_derp_replaced">Заменён регионом из файла</string>
+    <string name="admin_pv_derp_unknown">Нет в текущем списке Tailscale</string>
+    <string name="admin_pv_derp_last">Последний оставшийся — исключить нельзя</string>
+    <string name="admin_pv_derp_odd_entry">Записан не как регион — см. JSON</string>
+
+    <string name="admin_pv_derp_confirm_title">Исключить %1$s?</string>
+    <plurals name="admin_pv_derp_confirm_homes">
+        <item quantity="one">Это домашний ретранслятор для %1$d вашего устройства: %2$s. Оно перейдёт на другой ретранслятор — обычно ближайший из оставшихся. Прямые соединения это не затронет.</item>
+        <item quantity="few">Это домашний ретранслятор для %1$d ваших устройств: %2$s. Они перейдут на другой ретранслятор — обычно ближайший из оставшихся. Прямые соединения это не затронет.</item>
+        <item quantity="many">Это домашний ретранслятор для %1$d ваших устройств: %2$s. Они перейдут на другой ретранслятор — обычно ближайший из оставшихся. Прямые соединения это не затронет.</item>
+        <item quantity="other">Это домашний ретранслятор для %1$d вашего устройства: %2$s. Они перейдут на другой ретранслятор — обычно ближайший из оставшихся. Прямые соединения это не затронет.</item>
+    </plurals>
+    <string name="admin_pv_derp_confirm_more">%1$s и ещё %2$d</string>
+    <string name="admin_pv_derp_confirm_only_own">Останутся только свои регионы из файла: %1$d. Если они откажут, устройства без прямого соединения потеряют связь друг с другом.</string>
+    <string name="admin_pv_derp_confirm_ok">Исключить</string>
+</resources>

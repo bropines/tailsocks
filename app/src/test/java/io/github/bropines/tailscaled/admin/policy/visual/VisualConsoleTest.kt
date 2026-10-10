@@ -89,7 +89,9 @@ class VisualConsoleTest {
         assertEquals(PolicyModel.read(sample)!!.acls[6].origin.line, jsonLineFor(e))
         // Nothing open: the page's first section.
         assertEquals(lineOf(sample, "\"ssh\": ["), jsonLineFor(editor().copy(page = VisualSection.SSH)))
-        assertEquals(lineOf(sample, "\"derpMap\""), jsonLineFor(editor().copy(page = VisualSection.NETWORK)))
+        assertEquals(lineOf(sample, "\"derpMap\""), jsonLineFor(editor().copy(page = VisualSection.RELAYS)))
+        // The relay map has its own page: the Network page has nothing of the sample's to open.
+        assertNull(jsonLineFor(editor().copy(page = VisualSection.NETWORK)))
         assertEquals(1, jsonLineFor(editor("{\"acls\": [")))
     }
 
@@ -212,6 +214,14 @@ class VisualConsoleTest {
         val hs = pageEntries(model, headscale = true, current = VisualSection.ACCESS, env = null).map { it.section }
         assertFalse(VisualSection.POSTURE in hs)
         assertTrue(VisualSection.POSTURE in pageEntries(model, headscale = true, current = VisualSection.POSTURE, env = null).map { it.section })
+
+        // Relays: the file's exclusions counted; on Headscale only while the file writes a derpMap anyway.
+        assertEquals(1, pages.getValue(VisualSection.RELAYS).count)
+        assertEquals(VisualSection.RELAYS, VisualSection.of(p("derpMap", "Regions", "28")))
+        assertTrue(VisualSection.RELAYS in hs)
+        val bare = PolicyModel.read(SourceEdits.remove(sample, p("derpMap")))!!
+        assertFalse(VisualSection.RELAYS in pageEntries(bare, headscale = true, current = VisualSection.ACCESS, env = null).map { it.section })
+        assertTrue(VisualSection.RELAYS in pageEntries(bare, headscale = false, current = VisualSection.ACCESS, env = null).map { it.section })
     }
 
     // ---- the Network page ----

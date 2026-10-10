@@ -58,19 +58,6 @@
     <string name="admin_pv_net_cgnat_never">Маршрут к каждому устройству</string>
     <string name="admin_pv_net_cgnat_other">Как написано: %1$s</string>
     <string name="admin_pv_net_odd_value">Записано значение, которого эта страница не знает.</string>
-    <string name="admin_pv_net_derp">Ретрансляторы (DERP)</string>
-    <string name="admin_pv_net_derp_defaults_on">Ретрансляторы Tailscale используются</string>
-    <string name="admin_pv_net_derp_defaults_off">Ретрансляторы Tailscale не используются</string>
-    <string name="admin_pv_net_derp_off">Отключены: %1$s</string>
-    <string name="admin_pv_net_derp_region">регион %1$s</string>
-    <string name="admin_pv_net_derp_custom">Свои ретрансляторы</string>
-    <plurals name="admin_pv_net_derp_servers">
-        <item quantity="one">%d сервер</item>
-        <item quantity="few">%d сервера</item>
-        <item quantity="many">%d серверов</item>
-        <item quantity="other">%d сервера</item>
-    </plurals>
-    <string name="admin_pv_net_derp_help">Ретрансляторы передают трафик, когда два устройства не могут соединиться напрямую. Карта ретрансляторов правится в JSON, а здесь — что она делает.</string>
     <string name="admin_pv_net_other">Другие разделы</string>
     <string name="admin_pv_net_other_help">Хранятся в точности как написаны. Визуальный редактор их не трогает.</string>
     <string name="admin_pv_net_line">Строка %1$d</string>
