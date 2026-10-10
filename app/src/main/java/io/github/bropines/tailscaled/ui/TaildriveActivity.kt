@@ -78,6 +78,15 @@ data class LocalShare(
     val path: String = ""
 )
 
+/**
+ * What a preview shows instead of the stored shares, the system's answer on
+ * all-files access and the stored proxy switch. Only previews provide [LocalTaildriveDemo]; in the app it is
+ * null and the screen reads its preferences as always.
+ */
+internal class TaildriveDemo(val shares: List<LocalShare>, val storageAccess: Boolean = true, val proxy: Boolean = false)
+
+internal val LocalTaildriveDemo = staticCompositionLocalOf<TaildriveDemo?> { null }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TaildriveScreen(onBack: () -> Unit) {
@@ -106,12 +115,13 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
         else runCatching { ArrayList(AppJson.decodeFromString<List<LocalShare>>(sharesJson)) }
             .getOrDefault(ArrayList())
     }
-    val shares = remember { mutableStateListOf<LocalShare>().apply { addAll(initialShares) } }
+    val demo = LocalTaildriveDemo.current
+    val shares = remember { mutableStateListOf<LocalShare>().apply { addAll(demo?.shares ?: initialShares) } }
 
     // The preview renderer has no package manager to ask; see MainScreen.
     val inPreview = androidx.compose.ui.platform.LocalInspectionMode.current
-    var hasStoragePermission by remember { mutableStateOf(!inPreview && checkStoragePermission(context)) }
-    var isProxyEnabled by remember { mutableStateOf(prefs.getBoolean("taildrive_proxy_enabled", false)) }
+    var hasStoragePermission by remember { mutableStateOf(demo?.storageAccess ?: (!inPreview && checkStoragePermission(context))) }
+    var isProxyEnabled by remember { mutableStateOf(demo?.proxy ?: prefs.getBoolean("taildrive_proxy_enabled", false)) }
     var proxyIp by remember { mutableStateOf(prefs.getString("taildrive_proxy_ip", "127.0.0.1") ?: "127.0.0.1") }
     var proxyPort by remember { mutableStateOf(prefs.getString("taildrive_proxy_port", "33445") ?: "33445") }
     var isProxyAuthEnabled by remember { mutableStateOf(prefs.getBoolean("taildrive_proxy_auth_enabled", false)) }

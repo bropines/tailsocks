@@ -288,6 +288,29 @@ private object LogcatSource {
     }
 }
 
+/** `[2006/01/02 ]15:04:05 [LEVEL] [CATEGORY] message`: a line of [Appctr.getLogs]. */
+private val storeLineRegex = Regex("""^(?:(\d{4}/\d{2}/\d{2}) )?(\d{2}:\d{2}:\d{2}) \[([A-Z]+)] \[([A-Z_]+)] (.*)$""")
+
+/**
+ * [DemoData.logLines] as entries: each a line of the log store's text export, a line that
+ * is not one being the continuation of the entry before it.
+ */
+private fun demoLogEntries(lines: List<String>): List<LogEntry> {
+    val stampFormat = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.US)
+    val out = ArrayList<LogEntry>()
+    for (line in lines) {
+        val m = storeLineRegex.matchEntire(line)
+        if (m == null) {
+            out.lastOrNull()?.let { out[out.lastIndex] = it.copy(message = it.message + "\n" + line) }
+            continue
+        }
+        val (day, time, level, category, message) = m.destructured
+        val unix = if (day.isEmpty()) 0L else runCatching { stampFormat.parse("$day $time")?.time }.getOrNull() ?: 0L
+        out += LogEntry(unix = unix, timestamp = time, level = level, category = category, message = message)
+    }
+    return out
+}
+
 /** One row of the list: an entry, or the divider that opens a new day. */
 private sealed interface LogRow {
     data class Entry(val log: LogEntry) : LogRow
@@ -441,9 +464,10 @@ fun LogsScreen(onBack: () -> Unit, initialCategory: String = "ALL") {
     val coroutineScope = rememberCoroutineScope()
     
     // The preview renderer has no native bridge to read logs from: there the screen counts as
-    // loaded and empty, and draws the state it would with an empty buffer.
+    // loaded and shows the demo's lines, or the state it would with an empty buffer.
     val inPreview = androidx.compose.ui.platform.LocalInspectionMode.current
-    var allLogs by remember { mutableStateOf<List<LogEntry>>(emptyList()) }
+    val demoLines = LocalDemo.current?.logLines
+    var allLogs by remember { mutableStateOf(demoLines?.let(::demoLogEntries).orEmpty()) }
     // Whether a read has come back, so the empty state does not flash before the first one.
     var loaded by remember { mutableStateOf(inPreview) }
     var selectedCategory by remember { mutableStateOf(initialCategory) }
@@ -585,7 +609,7 @@ fun LogsScreen(onBack: () -> Unit, initialCategory: String = "ALL") {
     }
 
     LaunchedEffect(Unit) {
-        if (inPreview) return@LaunchedEffect
+        if (inPreview || demoLines != null) return@LaunchedEffect
         while (true) {
             loadLogsData()
             delay(2000)

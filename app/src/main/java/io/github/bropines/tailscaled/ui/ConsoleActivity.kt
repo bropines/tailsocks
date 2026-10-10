@@ -230,6 +230,14 @@ private fun AnnotatedString.Builder.appendJson(json: String, c: ConsoleColors) {
     }
 }
 
+/**
+ * What a preview shows instead of the saved scrollback, command history and presets. Only
+ * previews provide [LocalConsoleDemo]; in the app it is null and the screen reads its files.
+ */
+internal class ConsoleDemo(val scrollback: String, val history: List<String> = emptyList(), val presets: List<String> = emptyList())
+
+internal val LocalConsoleDemo = staticCompositionLocalOf<ConsoleDemo?> { null }
+
 class ConsoleActivity : ComponentActivity() {
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(wrapContextWithLocale(newBase))
@@ -269,7 +277,8 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
     val historyFile = remember { File(context.filesDir, "console_history.dat") }
     val cmdHistoryFile = remember { File(context.filesDir, "console_cmd_history.dat") }
 
-    var outputText by remember { mutableStateOf(PROMPT) }
+    val demo = LocalConsoleDemo.current
+    var outputText by remember { mutableStateOf(demo?.scrollback ?: PROMPT) }
     /** New output is on its way: the view goes to the tail even if it was scrolled up. */
     var followOutput by remember { mutableStateOf(true) }
     val followSlopPx = with(LocalDensity.current) { 48.dp.toPx() }
@@ -281,13 +290,13 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
     var scale by remember { mutableFloatStateOf(1f) }
     var softWrap by remember { mutableStateOf(false) }
 
-    val commandHistory = remember { mutableStateListOf<String>() }
+    val commandHistory = remember { mutableStateListOf<String>().apply { demo?.let { addAll(it.history) } } }
     var historyMenuOpen by remember { mutableStateOf(false) }
     /** A command was taken from the history: the field gets focus once the sheet is gone. */
     var focusAfterHistory by remember { mutableStateOf(false) }
 
     var customPresets by remember { 
-        mutableStateOf(prefs.getStringSet("commands", emptySet<String>())?.toList()?.sorted() ?: emptyList<String>()) 
+        mutableStateOf(demo?.presets ?: prefs.getStringSet("commands", emptySet<String>())?.toList()?.sorted() ?: emptyList<String>()) 
     }
     var showAddPresetDialog by remember { mutableStateOf(false) }
     var newPresetCmd by remember { mutableStateOf("") }
@@ -321,6 +330,7 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
     }
 
     LaunchedEffect(Unit) {
+        if (demo != null) return@LaunchedEffect
         // Read the persisted scrollback/command history off the UI dispatcher;
         // only the resulting state writes stay on main.
         val (savedOutput, savedCmds) = withContext(Dispatchers.IO) {
@@ -359,7 +369,7 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
         }
     }
 
-    DisposableEffect(Unit) {
+    if (demo == null) DisposableEffect(Unit) {
         onDispose {
             // onDispose runs on main; snapshot here and persist off it. The write
             // is wrapped NonCancellable so it still completes if the composition
