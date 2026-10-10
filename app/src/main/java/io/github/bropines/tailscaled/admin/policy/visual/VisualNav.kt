@@ -2,6 +2,7 @@ package io.github.bropines.tailscaled.admin.policy.visual
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +14,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -25,6 +29,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,13 +53,15 @@ import io.github.bropines.tailscaled.core.SegmentedChipItem
 import io.github.bropines.tailscaled.ui.Fold
 import io.github.bropines.tailscaled.ui.WindowLayout
 import io.github.bropines.tailscaled.ui.WindowWidthClass
+import kotlinx.coroutines.launch
 
 /*
  * The visual editor's page navigation: a row of chips under the top bar on a phone and a
  * medium window, the console's chip row in look; a rail down the side from an expanded window
  * up, as the console's own tab rail — names beside the icons on a large window, under them
  * below that. A page whose cards the server refused, or that gained a risk, carries the icon
- * that says so.
+ * that says so. The pages stand side by side in a pager: beside the chips a swipe turns them,
+ * as it turns the console's tabs; beside a rail only the rail does.
  */
 
 /** What a page holds that needs a look: a refusal from the server outranks a new risk. */
@@ -204,3 +216,93 @@ fun VisualRail(pages: List<PageEntry>, current: VisualSection, wide: Boolean, on
         }
     }
 }
+
+// ---------------------------------------------------------------- the pager
+
+/**
+ * Where the console asked the pager to go ([request], each time its page changes), until the
+ * pager got there or a swipe took over: the pages a pager passes on its way are not picks.
+ */
+internal class PagerAsk(private var seen: Int) {
+    var pending: Int? = null
+
+    fun request(index: Int) {
+        if (index == seen) return
+        seen = index
+        pending = index
+    }
+
+    fun arrived(index: Int) {
+        if (pending == index) pending = null
+    }
+}
+
+/**
+ * The page a pager that came to rest on [settled] picks for the console: none when that is
+ * the console's page already ([current]; whatever was asked has arrived), nor while the pager
+ * is still on its way to a page the console asked for ([ask]).
+ */
+internal fun settledPick(pages: List<PageEntry>, settled: Int, current: VisualSection, ask: PagerAsk): VisualSection? {
+    val s = pages.getOrNull(settled)?.section ?: return null
+    return when {
+        s == current -> {
+            ask.pending = null
+            null
+        }
+        ask.pending != null -> null
+        else -> s
+    }
+}
+
+/**
+ * The pager the pages stand in, kept to the console's page [current]: a tab picked, or a "Show"
+ * that leads to another page, turns it there — slid through beside the chips, at once beside a
+ * rail ([instant]); a swipe that comes to rest on another page hands it to [onSettle], for the
+ * console to make it its page (the element open and the outline go with the old one, as on a tap).
+ */
+@Composable
+fun rememberVisualPager(pages: List<PageEntry>, current: VisualSection, instant: Boolean, onSettle: (VisualSection) -> Unit): PagerState {
+    val index = pages.indexOfFirst { it.section == current }.coerceAtLeast(0)
+    val pager = rememberPagerState(initialPage = index) { pages.size }
+    val ask = remember { PagerAsk(index) }
+    val latestPages by rememberUpdatedState(pages)
+    val latestCurrent by rememberUpdatedState(current)
+    val latestSettle by rememberUpdatedState(onSettle)
+    // Before any effect runs: from here on the pager is on its way there.
+    SideEffect { ask.request(index) }
+    LaunchedEffect(index) {
+        if (pager.currentPage != index || pager.currentPageOffsetFraction != 0f) {
+            if (instant) pager.scrollToPage(index) else pager.animateScrollToPage(index)
+        }
+        ask.arrived(index)
+    }
+    LaunchedEffect(pager) {
+        // A finger on the pager overrides whatever the console asked for.
+        launch { pager.interactionSource.interactions.collect { if (it is DragInteraction.Start) ask.pending = null } }
+        snapshotFlow { pager.settledPage }.collect { i -> settledPick(latestPages, i, latestCurrent, ask)?.let(latestSettle) }
+    }
+    return pager
+}
+
+/** The section [pager] shows, or is on its way to: what the chips and the rail mark as picked. */
+fun PagerState.section(pages: List<PageEntry>, fallback: VisualSection): VisualSection = pages.getOrNull(targetPage)?.section ?: fallback
+
+/**
+ * The pages in [pager], each drawn by [page]. Beside a rail ([swipe] false) only the rail turns
+ * them; elsewhere a swipe does too — what scrolls sideways inside a page scrolls first. Pages
+ * are keyed by section, so a page keeps its place in its list while another is shown, and a
+ * page that comes or goes (Headscale's postures) does not shift the others' state.
+ */
+@Composable
+fun VisualPager(pager: PagerState, pages: List<PageEntry>, swipe: Boolean, modifier: Modifier = Modifier, page: @Composable (VisualSection) -> Unit) {
+    HorizontalPager(
+        state = pager,
+        modifier = modifier,
+        userScrollEnabled = swipe,
+        key = { pages.getOrNull(it)?.section ?: it },
+        verticalAlignment = Alignment.Top,
+    ) { i ->
+        pages.getOrNull(i)?.let { page(it.section) }
+    }
+}
+

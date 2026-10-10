@@ -146,6 +146,10 @@ fun VisualEditorScreen(state: ConsoleState, editor: PolicyEditorState, vm: Admin
 
     val page = editor.page
     val pages = remember(model, headscale, page, errors, risks) { pageEntries(model, headscale, page, env) }
+    // The pages in a pager kept to the console's page: a swipe beside the chips picks one as a tap does.
+    val pick = remember(vm) { { s: VisualSection -> vm?.policy?.showPage(s); Unit } }
+    val pager = rememberVisualPager(pages, page, instant = rail, onSettle = pick)
+    val picked = pager.section(pages, page)
     val onSelect = remember(vm) { { p: PolicyPath? -> vm?.policy?.select(p); Unit } }
     // Two panes: what the shell was asked to show stands in the pane when nothing is picked.
     val shown = editor.selected ?: editor.focus?.takeIf { twoPane && VisualSection.of(it) == page }
@@ -198,25 +202,25 @@ fun VisualEditorScreen(state: ConsoleState, editor: PolicyEditorState, vm: Admin
             Box(modifier) {
                 if (model == null) {
                     Box(held.fillMaxHeight()) { UnparsableState(draft.issue, draft.canUndo, vm) }
-                } else if (rail || twoPane) {
-                    VisualSectionBody(page, env, actions, layout)
                 } else {
-                    Box(held.fillMaxHeight()) { VisualSectionBody(page, env, actions, layout) }
+                    VisualPager(pager, pages, swipe = !rail, Modifier.fillMaxSize()) { section ->
+                        if (rail || twoPane) VisualSectionBody(section, env, actions, layout)
+                        else Box(Modifier.fillMaxSize()) { Box(held.fillMaxHeight()) { VisualSectionBody(section, env, actions, layout) } }
+                    }
                 }
             }
         }
-        val pick: (VisualSection) -> Unit = { vm?.policy?.showPage(it) }
         Column(Modifier.padding(padding).consumeWindowInsets(padding).fillMaxSize().imePadding()) {
             if (rail && model != null) {
                 Row(Modifier.fillMaxSize()) {
-                    VisualRail(pages, page, window.visualRailWide, pick)
+                    VisualRail(pages, picked, window.visualRailWide, pick)
                     Column(Modifier.weight(1f).fillMaxHeight()) {
                         notices()
                         body(Modifier.weight(1f).fillMaxWidth())
                     }
                 }
             } else {
-                if (model != null) VisualChipRow(pages, page, pick, held.padding(horizontal = window.margin, vertical = 8.dp))
+                if (model != null) VisualChipRow(pages, picked, pick, held.padding(horizontal = window.margin, vertical = 8.dp))
                 notices()
                 body(Modifier.weight(1f).fillMaxWidth())
             }
