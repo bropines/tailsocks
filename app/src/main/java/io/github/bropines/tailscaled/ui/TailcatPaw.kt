@@ -2,6 +2,7 @@ package io.github.bropines.tailscaled.ui
 
 import android.animation.ValueAnimator
 import android.content.Context
+import android.content.Intent
 import android.media.AudioAttributes
 import android.os.Build
 import android.os.SystemClock
@@ -22,11 +23,13 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -34,6 +37,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -58,6 +62,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -80,20 +85,23 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.StatusAsides
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import io.github.bropines.tailscaled.ui.theme.findActivity
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /*
  * TailCat's add button, and what a paw on it leads to.
@@ -131,6 +139,7 @@ internal fun TailcatAddButton(onAdd: () -> Unit) {
     val lastTap = remember { mutableFloatStateOf(-1e6f) }
     val bursts = remember { PawBursts() }
     var showFrom by remember { mutableStateOf<Long?>(null) }
+    var refusing by remember { mutableStateOf(false) }
     val fab = remember { mutableStateOf(Offset.Unspecified) }
 
     LaunchedEffect(paw, combo, comboAlive) {
@@ -154,6 +163,7 @@ internal fun TailcatAddButton(onAdd: () -> Unit) {
     showFrom?.let { tappedAt ->
         PawShowOverlay(origin = { fab.value }, tappedAt = tappedAt, vibes = vibes, onDismiss = { showFrom = null })
     }
+    if (refusing) PawNoOverlay(vibes = vibes, onDismiss = { refusing = false })
 
     TailcatAddButtonFace(
         paw = paw,
@@ -180,7 +190,8 @@ internal fun TailcatAddButton(onAdd: () -> Unit) {
                     vibes?.thump() ?: view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                     comboAlive = false
                     paw = false
-                    showFrom = SystemClock.uptimeMillis()
+                    val launch = if (inPreview) 1 else StatusAsides.bump(context, LAUNCHES)
+                    if (PawHype.refuses(launch)) refusing = true else showFrom = SystemClock.uptimeMillis()
                 }
                 combo == PawHype.GOAL - 1 -> vibes?.charge() ?: view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                 else -> vibes?.tap(combo) ?: view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
@@ -461,6 +472,97 @@ private fun PawShowOverlay(origin: () -> Offset, tappedAt: Long, vibes: PawVibes
 }
 
 /**
+ * Every fifth launch: "NO!" stamped over the theme's background instead of the show, then the
+ * long version opens in whatever plays YouTube links. Taps are swallowed (the combo is still
+ * going); Back, or the app leaving the screen, ends it without the link.
+ */
+@Composable
+private fun PawNoOverlay(vibes: PawVibes?, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val calm = remember { !animationsOn(context) }
+    val time = remember { mutableFloatStateOf(0f) }
+    var done by remember { mutableStateOf(false) }
+    val finish: () -> Unit = {
+        if (!done) {
+            done = true
+            onDismiss()
+        }
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_STOP) finish() }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    LaunchedEffect(Unit) {
+        val start = withFrameNanos { it }
+        var echoed = false
+        val tick: (Long) -> Unit = { now ->
+            time.floatValue = (now - start) / 1e6f
+            // The tenth tap's thump, and a second one as the stamp settles: "no-NO".
+            if (!echoed && time.floatValue >= 180f) {
+                echoed = true
+                vibes?.thump()
+            }
+        }
+        while (time.floatValue < PawHype.NO_HOLD_MS) withFrameNanos(tick)
+        if (done) return@LaunchedEffect
+        val activity = context.findActivity()
+        runCatching {
+            (activity ?: context).startActivity(
+                Intent(Intent.ACTION_VIEW, PawHype.NO_LINK.toUri()).apply { if (activity == null) addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+            )
+        }
+        finish()
+    }
+
+    Dialog(
+        onDismissRequest = finish,
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+    ) {
+        PawNoStage(
+            time = time,
+            calm = calm,
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
+        )
+    }
+}
+
+/** "NO!" at [time] ms after it was summoned, about [NO_WIDTH] of the stage wide once it settles. */
+@Composable
+internal fun PawNoStage(time: FloatState, calm: Boolean, modifier: Modifier = Modifier) {
+    val style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Black)
+    val measurer = rememberTextMeasurer()
+    val natural = remember(style) { measurer.measure(NO_TEXT, style).size.width.toFloat() }
+    BoxWithConstraints(
+        modifier.background(MaterialTheme.colorScheme.surface).clipToBounds(),
+        contentAlignment = Alignment.Center
+    ) {
+        val fit = with(LocalDensity.current) { maxWidth.toPx() } * NO_WIDTH / natural.coerceAtLeast(1f)
+        Text(
+            NO_TEXT,
+            style = style,
+            color = MaterialTheme.colorScheme.error,
+            maxLines = 1,
+            softWrap = false,
+            modifier = Modifier
+                .wrapContentSize(unbounded = true)
+                .graphicsLayer {
+                    val t = time.floatValue
+                    val s = fit * (if (calm) 1f else PawHype.noScale(t))
+                    scaleX = s
+                    scaleY = s
+                    rotationZ = if (calm) -7f else PawHype.noTilt(t)
+                }
+                .semantics { contentDescription = NO_TEXT }
+        )
+    }
+}
+
+/**
  * The show at [time] ms, drawn; [origin] is where on this canvas the circle opens from. Time is
  * read only while drawing, so the show plays without recomposing.
  */
@@ -578,3 +680,9 @@ internal class PawVibes(context: Context) {
         }
     }
 }
+
+/** Launches of the show, refusals included; the SPINS aside counts only what was shown. */
+private const val LAUNCHES = "paw_launches"
+private const val NO_TEXT = "NO!"
+/** The settled stamp's share of the stage's width. */
+private const val NO_WIDTH = 0.72f

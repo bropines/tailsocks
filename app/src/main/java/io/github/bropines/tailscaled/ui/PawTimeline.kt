@@ -523,6 +523,21 @@ internal class TapGuard(private val openedAt: Long) {
  */
 internal object PawHype {
     const val GOAL = 10
+    /** Every this-many-th launch the button refuses: a stamped "NO!", then the long version elsewhere. */
+    const val REFUSE_EVERY = 5
+    /** How long the "NO!" holds before the link opens. */
+    const val NO_HOLD_MS = 1100f
+    const val NO_LINK = "https://youtu.be/LOWBjYeK5U4"
+
+    /** Whether launch number [launch] (from 1) is one that says no. */
+    fun refuses(launch: Int): Boolean = launch > 0 && launch % REFUSE_EVERY == 0
+
+    /** The stamp lands oversized and settles with a bounce by about 300 ms. */
+    fun noScale(t: Float): Float = if (t <= 0f) 2.2f else 1f + 1.2f * exp(-t / 70f) * cos(t / 40f)
+
+    /** Degrees: slammed in crooked, rocking to a slight tilt. */
+    fun noTilt(t: Float): Float = -7f + 9f * exp(-t / 90f) * cos(t / 36f)
+
     /** How long a combo waits for the next tap. */
     const val COMBO_WINDOW_MS = 1200L
     /** How long an idle paw stays a paw. */

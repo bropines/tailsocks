@@ -323,4 +323,14 @@ class PawTimelineTest {
         assertTrue(PawHype.pawScale(0f) < 0.8f)
         assertEquals(1f, PawHype.pawScale(2000f), 0.01f)
     }
+
+    @Test
+    fun everyFifthLaunchSaysNo() {
+        assertEquals(listOf(5, 10, 15), (0..16).filter { PawHype.refuses(it) })
+        // The stamp lands big and crooked, and is still by the time the link opens.
+        assertTrue(PawHype.noScale(0f) > 2f)
+        assertEquals(1f, PawHype.noScale(PawHype.NO_HOLD_MS), 0.01f)
+        assertEquals(-7f, PawHype.noTilt(PawHype.NO_HOLD_MS), 0.05f)
+        assertTrue(PawHype.NO_LINK.startsWith("https://"))
+    }
 }

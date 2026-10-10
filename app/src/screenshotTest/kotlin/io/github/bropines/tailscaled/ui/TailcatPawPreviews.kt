@@ -255,3 +255,22 @@ fun PawButtonDark() = ButtonStates(Look.DARK)
 
 @PreviewTest @Preview(name = "button-light", device = "spec:width=790dp,height=290dp,dpi=320") @Composable
 fun PawButtonLight() = ButtonStates(Look.LIGHT)
+
+@Composable
+private fun NoFrames(look: Look) = Themed(look) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(8.dp)) {
+        for (t in listOf(0f, 60f, 140f, 400f)) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                PawNoStage(frozen(t), calm = false, modifier = Modifier.size(190.dp, 342.dp))
+                Text("${t.toInt()} ms", style = MaterialTheme.typography.labelSmall)
+            }
+        }
+    }
+}
+
+@PreviewTest @Preview(name = "no-dark", device = "spec:width=820dp,height=380dp,dpi=160") @Composable
+fun PawNoDark() = NoFrames(Look.DARK)
+
+@PreviewTest @Preview(name = "no-light", device = "spec:width=820dp,height=380dp,dpi=160") @Composable
+fun PawNoLight() = NoFrames(Look.LIGHT)
+
