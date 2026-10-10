@@ -127,6 +127,19 @@ class VisualConsoleTest {
     }
 
     @Test
+    fun anElementTheTextNoLongerHasIsClosed() {
+        val added = editor().visualEdit { PolicyEdits.addRule(it, Section.SSH, PolicyEdits.sshFields("accept", listOf("tag:lab"), listOf("tag:lab"), listOf("root"))) }.first
+        val open = added.copy(selected = p("ssh", 3), focus = p("ssh", 3))
+        val undone = open.undo()
+        assertNull(undone.selected)
+        assertNull(undone.focus)
+        // An edit elsewhere keeps it.
+        val kept = open.visualEdit { PolicyEdits.putHost(it, "nas", "100.64.0.10") }.first
+        assertEquals(p("ssh", 3), kept.selected)
+        assertEquals(p("ssh", 3), kept.focus)
+    }
+
+    @Test
     fun focusingAnElementOpensItsPage() {
         val f = editor().copy(selected = p("acls", 1)).focused(p("groups", "group:dev-admin"))
         assertEquals(VisualSection.GROUPS, f.page)

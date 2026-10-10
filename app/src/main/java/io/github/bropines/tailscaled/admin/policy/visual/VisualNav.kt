@@ -32,6 +32,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -143,7 +145,14 @@ fun VisualRail(pages: List<PageEntry>, current: VisualSection, wide: Boolean, on
                 null -> if (on) scheme.onSecondaryContainer else scheme.onSurfaceVariant
             }
             val icon = markIcon(page.mark) ?: page.section.icon
-            val pick = Modifier.selectable(selected = on, role = Role.Tab) { onSelect(page.section) }
+            val state = when (page.mark) {
+                PageMark.ERROR -> ctx.getString(R.string.admin_pv_shell_mark_error)
+                PageMark.RISK -> ctx.getString(R.string.admin_pv_shell_mark_risk)
+                null -> null
+            }
+            val pick = Modifier
+                .selectable(selected = on, role = Role.Tab) { onSelect(page.section) }
+                .semantics { if (state != null) stateDescription = state }
             if (wide) {
                 Row(
                     Modifier

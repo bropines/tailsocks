@@ -70,11 +70,19 @@ data class PolicyEditorState(
     /** The visual view's working copy. */
     val draft: PolicyDraft get() = PolicyDraft(text, undoStack, redoStack)
 
-    /** [d] as the editor's text and steps; a different text drops the review it no longer matches. */
-    fun withDraft(d: PolicyDraft): PolicyEditorState = when {
-        d.text == text && d.undoStack == undoStack && d.redoStack == redoStack -> this
-        d.text == text -> copy(undoStack = d.undoStack, redoStack = d.redoStack)
-        else -> copy(text = d.text, undoStack = d.undoStack, redoStack = d.redoStack, review = null, sendError = null)
+    /**
+     * [d] as the editor's text and steps. A different text drops the review it no longer
+     * matches, and the open or outlined element when the text no longer has it (an undo took
+     * back the rule just added).
+     */
+    fun withDraft(d: PolicyDraft): PolicyEditorState {
+        if (d.text == text) return if (d.undoStack == undoStack && d.redoStack == redoStack) this else copy(undoStack = d.undoStack, redoStack = d.redoStack)
+        val tree = if (selected != null || focus != null) SourceTree.parseOrNull(d.text) else null
+        fun kept(p: PolicyPath?) = p?.takeIf { tree?.at(it) != null }
+        return copy(
+            text = d.text, undoStack = d.undoStack, redoStack = d.redoStack, review = null, sendError = null,
+            selected = kept(selected), focus = kept(focus),
+        )
     }
 
     /** One visual edit: the new state, and the engine's reason when it refused (the state then unchanged). */

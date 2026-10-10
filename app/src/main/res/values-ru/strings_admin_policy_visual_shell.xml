@@ -34,6 +34,9 @@
     <string name="admin_pv_shell_short_posture">Состояние</string>
     <string name="admin_pv_shell_short_network">Сеть</string>
 
+    <string name="admin_pv_shell_mark_error">Отклонено сервером</string>
+    <string name="admin_pv_shell_mark_risk">Новый риск</string>
+
     <string name="admin_pv_shell_el_acl">Правило доступа %1$d</string>
     <string name="admin_pv_shell_el_grant">Грант %1$d</string>
     <string name="admin_pv_shell_el_ssh">Правило SSH %1$d</string>

@@ -93,7 +93,15 @@ class PolicyConsole internal constructor(private val vm: AdminConsoleViewModel) 
     fun openEditor(line: Int? = null, visual: Boolean = state.visual) {
         val file = state.file.value ?: return
         rememberView(visual)
+        if (visual) loadPickerLists()
         set { it.copy(editor = newEditor(file, file.text, visual = visual, line = line), conflict = null) }
+    }
+
+    /** The devices and users the visual view's pickers and counts draw from, when no tab has loaded them yet. */
+    private fun loadPickerLists() {
+        val s = vm.state.value
+        if (s.devices.value == null && ConsoleTab.DEVICES in s.tabs) vm.refresh(ConsoleTab.DEVICES)
+        if (s.users.value == null && ConsoleTab.USERS in s.tabs) vm.refresh(ConsoleTab.USERS)
     }
 
     private fun newEditor(base: PolicyFile, text: String, isRevert: Boolean = false, visual: Boolean = state.visual, line: Int? = null): PolicyEditorState {
@@ -134,6 +142,7 @@ class PolicyConsole internal constructor(private val vm: AdminConsoleViewModel) 
      */
     fun setView(visual: Boolean, line: Int? = null, remember: Boolean = true) {
         if (remember) rememberView(visual)
+        if (visual) loadPickerLists()
         setEditor { if (visual) it.toVisual(line) else it.toJson(line) }
     }
 

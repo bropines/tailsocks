@@ -38,6 +38,10 @@
     <string name="admin_pv_shell_short_posture">Posture</string>
     <string name="admin_pv_shell_short_network">Network</string>
 
+    <!-- What a page's mark in the rail says to a screen reader. -->
+    <string name="admin_pv_shell_mark_error">Refused by the server</string>
+    <string name="admin_pv_shell_mark_risk">A new risk</string>
+
     <!-- An element, named in the review's "Show" buttons. -->
     <string name="admin_pv_shell_el_acl">Access rule %1$d</string>
     <string name="admin_pv_shell_el_grant">Grant %1$d</string>
