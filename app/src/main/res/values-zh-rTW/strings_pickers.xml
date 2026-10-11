@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Strings for the pickers that moved from dropdown menus to bottom sheets, and
+  for the Permissions screen. A file of its own so it lands without touching
+  strings.xml; Android merges every values/*.xml into one table.
+--><resources>
+    </resources>

@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Long press on the status card. Decoration; nothing reads these back. -->
+    <string-array name="status_asides">
+        <item>100.64.0.0/10 — a whole country, and you are the only one living in it.</item>
+        <item>Every packet you send takes a shortcut you will never see.</item>
+        <item>The daemon has been awake this whole time. It does not mind.</item>
+        <item>Somewhere a DERP relay just took your traffic personally.</item>
+        <item>NAT traversal: two machines behind routers, both convinced the other one goes first.</item>
+        <item>No, it is not a VPN. It is the same argument you had last week.</item>
+        <item>A tailnet is a group chat where the members are computers and nobody types.</item>
+        <item>MagicDNS is not magic. Nobody has been brave enough to say so out loud.</item>
+        <item>Your phone is a node. It has been one for a while now. Congratulations.</item>
+        <item>This card has been pressed. Nothing else happened, which is the point of it.</item>
+        <item>Held down long enough to read this, which means the connection is not the thing keeping you here.</item>
+        <item>Somewhere between here and the exit node there are eleven hops, four of them belonging to companies you have never heard of, and every one of them is having a worse day than you.</item>
+        <item>The tunnel does not care whether you are watching. It carries whatever you hand it, in order, without comment, until the battery runs out or you press this card again.</item>
+        <item>Committed at 3:14 in the morning. Tests? You are the tests.</item>
+        <item>The developer is installing the release over the working app again. The service has made its peace with this.</item>
+        <item>Somewhere in the Downloads folder are eleven APKs of the same build. Every one of them will come in handy.</item>
+        <item>"Make it work" — three words that turned into a release and a half.</item>
+        <item>The app is not at fault. The Tailscale window on the other machine is simply closed. Verified at three in the morning.</item>
+        <item>The hedgehog is still in the fog. The horse is where it was. The bundle of jam is untouched.</item>
+        <item>You pressed and held. The daemon is holding too.</item>
+        <item>Nothing is ever pushed without the magic word. It is the one law observed around here.</item>
+        <item>Half of this code was written by one neural network and half by another. Occasionally they agree.</item>
+        <item>Every easter egg is a line in strings.xml that nobody bothered to review.</item>
+        <item>More patch releases than users. Both numbers are going up.</item>
+        <item>Battery at 89 percent, three in the morning, and you are still testing account switching.</item>
+        <item>Nodes in Amsterdam, Frankfurt, Helsinki and Moscow. You are on the sofa.</item>
+        <item>A DERP relay in Helsinki has no idea who you are. Just as well.</item>
+        <item>The packet left. The packet came back. The packet will tell you nothing.</item>
+        <item>The daemon tells the coordination server it is Linux. The server believes it. Everyone is happy.</item>
+        <item>Routing below netd is like rearranging the furniture in somebody else\'s flat while they sleep.</item>
+        <item>Stare at this card long enough and it starts staring back. It already has.</item>
+        <item>This space could carry an advertisement, except there is no advertisement, no manager, no monetisation plan and, frankly, no plan.</item>
+        <item>There are more checks for "what if the daemon died" in this app than in some marriages.</item>
+        <item>New build installed, service dead, tap to start. Every release begins with a small funeral.</item>
+        <item>Between you and this line: Compose, two coroutines, a local socket, a daemon written in Go, a patch held together by good intentions, and a person who decided at three in the morning that a long press had to do something.</item>
+        <item>The native engine has been ready since 4.2.0 and is still labelled experimental. So is everything else here.</item>
+        <item>The profile bio reads "Coder -_-". Exhaustive.</item>
+        <item>Employer: "Not a Company". The pay matches.</item>
+        <item>Sixty public repositories. Count the finished ones yourself.</item>
+        <item>The most starred repository is a config editor for xray. Not this one.</item>
+        <item>Somewhere there is a "working" implementation of tailscaled under termux. The quotes are the author\'s own.</item>
+        <item>An AmneziaWG client, a Tailscale client, another proxy on top. The internet is still the same internet.</item>
+        <item>Between an OCR library for Google Lens and a manga translator, there was still time for a VPN client.</item>
+        <item>In the Downloads folder, the manga directory sits next to the tailscaled logs. Priorities are in order.</item>
+        <item>Still learning Kotlin and Go, says the profile. The code agrees on both counts.</item>
+        <item>The Homebrew tap has zero stars. Somebody had to.</item>
+        <item>Somebody reimplemented the Windows 11 Snipping Tool OCR engine in Python. For no reason. That somebody wrote this app too.</item>
+        <item>Every issue starts with "which version". Now the report answers before the question.</item>
+        <item>The diagnostics carry no node names and no addresses. The jokes carry no guarantees.</item>
+        <item>Somewhere a bug report is being typed with no version, no device and no logs. Not from here, though.</item>
+        <item>Held again. The counter went up again. This is the whole feature.</item>
+        <item>The exit node picker now marks the fastest node. The slowest one is doing its best.</item>
+        <item>A tailnet of one device is still a tailnet. It is just a lonely one.</item>
+        <item>If the service died after an update, that was not the update. That was the manufacturer.</item>
+        <item>Battery optimisation is on, the service is dead, and the issue says "app closes itself".</item>
+        <item>The About screen draws a hedgehog in fog. Nobody asked for it. Nobody regrets it.</item>
+        <item>Four counters, zero of them leaving the phone. The most honest telemetry in the business.</item>
+        <item>Between the tap and the packet there are eleven of our own checks, and the packet still makes it first.</item>
+        <item>Read this far? The line is over. The tunnel is not.</item>
+    </string-array>
+    <string name="menu_console">終端</string>
+    <string name="menu_logs">日誌</string>
+    <string name="menu_files">檔案</string>
+    <string name="menu_netcheck">網路檢查</string>
+    <string name="menu_settings">設定</string>
+    <string name="serve_menu_copy_link">複製連結</string>
+    <string name="serve_menu_pause">暫停</string>
+    <string name="menu_peers">裝置</string>
+    <string name="main_status_active">已啟動</string>
+    <string name="main_status_starting">啟動中…</string>
+    <string name="main_status_please_wait">請稍等…</string>
+    <string name="main_status_active_desc">服務正在運行 · 點擊暫停</string>
+    <string name="main_status_starting_desc">正在啟動背景服務…</string>
+    <string name="main_status_active_root_desc">正由系統級隧道 tailscale0 路由 · 點擊暫停</string>
+    <string name="main_status_degraded">連線有問題</string>
+    <string name="main_status_degraded_desc">%1$s · 點擊暫停</string>
+    <string name="main_status_needs_login">需要登入</string>
+    <string name="main_status_needs_login_desc">在下方登入 · 點擊暫停</string>
+    <string name="main_status_state_on">啟動</string>
+    <string name="main_status_state_off">關閉</string>
+    <string name="main_status_action_stop">停止</string>
+    <string name="main_status_action_start">開始</string>
+    <string name="main_status_connecting">正在連線</string>
+    <string name="main_status_connecting_desc">正在等待 tailnet 網路地圖</string>
+    <string name="main_status_active_root_yielded_desc">僅啟動 Tailnet — 另一個 VPN 在設備運行 · 點擊暫停</string>
+    <string name="main_status_active_root_shared_desc">將另一個 VPN 應用退出 · 點擊暫停</string>
+    <string name="netcheck_title">網路檢查</string>
+    <string name="netcheck_testing_latency_desc">檢測網路延遲與UDP連通性…</string>
+    <string name="health_udp_unavailable">UDP穿透不可用</string>
+    <string name="netcheck_udp_stun">UDP STUN 能力</string>
+    <string name="netcheck_udp">UDP: %1$s\n</string>
+    <string name="netcheck_analyzing">分析連線中…</string>
+    <string name="netcheck_connection_health">--- 連線健康 ---\n</string>
+    <string name="netcheck_status">狀態 : %1$s\n</string>
+    <string name="netcheck_running_diagnostics">\n運行診斷\n</string>
+    <string name="netcheck_nearest_derp">最近的 DERP ID : %1$d\n</string>
+    <string name="netcheck_derp_latency">\n--- DERP 延遲 ---\n</string>
+    <string name="netcheck_peer_summary">\n--- 裝置總覽 ---\n</string>
+    <string name="netcheck_report_copied">已複製到剪貼板</string>
+    <string name="netcheck_tailscale_ip">Tailscale IP: %1$s\n</string>
+    <string name="netcheck_ipv6">IPv6: %1$s\n</string>
+    <string name="netcheck_nat_mapping">NAT 映射差異 : %1$s\n</string>
+    <string name="netcheck_total_peers">總設備數 : %1$d\n</string>
+    <string name="netcheck_online_peers">在線設備 : %1$d\n</string>
+    <string name="netcheck_cd_copy_report">複製報告</string>
+    <string name="netcheck_cd_run_diagnostics">運行分析</string>
+    <string name="netcheck_connected">已連線</string>
+    <string name="netcheck_offline">離線</string>
+    <string name="netcheck_ipv4_conn">IPv4 可用性</string>
+    <string name="netcheck_ipv6_conn">IPv6 可用性</string>
+    <string name="netcheck_nat_varies">NAT 映射差異</string>
+    <string name="netcheck_peers_map">活躍裝置拓樸</string>
+    <string name="netcheck_sect_derp">DERP 延遲</string>
+    <string name="netcheck_nearest_label">最近</string>
+    <string name="netcheck_nearest_format">最近的 DERP ：%1$s</string>
+    <string name="netcheck_failed">分析失敗</string>
+    <string name="netcheck_working">工作中</string>
+    <string name="netcheck_blocked">被阻擋</string>
+    <string name="netcheck_available">可用</string>
+    <string name="netcheck_unavailable">不可用</string>
+    <string name="netcheck_nat_varies_no">無（直連友善 NAT）</string>
+    <string name="netcheck_nat_varies_yes">是</string>
+    <string name="netcheck_peers_online_format">%1$d / %2$d 在線</string>
+    <string name="netcheck_peers_online_none">0 / %1$d 在線</string>
+</resources>
