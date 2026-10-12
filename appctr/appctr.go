@@ -140,6 +140,8 @@ func InjectNetworkState(jsonState string) {
 	}
 	// And the monitors in this process: tailcat's clients run here.
 	tailcatNetworkChanged()
+	// A setup session listens on addresses that may just have gone (setup.go).
+	setupNetworkChanged()
 }
 
 var cmd *exec.Cmd
@@ -967,6 +969,8 @@ func DetachExternal() {
 // context of the post-start goroutines — and clears the socket path so no
 // further LocalAPI request is attempted.
 func releaseGoResources() {
+	// A setup session that is still listening ends with the daemon (setup.go).
+	setupDaemonReleased()
 	StopWebUI()
 	StopDriveServer()
 	// The Taildrive reverse proxy dials the SOCKS port of the daemon being
