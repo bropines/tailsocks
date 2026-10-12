@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="serve_svc_status_approved">Подтверждена; ждём, пока tailnet выдаст ей адрес</string>
+    <string name="serve_svc_status_approved_auto">Подтверждена автоматически; ждём, пока tailnet выдаст ей адрес</string>
+    <string name="serve_svc_status_awaiting">Определена в tailnet; этот узел ждёт подтверждения как её хост</string>
+    <string name="serve_svc_status_not_defined">В tailnet ещё не определена</string>
+    <string name="serve_svc_approve_button">Подтвердить…</string>
+
+    <string name="serve_svc_help">Служба — отдельное имя в tailnet, svc:имя, со своим адресом; её обслуживают один или несколько узлов с тегами. Она отвечает, только когда определена в консоли администратора и этот узел подтверждён как её хост; правило автоподтверждения в политике подтверждает хосты само. Funnel до служб не доходит.</string>
+</resources>

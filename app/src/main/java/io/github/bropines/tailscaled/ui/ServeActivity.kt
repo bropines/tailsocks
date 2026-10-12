@@ -3,6 +3,7 @@ import io.github.bropines.tailscaled.R
 import androidx.compose.material.icons.automirrored.filled.Notes
 import io.github.bropines.tailscaled.BuildConfig
 
+import io.github.bropines.tailscaled.admin.ConsoleLinks
 import io.github.bropines.tailscaled.admin.api.ApiService
 import io.github.bropines.tailscaled.admin.console.ConsoleText
 import io.github.bropines.tailscaled.admin.profile.AdminProfile
@@ -49,6 +50,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -549,9 +551,32 @@ class DemoServe(
     val health: Map<String, Boolean> = emptyMap(),
     /** The node's card opened, its capabilities shown; the app remembers the user's choice. */
     val nodeCardOpen: Boolean = false,
+    /** What the Admin API says about the tailnet's services; null draws the screen as with no
+     *  admin profile. */
+    val tailnetServices: TailnetServices? = null,
+    /** Whether an admin profile may publish: the headings offer Approve and Publish. */
+    val canPublish: Boolean = false,
 )
 
 val LocalDemoServe = staticCompositionLocalOf<DemoServe?> { null }
+
+/**
+ * The rule editor drawn in place with [serve]'s rules and capabilities, for the preview
+ * renderer, which draws no sheet: the first rule group of [service] (null: the node's), or a
+ * new rule when [newRule] — in the Service scope when [service] is not null, with its name
+ * still to be typed or picked. Previews only; the app opens the editor as a sheet.
+ */
+@Composable
+internal fun ServeEditorDemo(serve: DemoServe, service: String?, newRule: Boolean = false) {
+    val context = LocalContext.current
+    val caps = remember(serve) { capabilitiesOf(AppJson.decodeFromString<StatusResponse>(serve.statusJson)) }
+    val rules = remember(serve) { rulesOf(AppJson.decodeFromString<ServeConfig>(serve.configJson)) }
+    val group = groupsOf(rules).firstOrNull { it.first.service == service }
+    val state = if (newRule || group == null) RuleEditorState(emptyList(), newRuleTemplate().copy(service = service?.let { "" }))
+    else RuleEditorState(group.rules, group.first)
+    val known = rules.mapNotNull { it.service }.distinct() + caps.serviceHosts.keys.sorted() + serve.tailnetServices?.defined.orEmpty().sorted()
+    RuleEditorSheet(state, caps, rules, serve.canPublish, known, context, onDismiss = {}, onSave = { _, _ -> }, asSheet = false)
+}
 
 // ---------------------------------------------------------------------------------------------
 
@@ -613,25 +638,38 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
     }
     /** Active rules from the daemon plus the paused ones the app holds; what the list shows. */
     val allRules = remember(rules, paused) { rules + paused }
+    /** The services this node has rules for, by name without `svc:`. */
+    val ownServices = remember(allRules) { allRules.mapNotNull { it.service }.distinct().sorted() }
+    /** What the Admin API says about the tailnet's services, while a profile serves it. */
+    var tailnetServices by remember { mutableStateOf(demoServe?.tailnetServices) }
+    /** Bumped by a refresh the user asked for, so the Admin API is read again with it. */
+    var servicesTick by remember { mutableIntStateOf(0) }
     fun setPaused(list: List<ServeRule>) { paused = list; PausedRules.save(context, list) }
 
     /**
      * The admin profile that may publish in this tailnet: one for its MagicDNS suffix, with a
      * credential, not read-only, on a phone with a screen lock to unlock the change. Null
-     * otherwise, and the screen offers the console's link instead.
+     * otherwise, and the screen offers the console's link instead. [readProfile] is the same
+     * profile read-only or not: enough to tell where each service stands.
      */
     var publishProfile by remember { mutableStateOf<AdminProfile?>(null) }
+    var readProfile by remember { mutableStateOf<AdminProfile?>(null) }
     LaunchedEffect(caps.dnsName) {
         if (inPreview) return@LaunchedEffect
         // Off the main thread: the first read of the profiles may migrate old credentials into the Keystore.
-        publishProfile = withContext(Dispatchers.IO) {
+        val (read, write) = withContext(Dispatchers.IO) {
             runCatching {
-                AdminProfiles.forTailnet(context, caps.dnsName.trimEnd('.').substringAfter(".", "").ifBlank { null })
-                    ?.takeIf { !it.readOnly && AdminProfiles.hasCredential(context, it) && AdminWriteGate.lockState(context) != LockState.NO_SCREEN_LOCK }
-            }.getOrNull()
+                val profile = AdminProfiles.forTailnet(context, caps.dnsName.trimEnd('.').substringAfter(".", "").ifBlank { null })
+                    ?.takeIf { AdminProfiles.hasCredential(context, it) }
+                profile to profile?.takeIf { !it.readOnly && AdminWriteGate.lockState(context) != LockState.NO_SCREEN_LOCK }
+            }.getOrDefault(null to null)
         }
+        readProfile = read
+        publishProfile = write
     }
     fun adminSettings(): AdminProfile? = publishProfile
+    /** What the screen offers: Approve and Publish when a profile may write. */
+    val canPublish = publishProfile != null || demoServe?.canPublish == true
 
     /**
      * Defines `svc:<service>` in the tailnet (or sets this screen's ports as its definition)
@@ -809,6 +847,16 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
         }
     }
 
+    // Where each service stands, from the Admin API when a profile serves this tailnet: read
+    // when the screen opens, when the rules' services or the netmap's service-host change,
+    // after a publish and on a refresh asked for. Read-only, so no unlock; a failure keeps
+    // the last answer, and without one the headings go by the netmap alone.
+    LaunchedEffect(readProfile, ownServices, caps.nodeId, caps.serviceHosts, publishedAt, servicesTick) {
+        val profile = readProfile ?: return@LaunchedEffect
+        if (inPreview || !caps.services) return@LaunchedEffect
+        TailnetServicesSource.load(context, profile, caps.nodeId, ownServices)?.let { tailnetServices = it }
+    }
+
     // Right after the app starts, the bridge may not have reached the daemon yet
     // (Root Mode attaches a few seconds in); keep asking for a while instead of
     // leaving the card at "Not loaded yet" until the user pulls.
@@ -894,7 +942,7 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
     // The top bar's actions: in a top bar of its own, or handed to ServeHost,
     // which shows them while this page is the current one.
     val actions: @Composable RowScope.() -> Unit = {
-                IconButton(onClick = { refresh() }) { Icon(Icons.Default.Refresh, stringResource(R.string.action_refresh)) }
+                IconButton(onClick = { servicesTick++; refresh() }) { Icon(Icons.Default.Refresh, stringResource(R.string.action_refresh)) }
                 Box {
                     IconButton(onClick = { menuOpen = true }) { Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.action_more)) }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
@@ -935,7 +983,9 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
     val serviceHeading: @Composable (String, Modifier, Boolean) -> Unit = { service, modifier, wide ->
         ServiceHeading(
             service = service,
-            addresses = caps.serviceHosts[service],
+            state = serviceStateOf(service, caps.serviceHosts, tailnetServices),
+            canPublish = canPublish,
+            onConsole = { ConsoleLinks.open(context, SERVICES_CONSOLE_URL) },
             log = publishLogs[service],
             logExpanded = service in logExpanded,
             onToggleLog = { logExpanded = if (service in logExpanded) logExpanded - service else logExpanded + service },
@@ -969,7 +1019,7 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
             if (window.multiColumn) {
                 PullToRefreshBox(
                     isRefreshing = isLoading && !daemonStopped,
-                    onRefresh = { refresh() },
+                    onRefresh = { servicesTick++; refresh() },
                     modifier = Modifier.padding(padding).fillMaxSize()
                 ) {
                     if (daemonStopped) LazyColumn(Modifier.fillMaxSize()) {
@@ -991,7 +1041,7 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
             ReadableWidth {
             PullToRefreshBox(
                 isRefreshing = isLoading && !daemonStopped,
-                onRefresh = { refresh() },
+                onRefresh = { servicesTick++; refresh() },
                 modifier = Modifier.padding(padding).fillMaxSize()
             ) {
                 // In a list, so a pull still re-checks.
@@ -1039,6 +1089,7 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
             caps = caps,
             existing = allRules,
             canPublish = adminSettings() != null,
+            knownServices = ownServices + caps.serviceHosts.keys.sorted() + tailnetServices?.defined.orEmpty().sorted(),
             context = context,
             onDismiss = { editor = null },
             onSave = { newRules, publish ->
@@ -1056,12 +1107,13 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
                 editor = null
                 val service = newRules.firstOrNull()?.service
                 if (service != null) {
-                    // Asked for: define and approve right away. Not possible: say how.
+                    // Asked for: define and approve right away. Not possible: say how — unless
+                    // the service already answers, and there is nothing left to say.
                     if (publish) publishService(
                         service,
                         rules.filter { it.service == service && it !in state.originals }.map { it.port } + newRules.map { it.port }
                     )
-                    else if (adminSettings() == null) publishFor = service
+                    else if (adminSettings() == null && caps.serviceHosts[service] == null) publishFor = service
                 }
             }
         )
@@ -1103,7 +1155,7 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
                     Button(onClick = {
                         publishFor = null
                         runCatching {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://login.tailscale.com/admin/services")))
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(SERVICES_CONSOLE_URL)))
                         }
                     }) { Text(context.getString(R.string.serve_svc_open_console)) }
                 }
@@ -1409,14 +1461,19 @@ private fun NodeCard(
 private const val NODE_CARD_EXPANDED_PREF = "serve_node_card_expanded"
 
 /**
- * A service's heading with where it stands in the tailnet: published (control
- * lists this node as a host, with the service address) or not yet, with the
- * way to get there.
+ * A service's heading with where it stands in the tailnet, in words beside an icon of its
+ * own (not a colour): answering, with its address; approved and waiting for the address;
+ * waiting for this node's approval; not defined; or — without an admin profile to ask —
+ * simply not answering yet. The action beside it is the one that moves it on: Update (the
+ * definition's ports after a change), Approve or Publish through the Admin API when a profile
+ * may write, the admin console's Services tab when none may.
  */
 @Composable
 private fun ServiceHeading(
     service: String,
-    addresses: List<String>?,
+    state: ServiceState,
+    canPublish: Boolean,
+    onConsole: () -> Unit,
     log: List<String>?,
     logExpanded: Boolean,
     onToggleLog: () -> Unit,
@@ -1425,38 +1482,49 @@ private fun ServiceHeading(
     modifier: Modifier = Modifier,
     wide: Boolean = false
 ) {
+    val scheme = MaterialTheme.colorScheme
+    val (icon, text) = when (state.standing) {
+        ServiceStanding.SERVING ->
+            Icons.Default.CheckCircle to context.getString(R.string.serve_svc_status_published, state.address ?: "")
+        ServiceStanding.APPROVED -> Icons.Default.Schedule to context.getString(
+            if (state.auto) R.string.serve_svc_status_approved_auto else R.string.serve_svc_status_approved
+        )
+        ServiceStanding.AWAITING_APPROVAL -> Icons.Default.HourglassEmpty to context.getString(R.string.serve_svc_status_awaiting)
+        ServiceStanding.NOT_DEFINED -> Icons.AutoMirrored.Filled.HelpOutline to context.getString(R.string.serve_svc_status_not_defined)
+        ServiceStanding.UNKNOWN -> Icons.Default.Schedule to context.getString(R.string.serve_svc_status_unpublished)
+    }
+    // Without a profile that may write, Publish and Update open the dialog that says how (and
+    // links the console); where the Admin API has already said what is missing, the console
+    // is the button itself.
+    val (actionLabel, action) = when (state.standing) {
+        ServiceStanding.SERVING -> context.getString(R.string.serve_svc_update_button) to onPublish
+        ServiceStanding.APPROVED -> context.getString(R.string.serve_svc_open_console) to onConsole
+        ServiceStanding.AWAITING_APPROVAL ->
+            if (canPublish) context.getString(R.string.serve_svc_approve_button) to onPublish
+            else context.getString(R.string.serve_svc_open_console) to onConsole
+        ServiceStanding.NOT_DEFINED ->
+            if (canPublish) context.getString(R.string.serve_svc_publish_button) to onPublish
+            else context.getString(R.string.serve_svc_open_console) to onConsole
+        ServiceStanding.UNKNOWN -> context.getString(R.string.serve_svc_publish_button) to onPublish
+    }
     Column(modifier) {
         SectionHeading(context.getString(R.string.serve_service_heading, service))
         Row(
             modifier = Modifier.fillMaxWidth().padding(start = 4.dp, top = 2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (addresses != null) {
-                Icon(Icons.Default.CheckCircle, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    context.getString(R.string.serve_svc_status_published, addresses.firstOrNull { ':' !in it } ?: addresses.firstOrNull() ?: ""),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    // Wide, the button follows the line it acts on, not a window's width away.
-                    modifier = Modifier.weight(1f, fill = !wide)
-                )
-                // Re-sync the definition's endpoints with this node's rules after a change.
-                TextButton(onClick = onPublish, contentPadding = PaddingValues(horizontal = 8.dp)) {
-                    Text(context.getString(R.string.serve_svc_update_button))
-                }
-            } else {
-                Icon(Icons.Default.Schedule, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    context.getString(R.string.serve_svc_status_unpublished),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f, fill = !wide)
-                )
-                TextButton(onClick = onPublish, contentPadding = PaddingValues(horizontal = 8.dp)) {
-                    Text(context.getString(R.string.serve_svc_publish_button))
-                }
+            val serving = state.standing == ServiceStanding.SERVING
+            Icon(icon, null, modifier = Modifier.size(16.dp), tint = if (serving) scheme.primary else scheme.onSurfaceVariant)
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text,
+                style = MaterialTheme.typography.bodySmall,
+                color = scheme.onSurfaceVariant,
+                // Wide, the button follows the line it acts on, not a window's width away.
+                modifier = Modifier.weight(1f, fill = !wide)
+            )
+            TextButton(onClick = action, contentPadding = PaddingValues(horizontal = 8.dp)) {
+                Text(actionLabel)
             }
         }
         if (!log.isNullOrEmpty()) {
@@ -1710,23 +1778,27 @@ private fun SwitchRow(label: String, checked: Boolean, enabled: Boolean = true, 
     }
 }
 
-private val DNS_LABEL = Regex("^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$")
-
 /**
  * The editor, in the order a person decides: what to expose, on which port, who may reach
- * it. The daemon's terms (transport, handler, TLS termination, PROXY protocol, mount path)
- * live under Advanced. Funnel is a switch that explains itself when it cannot be turned on.
+ * it, and whether on this node's own name or as a Tailscale Service — for a new rule and for
+ * one already serving, which moves to the service (or back) on save. The service's name is
+ * typed or picked from [knownServices]. The daemon's terms (transport, handler, TLS
+ * termination, PROXY protocol, mount path) live under Advanced. Funnel is a switch that
+ * explains itself when it cannot be turned on. [asSheet] false draws it in place, for the
+ * preview renderer, which draws no sheet.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun RuleEditorSheet(
     state: RuleEditorState,
     caps: ServeCapabilities,
     existing: List<ServeRule>,
     canPublish: Boolean,
+    knownServices: List<String>,
     context: Context,
     onDismiss: () -> Unit,
-    onSave: (List<ServeRule>, Boolean) -> Unit
+    onSave: (List<ServeRule>, Boolean) -> Unit,
+    asSheet: Boolean = true
 ) {
     val sheetState = rememberFullSheetState()
     val isNew = state.isNew
@@ -1757,9 +1829,10 @@ private fun RuleEditorSheet(
     val portOk = ports.isNotEmpty() && ports.all { it in 1..65535 }
     val tlsNow = if (kind == RuleKind.TCP) tlsTcp else !plainHttp
     val targetOk = target.isNotBlank() && (kind != RuleKind.TCP || target.contains(':'))
-    val serviceOk = !scopeService || DNS_LABEL.matches(serviceName.trim().lowercase())
+    val serviceOk = !scopeService || isServiceName(normalizeServiceName(serviceName))
     val normalizedPath = path.trim().let { if (it.isEmpty()) "/" else if (it.startsWith("/")) it else "/$it" }
-    val scopeName = if (isNew) serviceName.trim().lowercase().takeIf { scopeService } else initial.service
+    // The scope the rule is saved in: for an existing rule too, which moves there on save.
+    val scopeName = normalizeServiceName(serviceName).takeIf { scopeService }
     // Another rule already on one of these ports: a TCP forward owns the whole
     // port, web handlers share a port but not a path. Saving would replace it.
     val conflict = portOk && existing.any { r ->
@@ -1794,7 +1867,7 @@ private fun RuleEditorSheet(
         (if (kind != RuleKind.TCP && plainHttp) listOf(80) else emptyList()) + caps.funnelPorts
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+    val body: @Composable () -> Unit = {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1897,47 +1970,51 @@ private fun RuleEditorSheet(
                 }
             }
 
-            if (!isNew && initial.service != null && canPublish) {
-                SwitchRow(
-                    label = context.getString(R.string.serve_editor_publish_after),
-                    checked = publishAfter,
-                    onChange = { publishAfter = it }
+            EditorSection(context.getString(R.string.serve_editor_scope)) {
+                SlidingSegmentedChips(
+                    options = listOf(context.getString(R.string.serve_editor_scope_node), context.getString(R.string.serve_editor_scope_service)),
+                    selectedIndex = if (scopeService) 1 else 0,
+                    onOptionSelected = { scopeService = it == 1 },
+                    modifier = Modifier.fillMaxWidth(),
+                    height = 36.dp
                 )
-            }
-
-            if (isNew) {
-                EditorSection(context.getString(R.string.serve_editor_scope)) {
-                    SlidingSegmentedChips(
-                        options = listOf(context.getString(R.string.serve_editor_scope_node), context.getString(R.string.serve_editor_scope_service)),
-                        selectedIndex = if (scopeService) 1 else 0,
-                        onOptionSelected = { scopeService = it == 1 },
-                        modifier = Modifier.fillMaxWidth(),
-                        height = 36.dp
+                if (scopeService) {
+                    HelpText(context.getString(R.string.serve_svc_help))
+                    OutlinedTextField(
+                        value = serviceName,
+                        onValueChange = { serviceName = it },
+                        label = { Text(context.getString(R.string.serve_editor_service_name)) },
+                        placeholder = { Text("webapp") },
+                        prefix = { Text("svc:") },
+                        singleLine = true,
+                        isError = serviceName.isNotEmpty() && !serviceOk,
+                        supportingText = when {
+                            !caps.services && caps.loaded -> { { Text(context.getString(R.string.serve_cap_services_no)) } }
+                            !serviceOk && serviceName.isNotEmpty() -> { { Text(context.getString(R.string.serve_editor_service_required)) } }
+                            else -> null
+                        },
+                        shape = MaterialTheme.shapes.medium,
+                        modifier = Modifier.fillMaxWidth()
                     )
-                    if (scopeService) {
-                        if (canPublish) {
-                            SwitchRow(
-                                label = context.getString(R.string.serve_editor_publish_after),
-                                checked = publishAfter,
-                                onChange = { publishAfter = it }
-                            )
-                        }
-                        OutlinedTextField(
-                            value = serviceName,
-                            onValueChange = { serviceName = it },
-                            label = { Text(context.getString(R.string.serve_editor_service_name)) },
-                            placeholder = { Text("webapp") },
-                            singleLine = true,
-                            isError = serviceName.isNotEmpty() && !serviceOk,
-                            supportingText = {
-                                Text(
-                                    if (!caps.services && caps.loaded) context.getString(R.string.serve_cap_services_no)
-                                    else if (!serviceOk && serviceName.isNotEmpty()) context.getString(R.string.serve_editor_service_required)
-                                    else context.getString(R.string.serve_service_note)
+                    // The services this node already serves, hosts and the tailnet defines:
+                    // one tap instead of typing a name exactly as the console spells it.
+                    val suggestions = remember(serviceName, knownServices) { serviceNameSuggestions(serviceName, knownServices) }
+                    if (suggestions.isNotEmpty()) {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            suggestions.forEach { name ->
+                                SuggestionChip(
+                                    onClick = { serviceName = name },
+                                    label = { Text(name) },
+                                    icon = { Icon(Icons.Default.Hub, null, Modifier.size(SuggestionChipDefaults.IconSize)) }
                                 )
-                            },
-                            shape = MaterialTheme.shapes.medium,
-                            modifier = Modifier.fillMaxWidth()
+                            }
+                        }
+                    }
+                    if (canPublish) {
+                        SwitchRow(
+                            label = context.getString(R.string.serve_editor_publish_after),
+                            checked = publishAfter,
+                            onChange = { publishAfter = it }
                         )
                     }
                 }
@@ -2018,4 +2095,5 @@ private fun RuleEditorSheet(
             }
         }
     }
+    if (asSheet) ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) { body() } else body()
 }
