@@ -3,6 +3,7 @@ package appctr
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/url"
@@ -120,10 +121,28 @@ func GetTaildropFilesFromAPI() string {
 	return GetWaitingFiles(opt.TaildropDir)
 }
 
+// isPlainFileName reports whether name is one path element and nothing more:
+// not empty, not "." or "..", and without a separator of either kind or a NUL.
+// A backslash is refused on every platform, as upstream's validateBaseName
+// does (feature/taildrop/taildrop.go), so no file the daemon stored is
+// turned away here.
+func isPlainFileName(name string) bool {
+	if name == "" || name == "." || name == ".." {
+		return false
+	}
+	return !strings.ContainsAny(name, "/\\\x00")
+}
+
 // DeleteTaildropFileFromAPI removes one received file by its base name.
+// Anything that is not a plain name is refused: joined as it came, "../x" or
+// an absolute path named a file outside the Taildrop directory.
 func DeleteTaildropFileFromAPI(name string) bool {
 	opt := getLastOptions()
 	if opt == nil || opt.TaildropDir == "" {
+		return false
+	}
+	if !isPlainFileName(name) {
+		slog.Error("Taildrop: not a file name, nothing deleted", "name", name)
 		return false
 	}
 	path := filepath.Join(opt.TaildropDir, name)
@@ -156,6 +175,10 @@ func SendFileFromAPI(peerID, filePath string) string {
 	if !IsRunning() {
 		return "Error: " + errNotRunning.Error()
 	}
+	apiPath, err := taildropPutPath(peerID, filePath)
+	if err != nil {
+		return "Error: " + err.Error()
+	}
 
 	f, err := os.Open(filePath)
 	if err != nil {
@@ -168,12 +191,11 @@ func SendFileFromAPI(peerID, filePath string) string {
 		return "Error: " + err.Error()
 	}
 
-	name := url.PathEscape(filepath.Base(filePath))
 	// PUT on the deadline-free client: the upload takes as long as the tailnet
 	// path allows (a few hundred MB over DERP is well past 30s), and the 30s
 	// client aborted it half-way with an error to the user. The Content-Length
 	// lets the daemon announce the size to the peer, the way the CLI does.
-	resp, err := doLocalStreamRaw(context.Background(), "PUT", "/localapi/v0/file-put/"+peerID+"/"+name, f, fi.Size())
+	resp, err := doLocalStreamRaw(context.Background(), "PUT", apiPath, f, fi.Size())
 	if err != nil {
 		return "Error: " + err.Error()
 	}
@@ -185,6 +207,23 @@ func SendFileFromAPI(peerID, filePath string) string {
 		return "Error: HTTP " + strconv.Itoa(resp.StatusCode) + ": " + strings.TrimSpace(string(body))
 	}
 	return "OK"
+}
+
+// taildropPutPath is the LocalAPI path that sends filePath to peerID:
+// /localapi/v0/file-put/<peerID>/<name>, both parts escaped. Each has to be a
+// plain name first. The peer ID used to be joined as it came, so one holding
+// "/", "?" or ".." rewrote the request into another one; the file's name is
+// what the peer stores it under, and "." or ".." (a path ending in a
+// separator or a dot directory) is not a name.
+func taildropPutPath(peerID, filePath string) (string, error) {
+	if !isPlainFileName(peerID) {
+		return "", errors.New("not a peer ID")
+	}
+	name := filepath.Base(filePath)
+	if !isPlainFileName(name) {
+		return "", errors.New("not a file name")
+	}
+	return "/localapi/v0/file-put/" + url.PathEscape(peerID) + "/" + url.PathEscape(name), nil
 }
 
 // ─── Incoming transfers (direct mode, from the IPN bus) ─────────────────────
