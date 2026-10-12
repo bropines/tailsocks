@@ -29,6 +29,11 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+    <!-- One APK for phones and televisions (core/DeviceProfile.kt). A touchscreen is
+         required of every app that does not say otherwise, which keeps it off a
+         television; leanback is what a television has and nothing else needs. -->
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.software.leanback" android:required="false" />
 
     <!-- Browsers that offer Custom Tabs, for the login page (ui/LoginTab.kt). -->
     <queries>
@@ -45,6 +50,7 @@
         android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher" 
         android:roundIcon="@mipmap/ic_launcher_round" 
+        android:banner="@drawable/tv_banner"
         android:theme="@style/Theme.Tailscaled" 
         android:networkSecurityConfig="@xml/network_security_config"
         android:enableOnBackInvokedCallback="true"
@@ -70,57 +76,61 @@
              exactly one enabled. The app switches them with setComponentEnabledSetting; a new
              install shows the fox sock, the only one enabled here. Each carries the launcher
              shortcuts (res/xml/shortcuts.xml): the system reads them from the enabled launcher
-             activity, so all must name them, under the same ids. -->
+             activity, so all must name them, under the same ids.
+             Each is the television's entry as well (LEANBACK_LAUNCHER), for the same reason:
+             a TV home screen lists the enabled one. MainActivity itself must not carry the
+             category, or a television would show the app twice. What a television draws
+             there is the application's banner, the same for every icon. -->
         <activity-alias android:name=".ui.Launcher_fox_sock" android:targetActivity=".ui.MainActivity" android:exported="true" android:enabled="true" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round">
-            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /><category android:name="android.intent.category.LEANBACK_LAUNCHER" /></intent-filter>
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity-alias>
         <activity-alias android:name=".ui.Launcher_flat_curl" android:targetActivity=".ui.MainActivity" android:exported="true" android:enabled="false" android:icon="@mipmap/ic_launcher_flat_curl" android:roundIcon="@mipmap/ic_launcher_flat_curl">
-            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /><category android:name="android.intent.category.LEANBACK_LAUNCHER" /></intent-filter>
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity-alias>
         <activity-alias android:name=".ui.Launcher_line_tail" android:targetActivity=".ui.MainActivity" android:exported="true" android:enabled="false" android:icon="@mipmap/ic_launcher_line_tail" android:roundIcon="@mipmap/ic_launcher_line_tail">
-            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /><category android:name="android.intent.category.LEANBACK_LAUNCHER" /></intent-filter>
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity-alias>
         <activity-alias android:name=".ui.Launcher_pixel_sock" android:targetActivity=".ui.MainActivity" android:exported="true" android:enabled="false" android:icon="@mipmap/ic_launcher_pixel_sock" android:roundIcon="@mipmap/ic_launcher_pixel_sock">
-            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /><category android:name="android.intent.category.LEANBACK_LAUNCHER" /></intent-filter>
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity-alias>
         <activity-alias android:name=".ui.Launcher_pixel_fox" android:targetActivity=".ui.MainActivity" android:exported="true" android:enabled="false" android:icon="@mipmap/ic_launcher_pixel_fox" android:roundIcon="@mipmap/ic_launcher_pixel_fox">
-            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /><category android:name="android.intent.category.LEANBACK_LAUNCHER" /></intent-filter>
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity-alias>
         <activity-alias android:name=".ui.Launcher_sleepy_fox" android:targetActivity=".ui.MainActivity" android:exported="true" android:enabled="false" android:icon="@mipmap/ic_launcher_sleepy_fox" android:roundIcon="@mipmap/ic_launcher_sleepy_fox">
-            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /><category android:name="android.intent.category.LEANBACK_LAUNCHER" /></intent-filter>
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity-alias>
         <activity-alias android:name=".ui.Launcher_facet_fox" android:targetActivity=".ui.MainActivity" android:exported="true" android:enabled="false" android:icon="@mipmap/ic_launcher_facet_fox" android:roundIcon="@mipmap/ic_launcher_facet_fox">
-            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /><category android:name="android.intent.category.LEANBACK_LAUNCHER" /></intent-filter>
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity-alias>
         <activity-alias android:name=".ui.Launcher_sock_thief" android:targetActivity=".ui.MainActivity" android:exported="true" android:enabled="false" android:icon="@mipmap/ic_launcher_sock_thief" android:roundIcon="@mipmap/ic_launcher_sock_thief">
-            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /><category android:name="android.intent.category.LEANBACK_LAUNCHER" /></intent-filter>
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity-alias>
         <activity-alias android:name=".ui.Launcher_mesh_paw" android:targetActivity=".ui.MainActivity" android:exported="true" android:enabled="false" android:icon="@mipmap/ic_launcher_mesh_paw" android:roundIcon="@mipmap/ic_launcher_mesh_paw">
-            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /><category android:name="android.intent.category.LEANBACK_LAUNCHER" /></intent-filter>
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity-alias>
         <activity-alias android:name=".ui.Launcher_stocking" android:targetActivity=".ui.MainActivity" android:exported="true" android:enabled="false" android:icon="@mipmap/ic_launcher_stocking" android:roundIcon="@mipmap/ic_launcher_stocking">
-            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /><category android:name="android.intent.category.LEANBACK_LAUNCHER" /></intent-filter>
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity-alias>
         <activity-alias android:name=".ui.Launcher_pumpkin" android:targetActivity=".ui.MainActivity" android:exported="true" android:enabled="false" android:icon="@mipmap/ic_launcher_pumpkin" android:roundIcon="@mipmap/ic_launcher_pumpkin">
-            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /><category android:name="android.intent.category.LEANBACK_LAUNCHER" /></intent-filter>
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity-alias>
         <activity-alias android:name=".ui.Launcher_knit" android:targetActivity=".ui.MainActivity" android:exported="true" android:enabled="false" android:icon="@mipmap/ic_launcher_knit" android:roundIcon="@mipmap/ic_launcher_knit">
-            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /><category android:name="android.intent.category.LEANBACK_LAUNCHER" /></intent-filter>
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity-alias>
         <activity-alias android:name=".ui.Launcher_hex_tile" android:targetActivity=".ui.MainActivity" android:exported="true" android:enabled="false" android:icon="@mipmap/ic_launcher_hex_tile" android:roundIcon="@mipmap/ic_launcher_hex_tile">
-            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /><category android:name="android.intent.category.LEANBACK_LAUNCHER" /></intent-filter>
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity-alias>
 

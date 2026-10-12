@@ -15,7 +15,9 @@ import io.github.bropines.tailscaled.R
 /**
  * The launcher icon the user picked (Settings → Appearance). Each icon is an
  * `<activity-alias>` of MainActivity named `.ui.Launcher_<id>`, with the
- * launcher filter and the launcher shortcuts; exactly one is enabled. The
+ * launcher filter — a television's home screen included, which draws the
+ * application's banner whatever the icon — and the launcher shortcuts;
+ * exactly one is enabled. The
  * manifest enables the default and disables the rest, so a new install shows
  * the default before the app has ever run, and the PackageManager state the
  * app writes stays the least that differs from the manifest:
