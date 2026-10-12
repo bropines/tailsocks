@@ -9,14 +9,24 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Build
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import androidx.compose.ui.graphics.toArgb
+import io.github.bropines.tailscaled.ui.LocalCapabilities
+import io.github.bropines.tailscaled.ui.LocalDeviceClass
+import io.github.bropines.tailscaled.ui.TvSafeArea
+import io.github.bropines.tailscaled.ui.rememberCapabilities
+import io.github.bropines.tailscaled.ui.rememberDeviceClass
 
 // ==========================================
 // COLOR PRESETS SCHEMES DEFINITIONS (M3)
@@ -333,6 +343,10 @@ fun TailSocksTheme(
 
     val config = remember(localeContext) { localeContext.resources.configuration }
 
+    // Read here, from the activity's own context and configuration, before the
+    // locale wrapper replaces them below.
+    val device = rememberDeviceClass()
+
     if (registryOwner != null) {
         CompositionLocalProvider(
             LocalContext provides localeContext,
@@ -342,7 +356,7 @@ fun TailSocksTheme(
             MaterialTheme(
                 colorScheme = colorScheme,
                 shapes = AppShapes,
-                content = content
+                content = { DeviceFrame(device, content) }
             )
         }
     } else {
@@ -353,10 +367,59 @@ fun TailSocksTheme(
             MaterialTheme(
                 colorScheme = colorScheme,
                 shapes = AppShapes,
-                content = content
+                content = { DeviceFrame(device, content) }
             )
         }
     }
+}
+
+/**
+ * What a screen is given for the device it is on (ui/DeviceClass.kt): the
+ * class itself, for everything below to read, and on a television the two
+ * things every screen there needs — a focus the eye can find, and a margin
+ * from the edges of a set that may cut them off.
+ *
+ * The focus is Material's own: its ripple draws an inset ring in place of the
+ * 10% tint, which reaches every button, chip, switch and clickable row at once.
+ * The safe area is laid in the theme's background, which is what the top bars
+ * are drawn on, so the margin does not read as a frame. A see-through activity
+ * — the share sheet, a notification's confirmation — is left see-through.
+ *
+ * On a handheld there is no box at all, not an empty one: the theme has never
+ * put a layout node of its own around a screen, and content written for the
+ * parent's scope — a `weight` in a Row of two themes — counts on that. The
+ * price is that switching the interface rebuilds the screen instead of
+ * re-laying it out, which a setting changed once can afford.
+ */
+@Composable
+private fun DeviceFrame(device: DeviceClass, content: @Composable () -> Unit) {
+    val tv = device == DeviceClass.TV
+    val view = LocalView.current
+    val framed = tv && remember(view) { !view.context.isWindowTranslucent() }
+    CompositionLocalProvider(
+        LocalDeviceClass provides device,
+        LocalCapabilities provides if (tv) rememberCapabilities() else LocalCapabilities.current,
+        LocalRippleThemeConfiguration provides
+            if (tv) RippleDefaults.InsetFocusRingThemeConfiguration else LocalRippleThemeConfiguration.current,
+    ) {
+        if (framed) {
+            // The window's constraints are handed on, so a screen fills the safe
+            // area the way it filled the window.
+            Box(
+                modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(TvSafeArea),
+                propagateMinConstraints = true
+            ) { content() }
+        } else {
+            content()
+        }
+    }
+}
+
+/** Whether the activity's window shows what is behind it (`windowIsTranslucent`). */
+private fun Context.isWindowTranslucent(): Boolean {
+    val activity = findActivity() ?: return false
+    val attrs = activity.theme.obtainStyledAttributes(intArrayOf(android.R.attr.windowIsTranslucent))
+    return try { attrs.getBoolean(0, false) } finally { attrs.recycle() }
 }
 
 class LocaleContextWrapper(base: Context, private val activityContext: Context) : ContextWrapper(base),

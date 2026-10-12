@@ -60,6 +60,27 @@ class WindowLayoutTest {
     }
 
     @Test
+    fun aTelevisionIsNeverAPhone() {
+        // 1080p at xhdpi: the size of a small tablet on its side, and laid out as one.
+        val tv = WindowLayout(960.dp, 540.dp, tv = true)
+        assertFalse(tv.isPhone)
+        assertTrue(tv.listDetail)
+        assertTrue(tv.multiColumn)
+        assertEquals(24.dp, tv.margin)
+        // 720p at 320 dpi: compact in height, which on anything else is a phone on its side.
+        val small = WindowLayout(640.dp, 360.dp, tv = true)
+        assertFalse(small.isPhone)
+        assertTrue(small.multiColumn)
+        assertTrue(WindowLayout(640.dp, 360.dp).isPhone)
+        // The same window without the flag is the small tablet it always was, and a different layout.
+        val tablet = WindowLayout(960.dp, 540.dp)
+        assertFalse(tablet.tv)
+        assertFalse(tablet.isPhone)
+        assertTrue(tablet.listDetail)
+        assertFalse(tv == tablet)
+    }
+
+    @Test
     fun columnsFitTheWidth() {
         assertEquals(1, columnsFor(379.dp, 320.dp))
         assertEquals(1, columnsFor(651.dp, 320.dp))

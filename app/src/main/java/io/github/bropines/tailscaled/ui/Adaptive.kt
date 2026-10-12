@@ -54,15 +54,21 @@ enum class WindowHeightClass(val minHeight: Dp) {
  * upright and on its side, and every flag below is false there except where a
  * fold says otherwise. That is the guarantee the tablet layouts rest on — a
  * phone keeps the layout it always had.
+ *
+ * [tv] is not geometry: it says the window is a television's (ui/DeviceClass.kt),
+ * which is laid out as the tablet it is the size of, whatever its size. False
+ * everywhere else, and then nothing here differs from what it was without it.
  */
 @Immutable
-class WindowLayout(val width: Dp, val height: Dp, val fold: Fold? = null) {
+class WindowLayout(val width: Dp, val height: Dp, val fold: Fold? = null, val tv: Boolean = false) {
     val widthClass: WindowWidthClass = WindowWidthClass.of(width)
     val heightClass: WindowHeightClass = WindowHeightClass.of(height)
 
     /** A phone, held either way: compact width, or compact height — a phone on
-     *  its side is 891dp wide, as wide as a foldable, and still a phone. */
-    val isPhone: Boolean get() = widthClass == WindowWidthClass.COMPACT || heightClass == WindowHeightClass.COMPACT
+     *  its side is 891dp wide, as wide as a foldable, and still a phone. Never a
+     *  television: a 720p panel at 320 dpi is 640 × 360 dp, compact in height,
+     *  and still not a phone turned on its side. */
+    val isPhone: Boolean get() = !tv && (widthClass == WindowWidthClass.COMPACT || heightClass == WindowHeightClass.COMPACT)
 
     /** List and detail side by side, the detail in a pane instead of a sheet:
      *  an expanded window or wider that is not a phone, or a foldable open like
@@ -79,25 +85,28 @@ class WindowLayout(val width: Dp, val height: Dp, val fold: Fold? = null) {
     val listPaneWidth: Dp get() = if (widthClass >= WindowWidthClass.LARGE) 400.dp else 360.dp
 
     override fun equals(other: Any?): Boolean =
-        other is WindowLayout && other.width == width && other.height == height && other.fold == fold
+        other is WindowLayout && other.width == width && other.height == height && other.fold == fold && other.tv == tv
 
-    override fun hashCode(): Int = (width.hashCode() * 31 + height.hashCode()) * 31 + fold.hashCode()
+    override fun hashCode(): Int = ((width.hashCode() * 31 + height.hashCode()) * 31 + fold.hashCode()) * 31 + tv.hashCode()
 
-    override fun toString(): String = "WindowLayout($width x $height, $widthClass/$heightClass, fold=$fold)"
+    override fun toString(): String = "WindowLayout($width x $height, $widthClass/$heightClass, fold=$fold, tv=$tv)"
 }
 
 /**
  * The window this composition draws in: its whole size, as the size classes
  * are defined on, not what is left under a top bar. In a split screen it is
  * the app's half. The preview renderer reports the preview's device size.
+ * On a television it is the whole screen as well, the safe area the theme
+ * keeps clear included.
  */
 @Composable
 fun rememberWindowLayout(): WindowLayout {
     val size = LocalWindowInfo.current.containerSize
     val density = LocalDensity.current
     val fold = rememberFold()
-    return remember(size, density, fold) {
-        with(density) { WindowLayout(size.width.toDp(), size.height.toDp(), fold) }
+    val tv = isTv
+    return remember(size, density, fold, tv) {
+        with(density) { WindowLayout(size.width.toDp(), size.height.toDp(), fold, tv) }
     }
 }
 

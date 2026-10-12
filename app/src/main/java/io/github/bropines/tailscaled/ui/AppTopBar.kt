@@ -4,6 +4,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -29,11 +31,11 @@ import io.github.bropines.tailscaled.R
  *
  * [subtitle] is one line under the title — the account, the tailnet, a count.
  * With it the title steps down to titleMedium: a single-line bar has room for
- * two short lines and no more. [onBack] shows the back arrow; leave it null on
- * a screen with nowhere to go back to. [onTitleClick] makes the title a
- * picker, and a caret after the subtitle says so. [colors] is for a bar laid
- * over something else — the QR scanner's camera — and stays the default on
- * every ordinary screen.
+ * two short lines and no more. [onBack] shows the back arrow, except on a
+ * television; leave it null on a screen with nowhere to go back to.
+ * [onTitleClick] makes the title a picker, and a caret after the subtitle
+ * says so. [colors] is for a bar laid over something else — the QR scanner's
+ * camera — and stays the default on every ordinary screen.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,7 +52,19 @@ fun AppTopBar(
         modifier = modifier,
         colors = colors,
         title = {
-            Column(if (onTitleClick != null) Modifier.clickable(onClick = onTitleClick) else Modifier) {
+            Column(
+                when {
+                    onTitleClick == null -> Modifier
+                    // A television draws its focus ring inside the target, and here that
+                    // is over the words. The target grows by the ring's room on every
+                    // side; the title itself stays where it was.
+                    isTv -> Modifier
+                        .offset(x = -TitleFocusRoom)
+                        .clickable(onClick = onTitleClick)
+                        .padding(horizontal = TitleFocusRoom, vertical = TitleFocusRoom / 2)
+                    else -> Modifier.clickable(onClick = onTitleClick)
+                }
+            ) {
                 Text(
                     title,
                     style = if (subtitle != null) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
@@ -81,7 +95,9 @@ fun AppTopBar(
             }
         },
         navigationIcon = {
-            if (onBack != null) {
+            // Not on a television: its remote has a Back key, and the arrow
+            // would be the first stop on every screen — one OK from leaving it.
+            if (onBack != null && !isTv) {
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                 }
@@ -90,3 +106,6 @@ fun AppTopBar(
         actions = actions
     )
 }
+
+/** Between a clickable title's words and the focus ring a television draws around them. */
+private val TitleFocusRoom = 8.dp
