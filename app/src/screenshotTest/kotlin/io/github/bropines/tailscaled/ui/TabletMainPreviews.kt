@@ -104,3 +104,9 @@ fun PhoneMainNoExit() = AdaptiveShowcase(noExit) { Main() }
 fun FoldMainBook() = AdaptiveShowcase {
     CompositionLocalProvider(LocalPreviewFold provides Fold.Vertical(330.dp, 343.dp)) { Main() }
 }
+
+// A 1080p television: 960 × 540 dp, the size the dashboard has never been drawn at.
+@PreviewTest
+@Preview(name = "6-tv-ru", device = "spec:width=960dp,height=540dp,dpi=320", locale = "ru")
+@Composable
+fun TvMainRu() = AdaptiveShowcase { Main() }
