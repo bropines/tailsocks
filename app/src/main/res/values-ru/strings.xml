@@ -202,7 +202,6 @@
     <string name="peer_conn_ping_failed">Не удалось измерить</string>
     <!-- PeerDetailsModal: карточка маршрута -->
     <string name="peer_route_relay">Через реле DERP</string>
-    <string name="peer_route_none">Маршрута ещё нет</string>
     <!-- PeerDetailsModal: карточка возможностей и пояснение под «Отправить файл». Коды — ipnstate.TaildropTargetStatus -->
     <string name="peer_taildrop_ok">Может принимать файлы</string>
     <string name="peer_taildrop_blocked">Не может принимать файлы</string>
@@ -452,7 +451,6 @@
     <string name="serve_cap_unknown">Ещё не загружено</string>
     <string name="serve_rules_heading">Правила</string>
     <string name="serve_service_heading">Служба %1$s</string>
-    <string name="serve_service_note">Служба заработает, когда она определена в tailnet и этот узел подтверждён как её хост.</string>
     <string name="serve_empty_title">Пока ничего не раздаётся</string>
     <string name="serve_empty_text">Правило открывает локальный порт, текст или редирект в ваш tailnet или в интернет через Funnel.</string>
     <string name="serve_kind_proxy">Локальный сервис</string>
@@ -744,8 +742,6 @@
     <string name="tun_apps_filter_excluded">В обход VPN</string>
     <string name="settings_tun_address_title">Адрес TUN-интерфейса</string>
     <string name="settings_tun_address_desc">IPv4-адрес с префиксом подсети (например, 10.0.0.1/8)</string>
-    <string name="settings_tun_native_title">Нативный движок (экспериментально)</string>
-    <string name="settings_tun_native_desc">Туннелем управляет сам tailscaled, а не hev-socks5-tunnel.\n• MagicDNS и split DNS идут напрямую от демона; MTU 1280.\n• Смена движка, а также включение или выключение выходного узла перезапускают демона (несколько секунд).\n• Соединение должно подняться до старта TUN.</string>
     <string name="settings_tun_ipv6_title">Весь IPv6 через туннель</string>
     <string name="settings_tun_ipv6_desc">Адреса тейлнета идут через туннель всегда; речь об остальном IPv6.\n• Включайте, только если выходной узел действительно умеет IPv6.\n• Иначе сайты с адресом IPv6 будут висеть вместо отката на IPv4.</string>
     <string name="main_tun_full_tunnel_desc">Весь трафик направляется через VPN</string>
