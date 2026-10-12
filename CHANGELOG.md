@@ -2,6 +2,31 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Added
+
+- Peers: each device shows how it is reached now — directly with its endpoint, through a peer relay (which node) or DERP (which city); also on the tablet dashboard.
+- Serve: any rule can be published as a Tailscale Service; each service shows whether it answers, waits for approval or is not defined yet.
+- Settings: block incoming connections, LAN access through an exit node, device posture, this phone as a peer relay, and an app connector.
+- Tailnet Lock screen: this device's key and status; a trusted device signs waiting nodes after the phone's unlock.
+- Start from the saved network map before the coordination server answers, with a switch and a cache clear in Censorship bypass.
+- Visual policy editor: a Peer relays page, every posture attribute explained (public IP included), netmap caching and group visibility attributes, declarative sharing shown.
+- TUN carries accepted subnet routes without an exit node.
+
+### Changed
+
+- Tailscale core 1.104.1.
+- The daemon and the CLI are one binary: about 12 MB less on the device, 4–5 MB less per APK.
+- TUN mode runs on the native engine by default; hev-socks5-tunnel stays selectable for compatibility.
+
+### Fixed
+
+- Native TUN comes up after sign-in, follows always-on VPN, and keeps DNS working with MagicDNS off.
+- Picking an exit node while disconnected no longer raises a VPN, and the VPN no longer makes Wi-Fi look metered.
+- Peers no longer show a relay for a device nothing has been sent to yet.
+- Backups no longer include the network map cache.
+
 ## [4.9.1] - 2026-10-11
 
 ### Fixed
