@@ -221,6 +221,9 @@ type StartOptions struct {
 	// so one set from the CLI is left alone until touched. syncSettings PATCHes
 	// it with the keys above, before ExtraUpArgs, so a typed flag still wins.
 	ClientPrefs string
+	// RemoteManagement lets paired devices manage this one over the tailnet
+	// (remote.go). The zero value keeps the endpoint closed.
+	RemoteManagement bool
 }
 
 func SetLogLevel(level int32) {
