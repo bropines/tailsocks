@@ -20,6 +20,8 @@ enum class RiskKind {
     FUNNEL_BROAD,
     /** Fewer tests than before: what used to guard the policy no longer does. */
     TESTS_REMOVED,
+    /** Peer relays offered to everyone, or to every member's or tagged device: all of them would try the relays. */
+    RELAY_BROAD,
 }
 
 /**
@@ -38,7 +40,11 @@ data class RiskFinding(val kind: RiskKind, val section: String, val detail: Stri
  */
 object PolicyLint {
 
-    private val BROAD = setOf("*", "autogroup:member", "autogroup:danger-all", "autogroup:tagged")
+    /** Sources and approvers that stand for every device of a kind, not chosen ones. */
+    val BROAD = setOf("*", "autogroup:member", "autogroup:danger-all", "autogroup:tagged")
+
+    /** The application capability that lets a grant's sources use its destinations as peer relays. */
+    private const val RELAY_CAP = "tailscale.com/cap/relay"
 
     /** Every finding in [root], in file order. */
     fun findings(root: HuObject): List<RiskFinding> = buildList {
@@ -97,8 +103,14 @@ object PolicyLint {
             val dst = rule["dst"].strings()
             val ip = rule["ip"].strings()
             val flow = "${list(src)} → ${list(dst)}" + if (ip.isNotEmpty()) " (${list(ip)})" else ""
-            if ("*" in src) out += RiskFinding(RiskKind.WILDCARD_SOURCE, "grants", flow, rule.line)
-            if ("*" in dst) out += RiskFinding(RiskKind.WILDCARD_DESTINATION, "grants", flow, rule.line)
+            val app = (rule["app"] as? HuObject)?.fields?.map { it.name }.orEmpty()
+            val relay = RELAY_CAP in app
+            // A grant of relays and nothing else opens no connection: a wildcard in it is no open
+            // door, and a wide source is said as the relay risk it is.
+            val relayOnly = relay && ip.isEmpty() && app.all { it == RELAY_CAP }
+            if ("*" in src && !relayOnly) out += RiskFinding(RiskKind.WILDCARD_SOURCE, "grants", flow, rule.line)
+            if (relay && src.any { it in BROAD }) out += RiskFinding(RiskKind.RELAY_BROAD, "grants", "$flow: relay", rule.line)
+            if ("*" in dst && !relayOnly) out += RiskFinding(RiskKind.WILDCARD_DESTINATION, "grants", flow, rule.line)
             if ("autogroup:danger-all" in src || "autogroup:danger-all" in dst) out += RiskFinding(RiskKind.DANGER_ALL, "grants", flow, rule.line)
         }
     }

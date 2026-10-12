@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The visual policy editor's catalogues: app capabilities, device posture attributes, declarative node sharing. -->
+    <!-- A feature's name and how far along Tailscale says it is: "Group visibility (alpha)". -->
+    <string name="admin_pvc_staged">%1$s (%2$s)</string>
+    <string name="admin_pvc_alpha">alpha</string>
+    <string name="admin_pvc_beta">beta</string>
+
+    <!-- Grant app capabilities. -->
+    <string name="admin_pvc_cap_relay_help">Lets the rule\'s sources use its destinations as peer relays when they cannot connect directly.</string>
+    <string name="admin_pvc_cap_webui">Device web interface</string>
+    <string name="admin_pvc_cap_secrets">Secrets (setec)</string>
+    <string name="admin_pvc_cap_pam">Privileged access (PAM)</string>
+    <string name="admin_pvc_cap_pam_help">Tailscale PAM: what the sources may do in the destination service, a database, SSH, Kubernetes or S3. Its permissions are set in JSON.</string>
+    <string name="admin_pvc_cap_tailsql">TailSQL queries</string>
+    <string name="admin_pvc_cap_golink">Golink admin</string>
+
+    <!-- Device attribute (nodeAttrs) app capabilities. -->
+    <string name="admin_pvc_node_groups">Group visibility</string>
+    <string name="admin_pvc_node_groups_help">These devices learn which groups the users reaching them belong to, for applications that read it through tsnet or LocalAPI. Needs Tailscale 1.97.8 or newer on the devices.</string>
+    <string name="admin_pvc_node_connectors">App connector</string>
+    <string name="admin_pvc_node_connectors_help">Makes these devices app connectors: they reach the listed domains on behalf of the tailnet.</string>
+
+    <!-- Device attributes: netmap caching (Tailscale 1.98, client capability 135). -->
+    <string name="admin_pvc_attr_cache">Cache the network map</string>
+    <string name="admin_pvc_attr_cache_help">The device keeps its network map on disk and connects from it at start, before the control server answers: a faster start, and peers reachable while control is slow. Tailscale 1.98 or newer.</string>
+    <string name="admin_pvc_attr_no_cache">Never cache the network map</string>
+    <string name="admin_pvc_attr_no_cache_help">Overrides Tailscale\'s default and turns caching off for these devices; it wins over Cache the network map.</string>
+    <string name="admin_pvc_attr_cache_both">Both are on: never caching wins, these devices do not cache</string>
+    <!-- Under a switch on Headscale: the attribute is accepted but only Tailscale's control plane reads it. -->
+    <string name="admin_pvc_attr_no_effect">Does nothing on Headscale</string>
+    <string name="admin_pvc_tpl_faster">Faster start for your devices</string>
+    <string name="admin_pvc_tpl_faster_help">Members\' devices cache the network map and connect from it at start, before the control server answers. Add your servers\' tags too.</string>
+    <string name="admin_pvc_tpl_faster_hint">Members\' devices to start with; add the tags of servers that should start faster too.</string>
+
+    <!-- Device posture. -->
+    <string name="admin_pvc_on_failure_help">onFailure (beta) is what the user of a failing device sees: a badge in the console, a warning or a notification in the client, a message of yours.</string>
+    <string name="admin_pvc_pa_title">Attributes to check</string>
+    <string name="admin_pvc_pa_summary">OS and client version, country, public IP, MDM and EDR</string>
+    <string name="admin_pvc_pa_operators">Operators: ==, !=, IN, NOT IN, IS SET, NOT SET, and &lt;, &lt;=, &gt;=, &gt; for numbers and versions. A device without the attribute never matches, whatever the operator.</string>
+    <string name="admin_pvc_pa_from_device">Reported by the device</string>
+    <string name="admin_pvc_pa_from_control">Seen by Tailscale</string>
+    <string name="admin_pvc_pa_from_integration">From MDM and EDR integrations</string>
+    <string name="admin_pvc_pa_from_custom">Your own</string>
+    <!-- The add button of an attribute, said to a screen reader: %s is the attribute's name. -->
+    <string name="admin_pvc_pa_use">Start a condition with %s</string>
+    <string name="admin_pvc_pa_os">Operating system</string>
+    <string name="admin_pvc_pa_os_help">macos, windows, linux, ios, android, freebsd, openbsd, illumos, or js for the SSH console in a browser.</string>
+    <string name="admin_pvc_pa_os_version">OS version</string>
+    <string name="admin_pvc_pa_os_version_help">A version in quotes, compared as a version with &lt;, &lt;=, &gt;= and &gt;.</string>
+    <string name="admin_pvc_pa_ts_version">Tailscale version</string>
+    <string name="admin_pvc_pa_ts_version_help">The client\'s version in quotes, compared as a version.</string>
+    <string name="admin_pvc_pa_track">Release track</string>
+    <string name="admin_pvc_pa_track_help">stable or unstable.</string>
+    <string name="admin_pvc_pa_auto_update">Automatic updates</string>
+    <string name="admin_pvc_pa_auto_update_help">true only with Tailscale\'s own auto-update; updates from an app store count as false.</string>
+    <string name="admin_pvc_pa_encrypted">Encrypted client state</string>
+    <string name="admin_pvc_pa_encrypted_help">Whether the client keeps its state encrypted at rest: true or false.</string>
+    <string name="admin_pvc_pa_country">Country</string>
+    <string name="admin_pvc_pa_country_help">Of the device\'s public IP, as two capital letters (ISO 3166-1). Standard plan and above.</string>
+    <string name="admin_pvc_pa_public_ip">Public IP address</string>
+    <string name="admin_pvc_pa_public_ip_help">The address the device reaches Tailscale from, compared with ==, !=, IN or NOT IN against addresses, CIDRs or an IP set. In beta: switch it on in the console\'s settings first. Standard plan and above.</string>
+    <!-- %1$s is the integration's product name, %2$s the attributes it reports. -->
+    <string name="admin_pvc_pa_integration_help">%2$s: reported by %1$s once its integration is connected. Standard plan and above.</string>
+    <string name="admin_pvc_pa_custom">Custom attributes</string>
+    <string name="admin_pvc_pa_custom_help">Set through the API or by device provisioning, under custom:. Premium plan and above.</string>
+
+    <!-- Declarative node sharing: the policy's externalTailnets section. -->
+    <string name="admin_pvc_ext_title">Declarative node sharing</string>
+    <string name="admin_pvc_ext_help">Devices shared between trusted tailnets through policy, each side opting in. Every tailnet below is one this file trusts; grants here name its groups and tags as group://alias/name. Edited in JSON.</string>
+    <string name="admin_pvc_ext_id">Tailnet ID: %s</string>
+    <string name="admin_pvc_ext_incoming_yes">Accepts connections from it</string>
+    <string name="admin_pvc_ext_incoming_no">Does not accept connections from it</string>
+    <string name="admin_pvc_ext_refs">May name here: %s</string>
+    <string name="admin_pvc_ext_refs_none">May name nothing of this tailnet</string>
+    <plurals name="admin_pvc_ext_used">
+        <item quantity="one">Named in %d grant</item>
+        <item quantity="other">Named in %d grants</item>
+    </plurals>
+    <!-- Another tailnet's group or tag: "group:eng from partner". -->
+    <string name="admin_pvc_ext_selector">%1$s from %2$s</string>
+</resources>

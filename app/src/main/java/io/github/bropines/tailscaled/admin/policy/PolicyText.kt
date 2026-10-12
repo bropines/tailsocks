@@ -33,6 +33,7 @@ object PolicyText {
             RiskKind.AUTOAPPROVER_WIDE_ROUTE -> R.string.admin_cfg_risk_wide_route
             RiskKind.FUNNEL_BROAD -> R.string.admin_cfg_risk_funnel
             RiskKind.TESTS_REMOVED -> R.string.admin_cfg_risk_tests
+            RiskKind.RELAY_BROAD -> R.string.admin_pvr_risk_relay
         }
     )
 
@@ -47,6 +48,7 @@ object PolicyText {
             RiskKind.AUTOAPPROVER_WIDE_ROUTE -> R.string.admin_cfg_risk_wide_route_help
             RiskKind.FUNNEL_BROAD -> R.string.admin_cfg_risk_funnel_help
             RiskKind.TESTS_REMOVED -> R.string.admin_cfg_risk_tests_help
+            RiskKind.RELAY_BROAD -> R.string.admin_pvr_risk_relay_help
         }
     )
 

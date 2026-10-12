@@ -133,7 +133,7 @@
     <string name="admin_pv_app_drive">Папки Taildrive</string>
     <string name="admin_pv_app_tsidp">Вход через tsidp</string>
     <string name="admin_pv_app_kubernetes">API Kubernetes</string>
-    <string name="admin_pv_app_relay">Peer relay</string>
+    <string name="admin_pv_app_relay">Реле-узлы</string>
     <string name="admin_pv_rule_deleted">Правило удалено</string>
     <string name="admin_pv_rule_duplicated">Копия добавлена под правилом</string>
     <plurals name="admin_pv_converted">

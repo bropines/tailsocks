@@ -3,6 +3,7 @@ package io.github.bropines.tailscaled.admin.policy.visual
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Label
+import androidx.compose.material.icons.filled.DeviceHub
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.automirrored.filled.FactCheck
 import androidx.compose.material.icons.filled.Groups
@@ -19,7 +20,8 @@ import io.github.bropines.tailscaled.R
 /**
  * The visual editor's pages, in the order the navigation shows them: what the policy allows
  * first (access, SSH, approvals, tests), then what it defines (groups, tags, hosts, device
- * attributes, postures), then the relays, the network options and anything the editor only shows.
+ * attributes, postures), then the relays — the tailnet's own, then Tailscale's — the network
+ * options and anything the editor only shows.
  */
 enum class VisualSection(@param:StringRes val label: Int, val icon: ImageVector, val sections: Set<Section>) {
     ACCESS(R.string.admin_pv_section_access, Icons.Default.Policy, setOf(Section.ACLS, Section.GRANTS)),
@@ -31,6 +33,11 @@ enum class VisualSection(@param:StringRes val label: Int, val icon: ImageVector,
     HOSTS(R.string.admin_pv_section_hosts, Icons.Default.Dns, setOf(Section.HOSTS, Section.IPSETS)),
     ATTRIBUTES(R.string.admin_pv_section_attributes, Icons.Default.Hub, setOf(Section.NODE_ATTRS)),
     POSTURE(R.string.admin_pv_section_posture, Icons.Default.VerifiedUser, setOf(Section.POSTURES, Section.DEFAULT_SRC_POSTURE)),
+    /**
+     * Peer relays: grants that carry the relay capability, read as "these devices relay for
+     * those". They are grants, so their elements stay on ACCESS ([of]) as well.
+     */
+    PEER_RELAYS(R.string.admin_pvr_page, Icons.Default.DeviceHub, emptySet()),
     /** Tailscale's relay regions, each excluded or used through derpMap; the file's own regions shown. */
     RELAYS(R.string.admin_pv_derp_page, Icons.Default.Public, setOf(Section.DERP_MAP)),
     NETWORK(
@@ -50,6 +57,7 @@ enum class VisualSection(@param:StringRes val label: Int, val icon: ImageVector,
         HOSTS -> m.hosts.size + m.ipsets.size
         ATTRIBUTES -> m.nodeAttrs.size
         POSTURE -> m.postures.size
+        PEER_RELAYS -> PeerRelays.rules(m).size
         RELAYS -> m.derpMap?.regions?.size ?: 0
         NETWORK -> m.sections.count { it.section == null || it.section in sections }
     }

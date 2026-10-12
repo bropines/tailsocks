@@ -68,6 +68,14 @@ interface VisualActions {
     fun show(path: PolicyPath)
 
     /**
+     * Go to [section] with the editor of [path] open: an element shown on more than one page
+     * (a grant of peer relays) opened on the one that is not its home ([VisualSection.of]).
+     */
+    fun open(section: VisualSection, path: PolicyPath? = null) {
+        path?.let(::show)
+    }
+
+    /**
      * Ask the server about the draft, not the saved policy: what user [previewFor] reaches
      * ([PolicyPreviewType.USER]) or who reaches `ip:port` ([PolicyPreviewType.IP_PORT]).
      * Tailscale only; the default answers that it cannot.

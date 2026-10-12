@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.TravelExplore
 import androidx.compose.material3.Icon
@@ -176,7 +177,7 @@ private fun GrantFields(r: GrantRule, env: VisualEnv, actions: VisualActions, is
             HelpText(ctx.getString(if (r.app.isEmpty()) R.string.admin_pv_ip_none else R.string.admin_pv_ip_none_apps))
         }
     }
-    if (r.app.isNotEmpty()) AppsBlock(r.app, actions)
+    if (r.app.isNotEmpty()) AppsBlock(r.app, actions, r.origin.path.takeIf { !isNew }, env.headscale)
     MoreSection(
         open = !isNew && (r.via.isNotEmpty() || r.srcPosture.isNotEmpty()),
         summary = moreSummary(ctx, listOfNotNull(r.via.takeIf { it.isNotEmpty() }?.joinToString(", "), r.srcPosture.takeIf { it.isNotEmpty() }?.joinToString(", "))),
@@ -255,22 +256,41 @@ internal fun ProtocolField(proto: String?, env: VisualEnv, onChange: (String?) -
     }
 }
 
-/** A grant's app capabilities: their names, the parameters left to the JSON editor. */
+/**
+ * A grant's app capabilities: their names and what the known ones do, the parameters left to
+ * the JSON editor — except peer relays, which have a page of their own that [path] (the rule,
+ * once it is in the file) opens. On Headscale a capability it refuses says so.
+ */
 @Composable
-private fun AppsBlock(apps: List<AppCapability>, actions: VisualActions) {
+private fun AppsBlock(apps: List<AppCapability>, actions: VisualActions, path: PolicyPath?, headscale: Boolean) {
     val ctx = LocalContext.current
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         FieldTitle(ctx.getString(R.string.admin_pv_f_apps))
         apps.forEach { a ->
+            val known = KnownCaps.grant(a.name)
             Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
-                Row(Modifier.padding(start = 12.dp, top = 4.dp, bottom = 4.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Apps, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(appName(ctx, a.name), style = MaterialTheme.typography.bodyMedium)
-                        Text(a.name, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Column(Modifier.padding(start = 12.dp, top = 4.dp, bottom = 4.dp, end = 4.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Apps, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(appName(ctx, a.name), style = MaterialTheme.typography.bodyMedium)
+                            Text(a.name, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        if (a.name == PeerRelays.CAP && path != null) {
+                            TextButton(onClick = { actions.open(VisualSection.PEER_RELAYS, path) }) { Text(ctx.getString(R.string.admin_pvr_open)) }
+                        } else {
+                            TextButton(onClick = { actions.openJson(a.line) }) { Text(ctx.getString(R.string.admin_pv_json)) }
+                        }
                     }
-                    TextButton(onClick = { actions.openJson(a.line) }) { Text(ctx.getString(R.string.admin_pv_json)) }
+                    known?.help?.let { HelpText(ctx.getString(it), Modifier.padding(start = 28.dp, end = 8.dp)) }
+                    if (headscale && KnownCaps.grantRefusedByHeadscale(a.name)) {
+                        Row(Modifier.padding(start = 28.dp, top = 2.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.ErrorOutline, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.error)
+                            Spacer(Modifier.width(4.dp))
+                            Text(ctx.getString(R.string.admin_pv_problem_headscale), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                        }
+                    }
                 }
             }
         }
@@ -278,14 +298,8 @@ private fun AppsBlock(apps: List<AppCapability>, actions: VisualActions) {
     }
 }
 
-/** The capabilities Tailscale documents, in words; others as named. */
-internal fun appName(ctx: android.content.Context, name: String): String = when (name) {
-    "tailscale.com/cap/drive" -> ctx.getString(R.string.admin_pv_app_drive)
-    "tailscale.com/cap/tsidp" -> ctx.getString(R.string.admin_pv_app_tsidp)
-    "tailscale.com/cap/kubernetes" -> ctx.getString(R.string.admin_pv_app_kubernetes)
-    "tailscale.com/cap/relay" -> ctx.getString(R.string.admin_pv_app_relay)
-    else -> name.substringAfterLast('/')
-}
+/** The capabilities Tailscale documents, in words with their stage; others by the last part of their name. */
+internal fun appName(ctx: android.content.Context, name: String): String = KnownCaps.label(ctx, KnownCaps.grant(name), name)
 
 /**
  * "Check with the server": what [user] reaches under the draft, asked of /acl/preview — the

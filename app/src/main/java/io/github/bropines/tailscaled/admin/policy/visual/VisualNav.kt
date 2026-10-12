@@ -76,8 +76,11 @@ data class PageEntry(val section: VisualSection, val count: Int?, val mark: Page
  * last posture), so the navigation never loses its selection.
  */
 fun pageEntries(model: PolicyModel?, headscale: Boolean, current: VisualSection, env: VisualEnv?): List<PageEntry> {
-    val errors = env?.errors?.keys.orEmpty().map { VisualSection.of(it) }.toSet()
-    val risks = env?.risks?.keys.orEmpty().map { VisualSection.of(it) }.toSet()
+    // A peer relay rule is a grant: what is said about it marks the Access page and the Peer relays page.
+    val relays = model?.let { m -> PeerRelays.rules(m).map { it.origin.path }.toSet() }.orEmpty()
+    fun pages(p: PolicyPath) = listOfNotNull(VisualSection.of(p), VisualSection.PEER_RELAYS.takeIf { p in relays })
+    val errors = env?.errors?.keys.orEmpty().flatMap(::pages).toSet()
+    val risks = env?.risks?.keys.orEmpty().flatMap(::pages).toSet()
     return VisualSection.entries.filter { it == current || it.available(headscale, model) }.map { s ->
         PageEntry(
             section = s,
@@ -113,6 +116,7 @@ private fun shortLabel(s: VisualSection): Int = when (s) {
     VisualSection.HOSTS -> R.string.admin_pv_shell_short_hosts
     VisualSection.ATTRIBUTES -> R.string.admin_pv_shell_short_attributes
     VisualSection.POSTURE -> R.string.admin_pv_shell_short_posture
+    VisualSection.PEER_RELAYS -> R.string.admin_pvr_page_short
     VisualSection.RELAYS -> R.string.admin_pv_derp_page_short
     VisualSection.NETWORK -> R.string.admin_pv_shell_short_network
     else -> s.label

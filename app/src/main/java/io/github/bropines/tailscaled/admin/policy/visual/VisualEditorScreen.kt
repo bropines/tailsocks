@@ -258,6 +258,12 @@ private fun rememberShellActions(vm: AdminConsoleViewModel?, snackbar: SnackbarH
                 vm?.policy?.show(path)
             }
 
+            override fun open(section: VisualSection, path: PolicyPath?) {
+                val policy = vm?.policy ?: return
+                policy.showPage(section)
+                if (path != null) policy.select(path)
+            }
+
             override fun previewDraft(type: PolicyPreviewType, previewFor: String, onResult: (Result<PolicyPreview>) -> Unit) {
                 val policy = vm?.policy ?: return super.previewDraft(type, previewFor, onResult)
                 policy.previewDraft(type, previewFor, onResult)
@@ -292,6 +298,10 @@ private fun rememberShellActions(vm: AdminConsoleViewModel?, snackbar: SnackbarH
 fun jsonLineFor(editor: PolicyEditorState): Int? {
     (editor.selected ?: editor.focus)?.let { p -> PolicyEditorState.lineOf(editor.text, p)?.let { return it } }
     val model = editor.draft.model ?: return editor.draft.issue?.line
+    // Peer relays are grants: the first of them, else the grants they would join.
+    if (editor.page == VisualSection.PEER_RELAYS) {
+        return (PeerRelays.rules(model).firstOrNull()?.origin ?: model.sections.firstOrNull { it.section == Section.GRANTS }?.origin)?.line
+    }
     val sections = model.sections
     val first = if (editor.page == VisualSection.NETWORK) sections.firstOrNull { it.section == null || it.section in editor.page.sections }
     else sections.firstOrNull { it.section in editor.page.sections }

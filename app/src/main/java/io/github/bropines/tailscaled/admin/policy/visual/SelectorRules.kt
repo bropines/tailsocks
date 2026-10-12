@@ -25,6 +25,10 @@ enum class SelectorSlot {
     SSH_TEST_DST,
     GROUP_MEMBER,
     POSTURE,
+    /** The devices a peer relay rule lets use its relays (a grant's `src`). */
+    RELAY_SRC,
+    /** The devices that relay for them (a grant's `dst`). */
+    RELAY_DST,
 }
 
 /** Why a selector cannot go where it was put. */
@@ -78,6 +82,8 @@ object SelectorRules {
         SelectorSlot.SSH_TEST_DST -> kinds(SelectorKind.AUTOGROUP, SelectorKind.TAG, SelectorKind.USER, SelectorKind.HOST, SelectorKind.IP)
         SelectorSlot.GROUP_MEMBER -> kinds(SelectorKind.USER)
         SelectorSlot.POSTURE -> kinds(SelectorKind.POSTURE)
+        // Relays serve only devices of their own tailnet: no other tailnet's groups or tags.
+        SelectorSlot.RELAY_SRC, SelectorSlot.RELAY_DST -> ACCESS_SRC
     }
 
     private val HEADSCALE_NEVER = kinds(SelectorKind.USER_DOMAIN, SelectorKind.IPSET, SelectorKind.SERVICE, SelectorKind.POSTURE,
@@ -93,16 +99,26 @@ object SelectorRules {
             SelectorSlot.SSH_USER -> AutogroupUse.SSH_USERS
             SelectorSlot.NODE_TARGET -> AutogroupUse.TARGET
             SelectorSlot.TAG_OWNER, SelectorSlot.APPROVER -> if (headscale) return emptyList() else AutogroupUse.OWNER
+            // Devices of this tailnet: not shared-in ones, not every address on the internet.
+            SelectorSlot.RELAY_SRC -> return Selectors.AUTOGROUPS.filter { a ->
+                AutogroupUse.SRC in a.uses && a.raw !in RELAY_SRC_NEVER && (!headscale || (a.headscale && headscaleAllows(a.raw, slot)))
+            }
+            // An app capability takes no role or internet autogroup as its destination.
+            SelectorSlot.RELAY_DST -> return Selectors.AUTOGROUPS.filter { it.raw in RELAY_DST_AUTOGROUPS }
             else -> return emptyList()
         }
         return Selectors.AUTOGROUPS.filter { use in it.uses && (!headscale || (it.headscale && headscaleAllows(it.raw, slot))) }
     }
+
+    private val RELAY_SRC_NEVER = setOf("autogroup:shared", "autogroup:danger-all")
+    private val RELAY_DST_AUTOGROUPS = setOf("autogroup:member", "autogroup:tagged")
 
     /** Headscale's own table of autogroups per context (policy v2). */
     private fun headscaleAllows(autogroup: String, slot: SelectorSlot): Boolean {
         val name = autogroup.removePrefix("autogroup:")
         return when (slot) {
             SelectorSlot.ACL_SRC, SelectorSlot.GRANT_SRC -> name in setOf("member", "tagged", "danger-all")
+            SelectorSlot.RELAY_SRC, SelectorSlot.RELAY_DST -> name in setOf("member", "tagged")
             SelectorSlot.ACL_DST, SelectorSlot.GRANT_DST -> name in setOf("internet", "member", "tagged", "self")
             SelectorSlot.SSH_SRC -> name in setOf("member", "tagged")
             SelectorSlot.SSH_DST, SelectorSlot.SSH_TEST_DST -> name in setOf("member", "tagged", "self")

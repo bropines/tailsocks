@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="admin_pvc_staged">%1$s (%2$s)</string>
+    <string name="admin_pvc_alpha">альфа</string>
+    <string name="admin_pvc_beta">бета</string>
+
+    <string name="admin_pvc_cap_relay_help">Источники правила могут пользоваться его назначениями как реле-узлами, когда не соединяются напрямую.</string>
+    <string name="admin_pvc_cap_webui">Веб-интерфейс устройства</string>
+    <string name="admin_pvc_cap_secrets">Секреты (setec)</string>
+    <string name="admin_pvc_cap_pam">Привилегированный доступ (PAM)</string>
+    <string name="admin_pvc_cap_pam_help">Tailscale PAM: что источникам можно делать в сервисе-назначении — базе данных, SSH, Kubernetes или S3. Права задаются в JSON.</string>
+    <string name="admin_pvc_cap_tailsql">Запросы TailSQL</string>
+    <string name="admin_pvc_cap_golink">Администрирование Golink</string>
+
+    <string name="admin_pvc_node_groups">Видимость групп</string>
+    <string name="admin_pvc_node_groups_help">Эти устройства узнают, в каких группах состоят пользователи, которые к ним обращаются, — для приложений, читающих это через tsnet или LocalAPI. На устройствах нужен Tailscale 1.97.8 или новее.</string>
+    <string name="admin_pvc_node_connectors">Коннектор приложений</string>
+    <string name="admin_pvc_node_connectors_help">Делает эти устройства коннекторами приложений: они ходят к указанным доменам от имени тейлнета.</string>
+
+    <string name="admin_pvc_attr_cache">Кешировать карту сети</string>
+    <string name="admin_pvc_attr_cache_help">Устройство хранит карту сети на диске и при запуске соединяется по ней, не дожидаясь сервера управления: старт быстрее, а пиры доступны, даже пока сервер медлит. Tailscale 1.98 или новее.</string>
+    <string name="admin_pvc_attr_no_cache">Никогда не кешировать карту сети</string>
+    <string name="admin_pvc_attr_no_cache_help">Перекрывает умолчание Tailscale и выключает кеш для этих устройств; сильнее, чем «Кешировать карту сети».</string>
+    <string name="admin_pvc_attr_cache_both">Включены оба: побеждает запрет, эти устройства не кешируют</string>
+    <string name="admin_pvc_attr_no_effect">На Headscale ни на что не влияет</string>
+    <string name="admin_pvc_tpl_faster">Быстрый старт для ваших устройств</string>
+    <string name="admin_pvc_tpl_faster_help">Устройства участников кешируют карту сети и при запуске соединяются по ней, не дожидаясь сервера управления. Добавьте и теги своих серверов.</string>
+    <string name="admin_pvc_tpl_faster_hint">Для начала — устройства участников; добавьте теги серверов, которым тоже нужен быстрый старт.</string>
+
+    <string name="admin_pvc_on_failure_help">onFailure (бета) — что увидит пользователь устройства, не прошедшего проверку: значок в консоли, предупреждение или уведомление в клиенте, ваше сообщение.</string>
+    <string name="admin_pvc_pa_title">Что можно проверить</string>
+    <string name="admin_pvc_pa_summary">ОС и версия клиента, страна, публичный IP, MDM и EDR</string>
+    <string name="admin_pvc_pa_operators">Операторы: ==, !=, IN, NOT IN, IS SET, NOT SET, а для чисел и версий ещё &lt;, &lt;=, &gt;=, &gt;. Устройство без такого атрибута не подходит ни при каком операторе.</string>
+    <string name="admin_pvc_pa_from_device">Сообщает устройство</string>
+    <string name="admin_pvc_pa_from_control">Видит Tailscale</string>
+    <string name="admin_pvc_pa_from_integration">Из интеграций MDM и EDR</string>
+    <string name="admin_pvc_pa_from_custom">Свои</string>
+    <string name="admin_pvc_pa_use">Начать условие с атрибута «%s»</string>
+    <string name="admin_pvc_pa_os">Операционная система</string>
+    <string name="admin_pvc_pa_os_help">macos, windows, linux, ios, android, freebsd, openbsd, illumos или js — для SSH-консоли в браузере.</string>
+    <string name="admin_pvc_pa_os_version">Версия ОС</string>
+    <string name="admin_pvc_pa_os_version_help">Версия в кавычках; &lt;, &lt;=, &gt;= и &gt; сравнивают её как версию.</string>
+    <string name="admin_pvc_pa_ts_version">Версия Tailscale</string>
+    <string name="admin_pvc_pa_ts_version_help">Версия клиента в кавычках, сравнивается как версия.</string>
+    <string name="admin_pvc_pa_track">Канал выпусков</string>
+    <string name="admin_pvc_pa_track_help">stable или unstable.</string>
+    <string name="admin_pvc_pa_auto_update">Автообновление</string>
+    <string name="admin_pvc_pa_auto_update_help">true только при собственном автообновлении Tailscale; обновления из магазина приложений считаются как false.</string>
+    <string name="admin_pvc_pa_encrypted">Шифрование данных клиента</string>
+    <string name="admin_pvc_pa_encrypted_help">Хранит ли клиент своё состояние зашифрованным: true или false.</string>
+    <string name="admin_pvc_pa_country">Страна</string>
+    <string name="admin_pvc_pa_country_help">По публичному IP устройства, двумя заглавными буквами (ISO 3166-1). Тариф Standard и выше.</string>
+    <string name="admin_pvc_pa_public_ip">Публичный IP-адрес</string>
+    <string name="admin_pvc_pa_public_ip_help">Адрес, с которого устройство обращается к Tailscale; сравнивается через ==, !=, IN или NOT IN с адресами, CIDR или набором IP. В бете: сначала включите его в настройках консоли. Тариф Standard и выше.</string>
+    <string name="admin_pvc_pa_integration_help">%2$s: передаёт %1$s, когда подключена интеграция. Тариф Standard и выше.</string>
+    <string name="admin_pvc_pa_custom">Свои атрибуты</string>
+    <string name="admin_pvc_pa_custom_help">Задаются через API или при выдаче устройства, с префиксом custom:. Тариф Premium и выше.</string>
+
+    <string name="admin_pvc_ext_title">Декларативный общий доступ</string>
+    <string name="admin_pvc_ext_help">Устройства, которыми доверенные тейлнеты делятся через политику, когда согласны обе стороны. Каждый тейлнет ниже — тот, которому этот файл доверяет; гранты здесь называют его группы и теги как group://псевдоним/имя. Правится в JSON.</string>
+    <string name="admin_pvc_ext_id">ID тейлнета: %s</string>
+    <string name="admin_pvc_ext_incoming_yes">Принимает от него подключения</string>
+    <string name="admin_pvc_ext_incoming_no">Не принимает от него подключения</string>
+    <string name="admin_pvc_ext_refs">Может называть здесь: %s</string>
+    <string name="admin_pvc_ext_refs_none">Не может называть здесь ничего</string>
+    <plurals name="admin_pvc_ext_used">
+        <item quantity="one">Встречается в %d гранте</item>
+        <item quantity="few">Встречается в %d грантах</item>
+        <item quantity="many">Встречается в %d грантах</item>
+        <item quantity="other">Встречается в %d гранта</item>
+    </plurals>
+    <string name="admin_pvc_ext_selector">%1$s из %2$s</string>
+</resources>

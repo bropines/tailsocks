@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="admin_pvr_page">Реле-узлы</string>
+    <string name="admin_pvr_page_short">Реле-узлы</string>
+    <string name="admin_pvr_help">Реле-узлы — устройства вашего тейлнета, через которые идёт трафик двух устройств, не сумевших соединиться напрямую; обычно это быстрее серверов DERP от Tailscale. Правило здесь говорит, какие устройства какими реле могут пользоваться. Само реле включается на устройстве: tailscale set --relay-server-port=40000, и этот UDP-порт должен быть доступен. С обеих сторон нужен Tailscale 1.86 или новее; Android, iOS и Apple TV реле быть не могут.</string>
+    <string name="admin_pvr_add">Добавить правило</string>
+    <string name="admin_pvr_pane_empty">Выберите правило, чтобы посмотреть и изменить его</string>
+    <string name="admin_pvr_empty">Реле-узлов пока нет: устройства, которые не соединяются напрямую, идут через серверы DERP от Tailscale</string>
+    <string name="admin_pvr_tpl_site">Реле для устройств за строгим NAT</string>
+    <string name="admin_pvr_tpl_site_help">Выберите реле и устройства, которые ими пользуются: серверы в офисе или облачной сети, а не телефоны и ноутбуки.</string>
+    <string name="admin_pvr_tpl_self">Устройство само себе реле</string>
+    <string name="admin_pvr_tpl_self_help">Сервер за файрволом, открытым только для порта реле, сам служит себе реле.</string>
+    <string name="admin_pvr_coverage">%1$s для %2$s</string>
+    <plurals name="admin_pvr_n_relays">
+        <item quantity="one">%d реле</item>
+        <item quantity="few">%d реле</item>
+        <item quantity="many">%d реле</item>
+        <item quantity="other">%d реле</item>
+    </plurals>
+    <plurals name="admin_pvr_n_clients">
+        <item quantity="one">%d устройства</item>
+        <item quantity="few">%d устройств</item>
+        <item quantity="many">%d устройств</item>
+        <item quantity="other">%d устройства</item>
+    </plurals>
+    <plurals name="admin_pvr_n_out">
+        <item quantity="one">%d не участвует</item>
+        <item quantity="few">%d не участвуют</item>
+        <item quantity="many">%d не участвуют</item>
+        <item quantity="other">%d не участвуют</item>
+    </plurals>
+    <string name="admin_pvr_c_relays">Реле</string>
+    <string name="admin_pvr_c_for">Для</string>
+    <string name="admin_pvr_c_also">Ещё</string>
+    <string name="admin_pvr_also_via">через %s</string>
+    <string name="admin_pvr_also_posture">только при %s</string>
+    <string name="admin_pvr_note_os">%1$s: на %2$s реле не работает</string>
+    <string name="admin_pvr_note_old">%1$s: Tailscale %2$s, а реле-узлам нужна 1.86</string>
+    <string name="admin_pvr_note_shared">%1$s: устройство из другого тейлнета, а реле служат только своему</string>
+    <string name="admin_pvr_rule_title">Правило реле-узлов %d</string>
+    <string name="admin_pvr_mixed">Это ещё и правило доступа: %s</string>
+    <string name="admin_pvr_mixed_help">Его устройства — те же, что у доступа, который оно даёт, поэтому меняются они на странице «Доступ». Вынесите реле в отдельное правило, чтобы править их здесь.</string>
+    <string name="admin_pvr_split">Вынести в отдельное правило</string>
+    <string name="admin_pvr_open_access">Открыть в «Доступе»</string>
+    <string name="admin_pvr_open">Открыть</string>
+    <string name="admin_pvr_f_relays">Устройства-реле</string>
+    <string name="admin_pvr_f_relays_help">Устройства, которые ретранслируют: по тегу, хосту, набору IP или адресу Tailscale. Реле заработает, только когда его включат на самом устройстве: tailscale set --relay-server-port=40000.</string>
+    <string name="admin_pvr_f_clients">Кто может пользоваться</string>
+    <string name="admin_pvr_f_clients_help">Устройства, которые стоят на месте за строгим NAT или файрволом: в офисе, в облачной сети. Не телефоны и ноутбуки, меняющие сети, и не все подряд: каждое из них станет пробовать реле.</string>
+    <string name="admin_pvr_f_self">Устройства, которые сами себе реле</string>
+    <string name="admin_pvr_d_relays">Будут ретранслировать</string>
+    <string name="admin_pvr_d_clients">Будут пользоваться</string>
+    <string name="admin_pvr_d_none">Ни одного устройства из списка</string>
+    <string name="admin_pvr_d_help">По списку устройств консоли. Он говорит, на чём работает устройство, но не включено ли на нём реле: это задаётся на самом устройстве и видно там в tailscale status.</string>
+    <string name="admin_pvr_delete">Удалить правило</string>
+    <string name="admin_pvr_delete_cap">Убрать реле из правила</string>
+    <string name="admin_pvr_deleted">Правило реле-узлов удалено</string>
+    <string name="admin_pvr_deleted_cap">Реле убраны из правила</string>
+    <string name="admin_pvr_new">Новое правило реле-узлов</string>
+    <string name="admin_pvr_new_sub">Какие устройства ретранслируют и для кого</string>
+    <string name="admin_pvr_create_hint">Сначала выберите реле и устройства, которые смогут ими пользоваться.</string>
+    <string name="admin_pvr_risk_relay">Реле для всех</string>
+    <string name="admin_pvr_risk_relay_help">Реле станет пробовать каждое такое устройство, и его трафик может пойти длинным путём. Tailscale советует вместо этого назвать устройства за строгим NAT.</string>
+</resources>
