@@ -3,6 +3,7 @@ package io.github.bropines.tailscaled.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.tooling.preview.Preview
+import io.github.bropines.tailscaled.core.DeviceClass
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 
 /*
@@ -27,10 +28,22 @@ annotation class WindowSizes
 @Preview(name = "1-phone-landscape", device = "spec:width=891dp,height=411dp,dpi=420")
 annotation class PhoneSizes
 
-/** [Showcase]'s look with any demo: dark, emerald, AMOLED black. */
+/** A television. One size: 720p at tvdpi, 1080p at xhdpi and 4K at xxxhdpi are all 960 × 540 dp;
+ *  the renderer draws it at 1080p. On its own the size is a small tablet's — the class is what
+ *  makes it a television: `AdaptiveShowcase(device = DeviceClass.TV)`. */
+@Preview(name = "6-tv", device = "spec:width=960dp,height=540dp,dpi=320")
+annotation class TvSizes
+
+/**
+ * [Showcase]'s look with any demo: dark, emerald, AMOLED black. [device] draws the screen
+ * as that class of device (ui/DeviceClass.kt); without it the renderer is a handheld. It is
+ * provided outside the theme, which is where the class is decided.
+ */
 @Composable
-fun AdaptiveShowcase(data: DemoData? = DemoTailnet.data, content: @Composable () -> Unit) {
-    TailSocksTheme(appTheme = "dark", themePreset = "emerald", dynamicColorEnabled = false, amoledModeEnabled = true) {
-        CompositionLocalProvider(LocalDemo provides data) { content() }
+fun AdaptiveShowcase(data: DemoData? = DemoTailnet.data, device: DeviceClass? = null, content: @Composable () -> Unit) {
+    CompositionLocalProvider(LocalPreviewDeviceClass provides device) {
+        TailSocksTheme(appTheme = "dark", themePreset = "emerald", dynamicColorEnabled = false, amoledModeEnabled = true) {
+            CompositionLocalProvider(LocalDemo provides data) { content() }
+        }
     }
 }
