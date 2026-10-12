@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- TUN mode: the engine picker on the TUN settings page -->
+    <string name="tun_engine_title">Движок TUN</string>
+    <string name="tun_engine_native">Нативный</string>
+    <string name="tun_engine_native_short">Рекомендуется: туннель ведёт tailscaled</string>
+    <string name="tun_engine_hev_short">Совместимость: через локальный SOCKS5</string>
+    <string name="tun_engine_native_desc">Нативный: туннелем управляет сам tailscaled. MagicDNS, split DNS и выходные узлы работают напрямую через демона.\n• Включение или выключение выходного узла и изменения в принятых подсетях перезапускают демона на несколько секунд.\n• MTU 1280. Если на этом устройстве он работает плохо, переключитесь на hev-socks5-tunnel.</string>
+    <string name="tun_engine_hev_desc">hev-socks5-tunnel — движок для совместимости. Каждый пакет идёт через локальный SOCKS5-прокси.\n• Выберите его, если нативный движок плохо работает на этом устройстве.\n• Смена движка перезапускает демона на несколько секунд.</string>
+</resources>

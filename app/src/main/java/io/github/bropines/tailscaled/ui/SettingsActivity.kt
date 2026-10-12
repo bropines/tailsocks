@@ -318,7 +318,7 @@ fun SettingsScreen(
 
     // TUN Mode State
     var tunModeEnabled by remember { mutableStateOf(GlobalSettings.isTunModeEnabled(context)) }
-    var tunNativeEngine by remember { mutableStateOf(GlobalSettings.getTunEngine(context) == TunVpnService.ENGINE_NATIVE) }
+    var tunEngine by remember { mutableStateOf(GlobalSettings.getTunEngine(context)) }
     var tunExcludedCIDRs by remember { mutableStateOf(GlobalSettings.getTunExcludedCIDRs(context)) }
     var tunExcludedApps by remember { mutableStateOf(GlobalSettings.getTunExcludedApps(context)) }
     var tunAddress by remember { mutableStateOf(GlobalSettings.getTunAddress(context)) }
@@ -1308,72 +1308,34 @@ fun SettingsScreen(
         )
 
         AnimatedVisibility(visible = selectedMode == 1) {
-          SettingsCard(title = stringResource(R.string.settings_sect_tun_mode)) {
-                // The dependency is real — the tunnel forwards every packet into
-                // this local proxy — but the proxy is not TUN's: proxy mode is
-                // nothing else, and in Root mode Taildrive and the admin API
-                // still dial it. So it is named here and edited in its own
-                // category.
-                SettingsClickableItem(
-                    title = stringResource(R.string.settings_tun_uses_socks_title),
-                    subtitle = stringResource(R.string.settings_tun_uses_socks_desc, socks5.ifBlank { "127.0.0.1:48115" }),
-                    icon = Icons.Default.SwapHoriz
-                ) {
-                    openSection = "proxies"
-                }
-                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                SettingsSwitchItem(
-                    title = stringResource(R.string.settings_tun_native_title),
-                    subtitle = stringResource(R.string.settings_tun_native_desc),
-                    icon = Icons.Default.Build,
-                    checked = tunNativeEngine
-                ) {
-                    tunNativeEngine = it
-                    saveGlobalPref("tun_engine", if (it) TunVpnService.ENGINE_NATIVE else TunVpnService.ENGINE_HEV)
-                }
-                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                SettingsSwitchItem(
-                    title = stringResource(R.string.settings_tun_ipv6_title),
-                    subtitle = stringResource(R.string.settings_tun_ipv6_desc),
-                    icon = Icons.Default.Language,
-                    checked = tunIpv6Enabled
-                ) {
+            TunSettingsCard(
+                engine = tunEngine,
+                onEngineChange = {
+                    tunEngine = it
+                    saveGlobalPref("tun_engine", it)
+                },
+                socks5 = socks5,
+                onOpenProxies = { openSection = "proxies" },
+                ipv6 = tunIpv6Enabled,
+                onIpv6Change = {
                     tunIpv6Enabled = it
                     saveGlobalPref("tun_ipv6_enabled", it)
-                }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                SettingsEditItem(
-                    title = stringResource(R.string.settings_tun_address_title),
-                    value = tunAddress,
-                    icon = Icons.Default.Settings,
-                    placeholder = "10.0.0.1/8",
-                    description = stringResource(R.string.settings_tun_address_desc)
-                ) {
+                },
+                tunAddress = tunAddress,
+                onTunAddressChange = {
                     tunAddress = it
                     saveGlobalPref("tun_address", it)
-                }
-                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                SettingsEditItem(
-                    title = stringResource(R.string.settings_tun_excluded_cidrs_title),
-                    value = tunExcludedCIDRs,
-                    icon = Icons.Default.Block,
-                    placeholder = "192.168.0.0/16, 10.0.0.0/8",
-                    description = stringResource(R.string.settings_tun_excluded_cidrs_desc)
-                ) {
+                },
+                excludedCidrs = tunExcludedCIDRs,
+                onExcludedCidrsChange = {
                     tunExcludedCIDRs = it
                     saveGlobalPref("tun_excluded_cidrs", it)
-                }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                SettingsClickableItem(
-                    title = stringResource(R.string.settings_tun_excluded_apps_title),
-                    subtitle = stringResource(R.string.settings_tun_excluded_apps_desc, tunExcludedApps.size),
-                    icon = Icons.Default.Apps
-                ) {
+                },
+                excludedAppsCount = tunExcludedApps.size,
+                onOpenExcludedApps = {
                     excludedAppsLauncher.launch(Intent(context, TunExcludedAppsActivity::class.java))
                 }
-            }
+            )
         }
 
         ModeOption(

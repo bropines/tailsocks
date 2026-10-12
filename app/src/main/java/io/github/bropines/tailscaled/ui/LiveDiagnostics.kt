@@ -47,6 +47,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.AppJson
 import io.github.bropines.tailscaled.core.Diagnostics
+import io.github.bropines.tailscaled.core.TunEngines
 import io.github.bropines.tailscaled.models.StatusResponse
 import io.github.bropines.tailscaled.models.parseHealthWarnings
 import kotlinx.coroutines.Dispatchers
@@ -449,7 +450,7 @@ internal fun demoLiveState(demo: DemoData?, now: Long = System.currentTimeMillis
         socksProbe = Diagnostics.Probe(listening = running, atMs = now),
         http = "",
         tunMode = false,
-        tunEngine = "hev",
+        tunEngine = TunEngines.DEFAULT,
         vpnUp = false,
         rootTun = false,
         errors = emptyList(),

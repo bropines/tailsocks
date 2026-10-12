@@ -23,7 +23,7 @@ import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 object DemoLive {
     private val now = System.currentTimeMillis()
 
-    /** Everything as it should be: TUN on hev, both proxies up, one live relay. */
+    /** Everything as it should be: TUN on the native engine, both proxies up, one live relay. */
     val healthy = Diagnostics.Live(
         atMs = now,
         rootMode = false,
@@ -40,7 +40,7 @@ object DemoLive {
         socksProbe = Diagnostics.Probe(listening = true, atMs = now),
         http = "127.0.0.1:8118",
         tunMode = true,
-        tunEngine = "hev",
+        tunEngine = "native",
         vpnUp = true,
         rootTun = false,
         errors = emptyList(),

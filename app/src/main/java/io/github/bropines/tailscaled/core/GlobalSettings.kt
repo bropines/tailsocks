@@ -261,7 +261,7 @@ object GlobalSettings {
         getPrefs(context).edit().putString(KEY_QR_SHAPE, style.shape.id).putString(KEY_QR_PALETTE, style.palette.id).apply()
 
     // -------------------------------------------------------------------------
-    // TUN Mode (hev-socks5-tunnel VPN)
+    // TUN Mode (Android VpnService; native engine or hev-socks5-tunnel)
     // -------------------------------------------------------------------------
 
     fun isTunModeEnabled(context: Context): Boolean = getBoolean(context, "tun_mode_enabled", false)
@@ -307,8 +307,13 @@ object GlobalSettings {
     fun isTunIpv6Enabled(context: Context): Boolean = getBoolean(context, "tun_ipv6_enabled", false)
     fun setTunIpv6Enabled(context: Context, enabled: Boolean) = setBoolean(context, "tun_ipv6_enabled", enabled)
 
-    /** TUN engine: "hev" (hev-socks5-tunnel, the default) or "native" (tailscaled owns the VpnService device). */
-    fun getTunEngine(context: Context): String = getString(context, "tun_engine", "hev")
+    /**
+     * TUN engine: "native" (tailscaled owns the VpnService device, the default)
+     * or "hev" (hev-socks5-tunnel, the compatibility engine). Only an explicit
+     * choice is ever stored; see [TunEngines.resolve].
+     */
+    fun getTunEngine(context: Context): String =
+        TunEngines.resolve(getPrefs(context).getString("tun_engine", null))
 
     /**
      * Whether DNS reaches Tailscale through the app's own DNS proxy, which

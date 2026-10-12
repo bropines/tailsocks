@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- TUN mode: the engine picker on the TUN settings page -->
+    <string name="tun_engine_title">TUN engine</string>
+    <string name="tun_engine_native">Native</string>
+    <string name="tun_engine_hev" translatable="false">hev-socks5-tunnel</string>
+    <string name="tun_engine_native_short">Recommended: tailscaled runs the tunnel</string>
+    <string name="tun_engine_hev_short">Compatibility: via the local SOCKS5 proxy</string>
+    <string name="tun_engine_native_desc">Native: tailscaled runs the tunnel itself. MagicDNS, split DNS and exit nodes come straight from the daemon.\n• Turning an exit node on or off, or a change in accepted subnet routes, relaunches the daemon for a few seconds.\n• MTU 1280. If it misbehaves on this device, switch to hev-socks5-tunnel.</string>
+    <string name="tun_engine_hev_desc">hev-socks5-tunnel, the compatibility engine. Every packet goes through the local SOCKS5 proxy.\n• Use it if the native engine misbehaves on this device.\n• Switching engines relaunches the daemon for a few seconds.</string>
+</resources>
