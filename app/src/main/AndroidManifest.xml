@@ -147,6 +147,7 @@
         <activity android:name=".ui.ConsoleActivity" android:exported="false" android:windowSoftInputMode="adjustResize"/>
         <activity android:name=".ui.PeersActivity" android:exported="false" />
         <activity android:name=".ui.QrScanActivity" android:exported="false" />
+        <activity android:name=".ui.TailnetLockActivity" android:exported="false" />
         <activity android:name=".admin.AdminApiActivity" android:exported="false" />
         <!-- Approve / Reject from an admin attention notification: the confirmation and the
              unlock over whatever is on screen, in a task of its own. Never exported. -->

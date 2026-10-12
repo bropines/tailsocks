@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings → Account & connection: the node's own switches (shields up, LAN access,
+         posture, peer relay, app connector) and the Tailnet Lock row. -->
+    <string name="client_prefs_sect_security">Security</string>
+
+    <string name="client_prefs_lan_title">Allow LAN access</string>
+    <string name="client_prefs_lan_desc">While an exit node carries the traffic, this network\'s own devices — a printer, a NAS, the router — are still reached directly.\n• Off: everything, the local network included, goes through the exit node.\n• Without an exit node it changes nothing.</string>
+
+    <string name="client_prefs_shields_title">Block incoming connections</string>
+    <string name="client_prefs_shields_desc">Refuse every connection other tailnet devices open to this phone, whatever the access rules allow.\n• Taildrop, Taildrive, Serve, the shared proxies and this phone as an exit node or relay stop answering others.\n• Connections this phone opens itself keep working.\n• Cannot be on while Funnel is.</string>
+
+    <string name="client_prefs_posture_title">Report device posture</string>
+    <string name="client_prefs_posture_desc">For organisations whose access rules check devices (posture checks).\n• When the tailnet asks, the daemon sends the device\'s serial numbers and the MAC addresses of its network interfaces.\n• On Android that is little or nothing: the serial number is given only to a device-management (MDM) app, and without root Android hides MAC addresses from apps.\n• The OS and its version are reported anyway — see “Report the real OS”.</string>
+
+    <string name="client_prefs_relay_title">Act as a peer relay</string>
+    <string name="client_prefs_relay_desc">Relay traffic over UDP between tailnet devices that cannot reach each other directly, instead of a DERP server.\n• Costs battery and data: other devices\' connections pass through this phone — best on Wi-Fi and charging.\n• Used only where the tailnet\'s access policy grants relay use to this device (tailscale.com/cap/relay); the visual policy editor in the admin console can add that grant.\n• On mobile data or behind carrier NAT other devices can rarely reach the phone; a fixed port forwarded on the router helps.\n• The official Tailscale app for Android cannot do this; TailSocks runs its own daemon, which can. The coordination server can still turn it off for this device — this row then says so.</string>
+    <string name="client_prefs_relay_refused_by_control">The coordination server has turned the relay off for this device</string>
+    <string name="client_prefs_relay_port_title">Relay UDP port</string>
+    <string name="client_prefs_relay_port_any">Any free port</string>
+    <string name="client_prefs_relay_port_desc">Empty or 0: any free port, a new one on every start. Choose a fixed port to forward it on the router.</string>
+    <string name="client_prefs_relay_port_invalid">Not a UDP port: use a number from 0 to 65535.</string>
+    <plurals name="client_prefs_relay_sessions">
+        <item quantity="one">%1$d connection relayed now</item>
+        <item quantity="other">%1$d connections relayed now</item>
+    </plurals>
+
+    <string name="client_prefs_connector_title">App connector</string>
+    <string name="client_prefs_connector_desc">Send the traffic the tailnet routes through app connectors (SaaS apps, sites that admit only known addresses) out through this phone\'s internet connection.\n• Needs a tag on this device and an app connector for that tag in the admin console (Apps), with access rules that allow it.\n• Costs battery and data: that traffic goes out through this phone.</string>
+
+    <string name="client_prefs_set_by_flag">Set by the extra argument %1$s</string>
+    <string name="client_prefs_refused">The daemon refused it: %1$s</string>
+
+    <!-- The Tailnet Lock row in Settings. -->
+    <string name="tka_title">Tailnet Lock</string>
+    <string name="tka_row_help">A node joins only once a trusted device signs its key. Open for this device\'s key and the nodes waiting for a signature.</string>
+    <string name="tka_summary_offline">Status shows while connected</string>
+    <string name="tka_summary_off">Off in this tailnet</string>
+    <string name="tka_summary_signed">On · this device is signed</string>
+    <string name="tka_summary_signer">On · this device signs nodes</string>
+    <string name="tka_summary_locked_out">On · this device is locked out</string>
+    <plurals name="tka_summary_waiting">
+        <item quantity="one">%1$d node waits for a signature</item>
+        <item quantity="other">%1$d nodes wait for a signature</item>
+    </plurals>
+
+    <!-- The Tailnet Lock screen. -->
+    <string name="tka_screen_help">With Tailnet Lock on, a node joins the tailnet only once a device with a trusted key signs it — the coordination server alone cannot add one. This screen shows the lock as this device sees it, and on a device with a trusted key it signs nodes that are waiting. Turning the lock on, adding and removing trusted keys is done with the CLI on a trusted device.</string>
+    <string name="tka_offline">Connect to see Tailnet Lock\'s status.</string>
+    <string name="tka_load_failed">The daemon did not answer: %1$s</string>
+    <string name="tka_state_on">Tailnet Lock is on</string>
+    <string name="tka_state_off">Tailnet Lock is off</string>
+    <string name="tka_state_off_help">Nothing is checked: the coordination server alone decides who joins. It is turned on from a trusted device with “tailscale lock init”, which needs this device\'s key below if this phone is to sign nodes too.</string>
+    <plurals name="tka_trusted_keys">
+        <item quantity="one">%1$d trusted signing key</item>
+        <item quantity="other">%1$d trusted signing keys</item>
+    </plurals>
+    <string name="tka_sect_device">This device</string>
+    <string name="tka_device_signer">Holds a trusted key: it can sign nodes</string>
+    <string name="tka_device_signed">Signed: it is in the tailnet</string>
+    <string name="tka_device_locked_out">Not signed: cut off from the tailnet until a trusted device signs it</string>
+    <string name="tka_device_no_key">No key yet: it appears once this profile has logged in</string>
+    <string name="tka_key_title">This device\'s Tailnet Lock key</string>
+    <string name="tka_key_help">Add it as a trusted key (“tailscale lock add …” on a trusted device) to sign nodes from this phone. Tap to copy.</string>
+    <string name="tka_sign_me_title">Command for a trusted device</string>
+    <string name="tka_sign_me_help">Run it on a device with a trusted key to let this phone in. Tap to copy.</string>
+    <string name="tka_sect_waiting">Waiting for a signature</string>
+    <string name="tka_waiting_none">No node is waiting for a signature.</string>
+    <string name="tka_waiting_not_signer">Only a device with a trusted key can sign them.</string>
+    <string name="tka_waiting_no_lock">Set a screen lock to sign nodes from this phone.</string>
+    <string name="tka_sign">Sign</string>
+    <string name="tka_sign_dialog_title">Sign “%1$s”?</string>
+    <string name="tka_sign_dialog_body">%1$s\n%2$s\nNode key %3$s\n\nThis phone\'s key signs the node, and it joins the tailnet under Tailnet Lock. Sign only nodes you recognise. Next, the phone asks to be unlocked.</string>
+    <string name="tka_sign_unlock_title">Sign “%1$s”</string>
+    <string name="tka_signed">“%1$s” is signed.</string>
+    <string name="tka_sign_failed">Could not sign: %1$s</string>
+    <string name="tka_copied">Copied</string>
+</resources>

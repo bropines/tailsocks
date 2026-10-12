@@ -14,7 +14,7 @@
 
     <!-- Settings Items -->
 
-    <string name="extra_args_desc">tailscale up flags, applied on top of what the app sets itself.\n• Supported: --accept-routes, --accept-dns, --shields-up, --ssh, --exit-node-allow-lan-access, --report-posture, --hostname, --login-server, --advertise-routes, --advertise-tags, --advertise-exit-node.\n• Negate with --no-flag or =false.\n• Any other flag is ignored and named in the logs.\n• Routes and tags set here are overwritten right after start by Advertise Routes and Advertise Tags — set them there.</string>
+    <string name="extra_args_desc">tailscale up flags, applied on top of what the app sets itself.\n• Supported: --accept-routes, --accept-dns, --shields-up, --ssh, --exit-node-allow-lan-access, --report-posture, --hostname, --login-server, --advertise-routes, --advertise-tags, --advertise-exit-node, --advertise-connector, --relay-server-port, --relay-server-static-endpoints.\n• Negate with --no-flag or =false.\n• Any other flag is ignored and named in the logs.\n• Routes and tags set here are overwritten right after start by Advertise Routes and Advertise Tags — set them there.</string>
 
     <!-- Logs -->
     <string name="logs_title">Logs</string>

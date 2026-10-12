@@ -10,7 +10,7 @@
     <string name="tap_to_start">Нажмите для запуска</string>
     <!-- Settings Items -->
 
-    <string name="extra_args_desc">Флаги tailscale up поверх настроек, которые приложение задаёт само.\n• Поддерживаются: --accept-routes, --accept-dns, --shields-up, --ssh, --exit-node-allow-lan-access, --report-posture, --hostname, --login-server, --advertise-routes, --advertise-tags, --advertise-exit-node.\n• Отрицание: --no-флаг или =false.\n• Остальные флаги игнорируются, каждый называется в логах.\n• Маршруты и теги отсюда почти сразу перезаписываются полями «Анонсируемые маршруты» и «Анонсируемые теги» — задавайте их там.</string>
+    <string name="extra_args_desc">Флаги tailscale up поверх настроек, которые приложение задаёт само.\n• Поддерживаются: --accept-routes, --accept-dns, --shields-up, --ssh, --exit-node-allow-lan-access, --report-posture, --hostname, --login-server, --advertise-routes, --advertise-tags, --advertise-exit-node, --advertise-connector, --relay-server-port, --relay-server-static-endpoints.\n• Отрицание: --no-флаг или =false.\n• Остальные флаги игнорируются, каждый называется в логах.\n• Маршруты и теги отсюда почти сразу перезаписываются полями «Анонсируемые маршруты» и «Анонсируемые теги» — задавайте их там.</string>
     <!-- Logs -->
     <string name="logs_title">Логи</string>
     <string name="logs_copied">Логи скопированы в буфер обмена</string>

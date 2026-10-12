@@ -2055,6 +2055,10 @@ class TailscaledService : Service() {
             // default routes, dropping the subnet routes applyTagsAndRoutes owns.
             extraUpArgs = GlobalSettings.getString(this@TailscaledService, "extra_args_raw", "").trim()
 
+            // The node switches Settings owns (shields up, LAN access, posture, peer relay,
+            // app connector) — only those the user has set; see ClientPrefs.
+            clientPrefs = ClientPrefs.maskedPrefsJson(ClientPrefs.stored(profilePrefs.all))
+
             val detailedLogs = GlobalSettings.getBoolean(this@TailscaledService, "detailed_logs", false)
             Appctr.setLogLevel(if (detailedLogs) 0 else 1)
         }
@@ -2286,16 +2290,31 @@ class TailscaledService : Service() {
             for (r in EXIT_NODE_ROUTES) if (r !in routes) routes.add(r)
         }
 
+        // Setting AdvertiseRoutes makes the daemon drop what its app connector learned, and
+        // this runs on every start and settings change; while the connector runs, leave the
+        // routes alone unless the user's own changed (ClientPrefs.connectorRoutesCurrent).
+        val lastApplied = (profilePrefs.getString(ClientPrefs.ROUTES_APPLIED, "") ?: "").split(",").filter { it.isNotEmpty() }
+        val keepRoutes = runCatching {
+            val daemonPrefs = Appctr.getPrefsJSON()
+            val current = ClientPrefs.liveRoutes(daemonPrefs)
+            ClientPrefs.live(daemonPrefs)?.appConnector == true && current != null &&
+                ClientPrefs.connectorRoutesCurrent(routes, current, lastApplied)
+        }.getOrDefault(false)
+
         val json = kotlinx.serialization.json.buildJsonObject {
             putJsonArray("AdvertiseTags") { tags.forEach { add(it) } }
             put("AdvertiseTagsSet", true)
-            putJsonArray("AdvertiseRoutes") { routes.forEach { add(it) } }
-            put("AdvertiseRoutesSet", true)
+            if (!keepRoutes) {
+                putJsonArray("AdvertiseRoutes") { routes.forEach { add(it) } }
+                put("AdvertiseRoutesSet", true)
+            }
         }.toString()
         Log.d(TAG, "Syncing tags & routes via LocalAPI: $json")
         val res = Appctr.setPrefs(json)
         if (res != "OK") {
             Log.e(TAG, "Failed to apply tags & routes: $res")
+        } else if (!keepRoutes) {
+            profilePrefs.edit().putString(ClientPrefs.ROUTES_APPLIED, routes.joinToString(",")).apply()
         }
     }
 

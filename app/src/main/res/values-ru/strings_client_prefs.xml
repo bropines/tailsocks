@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="client_prefs_sect_security">Безопасность</string>
+
+    <string name="client_prefs_lan_title">Доступ к локальной сети</string>
+    <string name="client_prefs_lan_desc">Когда трафик идёт через выходной узел, устройства этой сети — принтер, NAS, роутер — остаются доступны напрямую.\n• Выключено: всё, включая локальную сеть, идёт через выходной узел.\n• Без выходного узла ничего не меняет.</string>
+
+    <string name="client_prefs_shields_title">Блокировать входящие подключения</string>
+    <string name="client_prefs_shields_desc">Отклонять все подключения, которые другие устройства сети открывают к этому телефону, что бы ни разрешали правила доступа.\n• Taildrop, Taildrive, Serve, общие прокси, выходной узел и ретранслятор на этом телефоне перестают отвечать другим.\n• Подключения, которые открывает сам телефон, работают как прежде.\n• Нельзя включить вместе с Funnel.</string>
+
+    <string name="client_prefs_posture_title">Сообщать о состоянии устройства</string>
+    <string name="client_prefs_posture_desc">Для организаций, где правила доступа проверяют устройства (posture checks).\n• По запросу сети демон отправляет серийные номера устройства и MAC-адреса его сетевых интерфейсов.\n• На Android это немного или ничего: серийный номер получает только приложение управления устройством (MDM), а без root Android скрывает MAC-адреса от приложений.\n• ОС и её версия передаются в любом случае — см. «Сообщать настоящую ОС».</string>
+
+    <string name="client_prefs_relay_title">Быть ретранслятором (peer relay)</string>
+    <string name="client_prefs_relay_desc">Передавать по UDP трафик между устройствами сети, которые не могут соединиться напрямую, вместо сервера DERP.\n• Тратит заряд и трафик: через телефон идут чужие соединения — лучше на Wi-Fi и на зарядке.\n• Работает, только если политика доступа сети разрешает этому устройству ретрансляцию (tailscale.com/cap/relay); такое правило добавляется в визуальном редакторе политики в консоли администратора.\n• На мобильном интернете и за NAT оператора до телефона редко удаётся достучаться; помогает постоянный порт, проброшенный на роутере.\n• Официальное приложение Tailscale для Android так не умеет; TailSocks запускает собственный демон, который умеет. Сервер координации всё равно может отключить это для устройства — тогда здесь так и будет написано.</string>
+    <string name="client_prefs_relay_refused_by_control">Сервер координации отключил ретранслятор для этого устройства</string>
+    <string name="client_prefs_relay_port_title">UDP-порт ретранслятора</string>
+    <string name="client_prefs_relay_port_any">Любой свободный порт</string>
+    <string name="client_prefs_relay_port_desc">Пусто или 0 — любой свободный порт, при каждом запуске новый. Постоянный порт можно пробросить на роутере.</string>
+    <string name="client_prefs_relay_port_invalid">Это не UDP-порт: укажите число от 0 до 65535.</string>
+    <plurals name="client_prefs_relay_sessions">
+        <item quantity="one">Сейчас ретранслирует %1$d соединение</item>
+        <item quantity="few">Сейчас ретранслирует %1$d соединения</item>
+        <item quantity="many">Сейчас ретранслирует %1$d соединений</item>
+        <item quantity="other">Сейчас ретранслирует %1$d соединения</item>
+    </plurals>
+
+    <string name="client_prefs_connector_title">Коннектор приложений (app connector)</string>
+    <string name="client_prefs_connector_desc">Выпускать в интернет через этот телефон трафик, который сеть направляет через коннекторы приложений (SaaS-сервисы, сайты, пускающие только с известных адресов).\n• Нужен тег на этом устройстве и коннектор приложений с этим тегом в консоли администратора (Apps), а также правила доступа, которые его разрешают.\n• Тратит заряд и трафик: этот трафик выходит через телефон.</string>
+
+    <string name="client_prefs_set_by_flag">Задано дополнительным аргументом %1$s</string>
+    <string name="client_prefs_refused">Демон не принял настройку: %1$s</string>
+
+    <string name="tka_title">Tailnet Lock</string>
+    <string name="tka_row_help">Узел попадает в сеть, только когда доверенное устройство подпишет его ключ. Здесь — ключ этого устройства и узлы, которые ждут подписи.</string>
+    <string name="tka_summary_offline">Статус виден при подключении</string>
+    <string name="tka_summary_off">В этой сети выключен</string>
+    <string name="tka_summary_signed">Включён · устройство подписано</string>
+    <string name="tka_summary_signer">Включён · устройство подписывает узлы</string>
+    <string name="tka_summary_locked_out">Включён · устройство отрезано от сети</string>
+    <plurals name="tka_summary_waiting">
+        <item quantity="one">%1$d узел ждёт подписи</item>
+        <item quantity="few">%1$d узла ждут подписи</item>
+        <item quantity="many">%1$d узлов ждут подписи</item>
+        <item quantity="other">%1$d узла ждут подписи</item>
+    </plurals>
+
+    <string name="tka_screen_help">Когда Tailnet Lock включён, узел попадает в сеть, только если его подпишет устройство с доверенным ключом, — сервер координации сам добавить узел не может. Здесь видно, как блокировку видит это устройство, а на устройстве с доверенным ключом можно подписывать ожидающие узлы. Включение блокировки, добавление и удаление доверенных ключей делаются через CLI на доверенном устройстве.</string>
+    <string name="tka_offline">Подключитесь, чтобы увидеть статус Tailnet Lock.</string>
+    <string name="tka_load_failed">Демон не ответил: %1$s</string>
+    <string name="tka_state_on">Tailnet Lock включён</string>
+    <string name="tka_state_off">Tailnet Lock выключен</string>
+    <string name="tka_state_off_help">Ничего не проверяется: кого пустить в сеть, решает только сервер координации. Блокировку включают с доверенного устройства командой «tailscale lock init»; чтобы этот телефон тоже мог подписывать узлы, ей нужен ключ этого устройства ниже.</string>
+    <plurals name="tka_trusted_keys">
+        <item quantity="one">%1$d доверенный ключ подписи</item>
+        <item quantity="few">%1$d доверенных ключа подписи</item>
+        <item quantity="many">%1$d доверенных ключей подписи</item>
+        <item quantity="other">%1$d доверенного ключа подписи</item>
+    </plurals>
+    <string name="tka_sect_device">Это устройство</string>
+    <string name="tka_device_signer">Держит доверенный ключ: может подписывать узлы</string>
+    <string name="tka_device_signed">Подписано: устройство в сети</string>
+    <string name="tka_device_locked_out">Не подписано: отрезано от сети, пока его не подпишет доверенное устройство</string>
+    <string name="tka_device_no_key">Ключа пока нет: он появится после входа в этот профиль</string>
+    <string name="tka_key_title">Ключ Tailnet Lock этого устройства</string>
+    <string name="tka_key_help">Добавьте его в доверенные («tailscale lock add …» на доверенном устройстве), чтобы подписывать узлы с этого телефона. Нажмите, чтобы скопировать.</string>
+    <string name="tka_sign_me_title">Команда для доверенного устройства</string>
+    <string name="tka_sign_me_help">Выполните её на устройстве с доверенным ключом, чтобы пустить этот телефон в сеть. Нажмите, чтобы скопировать.</string>
+    <string name="tka_sect_waiting">Ждут подписи</string>
+    <string name="tka_waiting_none">Ни один узел не ждёт подписи.</string>
+    <string name="tka_waiting_not_signer">Подписать их может только устройство с доверенным ключом.</string>
+    <string name="tka_waiting_no_lock">Чтобы подписывать узлы с этого телефона, задайте блокировку экрана.</string>
+    <string name="tka_sign">Подписать</string>
+    <string name="tka_sign_dialog_title">Подписать «%1$s»?</string>
+    <string name="tka_sign_dialog_body">%1$s\n%2$s\nКлюч узла %3$s\n\nКлюч этого телефона подпишет узел, и тот попадёт в сеть под Tailnet Lock. Подписывайте только узлы, которые узнаёте. Затем телефон попросит разблокировку.</string>
+    <string name="tka_sign_unlock_title">Подписать «%1$s»</string>
+    <string name="tka_signed">«%1$s» подписан.</string>
+    <string name="tka_sign_failed">Не удалось подписать: %1$s</string>
+    <string name="tka_copied">Скопировано</string>
+</resources>

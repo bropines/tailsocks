@@ -754,6 +754,10 @@ fun SettingsScreen(
 
     // A. Account & connection
     val sectionAccount: @Composable () -> Unit = {
+        // The node's own switches (NodeSettings.kt): stored per profile, applied with the
+        // other settings, overridden by a flag in the extra arguments.
+        val nodeSwitches = rememberNodeSwitches(profilePrefs, extraArgs)
+        val saveNodeSwitch: (String, Any) -> Unit = { key, value -> saveProfilePref(key, value) }
         // The tag suggestions and the "applied tags" line are the only readers
         // of this query, so it runs when the page opens instead of on every
         // Settings open.
@@ -810,6 +814,7 @@ fun SettingsScreen(
                 saveProfilePref("exit_node_ip", ip, triggerService = false)
                 saveProfilePref("exit_node_id", id, triggerService = false)
             }
+            ExitNodeLanRow(nodeSwitches, saveNodeSwitch)
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
             SettingsSwitchItem(stringResource(R.string.settings_accept_subnet_routes_title), stringResource(R.string.settings_accept_routes_desc), Icons.Default.Map, acceptRoutes) { acceptRoutes = it; saveGlobalPref("accept_routes", it) }
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
@@ -883,6 +888,12 @@ fun SettingsScreen(
 
         SettingsCardGap()
 
+        NodeSecurityCard(nodeSwitches, saveNodeSwitch) {
+            context.startActivity(Intent(context, TailnetLockActivity::class.java))
+        }
+
+        SettingsCardGap()
+
         SettingsCard(title = stringResource(R.string.settings_sect_service_ad)) {
             SettingsEditItem(
                 title = stringResource(R.string.settings_ad_routes_title),
@@ -914,6 +925,8 @@ fun SettingsScreen(
                     modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 4.dp)
                 )
             }
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+            NodeServiceRows(nodeSwitches, saveNodeSwitch)
         }
 
         SettingsCardGap()
