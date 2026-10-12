@@ -1,6 +1,7 @@
 package appctr
 
 import (
+	"encoding/json"
 	"errors"
 	"net"
 	"os"
@@ -723,6 +724,60 @@ func TestRemoteApplyFromOptions(t *testing.T) {
 	}
 	if RemotePort < 1024 || RemotePort >= 32768 {
 		t.Errorf("port %d is privileged or in the ephemeral range", RemotePort)
+	}
+}
+
+// The bridge's own lifecycle: letting go of a daemon closes the listener and
+// keeps the code, applying settings that switch the feature off drops both.
+func TestRemoteFollowsTheDaemon(t *testing.T) {
+	saved := remote
+	remote = newRemoteManager(remoteDefaultPolicy(), newRemoteFakeClock(), newRemoteFakeDaemon())
+	t.Cleanup(func() {
+		remote.configure(false, "")
+		remote = saved
+	})
+	ln, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := ln.Addr().String()
+	ln.Close()
+	store := filepath.Join(t.TempDir(), "remote", "p.json")
+	remote.apply(true, store, addr)
+
+	var shown struct {
+		OK   bool   `json:"ok"`
+		Code string `json:"code"`
+		QR   string `json:"qr"`
+	}
+	if err := json.Unmarshal([]byte(RemoteStartPairing()), &shown); err != nil || !shown.OK || !remoteIsCode(shown.Code) {
+		t.Fatalf("RemoteStartPairing: %+v, %v", shown, err)
+	}
+	if !strings.Contains(RemoteParseQR(shown.QR), shown.Code) {
+		t.Errorf("the QR %q does not carry the code", shown.QR)
+	}
+	if !strings.Contains(RemoteStateJSON(), `"listening":true`) || !strings.Contains(RemoteStateJSON(), `"code":"`+shown.Code+`"`) {
+		t.Fatalf("state: %s", RemoteStateJSON())
+	}
+
+	// Stop, a restart, a detach: everything the bridge owns is released.
+	releaseGoResources()
+	if c, err := net.DialTimeout("tcp4", addr, time.Second); err == nil {
+		c.Close()
+		t.Fatal("still listening after the daemon was released")
+	}
+	if st := remote.state(); st.Listening || !st.Enabled || st.Pairing == nil || st.Pairing.Code != shown.Code {
+		t.Fatalf("after the release: %+v", st)
+	}
+
+	// Settings that switch it off, applied whatever the daemon is doing.
+	remoteSwitch(&StartOptions{})
+	if st := remote.state(); st.Enabled || st.Listening || st.Pairing != nil || !st.Available {
+		t.Fatalf("after switching off: %+v", st)
+	}
+	RemoteCancelPairing()
+	if RemotePairedJSON() != "[]" || RemoteActionsJSON() != "[]" || RemoteRevoke("nPHONE") || RemoteRevokeAll() != 0 {
+		t.Error("an empty store answered with something")
 	}
 }
 

@@ -593,6 +593,10 @@ func ApplySettings(opt *StartOptions) {
 	old := lastOptions
 	stateMu.Unlock()
 
+	// First, and whatever happens below: switching remote management off must
+	// not wait for a login to finish or a restart to be decided.
+	remoteSwitch(opt)
+
 	if !IsRunning() {
 		slog.Info("Tailscaled not running, performing full start")
 		Start(opt)
@@ -760,6 +764,7 @@ func Start(opt *StartOptions) {
 	slog.Info("=== TAILSOCKS GO CORE STARTING ===", "version", coreVersion, "do_reset", opt.DoReset, "has_authkey", opt.AuthKey != "")
 	slog.Info("========================================")
 	GConfig.update(opt.Socks5Server, opt.Socks5User, opt.Socks5Pass, opt.DnsProxy)
+	remoteApply(opt)
 	reportProcessHandles()
 
 	killLeftoverDaemons()
@@ -849,6 +854,7 @@ func AttachExternal(opt *StartOptions) {
 	slog.Info("=== TAILSOCKS GO CORE ATTACHING (ROOT) ===", "version", coreVersion, "do_reset", opt.DoReset, "has_authkey", opt.AuthKey != "")
 	slog.Info("========================================")
 	GConfig.update(opt.Socks5Server, opt.Socks5User, opt.Socks5Pass, opt.DnsProxy)
+	remoteApply(opt)
 
 	go runPostStart(ctx, opt, "Root daemon socket never became ready, aborting attach")
 
@@ -981,6 +987,8 @@ func releaseGoResources() {
 	// system destroys the service or the supervisor reports a crash, so the
 	// bridge has to be self-sufficient here.
 	_ = StopDriveProxy()
+	// The remote-management listener answers through the daemon being released.
+	remoteRelease()
 	StopIPNBusListener()
 	FlushDNS()
 	// After the listener is gone, so a late notification from the old stream
