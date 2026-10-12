@@ -105,6 +105,25 @@ func netmapCacheEnv(off bool) []string {
 	return []string{"TS_USE_CACHED_NETMAP=false"}
 }
 
+// controlPortEnv is the daemon's environment for the control connection:
+// TS_FORCE_NOISE_443 unless the user asked for upstream's port 80 first.
+//
+// By default tailscaled upgrades a plain port 80 connection for its control
+// channel and stays on it once the Noise handshake passes; port 443 is only
+// the fallback for a dial that fails (control/controlhttp/client.go). Some
+// networks let that handshake through and then drop the stream without a
+// reset after a kilobyte or two: the node registers, the map poll is never
+// answered ("lite map update error after 2m0s"), and the app hangs in
+// "connecting". With the knob the dialer goes straight to TLS; it still dials
+// port 80 for a control server that has no HTTPS port. The switch back is for
+// the opposite network, where TLS to the control server is what breaks.
+func controlPortEnv(port80First bool) []string {
+	if port80First {
+		return nil
+	}
+	return []string{"TS_FORCE_NOISE_443=true"}
+}
+
 func tailscaledCmd(p pathControl, generation uint64, dnsFallbacks string, socksAddr, httpAddr, socksUser, socksPass, taildropDir, controlProxy string, hostinfo hostinfoReport, extraEnv []string) error {
 	// Cheap early exit before the filesystem work; the authoritative check is
 	// the one under stateMu below.
@@ -157,14 +176,6 @@ func tailscaledCmd(p pathControl, generation uint64, dnsFallbacks string, socksA
 		"TS_AUTH_ONCE=true",
 		"TS_NET_STATE="+netState,
 		"TS_NETROUTE_FILE="+routePath,
-		// The control connection goes straight to TLS on port 443. By default
-		// tailscaled upgrades a plain port 80 connection first and stays on
-		// it once the handshake passes; some networks let that handshake
-		// through and then drop the stream after a kilobyte or two, so the
-		// node registers, never receives a network map, and hangs in
-		// "connecting". Port 80 is still dialled for a control server that
-		// has no HTTPS port.
-		"TS_FORCE_NOISE_443=true",
 	)
 	if tz != "" {
 		c.Env = append(c.Env, "TZ="+tz)

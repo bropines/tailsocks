@@ -126,6 +126,7 @@ object Diagnostics {
             DNS proxy: ${GlobalSettings.getString(context, "dns_proxy", "")}
             LAN access: ${GlobalSettings.isLanAccessEnabled(context)}
             Control proxy: ${GlobalSettings.isCPProxyEnabled(context)} (ByeDPI: ${GlobalSettings.isCPByeDpiEnabled(context)})
+            Control port 443 only: ${ControlPort.isTlsOnly(context)}
             Accept routes: ${GlobalSettings.getBoolean(context, "accept_routes", false)}, accept DNS: ${GlobalSettings.getBoolean(context, "accept_dns", true)}
             Auto-reconnect: ${GlobalSettings.isAutoReconnectEnabled(context)}, watchdog: ${GlobalSettings.isServiceWatchdogEnabled(context)}, autostart: ${GlobalSettings.isAutoStartEnabled(context)}
         """.trimIndent()

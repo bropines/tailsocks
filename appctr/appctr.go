@@ -208,6 +208,10 @@ type StartOptions struct {
 	// last time (TS_USE_CACHED_NETMAP=false, see netmapCacheEnv). The zero value
 	// keeps upstream's default, under which the coordination server decides.
 	NetmapCacheOff bool
+	// ControlPort80 lets the control connection try the plain port 80 upgrade
+	// first, as upstream does. The zero value sends it straight to TLS on port
+	// 443 (TS_FORCE_NOISE_443, see controlPortEnv).
+	ControlPort80 bool
 	// ClientPrefs carries the node switches Settings owns beyond the fields
 	// above — shields up, LAN access through an exit node, posture reporting,
 	// the peer relay, the app connector — as a JSON object of ipn.MaskedPrefs
@@ -611,7 +615,8 @@ func ApplySettings(opt *StartOptions) {
 		old.Socks5Pass != opt.Socks5Pass ||
 		old.StatePath != opt.StatePath ||
 		old.LoginServer != opt.LoginServer ||
-		old.NetmapCacheOff != opt.NetmapCacheOff {
+		old.NetmapCacheOff != opt.NetmapCacheOff ||
+		old.ControlPort80 != opt.ControlPort80 {
 		slog.Info("Critical settings or account changed, performing full restart")
 		Start(opt)
 		return
@@ -764,7 +769,7 @@ func Start(opt *StartOptions) {
 			osVersion:   opt.OsVersion,
 			deviceModel: opt.DeviceModel,
 			pkg:         opt.InstallSource,
-		}, netmapCacheEnv(opt.NetmapCacheOff))
+		}, append(netmapCacheEnv(opt.NetmapCacheOff), controlPortEnv(opt.ControlPort80)...))
 		if errors.Is(err, errLaunchSuperseded) {
 			// A Stop() or another Start() retired this run before its process
 			// existed; there is nothing to tear down and nothing to report.

@@ -2045,6 +2045,8 @@ class TailscaledService : Service() {
             installSource = installSourceName()
             // Read by the daemon at start (TS_USE_CACHED_NETMAP); see NetmapCache.
             netmapCacheOff = !NetmapCache.isEnabled(this@TailscaledService)
+            // Read by the daemon at start (TS_FORCE_NOISE_443); see ControlPort.
+            controlPort80 = !ControlPort.isTlsOnly(this@TailscaledService)
 
             // The bridge parses extraUpArgs as `tailscale up`-style flags and folds
             // the result into the same prefs PATCH syncSettings sends, after the
@@ -2084,6 +2086,7 @@ class TailscaledService : Service() {
             deviceModel = options.deviceModel,
             installSource = options.installSource,
             netmapCache = !options.netmapCacheOff,
+            controlTlsOnly = !options.controlPort80,
         )
     }
 

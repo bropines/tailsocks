@@ -13,4 +13,8 @@
     <string name="core_netmap_cache_clear_desc">Deletes the saved maps of every account. The next map from the server is saved again while the switch above is on.</string>
     <string name="core_netmap_cache_cleared">Network map cache cleared</string>
     <string name="core_netmap_cache_clear_failed">Could not clear the cache: %1$s</string>
+    <string name="core_control_port_section">Control connection</string>
+    <string name="core_control_port_help">Tailscale normally opens its control connection on plain port 80 and stays on it once the handshake passes. Some networks let that handshake through and then silently drop the stream: the device signs in but never receives the network map, and the app hangs on “connecting”. Through port 443 the whole exchange stays inside TLS.</string>
+    <string name="core_control_port_title">Port 443 only</string>
+    <string name="core_control_port_desc">Off, port 80 is tried first, as in the official client. Turn it off only if port 443 to the coordination server does not work on your network. Changing this restarts the connection.</string>
 </resources>

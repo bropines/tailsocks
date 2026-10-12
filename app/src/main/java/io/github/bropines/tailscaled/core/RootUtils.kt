@@ -521,6 +521,8 @@ object RootUtils {
         val installSource: String = "",
         /** Start from the saved network map when control grants it ([NetmapCache]). */
         val netmapCache: Boolean = true,
+        /** The control connection goes straight to port 443 ([ControlPort]). */
+        val controlTlsOnly: Boolean = true,
     )
 
     /**
@@ -570,6 +572,9 @@ object RootUtils {
         // Off only: on is upstream's default, and an unset variable keeps it.
         if (!spec.netmapCache) {
             env.append("export ${NetmapCache.ENV}=${shQuote("false")}\n")
+        }
+        if (spec.controlTlsOnly) {
+            env.append("export ${ControlPort.ENV}=${shQuote("true")}\n")
         }
 
         // Single-quoted: the control proxy URL carries a user-supplied

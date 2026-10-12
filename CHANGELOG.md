@@ -6,7 +6,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Fixed
 
-- Connecting no longer hangs on networks that break the control connection on port 80: it always goes over port 443.
+- Connecting no longer hangs on networks that break the control connection on port 80: it goes over port 443, with a switch in Censorship bypass.
 
 ## [4.10.0] - 2026-10-12
 

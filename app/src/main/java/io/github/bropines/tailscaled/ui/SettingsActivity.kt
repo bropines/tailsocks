@@ -1943,6 +1943,11 @@ fun SettingsScreen(
 
         SettingsCardGap()
 
+        // Which port the control connection uses (ControlPortCard.kt).
+        ControlPortCard()
+
+        SettingsCardGap()
+
         // What gets the tailnet up while control is out of reach (NetmapCacheCard.kt).
         NetmapCacheCard()
     }
