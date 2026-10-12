@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Обзор общих папок других устройств; см. values/strings_taildrive_browser.xml. -->
+<resources>
+    <string name="taildrive_browser_title">Taildrive</string>
+    <string name="taildrive_browser_level_devices">Устройства</string>
+    <string name="taildrive_browser_level_tailnets">Сети</string>
+    <string name="taildrive_browser_loading">Загрузка…</string>
+
+    <string name="taildrive_browser_empty_folder">Папка пуста</string>
+    <string name="taildrive_browser_empty_shares">Это устройство ничем с вами не делится</string>
+    <string name="taildrive_browser_empty_devices">Пока никто не открыл вам общую папку</string>
+    <string name="taildrive_browser_empty_devices_help">Устройства появятся здесь, когда поделятся папкой через Taildrive, а правила доступа сети пустят это устройство. На Windows и macOS должно быть открыто приложение Tailscale.</string>
+
+    <string name="taildrive_browser_error_unreachable">Устройство недоступно</string>
+    <string name="taildrive_browser_error_unreachable_help">Оно может быть выключено или спать. На Windows и macOS файлы отдаёт приложение Tailscale — оно должно быть открыто.</string>
+    <string name="taildrive_browser_error_denied">Нет доступа к этой папке</string>
+    <string name="taildrive_browser_error_denied_help">Правила доступа сети не пускают это устройство. Разрешить доступ может администратор в политике.</string>
+    <string name="taildrive_browser_error_not_found">Не найдено</string>
+    <string name="taildrive_browser_error_not_found_help">Общей папки или каталога уже нет на устройстве.</string>
+    <string name="taildrive_browser_error_timeout">Нет ответа</string>
+    <string name="taildrive_browser_error_timeout_help">Устройство долго отвечает или связь плохая. Попробуйте ещё раз.</string>
+    <string name="taildrive_browser_error_proxy">Прокси Taildrive не отвечает</string>
+    <string name="taildrive_browser_error_proxy_help">Он включён, но по его адресу пока никто не слушает. Прокси запускается вместе с подключением; если порт занят другим приложением, смените его в настройках Taildrive.</string>
+    <string name="taildrive_browser_error_failed">Что-то пошло не так</string>
+
+    <string name="taildrive_browser_proxy_off">Прокси Taildrive выключен</string>
+    <string name="taildrive_browser_proxy_off_help">TailSocks передаёт файлы плееру через небольшой прокси на этом устройстве. Включите его, чтобы открывать то, чем делятся другие устройства.</string>
+    <string name="taildrive_browser_proxy_turn_on">Включить</string>
+    <string name="taildrive_browser_proxy_starting">Запускаю прокси…</string>
+
+    <string name="taildrive_browser_noapp_title">Нет приложения для этого файла</string>
+    <string name="taildrive_browser_noapp_body">Установите медиаплеер, например VLC, Kodi или Just Player, либо откройте адрес файла на другом устройстве.</string>
+    <string name="taildrive_browser_noapp_show_address">Показать адрес</string>
+    <string name="taildrive_browser_address_title">Адрес файла</string>
+    <string name="taildrive_browser_address_help">Этот адрес откроет любое устройство сети с доступом к Taildrive. Отсканируйте код телефоном.</string>
+    <string name="taildrive_browser_open_failed_title">Не удалось открыть файл</string>
+</resources>

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Browser of the other devices' Taildrive shares (ui/TaildriveBrowser.kt). Kept apart from
+     strings.xml so the page's text can change without touching the shared file; Android merges
+     every file under values/. -->
+<resources>
+    <string name="taildrive_browser_title">Taildrive</string>
+    <!-- The line under the title at the top: what the list below holds. -->
+    <string name="taildrive_browser_level_devices">Devices</string>
+    <string name="taildrive_browser_level_tailnets">Tailnets</string>
+    <string name="taildrive_browser_loading">Loading…</string>
+
+    <!-- Empty lists. -->
+    <string name="taildrive_browser_empty_folder">This folder is empty</string>
+    <string name="taildrive_browser_empty_shares">This device shares nothing with you</string>
+    <string name="taildrive_browser_empty_devices">No device shares a folder with you yet</string>
+    <string name="taildrive_browser_empty_devices_help">Devices appear here when they share a folder with Taildrive and the tailnet\'s access rules let this device in. On Windows and macOS the Tailscale app has to be open.</string>
+
+    <!-- Errors: a title, and under it what usually causes it. -->
+    <string name="taildrive_browser_error_unreachable">Can\'t reach this device</string>
+    <string name="taildrive_browser_error_unreachable_help">It may be off or asleep. On Windows and macOS the Tailscale app serves the files, so it has to be open.</string>
+    <string name="taildrive_browser_error_denied">No access to this share</string>
+    <string name="taildrive_browser_error_denied_help">The tailnet\'s access rules do not let this device in. An admin can allow it in the policy.</string>
+    <string name="taildrive_browser_error_not_found">Not found</string>
+    <string name="taildrive_browser_error_not_found_help">The share or the folder is no longer on the device.</string>
+    <string name="taildrive_browser_error_timeout">No answer in time</string>
+    <string name="taildrive_browser_error_timeout_help">The device is slow to answer, or the connection is poor. Try again.</string>
+    <string name="taildrive_browser_error_proxy">The Taildrive proxy is not answering</string>
+    <string name="taildrive_browser_error_proxy_help">It is on, but nothing listens on its address yet. It starts with the connection; if another app holds the port, change it in the Taildrive settings.</string>
+    <string name="taildrive_browser_error_failed">Something went wrong</string>
+
+    <!-- The local proxy hands files to other apps; without it the page has nothing to offer. -->
+    <string name="taildrive_browser_proxy_off">The Taildrive proxy is off</string>
+    <string name="taildrive_browser_proxy_off_help">TailSocks passes files to your player through a small proxy on this device. Turn it on to open what other devices share.</string>
+    <string name="taildrive_browser_proxy_turn_on">Turn it on</string>
+    <string name="taildrive_browser_proxy_starting">Starting the proxy…</string>
+
+    <!-- No installed app takes the file. -->
+    <string name="taildrive_browser_noapp_title">No app can open this file</string>
+    <string name="taildrive_browser_noapp_body">Install a media player such as VLC, Kodi or Just Player, or open the file\'s address on another device.</string>
+    <string name="taildrive_browser_noapp_show_address">Show the address</string>
+    <string name="taildrive_browser_address_title">Address of the file</string>
+    <string name="taildrive_browser_address_help">Any device on the tailnet with Taildrive access can open this address. Scan the code with a phone.</string>
+    <string name="taildrive_browser_open_failed_title">Could not open the file</string>
+</resources>
