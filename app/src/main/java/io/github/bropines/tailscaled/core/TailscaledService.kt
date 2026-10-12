@@ -417,6 +417,15 @@ class TailscaledService : Service() {
             checkMagicDnsHealth()
         }
 
+        // The VPN follows the netmap: a native start that waited for the node's
+        // addresses, new addresses after a re-login, accepted subnet routes.
+        if (isRunning && backendState == "Running") {
+            TunVpnService.rebuildReason(this@TailscaledService)?.let { reason ->
+                Log.i(TAG, "TUN: $reason; starting it again")
+                startTunMode()
+            }
+        }
+
         if (checkConnectionHealth(isRunning, backendState)) {
             interval = 5000L
         }
@@ -2380,10 +2389,6 @@ class TailscaledService : Service() {
 
     private fun stopTunMode() {
         try {
-            if (!TunVpnService.nativeLoaded) {
-                Log.d(TAG, "TUN native library not loaded, skipping stop")
-                return
-            }
             if (!TunVpnService.isRunning && !tunRequested) {
                 // Nothing to stop. Starting the VpnService only to stop it again
                 // used to leave its foreground notification behind; also drop any
