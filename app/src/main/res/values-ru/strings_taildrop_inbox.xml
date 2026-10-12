@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="taildrop_fold_show">Показать</string>
+    <string name="taildrop_fold_hide">Скрыть</string>
+    <string name="taildrop_fold_open">Показаны</string>
+    <string name="taildrop_fold_closed">Скрыты</string>
+</resources>

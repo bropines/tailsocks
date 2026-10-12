@@ -75,10 +75,11 @@ class FilesActivity : ComponentActivity() {
  * TailDrive and TailDrop. [openTaildrop] opens it on the Taildrop page; [openEntryAt] on that
  * page with the history entry of that time open — in a sheet on a phone, beside the inbox on
  * a large window — if the history known when the screen is composed (a demo's) holds one.
+ * [inboxOpen] starts the Taildrop inbox unfolded, for a preview; the app opens it folded.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false, openEntryAt: Long? = null) {
+fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false, openEntryAt: Long? = null, inboxOpen: Boolean = false) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     // In a preview the inbox, the tailnet and the history come from LocalDemo, parsed here
@@ -447,7 +448,8 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false, openEntryAt: 
                                 window = window,
                                 openEntry = openEntry,
                                 onCloseEntry = { openEntry = null },
-                                onDeleteEntry = { deleteEntry(it) }
+                                onDeleteEntry = { deleteEntry(it) },
+                                inboxOpenAtStart = inboxOpen
                             )
                         }
                     }

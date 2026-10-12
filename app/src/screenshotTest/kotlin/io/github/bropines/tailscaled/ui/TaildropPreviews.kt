@@ -217,12 +217,16 @@ private fun demoTargets(strings: TaildropReasonStrings) = taildropTargets(
     TaildropHistory.decode(TaildropDemo.historyJson)
 )
 
-// A default folder chosen: the inbox holds the two files waiting (one saved by hand before,
-// one the folder could not take) over the two it took, the second under a free name. Then
-// the Send section capped at six (recent targets first) with the "All devices" row and the
-// refused-devices line, and the last five history entries.
+// A default folder chosen. The Send section comes first, capped at six (recent targets first)
+// with the "All devices" row and the refused-devices line; the inbox under it is folded to
+// its heading and count; then the last five history entries.
 @PreviewTest @StatesPhoneBothLanguages @Composable
 fun TaildropPageShowcase() = TaildropShowcase(TaildropDemo.data) { FilesScreen(onBack = {}, openTaildrop = true) }
+
+// The inbox opened: the two files waiting (one saved by hand before, one the folder could
+// not take) over the two it took, the second under a free name.
+@PreviewTest @StatesPhoneBothLanguages @Composable
+fun TaildropPageInboxOpenShowcase() = TaildropShowcase(TaildropDemo.data) { FilesScreen(onBack = {}, openTaildrop = true, inboxOpen = true) }
 
 // The whole page at once, the History section included.
 @PreviewTest

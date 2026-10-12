@@ -1,11 +1,10 @@
 package io.github.bropines.tailscaled.ui
 
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,6 +13,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -22,9 +22,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridScope
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
@@ -45,6 +45,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.History
@@ -60,12 +62,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
@@ -86,6 +88,8 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -102,19 +106,24 @@ import io.github.bropines.tailscaled.models.TaildropFile
 import io.github.bropines.tailscaled.models.TaildropHistoryEntry
 import io.github.bropines.tailscaled.models.TaildropRoute
 import io.github.bropines.tailscaled.models.TaildropSource
-import kotlinx.coroutines.launch
 import java.io.File
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 /*
- * The Taildrop page of the Files screen: one vertical list — inbox, the devices a file
- * can go to, the history — so a sideways swipe always belongs to the TailDrive|TailDrop
+ * The Taildrop page of the Files screen: one vertical list — the devices a file can go to,
+ * the inbox, the history — so a sideways swipe always belongs to the TailDrive|TailDrop
  * pager above it. It used to be a pager of its own, which took the drag until it ran out
  * of pages and made the way back to TailDrive feel stuck.
+ *
+ * The devices come first: sending is what the page is opened for. The inbox is folded to
+ * its heading with a count and opens on a tap; only what is arriving right now shows
+ * without asking, above everything, for as long as it arrives. On a window with two panes
+ * the inbox has a pane of its own and stays open there.
  */
 
 /** Rows the Send section shows before "All devices". */
@@ -243,13 +252,17 @@ internal fun TaildropPage(
     window: WindowLayout = rememberWindowLayout(),
     openEntry: TaildropHistoryEntry? = null,
     onCloseEntry: () -> Unit = {},
-    onDeleteEntry: (TaildropHistoryEntry) -> Unit = {}
+    onDeleteEntry: (TaildropHistoryEntry) -> Unit = {},
+    /** Whether the folded inbox starts open: a preview's way to show it; the app starts folded. */
+    inboxOpenAtStart: Boolean = false
 ) {
     val saved = remember(files, history) { taildropSavedEntries(files, history) }
+    var inboxOpen by rememberSaveable { mutableStateOf(inboxOpenAtStart) }
     val inbox = TaildropInbox(
         incoming, files, history, saved, loaded, onOpenFile, onSaveFile, onDeleteFile,
         onOpenSaved, onShowSavedInFolder, onCopySavedFolderPath, onHideSaved,
-        showFolderHint, onChooseFolder, onDismissFolderHint
+        showFolderHint, onChooseFolder, onDismissFolderHint,
+        open = inboxOpen, onToggle = { inboxOpen = !inboxOpen }
     )
     when {
         // The inbox down one side, sending and the history on the other, both in view at once;
@@ -282,8 +295,8 @@ internal fun TaildropPage(
                 }
             }
         )
-        // A window wider than a phone but not wide enough for two panes: the inbox's cards in
-        // as many columns as fit, sending and the history side by side under them.
+        // A window wider than a phone but not wide enough for two panes: sending and the history
+        // side by side, the inbox's cards under them in as many columns as fit once it is opened.
         window.multiColumn -> LazyVerticalStaggeredGrid(
             columns = StaggeredGridCells.Adaptive(320.dp),
             modifier = modifier.fillMaxSize(),
@@ -291,10 +304,11 @@ internal fun TaildropPage(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalItemSpacing = 8.dp
         ) {
-            inboxGridItems(inbox)
+            items(incoming, key = { "incoming:" + it.key }) { TaildropIncomingCard(it) }
             item(key = "send-history", span = StaggeredGridItemSpan.FullLine) {
                 TaildropSendAndHistory(targets, history, loaded, nowMillis, onSendTo, onAllDevices, onAllHistory, onEntry)
             }
+            inboxGridItems(inbox)
         }
         else -> LazyColumn(
             modifier = modifier.fillMaxSize(),
@@ -302,20 +316,8 @@ internal fun TaildropPage(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            val inboxCount = inbox.count
-            item(key = "inbox-head") { TaildropSectionHeading(stringResource(R.string.taildrop_section_inbox), inboxCount.takeIf { it > 0 }) }
-            if (inboxCount == 0) {
-                if (loaded) item(key = "inbox-empty") { TaildropMutedLine(stringResource(R.string.files_empty_inbox), Icons.Default.Inbox) }
-            } else {
-                // Arriving first: what is happening now. Each makes way for its file once it is in.
-                items(incoming, key = { "incoming:" + it.key }) { TaildropIncomingCard(it) }
-                // Then waiting: they are the ones asking for something.
-                items(files, key = { "file:" + it.Path + it.Name }) { f -> inbox.WaitingCard(f) }
-                // Keyed by position too: on the device's storage a document id is a path, so a
-                // copy saved under the name of one deleted earlier gets the same URI again.
-                itemsIndexed(saved, key = { i, e -> "saved:$i:" + e.savedUri }) { _, e -> inbox.SavedCard(e) }
-            }
-            if (showFolderHint && loaded) item(key = "inbox-folder-hint") { TaildropFolderHint(onChooseFolder, onDismissFolderHint) }
+            // Arriving now: on top while it arrives. Each makes way for its file once it is in.
+            items(incoming, key = { "incoming:" + it.key }) { TaildropIncomingCard(it) }
 
             item(key = "send-head") { TaildropSectionHeading(stringResource(R.string.taildrop_section_send), null) }
             if (targets.all.isEmpty()) {
@@ -324,6 +326,19 @@ internal fun TaildropPage(
                 item(key = "send-rows") { TaildropSendGroup(targets, onSendTo, onAllDevices) }
             }
             if (targets.refused.isNotEmpty()) item(key = "send-refused") { TaildropRefusedNote(targets.refused) }
+
+            item(key = "inbox-head") { inbox.Heading() }
+            if (inbox.folded == 0) {
+                // Not while something is arriving: "nothing here" would be untrue for a moment.
+                if (loaded && incoming.isEmpty()) item(key = "inbox-empty") { TaildropMutedLine(stringResource(R.string.files_empty_inbox), Icons.Default.Inbox) }
+            } else if (inbox.open) {
+                // Waiting first: they are the ones asking for something.
+                items(files, key = { "file:" + it.Path + it.Name }) { f -> inbox.WaitingCard(f) }
+                // Keyed by position too: on the device's storage a document id is a path, so a
+                // copy saved under the name of one deleted earlier gets the same URI again.
+                itemsIndexed(saved, key = { i, e -> "saved:$i:" + e.savedUri }) { _, e -> inbox.SavedCard(e) }
+            }
+            if (showFolderHint && loaded) item(key = "inbox-folder-hint") { TaildropFolderHint(onChooseFolder, onDismissFolderHint) }
 
             item(key = "history-head") { TaildropSectionHeading(stringResource(R.string.taildrop_section_history), null) }
             if (history.isEmpty()) {
@@ -357,9 +372,22 @@ private class TaildropInbox(
     val onHideSaved: (TaildropHistoryEntry) -> Unit,
     val showFolderHint: Boolean,
     val onChooseFolder: () -> Unit,
-    val onDismissFolderHint: () -> Unit
+    val onDismissFolderHint: () -> Unit,
+    /** Whether the folded inbox is open; only the list and the grid fold it. */
+    val open: Boolean = true,
+    val onToggle: () -> Unit = {}
 ) {
     val count: Int get() = incoming.size + files.size + saved.size
+
+    /** What the fold hides: everything but what is arriving, which shows without asking. */
+    val folded: Int get() = files.size + saved.size
+
+    /** The inbox's heading as the fold's handle; a plain heading while there is nothing to open. */
+    @Composable
+    fun Heading() {
+        if (folded == 0) TaildropSectionHeading(stringResource(R.string.taildrop_section_inbox), null)
+        else TaildropFoldHeading(stringResource(R.string.taildrop_section_inbox), folded, open, onToggle)
+    }
 
     /** A file waiting in the app, with who sent it and what became of a save, from the history. */
     @Composable
@@ -408,17 +436,14 @@ private fun LazyListScope.inboxPaneItems(inbox: TaildropInbox) {
     }
 }
 
-/** The inbox's cards in the medium window's grid; the heading and the hint span its width. */
+/** The folded inbox in the medium window's grid; the heading and the hint span its width. */
 private fun LazyStaggeredGridScope.inboxGridItems(inbox: TaildropInbox) {
-    item(key = "inbox-head", span = StaggeredGridItemSpan.FullLine) {
-        TaildropSectionHeading(stringResource(R.string.taildrop_section_inbox), inbox.count.takeIf { it > 0 })
-    }
-    if (inbox.count == 0) {
-        if (inbox.loaded) item(key = "inbox-empty", span = StaggeredGridItemSpan.FullLine) {
+    item(key = "inbox-head", span = StaggeredGridItemSpan.FullLine) { inbox.Heading() }
+    if (inbox.folded == 0) {
+        if (inbox.loaded && inbox.incoming.isEmpty()) item(key = "inbox-empty", span = StaggeredGridItemSpan.FullLine) {
             TaildropMutedLine(stringResource(R.string.files_empty_inbox), Icons.Default.Inbox)
         }
-    } else {
-        items(inbox.incoming, key = { "incoming:" + it.key }) { TaildropIncomingCard(it) }
+    } else if (inbox.open) {
         items(inbox.files, key = { "file:" + it.Path + it.Name }) { f -> inbox.WaitingCard(f) }
         itemsIndexed(inbox.saved, key = { i, e -> "saved:$i:" + e.savedUri }) { _, e -> inbox.SavedCard(e) }
     }
@@ -515,6 +540,37 @@ private fun TaildropSectionHeading(text: String, count: Int?) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+/**
+ * A section's heading that opens and folds it: the same words and count, a chevron at the
+ * end, the whole line the tap target. A screen reader hears a button and its state.
+ */
+@Composable
+private fun TaildropFoldHeading(text: String, count: Int, open: Boolean, onToggle: () -> Unit) {
+    val state = stringResource(if (open) R.string.taildrop_fold_open else R.string.taildrop_fold_closed)
+    val action = stringResource(if (open) R.string.taildrop_fold_hide else R.string.taildrop_fold_show)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .clickable(role = Role.Button, onClickLabel = action, onClick = onToggle)
+            .semantics { stateDescription = state }
+            .heightIn(min = 48.dp)
+            .padding(start = 4.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        Text(" · $count", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.weight(1f))
+        Text(action, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(
+            if (open) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 4.dp).size(20.dp)
+        )
     }
 }
 

@@ -19,6 +19,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Tailscale core 1.104.1.
 - The daemon and the CLI are one binary: about 12 MB less on the device, 4–5 MB less per APK.
 - TUN mode runs on the native engine by default; hev-socks5-tunnel stays selectable for compatibility.
+- Taildrop: the devices to send to come first; the inbox is folded to its heading and opens on a tap, with only what is arriving now shown above.
 
 ### Fixed
 
