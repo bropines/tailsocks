@@ -154,6 +154,8 @@ internal fun PostureEditor(p: Posture, env: VisualEnv, actions: VisualActions, l
     val base = env.draft.text
     fun write(next: List<String>) = actions.editAt(base) { Definitions.setAssertions(it, p, next) }
     val blank: (String) -> String? = { v -> if (v.isBlank()) ctx.getString(R.string.admin_pvd_posture_condition_empty) else null }
+    // A condition started from the catalogue: the add row shows it until it is written or changed.
+    var seed by remember(p.origin.path) { mutableStateOf("") }
 
     EditorTop(Icons.Default.VerifiedUser, p.name, postureSubtitle(ctx, p, places.size), p.origin, env, actions)
     if (env.headscale) WarningLine(ctx.getString(R.string.admin_pvd_not_on_headscale))
@@ -170,6 +172,7 @@ internal fun PostureEditor(p: Posture, env: VisualEnv, actions: VisualActions, l
                     modifier = Modifier.weight(1f),
                     enabled = editable,
                     problem = blank,
+                    supporting = postureConditionLabel(ctx, a),
                     wrap = true,
                 )
                 if (editable) {
@@ -180,28 +183,34 @@ internal fun PostureEditor(p: Posture, env: VisualEnv, actions: VisualActions, l
             }
         }
         if (editable) {
-            key(list.size) {
+            key(list.size, seed) {
                 CommitField(
                     value = "",
                     label = ctx.getString(R.string.admin_pvd_posture_add_condition),
-                    onCommit = { v -> write(list + v.trim()) },
+                    onCommit = { v -> seed = ""; write(list + v.trim()) },
                     placeholder = "node:os == 'macos'",
                     problem = blank,
+                    supporting = seed.takeIf { it.isNotEmpty() }?.let { postureConditionLabel(ctx, it) },
                     resetAfterCommit = true,
                     wrap = true,
+                    initial = seed,
                 )
             }
         }
     }
+    PostureCatalogue(enabled = editable, onUse = { seed = it })
     if (p.objectForm && tree != null) {
         (tree.at(p.origin.path + "onFailure"))?.let { v ->
-            Text(
-                ctx.getString(R.string.admin_pvd_posture_on_failure, tree.slice(v)),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    ctx.getString(R.string.admin_pvd_posture_on_failure, tree.slice(v)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                HelpText(ctx.getString(R.string.admin_pvc_on_failure_help))
+            }
         }
     }
     NoteField(p.origin, tree, editable, actions)
@@ -229,12 +238,14 @@ internal fun NewPostureForm(env: VisualEnv, actions: VisualActions, onCreated: (
         onValueChange = { condition = it },
         label = { Text(ctx.getString(R.string.admin_pvd_posture_condition, 1)) },
         placeholder = { Text("node:os == 'macos'") },
+        supportingText = postureConditionLabel(ctx, condition)?.let { { Text(it) } },
         textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(autoCorrectEnabled = false),
         shape = MaterialTheme.shapes.medium,
         modifier = Modifier.fillMaxWidth(),
     )
     HelpText(ctx.getString(R.string.admin_pvd_posture_conditions_help))
+    PostureCatalogue(enabled = true, onUse = { condition = it })
     CreateButton(ctx.getString(R.string.admin_pvd_create), enabled = problem == null && condition.isNotBlank(), hint = ctx.getString(R.string.admin_pvd_posture_create_hint)) {
         val full = DefKind.POSTURE.prefix + name.trim()
         if (actions.edit { PolicyEdits.putNamed(it, Section.POSTURES, full, listOf(condition.trim())) }) onCreated(full)

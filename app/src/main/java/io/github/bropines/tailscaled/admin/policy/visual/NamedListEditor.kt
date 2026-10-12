@@ -410,10 +410,12 @@ internal fun CommitField(
     resetAfterCommit: Boolean = false,
     /** One logical line that may wrap on screen: no line breaks are taken, Done writes it. */
     wrap: Boolean = false,
+    /** What the field holds at first when it is not [value]: a suggestion to edit, written as typed text would be. */
+    initial: String = value,
 ) {
     val ctx = LocalContext.current
     val focus = LocalFocusManager.current
-    var text by remember(value) { mutableStateOf(value) }
+    var text by remember(value, initial) { mutableStateOf(initial) }
     val changed = text != value
     val error = if (changed) problem(text) else null
     val latest by rememberUpdatedState(Triple(text, value, onCommit))
