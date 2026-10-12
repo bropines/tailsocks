@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Television: Settings → Appearance → Interface, the switch between the usual interface and the TV one -->
+    <string name="tv_interface_title">Interface</string>
+    <string name="tv_interface_auto">Automatic</string>
+    <string name="tv_interface_handheld">Phone &amp; tablet</string>
+    <string name="tv_interface_tv">TV</string>
+    <string name="tv_interface_desc">Automatic gives a television the TV interface and every other device the usual one. TV can be turned on by hand anywhere: a frame around what the remote is on, a margin from the edges of the screen, and without what a television cannot do. Phone &amp; tablet turns it off on a television.</string>
+</resources>

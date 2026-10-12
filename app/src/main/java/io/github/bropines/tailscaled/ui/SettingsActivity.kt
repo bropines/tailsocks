@@ -2144,6 +2144,7 @@ fun SettingsScreen(
                     height = 38.dp
                 )
             }
+            DeviceInterfaceSetting()
 
             // Theme preset selector (Color Circles)
             if (!currentDynamicColor || android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) {

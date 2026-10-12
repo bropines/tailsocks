@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Television: Settings → Appearance → Interface, the switch between the usual interface and the TV one -->
+    <string name="tv_interface_title">Интерфейс</string>
+    <string name="tv_interface_auto">Авто</string>
+    <string name="tv_interface_handheld">Обычный</string>
+    <string name="tv_interface_tv">ТВ</string>
+    <string name="tv_interface_desc">«Авто» включает на телевизоре интерфейс для ТВ, а на остальных устройствах — обычный. «ТВ» можно включить вручную где угодно: рамка вокруг того, на чём стоит пульт, отступ от краёв экрана и без того, чего телевизор не умеет. «Обычный» — интерфейс телефонов и планшетов, в том числе на телевизоре.</string>
+</resources>
