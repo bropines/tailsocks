@@ -409,7 +409,11 @@ object FileBrowse {
         )
     }
 
-    /** The Settings pages that grant [StorageAccess.NEEDS_ALL_FILES] (or lift a refused Storage permission), most direct first. */
+    /**
+     * The Settings pages that grant [StorageAccess.NEEDS_ALL_FILES] (or lift a refused Storage
+     * permission), most direct first. A TV's Settings often has none of them: start each in turn
+     * and catch ActivityNotFoundException, then fall back to [adbGrantCommand].
+     */
     fun grantIntents(context: Context): List<Intent> {
         val pkg = Uri.parse("package:${context.packageName}")
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -419,7 +423,7 @@ object FileBrowse {
             )
         } else {
             listOf(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkg))
-        }.onEach { it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+        }
     }
 
     /** What to type on a computer when the device has no Settings page for the grant (a TV often has none). */

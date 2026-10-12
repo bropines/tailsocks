@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The in-app file browser (ui/FileBrowser.kt), which picks files and folders where the system
+  has no picker. A file of its own so it lands without touching strings.xml; Android merges
+  every values/*.xml into one table. The caller may pass its own title and confirm label.
+-->
+<resources>
+    <!-- Default titles. -->
+    <string name="file_browser_title_files">Choose files</string>
+    <string name="file_browser_title_file">Choose a file</string>
+    <string name="file_browser_title_folder">Choose a folder</string>
+    <plurals name="file_browser_selected_format">
+        <item quantity="one">%d file selected</item>
+        <item quantity="other">%d files selected</item>
+    </plurals>
+
+    <!-- Places to start from. -->
+    <string name="file_browser_places">Storage</string>
+    <string name="file_browser_internal">Internal storage</string>
+    <string name="file_browser_downloads">Downloads</string>
+    <string name="file_browser_removable">Removable storage</string>
+
+    <!-- Rows and buttons. -->
+    <string name="file_browser_up">Up</string>
+    <string name="file_browser_choose_folder">Choose this folder</string>
+    <plurals name="file_browser_choose_files">
+        <item quantity="one">Choose %d file</item>
+        <item quantity="other">Choose %d files</item>
+    </plurals>
+    <string name="file_browser_hidden_show">Show hidden files</string>
+    <string name="file_browser_hidden_hide">Hide hidden files</string>
+    <string name="file_browser_read_only">The app can\'t write to this folder</string>
+    <string name="file_browser_file_format">%1$s · %2$s</string>
+
+    <!-- The side panel. -->
+    <string name="file_browser_current_folder">Current folder</string>
+    <string name="file_browser_hint_files">Select a file to check it, a folder to open it.</string>
+    <string name="file_browser_hint_file">Select a file to choose it, a folder to open it.</string>
+    <string name="file_browser_hint_folder">Open the folder you want, then choose it.</string>
+    <string name="file_browser_hint_places">Pick where to look.</string>
+
+    <!-- A folder with nothing to show. -->
+    <string name="file_browser_empty_title">This folder is empty</string>
+    <string name="file_browser_empty_body">There is nothing to show here.</string>
+    <string name="file_browser_empty_hidden">Hidden files are not shown.</string>
+    <string name="file_browser_go_up">Go up</string>
+
+    <!-- A folder that can\'t be opened. -->
+    <string name="file_browser_unreadable_title">This folder can\'t be opened</string>
+    <string name="file_browser_unreadable_gone">It is no longer there. A drive may have been removed.</string>
+    <string name="file_browser_unreadable_denied">Android doesn\'t let this app read it.</string>
+
+    <!-- No access to files yet. -->
+    <string name="file_browser_no_access_title">No access to your files yet</string>
+    <string name="file_browser_no_access_all_files">Without access to all files the app sees only its own folders.</string>
+    <string name="file_browser_no_access_storage">Without the Storage permission the app can\'t see your files.</string>
+    <string name="file_browser_grant_all_files">Allow access to all files</string>
+    <string name="file_browser_grant_storage">Allow access to storage</string>
+    <string name="file_browser_limited">Some files and folders may be hidden</string>
+    <!-- %1$s is a command for a computer, a single line. -->
+    <string name="file_browser_grant_unavailable_format">This device has no settings page for it. From a computer, run: %1$s</string>
+</resources>

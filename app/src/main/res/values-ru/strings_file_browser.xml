@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="file_browser_title_files">Выбор файлов</string>
+    <string name="file_browser_title_file">Выбор файла</string>
+    <string name="file_browser_title_folder">Выбор папки</string>
+    <plurals name="file_browser_selected_format">
+        <item quantity="one">Выбран %d файл</item>
+        <item quantity="few">Выбрано %d файла</item>
+        <item quantity="many">Выбрано %d файлов</item>
+        <item quantity="other">Выбрано %d файла</item>
+    </plurals>
+
+    <string name="file_browser_places">Хранилище</string>
+    <string name="file_browser_internal">Внутренняя память</string>
+    <string name="file_browser_downloads">Загрузки</string>
+    <string name="file_browser_removable">Съёмный накопитель</string>
+
+    <string name="file_browser_up">Наверх</string>
+    <string name="file_browser_choose_folder">Выбрать эту папку</string>
+    <plurals name="file_browser_choose_files">
+        <item quantity="one">Выбрать %d файл</item>
+        <item quantity="few">Выбрать %d файла</item>
+        <item quantity="many">Выбрать %d файлов</item>
+        <item quantity="other">Выбрать %d файла</item>
+    </plurals>
+    <string name="file_browser_hidden_show">Показать скрытые файлы</string>
+    <string name="file_browser_hidden_hide">Не показывать скрытые файлы</string>
+    <string name="file_browser_read_only">В эту папку приложение писать не может</string>
+    <string name="file_browser_file_format">%1$s · %2$s</string>
+
+    <string name="file_browser_current_folder">Текущая папка</string>
+    <string name="file_browser_hint_files">Файл отмечается, папка открывается.</string>
+    <string name="file_browser_hint_file">Выберите файл или откройте папку.</string>
+    <string name="file_browser_hint_folder">Откройте нужную папку и подтвердите выбор.</string>
+    <string name="file_browser_hint_places">Выберите, где искать.</string>
+
+    <string name="file_browser_empty_title">Папка пуста</string>
+    <string name="file_browser_empty_body">Здесь нечего показывать.</string>
+    <string name="file_browser_empty_hidden">Скрытые файлы не показываются.</string>
+    <string name="file_browser_go_up">Наверх</string>
+
+    <string name="file_browser_unreadable_title">Папку не удаётся открыть</string>
+    <string name="file_browser_unreadable_gone">Её больше нет. Возможно, накопитель извлечён.</string>
+    <string name="file_browser_unreadable_denied">Android не разрешает приложению читать её.</string>
+
+    <string name="file_browser_no_access_title">Нет доступа к файлам</string>
+    <string name="file_browser_no_access_all_files">Без доступа ко всем файлам приложению видны только его собственные папки.</string>
+    <string name="file_browser_no_access_storage">Без разрешения на доступ к памяти приложение не видит ваши файлы.</string>
+    <string name="file_browser_grant_all_files">Разрешить доступ ко всем файлам</string>
+    <string name="file_browser_grant_storage">Разрешить доступ к памяти</string>
+    <string name="file_browser_limited">Часть файлов и папок может быть скрыта</string>
+    <string name="file_browser_grant_unavailable_format">На этом устройстве для этого нет страницы настроек. С компьютера выполните: %1$s</string>
+</resources>
