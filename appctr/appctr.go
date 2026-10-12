@@ -204,6 +204,10 @@ type StartOptions struct {
 	OsVersion      string
 	DeviceModel    string
 	InstallSource  string
+	// NetmapCacheOff stops the daemon from starting on the network map it saved
+	// last time (TS_USE_CACHED_NETMAP=false, see netmapCacheEnv). The zero value
+	// keeps upstream's default, under which the coordination server decides.
+	NetmapCacheOff bool
 }
 
 func SetLogLevel(level int32) {
@@ -573,7 +577,8 @@ func ApplySettings(opt *StartOptions) {
 		old.Socks5User != opt.Socks5User ||
 		old.Socks5Pass != opt.Socks5Pass ||
 		old.StatePath != opt.StatePath ||
-		old.LoginServer != opt.LoginServer {
+		old.LoginServer != opt.LoginServer ||
+		old.NetmapCacheOff != opt.NetmapCacheOff {
 		slog.Info("Critical settings or account changed, performing full restart")
 		Start(opt)
 		return
@@ -726,7 +731,7 @@ func Start(opt *StartOptions) {
 			osVersion:   opt.OsVersion,
 			deviceModel: opt.DeviceModel,
 			pkg:         opt.InstallSource,
-		})
+		}, netmapCacheEnv(opt.NetmapCacheOff))
 		if errors.Is(err, errLaunchSuperseded) {
 			// A Stop() or another Start() retired this run before its process
 			// existed; there is nothing to tear down and nothing to report.

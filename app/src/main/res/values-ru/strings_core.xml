@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="core_netmap_cache_section">Запуск без сервера</string>
+    <string name="core_netmap_cache_help">Демон может хранить на устройстве последнюю карту сети и при запуске сразу соединяться по ней с вашими устройствами, не дожидаясь ответа сервера координации, — тогда сеть поднимается, даже если сервер заблокирован или отвечает медленно. Включает это сам сервер, для каждого устройства отдельно, атрибутом узла cache-network-maps; политика сети может его запретить через disable-cache-network-maps. Пока сервер не ответил, устройство знает только сохранённую карту: новые и удалённые устройства, изменённые правила доступа и то, кто сейчас в сети, появятся лишь после ответа.</string>
+    <string name="core_netmap_cache_title">Запускаться по сохранённой карте сети</string>
+    <string name="core_netmap_cache_desc">Если выключить, сохранённая карта не используется и удаляется при следующей связи с сервером. Переключение перезапускает подключение.</string>
+    <string name="core_netmap_cache_status_granted">Сервер разрешает этому устройству хранить карту.</string>
+    <string name="core_netmap_cache_status_withheld">Сервер не разрешает этому устройству хранить карту — оно запускается без неё.</string>
+    <string name="core_netmap_cache_status_offline">Нет связи с сервером координации: устройство работает по той карте, что у него есть.</string>
+    <string name="core_netmap_cache_status_unknown">Подключитесь, чтобы узнать, разрешает ли это сервер.</string>
+    <string name="core_netmap_cache_clear_title">Очистить кэш карты сети</string>
+    <string name="core_netmap_cache_clear_desc">Удаляет сохранённые карты всех аккаунтов. Пока переключатель выше включён, следующая карта от сервера сохранится снова.</string>
+    <string name="core_netmap_cache_cleared">Кэш карты сети очищен</string>
+    <string name="core_netmap_cache_clear_failed">Не удалось очистить кэш: %1$s</string>
+</resources>

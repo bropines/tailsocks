@@ -11,6 +11,7 @@ The system is divided into three functional layers:
 ## 2. Multi-Account Isolation
 To support multiple Tailscale profiles on a single device, TailSocks implements strict filesystem and configuration isolation:
 *   **State Redirection:** Each account is assigned a unique ID, mapping to an isolated state directory in `files/states/{id}`. This ensures that machine keys and netmap caches never overlap.
+*   **Netmap Cache:** tailscaled 1.104+ keeps the last network map in `files/states/{id}/profile-data/<profile>/netmap-cache/` and starts from it before the coordination server answers, when the server grants the node the `cache-network-maps` attribute. Settings → Censorship bypass can turn it off (`TS_USE_CACHED_NETMAP=false`) and clear it; backups leave it out.
 *   **Preference Scoping:** Settings are stored in account-specific `SharedPreferences` (`appctr_{id}`).
 *   **Process Lifecycle:** A full daemon termination and re-initialization occurs during account switching to prevent cross-account state leakage.
 

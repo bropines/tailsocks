@@ -519,6 +519,8 @@ object RootUtils {
         val osVersion: String = "",
         val deviceModel: String = "",
         val installSource: String = "",
+        /** Start from the saved network map when control grants it ([NetmapCache]). */
+        val netmapCache: Boolean = true,
     )
 
     /**
@@ -564,6 +566,10 @@ object RootUtils {
             env.append("export TS_HI_OS_VERSION=${shQuote(spec.osVersion)}\n")
             env.append("export TS_HI_DEVICE_MODEL=${shQuote(spec.deviceModel)}\n")
             env.append("export TS_HI_PACKAGE=${shQuote(spec.installSource)}\n")
+        }
+        // Off only: on is upstream's default, and an unset variable keeps it.
+        if (!spec.netmapCache) {
+            env.append("export ${NetmapCache.ENV}=${shQuote("false")}\n")
         }
 
         // Single-quoted: the control proxy URL carries a user-supplied

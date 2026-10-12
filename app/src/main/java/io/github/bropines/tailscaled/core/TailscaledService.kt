@@ -2034,6 +2034,8 @@ class TailscaledService : Service() {
             osVersion = android.os.Build.VERSION.RELEASE ?: ""
             deviceModel = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}".trim()
             installSource = installSourceName()
+            // Read by the daemon at start (TS_USE_CACHED_NETMAP); see NetmapCache.
+            netmapCacheOff = !NetmapCache.isEnabled(this@TailscaledService)
 
             // The bridge parses extraUpArgs as `tailscale up`-style flags and folds
             // the result into the same prefs PATCH syncSettings sends, after the
@@ -2068,6 +2070,7 @@ class TailscaledService : Service() {
             osVersion = options.osVersion,
             deviceModel = options.deviceModel,
             installSource = options.installSource,
+            netmapCache = !options.netmapCacheOff,
         )
     }
 

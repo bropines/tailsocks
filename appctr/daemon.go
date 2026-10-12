@@ -85,7 +85,27 @@ func cliCommand(p pathControl, args ...string) *exec.Cmd {
 	return c
 }
 
-func tailscaledCmd(p pathControl, generation uint64, dnsFallbacks string, socksAddr, httpAddr, socksUser, socksPass, taildropDir, controlProxy string, hostinfo hostinfoReport) error {
+// netmapCacheEnv is the daemon's environment for the netmap cache: nothing
+// when it is on, so upstream's default applies, and TS_USE_CACHED_NETMAP=false
+// when the user turned it off.
+//
+// Since 1.104 tailscaled keeps the last network map on disk, in
+// <statedir>/profile-data/<profile>/netmap-cache, and starts from it before
+// the coordination server answers (ipn/ipnlocal/diskcache.go) — but only while
+// control grants the node the "cache-network-maps" attribute; without it the
+// cache is neither written nor read, and an existing one is discarded. The
+// envknob (default true) is upstream's local override: false is treated like
+// the attribute being withdrawn, so the next network map deletes the cache.
+// Upstream's own Android app builds with ts_omit_cachenetmap "until we have
+// UI affordances for debugging it"; this switch is that affordance here.
+func netmapCacheEnv(off bool) []string {
+	if !off {
+		return nil
+	}
+	return []string{"TS_USE_CACHED_NETMAP=false"}
+}
+
+func tailscaledCmd(p pathControl, generation uint64, dnsFallbacks string, socksAddr, httpAddr, socksUser, socksPass, taildropDir, controlProxy string, hostinfo hostinfoReport, extraEnv []string) error {
 	// Cheap early exit before the filesystem work; the authoritative check is
 	// the one under stateMu below.
 	if !isCurrentGeneration(generation) {
@@ -191,6 +211,7 @@ func tailscaledCmd(p pathControl, generation uint64, dnsFallbacks string, socksA
 		c.Env = append(c.Env, "TS_SOCKS5_PASS="+socksPass)
 	}
 	c.Env = append(c.Env, hostinfo.env()...)
+	c.Env = append(c.Env, extraEnv...)
 	if tunFile != nil {
 		c.ExtraFiles = []*os.File{tunFile} // fd 3 in the child
 		c.Env = append(c.Env, "TS_TUN_FD=3")

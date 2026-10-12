@@ -104,7 +104,7 @@ private val settingsCategories = listOf(
     SettingsCategory("tunnel", R.string.settings_cat_tunnel, R.string.settings_cat_tunnel_desc, Icons.Default.VpnLock),
     SettingsCategory("proxies", R.string.settings_cat_proxies, R.string.settings_cat_proxies_desc, Icons.Default.Lan, cards = 3),
     SettingsCategory("dns", R.string.settings_cat_dns, R.string.settings_cat_dns_desc, Icons.Default.Dns, cards = 3),
-    SettingsCategory("bypass", R.string.settings_cat_bypass, R.string.settings_cat_bypass_desc, Icons.Default.Shield, cards = 2),
+    SettingsCategory("bypass", R.string.settings_cat_bypass, R.string.settings_cat_bypass_desc, Icons.Default.Shield, cards = 3),
     SettingsCategory("sharing", R.string.settings_cat_sharing, R.string.settings_cat_sharing_desc, Icons.Default.Share, cards = 3),
     SettingsCategory("background", R.string.settings_cat_background, R.string.settings_cat_background_desc, Icons.Default.Bolt),
     SettingsCategory("backup", R.string.settings_cat_backup, R.string.settings_cat_backup_desc, Icons.Default.Backup),
@@ -520,7 +520,7 @@ fun SettingsScreen(
                         }
                         val targetStatesDir = if (useTempStates) tempStatesDir else statesDir
                         if (targetStatesDir.exists()) {
-                            targetStatesDir.walkTopDown().filter { it.isFile }.forEach { file ->
+                            targetStatesDir.walkTopDown().filter { it.isFile && !NetmapCache.isCachePath(it.relativeTo(targetStatesDir).path) }.forEach { file ->
                                 val entryName = "files/states/${file.relativeTo(targetStatesDir).path}"
                                 zos.putNextEntry(java.util.zip.ZipEntry(entryName))
                                 file.inputStream().use { it.copyTo(zos) }
@@ -648,7 +648,11 @@ fun SettingsScreen(
                     var entry = zis.nextEntry
                     while (entry != null) {
                         val targetFile = targets[entry.name]
-                        if (targetFile != null) {
+                        // An archive from before backups left the daemon's netmap cache out
+                        // may still carry one: an old map is no state worth restoring.
+                        val cacheEntry = entry.name.startsWith("files/states/") &&
+                            NetmapCache.isCachePath(entry.name.removePrefix("files/states/"))
+                        if (targetFile != null && !cacheEntry) {
                             targetFile.parentFile?.mkdirs()
                             targetFile.outputStream().use { fos -> zis.copyTo(fos) }
                         }
@@ -1961,6 +1965,11 @@ fun SettingsScreen(
                 context.startService(Intent(context, TailscaledService::class.java).apply { action = "APPLY_SETTINGS" })
             }
         }
+
+        SettingsCardGap()
+
+        // What gets the tailnet up while control is out of reach (NetmapCacheCard.kt).
+        NetmapCacheCard()
     }
 
     // F. Sharing & access

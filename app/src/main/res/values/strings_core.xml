@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings → Censorship bypass: the daemon's saved network map (tailscaled 1.104+). -->
+    <string name="core_netmap_cache_section">Start without the server</string>
+    <string name="core_netmap_cache_help">The daemon can keep the last network map on the device and connect to your devices from it at start, before the coordination server answers — so the tailnet comes up even when the server is blocked or slow. The server turns this on per device with the cache-network-maps node attribute; a tailnet policy can withhold it with disable-cache-network-maps. Until the server answers, the saved map is all the device knows: new or removed devices, changed access rules and who is online catch up only then.</string>
+    <string name="core_netmap_cache_title">Start from the saved network map</string>
+    <string name="core_netmap_cache_desc">Off, the saved map is not used and is deleted at the next contact with the server. Changing this restarts the connection.</string>
+    <string name="core_netmap_cache_status_granted">The server lets this device keep a map.</string>
+    <string name="core_netmap_cache_status_withheld">The server does not let this device keep a map; it starts without one.</string>
+    <string name="core_netmap_cache_status_offline">No contact with the coordination server: running on the map the device has.</string>
+    <string name="core_netmap_cache_status_unknown">Connect to see whether the server allows it.</string>
+    <string name="core_netmap_cache_clear_title">Clear the network map cache</string>
+    <string name="core_netmap_cache_clear_desc">Deletes the saved maps of every account. The next map from the server is saved again while the switch above is on.</string>
+    <string name="core_netmap_cache_cleared">Network map cache cleared</string>
+    <string name="core_netmap_cache_clear_failed">Could not clear the cache: %1$s</string>
+</resources>

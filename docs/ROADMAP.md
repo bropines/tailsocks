@@ -96,6 +96,18 @@ State as of 2026-09-20, after 4.3.0.
 
 ### Verify on devices
 
+- [ ] **Netmap cache (1.104).** Whether the coordination server grants `cache-network-maps` to
+      our nodes — masked (OS `linux`) and honest (OS `android`) — is not known: Settings →
+      Censorship bypass says it on the device. Upstream ships the feature on by default for
+      Linux, Windows and macOS in 1.104.1 and compiles it out of its Android app "until we have
+      UI affordances for debugging it". The log tells: `writing netmap to disk cache` on every
+      full map from control, `Start: loaded netmap from disk cache; N peers` on a start that
+      found one; the files are `files/states/<id>/profile-data/<profile>/netmap-cache/` (names
+      are hex: `73656c66` is `self`, `706565722d…` a `peer-…`). A start without control: point
+      the control proxy at a dead address (`socks5://127.0.0.1:9`), restart — the line above,
+      peers with a direct path come up, the card says "No contact with the coordination
+      server", `tailscale debug netmap` in the Console shows `"Cached": true`. Do it in
+      userspace, native TUN and Root Mode, and across a reboot with the boot script.
 - [x] **Root Mode on WSA after a reboot (verified by the author, 2026-09-25):** autostart through `service.d`, and the app attaching
       to a daemon it did not launch.
 - [x] **The honest-OS experiment** — both halves ran on 2026-09-07 (see *Needs the author's
@@ -138,7 +150,9 @@ State as of 2026-09-20, after 4.3.0.
       `gradle/libs.versions.toml`.
 - [x] **Update Tailscale to 1.104.1 (2026-10-12).** Upstream's only code change since 1.104.0
       is in app connectors (`appc`, overlapping route removal), which this build omits; all
-      twenty-one patches apply with `-F0`, unchanged.
+      twenty-one patches apply with `-F0`, unchanged. The netmap cache that 1.104.1's notes
+      announce for desktops was already in 1.104.0 and is compiled in here; see *Verify on
+      devices*.
 - [x] **Update Tailscale to 1.104.0 (2026-10-01).** Go 1.27.1 with it. Fifteen of the twenty
       patches applied as they were; 03, 10 and 20 only needed their context moved. Upstream now
       does two things we patched: netstack's packet pump survives a failed injection and has its
