@@ -945,7 +945,9 @@ fun parsePropFindXml(inputStream: java.io.InputStream): List<WebDavFile> {
                 val tag = parser.name.substringAfter(":")
                 if (tag.equals("response", ignoreCase = true)) {
                     if (href.isNotEmpty()) {
-                        val decodedHref = URLDecoder.decode(href, "UTF-8")
+                        // An href is a percent-encoded path, where "+" is a literal plus;
+                        // URLDecoder is form decoding and would turn it into a space.
+                        val decodedHref = URLDecoder.decode(href.replace("+", "%2B"), "UTF-8")
                         files.add(WebDavFile(decodedHref, isDirectory, size, lastModified))
                     }
                 }
