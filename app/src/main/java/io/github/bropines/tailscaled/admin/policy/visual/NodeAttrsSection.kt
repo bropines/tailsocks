@@ -1,5 +1,6 @@
 package io.github.bropines.tailscaled.admin.policy.visual
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,11 +15,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.InputChip
@@ -60,9 +64,12 @@ fun NodeAttrsSection(env: VisualEnv, actions: VisualActions, layout: VisualLayou
     val policy = remember(text) { HuJson.parseOrNull(text) }
     val findings = remember(text) { Definitions.findings(text) }
     val rules = model.nodeAttrs
-    var creating by remember { mutableStateOf(false) }
+    // The new rule's form, with what a template filled in; null while none is open.
+    var form by remember { mutableStateOf<AttrPreset?>(null) }
+    val creating = form != null
     val shown = shownOf(layout.selected, layout, rules) { it.origin.path }
-    val add = if (env.editable) ({ creating = true; layout.onSelect(null) }) else null
+    val start: (AttrPreset) -> Unit = { form = it; layout.onSelect(null) }
+    val add = if (env.editable) ({ start(AttrPreset()) }) else null
     val addLabel = ctx.getString(R.string.admin_pvd_attr_new)
     val listState = rememberLazyListState()
     // Moved from their cards, under the file's headings as the rule pages move theirs.
@@ -87,22 +94,27 @@ fun NodeAttrsSection(env: VisualEnv, actions: VisualActions, layout: VisualLayou
                     moves = mover.moves(Section.NODE_ATTRS, headers, i, env, actions, layout),
                     modifier = mover.decor(r.origin.path, text),
                 ) {
-                    creating = false
+                    form = null
                     layout.onSelect(r.origin.path)
                 }
             })
+        }
+        // After the rules, so that a card's place in the list stays what the mover counts.
+        if (env.editable && rules.none { KnownAttrs.CACHE_NETMAPS in it.attr }) {
+            add(PageItem("tpl-cache") { AttrTemplateCard(AttrTemplate.FASTER_START) { start(AttrTemplate.FASTER_START.preset) } })
         }
     }
     DefinitionsPage(
         layout = layout,
         items = items,
         editorKey = if (creating) "new" else shown?.origin?.path,
-        onCloseEditor = { creating = false; layout.onSelect(null) },
+        onCloseEditor = { form = null; layout.onSelect(null) },
         paneEmpty = Icons.Default.Hub to ctx.getString(R.string.admin_pvd_attrs_pane_empty),
         scrollTo = (env.focus ?: layout.selected).takeIf { it != mover.followed },
         state = listState,
     ) {
-        if (creating) NewAttrForm(env, actions) { p -> creating = false; layout.onSelect(p) }
+        val f = form
+        if (f != null) NewAttrForm(env, actions, f) { p -> form = null; layout.onSelect(p) }
         else shown?.let { AttrEditor(it, env, actions, layout, tree, policy, findings[it.origin.path].orEmpty()) }
     }
 }
@@ -157,7 +169,9 @@ private fun AttrLabel(attr: String, headscale: Boolean) {
 @Composable
 private fun AttrExtras(r: NodeAttr) {
     val ctx = LocalContext.current
-    val lines = r.app.map { ctx.getString(R.string.admin_pvd_attr_app, it.name) } + r.ipPool.map { ctx.getString(R.string.admin_pvd_attr_ip_pool, it) }
+    // A capability the editor knows by its words (and stage), the others by name.
+    val lines = r.app.map { a -> ctx.getString(R.string.admin_pvd_attr_app, KnownCaps.node(a.name)?.let { KnownCaps.label(ctx, it, a.name) } ?: a.name) } +
+        r.ipPool.map { ctx.getString(R.string.admin_pvd_attr_ip_pool, it) }
     lines.forEach { line ->
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.Lock, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -208,7 +222,7 @@ private fun KnownAttrSwitches(attrs: List<String>, enabled: Boolean, headscale: 
     val ctx = LocalContext.current
     var pending by remember { mutableStateOf(emptySet<String>()) }
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        KnownAttrs.ALL.forEach { k ->
+        KnownAttrs.offered(headscale, attrs).forEach { k ->
             val current = KnownAttrs.find(k, attrs)
             val on = current != null || k.key in pending
             val refused = headscale && !k.headscale
@@ -235,6 +249,8 @@ private fun KnownAttrSwitches(attrs: List<String>, enabled: Boolean, headscale: 
                             Spacer(Modifier.width(4.dp))
                             Text(ctx.getString(R.string.admin_pv_problem_headscale), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                         }
+                    } else if (headscale && !k.headscaleEffect) {
+                        Text(ctx.getString(R.string.admin_pvc_attr_no_effect), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
                     }
                     HelpText(ctx.getString(k.help), lines = 1, inClickableRow = true)
                 }
@@ -310,13 +326,19 @@ internal fun AttrEditor(r: NodeAttr, env: VisualEnv, actions: VisualActions, lay
     })
     EditorBlock(ctx.getString(R.string.admin_pvd_attr_turns_on)) {
         KnownAttrSwitches(r.attr, editable, env.headscale, ::attrs)
+        // Tailscale's control plane lets the disabling one win: the devices do not cache.
+        if (!env.headscale && KnownAttrs.CACHE_NETMAPS in r.attr && "disable-cache-network-maps" in r.attr) {
+            WarningLine(ctx.getString(R.string.admin_pvc_attr_cache_both))
+        }
     }
     OtherAttrs(r.attr, editable, ::attrs)
     if (r.app.isNotEmpty() || r.ipPool.isNotEmpty()) {
         EditorBlock(ctx.getString(R.string.admin_pvd_attr_json_only), ctx.getString(R.string.admin_pvd_attr_json_only_help)) {
             AttrExtras(r)
-            // Headscale parses an IP pool and refuses it (ErrNodeAttrIPPoolUnsupported).
-            if (env.headscale && r.ipPool.isNotEmpty()) WarningLine(ctx.getString(R.string.admin_pvd_not_on_headscale))
+            // What the known capabilities do: group visibility, an app connector.
+            r.app.mapNotNull { KnownCaps.node(it.name)?.help }.distinct().forEach { HelpText(ctx.getString(it)) }
+            // Headscale parses an IP pool and refuses it (ErrNodeAttrIPPoolUnsupported); its nodeAttrs have no `app` at all.
+            if (env.headscale && (r.ipPool.isNotEmpty() || r.app.isNotEmpty())) WarningLine(ctx.getString(R.string.admin_pvd_not_on_headscale))
         }
     }
     if (env.devices.isNotEmpty()) {
@@ -342,15 +364,62 @@ internal fun AttrEditor(r: NodeAttr, env: VisualEnv, actions: VisualActions, lay
     }, more = more)
 }
 
-/** A new rule: devices and at least one attribute before anything is written. */
+/** A new rule's starting point: empty, or what a template fills in, with a [hint] under its devices. */
+internal data class AttrPreset(
+    val targets: List<String> = emptyList(),
+    val attrs: List<String> = emptyList(),
+    @param:StringRes val hint: Int? = null,
+)
+
+/** Ready-made device attribute rules, offered under the list while the policy has none like them. */
+internal enum class AttrTemplate(val preset: AttrPreset) {
+    /** Members' devices keep the network map and start from it: autogroup:member, the servers' tags to add. */
+    FASTER_START(AttrPreset(listOf("autogroup:member"), listOf(KnownAttrs.CACHE_NETMAPS), R.string.admin_pvc_tpl_faster_hint)),
+}
+
+/** A template under the list: what it does, a tap opens the form it fills. */
 @Composable
-private fun NewAttrForm(env: VisualEnv, actions: VisualActions, onCreated: (PolicyPath) -> Unit) {
+private fun AttrTemplateCard(t: AttrTemplate, onClick: () -> Unit) {
+    val ctx = LocalContext.current
+    Card(
+        onClick = onClick,
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(ctx.getString(R.string.admin_pv_templates), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                Text(ctx.getString(templateTitle(t)), style = MaterialTheme.typography.titleSmall)
+                HelpText(ctx.getString(templateHelp(t)), inClickableRow = true)
+            }
+            Spacer(Modifier.width(8.dp))
+            Icon(Icons.Default.ChevronRight, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+        }
+    }
+}
+
+private fun templateTitle(t: AttrTemplate): Int = when (t) {
+    AttrTemplate.FASTER_START -> R.string.admin_pvc_tpl_faster
+}
+
+private fun templateHelp(t: AttrTemplate): Int = when (t) {
+    AttrTemplate.FASTER_START -> R.string.admin_pvc_tpl_faster_help
+}
+
+/** A new rule: devices and at least one attribute before anything is written; [preset] fills it in from a template. */
+@Composable
+internal fun NewAttrForm(env: VisualEnv, actions: VisualActions, preset: AttrPreset = AttrPreset(), onCreated: (PolicyPath) -> Unit) {
     val ctx = LocalContext.current
     val model = env.model ?: return
-    var targets by remember { mutableStateOf(emptyList<String>()) }
-    var attrs by remember { mutableStateOf(emptyList<String>()) }
+    var targets by remember { mutableStateOf(preset.targets) }
+    var attrs by remember { mutableStateOf(preset.attrs) }
     EditorTop(Icons.Default.Hub, ctx.getString(R.string.admin_pvd_attr_new), ctx.getString(R.string.admin_pvd_attrs_empty), null, env, actions, monospace = false)
-    SelectorField(ctx.getString(R.string.admin_pvd_attr_targets), targets, SelectorSlot.NODE_TARGET, env, onChange = { targets = it })
+    SelectorField(
+        ctx.getString(R.string.admin_pvd_attr_targets), targets, SelectorSlot.NODE_TARGET, env,
+        onChange = { targets = it },
+        help = preset.hint?.let(ctx::getString),
+    )
     EditorBlock(ctx.getString(R.string.admin_pvd_attr_turns_on)) {
         KnownAttrSwitches(attrs, true, env.headscale) { attrs = it }
     }

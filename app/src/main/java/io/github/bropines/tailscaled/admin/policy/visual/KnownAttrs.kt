@@ -7,7 +7,9 @@ import io.github.bropines.tailscaled.R
 /**
  * A node attribute the editor knows and explains. [key] is what is written; for one that
  * [takesValue] it is the prefix of `nextdns:<profile>`, the value typed after it. [headscale]
- * is false for an attribute Headscale's policy parser refuses.
+ * is false for an attribute Headscale's policy parser refuses; [headscaleEffect] false for one
+ * it passes on but that does nothing there (it overrides a default of Tailscale's own control
+ * plane), so the switch is not offered on Headscale.
  */
 data class KnownAttr(
     val key: String,
@@ -15,6 +17,7 @@ data class KnownAttr(
     @param:StringRes val help: Int,
     val headscale: Boolean = true,
     val takesValue: Boolean = false,
+    val headscaleEffect: Boolean = true,
 )
 
 /**
@@ -37,7 +40,21 @@ object KnownAttrs {
         KnownAttr("nextdns:no-device-info", R.string.admin_pvd_attr_nextdns_private, R.string.admin_pvd_attr_nextdns_private_help),
         KnownAttr("nextdns:", R.string.admin_pvd_attr_nextdns, R.string.admin_pvd_attr_nextdns_help, takesValue = true),
         KnownAttr("controld:", R.string.admin_pvd_attr_controld, R.string.admin_pvd_attr_controld_help, takesValue = true),
+        // Netmap caching (tailcfg/nodecap, client capability 135, Tailscale 1.98): the client acts on
+        // cache-network-maps whatever the control server, and Headscale passes string attributes on
+        // unchanged; disable-cache-network-maps is read by Tailscale's control plane only.
+        KnownAttr(CACHE_NETMAPS, R.string.admin_pvc_attr_cache, R.string.admin_pvc_attr_cache_help),
+        KnownAttr("disable-cache-network-maps", R.string.admin_pvc_attr_no_cache, R.string.admin_pvc_attr_no_cache_help, headscaleEffect = false),
     )
+
+    const val CACHE_NETMAPS = "cache-network-maps"
+
+    /** The switches offered: on Headscale not those that do nothing there, unless [attrs] already has one. */
+    fun offered(headscale: Boolean, attrs: List<String>): List<KnownAttr> =
+        ALL.filter { k -> !headscale || k.headscaleEffect || find(k, attrs) != null }
+
+    /** Written, on Headscale, where it does nothing. */
+    fun noEffect(attr: String, headscale: Boolean): Boolean = headscale && of(attr)?.headscaleEffect == false
 
     /** The catalogue entry [attr] is, if any: `nextdns:abc123` is the NextDNS profile entry, `nextdns:no-device-info` its own. */
     fun of(attr: String): KnownAttr? = ALL.firstOrNull { k ->
