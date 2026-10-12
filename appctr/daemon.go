@@ -157,6 +157,14 @@ func tailscaledCmd(p pathControl, generation uint64, dnsFallbacks string, socksA
 		"TS_AUTH_ONCE=true",
 		"TS_NET_STATE="+netState,
 		"TS_NETROUTE_FILE="+routePath,
+		// The control connection goes straight to TLS on port 443. By default
+		// tailscaled upgrades a plain port 80 connection first and stays on
+		// it once the handshake passes; some networks let that handshake
+		// through and then drop the stream after a kilobyte or two, so the
+		// node registers, never receives a network map, and hangs in
+		// "connecting". Port 80 is still dialled for a control server that
+		// has no HTTPS port.
+		"TS_FORCE_NOISE_443=true",
 	)
 	if tz != "" {
 		c.Env = append(c.Env, "TZ="+tz)

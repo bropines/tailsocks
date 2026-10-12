@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Fixed
+
+- Connecting no longer hangs on networks that break the control connection on port 80: it always goes over port 443.
+
 ## [4.10.0] - 2026-10-12
 
 ### Added
