@@ -76,16 +76,39 @@ object PeerVersionSource {
         null
     }
 
+    /**
+     * The endpoints ("ip:port") every peer in [peers] last reported (ApiDevice.clientConnectivity,
+     * only in a list fetched with fields=all), keyed by PeerData.id, from the same cached list as
+     * the versions — what tells which node a peer relay's address belongs to. Peers without a
+     * match or without endpoints are absent; empty for "no data" of any kind.
+     */
+    fun endpointsFor(context: Context, peers: Collection<PeerData>): Map<String, List<String>> = try {
+        val devices = devices(context, suffixOf(peers))
+        if (devices.isNullOrEmpty()) emptyMap()
+        else buildMap {
+            for (peer in peers) {
+                val id = peer.id ?: continue
+                deviceOf(peer, devices)?.clientConnectivity?.endpoints?.takeIf { it.isNotEmpty() }?.let { put(id, it) }
+            }
+        }
+    } catch (e: Exception) {
+        Log.w(TAG, "Endpoint lookup failed: ${e.javaClass.simpleName}")
+        emptyMap()
+    }
+
     /** [peer]'s version out of an already fetched [devices] list — see the matching rules above. */
-    private fun versionOf(peer: PeerData, devices: List<ApiDevice>): String? {
+    private fun versionOf(peer: PeerData, devices: List<ApiDevice>): String? =
+        deviceOf(peer, devices)?.clientVersion?.trim()?.takeIf { it.isNotEmpty() }
+
+    /** [peer]'s device in [devices], by the matching rules above. */
+    private fun deviceOf(peer: PeerData, devices: List<ApiDevice>): ApiDevice? {
         val peerKey = normalizeKey(peer.publicKey)
         val peerName = normalizeName(peer.dnsName)
-        val device = devices.firstOrNull { d ->
+        return devices.firstOrNull { d ->
             val deviceKey = normalizeKey(d.nodeKey)
             if (peerKey != null && deviceKey != null) deviceKey == peerKey
             else peerName != null && normalizeName(d.name) == peerName
         }
-        return device?.clientVersion?.trim()?.takeIf { it.isNotEmpty() }
     }
 
     /** Forget what was fetched, so the next [versionsFor] or [versionFor] asks again. */

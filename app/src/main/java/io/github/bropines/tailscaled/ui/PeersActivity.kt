@@ -235,6 +235,12 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
 
     LaunchedEffect(Unit) { if (demo == null && !inPreview) loadPeers() }
 
+    // How each peer is reached, named: which node a peer relay is, which city a DERP region.
+    // Fetched beside the list whenever the relays in use change; the rows and the details
+    // read them through LocalPeerPathNames.
+    val pathNames = rememberPeerPathNames(peersList)
+    val pathWords = peerPathWords()
+
     // What "last seen" is measured against: the clock at each load. A demo carries no clock,
     // so there time stands at the newest stamp it holds — a render made next month reads as
     // one made today.
@@ -371,7 +377,8 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
                             nowMillis,
                             onLongClick = { copyAsPeer = self },
                             onLongClickLabel = copyAsLabel,
-                            selected = isShown(self)
+                            selected = isShown(self),
+                            pathWords = pathWords
                         ) { selectedPeer = self }
                     }
                 }
@@ -383,7 +390,8 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
                         nowMillis,
                         onLongClick = { copyAsPeer = p },
                         onLongClickLabel = copyAsLabel,
-                        selected = isShown(p)
+                        selected = isShown(p),
+                        pathWords = pathWords
                     ) { selectedPeer = p }
                 }
                 when {
@@ -426,6 +434,7 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
         }
     }
 
+    CompositionLocalProvider(LocalPeerPathNames provides pathNames) {
     PredictiveBackContainer(
         onBack = onBack,
         // Back here only closes the Activity, so the container installs no callback and
@@ -584,6 +593,7 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
         }
         peerQr?.let { (title, text) -> QrSheet(title = title, text = text, onDismiss = { peerQr = null }) }
         }
+    }
     }
 }
 

@@ -219,7 +219,6 @@
     <string name="peer_conn_ping_failed">Could not measure</string>
     <!-- PeerDetailsModal: the route card -->
     <string name="peer_route_relay">Via DERP relay</string>
-    <string name="peer_route_none">No route yet</string>
     <!-- PeerDetailsModal: the capabilities card and the note under Send File. Codes are ipnstate.TaildropTargetStatus -->
     <string name="peer_taildrop_caption" translatable="false">Taildrop</string>
     <string name="peer_taildrop_ok">Can receive files</string>

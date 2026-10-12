@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  How each peer is reached right now: directly, through a peer relay (another
+  node of the tailnet), or through one of Tailscale's DERP relays. Shared by
+  the Peers list, a peer's details and the large window's device rows; the
+  older words they also use live in strings.xml and strings_states.xml.
+-->
+<resources>
+    <!-- Peer row, after the address: the kind of path, then the DERP region (fra) or its city. -->
+    <string name="peer_path_relay">relay</string>
+    <!-- Before a peer relay node's name on a row too narrow for "peer relay" as well: "via homelab-nas". -->
+    <string name="peer_path_via">via</string>
+    <!-- The row as a screen reader states it; %1$s is the relay node's name. -->
+    <string name="peer_state_peer_relay_format">via peer relay %1$s</string>
+    <!-- A city with its DERP region code: "Frankfurt (fra)". -->
+    <string name="peer_path_city_code" translatable="false">%1$s (%2$s)</string>
+
+    <!-- The details sheet's status chips. %1$s is a node's name or a city. -->
+    <string name="peer_status_peer_relay_format">Peer relay: %1$s</string>
+    <string name="peer_status_home_relay_format">Home relay: %1$s</string>
+
+    <!-- The route card's caption under the endpoint, the relay or the city. -->
+    <string name="peer_route_direct_local">Direct, local network</string>
+    <string name="peer_route_direct_internet">Direct, over the internet</string>
+    <string name="peer_route_relay_format">Via DERP relay · %1$s</string>
+    <string name="peer_route_peer_relay_format">Via peer relay · %1$s</string>
+    <string name="peer_route_home">This device\'s home DERP relay</string>
+    <string name="peer_route_home_format">This device\'s home DERP relay · %1$s</string>
+    <string name="peer_route_not_yet">No traffic yet</string>
+    <string name="peer_route_not_yet_format">No traffic yet · home relay %1$s</string>
+
+    <!-- Folded under the route card; the first sentence is what shows. -->
+    <string name="peer_path_help">A DERP relay is one of Tailscale\'s servers; a peer relay is one of your own devices. Either passes the traffic along, still end-to-end encrypted, when the two devices cannot reach each other directly, and a peer relay is usually much faster. Tailscale keeps looking for a direct path and switches to it as soon as one works.</string>
+</resources>

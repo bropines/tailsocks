@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="peer_path_relay">реле</string>
+    <string name="peer_path_via">через</string>
+    <string name="peer_state_peer_relay_format">через реле-узел %1$s</string>
+
+    <string name="peer_status_peer_relay_format">Реле-узел: %1$s</string>
+    <string name="peer_status_home_relay_format">Домашнее реле: %1$s</string>
+
+    <string name="peer_route_direct_local">Напрямую, по локальной сети</string>
+    <string name="peer_route_direct_internet">Напрямую, через интернет</string>
+    <string name="peer_route_relay_format">Через реле DERP · %1$s</string>
+    <string name="peer_route_peer_relay_format">Через реле-узел · %1$s</string>
+    <string name="peer_route_home">Домашнее реле DERP этого устройства</string>
+    <string name="peer_route_home_format">Домашнее реле DERP этого устройства · %1$s</string>
+    <string name="peer_route_not_yet">Трафика ещё не было</string>
+    <string name="peer_route_not_yet_format">Трафика ещё не было · домашнее реле %1$s</string>
+
+    <string name="peer_path_help">Реле DERP — это сервер Tailscale, реле-узел — одно из ваших устройств. Любое из них передаёт трафик, по-прежнему зашифрованный от устройства до устройства, когда напрямую соединиться не получается; реле-узел обычно намного быстрее. Tailscale продолжает искать прямой путь и переходит на него, как только он заработает.</string>
+</resources>

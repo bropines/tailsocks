@@ -164,8 +164,23 @@ private val PEER_OFFLINE_GREY = Color(0xFF9E9E9E)
 private data class PingResult(
     @SerialName("Err") val err: String? = null,
     @SerialName("LatencySeconds") val latencySeconds: Double? = null,
-    @SerialName("LatencyMs") val latencyMs: Double? = null
-)
+    @SerialName("LatencyMs") val latencyMs: Double? = null,
+    /** Which way the pong came (ipnstate.PingResult): "ip:port" when direct… */
+    @SerialName("Endpoint") val endpoint: String? = null,
+    /** …"ip:port:vni:N" through a peer relay… */
+    @SerialName("PeerRelay") val peerRelay: String? = null,
+    /** …or the DERP region that carried it. */
+    @SerialName("DERPRegionCode") val derpRegionCode: String? = null
+) {
+    /** The path the answer took, unnamed; null for an answer that does not say (TSMP). */
+    val via: PeerPath?
+        get() = when {
+            !endpoint.isNullOrBlank() -> PeerPath.Direct(endpoint)
+            !peerRelay.isNullOrBlank() -> PeerPath.PeerRelay(peerRelayAddress(peerRelay), null)
+            !derpRegionCode.isNullOrBlank() -> PeerPath.Derp(derpRegionCode, null)
+            else -> null
+        }
+}
 
 /** What the daemon writes into the raw ping state while the round trip is in flight. Internal,
  *  not private: the exit-node sheet in MainActivity keeps its chips in the same raw form and
@@ -185,8 +200,9 @@ internal sealed interface PeerPingState {
     /** Nothing has been asked yet — or it was asked about a peer this is no longer showing. */
     data object Idle : PeerPingState
     data object InFlight : PeerPingState
-    /** A round trip that came back, already formatted for display ("24 ms"). */
-    data class Measured(val latency: String) : PeerPingState
+    /** A round trip that came back, already formatted for display ("24 ms"), and the path
+     *  the answer took when the daemon said — direct, a peer relay, a DERP region. */
+    data class Measured(val latency: String, val via: PeerPath? = null) : PeerPingState
     data object Failed : PeerPingState
 }
 
@@ -200,11 +216,13 @@ internal fun pingStateOf(raw: String?): PeerPingState = when {
     raw == PING_IN_FLIGHT -> PeerPingState.InFlight
     raw.isBlank() || raw.contains("Failed") || raw.startsWith("Error") -> PeerPingState.Failed
     else -> {
+        var via: PeerPath? = null
         val latency = try {
             val ping = AppJson.decodeFromString<PingResult>(raw)
             if (!ping.err.isNullOrEmpty()) {
                 null
             } else {
+                via = ping.via
                 val sec = ping.latencySeconds
                 if (sec != null && sec > 0) "${(sec * 1000).toInt()} ms"
                 else ping.latencyMs?.takeIf { it > 0 }?.let { "${it.toInt()} ms" }
@@ -212,7 +230,7 @@ internal fun pingStateOf(raw: String?): PeerPingState = when {
         } catch (e: Exception) {
             PING_LATENCY_RE.find(raw)?.value
         }
-        if (latency != null) PeerPingState.Measured(latency) else PeerPingState.Failed
+        if (latency != null) PeerPingState.Measured(latency, via) else PeerPingState.Failed
     }
 }
 
@@ -273,6 +291,7 @@ private val PEER_DETAIL_GROUP_OF: Map<PeerDetailId, PeerDetailGroup> = mapOf(
     PeerDetailId.PEER_API to PeerDetailGroup.ADDRESSES,
     PeerDetailId.RELAY to PeerDetailGroup.ROUTE,
     PeerDetailId.CUR_ADDR to PeerDetailGroup.ROUTE,
+    PeerDetailId.PEER_RELAY to PeerDetailGroup.ROUTE,
     PeerDetailId.IN_NETWORK_MAP to PeerDetailGroup.ROUTE,
     PeerDetailId.IN_MAGICSOCK to PeerDetailGroup.ROUTE,
     PeerDetailId.IN_WG_ENGINE to PeerDetailGroup.ROUTE,
@@ -302,13 +321,13 @@ private val PEER_COPYABLE_DETAILS = setOf(
     PeerDetailId.MACHINE_NAME, PeerDetailId.DNS_NAME, PeerDetailId.IPV4, PeerDetailId.IPV6,
     PeerDetailId.ALLOWED_IPS, PeerDetailId.NODE_ID, PeerDetailId.CUR_ADDR,
     PeerDetailId.PEER_API, PeerDetailId.VERSION, PeerDetailId.TAGS,
-    PeerDetailId.RELAY, PeerDetailId.NO_FILE_SHARING
+    PeerDetailId.RELAY, PeerDetailId.PEER_RELAY, PeerDetailId.NO_FILE_SHARING
 )
 
 /** The rows that are machine text and line up better in a monospace face. */
 private val PEER_MONOSPACE_DETAILS = setOf(
     PeerDetailId.IPV4, PeerDetailId.IPV6, PeerDetailId.ALLOWED_IPS, PeerDetailId.NODE_ID,
-    PeerDetailId.VERSION, PeerDetailId.CUR_ADDR, PeerDetailId.PEER_API
+    PeerDetailId.VERSION, PeerDetailId.CUR_ADDR, PeerDetailId.PEER_API, PeerDetailId.PEER_RELAY
 )
 
 /**
@@ -329,7 +348,9 @@ private class PeerCard(
     val leadRow: PeerDetail?,
     /** Everything else in the group, shown when the card is open. The row the lead was
      *  taken from is not repeated here: it is on the card already, just larger. */
-    val rows: List<PeerDetail>
+    val rows: List<PeerDetail>,
+    /** An explanation under the caption, folded to two lines. */
+    val help: String? = null
 )
 
 /**
@@ -341,7 +362,7 @@ private class PeerCard(
  * nothing the daemon reported is lost behind the summary of it. A group with no rows is
  * dropped rather than drawn empty.
  */
-private fun peerCards(peer: PeerData, strings: PeerDetailsStrings, version: String?, isSelf: Boolean): List<PeerCard> {
+private fun peerCards(peer: PeerData, strings: PeerDetailsStrings, version: String?, isSelf: Boolean, path: PeerPath): List<PeerCard> {
     val details = peer.getDetailsList(tailscaleVersion = version)
     return PeerDetailGroup.entries.mapNotNull { group ->
         val rows = details.filter { (PEER_DETAIL_GROUP_OF[it.id] ?: PeerDetailGroup.OTHER) == group }
@@ -349,31 +370,11 @@ private fun peerCards(peer: PeerData, strings: PeerDetailsStrings, version: Stri
         fun leadRow(id: PeerDetailId): PeerCard? = rows.firstOrNull { it.id == id }?.let { lead ->
             PeerCard(group, lead.value, lead.label, lead.id in PEER_MONOSPACE_DETAILS, lead, rows - lead)
         }
-        val curAddr = peer.curAddr?.takeIf { it.isNotEmpty() }
-        val peerRelay = peer.peerRelay?.takeIf { it.isNotEmpty() }
-        val relay = peer.relay?.takeIf { it.isNotEmpty() }
         val card = when (group) {
             PeerDetailGroup.ADDRESSES -> leadRow(PeerDetailId.IPV4)
             PeerDetailGroup.DEVICE -> leadRow(PeerDetailId.OS)
             PeerDetailGroup.TIMING -> leadRow(PeerDetailId.LAST_SEEN)
-            // The same reading as the status strip's route chip, with the raw endpoint or
-            // region as the figure. The row it was read from steps aside; the other one —
-            // "Current Addr: N/A" under a relay, say — stays, because it is what the daemon
-            // said and someone debugging a connection will want to see it said. With no
-            // route at all the relay row steps aside too: the model writes "Direct" into an
-            // empty relay, and "Direct" under "no route yet" is the card arguing with itself.
-            PeerDetailGroup.ROUTE -> when {
-                curAddr != null -> rows.first { it.id == PeerDetailId.CUR_ADDR }.let { lead ->
-                    PeerCard(group, curAddr, strings.direct, true, lead, rows - lead)
-                }
-                // A peer relay has no row of its own to lead with; the relay row stays,
-                // since the home DERP region is still what the daemon reports there.
-                peerRelay != null -> PeerCard(group, peerRelay, strings.viaPeerRelay, true, null, rows)
-                relay != null -> rows.first { it.id == PeerDetailId.RELAY }.let { lead ->
-                    PeerCard(group, relay, strings.routeRelay, false, lead, rows - lead)
-                }
-                else -> PeerCard(group, "—", strings.routeNone, false, null, rows.filterNot { it.id == PeerDetailId.RELAY })
-            }
+            PeerDetailGroup.ROUTE -> routeCard(peer, path, rows, strings.path)
             // The verdict, in a few words: the reason behind it is a sentence, and it is
             // already under the Send File button where a sentence has room to wrap. Drawn
             // large here it would be cut after two lines — exactly the ACL instruction a
@@ -404,6 +405,46 @@ private fun peerCards(peer: PeerData, strings: PeerDetailsStrings, version: Stri
         // — leads with its first row, so a field added later still shows up large somewhere.
         card ?: rows.first().let {
             PeerCard(group, it.value, it.label, it.id in PEER_MONOSPACE_DETAILS, it, rows.drop(1))
+        }
+    }
+}
+
+/**
+ * The route card: the same reading as the status strip's chip and the list row, with the
+ * endpoint, the relay node or the city as the figure. The row a lead was read off steps out of
+ * the fold; the others stay — "Current Addr: N/A" under a relay is what the daemon said, and
+ * someone debugging a connection will want to see it said. Where the lead is a name the
+ * status does not carry (a relay's node, a region's city), the raw row stays in the fold
+ * with its copy icon. A relay explains itself, once, folded.
+ */
+private fun routeCard(peer: PeerData, path: PeerPath, rows: List<PeerDetail>, w: PeerPathWords): PeerCard {
+    val group = PeerDetailGroup.ROUTE
+    fun row(id: PeerDetailId) = rows.firstOrNull { it.id == id }
+    fun led(lead: String, caption: String, mono: Boolean, from: PeerDetail?, help: String?) =
+        PeerCard(group, lead, caption, mono, from, if (from != null) rows - from else rows, help)
+    // The model writes "Direct" into an empty Relay row; under a card that is not about a
+    // direct path that row is the card arguing with itself.
+    val withoutEmptyRelay = if (peer.relay.isNullOrEmpty()) rows.filterNot { it.id == PeerDetailId.RELAY } else rows
+    return when (path) {
+        is PeerPath.Direct -> led(
+            path.endpoint, if (path.local) w.routeDirectLocal else w.routeDirectInternet, true, row(PeerDetailId.CUR_ADDR), null
+        )
+        is PeerPath.PeerRelay ->
+            if (path.node != null) led(path.node, w.routePeerRelayFormat.format(path.address), false, null, w.help)
+            else led(path.address, w.routePeerRelay, true, null, w.help)
+        is PeerPath.Derp ->
+            if (path.city != null) led(path.city, w.routeDerpFormat.format(path.region), false, null, w.help)
+            else led(path.region, w.routeDerp, false, row(PeerDetailId.RELAY), w.help)
+        is PeerPath.NotYet -> PeerCard(
+            group, "—",
+            path.home?.let { w.routeNotYetFormat.format(w.region(it, path.homeCity)) } ?: w.routeNotYet,
+            false, null, withoutEmptyRelay, w.help
+        )
+        is PeerPath.Offline -> PeerCard(group, "—", w.routeOffline, false, null, withoutEmptyRelay)
+        is PeerPath.Self -> when {
+            path.home == null -> PeerCard(group, "—", w.noHome, false, null, withoutEmptyRelay, w.help)
+            path.homeCity != null -> led(path.homeCity, w.routeHomeFormat.format(path.home), false, null, w.help)
+            else -> led(path.home, w.routeHome, false, row(PeerDetailId.RELAY), w.help)
         }
     }
 }
@@ -689,31 +730,6 @@ fun ExitNodeBadge(
 }
 
 /**
- * How the row reads a peer's path, after its address. A direct endpoint wins over a relay
- * the way it does in `tailscale status`: the daemon keeps Relay filled with the home DERP
- * region even while the traffic goes direct, and it fills PeerRelay only while a peer relay
- * carries it. An offline peer has no path worth naming; what it has is when it was last
- * seen. This device gets nothing — its own row is not a connection.
- */
-private sealed interface PeerRowPath {
-    data object Direct : PeerRowPath
-    data object PeerRelay : PeerRowPath
-    data class Relay(val region: String) : PeerRowPath
-    /** [ago] is null when the daemon never saw it, or said so in a stamp this cannot read. */
-    data class LastSeen(val ago: String?) : PeerRowPath
-    data object None : PeerRowPath
-}
-
-private fun peerRowPath(context: Context, peer: PeerData, isSelf: Boolean, nowMillis: Long): PeerRowPath = when {
-    isSelf -> PeerRowPath.None
-    peer.online != true -> PeerRowPath.LastSeen(parseRfc3339Millis(peer.lastSeen)?.let { agoText(context, it, nowMillis) })
-    !peer.curAddr.isNullOrEmpty() -> PeerRowPath.Direct
-    !peer.peerRelay.isNullOrEmpty() -> PeerRowPath.PeerRelay
-    !peer.relay.isNullOrEmpty() -> PeerRowPath.Relay(peer.relay)
-    else -> PeerRowPath.None
-}
-
-/**
  * An RFC 3339 stamp as the daemon writes one (Go's time.Time: fractional seconds optional,
  * "Z" or an offset) in epoch milliseconds; null for Go's zero time and anything unreadable.
  * By hand rather than through java.time, which is API 26 and this app runs from 24.
@@ -770,21 +786,23 @@ internal fun PeerItem(
     /** The row whose details the pane beside the list is showing; only a two-pane layout
      *  has one. Outlined, so this device's tinted row can be the selected one as well. */
     selected: Boolean = false,
+    /** The path's words; a list resolves them once for all its rows. */
+    pathWords: PeerPathWords = peerPathWords(),
     onClick: () -> Unit
 ) {
     val context = LocalContext.current
-    val path = remember(peer, isSelf, nowMillis, context) { peerRowPath(context, peer, isSelf, nowMillis) }
+    // Named by the list's LocalPeerPathNames: a relay's node, a region's city. A ping fills in
+    // the path of a peer nothing else has talked to yet.
+    val names = LocalPeerPathNames.current
+    val path = remember(peer, isSelf, names, ping) { names.pathOf(peer, isSelf, ping) }
+    val ago = remember(path, nowMillis, context) {
+        (path as? PeerPath.Offline)?.lastSeenMillis?.let { agoText(context, it, nowMillis) }
+    }
     // The green dot said "online" in colour alone; this says it in words, with the path.
     val online = peer.online == true || isSelf
     val spokenState = listOfNotNull(
         stringResource(if (online) R.string.peer_status_online else R.string.peer_status_offline),
-        when (path) {
-            PeerRowPath.Direct -> stringResource(R.string.peer_path_direct)
-            PeerRowPath.PeerRelay -> stringResource(R.string.peer_state_peer_relay)
-            is PeerRowPath.Relay -> stringResource(R.string.peer_state_relay_format, path.region)
-            is PeerRowPath.LastSeen -> path.ago?.let { stringResource(R.string.peer_state_last_seen_format, it) }
-            PeerRowPath.None -> null
-        }
+        pathWords.spoken(path, ago)
     ).joinToString(", ")
     // Clipped before the click: a clickable on an unclipped modifier drew its ripple as a
     // rectangle spilling past the rounded corners. Not Surface(onClick), which has no long
@@ -838,7 +856,7 @@ internal fun PeerItem(
                     modifier = Modifier.basicMarquee(iterations = Int.MAX_VALUE)
                 )
                 if (displayName != primaryIp) {
-                    PeerAddressLine(primaryIp, path, ping)
+                    PeerAddressLine(primaryIp, path, ago, ping, pathWords)
                 }
                 if (!peer.tags.isNullOrEmpty()) {
                     Text(
@@ -871,47 +889,14 @@ internal fun PeerItem(
  * its own: the tag list of an exit node already makes a row taller than its neighbours, and
  * a chip that appeared when a ping came back would change the height of every row at once.
  * The latency sits outside the part that is cut short, so a narrow row loses the path
- * before it loses the figure someone just asked for.
+ * before it loses the figure someone just asked for. The path comes long when the row has
+ * the width — the endpoint, the relay node, the city — and short when it has not.
  */
 @Composable
-private fun PeerAddressLine(address: String, path: PeerRowPath, ping: PeerPingState) {
+private fun PeerAddressLine(address: String, path: PeerPath, ago: String?, ping: PeerPingState, words: PeerPathWords) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    val (pathIcon, pathLabel) = when (path) {
-        PeerRowPath.Direct -> Icons.Default.Lan to stringResource(R.string.peer_path_direct)
-        PeerRowPath.PeerRelay -> Icons.Default.DeviceHub to stringResource(R.string.peer_path_peer_relay)
-        is PeerRowPath.Relay -> Icons.Default.Router to path.region
-        is PeerRowPath.LastSeen -> Icons.Default.Schedule to path.ago
-        PeerRowPath.None -> null to null
-    }
-    val text = buildAnnotatedString {
-        append(address)
-        if (pathIcon != null && pathLabel != null) {
-            // The icon is the separator, and it is decoration — the word after it says the
-            // same — so a screen reader gets a blank in its place (an empty one is refused).
-            append(" ")
-            appendInlineContent(PEER_PATH_ICON, " ")
-            // Words in the text face, not the address's monospace: in monospace "direct"
-            // took a third more width and was the first thing cut on an exit node's row.
-            withStyle(SpanStyle(fontFamily = FontFamily.Default)) {
-                append(" ")
-                append(pathLabel)
-            }
-        }
-    }
-    val inline = if (pathIcon == null) emptyMap() else mapOf(
-        PEER_PATH_ICON to InlineTextContent(Placeholder(14.sp, 12.sp, PlaceholderVerticalAlign.TextCenter)) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterEnd) {
-                Icon(pathIcon, contentDescription = null, tint = muted, modifier = Modifier.size(12.dp))
-            }
-        }
-    )
-    val latency = when (ping) {
-        is PeerPingState.Measured -> " · ${ping.latency}"
-        PeerPingState.InFlight -> " · …"
-        PeerPingState.Failed -> " · ✕"
-        PeerPingState.Idle -> null
-    }
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    val variant: @Composable (PathLine?) -> Unit = { line ->
+        val (text, inline) = peerPathText(address, line, muted)
         Text(
             text,
             inlineContent = inline,
@@ -919,9 +904,22 @@ private fun PeerAddressLine(address: String, path: PeerRowPath, ping: PeerPingSt
             fontSize = 12.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            color = muted,
-            modifier = Modifier.weight(1f, fill = false)
+            color = muted
         )
+    }
+    val latency = when (ping) {
+        is PeerPingState.Measured -> " · ${ping.latency}"
+        PeerPingState.InFlight -> " · …"
+        PeerPingState.Failed -> " · ✕"
+        PeerPingState.Idle -> null
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        // The row's own state description says the path in words; the lines here are
+        // pictures of it, longest first, and only the one that fits is placed.
+        FirstThatFits(Modifier.weight(1f, fill = false).clearAndSetSemantics { contentDescription = address }) {
+            val lines = words.lines(path, ago)
+            if (lines.isEmpty()) variant(null) else lines.forEach { variant(it) }
+        }
         if (latency != null) {
             Text(
                 latency,
@@ -933,6 +931,50 @@ private fun PeerAddressLine(address: String, path: PeerRowPath, ping: PeerPingSt
             )
         }
     }
+}
+
+/**
+ * An address followed by a path line: the icon, inline and as the separator, then the path's
+ * word and what it goes through. The address keeps the face of the Text it is set in; words
+ * take the text face and machine text (an endpoint, a relay's address) monospace — in
+ * monospace "direct" took a third more width and was the first thing cut on an exit node's
+ * row. The icon is decoration — the word after it says the same — so a screen reader gets a
+ * blank in its place.
+ */
+internal fun peerPathText(
+    address: String,
+    line: PathLine?,
+    iconTint: Color
+): Pair<AnnotatedString, Map<String, InlineTextContent>> {
+    val text = buildAnnotatedString {
+        append(address)
+        if (line != null) {
+            append(" ")
+            appendInlineContent(PEER_PATH_ICON, " ")
+            if (line.word.isNotEmpty()) {
+                withStyle(SpanStyle(fontFamily = FontFamily.Default)) {
+                    append(" ")
+                    append(line.word)
+                }
+            }
+            if (line.detail != null) {
+                append(" ")
+                if (line.detailIsAddress) {
+                    withStyle(SpanStyle(fontFamily = FontFamily.Monospace)) { append(line.detail) }
+                } else {
+                    withStyle(SpanStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium)) { append(line.detail) }
+                }
+            }
+        }
+    }
+    val inline = if (line == null) emptyMap() else mapOf(
+        PEER_PATH_ICON to InlineTextContent(Placeholder(14.sp, 12.sp, PlaceholderVerticalAlign.TextCenter)) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterEnd) {
+                Icon(line.icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(12.dp))
+            }
+        }
+    )
+    return text to inline
 }
 
 private const val PEER_PATH_ICON = "peerPath"
@@ -1064,18 +1106,11 @@ private data class PeerDetailsStrings(
     val online: String,
     val offline: String,
     val osUnknown: String,
-    val direct: String,
-    /** "Relay: %1$s", formatted in the page for the same reason as [pingResultFormat]. */
-    val relayFormat: String,
-    /** The route chip, and the route card's caption, for traffic carried by a peer relay. */
-    val viaPeerRelay: String,
+    /** How the peer is reached: the route chip, the route card, its explanation. */
+    val path: PeerPathWords,
     val latency: String,
     /** The connection card's caption for a ping that came back with nothing. */
     val connPingFailed: String,
-    /** The route card's caption over a DERP region code. */
-    val routeRelay: String,
-    /** And over the dash it shows for a peer nothing has talked to yet. */
-    val routeNone: String,
     /** The capabilities card's caption; what the Taildrop verdict under it is about. */
     val taildrop: String,
     val taildropOk: String,
@@ -1247,6 +1282,9 @@ fun PeerDetailsModal(
     // the settle flips it several times per page turn, and this parses JSON and matches a
     // regex.
     val pingState = remember(pingResult) { pingStateOf(pingResult) }
+    // The list's names for the paths — a relay's node, a region's city — read here, in the
+    // parent composition, and handed to both pages of a turn.
+    val pathNames = LocalPeerPathNames.current
 
     // Strings resolved in the parent composition — see wrapContextWithLocale().
     val strings = PeerDetailsStrings(
@@ -1270,13 +1308,9 @@ fun PeerDetailsModal(
         online = stringResource(R.string.peer_status_online),
         offline = stringResource(R.string.peer_status_offline),
         osUnknown = stringResource(R.string.peer_status_os_unknown),
-        direct = stringResource(R.string.peer_status_direct),
-        relayFormat = stringResource(R.string.peer_status_relay_format),
-        viaPeerRelay = stringResource(R.string.peer_via_peer_relay),
+        path = peerPathWords(),
         latency = stringResource(R.string.peer_conn_latency),
         connPingFailed = stringResource(R.string.peer_conn_ping_failed),
-        routeRelay = stringResource(R.string.peer_route_relay),
-        routeNone = stringResource(R.string.peer_route_none),
         taildrop = stringResource(R.string.peer_taildrop_caption),
         taildropOk = stringResource(R.string.peer_taildrop_ok),
         taildropBlocked = stringResource(R.string.peer_taildrop_blocked),
@@ -1459,6 +1493,7 @@ fun PeerDetailsModal(
             PeerDetailsPage(
                 page = incoming,
                 strings = strings,
+                pathNames = pathNames,
                 // No ping of its own can be in flight on a page nobody has landed on yet.
                 ping = PeerPingState.Idle,
                 selfAddress = selfAddress,
@@ -1487,6 +1522,7 @@ fun PeerDetailsModal(
         PeerDetailsPage(
             page = page,
             strings = strings,
+            pathNames = pathNames,
             ping = pingState,
             selfAddress = selfAddress,
             expanded = expandedGroups,
@@ -1537,6 +1573,7 @@ fun PeerDetailsModal(
 private fun PeerDetailsPage(
     page: PeerPage,
     strings: PeerDetailsStrings,
+    pathNames: PeerPathNames,
     ping: PeerPingState,
     selfAddress: String?,
     /** The cards currently open. Shared by both pages of a turn, so the arriving page lands
@@ -1558,7 +1595,10 @@ private fun PeerDetailsPage(
     val peer = page.peer
     // A cache, not state: the cards only change when the page does (the peer, or the version
     // the Admin API answered for it), and during a turn this runs for two peers at once.
-    val cards = remember(page, strings) { peerCards(peer, strings, page.version, page.isSelf) }
+    // How the peer is reached: the status's reading, or — for a peer nothing has talked to yet
+    // — the way this page's ping came back.
+    val path = remember(page, pathNames, ping) { pathNames.pathOf(peer, page.isSelf, ping) }
+    val cards = remember(page, strings, path) { peerCards(peer, strings, page.version, page.isSelf, path) }
     val taildrop = remember(page, strings) { peerTaildropStatus(peer, page.isSelf, strings) }
     // The page's parts. A sheet lists them one under another; a pane wide enough for it
     // keeps the header across the top and stands the cards in a staggered grid under it.
@@ -1629,6 +1669,7 @@ private fun PeerDetailsPage(
     val statusStrip: @Composable () -> Unit = {
         PeerStatusStrip(
             peer = peer,
+            path = path,
             ping = ping,
             strings = strings,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)
@@ -1829,6 +1870,7 @@ private fun PeerActionLabel(text: String) {
 @Composable
 private fun PeerStatusStrip(
     peer: PeerData,
+    path: PeerPath,
     ping: PeerPingState,
     strings: PeerDetailsStrings,
     modifier: Modifier = Modifier
@@ -1852,7 +1894,7 @@ private fun PeerStatusStrip(
             icon = osIcon,
             iconTint = osColor
         )
-        val route = peerRoute(peer, strings)
+        val route = strings.path.chip(path)
         if (route != null) {
             PeerStatusChip(
                 label = route.first,
@@ -1868,20 +1910,6 @@ private fun PeerStatusStrip(
             )
         }
     }
-}
-
-/**
- * How the peer is being reached right now, as the daemon reports it: a direct endpoint if
- * there is a CurAddr, a peer relay if there is a PeerRelay, otherwise the DERP region
- * carrying the traffic — the list row reads it in the same order. A peer nothing has
- * talked to yet has neither, and then the strip says nothing rather than guessing — the
- * "Relay (DERP)" and "Current Addr" rows below still carry the raw fields.
- */
-private fun peerRoute(peer: PeerData, strings: PeerDetailsStrings): Pair<String, ImageVector>? = when {
-    !peer.curAddr.isNullOrEmpty() -> strings.direct to Icons.Default.Lan
-    !peer.peerRelay.isNullOrEmpty() -> strings.viaPeerRelay to Icons.Default.DeviceHub
-    !peer.relay.isNullOrEmpty() -> strings.relayFormat.format(peer.relay) to Icons.Default.Router
-    else -> null
 }
 
 /**
@@ -2273,6 +2301,17 @@ private fun PeerInfoCard(
                         tint = LocalContentColor.current.copy(alpha = 0.6f)
                     )
                 }
+            }
+            if (card.help != null) {
+                // Under the heading's column, the width of the card: beside the chevron two
+                // lines would hold half as much. Only the ⓘ unfolds it — a tap anywhere else
+                // on the card is the card's fold.
+                HelpText(
+                    card.help,
+                    modifier = Modifier.padding(start = PEER_CARD_ICON_BOX + 14.dp, top = 8.dp),
+                    color = LocalContentColor.current.copy(alpha = 0.75f),
+                    inClickableRow = foldable
+                )
             }
             if (foldable) {
                 // The rows are composed only while open or animating, so a closed card is as

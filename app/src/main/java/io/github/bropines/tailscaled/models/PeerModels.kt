@@ -151,6 +151,11 @@ data class PeerData(
         if (!peerApiUrl.isNullOrEmpty()) {
             list.add(PeerDetail(PeerDetailId.PEER_API, "Peer API", peerApiUrl.first()))
         }
+        // The peer relay carrying the traffic, raw ("ip:port:vni:N"), beside the direct
+        // endpoint it stands in for. Only while one does: an empty row would say nothing.
+        if (!peerRelay.isNullOrEmpty()) {
+            list.add(list.indexOfFirst { it.id == PeerDetailId.CUR_ADDR } + 1, PeerDetail(PeerDetailId.PEER_RELAY, "Peer Relay", peerRelay))
+        }
 
         return list
     }
@@ -166,7 +171,7 @@ enum class PeerDetailId {
     MACHINE_NAME, DNS_NAME, OS, IPV4, IPV6, ALLOWED_IPS, VERSION, NODE_ID,
     RELAY, CUR_ADDR, KEY_EXPIRY, CREATED, LAST_SEEN, LAST_WRITE, LAST_HANDSHAKE,
     RX_BYTES, TX_BYTES, IS_EXIT_NODE, EXIT_NODE_OPTION, IN_NETWORK_MAP, IN_MAGICSOCK,
-    IN_WG_ENGINE, CAPABILITIES, TAILDROP_TARGET, TAGS, NO_FILE_SHARING, PEER_API
+    IN_WG_ENGINE, CAPABILITIES, TAILDROP_TARGET, TAGS, NO_FILE_SHARING, PEER_API, PEER_RELAY
 }
 
 /** One row of [PeerData.getDetailsList]: what the row is, what it is called on screen, and

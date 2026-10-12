@@ -38,6 +38,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -315,12 +317,17 @@ internal fun DevicesGlance(
                 else -> {
                     val selectedLabel = stringResource(R.string.peer_exit_node_selected)
                     val offeredLabel = stringResource(R.string.peer_exit_node_offered)
+                    // The Peers screen's reading of each path, with the same names.
+                    val pathNames = rememberPeerPathNames(peers)
+                    val pathWords = peerPathWords()
                     FittingGrid(modifier = body.padding(end = 12.dp, top = 4.dp)) {
                         peers.take(GLANCE_MAX_ROWS).forEach { peer ->
                             GlanceRow(
                                 peer = peer,
                                 ping = pingStateOf(pings[peer.getPrimaryIp()]),
                                 nowMillis = nowMillis,
+                                pathNames = pathNames,
+                                pathWords = pathWords,
                                 selectedLabel = selectedLabel,
                                 offeredLabel = offeredLabel,
                                 onClick = { onOpenPeers(peer.id) },
@@ -372,15 +379,18 @@ private fun FittingGrid(
 }
 
 /**
- * One device: its OS, its name, and under it the address with how it is reached now and
- * the last round trip — or, offline, how long ago it was seen. The online dot repeats in
- * colour what the second line says in words.
+ * One device: its OS, its name, and under it the address with how it is reached now — the
+ * icon and the words of the Peers list, the endpoint, relay node or city when the cell has
+ * the width — and the last round trip; or, offline, how long ago it was seen. The online dot
+ * repeats in colour what the second line says in words.
  */
 @Composable
 private fun GlanceRow(
     peer: PeerData,
     ping: PeerPingState,
     nowMillis: Long,
+    pathNames: PeerPathNames,
+    pathWords: PeerPathWords,
     selectedLabel: String,
     offeredLabel: String,
     onClick: () -> Unit,
@@ -388,13 +398,11 @@ private fun GlanceRow(
     val context = LocalContext.current
     val online = peer.online == true
     val ip = peer.getPrimaryIp()
-    val path = when {
-        !online -> parseRfc3339Millis(peer.lastSeen)?.let { agoText(context, it, nowMillis) }
-        !peer.curAddr.isNullOrEmpty() -> stringResource(R.string.peer_path_direct)
-        !peer.peerRelay.isNullOrEmpty() -> stringResource(R.string.peer_path_peer_relay)
-        !peer.relay.isNullOrEmpty() -> stringResource(R.string.peer_state_relay_format, peer.relay)
-        else -> null
+    val path = remember(peer, pathNames, ping) { pathNames.pathOf(peer, isSelf = false, ping = ping) }
+    val ago = remember(path, nowMillis, context) {
+        (path as? PeerPath.Offline)?.lastSeenMillis?.let { agoText(context, it, nowMillis) }
     }
+    val spokenPath = pathWords.spoken(path, ago)
     // A figure measured before the device went away is not its latency now.
     val latency = if (online) (ping as? PeerPingState.Measured)?.latency else null
     val stateWord = stringResource(if (online) R.string.peer_status_online else R.string.peer_status_offline)
@@ -406,7 +414,7 @@ private fun GlanceRow(
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.medium)
             .clickable(role = Role.Button, onClick = onClick)
-            .semantics { stateDescription = listOfNotNull(stateWord, path, latency).joinToString(", ") }
+            .semantics { stateDescription = listOfNotNull(stateWord, spokenPath, latency).joinToString(", ") }
             .padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -428,14 +436,20 @@ private fun GlanceRow(
             // The latency stands outside the part that is cut short, as on the Peers screen:
             // a narrow row loses the path before the figure.
             Row {
-                Text(
-                    listOfNotNull(ip, path).joinToString(" · "),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = muted,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false)
-                )
+                // The long line where the cell has the width, the short one where it has not.
+                FirstThatFits(Modifier.weight(1f, fill = false).clearAndSetSemantics { contentDescription = ip }) {
+                    for (line in pathWords.lines(path, ago).ifEmpty { listOf(null) }) {
+                        val (text, inline) = peerPathText(ip, line, muted)
+                        Text(
+                            text,
+                            inlineContent = inline,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = muted,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
                 if (latency != null) {
                     Text(
                         buildAnnotatedString {
