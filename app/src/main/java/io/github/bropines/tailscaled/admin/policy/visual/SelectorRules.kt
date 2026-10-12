@@ -160,6 +160,8 @@ object SelectorRules {
             SelectorKind.TAG -> if (model.tagOwners.any { it.name == v }) null else SelectorProblem.UNDEFINED
             SelectorKind.IPSET -> if (model.ipsets.any { it.name == v }) null else SelectorProblem.UNDEFINED
             SelectorKind.POSTURE -> if (model.postures.any { it.name == v }) null else SelectorProblem.UNDEFINED
+            // group://alias/name: the alias is one of externalTailnets.
+            SelectorKind.EXTERNAL -> if (model.externalTailnets.any { it.alias == Selectors.externalAlias(v) }) null else SelectorProblem.UNDEFINED
             else -> null
         }
     }

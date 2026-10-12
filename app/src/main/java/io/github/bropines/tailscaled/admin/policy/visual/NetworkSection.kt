@@ -91,7 +91,14 @@ fun NetworkSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout)
                 HelpText(ctx.getString(R.string.admin_pv_net_other_help))
             }
             CardColumns(minColumnWidth = 360.dp, maxColumns = if (layout.twoPane) 2 else 1) {
-                others.forEach { OtherSectionCard(it, env, actions) }
+                others.forEach { e ->
+                    // Declarative node sharing reads as the tailnets it trusts; anything else as written.
+                    if (e.section == Section.EXTERNAL_TAILNETS && model.externalTailnets.isNotEmpty()) {
+                        ExternalTailnetsCard(e, env, actions, bringsIntoView(env, setOf(e.origin.path)))
+                    } else {
+                        OtherSectionCard(e, env, actions)
+                    }
+                }
             }
         }
     }

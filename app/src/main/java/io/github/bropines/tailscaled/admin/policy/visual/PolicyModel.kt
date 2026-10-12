@@ -160,6 +160,19 @@ data class DerpRegion(val id: String, val code: String?, val name: String?, val 
 /** derpMap, summarised: custom regions are written in JSON, the visual editor only shows them. */
 data class DerpSummary(val origin: Origin, val omitDefaultRegions: Boolean, val regions: List<DerpRegion>)
 
+/**
+ * One tailnet of `externalTailnets` (declarative node sharing, alpha): its alias in this file,
+ * its tailnet ID, whether this tailnet accepts connections from it, and which of this file's
+ * groups and tags it may name in its own policy. Shown, edited in JSON.
+ */
+data class ExternalTailnet(
+    val origin: Origin,
+    val alias: String,
+    val externalId: String?,
+    val allowIncoming: Boolean?,
+    val allowReferencesTo: List<String>,
+)
+
 /** A top-level key and what it is; [section] null for one the editor does not know (kept, shown read-only). */
 data class SectionEntry(val key: String, val section: Section?, val origin: Origin)
 
@@ -184,6 +197,7 @@ data class PolicyModel(
     val oneCGNATRoute: String?,
     /** Top-level keys written more than once: the visual editor refuses to edit the file until they are fixed. */
     val duplicateSections: Set<String>,
+    val externalTailnets: List<ExternalTailnet> = emptyList(),
 ) {
     /** Every name defined in the file, by kind: what the pickers offer next to users and devices. */
     val definedNames: List<String>
@@ -319,7 +333,26 @@ private class Reader(private val t: SourceTree) {
             disableIPv4 = bool(section("disableIPv4")),
             oneCGNATRoute = (section("OneCGNATRoute") as? SrcString)?.value,
             duplicateSections = root.duplicateKeys,
+            externalTailnets = externalTailnets(),
         )
+    }
+
+    private fun externalTailnets(): List<ExternalTailnet> {
+        val o = section("externalTailnets") as? SrcObject ?: return emptyList()
+        val base = PolicyPath.of("externalTailnets")
+        return o.members.indices.map { i ->
+            val m = o.members[i]
+            val v = m.value as? SrcObject
+            val issues = mutableSetOf<ShapeIssue>()
+            if (v == null) issues += ShapeIssue.NOT_AN_OBJECT
+            ExternalTailnet(
+                origin(base + m.key!!, o, i, EXTERNAL_TAILNET_KEYS, issues),
+                m.key,
+                string(v?.get("externalID"), issues),
+                bool(v?.get("allowIncomingConnections")),
+                strings(v?.get("allowExternalReferencesTo"), issues),
+            )
+        }
     }
 
     private fun postures(): List<Posture> {
@@ -372,6 +405,7 @@ private class Reader(private val t: SourceTree) {
         val NODE_ATTR_KEYS = setOf("target", "attr", "app", "ipPool")
         val TEST_KEYS = setOf("src", "proto", "accept", "deny", "srcPostureAttrs")
         val SSH_TEST_KEYS = setOf("src", "dst", "accept", "check", "deny")
+        val EXTERNAL_TAILNET_KEYS = setOf("externalID", "allowIncomingConnections", "allowExternalReferencesTo")
         /** ACL `users`/`ports` (before src/dst), test `allow` (before accept). */
         val LEGACY_KEYS = setOf("users", "ports", "allow")
     }

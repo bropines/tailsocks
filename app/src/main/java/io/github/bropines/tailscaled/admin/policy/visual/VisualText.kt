@@ -7,7 +7,15 @@ import io.github.bropines.tailscaled.R
 object VisualText {
 
     /** A selector as a chip shows it: plain words for `*` and autogroups, the selector itself otherwise. */
-    fun label(ctx: Context, value: String): String = labelRes(value)?.let(ctx::getString) ?: value
+    fun label(ctx: Context, value: String): String = labelRes(value)?.let(ctx::getString) ?: externalLabel(ctx, value) ?: value
+
+    /** Another tailnet's group or tag, `group://partner/eng`, as "group:eng from partner". */
+    private fun externalLabel(ctx: Context, value: String): String? {
+        val kind = value.substringBefore("://", "").takeIf { it == "group" || it == "tag" } ?: return null
+        val alias = Selectors.externalAlias(value) ?: return null
+        val name = value.substringAfter("://").substringAfter('/', "").takeIf { it.isNotEmpty() } ?: return null
+        return ctx.getString(R.string.admin_pvc_ext_selector, "$kind:$name", alias)
+    }
 
     /** What a selector means, for the picker's second line; null for names the file itself defines. */
     fun help(ctx: Context, value: String): String? = helpRes(value)?.let(ctx::getString)

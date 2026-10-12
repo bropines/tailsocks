@@ -111,6 +111,9 @@ object Selectors {
         return if (cut > 0 && !isPortSpec(s)) IpSpec(s.substring(0, cut), s.substring(cut + 1)) else IpSpec(null, s)
     }
 
+    /** The tailnet alias of another tailnet's group or tag: `group://partner/eng` → `partner`. */
+    fun externalAlias(s: String): String? = s.substringAfter("://", "").substringBefore('/').takeIf { it.isNotEmpty() }
+
     /** The preset [ports] is exactly, if any. */
     fun preset(ports: String): PortPreset? = PortPreset.entries.firstOrNull { it.spec == ports.replace(" ", "") }
 
