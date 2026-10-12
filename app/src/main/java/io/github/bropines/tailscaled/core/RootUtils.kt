@@ -2395,6 +2395,10 @@ object RootUtils {
         val libDir = context?.applicationInfo?.nativeLibraryDir ?: return null
         val script = buildString {
             append("for p in \$(pidof libtailscale.so 2>/dev/null); do\n")
+            // The binary is the CLI as well (ts_include_cli): a `tailscale`
+            // command running through the root wrapper is the same file under the
+            // same name. Only a process with a state directory is a daemon.
+            append("    tr '\\0' '\\n' < /proc/\$p/cmdline 2>/dev/null | grep -q '^--statedir=' || continue\n")
             append("    exe=\$(readlink /proc/\$p/exe 2>/dev/null)\n")
             append("    case \"\$exe\" in ${shQuote(libDir)}*) echo SOMARK_ENV_OURS; break;; esac\n")
             append("done\n")
@@ -2711,7 +2715,9 @@ object RootUtils {
     fun setTailscaleCliInstalled(context: Context, install: Boolean): Boolean {
         return try {
             if (install) {
-                val cliBin = File(context.applicationInfo.nativeLibraryDir, "libtailscale_cli.so").absolutePath
+                // The daemon binary is the CLI too (ts_include_cli); the wrapper
+                // sets TS_BE_CLI so it runs as one.
+                val cliBin = File(context.applicationInfo.nativeLibraryDir, "libtailscale.so").absolutePath
                 val pkgName = context.packageName
 
                 val scriptContent = context.assets.open("scripts/tailscale_cli.sh").bufferedReader().use { it.readText() }

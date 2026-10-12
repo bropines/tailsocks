@@ -684,7 +684,7 @@
     },
     {
      "name": "tailscale.com",
-     "version": "v1.104.0",
+     "version": "v1.104.1",
      "url": "https://pkg.go.dev/tailscale.com",
      "license": "BSD-3-Clause",
      "texts": [
@@ -1275,15 +1275,16 @@
     },
     {
      "name": "androidx.room",
-     "version": "2.2.5",
-     "url": "https://developer.android.com/topic/libraries/architecture/index.html",
+     "version": "2.6.1",
+     "url": "https://developer.android.com/jetpack/androidx/releases/room#2.6.1",
      "license": "Apache-2.0",
      "texts": [
       "c71d239df917"
      ],
      "includes": [
-      "room-common 2.2.5",
-      "room-runtime 2.2.5"
+      "room-common 2.6.1",
+      "room-ktx 2.6.1",
+      "room-runtime 2.6.1"
      ]
     },
     {
@@ -1302,15 +1303,15 @@
     },
     {
      "name": "androidx.sqlite",
-     "version": "2.1.0",
-     "url": "https://developer.android.com/topic/libraries/architecture/index.html",
+     "version": "2.4.0",
+     "url": "https://developer.android.com/jetpack/androidx/releases/sqlite#2.4.0",
      "license": "Apache-2.0",
      "texts": [
       "c71d239df917"
      ],
      "includes": [
-      "sqlite 2.1.0",
-      "sqlite-framework 2.1.0"
+      "sqlite 2.4.0",
+      "sqlite-framework 2.4.0"
      ]
     },
     {
@@ -1414,15 +1415,15 @@
     },
     {
      "name": "androidx.work",
-     "version": "2.7.1",
-     "url": "https://developer.android.com/jetpack/androidx/releases/work#2.7.1",
+     "version": "2.10.5",
+     "url": "https://developer.android.com/jetpack/androidx/releases/work#2.10.5",
      "license": "Apache-2.0",
      "texts": [
       "c71d239df917"
      ],
      "includes": [
-      "work-runtime 2.7.1",
-      "work-runtime-ktx 2.7.1"
+      "work-runtime 2.10.5",
+      "work-runtime-ktx 2.10.5"
      ]
     },
     {

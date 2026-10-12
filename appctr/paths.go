@@ -24,9 +24,11 @@ func newPathControl(execPath, socketPath, statePath string) pathControl {
 	}
 }
 
+// TailscaledSo is the one native binary, libtailscale.so: the daemon, and the
+// CLI too since it is built with ts_include_cli — it runs as the CLI when
+// invoked under the name "tailscale" (see cliCommand).
 func (p pathControl) TailscaledSo() string         { return p.execPath }
 func (p pathControl) Tailscaled() string           { return filepath.Join(p.dataDir, "tailscaled") }
-func (p pathControl) TailscaleCliSo() string       { return filepath.Join(p.execDir, "libtailscale_cli.so") }
 func (p pathControl) Tailscale() string            { return filepath.Join(p.dataDir, "tailscale") }
 func (p pathControl) Socket() string               { return p.socketPath }
 func (p *pathControl) SetSocket(socketPath string) { p.socketPath = socketPath }

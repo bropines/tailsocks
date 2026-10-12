@@ -22,7 +22,7 @@ elif [ -f "TAILSCALE_VERSION" ]; then
     TS_VERSION=$(cat TAILSCALE_VERSION | tr -d ' \n\r')
     echo "-> Read Tailscale version from TAILSCALE_VERSION: $TS_VERSION"
 else
-    TS_VERSION="v1.104.0"
+    TS_VERSION="v1.104.1"
     echo "$TS_VERSION" > TAILSCALE_VERSION
     echo "-> Defaulting Tailscale version to: $TS_VERSION"
 fi
@@ -190,15 +190,18 @@ for ABI in $TS_ABIS; do
     export CC="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/$(abi_clang "$ABI")-clang"
     export CGO_ENABLED=1
     if [ "$GOARCH_ABI" = arm ]; then export GOARM=7; else unset GOARM; fi
-    for PART in "tailscaled:libtailscale" "tailscale:libtailscale_cli"; do
-        echo "-> Compiling ${PART%%:*} [$ABI]..."
-        GOOS=android GOARCH=$GOARCH_ABI go build -v \
-            -buildmode=pie \
-            -trimpath \
-            -tags "$TAGS" \
-            -ldflags="-s -w -buildid= -checklinkname=0 ${VERSION_LDFLAGS}" \
-            -o "tmp/${PART##*:}_${SUFFIX}.so" "./cmd/${PART%%:*}"
-    done
+    # One binary for both roles: ts_include_cli links the CLI into tailscaled,
+    # which runs as the CLI when its argv[0] is "tailscale" (or TS_BE_CLI=1) —
+    # upstream's own mechanism, cmd/tailscaled/with_cli.go. The two used to be
+    # built separately: 39-43 MB per ABI on the device, against 27-30 MB for
+    # the one (measured 2026-10-12, 1.104).
+    echo "-> Compiling tailscaled with the CLI [$ABI]..."
+    GOOS=android GOARCH=$GOARCH_ABI go build -v \
+        -buildmode=pie \
+        -trimpath \
+        -tags "$TAGS,ts_include_cli" \
+        -ldflags="-s -w -buildid= -checklinkname=0 ${VERSION_LDFLAGS}" \
+        -o "tmp/libtailscale_${SUFFIX}.so" "./cmd/tailscaled"
 done
 
 cd ..
@@ -218,7 +221,9 @@ for ABI in $TS_ABIS; do
     SUFFIX=$(abi_suffix "$ABI")
     mkdir -p "../app/src/main/jniLibs/$ABI"
     cp "tailscale_src/tmp/libtailscale_${SUFFIX}.so" "../app/src/main/jniLibs/$ABI/libtailscale.so"
-    cp "tailscale_src/tmp/libtailscale_cli_${SUFFIX}.so" "../app/src/main/jniLibs/$ABI/libtailscale_cli.so"
+    # jniLibs is not tracked, so a checkout built before the CLI moved into the
+    # daemon still holds the old separate binary, and Gradle would package it.
+    rm -f "../app/src/main/jniLibs/$ABI/libtailscale_cli.so" "tailscale_src/tmp/libtailscale_cli_${SUFFIX}.so"
 done
 
 echo "✅ Done! Ready to assemble APK."

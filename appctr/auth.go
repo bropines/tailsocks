@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
-	"os"
-	"os/exec"
 	"strings"
 	"sync"
 	"time"
@@ -64,14 +62,7 @@ func RunTailscaleArgs(parts ...string) string {
 		return netcheckText()
 	}
 	pc := getPC()
-	args := append([]string{"--socket", pc.Socket()}, parts...)
-	// The data-directory link is preferred for the process name; if it dangles
-	// (the ln shell-out failed), the library itself is executable.
-	cli := pc.Tailscale()
-	if _, err := os.Stat(cli); err != nil {
-		cli = pc.TailscaleCliSo()
-	}
-	c := exec.Command(cli, args...)
+	c := cliCommand(pc, append([]string{"--socket", pc.Socket()}, parts...)...)
 
 	isRoutineCheck := len(parts) > 0 && (parts[0] == "status" || parts[0] == "dns" || parts[0] == "netcheck" || parts[0] == "ping")
 

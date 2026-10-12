@@ -20,12 +20,12 @@ TailSocks supports advanced **Root Mode** for Android devices running root solut
   * `/data/adb/modules/tailscaled/system/bin/tailscale` (Magisk system overlay module)
   * `/product/bin/tailscale` (Live product partition overlay)
   * `/system/bin/tailscale` (Direct system link if partition is writable)
-* **Functionality:** Wraps the native `libtailscale_cli.so` binary extracted from the app package, automatically appending `--socket=/data/data/io.github.bropines.tailscaled/files/tailscaled.sock` to any command.
+* **Functionality:** Runs the app's own `libtailscale.so` as the CLI — the daemon binary has the CLI linked in (`ts_include_cli`) and the wrapper sets `TS_BE_CLI=1`, without which the same file would start a second daemon — automatically appending `--socket=/data/data/io.github.bropines.tailscaled/files/tailscaled.sock` to any command. Up to 4.9 the CLI was a separate `libtailscale_cli.so`; the wrapper is re-installed on update (section 3), so an old one never points at a file that is gone for long.
 * **Usage:** Allows running standard `tailscale` CLI commands in Termux, `su` shell, ADB shell, or scripts.
 
 ### 3. Automatic Update & Boot Sync (`BootReceiver`)
 * **Events Listened:** `ACTION_BOOT_COMPLETED`, `QUICKBOOT_POWERON`, and `ACTION_MY_PACKAGE_REPLACED`.
-* **Auto-Refresh Logic:** When TailSocks is updated (APK replaced), `BootReceiver` automatically re-installs the `service.d` daemon script and CLI wrapper script from assets. This guarantees that paths to `libtailscale.so` and `libtailscale_cli.so` inside `/data/app/...` stay perfectly aligned with the newly installed version without manual intervention.
+* **Auto-Refresh Logic:** When TailSocks is updated (APK replaced), `BootReceiver` automatically re-installs the `service.d` daemon script and CLI wrapper script from assets. This guarantees that the path to `libtailscale.so` inside `/data/app/...` stays aligned with the newly installed version without manual intervention.
 
 ### 4. Native TUN routing (`tailscale0`)
 

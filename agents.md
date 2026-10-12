@@ -8,7 +8,7 @@ This document contains mandatory rules, architectural principles, engineering st
 
 TailSocks is a hybrid, multi-layer Android client for Tailscale operating in **userspace-networking mode**:
 
-1. **Core (Go Daemon)**: Patched `tailscaled` daemon (version pinned in `appctr/TAILSCALE_VERSION`, currently v1.104.0), compiled as the native shared library `libtailscale.so` (PIE).
+1. **Core (Go Daemon)**: Patched `tailscaled` daemon (version pinned in `appctr/TAILSCALE_VERSION`, currently v1.104.1), compiled as the native shared library `libtailscale.so` (PIE). It is the CLI too: built with upstream's `ts_include_cli` tag, it runs as `tailscale` when its argv[0] is `tailscale` (the link in the data directory, `appctr/daemon.go`) or when `TS_BE_CLI=1` (the Root Mode wrapper). There is no `libtailscale_cli.so` any more; never start the binary under another name with CLI arguments — that is a second daemon.
 2. **Bridge (Go/Gomobile)**: The `appctr` module provides JNI bindings (`appctr.Appctr` in Kotlin) and handles LocalAPI v0 communication over Unix Domain Sockets (`tailscaled.sock`).
 3. **UI (Kotlin/Compose)**: High-density, no-scroll Material 3 dashboard implemented in Jetpack Compose.
 4. **TUN Engine**: System-wide transparent VPN routing, two engines. `hev-socks5-tunnel` (C) owns the `VpnService` tunnel and pushes every packet into the daemon's SOCKS5 port — still the default. Since 4.2.0 there is also the opt-in **native engine** (Settings → TUN, `tun_engine=native`): `TunVpnService` establishes the tunnel and the bridge relaunches `tailscaled` with `--tun=android-vpn` on the inherited fd, so MagicDNS, split DNS and the exit node come from the daemon itself (patches 17–19, MTU 1280). It is the short road [`docs/NATIVE_TUN_PLAN.md`](docs/NATIVE_TUN_PLAN.md) argues against — a daemon relaunch instead of an fd swap, a no-op router, no `SCM_RIGHTS` — so treat the full design as unfinished, but not the engine: that one ships and works.
@@ -60,7 +60,7 @@ When Go code, bridge JNI bindings, or Tailscale patches are modified:
 cd appctr
 bash build.sh
 ```
-*   **Dynamic Patch Pipeline**: `build.sh` downloads clean Tailscale source code, applies the atomic patches in `appctr/patches/` in alphabetical order (`01-enable-socks-android` through `16-android-somark`), and cross-compiles native `.so` binaries for 4 target architectures (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`).
+*   **Dynamic Patch Pipeline**: `build.sh` downloads clean Tailscale source code, applies the atomic patches in `appctr/patches/` in alphabetical order (`01-enable-socks-android` through `21-netmon-wake-pollers`), and cross-compiles one native `libtailscale.so` (daemon and CLI, `ts_include_cli`) for 4 target architectures (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`).
 *   **Patch Management**: If code in `appctr/tailscale_src/` is modified, recreate the atomic patch files before committing:
     ```bash
     ./appctr/patches/recreate_patches.sh
@@ -90,7 +90,7 @@ KEY_ALIAS=... KEY_PASSWORD=... ./gradlew app:assembleRelease
   * [`core/`](app/src/main/java/io/github/bropines/tailscaled/core/) — Background services, VPN tunnel, ByeDPI JNI, account storage, tasker receiver.
   * [`ui/`](app/src/main/java/io/github/bropines/tailscaled/ui/) — Jetpack Compose dashboards, settings, serve UI, and dialogs.
 * [`appctr/`](appctr/) — Go Gomobile bridge and core engine.
-  * [`patches/`](appctr/patches/) — Atomic Tailscale patch files (`01-*.patch` .. `16-*.patch`).
+  * [`patches/`](appctr/patches/) — Atomic Tailscale patch files (`01-*.patch` .. `21-*.patch`).
   * [`tailscale_src/`](appctr/tailscale_src/) — Active patched Tailscale source copy (git-ignored).
   * [`orig/`](appctr/orig/) — Original clean Tailscale sources (git-ignored).
 

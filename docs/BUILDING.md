@@ -5,10 +5,10 @@ TailSocks employs a highly automated and modular build pipeline that avoids the 
 ## The Dynamic Injection Pipeline
 
 Instead of resolving endless merge conflicts, our build script uses a dynamic code patch pipeline:
-1. **Fetch Fresh Core:** Downloads a lightweight archive of the official Tailscale source code at the version pinned in `appctr/TAILSCALE_VERSION` (currently `v1.102.1`).
+1. **Fetch Fresh Core:** Downloads a lightweight archive of the official Tailscale source code at the version pinned in `appctr/TAILSCALE_VERSION` (currently `v1.104.1`), checked against `appctr/TAILSCALE_SHA256`.
 2. **Atomic Patch Injection:** Applies a series of modular, atomic `.patch` files (located under `appctr/patches/`) to adapt the Tailscale source code for mobile features (SOCKS5 proxy support, custom file systems for Taildrop, LocalAPI certificate generation, and Android-specific network monitoring).
 3. **Aggressive Trimming:** Uses a massive array of Go build tags (`ts_omit_systray`, `ts_omit_kube`, `ts_omit_aws`, `ts_omit_bird`, `ts_omit_drive`, etc.) to strip out desktop Linux and enterprise features. 
-4. **Result:** Highly optimized `libtailscale.so` and `libtailscale_cli.so` binaries that compile quickly and operate efficiently in the Android sandbox.
+4. **Result:** One `libtailscale.so` per ABI — the daemon with the CLI linked in (`ts_include_cli`) — that compiles quickly and operates efficiently in the Android sandbox.
 
 ## Build Steps
 
@@ -19,7 +19,7 @@ cd tailsocks
 ```
 
 **2. Compile the Go core (`libtailscale.so`):**
-Because Tailscale removed CLI commands from the main daemon, we compile two separate Position Independent Executables (PIE): `tailscaled` (the core) and `tailscale` (the CLI console). This allows Android to execute them as independent child processes via `fork/exec`.
+The daemon is a Position Independent Executable (PIE) that Android runs as a child process via `fork/exec`. It is built with upstream's `ts_include_cli` tag, so the same file is also the CLI: it runs as `tailscale` when its argv[0] is `tailscale` (the app's link in its data directory) or when `TS_BE_CLI=1` is set (the Root Mode wrapper). Up to 4.9 the CLI was a second binary, `libtailscale_cli.so`; one file instead of two saves about 12 MB per ABI on the device. `build.sh` deletes a stale `libtailscale_cli.so` it finds in `jniLibs`.
 ```bash
 cd appctr
 bash build.sh
@@ -44,7 +44,7 @@ Create a keystore with `keytool -genkeypair -v -keystore tailsocks.jks -alias ta
 
 * **R8 minification and resource shrinking are on** (`isMinifyEnabled = true`, `isShrinkResources = true`). The project deliberately contains no reflection-based JSON: models are serialised with `kotlinx.serialization` (`core/AppJson.kt`), resources are never looked up by dynamic name, and the AppFunctions service constructs the KSP-generated `$Aggregated…_Impl` classes directly instead of locating them by reflection, so a shrunk build does not depend on keep rules for those paths.
 * **JNI keep verification (`verifyReleaseNativeMethods`).** The TUN library registers its Java methods by name inside `JNI_OnLoad`; if R8 ever removes an `external fun`, `System.loadLibrary` throws at runtime (this happened once and crashed every Stop). The task runs automatically after `minifyReleaseWithR8` and before `assembleRelease` / `bundleRelease`: it collects every `external fun` in `app/src/main/java`, checks that each one is matched by a keep rule in R8's `seeds.txt` and that no native member appears in `usage.txt`, and fails the build otherwise. You can run it on its own with `./gradlew :app:verifyReleaseNativeMethods` after a release build. If it fails, fix `app/proguard-rules.pro` with a plain `-keep` for `native <methods>` (not `-keepclasseswithmembernames`).
-* **Third-party licenses (`app/src/main/assets/licenses.json`).** The Open-source licenses screen reads a committed list: `python3 scripts/licenses/generate.py` writes it from what the build links — the Go module lists recorded in `libgojni.so`, `libtailscale.so` and `libtailscale_cli.so`, the artifacts of `releaseRuntimeClasspath` (through `scripts/licenses/shipped-artifacts.init.gradle.kts`), the C libraries ndk-build compiles — with the license texts from the Go module cache, the POMs and the artifacts. Run it after `appctr/build.sh` and a Gradle build whenever a dependency changes; CI runs `--check` and warns when the list no longer matches. Texts that no artifact carries are in `scripts/licenses/texts/`.
+* **Third-party licenses (`app/src/main/assets/licenses.json`).** The Open-source licenses screen reads a committed list: `python3 scripts/licenses/generate.py` writes it from what the build links — the Go module lists recorded in `libgojni.so` and `libtailscale.so`, the artifacts of `releaseRuntimeClasspath` (through `scripts/licenses/shipped-artifacts.init.gradle.kts`), the C libraries ndk-build compiles — with the license texts from the Go module cache, the POMs and the artifacts. Run it after `appctr/build.sh` and a Gradle build whenever a dependency changes; CI runs `--check` and warns when the list no longer matches. Texts that no artifact carries are in `scripts/licenses/texts/`.
 * **Version naming:** `versionName` and `versionCode` come from `version.properties` (`4.5.2` / `4050200`; a debug build adds `-dev`); the commit hash is `BuildConfig.GIT_HASH`. A release builder that updates the app itself adds `-PselfUpdate=false`.
 
 ## Installing via ADB

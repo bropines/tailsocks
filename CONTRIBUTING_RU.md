@@ -13,9 +13,10 @@ Android на VPN. Интерфейс написан на Kotlin/Compose, мос�
 ядра, а не заменяют его.
 
 **Главное правило, из которого следует почти вся структура кода: Go-демон — это
-отдельный процесс, а не библиотека внутри приложения.** `libtailscale.so` и
-`libtailscale_cli.so` — position-independent executables (PIE), которые
-приложение запускает через `fork/exec` из `jniLibs`, а дальше общается с
+отдельный процесс, а не библиотека внутри приложения.** `libtailscale.so` —
+position-independent executable (PIE), который приложение запускает через
+`fork/exec` из `jniLibs`; собранный с апстримовским тегом `ts_include_cli`, он
+же работает как CLI, когда его вызывают под именем `tailscale`. Дальше приложение общается с
 работающим процессом по unix-сокету `files/tailscaled.sock` через LocalAPI v0.
 Управление демоном никогда не оборачивает CLI-бинарник, и Kotlin никогда не
 линкует демон в себя. Если хочется позвать Go-функцию напрямую из Kotlin —
@@ -39,8 +40,8 @@ cd appctr && bash build.sh && cd ..
 ```
 
 `appctr/build.sh` скачивает версию Tailscale, зафиксированную в
-`appctr/TAILSCALE_VERSION` (сейчас `v1.104.0`), накладывает все патчи из
-`appctr/patches/`, кросс-компилирует два PIE-бинарника под `arm64-v8a`,
+`appctr/TAILSCALE_VERSION` (сейчас `v1.104.1`), накладывает все патчи из
+`appctr/patches/`, кросс-компилирует PIE-бинарник под `arm64-v8a`,
 `armeabi-v7a`, `x86` и `x86_64` в `app/src/main/jniLibs/` и собирает
 `appctr/tmp/appctr.aar`.
 

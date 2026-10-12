@@ -4,7 +4,7 @@ TailSocks provides robust Tailscale connectivity on Android by running the engin
 
 ## 1. Hybrid Communication Bridge
 The system is divided into three functional layers:
-*   **Tailscale Daemon (Core):** A Position Independent Executable (PIE) shared library (`libtailscale.so`) built from upstream source with specific build tags to exclude non-mobile components (D-Bus, Kubernetes, etc.).
+*   **Tailscale Daemon (Core):** A Position Independent Executable (PIE) shared library (`libtailscale.so`) built from upstream source with specific build tags to exclude non-mobile components (D-Bus, Kubernetes, etc.). The same file is the CLI: with upstream's `ts_include_cli` tag it runs as `tailscale` when invoked under that name (the Console) or with `TS_BE_CLI=1` (the Root Mode wrapper).
 *   **Management Bridge (`appctr`):** A Go-based controller that interacts with the daemon via local unix sockets and exposes a JNI-friendly API to the Android layer.
 *   **Kotlin/Compose UI:** The presentation layer that handles user preferences and renders real-time diagnostics.
 

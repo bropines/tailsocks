@@ -7,7 +7,7 @@ require (
 	github.com/wlynxg/anet v0.0.5
 	golang.org/x/mobile v0.0.0-20251126181937-5c265dc024c4
 	golang.org/x/net v0.59.0
-	tailscale.com v1.104.0
+	tailscale.com v1.104.1
 )
 
 require (

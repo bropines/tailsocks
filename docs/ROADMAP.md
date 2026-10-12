@@ -55,16 +55,17 @@ State as of 2026-09-20, after 4.3.0.
       making it the default instead of hev.
 - [ ] **tsnet — an idea for 5.0.** The daemon moved inside the app process. Incompatible with
       Root Mode, where it must be a separate process under `su`.
-- [ ] **The separate CLI binary.** The author's decision, deferred. The cost is measured: about
-      6 MB in every per-ABI slice, 25 MB in the universal APK, and roughly 22 MB on device
-      because native libraries are extracted at install. What it buys: the Root Mode shell
-      wrapper (`su -c tailscale …`) and a handful of Console commands that already have LocalAPI
-      equivalents.
-  - **Choose between:** (a) keep it as it is — zero work.
-  - (b) Download it on demand from the app's own GitHub release — the smallest APK, but it adds a downloader, hash verification, published CI assets, version pinning and reachability concerns, and a downloaded binary can likely only be executed by root.
-  - (c) `lite` / `full` Gradle product flavors — a contained build change, but the variant matrix doubles and CI renaming plus updater awareness follow.
-  - (d) Ship the CLI in the universal APK only — the same mechanism as (c), with the release page still at five assets (four per-ABI APKs plus the universal one).
-  - (e) The `ts_include_cli` build tag upstream offers: one binary serves both roles, `tailscaled` dispatching to the CLI when it is invoked as `tailscale`, so there is no second library at all. **Measured 2026-09-25 on arm64: 26.6 MB for the combined binary against 22.6 + 15.3 MB for the two, i.e. -11.3 MB per ABI on device.** The link the app already makes in its data directory is named `tailscale` (`daemon.go`), which is exactly the argv[0] this dispatch needs — pointing it at the daemon is the whole switch. The cheapest item on this page.
+- [x] **One binary instead of two (2026-10-12).** Option (e) of the old "separate CLI binary"
+      item: `libtailscale.so` is built with upstream's `ts_include_cli` tag and is the CLI as
+      well — it runs as `tailscale` when its argv[0] is `tailscale` (the link in the data
+      directory, which now points at the daemon) or when `TS_BE_CLI=1` (the Root Mode wrapper,
+      since a shell cannot set argv[0] portably). `libtailscale_cli.so` is gone. Measured:
+      on the device 40.0 → 28.0 MB on arm64, 39.0 → 27.1 on armeabi-v7a, 39.3 → 27.3 on x86,
+      43.2 → 30.2 on x86_64 (about −12 MB each); the release APKs against 4.9.1 lose 4.4–5.1 MB
+      per ABI (arm64 31.3 → 26.9 MB) and 19 MB universal (105.0 → 86.0 MB). The CLI's
+      behaviour is upstream's own, checked on a host build of the same tags: the `tailscale`
+      link and `TS_BE_CLI=1` give the CLI, any other name the daemon. Still owed: Console
+      and the Root wrapper (`su -c tailscale status`) on a device.
   - Note: `useLegacyPackaging` cannot be turned off — the daemon is `exec()`d from
     `nativeLibraryDir`, which requires the libraries to be extracted to disk.
 
@@ -135,6 +136,9 @@ State as of 2026-09-20, after 4.3.0.
 - [ ] **Stable Material 3.** `1.5.0-alpha27` is in use for components 1.4.0 does not have, and it
       is still the latest — no stable release exists yet. When one appears it is one line in
       `gradle/libs.versions.toml`.
+- [x] **Update Tailscale to 1.104.1 (2026-10-12).** Upstream's only code change since 1.104.0
+      is in app connectors (`appc`, overlapping route removal), which this build omits; all
+      twenty-one patches apply with `-F0`, unchanged.
 - [x] **Update Tailscale to 1.104.0 (2026-10-01).** Go 1.27.1 with it. Fifteen of the twenty
       patches applied as they were; 03, 10 and 20 only needed their context moved. Upstream now
       does two things we patched: netstack's packet pump survives a failed injection and has its

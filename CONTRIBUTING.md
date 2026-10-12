@@ -13,9 +13,10 @@ patches. Optional TUN and Root modes are built on top of that core, not instead
 of it.
 
 **The one rule that explains most of the codebase: the Go daemon is a separate
-process, not a library inside the app.** `libtailscale.so` and
-`libtailscale_cli.so` are position-independent executables (PIE) that the app
-`fork/exec`s from `jniLibs`; the app then talks to the running process over the
+process, not a library inside the app.** `libtailscale.so` is a
+position-independent executable (PIE) that the app `fork/exec`s from
+`jniLibs` — built with upstream's `ts_include_cli` tag, it is the CLI as well
+when invoked as `tailscale`; the app then talks to the running process over the
 unix socket `files/tailscaled.sock` using LocalAPI v0. Daemon management never
 wraps the CLI binary, and the Kotlin side never links the daemon in. If you find
 yourself wanting to call a Go function from Kotlin directly, the answer is
@@ -39,8 +40,8 @@ cd appctr && bash build.sh && cd ..
 ```
 
 `appctr/build.sh` downloads the Tailscale version pinned in
-`appctr/TAILSCALE_VERSION` (currently `v1.104.0`), applies every patch in
-`appctr/patches/`, cross-compiles the two PIE binaries for `arm64-v8a`,
+`appctr/TAILSCALE_VERSION` (currently `v1.104.1`), applies every patch in
+`appctr/patches/`, cross-compiles the PIE binary for `arm64-v8a`,
 `armeabi-v7a`, `x86` and `x86_64` into `app/src/main/jniLibs/`, and builds
 `appctr/tmp/appctr.aar`.
 

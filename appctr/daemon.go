@@ -58,10 +58,31 @@ func (h hostinfoReport) env() []string {
 // launch dangles. Both launch paths call this: the Root Mode attach never did,
 // so after a reinstall the Console's `status`, `netcheck` and `ping` had no
 // binary to run until the daemon was once started in userspace.
+//
+// Both names lead to the same binary. The name is what picks the role: the
+// daemon built with ts_include_cli becomes the CLI when argv[0] is "tailscale"
+// (cmd/tailscaled shouldRunCLI).
 func linkBinaries(p pathControl) {
 	rm(p.Tailscale(), p.Tailscaled())
-	ln(p.TailscaleCliSo(), p.Tailscale())
+	ln(p.TailscaledSo(), p.Tailscale())
 	ln(p.TailscaledSo(), p.Tailscaled())
+}
+
+// cliArgv0 is the name under which the combined binary acts as the CLI.
+const cliArgv0 = "tailscale"
+
+// cliCommand runs the CLI with args. The data-directory link is preferred, so
+// the process is named `tailscale` in ps as well; if it dangles (the ln
+// shell-out failed) the binary is run directly, still with argv[0]
+// "tailscale" — without that name it would start a second daemon.
+func cliCommand(p pathControl, args ...string) *exec.Cmd {
+	path := p.Tailscale()
+	if _, err := os.Stat(path); err != nil {
+		path = p.TailscaledSo()
+	}
+	c := exec.Command(path, args...)
+	c.Args[0] = cliArgv0
+	return c
 }
 
 func tailscaledCmd(p pathControl, generation uint64, dnsFallbacks string, socksAddr, httpAddr, socksUser, socksPass, taildropDir, controlProxy string, hostinfo hostinfoReport) error {

@@ -6,7 +6,7 @@
 
 What ships, read from what was built rather than from the build files:
   - Go: the module list Go records in each binary (libgojni.so in appctr/tmp/appctr.aar,
-    libtailscale.so and libtailscale_cli.so in app/src/main/jniLibs), the license texts
+    libtailscale.so — the daemon with the CLI linked in — in app/src/main/jniLibs), the license texts
     from the module cache — every LICENSE / NOTICE / COPYING in the module, nested ones too;
   - Android: the artifacts of :app's releaseRuntimeClasspath (a Gradle init script),
     licenses from their POMs, NOTICE / LICENSE files inside the artifacts;
@@ -29,7 +29,6 @@ TEXTS = os.path.join(HERE, "texts")
 GO_BINARIES = [
     ("appctr/tmp/appctr.aar", "jni/arm64-v8a/libgojni.so"),
     ("app/src/main/jniLibs/arm64-v8a/libtailscale.so", None),
-    ("app/src/main/jniLibs/arm64-v8a/libtailscale_cli.so", None),
 ]
 # Modules that are this project, or are built from a tree in it.
 GO_LOCAL = {
