@@ -86,7 +86,8 @@ class TunVpnService : VpnService() {
         // What the running device was built from, for [rebuildReason].
         @Volatile private var builtEngine: String? = null
         @Volatile private var builtSelfIps: List<String> = emptyList()
-        @Volatile private var builtFullTunnel = false
+        @Volatile private var builtDefaultV4 = false
+        @Volatile private var builtDefaultV6 = false
         @Volatile private var builtExclusions: List<TunRoutes.Cidr> = emptyList()
         @Volatile private var builtRoutes = ""
         @Volatile private var lastRouteCheckAt = 0L
@@ -198,7 +199,7 @@ class TunVpnService : VpnService() {
                 runCatching { TunRoutes.offeredRoutes(Appctr.getStatusFromAPI()) }.getOrNull() ?: return null
             } else emptyList()
             cacheOfferedRoutes(context, offered)
-            val want = TunRoutes.encode(TunRoutes.forDevice(offered, builtFullTunnel, builtExclusions))
+            val want = TunRoutes.encode(TunRoutes.forDevice(offered, builtDefaultV4, builtDefaultV6, builtExclusions))
             if (want == builtRoutes) return null
             if (lastRouteRebuildAt != 0L && now - lastRouteRebuildAt < ROUTE_REBUILD_MIN_GAP_MS) {
                 Log.i(TAG, "Accepted subnet routes changed; rebuilding after the minimum gap")
@@ -249,7 +250,6 @@ class TunVpnService : VpnService() {
         val engine: String,
         val exitNodeId: String,
         val routes: List<TunRoutes.Cidr>,
-        val exclusions: List<TunRoutes.Cidr>,
         /** Native only: whether the device's DNS is MagicDNS, see [startNativeTunInternal]. */
         val tailscaleDns: Boolean,
     ) {
@@ -395,11 +395,13 @@ class TunVpnService : VpnService() {
         val wantFullTunnel = exitNodeId.isNotEmpty()
         val (routeAll, corpDns) = routePrefs(this)
         val exclusions = appliedExclusions(this, wantFullTunnel)
+        // The default routes the device will carry, per family; see the engines' builders.
+        val defaultV4 = wantFullTunnel
+        val defaultV6 = wantFullTunnel && GlobalSettings.isTunIpv6Enabled(this)
         val plan = Plan(
             engine = engine,
             exitNodeId = exitNodeId,
-            routes = TunRoutes.forDevice(offeredRoutesNow(this, routeAll), wantFullTunnel, exclusions),
-            exclusions = exclusions,
+            routes = TunRoutes.forDevice(offeredRoutesNow(this, routeAll), defaultV4, defaultV6, exclusions),
             tailscaleDns = engine != ENGINE_NATIVE || corpDns,
         )
         val wantInputs = builderInputs(plan)
@@ -436,7 +438,8 @@ class TunVpnService : VpnService() {
         }
         builtEngine = engine
         builtSelfIps = if (engine == ENGINE_NATIVE) nativeSelfIps else emptyList()
-        builtFullTunnel = wantFullTunnel
+        builtDefaultV4 = defaultV4
+        builtDefaultV6 = defaultV6
         builtExclusions = exclusions
         builtRoutes = TunRoutes.encode(plan.routes)
     }

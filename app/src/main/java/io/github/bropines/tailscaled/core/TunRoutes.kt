@@ -174,18 +174,25 @@ object TunRoutes {
     /**
      * The subnet routes a device built now must carry.
      *
-     * Without an exit node, all of [offered] — nothing else sends them into the
-     * tunnel. Behind an exit node the default route already does, except where
-     * an "Excluded IP ranges" entry carves a hole ([appliedExclusions], only the
-     * ones Android actually applied): an accepted subnet inside such a hole
-     * still belongs to the tailnet, and its more specific route wins over the
-     * exclusion. Listing only those keeps a route change that the default route
-     * covers from rebuilding the device, which on the native engine relaunches
-     * the daemon.
+     * A route the device's default route of the same family does not cover
+     * must be listed — without an exit node that is all of [offered], and
+     * behind one the IPv6 routes too while "Route all IPv6" is off. Where a
+     * default route does cover a route, only an "Excluded IP Ranges" entry can
+     * take it away ([appliedExclusions], the ones Android actually applied): an
+     * accepted subnet inside such a hole still belongs to the tailnet, and its
+     * more specific route wins over the exclusion. Leaving the rest out keeps a
+     * route change the default route already covers from rebuilding the
+     * device, which on the native engine relaunches the daemon.
      */
-    fun forDevice(offered: List<Cidr>, fullTunnel: Boolean, appliedExclusions: List<Cidr>): List<Cidr> =
-        if (!fullTunnel) offered
-        else offered.filter { route -> appliedExclusions.any { it.overlaps(route) } }
+    fun forDevice(
+        offered: List<Cidr>,
+        defaultRouteV4: Boolean,
+        defaultRouteV6: Boolean,
+        appliedExclusions: List<Cidr>,
+    ): List<Cidr> = offered.filter { route ->
+        val covered = if (route.isV6) defaultRouteV6 else defaultRouteV4
+        !covered || appliedExclusions.any { it.overlaps(route) }
+    }
 
     private fun sorted(routes: Collection<Cidr>): List<Cidr> = routes.sortedWith(
         compareBy<Cidr>({ it.bytes.size })

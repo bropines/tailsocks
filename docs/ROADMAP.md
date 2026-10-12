@@ -48,9 +48,10 @@ State as of 2026-09-20, after 4.3.0.
       run on, and a stored `hev` stays hev (Settings → TUN → TUN engine; `hev-socks5-tunnel` is
       the compatibility engine and keeps its own settings). What was left, done in code:
       accepted subnet routes without an exit node are on the device, rebuilt from LocalAPI
-      status (both engines; behind an exit node only the ones inside an "Excluded IP Ranges"
-      entry); a start that found no node addresses comes up once the netmap is in; the
-      always-on start brings the connection up with it; with "Use MagicDNS" off the device
+      status (both engines; behind an exit node only what its default routes do not already
+      carry: routes inside an "Excluded IP Ranges" entry, and IPv6 while all-IPv6 is off); a
+      start that found no node addresses comes up once the netmap is in; the always-on start
+      brings the connection up with it; with "Use MagicDNS" off the device
       names no DNS server instead of a quad-100 that answers SERVFAIL; the device is unmetered;
       a start with the connection stopped establishes nothing. Wi‑Fi ↔ LTE, doze and Android 7/8
       needed no code that was clearly wrong; all of it is under *Verify on devices*. Stopping

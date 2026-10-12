@@ -91,21 +91,27 @@ class TunRoutesTest {
     }
 
     @Test
-    fun behindAnExitNodeOnlyRoutesInAnExcludedRangeAreListed() {
+    fun routesTheDefaultRouteCoversAreLeftOutUnlessExcluded() {
         val offered = TunRoutes.offeredRoutes(status)!!
+        val none = emptyList<TunRoutes.Cidr>()
         // Split tunnel: every subnet route has to be on the device.
-        assertEquals(offered, TunRoutes.forDevice(offered, fullTunnel = false, appliedExclusions = emptyList()))
-        // Full tunnel without exclusions: the default route already carries them.
-        assertEquals(emptyList<TunRoutes.Cidr>(), TunRoutes.forDevice(offered, fullTunnel = true, appliedExclusions = emptyList()))
-        // The default "Excluded IP ranges": the private subnets punch back through.
+        assertEquals(offered, TunRoutes.forDevice(offered, defaultRouteV4 = false, defaultRouteV6 = false, appliedExclusions = none))
+        // Exit node with "Route all IPv6": both default routes carry everything.
+        assertEquals(none, TunRoutes.forDevice(offered, defaultRouteV4 = true, defaultRouteV6 = true, appliedExclusions = none))
+        // Exit node without it: IPv6 has no default route, so the v6 subnet stays listed.
+        assertEquals(
+            listOf("2001:db8:1:0:0:0:0:0/64"),
+            TunRoutes.forDevice(offered, defaultRouteV4 = true, defaultRouteV6 = false, appliedExclusions = none).map { it.toString() }
+        )
+        // The default "Excluded IP Ranges": the private subnets punch back through.
         val lanRanges = listOf("192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12").map { TunRoutes.parse(it)!! }
         assertEquals(
             listOf("10.20.0.0/16", "192.168.50.0/24"),
-            TunRoutes.forDevice(offered, fullTunnel = true, appliedExclusions = lanRanges).map { it.toString() }
+            TunRoutes.forDevice(offered, defaultRouteV4 = true, defaultRouteV6 = true, appliedExclusions = lanRanges).map { it.toString() }
         )
         // A route wider than the exclusion still overlaps it.
         val narrow = listOf(TunRoutes.parse("10.20.30.0/24")!!)
-        assertEquals(listOf("10.20.0.0/16"), TunRoutes.forDevice(offered, true, narrow).map { it.toString() })
+        assertEquals(listOf("10.20.0.0/16"), TunRoutes.forDevice(offered, true, true, narrow).map { it.toString() })
     }
 
     @Test
