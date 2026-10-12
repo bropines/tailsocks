@@ -1,0 +1,420 @@
+package appctr
+
+// remote_store.go — the pairings of remote management, on disk.
+//
+// One JSON file per profile, files/remote/<profile>.json, mode 0600 in a 0700
+// directory, replaced atomically. It holds verifiers, not secrets: the SHA-256
+// of each device's token, never the token. A file that cannot be read or
+// parsed is set aside as <name>.corrupt and the list starts empty — a damaged
+// store must not let anyone in.
+//
+// Expiry and the clock. A TV's wall clock is the least trustworthy thing on
+// it: no battery behind it, wrong until the first time sync, free to jump. So
+// a deadline is kept three ways and they are used in this order:
+//
+//   - Within one boot the deadline is a reading of the boot-time clock
+//     (CLOCK_BOOTTIME: monotonic, and it keeps counting while the device
+//     sleeps). No change of the wall clock, in either direction, moves it.
+//   - Across a reboot that clock starts over, so the wall clock has to be
+//     consulted once: the first time an entry is seen in a new boot, what it
+//     has left is taken from its wall-clock deadline — but never more than it
+//     had left when the file was last written. A clock that is behind
+//     therefore cannot extend a pairing, and time spent switched off counts
+//     whenever the clock is right. A clock that is ahead ends guest pairings
+//     early, which is the safe direction. From then on the boot-time clock
+//     decides again.
+//   - "What it had left when the file was last written" is refreshed on every
+//     save, and at least every remoteTouchEvery while any pairing is in use.
+//
+// What this does not survive: after a reboot with the clock behind, a guest
+// gets back the time since the file was last written — the time the device
+// was off, plus at most remoteTouchEvery if a pairing was in use, or however
+// long they all sat idle — and never more than the pairing's own term. Doing
+// that on purpose takes the device in one's hands, where one could just as
+// well pair again. Pairings that never expire (owners, by default) are
+// untouched by any of this.
+
+import (
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"log/slog"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+	"unicode"
+)
+
+const (
+	remoteStoreVersion = 1
+	remoteAuditMax     = 100
+	// remoteTouchEvery is how often a store in use is rewritten just to
+	// refresh "seconds left" and "last used".
+	remoteTouchEvery = 10 * time.Minute
+)
+
+// remoteClock is the two clocks expiry needs. Boot identifies the current
+// boot and says how long it has been running, sleep included.
+type remoteClock interface {
+	Now() time.Time
+	Boot() (id string, up time.Duration)
+}
+
+// remotePairing is one device that may manage this one.
+type remotePairing struct {
+	NodeID string `json:"nodeId"` // the device's StableNodeID: the key
+	UserID int64  `json:"userId"` // its user when it paired; a transferred node no longer matches
+	Login  string `json:"login,omitempty"`
+	Name   string `json:"name"`  // the device's name when it paired
+	Class  string `json:"class"` // "owner" or "guest"
+	// Created and Expires are Unix seconds on the wall clock, for people;
+	// Expires is 0 for "until revoked".
+	Created  int64 `json:"created"`
+	Expires  int64 `json:"expires"`
+	LastUsed int64 `json:"lastUsed,omitempty"`
+	// TokenSHA256 is the hex SHA-256 of the token the device holds.
+	TokenSHA256 string `json:"tokenSha256"`
+	// The deadline as the boot-time clock has it — seconds since the boot
+	// named by Boot — and the seconds left when the file was last written.
+	Boot         string `json:"boot,omitempty"`
+	BootDeadline int64  `json:"bootDeadline,omitempty"`
+	Left         int64  `json:"left,omitempty"`
+}
+
+// remoteEvent is one line of the action log.
+type remoteEvent struct {
+	Time   int64  `json:"time"`
+	NodeID string `json:"nodeId,omitempty"`
+	Name   string `json:"name,omitempty"`
+	Class  string `json:"class,omitempty"`
+	Op     string `json:"op"`
+	Detail string `json:"detail,omitempty"`
+	OK     bool   `json:"ok"`
+}
+
+type remoteStoreData struct {
+	Version int `json:"version"`
+	// Self is the StableNodeID of this node when the pairings were made. They
+	// belong to that identity: a store that turns up under another node — a
+	// new login, a device transfer — is emptied.
+	Self     string          `json:"self,omitempty"`
+	Pairings []remotePairing `json:"pairings"`
+	Audit    []remoteEvent   `json:"audit,omitempty"`
+}
+
+type remoteStore struct {
+	path    string
+	clock   remoteClock
+	data    remoteStoreData
+	savedAt time.Duration // boot-clock reading of the last save
+}
+
+// openRemoteStore reads the store at path, or starts an empty one when there
+// is none or it is damaged.
+func openRemoteStore(path string, clock remoteClock) *remoteStore {
+	s := &remoteStore{path: path, clock: clock, data: remoteStoreData{Version: remoteStoreVersion}}
+	_, s.savedAt = clock.Boot()
+	raw, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return s
+	}
+	if err == nil {
+		err = s.decode(raw)
+	}
+	if err != nil {
+		slog.Error("Remote management: the pairings file is unusable, starting with none", "err", err)
+		_ = os.Rename(path, path+".corrupt")
+		s.data = remoteStoreData{Version: remoteStoreVersion}
+		s.audit(remoteEvent{Time: clock.Now().Unix(), Op: "reset", Detail: "the pairings file was unreadable"})
+		return s
+	}
+	s.rebase()
+	return s
+}
+
+// decode parses raw and keeps only entries that are whole. Any doubt about the
+// file as a whole is an error; a single malformed entry is dropped.
+func (s *remoteStore) decode(raw []byte) error {
+	var d remoteStoreData
+	if err := json.Unmarshal(raw, &d); err != nil {
+		return err
+	}
+	if d.Version != remoteStoreVersion {
+		return fmt.Errorf("version %d, want %d", d.Version, remoteStoreVersion)
+	}
+	seen := map[string]bool{}
+	kept := d.Pairings[:0]
+	for _, p := range d.Pairings {
+		if p.NodeID == "" || seen[p.NodeID] || remoteClassOf(p.Class) == remoteNobody || !remoteIsTokenHash(p.TokenSHA256) {
+			slog.Warn("Remote management: dropping a malformed pairing", "node", remoteClean(p.NodeID, 64))
+			continue
+		}
+		seen[p.NodeID] = true
+		p.Name = remoteClean(p.Name, 64)
+		p.Login = remoteClean(p.Login, 128)
+		kept = append(kept, p)
+	}
+	d.Pairings = kept
+	if len(d.Audit) > remoteAuditMax {
+		d.Audit = d.Audit[len(d.Audit)-remoteAuditMax:]
+	}
+	s.data = d
+	return nil
+}
+
+// rebase moves the deadlines of entries from another boot onto this boot's
+// clock; see the note at the top.
+func (s *remoteStore) rebase() {
+	boot, up := s.clock.Boot()
+	now := s.clock.Now().Unix()
+	upSec := int64(up / time.Second)
+	for i := range s.data.Pairings {
+		p := &s.data.Pairings[i]
+		if p.Expires == 0 || p.Boot == boot {
+			continue
+		}
+		left := p.Expires - now
+		if left > p.Left {
+			left = p.Left
+		}
+		if left < 0 {
+			left = 0
+		}
+		p.Boot = boot
+		p.BootDeadline = upSec + left
+		p.Left = left
+	}
+}
+
+// arm gives p a lifetime of ttl from now; 0 is until revoked.
+func (s *remoteStore) arm(p *remotePairing, ttl time.Duration) {
+	now := s.clock.Now()
+	p.Created = now.Unix()
+	p.Expires, p.Boot, p.BootDeadline, p.Left = 0, "", 0, 0
+	if ttl <= 0 {
+		return
+	}
+	boot, up := s.clock.Boot()
+	p.Expires = now.Add(ttl).Unix()
+	p.Boot = boot
+	p.BootDeadline = int64((up + ttl) / time.Second)
+	p.Left = int64(ttl / time.Second)
+}
+
+// left is the seconds p has left: -1 for "until revoked", 0 when it is over.
+func (s *remoteStore) left(p *remotePairing) int64 {
+	if p.Expires == 0 {
+		return -1
+	}
+	boot, up := s.clock.Boot()
+	if p.Boot != boot {
+		// Only an entry added behind rebase's back; treat it as rebase would.
+		s.rebase()
+	}
+	left := p.BootDeadline - int64(up/time.Second)
+	if left < 0 {
+		left = 0
+	}
+	return left
+}
+
+// expire removes the pairings whose time is up and returns them.
+func (s *remoteStore) expire() []remotePairing {
+	var gone []remotePairing
+	kept := s.data.Pairings[:0]
+	for i := range s.data.Pairings {
+		p := s.data.Pairings[i]
+		if s.left(&s.data.Pairings[i]) == 0 {
+			gone = append(gone, p)
+			continue
+		}
+		kept = append(kept, s.data.Pairings[i])
+	}
+	s.data.Pairings = kept
+	return gone
+}
+
+func (s *remoteStore) find(nodeID string) *remotePairing {
+	if nodeID == "" {
+		return nil
+	}
+	for i := range s.data.Pairings {
+		if s.data.Pairings[i].NodeID == nodeID {
+			return &s.data.Pairings[i]
+		}
+	}
+	return nil
+}
+
+// put adds p, replacing the entry of the same node: a device that pairs again
+// gets a new token and the old one stops working.
+func (s *remoteStore) put(p remotePairing) {
+	if old := s.find(p.NodeID); old != nil {
+		*old = p
+		return
+	}
+	s.data.Pairings = append(s.data.Pairings, p)
+}
+
+func (s *remoteStore) remove(nodeID string) bool {
+	for i := range s.data.Pairings {
+		if s.data.Pairings[i].NodeID == nodeID {
+			s.data.Pairings = append(s.data.Pairings[:i], s.data.Pairings[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
+func (s *remoteStore) audit(ev remoteEvent) {
+	ev.Name = remoteClean(ev.Name, 64)
+	ev.Detail = remoteClean(ev.Detail, 160)
+	s.data.Audit = append(s.data.Audit, ev)
+	if len(s.data.Audit) > remoteAuditMax {
+		s.data.Audit = s.data.Audit[len(s.data.Audit)-remoteAuditMax:]
+	}
+}
+
+// save writes the store: a temporary file beside it, synced, then renamed, so
+// a crash leaves the old list or the new one, never half of either.
+func (s *remoteStore) save() error {
+	_, up := s.clock.Boot()
+	for i := range s.data.Pairings {
+		if p := &s.data.Pairings[i]; p.Expires != 0 {
+			p.Left = s.left(p)
+		}
+	}
+	if s.data.Pairings == nil {
+		s.data.Pairings = []remotePairing{}
+	}
+	s.data.Version = remoteStoreVersion
+	raw, err := json.MarshalIndent(s.data, "", "\t")
+	if err != nil {
+		return err
+	}
+	dir := filepath.Dir(s.path)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(dir, filepath.Base(s.path)+".*.tmp")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+	if err := tmp.Chmod(0o600); err != nil {
+		tmp.Close()
+		return err
+	}
+	if _, err := tmp.Write(raw); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp.Name(), s.path); err != nil {
+		return err
+	}
+	s.savedAt = up
+	return nil
+}
+
+// stale reports whether the file is older than remoteTouchEvery.
+func (s *remoteStore) stale() bool {
+	_, up := s.clock.Boot()
+	return up-s.savedAt >= remoteTouchEvery
+}
+
+// ─── Tokens and codes ───────────────────────────────────────────────────────
+
+// remoteNewToken returns a fresh token — 32 bytes from the system's CSPRNG,
+// base64url — and the hash the store keeps.
+func remoteNewToken() (token, hash string, err error) {
+	var b [32]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return "", "", err
+	}
+	token = base64.RawURLEncoding.EncodeToString(b[:])
+	return token, remoteHashToken(token), nil
+}
+
+func remoteHashToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
+}
+
+func remoteIsTokenHash(s string) bool {
+	if len(s) != sha256.Size*2 {
+		return false
+	}
+	_, err := hex.DecodeString(s)
+	return err == nil
+}
+
+// remoteTokenMatches compares a presented token with a stored hash without
+// letting the time taken say how much of it matched.
+func remoteTokenMatches(token, hash string) bool {
+	if token == "" || len(token) > 128 {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(remoteHashToken(token)), []byte(hash)) == 1
+}
+
+// remoteNewCode returns six decimal digits, uniform over 000000–999999.
+func remoteNewCode() (string, error) {
+	// 2^32 is not a multiple of 10^6, so the values above the last whole
+	// multiple are thrown away rather than folded in.
+	const span = 1_000_000
+	const limit = (1 << 32) / span * span
+	for {
+		var b [4]byte
+		if _, err := rand.Read(b[:]); err != nil {
+			return "", err
+		}
+		v := uint32(b[0])<<24 | uint32(b[1])<<16 | uint32(b[2])<<8 | uint32(b[3])
+		if uint64(v) < limit {
+			return fmt.Sprintf("%06d", v%span), nil
+		}
+	}
+}
+
+// remoteIsCode reports whether s has the shape of a pairing code.
+func remoteIsCode(s string) bool {
+	if len(s) != 6 {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// remoteClean makes a string from the network fit to store, log and show: no
+// control or formatting characters, at most max runes.
+func remoteClean(s string, max int) string {
+	var b strings.Builder
+	n := 0
+	for _, r := range s {
+		if n >= max {
+			break
+		}
+		if r == unicode.ReplacementChar || unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {
+			continue
+		}
+		b.WriteRune(r)
+		n++
+	}
+	return strings.TrimSpace(b.String())
+}
