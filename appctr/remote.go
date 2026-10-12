@@ -323,6 +323,8 @@ func remoteRelease() {
 	if remote.release() {
 		slog.Info("Remote management: listener closed")
 	}
+	// And the managing side: its connections ran through that daemon's proxy.
+	remoteClient.closeIdle()
 }
 
 // remoteListener is the endpoint while it is up. Both halves are closed on
