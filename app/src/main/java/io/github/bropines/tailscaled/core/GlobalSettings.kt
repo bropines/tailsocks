@@ -249,6 +249,12 @@ object GlobalSettings {
         getString(context, KEY_UI_SCALE, "100").toIntOrNull()?.takeIf { it in UI_SCALES } ?: 100
     fun setUiScale(context: Context, percent: Int) = setString(context, KEY_UI_SCALE, percent.toString())
 
+    /** Settings → Appearance → Interface: what this device is taken for (core/DeviceProfile.kt); auto when unset. */
+    const val KEY_DEVICE_OVERRIDE = "ui_device_override"
+    fun getDeviceOverride(context: Context): DeviceOverride =
+        DeviceOverride.fromId(getPrefs(context).getString(KEY_DEVICE_OVERRIDE, null))
+    fun setDeviceOverride(context: Context, override: DeviceOverride) = setString(context, KEY_DEVICE_OVERRIDE, override.id)
+
     fun isDynamicColorEnabled(context: Context): Boolean = getBoolean(context, KEY_DYNAMIC_COLOR, true)
     fun setDynamicColorEnabled(context: Context, enabled: Boolean) = setBoolean(context, KEY_DYNAMIC_COLOR, enabled)
 
@@ -526,6 +532,9 @@ object GlobalSettings {
      *  - `last_seen_changelog_version` — install-local bookkeeping.
      *  - `app_locale` — applied at attachBaseContext, so a restored value only
      *    takes effect after a restart and reads as a glitch until then.
+     *  - `ui_device_override` — says what *this* device is taken for; a phone's
+     *    backup restored on a television must not make it a phone, nor the
+     *    other way round.
      */
     val EXPORTED_KEYS: Set<String> = setOf(
         // Local listeners
