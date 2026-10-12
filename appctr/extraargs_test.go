@@ -1,10 +1,14 @@
 package appctr
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
 	"testing"
+
+	"tailscale.com/ipn"
 )
 
 func TestTokenizeArgs(t *testing.T) {
@@ -218,5 +222,128 @@ func TestApplyExtraArgsOverridesAppKeys(t *testing.T) {
 	}
 	if got := applyExtraArgs(prefs, ""); got != nil {
 		t.Errorf("applyExtraArgs with no args = %v, want nil", got)
+	}
+}
+
+func TestExtraArgPrefsAppConnector(t *testing.T) {
+	for _, tt := range []struct {
+		in   string
+		want bool
+	}{
+		{"--advertise-connector", true},
+		{"--advertise-connector=false", false},
+		{"--no-advertise-connector", false},
+	} {
+		prefs, warnings := collect(t, tt.in)
+		if len(warnings) != 0 {
+			t.Fatalf("%s: unexpected warnings: %q", tt.in, warnings)
+		}
+		want := map[string]any{"Advertise": tt.want}
+		if !reflect.DeepEqual(prefs["AppConnector"], want) || prefs["AppConnectorSet"] != true {
+			t.Errorf("%s: AppConnector = %v (set %v), want %v", tt.in, prefs["AppConnector"], prefs["AppConnectorSet"], want)
+		}
+	}
+}
+
+func TestExtraArgPrefsRelayServer(t *testing.T) {
+	prefs, warnings := collect(t, `--relay-server-port=40000 --relay-server-static-endpoints=203.0.113.7:40000,[2001:db8::1]:40000,203.0.113.7:40000`)
+	if len(warnings) != 0 {
+		t.Fatalf("unexpected warnings: %q", warnings)
+	}
+	if prefs["RelayServerPort"] != uint16(40000) || prefs["RelayServerPortSet"] != true {
+		t.Errorf("RelayServerPort = %#v", prefs["RelayServerPort"])
+	}
+	wantEps := []string{"203.0.113.7:40000", "[2001:db8::1]:40000"}
+	if !reflect.DeepEqual(prefs["RelayServerStaticEndpoints"], wantEps) {
+		t.Errorf("RelayServerStaticEndpoints = %v, want %v", prefs["RelayServerStaticEndpoints"], wantEps)
+	}
+
+	// Zero asks for any free port; an empty value turns the relay off.
+	prefs, _ = collect(t, `--relay-server-port 0`)
+	if prefs["RelayServerPort"] != uint16(0) {
+		t.Errorf("--relay-server-port 0: RelayServerPort = %#v", prefs["RelayServerPort"])
+	}
+	prefs, _ = collect(t, `--relay-server-port=`)
+	if v, ok := prefs["RelayServerPort"]; !ok || v != nil || prefs["RelayServerPortSet"] != true {
+		t.Errorf("--relay-server-port=: RelayServerPort = %#v (present %v), want an explicit nil", v, ok)
+	}
+	if got := ExtraArgsPrefsJSON(`--relay-server-port=`); got != `{"RelayServerPort":null,"RelayServerPortSet":true}` {
+		t.Errorf("ExtraArgsPrefsJSON = %s", got)
+	}
+
+	for _, bad := range []string{`--relay-server-port=70000`, `--relay-server-port=abc`, `--relay-server-static-endpoints=203.0.113.7`} {
+		prefs, warnings := collect(t, bad)
+		if len(prefs) != 0 || len(warnings) == 0 {
+			t.Errorf("%s: prefs %v, warnings %q; want nothing applied and a warning", bad, prefs, warnings)
+		}
+	}
+}
+
+func TestExtraArgsPrefsJSON(t *testing.T) {
+	if got := ExtraArgsPrefsJSON(""); got != "{}" {
+		t.Errorf("ExtraArgsPrefsJSON(\"\") = %s", got)
+	}
+	if got := ExtraArgsPrefsJSON("--frobnicate"); got != "{}" {
+		t.Errorf("ExtraArgsPrefsJSON(unknown) = %s", got)
+	}
+	if got := ExtraArgsPrefsJSON("--shields-up --report-posture=false"); got != `{"PostureChecking":false,"PostureCheckingSet":true,"ShieldsUp":true,"ShieldsUpSet":true}` {
+		t.Errorf("ExtraArgsPrefsJSON = %s", got)
+	}
+}
+
+func TestMergeClientPrefs(t *testing.T) {
+	prefs := map[string]any{"RouteAll": true, "RouteAllSet": true}
+	client := mergeClientPrefs(prefs, `{"ShieldsUp":true,"ShieldsUpSet":true,"RelayServerPort":null,"RelayServerPortSet":true}`)
+	if prefs["ShieldsUp"] != true || prefs["RouteAll"] != true || len(client) != 4 {
+		t.Errorf("merged prefs = %v, client = %v", prefs, client)
+	}
+	if v, ok := prefs["RelayServerPort"]; !ok || v != nil {
+		t.Errorf("an explicit null was lost: %#v", v)
+	}
+	// The extra arguments come after the switches and win.
+	applyExtraArgs(prefs, "--no-shields-up")
+	if prefs["ShieldsUp"] != false {
+		t.Errorf("extra arguments did not override a switch: %v", prefs)
+	}
+	for _, raw := range []string{"", "  ", "not json", "[1,2]"} {
+		before := len(prefs)
+		if got := mergeClientPrefs(prefs, raw); got != nil || len(prefs) != before {
+			t.Errorf("mergeClientPrefs(%q) = %v, prefs grew to %d", raw, got, len(prefs))
+		}
+	}
+}
+
+// The names are only strings here; this holds them to the daemon's own type, so
+// a field upstream renames fails a test instead of a PATCH.
+func TestExtraArgPrefsDecodeAsMaskedPrefs(t *testing.T) {
+	prefs, warnings := collect(t, `--shields-up --exit-node-allow-lan-access --report-posture --advertise-connector `+
+		`--relay-server-port=40000 --relay-server-static-endpoints=203.0.113.7:40000`)
+	if len(warnings) != 0 {
+		t.Fatalf("unexpected warnings: %q", warnings)
+	}
+	b, err := json.Marshal(prefs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dec := json.NewDecoder(bytes.NewReader(b))
+	dec.DisallowUnknownFields()
+	var mp ipn.MaskedPrefs
+	if err := dec.Decode(&mp); err != nil {
+		t.Fatalf("%s does not decode as ipn.MaskedPrefs: %v", b, err)
+	}
+	if !mp.ShieldsUpSet || !mp.ShieldsUp || !mp.ExitNodeAllowLANAccessSet || !mp.ExitNodeAllowLANAccess ||
+		!mp.PostureCheckingSet || !mp.PostureChecking || !mp.AppConnectorSet || !mp.AppConnector.Advertise ||
+		!mp.RelayServerPortSet || mp.RelayServerPort == nil || *mp.RelayServerPort != 40000 ||
+		!mp.RelayServerStaticEndpointsSet || len(mp.RelayServerStaticEndpoints) != 1 {
+		t.Errorf("decoded %+v from %s", mp, b)
+	}
+
+	// Turning the relay off is an explicit null, which must clear the port.
+	var off ipn.MaskedPrefs
+	if err := json.Unmarshal([]byte(ExtraArgsPrefsJSON("--relay-server-port=")), &off); err != nil {
+		t.Fatal(err)
+	}
+	if !off.RelayServerPortSet || off.RelayServerPort != nil {
+		t.Errorf("relay off decoded as set=%v port=%v", off.RelayServerPortSet, off.RelayServerPort)
 	}
 }

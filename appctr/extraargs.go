@@ -1,8 +1,11 @@
 package appctr
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/netip"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -52,44 +55,46 @@ var supportedUpFlags = map[string]flagKind{
 	"exit-node-allow-lan-access": kindBool,   // ipn.Prefs.ExitNodeAllowLANAccess
 	"report-posture":             kindBool,   // ipn.Prefs.PostureChecking
 	"advertise-exit-node":        kindBool,   // folded into ipn.Prefs.AdvertiseRoutes
+	"advertise-connector":        kindBool,   // ipn.Prefs.AppConnector.Advertise
 	"advertise-routes":           kindString, // ipn.Prefs.AdvertiseRoutes
 	"advertise-tags":             kindString, // ipn.Prefs.AdvertiseTags
 	"hostname":                   kindString, // ipn.Prefs.Hostname
 	"login-server":               kindString, // ipn.Prefs.ControlURL
+	// ipn.Prefs.RelayServerPort; an empty value turns the relay off.
+	"relay-server-port": kindString,
+	// ipn.Prefs.RelayServerStaticEndpoints; an empty value clears them.
+	"relay-server-static-endpoints": kindString,
 }
 
 // refusedUpFlags are real `tailscale up` flags that are deliberately not
 // honoured here, each with the reason the user is told.
 var refusedUpFlags = map[string]string{
-	"exit-node":                     "the exit node is chosen in the app, which owns ExitNodeID",
-	"auth-key":                      "use the app's own Auth Key field",
-	"audience":                      "workload identity federation is not used by this app",
-	"client-id":                     "workload identity federation is not used by this app",
-	"client-secret":                 "workload identity federation is not used by this app",
-	"id-token":                      "workload identity federation is not used by this app",
-	"force-reauth":                  "CLI-only flag with no preference behind it",
-	"reset":                         "CLI-only flag with no preference behind it",
-	"qr":                            "CLI-only flag with no preference behind it",
-	"qr-format":                     "CLI-only flag with no preference behind it",
-	"json":                          "CLI-only flag with no preference behind it",
-	"timeout":                       "CLI-only flag with no preference behind it",
-	"accept-risk":                   "CLI-only flag with no preference behind it",
-	"host-routes":                   "CLI-only flag with no preference behind it",
-	"operator":                      "Linux-only; there is no unprivileged operator user on Android",
-	"snat-subnet-routes":            "Linux-only; a userspace node has no netfilter rules to manage",
-	"stateful-filtering":            "Linux-only; a userspace node has no netfilter rules to manage",
-	"netfilter-mode":                "Linux-only; a userspace node has no netfilter rules to manage",
-	"unattended":                    "Windows-only",
-	"auto-update":                   "the Android build does not update itself",
-	"update-check":                  "the Android build does not update itself",
-	"nickname":                      "upstream `tailscale up` cannot change the profile name either",
-	"webclient":                     "the Web UI switch in the app owns RunWebClient",
-	"advertise-connector":           "app connectors are not offered by this app",
-	"advertise-services":            "service advertisement is not offered by this app",
-	"remote-config":                 "hands the tailnet admin full control of this node; not exposed here",
-	"relay-server-port":             "the relay server is not offered by this app",
-	"relay-server-static-endpoints": "the relay server is not offered by this app",
-	"sync":                          "an upstream testing knob, not a user setting",
+	"exit-node":          "the exit node is chosen in the app, which owns ExitNodeID",
+	"auth-key":           "use the app's own Auth Key field",
+	"audience":           "workload identity federation is not used by this app",
+	"client-id":          "workload identity federation is not used by this app",
+	"client-secret":      "workload identity federation is not used by this app",
+	"id-token":           "workload identity federation is not used by this app",
+	"force-reauth":       "CLI-only flag with no preference behind it",
+	"reset":              "CLI-only flag with no preference behind it",
+	"qr":                 "CLI-only flag with no preference behind it",
+	"qr-format":          "CLI-only flag with no preference behind it",
+	"json":               "CLI-only flag with no preference behind it",
+	"timeout":            "CLI-only flag with no preference behind it",
+	"accept-risk":        "CLI-only flag with no preference behind it",
+	"host-routes":        "CLI-only flag with no preference behind it",
+	"operator":           "Linux-only; there is no unprivileged operator user on Android",
+	"snat-subnet-routes": "Linux-only; a userspace node has no netfilter rules to manage",
+	"stateful-filtering": "Linux-only; a userspace node has no netfilter rules to manage",
+	"netfilter-mode":     "Linux-only; a userspace node has no netfilter rules to manage",
+	"unattended":         "Windows-only",
+	"auto-update":        "the Android build does not update itself",
+	"update-check":       "the Android build does not update itself",
+	"nickname":           "upstream `tailscale up` cannot change the profile name either",
+	"webclient":          "the Web UI switch in the app owns RunWebClient",
+	"advertise-services": "service advertisement is not offered by this app",
+	"remote-config":      "hands the tailnet admin full control of this node; not exposed here",
+	"sync":               "an upstream testing knob, not a user setting",
 }
 
 // tokenizeArgs splits a raw argument line into tokens. It understands single
@@ -340,6 +345,22 @@ func extraArgPrefs(raw string, warnf func(format string, args ...any)) map[strin
 			if _, v, ok := boolValue(f, warnf); ok {
 				set("PostureChecking", v)
 			}
+		case "advertise-connector":
+			if _, v, ok := boolValue(f, warnf); ok {
+				set("AppConnector", map[string]any{"Advertise": v})
+			}
+		case "relay-server-port":
+			if v, ok := stringValue(f, warnf); ok {
+				if port, ok := parseRelayServerPort(f, v, warnf); ok {
+					set("RelayServerPort", port)
+				}
+			}
+		case "relay-server-static-endpoints":
+			if v, ok := stringValue(f, warnf); ok {
+				if eps, ok := parseRelayStaticEndpoints(f, v, warnf); ok {
+					set("RelayServerStaticEndpoints", eps)
+				}
+			}
 		case "advertise-exit-node":
 			if _, v, ok := boolValue(f, warnf); ok {
 				advExitNode, haveAdvExitNode = v, true
@@ -425,6 +446,65 @@ func parseAdvertiseTags(f upFlag, v string, warnf func(string, ...any)) ([]strin
 		tags = append(tags, tag)
 	}
 	return tags, true
+}
+
+// parseRelayServerPort reads --relay-server-port the way cmd/tailscale/cli/set.go
+// does: a UDP port, 0 for any free one, and an empty value for "no relay
+// server" — a nil RelayServerPort.
+func parseRelayServerPort(f upFlag, v string, warnf func(string, ...any)) (any, bool) {
+	if strings.TrimSpace(v) == "" {
+		return nil, true
+	}
+	port, err := strconv.ParseUint(strings.TrimSpace(v), 10, 16)
+	if err != nil {
+		warnf("%s: %q is not a UDP port (0–65535); flag ignored", f.raw, v)
+		return nil, false
+	}
+	return uint16(port), true
+}
+
+// parseRelayStaticEndpoints reads --relay-server-static-endpoints as upstream
+// does: comma-separated IP:port pairs, sorted and deduplicated; an empty value
+// clears them. One bad entry drops the whole flag.
+func parseRelayStaticEndpoints(f upFlag, v string, warnf func(string, ...any)) ([]string, bool) {
+	eps := []string{}
+	if strings.TrimSpace(v) == "" {
+		return eps, true
+	}
+	var parsed []netip.AddrPort
+	for _, s := range strings.Split(v, ",") {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		ap, err := netip.ParseAddrPort(s)
+		if err != nil {
+			warnf("%s: %q is not a valid IP:port; flag ignored", f.raw, s)
+			return nil, false
+		}
+		parsed = append(parsed, ap)
+	}
+	slices.SortFunc(parsed, netip.AddrPort.Compare)
+	for _, ap := range slices.Compact(parsed) {
+		eps = append(eps, ap.String())
+	}
+	return eps, true
+}
+
+// ExtraArgsPrefsJSON is what the given "Extra Arguments" line sets, as the
+// ipn.MaskedPrefs fields (with their …Set flags) syncSettings would add to its
+// PATCH — "{}" when it sets nothing. Settings reads it to show which of its
+// switches a typed flag overrides, so the two never disagree in silence.
+func ExtraArgsPrefsJSON(raw string) string {
+	prefs := extraArgPrefs(raw, nil)
+	if len(prefs) == 0 {
+		return "{}"
+	}
+	b, err := json.Marshal(prefs)
+	if err != nil {
+		return "{}"
+	}
+	return string(b)
 }
 
 // applyExtraArgs folds the user's "Extra Arguments" into prefs, on top of the

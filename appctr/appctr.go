@@ -208,6 +208,13 @@ type StartOptions struct {
 	// last time (TS_USE_CACHED_NETMAP=false, see netmapCacheEnv). The zero value
 	// keeps upstream's default, under which the coordination server decides.
 	NetmapCacheOff bool
+	// ClientPrefs carries the node switches Settings owns beyond the fields
+	// above — shields up, LAN access through an exit node, posture reporting,
+	// the peer relay, the app connector — as a JSON object of ipn.MaskedPrefs
+	// fields with their …Set flags. Only switches the user has set are in it,
+	// so one set from the CLI is left alone until touched. syncSettings PATCHes
+	// it with the keys above, before ExtraUpArgs, so a typed flag still wins.
+	ClientPrefs string
 }
 
 func SetLogLevel(level int32) {
@@ -505,12 +512,15 @@ func syncSettings(ctx context.Context, opt *StartOptions) {
 		prefs["WantRunning"] = true
 		prefs["WantRunningSet"] = true
 
-		// The user's "Extra Arguments" are parsed as `tailscale up` flags and
-		// folded in last, on top of the keys above, so the escape hatch can
-		// override the app's own settings — that is the whole point of it.
-		// Keep the app-only payload around: the daemon validates the whole
-		// MaskedPrefs batch at once (checkPrefsLocked joins the errors), so a
-		// flag it refuses would otherwise take every setting down with it.
+		// Settings' own node switches, then the user's "Extra Arguments",
+		// parsed as `tailscale up` flags and folded in last, on top of
+		// everything else, so the escape hatch can override the app's own
+		// settings — that is the whole point of it. Keep the smaller payloads
+		// around: the daemon validates the whole MaskedPrefs batch at once
+		// (checkPrefsLocked joins the errors), so a flag or a switch it refuses
+		// would otherwise take every setting down with it.
+		coreJSON, _ := json.Marshal(prefs)
+		client := mergeClientPrefs(prefs, opt.ClientPrefs)
 		baseJSON, _ := json.Marshal(prefs)
 		extra := applyExtraArgs(prefs, opt.ExtraUpArgs)
 
@@ -521,18 +531,23 @@ func syncSettings(ctx context.Context, opt *StartOptions) {
 		}
 		jsonData, _ := json.Marshal(prefs)
 		slog.Info("Syncing settings via LocalAPI", "payload", string(jsonData))
-		if err := PatchPrefsJSON(string(jsonData)); err != nil {
-			if len(extra) == 0 {
-				slog.Error("Failed to sync settings via LocalAPI", "error", err)
-			} else {
-				slog.Error("The daemon rejected the settings; retrying without the extra arguments", "error", err)
-				if ctx.Err() != nil {
-					return
-				}
-				if err := PatchPrefsJSON(string(baseJSON)); err != nil {
-					slog.Error("Failed to sync settings via LocalAPI", "error", err)
-				}
+		err = PatchPrefsJSON(string(jsonData))
+		if err != nil && len(extra) > 0 {
+			if ctx.Err() != nil {
+				return
 			}
+			slog.Error("The daemon rejected the settings; retrying without the extra arguments", "error", err)
+			err = PatchPrefsJSON(string(baseJSON))
+		}
+		if err != nil && len(client) > 0 {
+			if ctx.Err() != nil {
+				return
+			}
+			slog.Error("The daemon rejected the settings; retrying without the node switches", "error", err)
+			err = PatchPrefsJSON(string(coreJSON))
+		}
+		if err != nil {
+			slog.Error("Failed to sync settings via LocalAPI", "error", err)
 		}
 
 		if ctx.Err() != nil {
@@ -544,6 +559,24 @@ func syncSettings(ctx context.Context, opt *StartOptions) {
 			StopWebUI()
 		}
 	}()
+}
+
+// mergeClientPrefs copies the node switches in raw (StartOptions.ClientPrefs)
+// into prefs and returns them, or nil when there are none or raw is not a JSON
+// object — a broken value costs the switches, never the rest of the sync.
+func mergeClientPrefs(prefs map[string]any, raw string) map[string]any {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	var client map[string]any
+	if err := json.Unmarshal([]byte(raw), &client); err != nil {
+		slog.Warn("syncSettings: node switches ignored", "error", err)
+		return nil
+	}
+	for k, v := range client {
+		prefs[k] = v
+	}
+	return client
 }
 
 func ApplySettings(opt *StartOptions) {
