@@ -208,7 +208,7 @@ object TunRoutes {
     )
 
     /**
-     * RouteAll ("accept routes") and CorpDNS ("use Tailscale DNS") as the
+     * RouteAll ("Accept subnet routes") and CorpDNS ("Use MagicDNS") as the
      * running daemon has them, from LocalAPI's /prefs — they include whatever
      * the extra arguments changed — or null when the answer lacks either.
      */

@@ -63,7 +63,7 @@ It tells you what is actually going on: whether the tailnet is connected, still 
 | **LAN Access** | One switch (Settings → Local proxies → **Expose proxies to local network**) binds the SOCKS5 proxy, HTTP proxy and local DNS to `0.0.0.0` so other devices on your Wi-Fi can route through your tailnet. The app shows the address to connect to and warns when the SOCKS5 proxy has no password — without one, anyone on the LAN can use it. |
 | **Root Mode (experimental)** | On rooted devices the daemon runs as root with a real `tailscale0` kernel interface, policy routing in table `53` via dedicated `TAILSOCKS_MARK`/`TAILSOCKS_DNS` iptables chains, per-app exclusions, an optional system-wide DNS redirect that is armed only while MagicDNS answers, a *Check Routing* diagnostics button and a ROOT log tab. When another VPN app holds Android's VPN slot, Root Mode steps aside — keeping the tailnet reachable while leaving that client its apps and its resolver — or carries only the apps that client bypasses; an override takes the device anyway. After a reboot the boot script installs tailnet reachability alone: the exit node and device-wide MagicDNS arrive when the app next runs. See the [Root guide](docs/ROOT.md). |
 | **Control Plane Proxy** | Route coordination server traffic through a custom SOCKS5/HTTP proxy for restricted regions. |
-| **TUN VPN Mode** | Transparent system-wide VPN via native `hev-socks5-tunnel` — full tunnel & split tunnel, per-app exclusions, custom gateway IP. Tailnet IPv6 always rides the tunnel; routing the public IPv6 internet through it is opt-in, since an exit node that cannot carry v6 leaves those sites hanging. Enabling TUN asks first, because Android gives the VPN slot to one app at a time. |
+| **TUN VPN Mode** | Transparent system-wide VPN — full tunnel & split tunnel, per-app exclusions, accepted subnet routes. By default the Tailscale daemon runs the Android VPN interface itself, so MagicDNS, split DNS and exit nodes come straight from it; `hev-socks5-tunnel`, which forwards every packet into the local SOCKS5 proxy, stays as the compatibility engine. Tailnet IPv6 always rides the tunnel; routing the public IPv6 internet through it is opt-in, since an exit node that cannot carry v6 leaves those sites hanging. Enabling TUN asks first, because Android gives the VPN slot to one app at a time. |
 | **[Exit Nodes](https://tailscale.com/kb/1103/exit-nodes) ©** | Route all internet traffic through any authorized Tailscale peer with auto-healing and LAN access. |
 | **[MagicDNS](https://tailscale.com/kb/1081/magicdns) ©** | In-memory peer resolution (0ms), Split DNS over SOCKS5 TCP, smart upstream fallback with DoH support. |
 | **NAT Traversal** | Real-time `InMagicSock` connectivity monitoring. STUN/DERP diagnostics via native netcheck. |
@@ -139,9 +139,9 @@ TailSocks is built as a hybrid multi-layer system:
 │  tsnet · WireGuard · magicsock · DERP · Serve/Funnel · Drive    │
 ├───────────────────────┬─────────────────────────────────────────┤
 │   SOCKS5 Proxy Mode   │       TUN VPN Mode (optional)           │
-│  Per-app proxying via │   System-wide routing via native        │
-│  local SOCKS5 server  │   hev-socks5-tunnel (C library)         │
-│  (no VpnService)      │   Full/Split tunnel + app exclusions    │
+│  Per-app proxying via │   System-wide: tailscaled reads the     │
+│  local SOCKS5 server  │   VPN device itself (hev-socks5-tunnel  │
+│  (no VpnService)      │   for compatibility); full/split tunnel │
 └───────────────────────┴─────────────────────────────────────────┘
 ```
 
@@ -152,7 +152,7 @@ TailSocks is built as a hybrid multi-layer system:
 | **Daemon** | Go → `libtailscale.so` (PIE) | Patched Tailscale core compiled with aggressive build tags to strip desktop/enterprise features. Targets `arm64`, `arm`, `x86`, `x86_64`. |
 | **Bridge** | Go → `appctr.aar` (Gomobile) | High-speed JNI bridge handling LocalAPI calls, DNS proxying, IPN bus monitoring, netcheck, Taildrop, and Taildrive WebDAV. |
 | **App** | Kotlin + Jetpack Compose | Material 3 UI, foreground service lifecycle, Android system integrations (SAF, Widgets, Quick Settings, Share Sheet). |
-| **TUN Engine** | C → `hev-socks5-tunnel` | Optional transparent VPN interface. Routes traffic through the SOCKS5 proxy at kernel level. Per-app and per-IP exclusions. |
+| **TUN Engine** | Go → `tailscaled --tun=android-vpn`; C → `hev-socks5-tunnel` | Optional transparent VPN interface. Native by default: the daemon reads and writes the VpnService device itself. `hev-socks5-tunnel`, the compatibility engine, routes traffic through the SOCKS5 proxy instead. Per-app and per-IP exclusions. |
 
 ### Key Design Patterns
 
@@ -321,7 +321,7 @@ On Android 16 and newer TailSocks exposes **14 AppFunctions** to on-device assis
 | **App & Patches** | [Bropines](https://github.com/bropines) — app development, architecture, and the majority of upstream patches |
 | **Initial Android Patches** | [Asutorufa](https://github.com/Asutorufa) — original Android networking (`anet`) and network monitor (`netmon`) [patches](https://github.com/Asutorufa/tailscale) that served as a starting point |
 | **DPI Bypass** | [hufrea/byedpi](https://github.com/hufrea/byedpi) — local HTTP/SOCKS5 DPI bypass utility |
-| **TUN Engine** | [heiher/hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel) — native SOCKS5-to-TUN implementation |
+| **TUN Engine (compatibility)** | [heiher/hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel) — native SOCKS5-to-TUN implementation |
 | **Core Engine** | [Tailscale Inc.](https://github.com/tailscale/tailscale) — userspace networking engine (`tsnet`) |
 | **AI Assistant** | [Google Gemini](https://gemini.google.com/) — interface development, LocalAPI research, and patch engineering |
 | **AI Assistant** | [Claude](https://claude.com/claude-code) by Anthropic, in Claude Code — daemon and bridge fixes (login, network-change handling, the Android 10 crashes), the adaptive layouts, device-free preview screenshots, and the distribution research |

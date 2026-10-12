@@ -659,7 +659,7 @@ class TunVpnService : VpnService() {
      * it (--tun=android-vpn). hev is not started. Returns false when nothing was
      * established.
      *
-     * DNS: with "Use Tailscale DNS" off the daemon's resolver forwards nothing
+     * DNS: with "Use MagicDNS" (CorpDNS) off the daemon's resolver forwards nothing
      * (no routes, so every name outside the tailnet is SERVFAIL), so the device
      * then names no DNS server at all and Android resolves through the
      * underlying network, the way it does for any VPN without DNS.

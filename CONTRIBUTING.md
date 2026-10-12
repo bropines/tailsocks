@@ -118,7 +118,7 @@ Settings → Tunnel mode picks exactly one:
 | Mode | How traffic gets in | What it needs |
 |---|---|---|
 | **Proxy** (default) | Apps are pointed at the local SOCKS5 / HTTP proxy and the local DNS server. Nothing is captured. | Nothing — no VPN permission, no root |
-| **VPN (TUN)** | Android's `VpnService` fd is handed to the native `hev-socks5-tunnel` (`app/src/main/jni/`), which forwards into that same local SOCKS5 proxy. | The system VPN permission |
+| **VPN (TUN)** | Android's `VpnService` device, with two engines. Native (the default): the bridge relaunches `tailscaled` with `--tun=android-vpn` on a duplicate of the fd, and the daemon reads and writes it itself. Compatibility: `hev-socks5-tunnel` (`app/src/main/jni/`) reads the device and forwards into that same local SOCKS5 proxy. | The system VPN permission |
 | **Root** | The daemon runs through `su` on a real kernel interface `tailscale0`, with policy routing in table `53` and the `TAILSOCKS_MARK` / `TAILSOCKS_DNS` iptables chains. Android's VPN slot stays free. | Magisk / KernelSU / APatch |
 
 **A change to one mode must not change the behaviour of the other two.** They
@@ -143,10 +143,16 @@ share the daemon and the local proxies and nothing else, and it is easy to
   T3 (device-wide DNS) claim the whole device and therefore have exactly one
   owner. If you touch T2 or T3, read `docs/ROOT.md` §4–5 first: the coexistence
   logic there is what keeps another VPN client's apps from being stolen.
-* TUN mode is, and remains, the `hev-socks5-tunnel` engine. The rebuild in
-  which `tailscaled` owns the `VpnService` fd directly is a plan with no release
-  date yet ([`docs/NATIVE_TUN_PLAN.md`](docs/NATIVE_TUN_PLAN.md)), not code — do not
-  half-land it, and do not document it as if it existed.
+* TUN mode has two engines, chosen in Settings → TUN (`tun_engine`, stored only
+  when the user picks one). The native engine is the default: `core/TunVpnService.kt`
+  establishes the device with what the daemon's no-op router would install — the
+  node's addresses, the tailnet ranges, accepted subnet routes
+  (`core/TunRoutes.kt`), the default route behind an exit node — and Android fixes
+  those at `establish()`, so a change rebuilds the device and relaunches the
+  daemon. `hev-socks5-tunnel` stays as the compatibility engine; keep both
+  working. The fd swap, `CallbackRouter` and `SCM_RIGHTS` in
+  [`docs/NATIVE_TUN_PLAN.md`](docs/NATIVE_TUN_PLAN.md) are kept there for the record
+  and are not wanted: switching engines restarts the daemon by design.
 
 State the modes you tested in the pull request. "Proxy only" is a fine answer;
 silently untested is not.

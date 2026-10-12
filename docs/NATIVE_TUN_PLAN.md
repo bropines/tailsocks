@@ -1,24 +1,33 @@
 # Native TUN — the design (tailscaled owns the VpnService fd)
 
-**Status (2026-09-12): a first cut exists as an opt-in fourth tunnel option.**
-Settings → TUN → "Native engine (experimental)" (`tun_engine=native`, hev stays
-the default): `TunVpnService` establishes the VPN itself (node addresses,
-tailnet ranges, `0.0.0.0/0` behind an exit node, MagicDNS, MTU 1280), hands a
-dup of the fd to the bridge, and the bridge relaunches tailscaled with
-`--tun=android-vpn` and the fd inherited as fd 3 (patches 18, 19; the tryEngine
-edits ride in 08, netstack gates in 19). Verified on the POCO: MagicDNS, split
-DNS, exit node (switching between exit nodes keeps the device), peers, LAN
-exclusions, a single daemon launch on connect from cached addresses.
+**Status (2026-10-12): the native engine is TUN's default.** Settings → TUN →
+TUN engine (`tun_engine`, stored only when the user picks an engine; unset means
+native, a stored `hev` stays hev). It shipped opt-in on 2026-09-12 (4.2.0):
+`TunVpnService` establishes the VPN itself (node addresses, tailnet ranges,
+`0.0.0.0/0` behind an exit node, MagicDNS, MTU 1280), hands a dup of the fd to
+the bridge, and the bridge relaunches tailscaled with `--tun=android-vpn` and
+the fd inherited as fd 3 (patches 18, 19; the tryEngine edits ride in 08,
+netstack gates in 19). Verified on the POCO: MagicDNS, split DNS, exit node
+(switching between exit nodes keeps the device), peers, LAN exclusions, a single
+daemon launch on connect from cached addresses. Made the default on 2026-10-12,
+with accepted subnet routes on the device (rebuilt from LocalAPI status,
+`core/TunRoutes.kt`), a start that waits for the node's addresses, the always-on
+start bringing the connection up, no DNS server on the device while "Use
+MagicDNS" (CorpDNS) is off, and an unmetered device; what only a device can confirm
+is listed in `docs/ROADMAP.md` under *Verify on devices*.
+
 It takes the short road this document argues against in places — a daemon
 relaunch instead of an fd swap, a no-op router instead of `CallbackRouter`, no
-`SCM_RIGHTS` — so steps 3-5 below remain the way to a default engine. The rest
-of this document is the full design as decided; where the shipped cut
-differs, the cut is the interim.
+`SCM_RIGHTS` — and that is the decided shape, not an interim: switching engines
+or rebuilding the device restarts the daemon by design. Unlike step 4 below, the
+flip deleted no hev setting: hev stays as the compatibility engine and keeps
+`tun_address`, `tun_ipv6_enabled` and `tun_excluded_cidrs`. The rest of this
+document is the full design as first decided, kept for the record.
 
 Before that cut, TUN mode ran only on hev-socks5-tunnel: it owns the VpnService
 tunnel and pushes every packet into the daemon's SOCKS5 port. This design
-was first aimed at 4.0, then 4.1, and shipped in neither; the target version is
-unset until the remaining work is scheduled. It records what was decided, why
+was first aimed at 4.0, then 4.1, and shipped in neither; the short road above
+replaced it, and the full design is not scheduled. It records what was decided, why
 the alternatives were rejected, and in what order the work can land while
 keeping the app shippable after every step.
 

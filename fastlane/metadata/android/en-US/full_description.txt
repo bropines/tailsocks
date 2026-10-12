@@ -4,7 +4,7 @@ It works with Tailscale's own coordination server and with a self-hosted Headsca
 
 <b>Networking</b>
 • Local SOCKS5 proxy (optional username and password) and HTTP proxy, optionally reachable from your local network
-• VPN (TUN) mode: full or split tunnel, per-app exclusions, and an opt-in native engine in which the daemon owns the tunnel
+• VPN (TUN) mode: full or split tunnel, per-app exclusions, accepted subnet routes; the daemon runs the tunnel itself, with hev-socks5-tunnel as a compatibility engine
 • Exit nodes; MagicDNS and split DNS through a local DNS server, with a DNS-over-HTTPS fallback
 • Root mode (experimental): a kernel tailscale0 interface with policy routing that steps aside when another VPN app holds the VPN slot
 • Restricted networks: send coordination traffic through your own SOCKS5/HTTP proxy, or through the built-in ByeDPI against SNI-based DPI

@@ -35,7 +35,7 @@ State as of 2026-09-20, after 4.3.0.
 - [x] **Native TUN — the opt-in engine (4.2.0).** `tailscaled` owns the `VpnService` device
       instead of hev: `TunVpnService` establishes the tunnel itself and the bridge relaunches
       the daemon with `--tun=android-vpn` on the inherited fd, with a no-op router and netstack
-      keeping only its own flows (patches 17–19). Settings → TUN → "Native engine
+      keeping only its own flows (patches 17–19); Settings → TUN then called it "Native engine
       (experimental)". Verified on the POCO: MagicDNS, split DNS, exit nodes and switching
       between them without a restart, LAN exclusions, one notification card, a single daemon
       launch on connect (the VPN comes up first from cached addresses). The risk the plan was
@@ -43,16 +43,21 @@ State as of 2026-09-20, after 4.3.0.
       (`allowxperm untrusted_app tun_device chr_file ioctl { 0x54D2 }`, read off the Redmi), and
       a real child tailscaled did `TUNGETIFF` and `SIOCGIFMTU` on an inherited fd (patch 17
       probe: `tun0`, flags `0x1001`, MTU 1500).
-- [ ] **Native TUN — what is left.** Stopping the daemon and starting it again on the other
-      engine is the intended behaviour, not a debt: the author's design from the start was that
-      switching between hev and native restarts the daemon, and that is what ships. The fd swap,
-      `CallbackRouter` and `SCM_RIGHTS` that [`NATIVE_TUN_PLAN.md`](NATIVE_TUN_PLAN.md) argues
-      for are that document's ambition, kept there for the record and not wanted here — with
-      them go the questions about what happens when the fd's owner dies and how long a swap
-      takes, which were only ever asked because of the swap. What is actually left: accepted
-      subnet routes without an exit node, always-on and "block connections without VPN",
-      behaviour across Wi‑Fi ↔ LTE and in doze, Android 7/8 (verified on 16 only) — and then
-      making it the default instead of hev.
+- [x] **Native TUN — TUN's default (2026-10-12).** Proxy stays the app's default mode; within
+      TUN mode the native engine is what new installs and everyone who never picked an engine
+      run on, and a stored `hev` stays hev (Settings → TUN → TUN engine; `hev-socks5-tunnel` is
+      the compatibility engine and keeps its own settings). What was left, done in code:
+      accepted subnet routes without an exit node are on the device, rebuilt from LocalAPI
+      status (both engines; behind an exit node only the ones inside an "Excluded IP Ranges"
+      entry); a start that found no node addresses comes up once the netmap is in; the
+      always-on start brings the connection up with it; with "Use MagicDNS" off the device
+      names no DNS server instead of a quad-100 that answers SERVFAIL; the device is unmetered;
+      a start with the connection stopped establishes nothing. Wi‑Fi ↔ LTE, doze and Android 7/8
+      needed no code that was clearly wrong; all of it is under *Verify on devices*. Stopping
+      the daemon and starting it again on the other engine is the intended behaviour, not a
+      debt; the fd swap, `CallbackRouter` and `SCM_RIGHTS` that
+      [`NATIVE_TUN_PLAN.md`](NATIVE_TUN_PLAN.md) argues for stay that document's ambition, kept
+      for the record and not wanted here.
 - [ ] **tsnet — an idea for 5.0.** The daemon moved inside the app process. Incompatible with
       Root Mode, where it must be a separate process under `su`.
 - [x] **One binary instead of two (2026-10-12).** Option (e) of the old "separate CLI binary"
@@ -116,6 +121,36 @@ State as of 2026-09-20, after 4.3.0.
 - [x] **Received-file permissions in Root Mode (verified by the author, 2026-09-25).** `RootUtils` launches the root daemon under `umask 022`, so a received file is readable by the app the moment it lands. The fix was made blind (`umask 022` plus
       handing the directory to the app). Check Routing now prints the real modes — look at them
       and confirm.
+- [ ] **Native TUN as the default — what only a device can tell.** Logcat tag
+      `TunVpnService` and the app's log (CORE). On the POCO unless said otherwise:
+  1. Update over a build with TUN on hev and the engine never picked: the VPN comes back on
+     native ("Native TUN started"). A phone where native was switched on and back off stays on hev.
+  2. Fresh install, VPN (TUN) picked in onboarding, then sign in: the VPN comes up by itself
+     within a tick of Running ("TUN: the node's addresses are known now").
+  3. Subnet routes: a peer with an approved route (e.g. 192.168.x.0/24), "Accept subnet routes" on, no
+     exit node — the subnet answers from another app; switched off — it stops. Remove the
+     route in the console — within a minute (five after an earlier rebuild) the log says "the
+     accepted subnet routes changed" and the daemon relaunches once. With an exit node and the
+     default exclusions on Android 13+, the subnet still goes to the tailnet.
+  4. Always-on: pick TailSocks as the always-on VPN while disconnected — the connection starts
+     and the VPN comes up; reboot — it comes up without opening the app. With "Block connections
+     without VPN": apps work through the tunnel, the daemon still reaches control and DERP (the
+     VPN app is exempt), the excluded apps have no network at all (Android's lockdown) — confirm,
+     and note whether Android restarts the VPN after Stop in the app.
+  5. Always-on with proxy or Root mode selected: nothing is established and the log says
+     "Always-on VPN start ignored".
+  6. "Use MagicDNS" off on native: internet names resolve through the network's DNS, tailnet
+     names do not. Check hev in the same state: it still hands the device 100.100.100.100, which
+     has no upstream with that pref off.
+  7. Wi‑Fi ↔ LTE on native, with and without an exit node: the device stays (no relaunch), the
+     daemon rebinds on the new link, MagicDNS keeps answering.
+  8. Doze: screen off 30+ minutes with an exit node, with and without the battery-optimisation
+     exemption — push notifications still arrive (FCM rides the tunnel).
+  9. Metering: with the VPN up on Wi‑Fi, a "Wi‑Fi only" download in the Play Store proceeds.
+  10. Android 7/8/9: native comes up ("android-vpn: running on inherited TUN fd" in the daemon
+      log). If the daemon cannot use the fd there, the hev engine's "TUN fd probe" line says why,
+      and hev is the answer for that device.
+  11. Picking an exit node or editing the excluded apps while disconnected raises no VPN.
 - [ ] **The IPv6 exit-node leak** does not reproduce on the Redmi as of 2026-09-07: table `52`
       has a default route and traffic leaves through the tunnel with a tailnet source address.
       Check the POCO, where the network is different; if it does not reproduce there either,
