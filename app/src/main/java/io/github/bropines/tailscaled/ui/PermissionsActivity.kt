@@ -19,12 +19,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
@@ -37,9 +34,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
@@ -432,7 +427,6 @@ private val PermissionColumnWidth = 340.dp
  * note unfolds while the row has the focus — there is no long press to count on. [first]
  * is the row the remote starts on.
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun PermissionRow(
     entry: PermEntry,
@@ -461,34 +455,15 @@ private fun PermissionRow(
     // Nothing to open where the permission does not exist on this Android.
     val canOpen = state != PermState.NOT_APPLICABLE
     val help = remember(explanation) { mutableStateOf(false) }
-    val haptics = LocalHapticFeedback.current
-    val shape = MaterialTheme.shapes.medium
-    val interactions = remember { MutableInteractionSource() }
-    if (isTv) {
-        val focused by interactions.collectIsFocusedAsState()
-        LaunchedEffect(focused) { help.value = focused }
-    }
-    Surface(
-        shape = shape,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+    // A long press unfolds the note, as on the settings rows.
+    ExplainedRow(
+        onClick = { if (canOpen) entry.open() else help.value = !help.value },
+        help = help,
         modifier = Modifier
             .fillMaxWidth()
             .then(if (spaced) Modifier.padding(vertical = 4.dp) else Modifier)
-            .then(if (first) Modifier.tvInitialFocus() else Modifier)
-            // Ahead of the clip, which would cut the ring's corners off.
-            .tvFocusRing(interactions, shape)
-            .clip(shape)
-            // A long press unfolds the note, as on the settings rows.
-            .combinedClickable(
-                interactionSource = interactions,
-                indication = LocalIndication.current,
-                onClickLabel = if (canOpen) openLabel else null,
-                onClick = { if (canOpen) entry.open() else help.value = !help.value },
-                onLongClick = {
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    help.value = !help.value
-                }
-            )
+            .then(if (first) Modifier.tvInitialFocus() else Modifier),
+        onClickLabel = if (canOpen) openLabel else null
     ) {
         ListItem(
             // The ⓘ is a target for a finger; for a remote the row unfolds the note itself.
@@ -499,6 +474,7 @@ private fun PermissionRow(
             trailingContent = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (needsAction) {
+                        // The row opens the same screen: for a remote the button is no stop of its own.
                         TextButton(onClick = entry.open, modifier = Modifier.tvNoFocus()) { Text(openLabel) }
                     }
                     PermStateIcon(state, stateLabel)

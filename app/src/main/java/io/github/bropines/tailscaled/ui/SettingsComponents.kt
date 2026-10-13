@@ -12,13 +12,12 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -37,6 +36,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -132,7 +132,7 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(strSettingsControlProxyEnable, Modifier.weight(1f))
-                    Switch(checked = enabled, onCheckedChange = { enabled = it })
+                    FocusSwitch(checked = enabled, onCheckedChange = { enabled = it })
                 }
                 Spacer(Modifier.height(16.dp))
 
@@ -357,23 +357,20 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
 }
 
 @Composable
-@OptIn(ExperimentalFoundationApi::class)
 fun SettingsClickableItem(
     title: String,
     subtitle: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     enabled: Boolean = true,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     val help = remember(subtitle) { mutableStateOf(false) }
-    val haptics = LocalHapticFeedback.current
-    Surface(
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (enabled) 0.3f else 0.1f),
-        modifier = Modifier.padding(vertical = 4.dp).clip(MaterialTheme.shapes.medium).combinedClickable(
-            onClick = { if (enabled) onClick() },
-            onLongClick = { haptics.performHapticFeedback(HapticFeedbackType.LongPress); help.value = !help.value }
-        )
+    ExplainedRow(
+        onClick = { if (enabled) onClick() },
+        help = help,
+        modifier = modifier.padding(vertical = 4.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (enabled) 0.3f else 0.1f)
     ) {
         ListItem(
             supportingContent = { HelpText(subtitle, color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.outline, expanded = help, inClickableRow = true) },
@@ -396,6 +393,11 @@ fun SettingsClickableItem(
  * widens a small clickable to the minimum touch size, so it is easy to hit —
  * and a tap on the text is the row's. Taking the whole text there left the
  * row a few pixels of its own to be pressed.
+ *
+ * With a remote the same two cases read differently (ExplainedRow.kt). On its
+ * own a folded text is a stop, ringed, and OK unfolds it — which also lets the
+ * remote scroll to a text that has nothing else near it. In an [ExplainedRow]
+ * it is no stop at all: the row unfolds it once the remote has rested there.
  */
 @Composable
 fun HelpText(
@@ -411,20 +413,29 @@ fun HelpText(
     inClickableRow: Boolean = false,
 ) {
     var cut by remember(text) { mutableStateOf(false) }
-    val open = expanded.value
+    // Non-null in a row a television unfolds the help of. Only a text that is
+    // cut follows it: one that fits has nothing to unfold, and marking it open
+    // would hang the fold's arrow on it.
+    val rowRevealed = LocalRowHelpRevealed.current
+    val open = expanded.value || (rowRevealed == true && cut)
     // The whole folded text is the tap target, not only the ⓘ: at 16dp the
     // icon was a third of the minimum touch size, and "tap the explanation to
     // read it" is what the fold promises. No ripple — it is text, not a button.
     val expandLabel = stringResource(if (open) R.string.help_collapse else R.string.help_expand)
+    val source = remember { MutableInteractionSource() }
     val toggle = Modifier.clickable(
         enabled = cut || open,
-        interactionSource = remember { MutableInteractionSource() },
+        interactionSource = source,
         indication = null,
         onClickLabel = expandLabel,
         role = Role.Button
     ) { expanded.value = !open }
+    // What the remote makes of the ⓘ in a row: nothing where the row unfolds
+    // the text itself, a ringed stop in a row that does not.
+    val iconToggle = if (rowRevealed != null) Modifier.tvNoFocus().then(toggle) else Modifier.tvFocusRing(source, CircleShape).then(toggle)
     Row(
         modifier = modifier
+            .then(if (inClickableRow) Modifier else Modifier.tvHelpFocusRing(source))
             .animateContentSize()
             .then(if (inClickableRow) Modifier else toggle),
         verticalAlignment = Alignment.Bottom
@@ -448,7 +459,7 @@ fun HelpText(
                 tint = color.copy(alpha = 0.7f),
                 modifier = Modifier
                     .padding(start = 4.dp, bottom = 1.dp)
-                    .then(if (inClickableRow) toggle else Modifier)
+                    .then(if (inClickableRow) iconToggle else Modifier)
                     .size(16.dp)
             )
         }
@@ -468,7 +479,6 @@ private fun SettingsHelpDialog(title: String, text: String, onDismiss: () -> Uni
 }
 
 @Composable
-@OptIn(ExperimentalFoundationApi::class)
 fun SettingsSwitchItem(
     title: String,
     subtitle: String,
@@ -478,26 +488,23 @@ fun SettingsSwitchItem(
     onCheckedChange: (Boolean) -> Unit
 ) {
     val help = remember(subtitle) { mutableStateOf(false) }
-    val haptics = LocalHapticFeedback.current
-    Surface(
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (enabled) 0.3f else 0.1f),
-        modifier = Modifier.padding(vertical = 4.dp).clip(MaterialTheme.shapes.medium).combinedClickable(
-            onClick = { if (enabled) onCheckedChange(!checked) },
-            onLongClick = { haptics.performHapticFeedback(HapticFeedbackType.LongPress); help.value = !help.value }
-        )
+    ExplainedRow(
+        onClick = { if (enabled) onCheckedChange(!checked) },
+        help = help,
+        modifier = Modifier.padding(vertical = 4.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (enabled) 0.3f else 0.1f)
     ) {
         ListItem(
             supportingContent = { HelpText(subtitle, color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.outline, expanded = help, inClickableRow = true) },
             leadingContent = { Icon(icon, null, tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline) },
-            trailingContent = { Switch(checked = checked, onCheckedChange = if (enabled) onCheckedChange else null, enabled = enabled) },
+            // The row toggles it: for a remote the switch is no stop of its own.
+            trailingContent = { Switch(checked = checked, onCheckedChange = if (enabled) onCheckedChange else null, modifier = Modifier.tvNoFocus(), enabled = enabled) },
             colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
         ) { Text(title, color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline) }
     }
 }
 
 @Composable
-@OptIn(ExperimentalFoundationApi::class)
 fun SettingsEditItem(
     title: String,
     value: String,
@@ -513,6 +520,7 @@ fun SettingsEditItem(
     var showDialog by remember { mutableStateOf(false) }
     var text by remember { mutableStateOf(value) }
     LaunchedEffect(showDialog) { if (showDialog) text = value }
+    val tv = isTv
     val notSet = stringResource(R.string.settings_not_set)
     // A dialog/sheet opens its own window whose LocalContext ignores the app
     // locale, so its strings are resolved through this parent context instead —
@@ -520,33 +528,46 @@ fun SettingsEditItem(
     val ctx = LocalContext.current
     // What the row shows under its title: the description while there is no
     // value (or the row is locked), otherwise the value. A shown description
-    // folds like every other explanation; a hidden one opens on a long press.
+    // folds like every other explanation; a hidden one opens on a long press —
+    // and, for a remote, under the value once the remote has rested on the row.
     val showsDescription = description.isNotEmpty() && (!enabled || value.isEmpty())
     val supporting = if (showsDescription) description else if (value.isEmpty()) placeholder.ifEmpty { notSet } else value
     val help = remember(supporting) { mutableStateOf(false) }
     var showHelp by remember { mutableStateOf(false) }
     val haptics = LocalHapticFeedback.current
     if (showHelp) SettingsHelpDialog(title, description.ifEmpty { placeholder.ifEmpty { notSet } }) { showHelp = false }
-    Surface(
-        shape = MaterialTheme.shapes.medium,
+    ExplainedRow(
+        onClick = { if (enabled) showDialog = true },
+        help = help,
+        modifier = Modifier.padding(vertical = 4.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (enabled) 0.3f else 0.15f),
-        modifier = Modifier.padding(vertical = 4.dp).clip(MaterialTheme.shapes.medium).combinedClickable(
-            onClick = { if (enabled) showDialog = true },
-            onLongClick = {
-                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                if (showsDescription) help.value = !help.value else showHelp = true
-            }
-        )
+        onLongClick = {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            if (showsDescription) help.value = !help.value else showHelp = true
+        }
     ) {
         ListItem(
             supportingContent = {
-                HelpText(
-                    supporting,
-                    lines = if (showsDescription) 2 else 1,
-                    color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                    expanded = help,
-                    inClickableRow = true
-                )
+                val supportingColor = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                val shown: @Composable () -> Unit = {
+                    HelpText(
+                        supporting,
+                        lines = if (showsDescription) 2 else 1,
+                        color = supportingColor,
+                        expanded = help,
+                        inClickableRow = true
+                    )
+                }
+                if (LocalRowHelpRevealed.current != null && !showsDescription && description.isNotEmpty()) {
+                    Column(Modifier.animateContentSize()) {
+                        shown()
+                        if (LocalRowHelpRevealed.current == true) {
+                            Text(description, style = MaterialTheme.typography.bodySmall, color = supportingColor.copy(alpha = 0.7f))
+                        }
+                    }
+                } else {
+                    shown()
+                }
             },
             leadingContent = { Icon(icon, null, tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)) },
             trailingContent = if (!enabled) { { Icon(Icons.Default.Lock, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f), modifier = Modifier.size(18.dp)) } } else null,
@@ -568,6 +589,10 @@ fun SettingsEditItem(
                         shape = MaterialTheme.shapes.medium,
                         label = { if (placeholder.isNotEmpty()) Text(ctx.getString(R.string.settings_field_example, placeholder)) },
                         placeholder = { if (placeholder.isNotEmpty()) Text(placeholder) },
+                        // A television's keyboard covers the buttons, and its own
+                        // confirm key is the one under the thumb: there it saves.
+                        keyboardOptions = if (tv) KeyboardOptions(imeAction = ImeAction.Done) else KeyboardOptions.Default,
+                        keyboardActions = if (tv) KeyboardActions(onDone = { onSave(text); showDialog = false }) else KeyboardActions.Default,
                         trailingIcon = if (onAction != null && actionIcon != null) {
                             { IconButton(onClick = { text = onAction() }) { Icon(actionIcon, ctx.getString(R.string.action_generate)) } }
                         } else null
@@ -696,10 +721,7 @@ fun SettingsExitNodeItem(
             bestExitNode = null
             bestExitNode = fetchBestExitNode(exitNodes)
         }
-        ModalBottomSheet(
-            onDismissRequest = { showDialog = false },
-            sheetState = rememberFullSheetState()
-        ) {
+        AppModalSheet(onDismissRequest = { showDialog = false }) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()

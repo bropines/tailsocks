@@ -1,10 +1,10 @@
 package io.github.bropines.tailscaled.ui
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,8 +32,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -47,10 +45,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -71,22 +67,13 @@ import kotlinx.coroutines.launch
  * opening a sheet of all of them; a pick applies at once (core/AppIcons.kt).
  */
 @Composable
-@OptIn(ExperimentalFoundationApi::class)
 internal fun AppIconRow() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var current by remember { mutableStateOf(AppIcons.current(context)) }
     var open by rememberSaveable { mutableStateOf(false) }
     val help = remember { mutableStateOf(false) }
-    val haptics = LocalHapticFeedback.current
-    Surface(
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-        modifier = Modifier.padding(vertical = 4.dp).clip(MaterialTheme.shapes.medium).combinedClickable(
-            onClick = { open = true },
-            onLongClick = { haptics.performHapticFeedback(HapticFeedbackType.LongPress); help.value = !help.value }
-        )
-    ) {
+    ExplainedRow(onClick = { open = true }, help = help, modifier = Modifier.padding(vertical = 4.dp)) {
         ListItem(
             supportingContent = { HelpText(stringResource(R.string.icon_note), expanded = help, inClickableRow = true) },
             leadingContent = { AppIconImage(current, 40.dp) },
@@ -117,7 +104,7 @@ private fun AppIconSheet(selected: AppIcons.Variant, onPick: (AppIcons.Variant) 
     val resources = LocalResources.current
     val sheetState = rememberFullSheetState()
     val scope = rememberCoroutineScope()
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+    AppModalSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         CompositionLocalProvider(
             LocalContext provides context,
             LocalConfiguration provides configuration,
@@ -179,10 +166,12 @@ internal fun AppIconSheetContent(selected: AppIcons.Variant, onPick: (AppIcons.V
 @Composable
 private fun AppIconCell(v: AppIcons.Variant, isSelected: Boolean, onClick: () -> Unit) {
     val name = stringResource(v.title)
+    val source = remember { MutableInteractionSource() }
     Column(
         Modifier
+            .tvFocusRing(source, MaterialTheme.shapes.medium)
             .clip(MaterialTheme.shapes.medium)
-            .selectable(selected = isSelected, role = Role.RadioButton, onClick = onClick)
+            .selectable(selected = isSelected, interactionSource = source, indication = LocalIndication.current, role = Role.RadioButton, onClick = onClick)
             .padding(vertical = 6.dp, horizontal = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
