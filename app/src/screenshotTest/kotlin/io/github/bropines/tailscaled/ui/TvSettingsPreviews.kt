@@ -85,11 +85,12 @@ fun TvSettingsAccount() = TvSettings("account")
 fun TvSettingsHubWithPicker() = CompositionLocalProvider(LocalCapabilities provides Capabilities.ALL) { TvSettings() }
 
 /**
- * Two rows as the remote finds them and as they are once it has rested on one: the
- * explanation unfolded, and under a value that is set, the description a handheld
- * shows on a long press.
+ * Two rows as the remote finds them and as they are once it has rested on one: under a
+ * value that is set, the description a handheld shows on a long press. The folded
+ * explanation of the switch row unfolds the same way, a frame too late for a render:
+ * it has to be laid out once to know that it is cut.
  */
-@PreviewTest @TvLanguages @Composable
+@PreviewTest @TvSizes @Composable
 fun TvSettingsRowRevealed() = AdaptiveShowcase(device = DeviceClass.TV) {
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         for (revealed in listOf(false, true)) {
