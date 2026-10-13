@@ -25,6 +25,10 @@ class DriveAddress internal constructor(
     val login: DriveProxyAuth?,
     /** Only this device can reach it: the proxy listens on loopback, or on every interface with no network address to name. */
     val deviceOnly: Boolean,
+    /** The second of those: the local network is let in, and this device is on none. */
+    val noNetwork: Boolean = false,
+    /** The same proxy at this device's other addresses on a local network, written as [url] is. */
+    val alsoAt: List<String> = emptyList(),
 ) {
     /** What a code for another device holds, or null when there is nothing for another device to open. */
     fun qrText(withLogin: Boolean): String? = when {
@@ -33,6 +37,9 @@ class DriveAddress internal constructor(
         else -> url
     }
 
+    /** What the clipboard is given: the address with the login in it, for what it is pasted into has to send one. */
+    val copyText: String get() = urlWithLogin ?: url
+
     override fun toString(): String = "DriveAddress($url, login=${login != null}, deviceOnly=$deviceOnly)"
 }
 
@@ -40,15 +47,25 @@ object DriveAddresses {
     /**
      * The address of the proxy bound to [bind] and [port] as the stored strings have them.
      * [lan] is this device's address on the local network, for a proxy that listens on every
-     * interface; null when it has none or is not known. The login counts as the proxy counts it:
-     * the switch is on and both fields are filled.
+     * interface; null when it has none or is not known. [otherLans] are the addresses it has on
+     * other local networks besides. The login counts as the proxy counts it: the switch is on and
+     * both fields are filled.
      */
-    fun of(bind: String, port: String, authEnabled: Boolean, user: String, password: String, lan: String? = null): DriveAddress {
+    fun of(
+        bind: String,
+        port: String,
+        authEnabled: Boolean,
+        user: String,
+        password: String,
+        lan: String? = null,
+        otherLans: List<String> = emptyList(),
+    ): DriveAddress {
         val stored = DriveProxy.of(enabled = true, bind = bind, port = port, authEnabled = authEnabled, user = user, password = password)
         val named = bind.trim().removePrefix("[").removeSuffix("]")
+        val wildcard = isWildcard(named)
         val host: String
         val deviceOnly: Boolean
-        if (isWildcard(named)) {
+        if (wildcard) {
             host = lan ?: stored.host
             deviceOnly = lan == null
         } else {
@@ -61,6 +78,10 @@ object DriveAddresses {
             urlWithLogin = stored.auth?.let { proxy.urlFor(DriveLocation.ROOT, withCredentials = true).removeSuffix("/") },
             login = stored.auth,
             deviceOnly = deviceOnly,
+            noNetwork = wildcard && lan == null,
+            alsoAt = if (wildcard && lan != null) {
+                otherLans.filter { it != lan }.map { DriveProxy(enabled = true, host = it, port = stored.port, auth = null).baseUrl }
+            } else emptyList(),
         )
     }
 
@@ -77,7 +98,10 @@ object DriveAddresses {
      * then 172.16/12). The tailnet's own 100.64/10, a link-local 169.254/16 and loopback are
      * addresses of other networks. Null when there is none.
      */
-    fun pickLan(candidates: List<String>): String? {
+    fun pickLan(candidates: List<String>): String? = rankLan(candidates).firstOrNull()
+
+    /** Every address of [candidates] that [pickLan] could pick, the one it picks first, none twice. */
+    fun rankLan(candidates: List<String>): List<String> {
         fun rank(address: String): Int {
             val octets = address.split('.').map { it.toIntOrNull() ?: return -1 }
             if (octets.size != 4 || octets.any { it !in 0..255 }) return -1
@@ -88,7 +112,7 @@ object DriveAddresses {
                 else -> -1
             }
         }
-        return candidates.filter { rank(it) >= 0 }.minByOrNull { rank(it) }
+        return candidates.distinct().filter { rank(it) >= 0 }.sortedBy { rank(it) }
     }
 
     /** Interfaces that carry a tunnel or a point-to-point link, whose addresses are not the local network's. */
@@ -101,10 +125,16 @@ object DriveAddresses {
      * This device's address on the local network, or null: the private address of an interface
      * that is up and is not a tunnel. Cheap, and it reads no network state that needs a permission.
      */
-    fun lanAddress(): String? = runCatching {
+    fun lanAddress(): String? = lanAddresses().firstOrNull()
+
+    /**
+     * Every such address, the likeliest first. A device on Wi-Fi and on a cable, or a phone that
+     * is on one network and shares another of its own, has several, and each network uses its own.
+     */
+    fun lanAddresses(): List<String> = runCatching {
         val candidates = NetworkInterface.getNetworkInterfaces().toList()
             .filter { it.isUp && !it.isLoopback && isLanInterface(it.name) }
             .flatMap { nif -> nif.inetAddresses.toList().mapNotNull { (it as? Inet4Address)?.hostAddress } }
-        pickLan(candidates)
-    }.getOrNull()
+        rankLan(candidates)
+    }.getOrDefault(emptyList())
 }
