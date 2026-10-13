@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The visual policy editor's Taildrive template, on the Device attributes page. -->
+    <string name="admin_pvtd_tpl">Taildrive between a person\'s own devices</string>
+    <string name="admin_pvtd_tpl_help">Each member\'s devices share folders and open them on that member\'s other devices. Writes both attributes and the grant Taildrive needs.</string>
+    <!-- Under the form's devices: what else Create writes. -->
+    <string name="admin_pvtd_hint">Also writes the grant that lets members open shares on their own devices, to read and to write. Narrow it afterwards on the Access page.</string>
+    <!-- The same place, for a policy that has a Taildrive grant already. -->
+    <string name="admin_pvtd_hint_grant_kept">The policy has a Taildrive grant already, and it stays as it is. Check on the Access page that it lets these devices open each other\'s shares.</string>
+</resources>

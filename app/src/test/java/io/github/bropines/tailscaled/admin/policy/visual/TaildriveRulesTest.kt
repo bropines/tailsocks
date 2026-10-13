@@ -1,5 +1,6 @@
 package io.github.bropines.tailscaled.admin.policy.visual
 
+import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.admin.policy.HuJson
 import io.github.bropines.tailscaled.admin.policy.PolicyLint
 import io.github.bropines.tailscaled.admin.policy.visual.PolicyTestKit.assertMeaning
@@ -16,7 +17,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Taildrive in the policy: what the template writes, where, and when the policy needs none of it. */
+/** Taildrive in the policy: what the Attributes page's template writes, where, and when the policy needs none of it. */
 class TaildriveRulesTest {
 
     private fun p(vararg s: Any) = PolicyPath.of(*s)
@@ -25,8 +26,10 @@ class TaildriveRulesTest {
     private val attrsJson = """{"target": ["autogroup:member"], "attr": ["drive:share", "drive:access"]}"""
 
     /** What the template's form does on Create, left as the template filled it: the rule, and the grant with it. */
-    private fun template(text: String): String =
-        TaildriveRules.withGrant(PolicyEdits.addRule(text, Section.NODE_ATTRS, PolicyEdits.nodeAttrFields(TaildriveRules.MEMBERS, TaildriveRules.ATTRS)))
+    private fun template(text: String): String {
+        val preset = AttrTemplate.TAILDRIVE.preset
+        return TaildriveRules.withGrant(PolicyEdits.addRule(text, Section.NODE_ATTRS, PolicyEdits.nodeAttrFields(preset.targets, preset.attrs)))
+    }
 
     /** The author's file without its Taildrive grant: comments, other sections and both attributes still there. */
     private val noGrant = SourceEdits.remove(sample, p("grants"))
@@ -38,6 +41,26 @@ class TaildriveRulesTest {
     }
 
     private fun covered(text: String) = TaildriveRules.covered(PolicyModel.read(text)!!)
+
+    // ---- the template ----
+
+    @Test
+    fun theTemplateFillsTheFormWithMembersAndBothAttributes() {
+        val preset = AttrTemplate.TAILDRIVE.preset
+        assertEquals(listOf("autogroup:member"), preset.targets)
+        assertEquals(listOf("drive:share", "drive:access"), preset.attrs)
+        assertTrue(preset.driveGrant)
+        // No other form writes a grant.
+        assertFalse(AttrTemplate.FASTER_START.preset.driveGrant)
+        assertFalse(AttrPreset().driveGrant)
+        // Under the devices: the grant that Create writes too, or that the policy's own one stays.
+        assertEquals(R.string.admin_pvtd_hint, taildrivePreset(PolicyModel.read(noDrive)!!).hint)
+        assertEquals(R.string.admin_pvtd_hint, taildrivePreset(PolicyModel.read("{}")!!).hint)
+        val grantOnly = PolicyEdits.updateRule(sample, p("nodeAttrs", 0), listOf("attr" to listOf("funnel").pv()))
+        assertFalse(covered(grantOnly))
+        assertEquals(R.string.admin_pvtd_hint_grant_kept, taildrivePreset(PolicyModel.read(grantOnly)!!).hint)
+        assertEquals(preset.copy(hint = R.string.admin_pvtd_hint_grant_kept), taildrivePreset(PolicyModel.read(grantOnly)!!))
+    }
 
     // ---- writing ----
 

@@ -30,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -64,8 +65,13 @@ fun NodeAttrsSection(env: VisualEnv, actions: VisualActions, layout: VisualLayou
     val policy = remember(text) { HuJson.parseOrNull(text) }
     val findings = remember(text) { Definitions.findings(text) }
     val rules = model.nodeAttrs
-    // The new rule's form, with what a template filled in; null while none is open.
-    var form by remember { mutableStateOf<AttrPreset?>(null) }
+    // Taildrive in one step, while the policy gives it to no device; Headscale has no Taildrive.
+    val taildrive = env.editable && !env.headscale && !TaildriveRules.covered(model)
+    // The new rule's form, with what a template filled in; null while none is open. An editor a
+    // Taildrive screen opened starts with that template's form up, once.
+    val launched = env.launch == VisualLaunch.TAILDRIVE
+    var form by remember { mutableStateOf(if (launched && taildrive) taildrivePreset(model) else null) }
+    LaunchedEffect(launched) { if (launched) actions.launchTaken() }
     val creating = form != null
     val shown = shownOf(layout.selected, layout, rules) { it.origin.path }
     val start: (AttrPreset) -> Unit = { form = it; layout.onSelect(null) }
@@ -74,16 +80,19 @@ fun NodeAttrsSection(env: VisualEnv, actions: VisualActions, layout: VisualLayou
     val listState = rememberLazyListState()
     // Moved from their cards, under the file's headings as the rule pages move theirs.
     val headers = remember(model) { rules.map { it.origin.header != null } }
-    // A card's item: after the intro, each rule's own, with its heading's before it.
+    // A card's item: after the intro and the Taildrive template, each rule's own, with its heading's before it.
+    val before = if (taildrive) 2 else 1
     val mover = rememberCardMover(listState) { p ->
         val k = rules.indexOfFirst { it.origin.path == p }
-        if (k < 0) null else 1 + (0..k).count { headers[it] } + k
+        if (k < 0) null else before + (0..k).count { headers[it] } + k
     }
 
     val items = buildList {
         add(PageItem("intro") {
             PageIntro(ctx.getString(R.string.admin_pvd_attrs_help), addLabel.takeIf { rules.isNotEmpty() }, add, defsSectionNotes(model, Section.NODE_ATTRS), sectionErrors(env, Section.NODE_ATTRS))
         })
+        // First, where it is seen; the mover counts it ([before]).
+        if (taildrive) add(PageItem("tpl-drive") { AttrTemplateCard(AttrTemplate.TAILDRIVE) { start(taildrivePreset(model)) } })
         if (rules.isEmpty()) add(PageItem("empty") { EmptySection(Icons.Default.Hub, ctx.getString(R.string.admin_pvd_attrs_empty), addLabel.takeIf { add != null }, add) })
         rules.forEachIndexed { i, r ->
             r.origin.header?.let { add(PageItem("h$i") { CommentHeading(it) }) }
@@ -364,20 +373,35 @@ internal fun AttrEditor(r: NodeAttr, env: VisualEnv, actions: VisualActions, lay
     }, more = more)
 }
 
-/** A new rule's starting point: empty, or what a template fills in, with a [hint] under its devices. */
+/**
+ * A new rule's starting point: empty, or what a template fills in, with a [hint] under its
+ * devices. With [driveGrant] the rule is written together with the grant Taildrive needs
+ * ([TaildriveRules.withGrant]), as one step.
+ */
 internal data class AttrPreset(
     val targets: List<String> = emptyList(),
     val attrs: List<String> = emptyList(),
     @param:StringRes val hint: Int? = null,
+    val driveGrant: Boolean = false,
 )
 
-/** Ready-made device attribute rules, offered under the list while the policy has none like them. */
+/**
+ * Ready-made device attribute rules, offered while the policy has none like them: Taildrive
+ * over the list, the rest under it.
+ */
 internal enum class AttrTemplate(val preset: AttrPreset) {
     /** Members' devices keep the network map and start from it: autogroup:member, the servers' tags to add. */
     FASTER_START(AttrPreset(listOf("autogroup:member"), listOf(KnownAttrs.CACHE_NETMAPS), R.string.admin_pvc_tpl_faster_hint)),
+
+    /** Members' devices share folders and open those on their other devices: both attributes, and the grant with them. */
+    TAILDRIVE(AttrPreset(TaildriveRules.MEMBERS, TaildriveRules.ATTRS, R.string.admin_pvtd_hint, driveGrant = true)),
 }
 
-/** A template under the list: what it does, a tap opens the form it fills. */
+/** The Taildrive template's form: a policy that has a Taildrive grant keeps it as it is, and the form says so. */
+internal fun taildrivePreset(model: PolicyModel): AttrPreset =
+    AttrTemplate.TAILDRIVE.preset.let { if (TaildriveRules.hasGrant(model)) it.copy(hint = R.string.admin_pvtd_hint_grant_kept) else it }
+
+/** A template among the rules: what it does, a tap opens the form it fills. */
 @Composable
 private fun AttrTemplateCard(t: AttrTemplate, onClick: () -> Unit) {
     val ctx = LocalContext.current
@@ -401,10 +425,12 @@ private fun AttrTemplateCard(t: AttrTemplate, onClick: () -> Unit) {
 
 private fun templateTitle(t: AttrTemplate): Int = when (t) {
     AttrTemplate.FASTER_START -> R.string.admin_pvc_tpl_faster
+    AttrTemplate.TAILDRIVE -> R.string.admin_pvtd_tpl
 }
 
 private fun templateHelp(t: AttrTemplate): Int = when (t) {
     AttrTemplate.FASTER_START -> R.string.admin_pvc_tpl_faster_help
+    AttrTemplate.TAILDRIVE -> R.string.admin_pvtd_tpl_help
 }
 
 /** A new rule: devices and at least one attribute before anything is written; [preset] fills it in from a template. */
@@ -414,19 +440,23 @@ internal fun NewAttrForm(env: VisualEnv, actions: VisualActions, preset: AttrPre
     val model = env.model ?: return
     var targets by remember { mutableStateOf(preset.targets) }
     var attrs by remember { mutableStateOf(preset.attrs) }
+    // The Taildrive template's grant goes with its attributes: with both switched off the rule is like any other.
+    val grant = preset.driveGrant && attrs.any { it in TaildriveRules.ATTRS }
     EditorTop(Icons.Default.Hub, ctx.getString(R.string.admin_pvd_attr_new), ctx.getString(R.string.admin_pvd_attrs_empty), null, env, actions, monospace = false)
     SelectorField(
         ctx.getString(R.string.admin_pvd_attr_targets), targets, SelectorSlot.NODE_TARGET, env,
         onChange = { targets = it },
-        help = preset.hint?.let(ctx::getString),
+        help = preset.hint?.takeIf { grant || !preset.driveGrant }?.let(ctx::getString),
     )
     EditorBlock(ctx.getString(R.string.admin_pvd_attr_turns_on)) {
         KnownAttrSwitches(attrs, true, env.headscale) { attrs = it }
     }
     OtherAttrs(attrs, true) { attrs = it }
     CreateButton(ctx.getString(R.string.admin_pvd_attr_create), enabled = targets.isNotEmpty() && attrs.isNotEmpty(), hint = ctx.getString(R.string.admin_pvd_attr_create_hint)) {
-        if (actions.edit { PolicyEdits.addRule(it, Section.NODE_ATTRS, PolicyEdits.nodeAttrFields(targets, attrs)) }) {
-            onCreated(PolicyPath.of(Section.NODE_ATTRS.key, model.nodeAttrs.size))
+        // One edit, so one step to undo: the rule, and the template's grant after it.
+        val written = actions.edit { text ->
+            PolicyEdits.addRule(text, Section.NODE_ATTRS, PolicyEdits.nodeAttrFields(targets, attrs)).let { if (grant) TaildriveRules.withGrant(it) else it }
         }
+        if (written) onCreated(PolicyPath.of(Section.NODE_ATTRS.key, model.nodeAttrs.size))
     }
 }
