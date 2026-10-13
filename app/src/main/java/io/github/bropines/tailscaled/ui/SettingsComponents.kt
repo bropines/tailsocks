@@ -921,20 +921,27 @@ fun SettingsExitNodeItem(
     }
 }
 
+/**
+ * A path under its [label]; a tap copies it. Where there is no clipboard to speak of
+ * ([Feature.CLIPBOARD_ACTIONS]) — a television — it is only read: no target, no copy icon.
+ */
 @Composable
 fun CopyablePathItem(
     label: String,
     path: String,
     context: Context
 ) {
+    val copies = Feature.CLIPBOARD_ACTIONS.offered()
     val clipboard = remember(context) { context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager }
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable {
-                clipboard.setPrimaryClip(ClipData.newPlainText(label, path))
-                Toast.makeText(context, context.getString(R.string.copied_to_clipboard, label), Toast.LENGTH_SHORT).show()
-            }
+            .then(
+                if (copies) Modifier.clickable {
+                    clipboard.setPrimaryClip(ClipData.newPlainText(label, path))
+                    Toast.makeText(context, context.getString(R.string.copied_to_clipboard, label), Toast.LENGTH_SHORT).show()
+                } else Modifier
+            )
             .padding(vertical = 2.dp)
     ) {
         Row(
@@ -943,7 +950,7 @@ fun CopyablePathItem(
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-            Icon(
+            if (copies) Icon(
                 Icons.Default.ContentCopy,
                 contentDescription = stringResource(R.string.settings_copy_cd_format, label),
                 tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),

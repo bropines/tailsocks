@@ -1910,18 +1910,35 @@ fun SettingsScreen(
                     NetAddr.port(GlobalSettings.getDnsProxyBindAddr(context))?.let { "DNS" to it }
                 )
                 val copiedFmt = stringResource(R.string.settings_lan_copied)
+                // Where there is no clipboard to speak of — a television — an address is read off
+                // the screen and typed on another device: OK shows it large instead of copying it.
+                val copies = place(Feature.CLIPBOARD_ACTIONS) == Availability.OFFERED
+                var shownEndpoint by remember { mutableStateOf<String?>(null) }
                 LanEndpoints(
                     networks = listOf(
                         stringResource(R.string.settings_lan_endpoint_lan) to lanIp,
                         stringResource(R.string.settings_lan_endpoint_tailnet) to tailnetIp
                     ),
                     ports = ports,
+                    copies = copies,
                     onCopy = { text ->
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("TailSocks", text))
-                        Toast.makeText(context, copiedFmt.format(text), Toast.LENGTH_SHORT).show()
+                        if (copies) {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("TailSocks", text))
+                            Toast.makeText(context, copiedFmt.format(text), Toast.LENGTH_SHORT).show()
+                        } else {
+                            shownEndpoint = text
+                        }
                     }
                 )
+                shownEndpoint?.let { text ->
+                    ValueDialog(
+                        title = stringResource(R.string.settings_lan_access_title),
+                        values = listOf(ShownValue(text, text, qr = false)),
+                        strings = rememberShownValueStrings(),
+                        onDismiss = { shownEndpoint = null }
+                    )
+                }
             }
 
             if (lanAccessEnabled && !socksHasAuth) {
@@ -3302,12 +3319,15 @@ fun SettingsScreen(
 /**
  * The listeners' addresses while LAN access is on: one block per network
  * (Wi-Fi/LAN, tailnet) with the host on its own line and a chip per port.
- * Tapping the host copies it, tapping a chip copies host:port.
+ * Tapping the host copies it, tapping a chip copies host:port. Without
+ * [copies] — a device with no clipboard to speak of — the same presses hand
+ * the address to [onCopy] to be shown, and the copy icons are not drawn.
  */
 @Composable
 private fun LanEndpoints(
     networks: List<Pair<String, String?>>,
     ports: List<Pair<String, Int>>,
+    copies: Boolean = true,
     onCopy: (String) -> Unit
 ) {
     Column(
@@ -3340,7 +3360,7 @@ private fun LanEndpoints(
                                 fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.weight(1f).padding(vertical = 2.dp)
                             )
-                            Icon(
+                            if (copies) Icon(
                                 Icons.Default.ContentCopy, contentDescription = stringResource(R.string.action_copy),
                                 modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -3353,7 +3373,7 @@ private fun LanEndpoints(
                                 AssistChip(
                                     onClick = { onCopy("$host:$port") },
                                     label = { Text("$name  :$port", fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.labelMedium) },
-                                    trailingIcon = { Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(14.dp)) }
+                                    trailingIcon = if (copies) { { Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(14.dp)) } } else null
                                 )
                             }
                         }
