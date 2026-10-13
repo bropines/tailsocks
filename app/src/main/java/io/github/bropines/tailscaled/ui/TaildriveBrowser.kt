@@ -1,5 +1,6 @@
 package io.github.bropines.tailscaled.ui
 
+import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusGroup
@@ -24,6 +25,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.ErrorOutline
@@ -78,6 +80,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.bropines.tailscaled.R
+import io.github.bropines.tailscaled.admin.TaildrivePolicyFix
 import io.github.bropines.tailscaled.core.AccountManager
 import io.github.bropines.tailscaled.core.DriveEntry
 import io.github.bropines.tailscaled.core.DriveError
@@ -88,6 +91,7 @@ import io.github.bropines.tailscaled.core.DriveResult
 import io.github.bropines.tailscaled.core.TaildriveBrowse
 import io.github.bropines.tailscaled.core.formatFileSize
 import io.github.bropines.tailscaled.core.pathLine
+import io.github.bropines.tailscaled.core.tryStartActivity
 import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
@@ -141,6 +145,8 @@ internal class DriveBrowserActions(
     val onEnableProxy: () -> Unit,
     val onDaemonStarted: () -> Unit,
     val onDismissNotice: () -> Unit,
+    /** The way into the policy editor, for a device the policy does not let in; null where it is not offered. */
+    val onFixPolicy: (() -> Unit)? = null,
 ) {
     companion object {
         val None = DriveBrowserActions({}, {}, {}, {}, {}, {})
@@ -242,6 +248,15 @@ fun TaildriveBrowserPage(
         onDispose { lifecycle.removeObserver(observer) }
     }
 
+    // The way into the policy editor, looked up only when a refusal wants it: a read of preferences.
+    var fix by remember { mutableStateOf<Intent?>(null) }
+    val refused = (phase as? BrowserPhase.Failed)?.error == DriveError.NotPermitted
+    LaunchedEffect(refused) {
+        fix = if (refused) withContext(Dispatchers.IO) {
+            TaildrivePolicyFix.profileFor(appContext)?.let { TaildrivePolicyFix.intent(appContext, it) }
+        } else null
+    }
+
     val actions = DriveBrowserActions(
         onOpen = { entry ->
             if (entry.isFolder) go(location.child(entry.name))
@@ -267,13 +282,15 @@ fun TaildriveBrowserPage(
         },
         onDaemonStarted = { loadKey++ },
         onDismissNotice = { notice = null },
+        onFixPolicy = fix?.let { intent -> { context.tryStartActivity(intent); Unit } },
     )
     TaildriveBrowserContent(location, phase, focusName, notice, actions, modifier)
 }
 
 /** Whether the user can put this right somewhere else and come back. */
 private val DriveError.isFixableOutside: Boolean
-    get() = this == DriveError.ProxyOff || this == DriveError.NotConnected || this == DriveError.ProxyNotListening
+    get() = this == DriveError.ProxyOff || this == DriveError.NotConnected || this == DriveError.ProxyNotListening ||
+        this == DriveError.NotPermitted
 
 /**
  * The page for a given state, with nothing live behind it: the previews draw this, and the
@@ -312,7 +329,7 @@ internal fun TaildriveBrowserContent(
                 when (phase) {
                     BrowserPhase.Loading -> Busy(stringResource(R.string.taildrive_browser_loading))
                     BrowserPhase.StartingProxy -> Busy(stringResource(R.string.taildrive_browser_proxy_starting))
-                    is BrowserPhase.Listed -> Entries(location, phase.entries, focusName, actions.onOpen)
+                    is BrowserPhase.Listed -> Entries(location, phase.entries, focusName, actions.onOpen, actions.onRetry)
                     is BrowserPhase.Failed -> Failure(phase.error, actions)
                 }
             }
@@ -330,7 +347,7 @@ internal fun TaildriveBrowserContent(
 // ---------------------------------------------------------------------------------------------
 
 @Composable
-private fun Entries(location: DriveLocation, entries: List<DriveEntry>, focusName: String?, onOpen: (DriveEntry) -> Unit) {
+private fun Entries(location: DriveLocation, entries: List<DriveEntry>, focusName: String?, onOpen: (DriveEntry) -> Unit, onRetry: () -> Unit) {
     if (entries.isEmpty()) {
         val devices = location.depth <= 1
         State(
@@ -342,7 +359,11 @@ private fun Entries(location: DriveLocation, entries: List<DriveEntry>, focusNam
                     else -> R.string.taildrive_browser_empty_folder
                 }
             ),
-            help = if (devices) stringResource(R.string.taildrive_browser_empty_devices_help) else null
+            help = if (devices) stringResource(R.string.taildrive_browser_empty_devices_help) else null,
+            // What a list of devices or of a device's shares holds changes on the other devices'
+            // side: looking again is the one thing to do here. A folder's own emptiness is final.
+            actionLabel = if (location.depth <= 2) stringResource(R.string.action_retry) else null,
+            onAction = if (location.depth <= 2) onRetry else null
         )
         return
     }
@@ -490,8 +511,17 @@ private fun Failure(error: DriveError, actions: DriveBrowserActions) {
             actionLabel = stringResource(R.string.taildrive_browser_proxy_turn_on),
             onAction = actions.onEnableProxy
         )
+        // The policy: what to change and, where the console is, the way to change it; elsewhere, to look again.
+        DriveError.NotPermitted -> State(
+            icon = Icons.Default.Block,
+            title = stringResource(R.string.taildrive_browser_error_not_permitted),
+            help = stringResource(R.string.taildrive_browser_error_not_permitted_help),
+            actionLabel = stringResource(if (actions.onFixPolicy != null) R.string.taildrive_fix_policy else R.string.action_retry),
+            onAction = actions.onFixPolicy ?: actions.onRetry
+        )
         else -> {
             val (title, help) = when (error) {
+                DriveError.NoAnswer -> R.string.taildrive_browser_error_no_answer to R.string.taildrive_browser_error_no_answer_help
                 DriveError.Unreachable -> R.string.taildrive_browser_error_unreachable to R.string.taildrive_browser_error_unreachable_help
                 DriveError.AccessDenied -> R.string.taildrive_browser_error_denied to R.string.taildrive_browser_error_denied_help
                 DriveError.NotFound -> R.string.taildrive_browser_error_not_found to R.string.taildrive_browser_error_not_found_help
