@@ -3091,7 +3091,11 @@ fun SettingsScreen(
                 // Hoisted for the same reason as the hub's: the back container swaps its own
                 // structure the moment a pop lands, and a section that jumps back to the top
                 // while it is still fading out is worse than the pop it is showing.
-                val sectionScroll = rememberScrollState(sectionAnchors[section] ?: 0)
+                // Beside the list one pane serves every section in turn, and the state it had for the
+                // last one is not the next one's: each section is its own, and one opened from the list
+                // starts at its top. A search result or a link that names a row scrolls to it from there.
+                val sectionScroll = if (backable) rememberScrollState(sectionAnchors[section] ?: 0)
+                else key(section) { rememberScrollState() }
                 LaunchedEffect(sectionScroll, section) {
                     snapshotFlow { sectionScroll.value }.collect { sectionAnchors[section] = it }
                 }
