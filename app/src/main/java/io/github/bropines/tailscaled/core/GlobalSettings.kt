@@ -59,7 +59,7 @@ object GlobalSettings {
     fun isCPByeDpiEnabled(context: Context) = getPrefs(context).getBoolean("cp_byedpi_enabled", false)
     fun setCPByeDpiEnabled(context: Context, enabled: Boolean) = getPrefs(context).edit().putBoolean("cp_byedpi_enabled", enabled).apply()
 
-    fun getCPByeDpiFlags(context: Context): String = getPrefs(context).getString("cp_byedpi_flags", "-o1 -a1 -r-5+se") ?: "-o1 -a1 -r-5+se"
+    fun getCPByeDpiFlags(context: Context): String = getPrefs(context).getString("cp_byedpi_flags", ByeDpiFlags.DEFAULT) ?: ByeDpiFlags.DEFAULT
     fun setCPByeDpiFlags(context: Context, flags: String) = getPrefs(context).edit().putString("cp_byedpi_flags", flags).apply()
 
     fun isCPByeDpiIpv6Disabled(context: Context): Boolean = getPrefs(context).getBoolean("cp_byedpi_ipv6_disabled", false)

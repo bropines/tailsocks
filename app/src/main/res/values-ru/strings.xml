@@ -751,6 +751,9 @@
     <string name="settings_byedpi_flags">Флаги ByeByeDPI</string>
     <string name="settings_byedpi_status_active">Активен на socks5://%1$s</string>
     <string name="settings_byedpi_status_stopped">Остановлен</string>
+    <string name="settings_byedpi_status_ignored">Активен на socks5://%1$s · пропущено: %2$s</string>
+    <string name="settings_byedpi_status_builtin">Активен на socks5://%1$s · встроенные флаги, ваши не приняты</string>
+    <string name="settings_byedpi_status_failed">Не работает (код %1$d): связи с сервером координации нет. См. журнал</string>
     <string name="settings_byedpi_desc">Обходит блокировки и DPI для трафика сервера координации Tailscale с помощью локальной фрагментации пакетов. Работает полностью в userspace.</string>
     <string name="settings_proxy_import">Вставить ссылку прокси / URI</string>
     <string name="settings_proxy_import_error">Неверный формат ссылки прокси</string>

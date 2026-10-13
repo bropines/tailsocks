@@ -92,7 +92,7 @@ adb shell am broadcast -a io.github.bropines.tailscaled.action.SWITCH_ACCOUNT -n
 
 # Переключение TUN / ByeDPI (boolean extras передаются через --ez)
 adb shell am broadcast -a io.github.bropines.tailscaled.action.SET_TUN -n io.github.bropines.tailscaled/.core.TaskerReceiver --es secret YOUR_TOKEN --ez enabled true
-adb shell am broadcast -a io.github.bropines.tailscaled.action.SET_BYEDPI -n io.github.bropines.tailscaled/.core.TaskerReceiver --es secret YOUR_TOKEN --ez enabled true --es flags "-s 1 -d split -r"
+adb shell am broadcast -a io.github.bropines.tailscaled.action.SET_BYEDPI -n io.github.bropines.tailscaled/.core.TaskerReceiver --es secret YOUR_TOKEN --ez enabled true --es flags "-o1 -a1 -r-5+se"
 ```
 
 ---

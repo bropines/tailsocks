@@ -2077,7 +2077,9 @@ fun SettingsScreen(
         var byedpiEnabled by remember { mutableStateOf(GlobalSettings.isCPByeDpiEnabled(context)) }
         var byedpiFlags by remember { mutableStateOf(GlobalSettings.getCPByeDpiFlags(context)) }
         var byedpiIpv6Disabled by remember { mutableStateOf(GlobalSettings.isCPByeDpiIpv6Disabled(context)) }
-        val activeBbdAddr = ByeDpiProxy.activeAddress
+        // Observed, not read once: the proxy starts after the switch is drawn,
+        // and a start that fails does so a moment later still.
+        val bypassStatus by ByeDpiProxy.status.collectAsState()
 
         SettingsCard(title = stringResource(R.string.settings_sect_control_proxy)) {
             val isByeDpi = GlobalSettings.isCPByeDpiEnabled(context)
@@ -2129,14 +2131,20 @@ fun SettingsScreen(
 
             SettingsSwitchItem(
                 title = stringResource(R.string.settings_byedpi_enable),
-                subtitle = if (byedpiEnabled) {
-                    if (activeBbdAddr != null) {
-                        stringResource(R.string.settings_byedpi_status_active, "${activeBbdAddr.first}:${activeBbdAddr.second}")
-                    } else {
-                        stringResource(R.string.settings_byedpi_status_stopped)
+                // The proxy as it is, not as the switch stands: it starts with
+                // the service, and automation can turn it on behind this screen.
+                subtitle = when (val status = bypassStatus) {
+                    is ByeDpiStatus.Active -> {
+                        val address = "${status.address.first}:${status.address.second}"
+                        // What runs is not always what the field below holds.
+                        when {
+                            status.ignored.isEmpty() -> stringResource(R.string.settings_byedpi_status_active, address)
+                            status.builtIn -> stringResource(R.string.settings_byedpi_status_builtin, address)
+                            else -> stringResource(R.string.settings_byedpi_status_ignored, address, status.ignored.joinToString(" "))
+                        }
                     }
-                } else {
-                    stringResource(R.string.settings_byedpi_status_stopped)
+                    is ByeDpiStatus.Failed -> stringResource(R.string.settings_byedpi_status_failed, status.code)
+                    ByeDpiStatus.Stopped -> stringResource(R.string.settings_byedpi_status_stopped)
                 },
                 icon = Icons.Default.Shield,
                 checked = byedpiEnabled
@@ -2152,7 +2160,8 @@ fun SettingsScreen(
                 title = stringResource(R.string.settings_byedpi_flags),
                 value = byedpiFlags,
                 icon = Icons.Default.Code,
-                placeholder = "-o1 -a1 -r-5+se"
+                // What an empty field runs.
+                placeholder = ByeDpiFlags.DEFAULT
             ) {
                 byedpiFlags = it
                 GlobalSettings.setCPByeDpiFlags(context, it)

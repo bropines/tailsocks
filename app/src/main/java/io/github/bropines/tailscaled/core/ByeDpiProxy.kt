@@ -2,6 +2,8 @@ package io.github.bropines.tailscaled.core
 
 import android.util.Log
 import java.net.ServerSocket
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 object ByeDpiProxy {
     private const val TAG = "ByeDpiProxy"
@@ -39,6 +41,12 @@ object ByeDpiProxy {
     var activeAddress: Pair<String, Int>? = null
         private set
 
+    /** What the Settings card shows: whether the proxy runs, with whose flags,
+     *  and a start that failed. [activeAddress] cannot be observed and says
+     *  nothing about why it is empty. Written under the monitor. */
+    private val _status = MutableStateFlow<ByeDpiStatus>(ByeDpiStatus.Stopped)
+    val status: StateFlow<ByeDpiStatus> = _status
+
     @Synchronized
     fun start(customFlags: String, context: android.content.Context): Pair<String, Int>? {
         if (isRunning) return null
@@ -59,37 +67,23 @@ object ByeDpiProxy {
             (30000..65000).random()
         }
 
-        val baseArgs = mutableListOf(
-            "byedpi",
-            "-i", "socks5://$ip",
-            "-p", port.toString()
-        )
-
-        if (GlobalSettings.isCPByeDpiIpv6Disabled(context)) {
-            baseArgs.add("-X")
-        }
-        
-        // Sensible defaults: 1-byte splitting + disorder
-        val defaultArgs = listOf("-s", "1", "-d", "split", "-r")
-        if (customFlags.isNotEmpty()) {
-            // Only desync/tuning options may come from the user string; anything
-            // that binds, forks, or touches files is dropped (see ByeDpiFlags).
-            val checked = ByeDpiFlags.sanitize(customFlags)
-            if (checked.rejected.isNotEmpty()) {
-                Log.w(TAG, "Ignoring ByeDPI flags outside the DPI allow-list: ${checked.rejected}")
-                appctr.Appctr.logAndroid(
-                    "WARN", "CORE",
-                    "DPI Bypass: ignored flags ${checked.rejected.joinToString(" ")} — only desync/tuning options are accepted"
-                )
-            }
-            if (checked.accepted.isNotEmpty()) baseArgs.addAll(checked.accepted) else baseArgs.addAll(defaultArgs)
-        } else {
-            baseArgs.addAll(defaultArgs)
+        val address = Pair(ip, port)
+        // Only desync/tuning options may come from the user string; anything
+        // that binds, forks, or touches files is dropped (see ByeDpiFlags), and
+        // a string with nothing left runs the built-in profile.
+        val run = ByeDpiRun(address, GlobalSettings.isCPByeDpiIpv6Disabled(context), customFlags)
+        val ignored = run.status.ignored
+        if (ignored.isNotEmpty()) {
+            Log.w(TAG, "Ignoring ByeDPI flags outside the DPI allow-list: $ignored")
+            appctr.Appctr.logAndroid(
+                "WARN", "CORE",
+                "DPI Bypass: ignored flags ${ignored.joinToString(" ")} — only desync/tuning options are accepted"
+            )
         }
 
         val logFile = java.io.File(context.cacheDir, "byedpi_temp.log")
-        val address = Pair(ip, port)
         activeAddress = address
+        _status.value = run.status
 
         val t = Thread {
             if (previous != null && previous.isAlive) {
@@ -106,23 +100,44 @@ object ByeDpiProxy {
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to set log path", e)
             }
-            Log.d(TAG, "Starting ByeDPI on $ip:$port with args: $baseArgs")
+            Log.d(TAG, "Starting ByeDPI on $ip:$port with flags: ${run.flags}")
             appctr.Appctr.logAndroid("INFO", "CORE", "DPI Bypass (ByeDPI) starting on $ip:$port...")
-            
+
             startLogReader(logFile)
-            
-            // Returns at once if stop() got in first.
-            val code = jniStartProxy(baseArgs.toTypedArray(), id)
+
+            // Each call returns at once if stop() got in first.
+            val code = run.execute({ args -> jniStartProxy(args, id) }) { refused ->
+                Log.w(TAG, "ByeDPI refused the flags $refused, starting with ${run.flags}")
+                appctr.Appctr.logAndroid(
+                    "WARN", "CORE",
+                    "DPI Bypass: ByeDPI refused the flags ${refused.joinToString(" ")} — running with the built-in ones (${ByeDpiFlags.DEFAULT})"
+                )
+                synchronized(this@ByeDpiProxy) {
+                    if (runId == id && isRunning) _status.value = run.status
+                }
+            }
             Log.d(TAG, "ByeDPI stopped with code $code")
-            appctr.Appctr.logAndroid("INFO", "CORE", "DPI Bypass (ByeDPI) stopped with code $code")
-            
+
             stopLogReader()
-            synchronized(this@ByeDpiProxy) {
+            val end = synchronized(this@ByeDpiProxy) {
+                // A later run exists only after a stop() or after this point, and
+                // isRunning is still set when nobody called stop() on this one.
+                val end = run.ended(code, asked = runId != id || !isRunning)
                 // A later run has its own state by now; it is not ours to clear.
                 if (runId == id) {
                     activeAddress = null
                     isRunning = false
+                    _status.value = end
                 }
+                end
+            }
+            if (end is ByeDpiStatus.Failed) {
+                appctr.Appctr.logAndroid(
+                    "ERROR", "CORE",
+                    "DPI Bypass (ByeDPI) is not running: it ended with code $code and nobody stopped it. Nothing listens on $ip:$port"
+                )
+            } else {
+                appctr.Appctr.logAndroid("INFO", "CORE", "DPI Bypass (ByeDPI) stopped with code $code")
             }
         }
         proxyThread = t
@@ -133,6 +148,9 @@ object ByeDpiProxy {
 
     @Synchronized
     fun stop() {
+        // Also with nothing to stop: a failed start is no longer the news once
+        // the bypass is switched off or the service goes down.
+        _status.value = ByeDpiStatus.Stopped
         if (!isRunning) return
         // Clear the flag synchronously so a start() right after stop() is not
         // rejected while the native side is still winding down.
