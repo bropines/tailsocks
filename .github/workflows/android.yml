@@ -3,6 +3,8 @@ name: Android CI Chain
 # Releases only: a tag builds, signs and publishes. A push to main or a pull
 # request no longer spends a full Go and Gradle build each — the tag that
 # follows them builds the same tree anyway. Anything in between is a manual run.
+# A beta tag (v5.1.0-beta.1) is built exactly as a release tag is; only the
+# last job tells them apart, and publishes a beta as a pre-release.
 on:
   push:
     tags: [ "v*" ]
@@ -120,21 +122,16 @@ jobs:
 
       # The app's version is version.properties, not the tag; a release whose
       # tag says one version and whose APK another would confuse every updater,
-      # F-Droid's first. The code must also follow the name's scheme.
+      # F-Droid's first. The code must also follow the name's scheme — a
+      # release's (v5.1.0) or a beta's (v5.1.0-beta.1). The scheme is written
+      # once, in buildSrc's ReleaseVersion: Gradle holds every build to it, and
+      # this step runs the same file as a program, with the JDK the runner
+      # comes with (docs/RELEASING.md).
       - name: Check the tag against version.properties
         if: github.ref_type == 'tag'
-        run: |
-          name=$(sed -n 's/^VERSION_NAME=//p' version.properties)
-          code=$(sed -n 's/^VERSION_CODE=//p' version.properties)
-          if [ "${{ github.ref_name }}" != "v$name" ]; then
-            echo "::error::Tag ${{ github.ref_name }} does not match VERSION_NAME=$name in version.properties"
-            exit 1
-          fi
-          IFS=. read -r major minor patch <<< "$name"
-          if [ "$code" != "$((major * 1000000 + minor * 10000 + patch * 100))" ]; then
-            echo "::error::VERSION_CODE=$code does not follow VERSION_NAME=$name (major*1000000 + minor*10000 + patch*100)"
-            exit 1
-          fi
+        run: java buildSrc/src/main/java/io/github/bropines/tailscaled/release/ReleaseVersion.java "$TAG_NAME"
+        env:
+          TAG_NAME: ${{ github.ref_name }}
 
       - name: Download Go Core Artifacts
         uses: actions/download-artifact@v4
@@ -354,33 +351,35 @@ jobs:
           path: release-artifacts
           merge-multiple: true
 
-      - name: Extract Release Notes from CHANGELOG
-        id: changelog_reader
-        run: |
-          python3 -c "
-          import re, os
-          tag = os.environ.get('TAG_NAME', '')
-          version = tag.lstrip('v')
-          body = ''
-          if os.path.exists('CHANGELOG.md'):
-              with open('CHANGELOG.md', 'r', encoding='utf-8') as f:
-                  content = f.read()
-              pattern = rf'(?s)(##\s*\[{re.escape(version)}\].*?)(?=\n##\s*\[|\Z)'
-              match = re.search(pattern, content)
-              if match:
-                  section = match.group(1).strip()
-                  lines = section.splitlines()
-                  body = '\n'.join(lines[1:]).strip() if len(lines) > 1 else ''
-          with open('release_notes.txt', 'w', encoding='utf-8') as out:
-              out.write(body)
-          "
+      # A release or a beta: the same ReleaseVersion that checked the tag before
+      # the build says which, as kind=release or kind=beta.
+      - name: Tell a release from a beta
+        id: tag
+        run: java buildSrc/src/main/java/io/github/bropines/tailscaled/release/ReleaseVersion.java "$TAG_NAME" >> "$GITHUB_OUTPUT"
         env:
           TAG_NAME: ${{ github.ref_name }}
 
+      # A release's notes are its own section of the changelog. A beta has
+      # none: its notes are [Unreleased] as it stands at the tag, under a fixed
+      # header that says what a beta is and how to leave it.
+      - name: Extract Release Notes from CHANGELOG
+        id: changelog_reader
+        run: python3 scripts/release/notes.py "$TAG_NAME" "$KIND"
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+          KIND: ${{ steps.tag.outputs.kind }}
+
+      # A beta is published as a pre-release and never as the latest release:
+      # "latest" is what every installed copy asks GitHub for unless its owner
+      # switched "Receive beta versions" on. For a release the three
+      # expressions give what was always there — the plain title, and
+      # prerelease and make_latest left unset.
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           files: release-artifacts/**/*.apk
           body_path: release_notes.txt
           tag_name: ${{ github.ref_name }}
-          name: "TailSocks ${{ github.ref_name }}"
+          name: "TailSocks ${{ github.ref_name }}${{ steps.tag.outputs.kind == 'beta' && ' (beta)' || '' }}"
+          prerelease: ${{ steps.tag.outputs.kind == 'beta' && 'true' || '' }}
+          make_latest: ${{ steps.tag.outputs.kind == 'beta' && 'false' || '' }}
