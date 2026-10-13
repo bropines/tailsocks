@@ -35,6 +35,8 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -289,12 +291,18 @@ internal fun SettingsRowTarget(state: SettingsSearchState, section: String?, liv
  * the title it shows. Goes after the element's outer padding, so the mark hugs the element;
  * [outset] draws it that much wider, for a block of bare text with no surface of its own, and
  * [shape] gives it the corners of what it marks.
+ *
+ * On a television the remote is put on the row, or on the first stop in a block, once the page
+ * has scrolled to it: a page that opens on a row has nowhere else to start, and the first row
+ * of the page — where the page puts the remote itself — may be out of sight by then.
  */
 @Composable
 fun Modifier.settingAnchor(title: String, outset: Dp = 0.dp, shape: CornerBasedShape = MaterialTheme.shapes.medium): Modifier {
     val target = LocalSettingTarget.current
     if (target == null || target.title != title) return this
     val requester = remember { BringIntoViewRequester() }
+    val remote = remember { FocusRequester() }
+    val tv = isTv
     val shown = remember { Animatable(0f) }
     var size by remember { mutableStateOf(IntSize.Zero) }
     val tint = MaterialTheme.colorScheme.primary
@@ -305,13 +313,18 @@ fun Modifier.settingAnchor(title: String, outset: Dp = 0.dp, shape: CornerBasedS
         val around = size.height.coerceAtLeast(1) * 1.5f
         // A job of its own: a page with nowhere to scroll to gives the request up by cancelling it,
         // and that is no reason to leave the row unmarked.
-        launch { requester.bringIntoView(Rect(0f, -around, size.width.toFloat(), size.height + around)) }
+        val scrolled = launch { requester.bringIntoView(Rect(0f, -around, size.width.toFloat(), size.height + around)) }
+        if (tv) launch {
+            scrolled.join()
+            runCatching { remote.requestFocus() }
+        }
         shown.animateTo(1f, tween(MARK_IN_MS))
         delay(MARK_HOLD_MS)
         shown.animateTo(0f, tween(MARK_OUT_MS))
         target.marked = true
     }
     return this
+        .then(if (tv) Modifier.focusRequester(remote) else Modifier)
         .bringIntoViewRequester(requester)
         .onSizeChanged { size = it }
         .drawWithContent {
