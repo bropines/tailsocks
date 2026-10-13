@@ -168,7 +168,7 @@ internal fun ManageWindows(
         val context = LocalContext.current
         Confirm(
             title = stringResource(R.string.rmanage_fetch_title, file.name),
-            text = stringResource(R.string.rmanage_fetch_text, Formatter.formatShortFileSize(context, size), ui.name),
+            text = stringResource(R.string.rmanage_fetch_text, Formatter.formatShortFileSize(context, size)),
             yes = stringResource(R.string.rmanage_fetch_confirm),
             destructive = false,
             onYes = { actions.fetch(file.path) },
