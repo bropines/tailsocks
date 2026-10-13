@@ -946,15 +946,27 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
 
     // The top bar's actions: in a top bar of its own, or handed to ServeHost,
     // which shows them while this page is the current one.
+    // The two actions of the overflow menu. A menu is a popup, and on the Android TV emulator
+    // the remote did not reach into it: its arrows moved nothing and OK chose nothing. On a
+    // television the same button opens them as a sheet, and only those that can be done now.
+    val tv = isTv
+    // A certificate is exported into a file of the system's picker or onto the clipboard: a
+    // device with neither is not offered it.
+    val canExportCert = caps.dnsName.isNotEmpty() && caps.certDomains.isNotEmpty() &&
+        (Feature.SYSTEM_FILE_PICKER.offered() || Feature.CLIPBOARD_ACTIONS.offered())
     val actions: @Composable RowScope.() -> Unit = {
                 IconButton(onClick = { servicesTick++; refresh() }) { Icon(Icons.Default.Refresh, stringResource(R.string.action_refresh)) }
-                Box {
+                if (tv) {
+                    if (canExportCert || rules.isNotEmpty()) {
+                        IconButton(onClick = { menuOpen = true }) { Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.action_more)) }
+                    }
+                } else Box {
                     IconButton(onClick = { menuOpen = true }) { Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.action_more)) }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.serve_cd_export_cert)) },
                             leadingIcon = { Icon(Icons.Default.Lock, null) },
-                            enabled = caps.dnsName.isNotEmpty() && caps.certDomains.isNotEmpty(),
+                            enabled = canExportCert,
                             onClick = { menuOpen = false; showCertExportDialog = true }
                         )
                         DropdownMenuItem(
@@ -967,6 +979,17 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
                 }
     }
     if (page != null) SideEffect { page.actions.value = actions }
+    if (tv && menuOpen) {
+        PickerSheet(
+            title = stringResource(R.string.action_more),
+            options = listOfNotNull(
+                PickerOption(0, stringResource(R.string.serve_cd_export_cert), Icons.Default.Lock).takeIf { canExportCert },
+                PickerOption(1, stringResource(R.string.serve_cd_clear_all), Icons.Default.DeleteSweep).takeIf { rules.isNotEmpty() },
+            ),
+            onPick = { if (it == 0) showCertExportDialog = true else showClearDialog = true },
+            onDismiss = { menuOpen = false }
+        )
+    }
 
     // A rule group's card and a service's heading, the same in the phone's list and in the
     // large window's grid.
@@ -1215,7 +1238,8 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
             text = { Text(context.getString(R.string.serve_export_text_format, domain)) },
             confirmButton = {
                 Button(onClick = {
-                    fetchCert { pem -> pendingCertData = pem; certSaveLauncher.launch("$domain.pem") }
+                    // tryLaunch: a device with no real picker gets nothing, not a crash.
+                    fetchCert { pem -> pendingCertData = pem; certSaveLauncher.tryLaunch("$domain.pem") }
                     showCertExportDialog = false
                 }) {
                     Icon(Icons.Default.Download, null)
