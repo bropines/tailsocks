@@ -146,7 +146,12 @@ class ServePage(val actions: MutableState<@Composable RowScope.() -> Unit>)
  */
 @Composable
 fun ServeHost(startTab: Int, onBack: () -> Unit, activity: FragmentActivity? = null, tailcatImport: String? = null) {
-    val pager = rememberPagerState(initialPage = startTab) { 2 }
+    // Where TailCat is not offered at all — a television — Serve & Funnel is the whole
+    // screen: no switch and no second page, which the remote walked into off the edge of
+    // the first.
+    val tailcat = Feature.TAILCAT.availability().reachable
+    val pageCount = if (tailcat) 2 else 1
+    val pager = rememberPagerState(initialPage = startTab.coerceIn(0, pageCount - 1)) { pageCount }
     val scope = rememberCoroutineScope()
     val pages = remember { List(2) { ServePage(mutableStateOf({})) } }
     // The switch stands over the pages at their own margins: on a large window those are
@@ -159,12 +164,12 @@ fun ServeHost(startTab: Int, onBack: () -> Unit, activity: FragmentActivity? = n
             topBar = {
                 Column {
                     AppTopBar(
-                        title = stringResource(R.string.serve_host_title),
+                        title = stringResource(if (tailcat) R.string.serve_host_title else R.string.serve_title),
                         onBack = onBack,
                         // Read here, so a page publishing its actions redraws only these.
                         actions = { pages[pager.currentPage].actions.value(this) }
                     )
-                    SlidingSegmentedChips(
+                    if (tailcat) SlidingSegmentedChips(
                         items = listOf(
                             SegmentedChipItem(stringResource(R.string.serve_title), Icons.Default.Public),
                             SegmentedChipItem(stringResource(R.string.tailcat_title), Icons.Default.Pets)
@@ -1002,6 +1007,9 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
     // as fit under it. A phone keeps its single list below, exactly as it was.
     val window = rememberWindowLayout()
 
+    // A remote does not pull — the top bar's button refreshes — and its held arrow is taken
+    // for a pull nobody lets go of.
+    val pulls = !isTv
     val scaffold: @Composable () -> Unit = {
         Scaffold(
             topBar = { if (page == null) AppTopBar(title = stringResource(R.string.serve_title), onBack = onBack, actions = actions) },
@@ -1020,7 +1028,8 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
                 PullToRefreshBox(
                     isRefreshing = isLoading && !daemonStopped,
                     onRefresh = { servicesTick++; refresh() },
-                    modifier = Modifier.padding(padding).fillMaxSize()
+                    modifier = Modifier.padding(padding).fillMaxSize(),
+                    enabled = pulls
                 ) {
                     if (daemonStopped) LazyColumn(Modifier.fillMaxSize()) {
                         item { DaemonStoppedState(onStarted = { refresh() }, modifier = Modifier.fillParentMaxSize()) }
@@ -1042,7 +1051,8 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
             PullToRefreshBox(
                 isRefreshing = isLoading && !daemonStopped,
                 onRefresh = { servicesTick++; refresh() },
-                modifier = Modifier.padding(padding).fillMaxSize()
+                modifier = Modifier.padding(padding).fillMaxSize(),
+                enabled = pulls
             ) {
                 // In a list, so a pull still re-checks.
                 if (daemonStopped) LazyColumn(Modifier.fillMaxSize()) {
