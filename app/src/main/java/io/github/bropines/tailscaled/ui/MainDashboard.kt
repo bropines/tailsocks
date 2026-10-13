@@ -7,11 +7,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -55,6 +57,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import io.github.bropines.tailscaled.R
+import io.github.bropines.tailscaled.core.Feature
 import io.github.bropines.tailscaled.models.PeerData
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -81,20 +84,27 @@ import kotlinx.coroutines.delay
  * with the devices under them. Upright, the status goes across the top, and under it the
  * menu with the live state beside a column of devices; on a window too narrow for two
  * columns of cards, the menu across and the devices under it.
+ *
+ * Where the live state is not offered on the home screen (a television: it is diagnostics,
+ * and kept in the settings), the status has its column to itself and its card takes the
+ * height that is left — [status] is told so, as in a phone's two panes. [menuCount] is how
+ * many destinations [menu] draws: a device that is offered fewer gets fewer columns.
  */
 @Composable
 internal fun MainDashboard(
     window: WindowLayout,
     width: Dp,
     height: Dp,
-    status: @Composable ColumnScope.() -> Unit,
+    status: @Composable ColumnScope.(fillHeight: Boolean) -> Unit,
     menu: @Composable (columns: Int, cardHeight: Dp) -> Unit,
+    menuCount: Int,
     peers: List<PeerData>?,
     connected: Boolean,
     onOpenPeers: (peerId: String?) -> Unit,
 ) {
     val margin = window.margin
     val inner = width - margin * 2
+    val showLive = Feature.LIVE_STATE_ON_HOME.offered()
     // On a window that is not tall, two rows of shorter cards leave the devices more room.
     val cardHeight = if (window.heightClass == WindowHeightClass.EXPANDED) 96.dp else 88.dp
     val pings = rememberGlancePings(peers)
@@ -104,7 +114,7 @@ internal fun MainDashboard(
     }
     val live: @Composable () -> Unit = { LiveDiagnosticsCard(fillHeight = true) }
     val statusColumn: @Composable () -> Unit = {
-        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, content = status)
+        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) { status(false) }
     }
     Column(
         Modifier
@@ -119,19 +129,46 @@ internal fun MainDashboard(
                 // The phone-landscape layout's proportion: a share of the width, never more
                 // than a column of cards needs.
                 val statusWidth = (width * 0.38f).coerceIn(280.dp, 400.dp)
-                DashboardColumns(
-                    minHeight = minHeight,
-                    widths = listOf(statusWidth, null),
-                    tops = listOf(statusColumn, { menu(dashboardMenuColumns(inner - statusWidth - DASHBOARD_GAP), cardHeight) }),
-                    fills = listOf(live, devices),
-                    columnGap = DASHBOARD_GAP,
-                )
+                val menuTop: @Composable () -> Unit = {
+                    menu(dashboardMenuColumns(inner - statusWidth - DASHBOARD_GAP, menuCount), cardHeight)
+                }
+                if (showLive) {
+                    DashboardColumns(
+                        minHeight = minHeight,
+                        widths = listOf(statusWidth, null),
+                        tops = listOf(statusColumn, menuTop),
+                        fills = listOf(live, devices),
+                        columnGap = DASHBOARD_GAP,
+                    )
+                } else {
+                    // The status alone in its column: as tall as the window leaves, or as
+                    // its own content when that is more — measured by intrinsics, so the
+                    // card that takes the rest is never squeezed out by what is around it.
+                    DashboardColumns(
+                        minHeight = minHeight,
+                        widths = listOf(statusWidth, null),
+                        tops = listOf(
+                            {
+                                Column(
+                                    Modifier.fillMaxWidth().heightIn(min = minHeight).height(IntrinsicSize.Min),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) { status(true) }
+                            },
+                            menuTop
+                        ),
+                        fills = listOf({}, devices),
+                        columnGap = DASHBOARD_GAP,
+                        // A television's window is short: three rows of devices under the
+                        // menu, without a page that scrolls by a few dp to show a fourth.
+                        fillMinHeight = 240.dp,
+                    )
+                }
             }
             // Two columns of cards at least as wide as a phone's: the menu in the phone's two
             // columns, the live state under it, and the devices beside both — the longest list
             // gets the longest column. The menu's gap between the columns, so the devices' edge
             // lines up with the cards'.
-            columnsFor(inner, 320.dp, MENU_GAP, maxColumns = 2) > 1 -> DashboardColumns(
+            showLive && columnsFor(inner, 320.dp, MENU_GAP, maxColumns = 2) > 1 -> DashboardColumns(
                 minHeight = minHeight,
                 header = statusColumn,
                 widths = listOf(null, null),
@@ -143,7 +180,7 @@ internal fun MainDashboard(
                 minHeight = minHeight,
                 header = statusColumn,
                 widths = listOf(null),
-                tops = listOf({ menu(menuColumnsFor(inner), cardHeight) }),
+                tops = listOf({ menu(menuColumnsFor(inner, menuCount), cardHeight) }),
                 fills = listOf(devices),
             )
         }
@@ -152,12 +189,12 @@ internal fun MainDashboard(
 }
 
 /**
- * The menu's columns beside the status: [menuColumnsFor]'s two to four, and all eight in one
- * row once they fit at its smallest card — a desktop-sized window, where two rows of four
- * would be eight wide slabs.
+ * The menu's columns beside the status: [menuColumnsFor]'s two to four, and every one of the
+ * [entries] in one row once they fit at its smallest card — a desktop-sized window, where two
+ * rows of four would be eight wide slabs.
  */
-private fun dashboardMenuColumns(width: Dp): Int =
-    if (width + MENU_GAP >= (MENU_MIN_CARD + MENU_GAP) * 8) 8 else menuColumnsFor(width)
+private fun dashboardMenuColumns(width: Dp, entries: Int): Int =
+    if (width + MENU_GAP >= (MENU_MIN_CARD + MENU_GAP) * entries) entries else menuColumnsFor(width, entries)
 
 /** menuColumnsFor's narrowest card. */
 private val MENU_MIN_CARD = 100.dp
@@ -196,7 +233,8 @@ private fun rememberGlanceNow(peers: List<PeerData>?): Long {
  * [widths] gives each column a width, or null for a share of what the fixed ones leave. A
  * fill card is never made shorter than [fillMinHeight]: squeezed to a strip it would say
  * nothing, and scrolling down to it is better. A fill is laid out at exactly its size, so
- * its root should fill what it is given.
+ * its root should fill what it is given. A fill that draws nothing leaves its column to end
+ * where its top does.
  *
  * Measured in one pass, from the slots' own heights: the preview renderer draws the first
  * frame only, and a layout that settles on the second would never be seen there.
@@ -227,12 +265,15 @@ internal fun DashboardColumns(
         val headerPlaceables = slots[0].map { it.measure(Constraints.fixedWidth(width)) }
         val columnsTop = headerPlaceables.sumOf { it.height } + if (headerPlaceables.isEmpty()) 0 else headerGap.roundToPx()
         val topPlaceables = List(n) { i -> slots[1 + i].map { it.measure(Constraints.fixedWidth(columnWidths[i])) } }
+        val topBottoms = List(n) { i -> columnsTop + topPlaceables[i].sumOf { it.height } }
         val fillOffsets = List(n) { i ->
-            columnsTop + topPlaceables[i].sumOf { it.height } + if (topPlaceables[i].isEmpty()) 0 else fillGap.roundToPx()
+            topBottoms[i] + if (topPlaceables[i].isEmpty()) 0 else fillGap.roundToPx()
         }
         val bottom = maxOf(
             minHeight.roundToPx().coerceAtLeast(constraints.minHeight),
-            fillOffsets.maxOf { it + fillMinHeight.roundToPx() },
+            (0 until n).maxOf { i ->
+                if (slots[1 + n + i].isEmpty()) topBottoms[i] else fillOffsets[i] + fillMinHeight.roundToPx()
+            },
         )
         val fillPlaceables = List(n) { i ->
             slots[1 + n + i].map { it.measure(Constraints.fixed(columnWidths[i], (bottom - fillOffsets[i]).coerceAtLeast(0))) }

@@ -621,6 +621,31 @@ fun MainScreen(
     var loginUrl by remember { mutableStateOf<String?>(null) }
     var show410Warning by remember { mutableStateOf(false) }
 
+    // A television cannot fill in a login form: it signs in with a code on its own screen
+    // (ui/SignIn.kt), which opens by itself whenever the daemon turns out to want a login
+    // and goes away by itself when it no longer does.
+    val browserSignIn = Feature.BROWSER_SIGN_IN.offered()
+    var signInOpen by remember { mutableStateOf(false) }
+    // The code was left with the login still wanted: the card's button is where the remote
+    // comes back to.
+    var signInLeft by remember { mutableStateOf(false) }
+    LaunchedEffect(proxyState, browserSignIn) {
+        signInOpen = !browserSignIn && proxyState == "LOGGED_OUT"
+        if (proxyState != "LOGGED_OUT") signInLeft = false
+    }
+
+    // OK on a remote is pressed by accident, and on the start card that stops the service:
+    // a television asks first. Starting asks nothing.
+    val tv = isTv
+    var confirmStop by remember { mutableStateOf(false) }
+    fun stopNow() {
+        isProcessing = true
+        context.startService(Intent(context, TailscaledService::class.java).apply { action = "STOP_ACTION" })
+    }
+    fun requestStop() {
+        if (tv) confirmStop = true else stopNow()
+    }
+
     var showExitNodeSheet by remember { mutableStateOf(false) }
     var exitNodes by remember { mutableStateOf<List<PeerData>>(emptyList()) }
     var isExitNodesLoading by remember { mutableStateOf(false) }
@@ -650,10 +675,12 @@ fun MainScreen(
     // text is only shown, in a sheet.
     var scannedText by remember { mutableStateOf<String?>(null) }
     val scanQr = rememberQrScanner { text -> scannedText = openScanned(context, text) }
+    val canScan = Feature.QR_SCANNER.availability().reachable
     LaunchedEffect(scanRequest.value) {
         if (scanRequest.value) {
             scanRequest.value = false
-            scanQr()
+            // A link cannot open what the device does not have: no camera, no scanner.
+            if (canScan) scanQr()
         }
     }
 
@@ -942,7 +969,8 @@ fun MainScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Checkbox(checked = newAccountHonest, onCheckedChange = { newAccountHonest = it })
+                        // The row is the remote's stop; the box inside it would be a second one.
+                        Checkbox(checked = newAccountHonest, onCheckedChange = { newAccountHonest = it }, modifier = Modifier.tvNoFocus())
                         Column(modifier = Modifier.weight(1f)) {
                             Text(dlgHonestTitle, style = MaterialTheme.typography.bodyMedium)
                             Text(dlgHonestDesc, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1136,15 +1164,23 @@ fun MainScreen(
             activeLiveLine = line
         }
 
+        // With a remote the sheet opens on the account in use — OK there closes it and
+        // changes nothing — wherever that account is in the list.
+        val activeIndex = accounts.value.indexOfFirst { it.id == activeAccount.id }.coerceAtLeast(0)
+        val accountsListState = androidx.compose.foundation.lazy.rememberLazyListState(
+            initialFirstVisibleItemIndex = if (tv) activeIndex else 0
+        )
         ModalBottomSheet(
             onDismissRequest = { accountMenuExpanded = false; accountsEditMode = false },
-            sheetState = sheetState
+            sheetState = sheetState,
+            dragHandle = sheetDragHandle()
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
                     .padding(bottom = 16.dp)
+                    .tvSheetInset()
             ) {
                 Row(
                     modifier = Modifier
@@ -1172,6 +1208,7 @@ fun MainScreen(
                 Spacer(Modifier.height(12.dp))
 
                 androidx.compose.foundation.lazy.LazyColumn(
+                    state = accountsListState,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp)
@@ -1188,6 +1225,7 @@ fun MainScreen(
                             account = account,
                             facts = facts,
                             active = isActive,
+                            modifier = if (isActive) Modifier.tvInitialFocus() else Modifier,
                             liveLine = if (isActive) activeLiveLine else null,
                             editing = accountsEditMode,
                             signedInLabel = strSignedIn,
@@ -1221,7 +1259,7 @@ fun MainScreen(
                         Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable {
+                                .shapedClickable(MaterialTheme.shapes.medium) {
                                     accountsEditMode = false
                                     accountMenuExpanded = false
                                     showAddAccountDialog = true
@@ -1262,7 +1300,16 @@ fun MainScreen(
         }
     }
 
-
+    if (signInOpen) {
+        // The whole screen, in place of the dashboard, which comes back when the code is
+        // left or has done its work.
+        TvSignIn(
+            account = activeAccount.name,
+            url = loginUrl,
+            onClose = { signInOpen = false; signInLeft = true },
+            // The place for one more way in, "Use a key from your phone": extraAction = { … }.
+        )
+    } else
         Scaffold(
             topBar = {
             AppTopBar(
@@ -1271,7 +1318,7 @@ fun MainScreen(
                 onTitleClick = { accountMenuExpanded = true },
                 actions = {
                     if (proxyState == "ACTIVE") {
-                        IconButton(onClick = { 
+                        IconButton(onClick = {
                             val intent = Intent(context, TailscaledService::class.java).apply { action = "REFRESH_ACTION" }
                             context.startService(intent)
                             Toast.makeText(context, context.getString(R.string.main_refreshing_config), Toast.LENGTH_SHORT).show()
@@ -1279,13 +1326,17 @@ fun MainScreen(
                             Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.main_cd_refresh_config))
                         }
                     }
-                    IconButton(onClick = scanQr) {
-                        Icon(Icons.Default.QrCodeScanner, contentDescription = stringResource(R.string.qr_scan_action))
+                    IfOffered(Feature.QR_SCANNER) {
+                        IconButton(onClick = scanQr) {
+                            Icon(Icons.Default.QrCodeScanner, contentDescription = stringResource(R.string.qr_scan_action))
+                        }
                     }
-                    IconButton(onClick = {
-                        context.startActivity(Intent(context, AdminApiActivity::class.java))
-                    }) {
-                        Icon(Icons.Default.AdminPanelSettings, contentDescription = stringResource(R.string.main_cd_admin_api))
+                    IfOffered(Feature.ADMIN_CONSOLE) {
+                        IconButton(onClick = {
+                            context.startActivity(Intent(context, AdminApiActivity::class.java))
+                        }) {
+                            Icon(Icons.Default.AdminPanelSettings, contentDescription = stringResource(R.string.main_cd_admin_api))
+                        }
                     }
                     IconButton(onClick = { showAboutDialog = true }) {
                         Icon(Icons.Default.Info, contentDescription = stringResource(R.string.main_cd_about_licenses))
@@ -1302,16 +1353,16 @@ fun MainScreen(
         // fillHeight: beside the menu, the card takes the height the status
         // column has left, so the pair ends on one line (see the two-pane layout).
         val statusPane: @Composable ColumnScope.(fillHeight: Boolean) -> Unit = { fillHeight ->
+            // What names a tap on a phone names the remote's OK on a television.
+            val touchWording = Feature.TOUCH_GESTURES_HINTS.offered()
 
-            if (!isBatteryOptimizationsIgnored) {
+            // Not where there is no battery to be optimised for.
+            if (!isBatteryOptimizationsIgnored && Feature.BATTERY_OPTIMISATION_PROMPT.offered()) {
                 Surface(
                     color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f),
                     shape = MaterialTheme.shapes.large,
                     modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp).clickable {
-                        try {
-                            val intent = Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-                            context.startActivity(intent)
-                        } catch (e: Exception) {
+                        if (!context.tryStartActivity(Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))) {
                             Toast.makeText(context, context.getString(R.string.main_cannot_open_battery_settings), Toast.LENGTH_SHORT).show()
                         }
                     }
@@ -1398,7 +1449,8 @@ fun MainScreen(
                 Surface(
                     color = if (exitNodeActive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                     shape = MaterialTheme.shapes.large,
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp).clickable { openExitNodeSheet() }
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+                        .shapedClickable(MaterialTheme.shapes.large) { openExitNodeSheet() }
                 ) {
                     Row(
                         modifier = Modifier.padding(16.dp),
@@ -1428,7 +1480,7 @@ fun MainScreen(
                                     exitNodeInert -> stringResource(R.string.main_exit_node_inert_desc, exitNodeIp)
                                     exitNodePartial -> stringResource(R.string.main_exit_node_partial_desc, exitNodeIp)
                                     exitNodeActive -> stringResource(R.string.main_exit_node_routed_desc, connectionSummary?.exitNodeName ?: exitNodeIp)
-                                    else -> stringResource(R.string.main_exit_node_none_desc)
+                                    else -> stringResource(if (touchWording) R.string.main_exit_node_none_desc else R.string.tv_home_exit_node_none)
                                 },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = if (exitNodeActive) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
@@ -1461,7 +1513,8 @@ fun MainScreen(
             }
             StatusCard(
                 state = cardState,
-                modifier = if (fillHeight) Modifier.weight(1f) else Modifier,
+                // Where the remote starts on this screen.
+                modifier = (if (fillHeight) Modifier.weight(1f) else Modifier).tvInitialFocus(),
                 issueTitle = shownWarnings.firstOrNull()?.let { healthTitle(it) },
                 isProcessing = isProcessing,
                 isTunEnabled = isTunEnabled,
@@ -1479,9 +1532,7 @@ fun MainScreen(
                 StatusAsides.bump(context, StatusAsides.TOGGLES)
 
                 if (proxyState == "ACTIVE" || proxyState == "STARTING" || proxyState == "CONNECTION_ISSUE" || proxyState == "LOGGED_OUT") {
-                    isProcessing = true
-                    val intent = Intent(context, TailscaledService::class.java).apply { action = "STOP_ACTION" }
-                    context.startService(intent)
+                    requestStop()
                 } else {
                     // SOCKS5 lives in global settings, not in the profile store.
                     val currentSocks = GlobalSettings.getString(context, "socks5", "127.0.0.1:48115")
@@ -1535,11 +1586,10 @@ fun MainScreen(
                     onConfigureProxy = {
                         context.startActivity(Intent(context, SettingsActivity::class.java))
                     },
-                    onStop = {
-                        isProcessing = true
-                        val intent = Intent(context, TailscaledService::class.java).apply { action = "STOP_ACTION" }
-                        context.startService(intent)
-                    }
+                    onStop = { requestStop() },
+                    // Where signing in is a code on this screen, the card's button shows it.
+                    onShowCode = if (browserSignIn) null else ({ signInOpen = true }),
+                    codeWasLeft = signInLeft
                 )
             }
 
@@ -1549,34 +1599,33 @@ fun MainScreen(
                     onConfigureProxy = {
                         context.startActivity(Intent(context, SettingsActivity::class.java))
                     },
-                    onStop = {
-                        isProcessing = true
-                        val intent = Intent(context, TailscaledService::class.java).apply { action = "STOP_ACTION" }
-                        context.startService(intent)
-                    }
+                    onStop = { requestStop() }
                 )
             }
 
         }
 
+        // Icons say what is behind them: a terminal, devices, a DNS record,
+        // a network check. They used to be ▶ (reads as "start"), share, and
+        // a refresh arrow, with DNS and Serve both a globe.
+        // Only what the device is offered in its usual place: what a television keeps
+        // for its advanced settings, or does not have, is not a tile here.
+        val menuEntries = listOfNotNull(
+            MenuEntry(stringResource(R.string.menu_console), Icons.Default.Terminal) { context.startActivity(Intent(context, ConsoleActivity::class.java)) }
+                .takeIf { Feature.CONSOLE.offered() },
+            MenuEntry(stringResource(R.string.menu_peers), Icons.Default.Devices) { context.startActivity(Intent(context, PeersActivity::class.java)) },
+            MenuEntry(stringResource(R.string.menu_logs), Icons.AutoMirrored.Filled.List) { context.startActivity(Intent(context, LogsActivity::class.java)) }
+                .takeIf { Feature.LOGS.offered() },
+            MenuEntry(stringResource(R.string.menu_files), Icons.Default.Folder) { context.startActivity(Intent(context, FilesActivity::class.java)) },
+            MenuEntry(stringResource(R.string.menu_dns), Icons.Default.Dns) { context.startActivity(Intent(context, DnsActivity::class.java)) }
+                .takeIf { Feature.DNS_SCREEN.offered() },
+            MenuEntry(stringResource(R.string.menu_netcheck), Icons.Default.NetworkCheck) { context.startActivity(Intent(context, NetcheckActivity::class.java)) },
+            MenuEntry(stringResource(R.string.menu_settings), Icons.Default.Settings) { context.startActivity(Intent(context, SettingsActivity::class.java)) },
+            MenuEntry(stringResource(R.string.menu_serve), Icons.Default.Public, Icons.Default.Pets) { context.startActivity(Intent(context, ServeActivity::class.java)) }
+                .takeIf { Feature.SERVE_EDIT.offered() }
+        )
         val menuPane: @Composable (Int, androidx.compose.ui.unit.Dp) -> Unit = { columns, cardHeight ->
-            // Icons say what is behind them: a terminal, devices, a DNS record,
-            // a network check. They used to be ▶ (reads as "start"), share, and
-            // a refresh arrow, with DNS and Serve both a globe.
-            MenuGrid(
-                columns = columns,
-                cardHeight = cardHeight,
-                entries = listOf(
-                    MenuEntry(stringResource(R.string.menu_console), Icons.Default.Terminal) { context.startActivity(Intent(context, ConsoleActivity::class.java)) },
-                    MenuEntry(stringResource(R.string.menu_peers), Icons.Default.Devices) { context.startActivity(Intent(context, PeersActivity::class.java)) },
-                    MenuEntry(stringResource(R.string.menu_logs), Icons.AutoMirrored.Filled.List) { context.startActivity(Intent(context, LogsActivity::class.java)) },
-                    MenuEntry(stringResource(R.string.menu_files), Icons.Default.Folder) { context.startActivity(Intent(context, FilesActivity::class.java)) },
-                    MenuEntry(stringResource(R.string.menu_dns), Icons.Default.Dns) { context.startActivity(Intent(context, DnsActivity::class.java)) },
-                    MenuEntry(stringResource(R.string.menu_netcheck), Icons.Default.NetworkCheck) { context.startActivity(Intent(context, NetcheckActivity::class.java)) },
-                    MenuEntry(stringResource(R.string.menu_settings), Icons.Default.Settings) { context.startActivity(Intent(context, SettingsActivity::class.java)) },
-                    MenuEntry(stringResource(R.string.menu_serve), Icons.Default.Public, Icons.Default.Pets) { context.startActivity(Intent(context, ServeActivity::class.java)) }
-                )
-            )
+            MenuGrid(columns = columns, cardHeight = cardHeight, entries = menuEntries)
         }
 
         BoxWithConstraints(
@@ -1603,7 +1652,7 @@ fun MainScreen(
             // tall one starts them under the top bar, where the eye does.
             val paneArrangement = if (maxHeight < 480.dp) Arrangement.Center else Arrangement.Top
             if (fold is Fold.Horizontal) {
-                val menuColumns = menuColumnsFor(maxWidth - 48.dp)
+                val menuColumns = menuColumnsFor(maxWidth - 48.dp, menuEntries.size)
                 Column(modifier = Modifier.fillMaxSize()) {
                     Column(
                         modifier = Modifier
@@ -1636,8 +1685,9 @@ fun MainScreen(
                     window = window,
                     width = maxWidth,
                     height = maxHeight,
-                    status = { statusPane(false) },
+                    status = { fillHeight -> statusPane(fillHeight) },
                     menu = { columns, rowHeight -> menuPane(columns, rowHeight) },
+                    menuCount = menuEntries.size,
                     peers = tailnetPeers.takeIf { proxyState != "STOPPED" },
                     connected = proxyState == "ACTIVE" || proxyState == "STARTING",
                     onOpenPeers = { id ->
@@ -1658,7 +1708,7 @@ fun MainScreen(
                 // tablet in portrait can have the same window and very
                 // different room left over here.
                 val menuWidth = maxWidth - statusWidth - paneGap - 48.dp
-                val menuColumns = menuColumnsFor(menuWidth)
+                val menuColumns = menuColumnsFor(menuWidth, menuEntries.size)
                 // One row for the pair, as tall as the taller of the two. The
                 // card takes up whatever the status column has left, so beside
                 // a taller grid the column ends where the grid does — with the
@@ -1706,7 +1756,7 @@ fun MainScreen(
                         Spacer(modifier = Modifier.height(12.dp))
                         statusPane(false)
                         Spacer(modifier = Modifier.height(32.dp))
-                        menuPane(menuColumnsFor(columnWidth - 48.dp), cardHeight)
+                        menuPane(menuColumnsFor(columnWidth - 48.dp, menuEntries.size), cardHeight)
                         Spacer(modifier = Modifier.height(16.dp))
                     }
                 }
@@ -1727,6 +1777,27 @@ fun MainScreen(
     }
 
     scannedText?.let { ScanResultSheet(text = it, onDismiss = { scannedText = null }) }
+
+    if (confirmStop) {
+        // Dialog strings are resolved out here, in the parent composition — see wrapContextWithLocale().
+        val dlgTitle = stringResource(R.string.tv_stop_title)
+        val dlgText = stringResource(R.string.tv_stop_text)
+        val dlgStop = stringResource(R.string.main_status_action_stop)
+        val dlgCancel = stringResource(R.string.action_cancel)
+        AlertDialog(
+            onDismissRequest = { confirmStop = false },
+            icon = { Icon(Icons.Default.PowerSettingsNew, null) },
+            title = { Text(dlgTitle) },
+            text = { Text(dlgText) },
+            confirmButton = {
+                Button(onClick = { confirmStop = false; stopNow() }) { Text(dlgStop) }
+            },
+            // Opens on Cancel: the second OK of a double press must not be the one that stops.
+            dismissButton = {
+                TextButton(onClick = { confirmStop = false }, modifier = Modifier.tvInitialFocus()) { Text(dlgCancel) }
+            }
+        )
+    }
 
     if (showAboutDialog) {
         val versionName = remember {
@@ -1769,12 +1840,12 @@ fun MainScreen(
             Triple(stringResource(R.string.main_dev_claude), CLAUDE_URL, Icons.Default.AutoAwesome)
         )
         val openLink: (String) -> Unit = { url ->
-            try {
-                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-            } catch (e: Exception) {
-                android.util.Log.w("MainActivity", "No handler for $url", e)
+            if (!context.tryStartActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))) {
+                android.util.Log.w("MainActivity", "No handler for $url")
             }
         }
+        // A button that only opens a web page is not drawn where nothing opens one.
+        val hasBrowser = Feature.BROWSER.offered()
         // Lives inside this block on purpose: closing the dialog takes it down too.
         var showAboutBackdrop by remember { mutableStateOf(false) }
         var showVibeCoding by remember { mutableStateOf(false) }
@@ -2051,7 +2122,7 @@ fun MainScreen(
                             Spacer(Modifier.width(6.dp))
                             Text(dlgWhatsNew, textAlign = TextAlign.Center)
                         }
-                        OutlinedButton(
+                        if (hasBrowser) OutlinedButton(
                             onClick = {
                                 openLink(
                                     if (latestVersion != null) "https://github.com/bropines/tailsocks/releases/latest"
@@ -2083,7 +2154,7 @@ fun MainScreen(
                             Spacer(Modifier.width(6.dp))
                             Text(stringResource(R.string.issue_report_action), textAlign = TextAlign.Center)
                         }
-                        OutlinedButton(
+                        if (hasBrowser) OutlinedButton(
                             onClick = { openLink("https://github.com/bropines/tailsocks/issues") },
                             modifier = Modifier.weight(1f).fillMaxHeight(),
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
@@ -2170,14 +2241,9 @@ fun MainScreen(
         val configuration = androidx.compose.ui.platform.LocalConfiguration.current
         val maxHeight = (configuration.screenHeightDp * 0.85f).dp
 
-        // Strings for the latency chips, resolved out here in the parent composition — see
+        // The picker's words, resolved out here in the parent composition — see
         // wrapContextWithLocale().
-        val pingStrings = ExitNodePingStrings(
-            tapToMeasure = stringResource(R.string.peer_conn_tap_to_measure),
-            pinging = stringResource(R.string.peer_pinging),
-            resultFormat = stringResource(R.string.peer_ping_result),
-            failed = stringResource(R.string.peer_conn_ping_failed)
-        )
+        val pickerStrings = exitNodePickerStrings()
         // The daemon's raw answer per node address, for as long as the sheet is open. A
         // reopened sheet starts clean: a figure measured minutes ago is not the figure now.
         // The pings run in the sheet's own scope, not the screen's, so closing the sheet
@@ -2193,21 +2259,9 @@ fun MainScreen(
         }
 
         var pingingAllExitNodes by remember { mutableStateOf(false) }
-        // The quickest of the measured ones. Only once two have answered: "fastest" out of
-        // one is not a comparison.
-        val fastestExitNodeIp = remember(exitNodePings.toMap()) {
-            val measured = exitNodePings.mapNotNull { (ip, raw) ->
-                val state = pingStateOf(raw)
-                if (state is PeerPingState.Measured) {
-                    state.latency.takeWhile { it.isDigit() }.toIntOrNull()?.let { ip to it }
-                } else null
-            }
-            if (measured.size > 1) measured.minByOrNull { it.second }?.first else null
-        }
         // The node Tailscale itself recommends, asked once the list is in: the row at the
         // top names it and the node's own row carries a mark. Held by the sheet, so a
         // reopened sheet asks again — the answer follows the network.
-        val bestStrings = bestExitNodeStrings()
         var bestExitNode by remember { mutableStateOf<ExitNodeSuggestion.Outcome?>(null) }
         var bestAsked by remember { mutableIntStateOf(0) }
         LaunchedEffect(isExitNodesLoading, bestAsked) {
@@ -2215,286 +2269,39 @@ fun MainScreen(
             bestExitNode = null
             bestExitNode = fetchBestExitNode(exitNodes)
         }
-        // Strings come from the parent context, not stringResource() — see wrapContextWithLocale().
         ModalBottomSheet(
             onDismissRequest = { showExitNodeSheet = false },
             // Without this the sheet opens half height and settles to its content a frame
             // later, which reads as a jump; the list also arrives after the spinner, so the
             // height it settles at is held from the start by the minimum below.
-            sheetState = rememberFullSheetState()
+            sheetState = rememberFullSheetState(),
+            dragHandle = sheetDragHandle()
         ) {
-            Column(
+            ExitNodePicker(
+                nodes = exitNodes,
+                loading = isExitNodesLoading,
+                selectedIp = exitNodeIp,
+                pings = exitNodePings,
+                pingingAll = pingingAllExitNodes,
+                best = bestExitNode,
+                strings = pickerStrings,
+                onPingAll = {
+                    pingingAllExitNodes = true
+                    StatusAsides.bump(context, StatusAsides.PINGS)
+                    sheetScope.launch {
+                        pingAll(exitNodes.map { it.getPrimaryIp() }, exitNodePings)
+                        pingingAllExitNodes = false
+                    }
+                },
+                onPing = { pingExitNode(it) },
+                onRetryBest = { bestAsked++ },
+                onChoose = { id, ip -> applyExitNode(id, ip); showExitNodeSheet = false },
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 280.dp, max = maxHeight)
                     .navigationBarsPadding()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 24.dp, end = 12.dp, top = 12.dp, bottom = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        context.getString(R.string.main_select_exit_node),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.weight(1f)
-                    )
-                    if (exitNodes.isNotEmpty()) {
-                        TextButton(
-                            onClick = {
-                                pingingAllExitNodes = true
-                                StatusAsides.bump(context, StatusAsides.PINGS)
-                                sheetScope.launch {
-                                    pingAll(exitNodes.map { it.getPrimaryIp() }, exitNodePings)
-                                    pingingAllExitNodes = false
-                                }
-                            },
-                            enabled = !pingingAllExitNodes
-                        ) {
-                            Icon(Icons.Default.NetworkPing, null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text(context.getString(R.string.action_ping_all))
-                        }
-                    }
-                }
-
-                if (isExitNodesLoading) {
-                    Box(Modifier.fillMaxWidth().height(120.dp), Alignment.Center) { LoadingIndicator() }
-                } else if (exitNodes.isEmpty()) {
-                    // An exit node can be set while the list is empty — the peers
-                    // have not loaded, or the node stopped offering one. Without a
-                    // way out of that the traffic stays routed through a node the
-                    // picker cannot even show, so the clear action is offered here
-                    // too, not only alongside the list.
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 24.dp, vertical = 16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Text(context.getString(R.string.main_no_exit_nodes), color = MaterialTheme.colorScheme.outline)
-                        if (exitNodeIp.isNotEmpty()) {
-                            Button(
-                                onClick = { applyExitNode("", ""); showExitNodeSheet = false },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(context.getString(R.string.main_exit_node_none))
-                            }
-                        }
-                    }
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f, fill = false)
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                    ) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.large,
-                            border = androidx.compose.foundation.BorderStroke(
-                                1.dp,
-                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
-                            ),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                            )
-                        ) {
-                            androidx.compose.foundation.lazy.LazyColumn(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                                contentPadding = PaddingValues(bottom = 16.dp)
-                            ) {
-                                item {
-                                    BestExitNodeRow(
-                                        outcome = bestExitNode,
-                                        strings = bestStrings,
-                                        onApply = { applyExitNode(it.id, it.ip); showExitNodeSheet = false },
-                                        onRetry = { bestAsked++ }
-                                    )
-                                }
-
-                                item {
-                                    val isSelected = exitNodeIp.isEmpty()
-                                    Card(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 16.dp, vertical = 6.dp)
-                                            .clickable { applyExitNode("", ""); showExitNodeSheet = false },
-                                        shape = MaterialTheme.shapes.medium,
-                                        border = androidx.compose.foundation.BorderStroke(
-                                            1.dp,
-                                            if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
-                                        ),
-                                        colors = CardDefaults.cardColors(
-                                            containerColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-                                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
-                                        )
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(38.dp)
-                                                    .clip(CircleShape)
-                                                    .background(
-                                                        if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                                                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
-                                                    ),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Icon(
-                                                    Icons.Default.Clear,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(18.dp),
-                                                    tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                            }
-                                            Spacer(Modifier.width(16.dp))
-                                            Column(Modifier.weight(1f)) {
-                                                Text(
-                                                    context.getString(R.string.main_exit_node_none),
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontSize = 15.sp,
-                                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                                                )
-                                                Text(
-                                                    context.getString(R.string.main_route_traffic_directly),
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                            }
-                                            if (isSelected) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(8.dp)
-                                                        .clip(CircleShape)
-                                                        .background(MaterialTheme.colorScheme.primary)
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-
-                                items(exitNodes) { node ->
-                                    val nodeIp = node.getPrimaryIp()
-                                    val isSelected = if (exitNodeIp.isNotEmpty()) nodeIp == exitNodeIp else false
-                                    // Parsed once per answer, not once per recomposition.
-                                    val pingRaw = exitNodePings[nodeIp]
-                                    val ping = remember(pingRaw) { pingStateOf(pingRaw) }
-                                    val (osIcon, osColor) = getOsVisuals(node.os).let { (icon, color) ->
-                                        if (icon == Icons.Default.Devices) Icons.Default.VpnKey to MaterialTheme.colorScheme.primary
-                                        else icon to color
-                                    }
-                                    Card(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 16.dp, vertical = 6.dp)
-                                            .clickable { applyExitNode(node.id ?: "", node.getPrimaryIp()); showExitNodeSheet = false },
-                                        shape = MaterialTheme.shapes.medium,
-                                        border = androidx.compose.foundation.BorderStroke(
-                                            1.dp,
-                                            if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
-                                        ),
-                                        colors = CardDefaults.cardColors(
-                                            containerColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-                                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
-                                        )
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(38.dp)
-                                                    .clip(CircleShape)
-                                                    .background(
-                                                        if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                                                        else osColor.copy(alpha = 0.12f)
-                                                    ),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Icon(
-                                                    osIcon,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(18.dp),
-                                                    tint = if (isSelected) MaterialTheme.colorScheme.primary else osColor
-                                                )
-                                            }
-                                            Spacer(Modifier.width(16.dp))
-                                            Column(Modifier.weight(1f)) {
-                                              Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Text(
-                                                    node.getDisplayName(),
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontSize = 15.sp,
-                                                    maxLines = 1,
-                                                    softWrap = false,
-                                                    // A name too long for the row travels
-                                                    // across it instead of wrapping onto a
-                                                    // second line and making the row taller.
-                                                    modifier = Modifier.weight(1f, fill = false).basicMarquee(iterations = Int.MAX_VALUE),
-                                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                                                )
-                                                if (nodeIp == fastestExitNodeIp) {
-                                                    Spacer(Modifier.width(6.dp))
-                                                    Icon(
-                                                        Icons.Default.Bolt,
-                                                        contentDescription = context.getString(R.string.exit_node_fastest),
-                                                        tint = MaterialTheme.colorScheme.primary,
-                                                        modifier = Modifier.size(15.dp)
-                                                    )
-                                                }
-                                                if (node.id != null && node.id == bestExitNode.suggestedId) {
-                                                    Spacer(Modifier.width(6.dp))
-                                                    SuggestedExitNodeMark(bestStrings.suggestedBy)
-                                                }
-                                              }
-                                                val latency = when (ping) {
-                                                    is PeerPingState.Measured -> " · ${ping.latency}"
-                                                    PeerPingState.InFlight -> " · …"
-                                                    PeerPingState.Failed -> " · —"
-                                                    PeerPingState.Idle -> ""
-                                                }
-                                                Text(
-                                                    nodeIp + latency,
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = if (ping is PeerPingState.Measured) MaterialTheme.colorScheme.primary
-                                                            else MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                            }
-                                            if (isSelected) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(8.dp)
-                                                        .clip(CircleShape)
-                                                        .background(MaterialTheme.colorScheme.primary)
-                                                )
-                                            }
-                                            Spacer(Modifier.width(10.dp))
-                                            // Its own click target: measuring a node and
-                                            // choosing it are two different taps, and the
-                                            // row stays choosable while a ping is in flight.
-                                            ExitNodePingChip(
-                                                ping = ping,
-                                                strings = pingStrings,
-                                                onPing = { pingExitNode(nodeIp) }
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+                    .tvSheetInset()
+            )
         }
     }
 }
@@ -2543,6 +2350,10 @@ fun StatusCard(
     val shape = MaterialTheme.shapes.extraLarge
     val stateWord = stringResource(if (on) R.string.main_status_state_on else R.string.main_status_state_off)
     val actionWord = stringResource(if (on) R.string.main_status_action_stop else R.string.main_status_action_start)
+    val tv = isTv
+    // A phone's "tap" is the remote's OK on a television.
+    val touchWording = Feature.TOUCH_GESTURES_HINTS.offered()
+    val interactions = remember { MutableInteractionSource() }
 
     Surface(
         shape = shape,
@@ -2551,6 +2362,8 @@ fun StatusCard(
             .fillMaxWidth()
             .heightIn(min = 130.dp)
             .animateContentSize()
+            // Ahead of the clip, which would cut the ring's corners off.
+            .tvFocusRing(interactions, shape)
             // Clipped before the click, so the ripple follows the rounded card
             // instead of spilling out of it as a rectangle.
             .clip(shape)
@@ -2559,7 +2372,12 @@ fun StatusCard(
                 stateDescription = stateWord
             }
             .combinedClickable(
-                enabled = !isProcessing,
+                interactionSource = interactions,
+                indication = androidx.compose.foundation.LocalIndication.current,
+                // A television keeps the card a stop while it works — a target that goes
+                // away takes the remote's place on the screen with it — and the press is
+                // dropped by the caller instead.
+                enabled = !isProcessing || tv,
                 onClickLabel = actionWord,
                 onClick = {
                     haptics.performHapticFeedback(if (on) HapticFeedbackType.ToggleOff else HapticFeedbackType.ToggleOn)
@@ -2654,19 +2472,24 @@ fun StatusCard(
                         // what carries the traffic even if the TUN switch is set.
                         // Yielded, it carries the tailnet and nothing else; shared,
                         // it carries the whole tunnel for a part of the phone.
-                        isRootEnabled && isSharedWithForeignVpn -> stringResource(R.string.main_status_active_root_shared_desc)
-                        isRootEnabled && isYieldedToForeignVpn -> stringResource(R.string.main_status_active_root_yielded_desc)
-                        isRootEnabled -> stringResource(R.string.main_status_active_root_desc)
+                        isRootEnabled && isSharedWithForeignVpn ->
+                            stringResource(if (touchWording) R.string.main_status_active_root_shared_desc else R.string.tv_home_active_root_shared)
+                        isRootEnabled && isYieldedToForeignVpn ->
+                            stringResource(if (touchWording) R.string.main_status_active_root_yielded_desc else R.string.tv_home_active_root_yielded)
+                        isRootEnabled -> stringResource(if (touchWording) R.string.main_status_active_root_desc else R.string.tv_home_active_root)
                         isTunEnabled -> if (isFullTunnel) stringResource(R.string.main_tun_full_tunnel_desc)
                                         else stringResource(R.string.main_tun_split_tunnel_desc)
-                        else -> stringResource(R.string.main_status_active_desc)
+                        else -> stringResource(if (touchWording) R.string.main_status_active_desc else R.string.tv_home_active)
                     }
                     state == "STARTING" -> stringResource(R.string.main_status_starting_desc)
                     state == "CONNECTING" -> stringResource(R.string.main_status_connecting_desc)
-                    state == "DEGRADED" -> stringResource(R.string.main_status_degraded_desc, issueTitle ?: stringResource(R.string.main_status_degraded))
-                    state == "NEEDS_LOGIN" -> stringResource(R.string.main_status_needs_login_desc)
+                    state == "DEGRADED" -> stringResource(
+                        if (touchWording) R.string.main_status_degraded_desc else R.string.tv_home_degraded,
+                        issueTitle ?: stringResource(R.string.main_status_degraded)
+                    )
+                    state == "NEEDS_LOGIN" -> stringResource(if (touchWording) R.string.main_status_needs_login_desc else R.string.tv_home_needs_login)
                     state == "NEEDS_APPROVAL" -> stringResource(R.string.notif_awaiting_approval_text)
-                    else -> stringResource(R.string.tap_to_start)
+                    else -> stringResource(if (touchWording) R.string.tap_to_start else R.string.tv_home_start)
                 },
                 textAlign = TextAlign.Center,
                 // 0.8, not 0.6: the subtitle carries the mode and the problem,
@@ -2772,13 +2595,24 @@ fun MenuCard(title: String, icon: ImageVector, modifier: Modifier = Modifier, ic
 fun LoggedOutCard(
     loginUrl: String?,
     onConfigureProxy: () -> Unit,
-    onStop: () -> Unit
+    onStop: () -> Unit,
+    /**
+     * Set where signing in is a code on this device's own screen (a television): the
+     * card's button shows it instead of opening a browser.
+     */
+    onShowCode: (() -> Unit)? = null,
+    /** The code was shown and left: its button is where the remote comes back to. */
+    codeWasLeft: Boolean = false
 ) {
     val context = LocalContext.current
     val activeAccount = remember { io.github.bropines.tailscaled.core.AccountManager.getActiveAccount(context) }
     val profilePrefs = remember(activeAccount) { context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE) }
     var enteredKey by remember { mutableStateOf(profilePrefs.getString("authkey", "") ?: "") }
     var showKeyInput by remember { mutableStateOf(false) }
+    // The link's sheet goes with the link: a login that went through closes it.
+    var showLink by remember { mutableStateOf(false) }
+    LaunchedEffect(loginUrl == null) { if (loginUrl == null) showLink = false }
+    if (showLink && loginUrl != null) SignInLinkSheet(url = loginUrl, onDismiss = { showLink = false })
     // The login tab wears the app's colours (LoginTab).
     val tabToolbar = MaterialTheme.colorScheme.surface.toArgb()
     val tabDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
@@ -2829,15 +2663,32 @@ fun LoggedOutCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                if (loginUrl != null) {
+                if (onShowCode != null) {
+                    // The code's own screen waits for the link, so this needs none.
+                    Button(
+                        onClick = onShowCode,
+                        modifier = Modifier.weight(1f).height(40.dp)
+                            .then(if (codeWasLeft) Modifier.tvInitialFocus() else Modifier),
+                        shape = MaterialTheme.shapes.medium,
+                        contentPadding = PaddingValues(horizontal = 4.dp)
+                    ) {
+                        Icon(Icons.Default.QrCode2, null, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = stringResource(R.string.tv_signin_open),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
+                } else if (loginUrl != null) {
                     Button(
                         onClick = {
                             val activity = context.findActivity()
                             if (activity != null) {
                                 LoginTab.open(activity, loginUrl, tabToolbar, tabDark)
-                            } else try {
-                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(loginUrl)))
-                            } catch (e: Exception) {
+                            } else if (!context.tryStartActivity(Intent(Intent.ACTION_VIEW, Uri.parse(loginUrl)))) {
                                 Toast.makeText(context, context.getString(R.string.cannot_open_browser), Toast.LENGTH_SHORT).show()
                             }
                         },
@@ -2879,6 +2730,20 @@ fun LoggedOutCard(
                         maxLines = 1,
                         softWrap = false
                     )
+                }
+            }
+
+            // The same link for another device: a friend's phone signed in by the tailnet's
+            // owner, who is somewhere else. Not where the code has a screen of its own.
+            if (onShowCode == null && loginUrl != null) {
+                TextButton(
+                    onClick = { showLink = true },
+                    modifier = Modifier.fillMaxWidth().height(36.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
+                ) {
+                    Icon(Icons.Default.QrCode2, null, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(stringResource(R.string.signin_other_device), fontSize = 11.sp, maxLines = 1, softWrap = false)
                 }
             }
 
@@ -3034,86 +2899,6 @@ fun ConnectionIssueCard(
                     )
                 }
             }
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------------------------
-// Exit-node latency chips. The measurement and its parsing are the peer sheet's own —
-// pingPeer() and pingStateOf() in UIComponents.kt — so the two cannot read a pong differently.
-
-/** Strings the chip shows or announces, resolved by the parent — see wrapContextWithLocale(). */
-private data class ExitNodePingStrings(
-    val tapToMeasure: String,
-    val pinging: String,
-    val resultFormat: String,
-    val failed: String
-)
-
-/**
- * The trailing chip of an exit-node row: the ping icon before anything is measured, the
- * indicator while the round trip is out, then the figure — or a dash when it did not come
- * back. Same colours as the peer sheet's connection card: a measured figure earns the
- * secondary container, everything before it sits a step above the row.
- */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun ExitNodePingChip(
-    ping: PeerPingState,
-    strings: ExitNodePingStrings,
-    onPing: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val measured = ping as? PeerPingState.Measured
-    val inFlight = ping == PeerPingState.InFlight
-    val failed = ping == PeerPingState.Failed
-    val description = when {
-        measured != null -> strings.resultFormat.format(measured.latency)
-        inFlight -> strings.pinging
-        failed -> strings.failed
-        else -> strings.tapToMeasure
-    }
-    val container = when {
-        measured != null -> MaterialTheme.colorScheme.secondaryContainer
-        failed -> MaterialTheme.colorScheme.errorContainer
-        else -> MaterialTheme.colorScheme.surfaceContainerHigh
-    }
-    val content = when {
-        measured != null -> MaterialTheme.colorScheme.onSecondaryContainer
-        failed -> MaterialTheme.colorScheme.onErrorContainer
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
-    Surface(
-        onClick = onPing,
-        enabled = !inFlight,
-        shape = CircleShape,
-        color = container,
-        contentColor = content,
-        modifier = modifier
-            .heightIn(min = 32.dp)
-            .semantics(mergeDescendants = true) {
-                role = Role.Button
-                contentDescription = description
-            }
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)
-        ) {
-            if (inFlight) {
-                LoadingIndicator(modifier = Modifier.size(18.dp), color = content)
-            } else {
-                Icon(
-                    Icons.Default.NetworkPing,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    tint = content
-                )
-            }
-            // The figure itself goes on the address line of the row, not in here: a chip
-            // that grows when the answer lands takes the width from the name beside it,
-            // wraps it onto a second line and makes the row — and the sheet — taller.
         }
     }
 }
@@ -3359,7 +3144,8 @@ private fun AccountRow(
     notConnectedLabel: String,
     onClick: () -> Unit,
     onRename: () -> Unit,
-    onDelete: (() -> Unit)?
+    onDelete: (() -> Unit)?,
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val subtitle = when {
@@ -3372,9 +3158,9 @@ private fun AccountRow(
     }
 
     Surface(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .clickable(enabled = !editing, onClick = onClick),
+            .shapedClickable(MaterialTheme.shapes.medium, enabled = !editing, onClick = onClick),
         shape = MaterialTheme.shapes.medium,
         color = if (active) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
                 else Color.Transparent
