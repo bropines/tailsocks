@@ -147,7 +147,7 @@ object TaildropEvents {
                 .putExtra(EXTRA_NAME, name)
                 .putExtra(EXTRA_PATH, finalPath)
         )
-        val telling = tellingOf(DeviceProfile.deviceClass(context), appOnScreen(context), inboxVisible)
+        val telling = tellingOf(DeviceProfile.deviceClass(context), appOnScreen(), inboxVisible)
         if (telling.onScreen) showOnScreen(context, name, senderName, saved)
         if (!telling.notification) {
             Log.d(TAG, "Inbox on screen; skipping the notification for $name")
@@ -170,7 +170,7 @@ object TaildropEvents {
     )
 
     /** Whether one of the app's activities is in front: the service alone keeps the process a step below that. */
-    private fun appOnScreen(context: Context): Boolean = runCatching {
+    private fun appOnScreen(): Boolean = runCatching {
         val state = ActivityManager.RunningAppProcessInfo()
         ActivityManager.getMyMemoryState(state)
         state.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
