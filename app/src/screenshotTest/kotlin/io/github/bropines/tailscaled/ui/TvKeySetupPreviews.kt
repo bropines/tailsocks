@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import com.android.tools.screenshot.PreviewTest
 import io.github.bropines.tailscaled.core.DeviceClass
 import io.github.bropines.tailscaled.core.KeyKind
+import io.github.bropines.tailscaled.core.KeyRoad
 import io.github.bropines.tailscaled.core.KeySendEnd
 import io.github.bropines.tailscaled.core.KeySendStep
 import io.github.bropines.tailscaled.core.SetupTarget
@@ -42,9 +43,13 @@ annotation class PhoneAsTv
 annotation class SendLanguages
 
 // A code as the bridge makes one for a single address: 89 characters, the prefix among them.
-private const val DEMO_CODE = "TSP1:1F8Q2ZK9M4X7C0VB3N6H5J2L8P1R4T7W0Y3A6D9G2S5E8U1I4O7KQZ3M6X9C2V5B8N1H4J7L0P3R6T9W2Y5A"
+private const val DEMO_CODE = "TSP2:1F8Q2ZK9M4X7C0VB3N6H5J2L8P1R4T7W0Y3A6D9G2S5E8U1I4O7KQZ3M6X9C2V5B8N1H4J7L0P3R6T9W2Y5A"
 
-private val waiting = TvKeyStep.Code(DEMO_CODE, "K7Q2M", listOf("192.168.1.50"), secondsLeft = 580, refused = 0)
+// The same for the relay alone: 83, and a sparser picture.
+private const val DEMO_CODE_RELAY = "TSP2:1F8Q2ZK9M4X7C0VB3N6H5J2L8P1R4T7W0Y3A6D9G2S5E8U1I4O7KQZ3M6X9C2V5B8N1H4J7L0P3R6T"
+
+// As a session mostly is: on a local network, and with the relay for a phone that is not.
+private val waiting = TvKeyStep.Code(DEMO_CODE, "K7Q2M", listOf("192.168.1.50"), secondsLeft = 580, refused = 0, relay = true)
 private val offer = TvKeyStep.Offer("pixel-9-pro", "192.168.1.23", "527184", KeyKind.TAILSCALE_AUTH, "", secondsLeft = 171)
 
 @Composable
@@ -60,6 +65,7 @@ fun TvKeyEntry() = AdaptiveShowcase(data = null, device = DeviceClass.TV) {
     Box(Modifier.padding(24.dp)) { TvKeySetupButton(onClick = {}) }
 }
 
+/** No code yet: the session is there and asks for the relay, a few seconds. */
 @PreviewTest @TvBothLanguages @Composable
 fun TvKeyOpening() = Tv(TvKeyStep.Opening)
 
@@ -70,8 +76,24 @@ fun TvKeyCode() = Tv(waiting)
 @PreviewTest @TvBothLanguages @Composable
 fun TvKeyCodeKnocked() = Tv(waiting.copy(addresses = listOf("192.168.1.50", "192.168.1.51", "10.0.7.2"), secondsLeft = 9, refused = 3))
 
+/** A television with no address on a local network: the relay alone leads to it, and it has no address to be named by. */
+@PreviewTest @TvBothLanguages @PhoneAsTv @Composable
+fun TvKeyCodeRelayOnly() = Tv(waiting.copy(text = DEMO_CODE_RELAY, addresses = emptyList()))
+
+/** No relay to be had — a television without the internet: here the phone does have to be on its network. */
+@PreviewTest @TvBothLanguages @PhoneAsTv @Composable
+fun TvKeyCodeNoRelay() = Tv(waiting.copy(relay = false))
+
 @PreviewTest @TvBothLanguages @PhoneAsTv @Composable
 fun TvKeyOffer() = Tv(offer)
+
+/** A key that came through the relay: its sender has no address, and the road stands in its place. */
+@PreviewTest @TvBothLanguages @PhoneAsTv @Composable
+fun TvKeyOfferRelay() = Tv(offer.copy(address = "", road = KeyRoad.RELAY))
+
+/** The same from a phone that gave no name. */
+@PreviewTest @TvBothLanguages @Composable
+fun TvKeyOfferRelayUnnamed() = Tv(offer.copy(sender = "", address = "", road = KeyRoad.RELAY))
 
 /** A key of another server than the television uses: the line to think twice about. */
 @PreviewTest @TvBothLanguages @PhoneAsTv @Composable
@@ -131,12 +153,23 @@ fun TvKeyStopUnknown() = Tv(TvKeyStep.Stopped(TvKeyStop.UNKNOWN))
 
 // ─── The phone ──────────────────────────────────────────────────────────────
 
-private val target = SetupTarget(ok = true, id = "K7Q2M", addresses = listOf("192.168.1.50"), port = 41234)
+// What a scanned code mostly says: an address on the local network, and the relay behind it.
+private val bothTarget = SetupTarget(ok = true, id = "K7Q2M", addresses = listOf("192.168.1.50"), port = 51234, relay = true)
+
+// A television with no local address, and one that could not have the relay.
+private val relayTarget = SetupTarget(ok = true, id = "K7Q2M", relay = true)
+private val lanTarget = bothTarget.copy(relay = false)
 private const val DEMO_KEY = "tskey-auth-kAbCdEf1CNTRL-0123456789abcdefghijklmnopqrstuv"
-private const val DEMO_ADDRESS = "192.168.1.50:41234"
+private const val DEMO_ADDRESS = "192.168.1.50:51234"
 
 @Composable
-private fun Send(step: KeySendStep, key: String = "", server: String = "", dark: Boolean = false) = TailSocksTheme(
+private fun Send(
+    step: KeySendStep,
+    key: String = "",
+    server: String = "",
+    dark: Boolean = false,
+    target: SetupTarget = bothTarget,
+) = TailSocksTheme(
     appTheme = if (dark) "dark" else "light", themePreset = "emerald", dynamicColorEnabled = false
 ) {
     // The sheet's own container colour, as ModalBottomSheet draws it.
@@ -150,6 +183,7 @@ private fun Send(step: KeySendStep, key: String = "", server: String = "", dark:
             onServer = {},
             onPaste = {},
             onSend = {},
+            onCancel = {},
             onNext = {},
             onStopWaiting = {},
         )
@@ -157,10 +191,20 @@ private fun Send(step: KeySendStep, key: String = "", server: String = "", dark:
 }
 
 @Composable
-private fun SendEnded(how: KeySendEnd, address: String = DEMO_ADDRESS) = Send(KeySendStep.Ended(how, address))
+private fun SendEnded(how: KeySendEnd, address: String = DEMO_ADDRESS, target: SetupTarget = bothTarget) =
+    Send(KeySendStep.Ended(how, address), target = target)
 
+/** Where the key will go, in words: the local network first, the relay if that fails. */
 @PreviewTest @SendLanguages @Composable
 fun KeySendFormEmpty() = Send(KeySendStep.Form)
+
+/** A television with no local address: no address on the line, and the relay the only road. */
+@PreviewTest @SendLanguages @Composable
+fun KeySendFormRelayOnly() = Send(KeySendStep.Form, target = relayTarget)
+
+/** A code without a relay: the local network and nothing else. */
+@PreviewTest @SendLanguages @Composable
+fun KeySendFormLanOnly() = Send(KeySendStep.Form, target = lanTarget)
 
 /** A key pasted and a server of the phone's own filled in: what Send goes out with, the key shown by its kind and length. */
 @PreviewTest @SendLanguages @Preview(name = "send-phone-landscape", device = "spec:width=852dp,height=393dp,dpi=420") @Composable
@@ -177,11 +221,23 @@ fun KeySendFormRefused() = Send(KeySendStep.Form, key = "tskey-api-kAbCdEf1CNTRL
 @PreviewTest @SendLanguages @Composable
 fun KeySendFormSpaces() = Send(KeySendStep.Form, key = "tskey-auth-kAbCdEf1CNTRL 0123456789")
 
+/** The first moment of a send, before the bridge has named a road. */
 @PreviewTest @SendLanguages @Composable
-fun KeySendSending() = Send(KeySendStep.Sending)
+fun KeySendSending() = Send(KeySendStep.Sending())
+
+@PreviewTest @SendLanguages @Composable
+fun KeySendSendingLan() = Send(KeySendStep.Sending(KeyRoad.LAN))
+
+/** The long one: up to half a minute, said so, and with a way out. */
+@PreviewTest @SendLanguages @Composable
+fun KeySendSendingRelay() = Send(KeySendStep.Sending(KeyRoad.RELAY))
 
 @PreviewTest @SendLanguages @Composable
 fun KeySendCompare() = Send(KeySendStep.Compare("527184", DEMO_ADDRESS))
+
+/** Sent through the relay: no address under the check code, the road instead. */
+@PreviewTest @SendLanguages @Composable
+fun KeySendCompareRelay() = Send(KeySendStep.Compare("527184", "", KeyRoad.RELAY))
 
 @PreviewTest @SendLanguages @Composable
 fun KeySendCompareDark() = Send(KeySendStep.Compare("004217", DEMO_ADDRESS), dark = true)
@@ -210,11 +266,21 @@ fun KeySendUnsupported() = SendEnded(KeySendEnd.UNSUPPORTED)
 @PreviewTest @SendLanguages @Composable
 fun KeySendClosed() = SendEnded(KeySendEnd.CLOSED, address = "")
 
+/** Both roads tried: nothing on the local network, and no television behind the relay. */
 @PreviewTest @SendLanguages @Composable
 fun KeySendUnreachable() = SendEnded(KeySendEnd.UNREACHABLE, address = "")
 
+/** A code without a relay: the local network was the only road, and the hint says what it takes. */
 @PreviewTest @SendLanguages @Composable
-fun KeySendWrongNetwork() = SendEnded(KeySendEnd.WRONG_NETWORK, address = "")
+fun KeySendUnreachableNoRelay() = SendEnded(KeySendEnd.UNREACHABLE, address = "", target = lanTarget)
+
+/** Only a code without a relay ends this way. */
+@PreviewTest @SendLanguages @Composable
+fun KeySendWrongNetwork() = SendEnded(KeySendEnd.WRONG_NETWORK, address = "", target = lanTarget)
+
+/** Nothing on the local network, and the phone itself does not get to the relay. */
+@PreviewTest @SendLanguages @Composable
+fun KeySendRelayUnavailable() = SendEnded(KeySendEnd.RELAY_UNAVAILABLE, address = "")
 
 @PreviewTest @SendLanguages @Composable
 fun KeySendNoAnswer() = SendEnded(KeySendEnd.NO_ANSWER)
