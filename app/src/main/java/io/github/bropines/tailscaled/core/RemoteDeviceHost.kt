@@ -139,23 +139,39 @@ internal class AppRemoteDeviceHost(context: Context) : RemoteDeviceHost {
 
     // ─── The report ──────────────────────────────────────────────────────────────────────────
 
+    /** A television has no battery to optimise: the permission's own screen leaves that row out there, by the same rule. */
     private fun permissionState(permission: AppPermission): PermState =
         if (permission == AppPermission.BATTERY &&
-            DeviceProfile.availability(context, Feature.BATTERY_OPTIMISATION_PROMPT) == Availability.HIDDEN
+            !DeviceProfile.availability(Feature.BATTERY_OPTIMISATION_PROMPT, DeviceProfile.deviceClass(context), Capabilities.NONE).reachable
         ) PermState.NOT_APPLICABLE
         else runCatching { AppPermissions.state(context, permission) }.getOrDefault(PermState.UNKNOWN)
+
+    /** Whether the device has a way to ask for a permission is asked of the package manager; not with every status. */
+    private val askable = HashMap<AppPermission, Pair<Long, Boolean>>()
+
+    private fun canAsk(permission: AppPermission): Boolean = synchronized(askable) {
+        val now = android.os.SystemClock.elapsedRealtime()
+        askable[permission]?.takeIf { now - it.first < ASKABLE_MS }?.second
+            ?: AppPermissions.canAsk(context, permission).also { askable[permission] = now to it }
+    }
 
     override fun report(): RemoteDeviceReport {
         val account = AccountManager.getActiveAccount(context)
         val inboxDir = TaildropPaths.ensureDir(context, account.id)
-        val inbox = TaildropInbox.list(context, inboxDir)
-        val folder = inbox.folder
+        // The inbox as TaildropInbox.list reads it, without its probe of the folder: this is
+        // read with every status a paired device polls, and that probe writes a file.
+        val history = TaildropHistory.read(context)
+        val waiting = runCatching {
+            val json = if (BuildConfig.IS_DEV) appctr.Appctr.getTaildropFilesFromAPI() else appctr.Appctr.getWaitingFiles(inboxDir.absolutePath)
+            TaildropInbox.withReceivedTimes(TaildropInbox.decodeFiles(json), history)
+        }.getOrNull()
+        val folder = TaildropFolder.get(context)
         val prefs = profilePrefs()
         val root = GlobalSettings.isRootModeEnabled(context)
         val tun = GlobalSettings.isTunModeEnabled(context)
         return RemoteDeviceReport(
             permissions = AppPermission.entries.map { permission ->
-                RemoteDeviceReports.permission(permission, permissionState(permission)) { AppPermissions.canAsk(context, permission) }
+                RemoteDeviceReports.permission(permission, permissionState(permission)) { canAsk(permission) }
             },
             asked = RemoteDevicePrompts.asked(context),
             receive = RemoteDeviceReceive.of(
@@ -163,9 +179,9 @@ internal class AppRemoteDeviceHost(context: Context) : RemoteDeviceHost {
                 state = folder?.let(::folderState),
                 isDefault = folder == null || (folder is ReceiveFolder.Dir && folder.isDefault),
                 free = freeFor(folder, inboxDir),
-                waiting = inbox.files?.size ?: 0,
+                waiting = waiting?.size ?: 0,
             ),
-            saved = RemoteDeviceReports.saved(inbox.files.orEmpty(), inbox.history),
+            saved = RemoteDeviceReports.saved(waiting.orEmpty(), history),
             folders = RemoteShares.parse(prefs.getString(SHARES_PREF, "[]")),
             device = RemoteDeviceFacts(
                 model = "${Build.MANUFACTURER} ${Build.MODEL}".trim(),
@@ -186,6 +202,7 @@ internal class AppRemoteDeviceHost(context: Context) : RemoteDeviceHost {
             PermState.NOT_APPLICABLE -> throw RemoteRefusal("not needed on this device")
             else -> Unit
         }
+        // Asked afresh, not from the report's memory: a page may have appeared since.
         if (!AppPermissions.canAsk(context, permission)) {
             throw RemoteRefusal("this device has no settings page for it; it can only be granted with adb")
         }
@@ -242,6 +259,7 @@ internal class AppRemoteDeviceHost(context: Context) : RemoteDeviceHost {
         const val EXIT_NODE_PREF = "advertise_exit_node"
         const val ROUTES_PREF = "advertise_routes"
         const val FOLDER_PROBE_MS = 30_000L
+        const val ASKABLE_MS = 60_000L
     }
 }
 
