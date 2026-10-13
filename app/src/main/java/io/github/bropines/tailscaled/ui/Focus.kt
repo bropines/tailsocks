@@ -29,6 +29,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
@@ -108,12 +109,23 @@ fun Modifier.tvFocusGroup(): Modifier = if (isTv) focusRestorer().focusGroup() e
  * Where the remote starts on a screen: asks for focus once, when the element
  * appears. A television must always have something in focus to act on; one
  * element per screen carries this.
+ *
+ * The first request is made as the element is placed, the first moment it can
+ * succeed; the effect is the fallback. A press that comes between the screen
+ * appearing and a request that waits for an effect and a frame is lost: it
+ * puts the remote on the first stop, where the request then puts it again.
  */
 @Composable
 fun Modifier.tvInitialFocus(requester: FocusRequester = remember { FocusRequester() }): Modifier {
     if (!isTv) return this
-    LaunchedEffect(requester) { requester.requestFocus() }
-    return focusRequester(requester)
+    val asked = remember(requester) { booleanArrayOf(false) }
+    LaunchedEffect(requester) {
+        if (!asked[0]) requester.requestFocus()
+        asked[0] = true
+    }
+    return focusRequester(requester).onGloballyPositioned {
+        if (!asked[0]) asked[0] = runCatching { requester.requestFocus() }.getOrDefault(false)
+    }
 }
 
 /**

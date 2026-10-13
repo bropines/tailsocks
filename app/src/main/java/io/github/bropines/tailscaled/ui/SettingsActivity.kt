@@ -44,6 +44,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.foundation.horizontalScroll
@@ -413,6 +414,20 @@ fun SettingsScreen(
     val pageFocus = remember { FocusRequester() }
     val rowFocus = remember { FocusRequester() }
     var pageHasFocus by remember { mutableStateOf(false) }
+    // Whether the list still has to be given the remote for the first time. A press that comes
+    // before it is lost — it only puts the remote on the first row, which a request that
+    // follows would put there again — and a request that waits for an effect and a frame, as
+    // `focus` does, leaves room for the first few presses of a held key. So the row that is
+    // to have it asks as it is placed, the first moment a request can succeed.
+    val hubStart = remember { booleanArrayOf(landing == null) }
+    val hubPlaced: () -> Unit = {
+        if (hubStart[0] && runCatching { hubFocus.requestFocus() }.getOrDefault(false)) hubStart[0] = false
+    }
+    // The same for a page that was asked for by name, which the remote starts on.
+    val pageStart = remember { booleanArrayOf(landing != null) }
+    val pagePlaced: () -> Unit = {
+        if (pageStart[0] && runCatching { pageFocus.requestFocus() }.getOrDefault(false)) pageStart[0] = false
+    }
     // The rows to come back to: the hub's, and the Advanced page's.
     var hubRow by rememberSaveable { mutableStateOf(landing?.let { parentOf(it) ?: it }) }
     var advancedRow by rememberSaveable { mutableStateOf(landing?.takeIf { parentOf(it) != null }) }
@@ -455,7 +470,14 @@ fun SettingsScreen(
             val asked = runCatching { requester.requestFocus() }
             if (asked.isFailure && target != SettingsFocus.PAGE) runCatching { pageFocus.requestFocus() }
         }
-        LaunchedEffect(Unit) { focus(if (openSection == null) SettingsFocus.HUB else SettingsFocus.PAGE) }
+        // The list, or the page that was asked for, takes the remote as it is first placed
+        // (hubPlaced, pagePlaced), not a few frames later. This is the second try, for a page
+        // that could not be asked yet.
+        LaunchedEffect(Unit) {
+            if (openSection == null) return@LaunchedEffect
+            withFrameNanos { }
+            if (pageStart[0]) focus(SettingsFocus.PAGE)
+        }
     }
     fun open(section: String) {
         if (parentOf(section) == null) hubRow = section else advancedRow = section
@@ -3054,7 +3076,9 @@ fun SettingsScreen(
                             title = stringResource(category.titleRes),
                             subtitle = stringResource(category.descRes),
                             icon = category.icon,
-                            modifier = if (tv && live && category.id == returnRow) Modifier.focusRequester(hubFocus) else Modifier,
+                            modifier = if (tv && live && category.id == returnRow) {
+                                Modifier.focusRequester(hubFocus).onGloballyPositioned { if (hubStart[0]) hubPlaced() }
+                            } else Modifier,
                             onClick = { open(category.id) }
                         )
                     }
@@ -3096,6 +3120,7 @@ fun SettingsScreen(
                 val remote = if (tv && live) {
                     Modifier
                         .focusRequester(pageFocus)
+                        .onGloballyPositioned { if (pageStart[0]) pagePlaced() }
                         .onFocusChanged { pageHasFocus = it.hasFocus }
                         .tvScrollPastStops(sectionScroll)
                         .tvFocusGroup()

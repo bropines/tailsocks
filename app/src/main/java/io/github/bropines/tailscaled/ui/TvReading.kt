@@ -46,6 +46,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
@@ -273,5 +274,8 @@ fun Modifier.tvFocusOnce(spent: MutableState<Boolean>): Modifier {
             withFrameNanos { }
         }
     }
-    return focusRequester(requester)
+    // The first request is the one made as the element is placed (see tvInitialFocus).
+    return focusRequester(requester).onGloballyPositioned {
+        if (!spent.value && runCatching { requester.requestFocus() }.getOrDefault(false)) spent.value = true
+    }
 }
