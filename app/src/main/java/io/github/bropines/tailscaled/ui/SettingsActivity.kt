@@ -423,7 +423,11 @@ fun SettingsScreen(
     }
 
     // Global Settings
-    var taildropRootUri by remember { mutableStateOf(GlobalSettings.getTaildropRootUri(context)) }
+    // Where received Taildrop files go (core/TaildropFolder.kt): a folder of the system's
+    // picker, as on every phone, or a directory chosen in the app's own browser where the
+    // system has no picker — a television, which starts with one of its own in Downloads.
+    var taildropFolder by remember { mutableStateOf(TaildropFolder.get(context)) }
+    val taildropFolderChooser = rememberReceiveFolderChooser { taildropFolder = it }
     var autoStart by remember { mutableStateOf(GlobalSettings.isAutoStartEnabled(context)) }
     var autoReconnect by remember { mutableStateOf(GlobalSettings.isAutoReconnectEnabled(context)) }
     var autoReconnectAttempts by remember { mutableStateOf(GlobalSettings.getAutoReconnectAttempts(context).toString()) }
@@ -517,9 +521,6 @@ fun SettingsScreen(
     var showRestorePasswordDialog by remember { mutableStateOf(false) }
     var pendingRestoreUri by remember { mutableStateOf<Uri?>(null) }
 
-    val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-        if (uri != null) { GlobalSettings.setTaildropRootUri(context, uri); taildropRootUri = uri }
-    }
 
     // Where a backup goes and where one comes from is a Uri either way: the system's picker
     // hands one back, and a file picked in the app's own browser is one as well (file://),
@@ -2138,25 +2139,18 @@ fun SettingsScreen(
     val sectionSharing: @Composable () -> Unit = {
         SettingsCard(title = stringResource(R.string.settings_sect_storage)) {
             // The folder by the name the user knows it: a path on the device's storage
-            // straight from the URI, any other provider's folder name asked of it.
-            val folderLabel by produceState(taildropRootUri?.let(TaildropSave::quickFolderLabel), taildropRootUri) {
-                value = taildropRootUri?.let { uri ->
-                    TaildropSave.quickFolderLabel(uri) ?: withContext(Dispatchers.IO) { TaildropSave.folderLabel(context, uri) }
-                }
+            // straight from the URI or the directory, any other provider's folder name
+            // asked of it.
+            val folder = taildropFolder
+            val folderLabel by produceState(folder?.let(TaildropFolder::quickLabel), folder) {
+                value = folder?.let { TaildropFolder.quickLabel(it) ?: withContext(Dispatchers.IO) { TaildropFolder.label(context, it) } }
             }
             SettingsClickableItem(
                 stringResource(R.string.settings_taildrop_folder_title),
-                if (taildropRootUri == null) stringResource(R.string.settings_taildrop_folder_none)
+                if (folder == null) stringResource(R.string.settings_taildrop_folder_none)
                 else stringResource(R.string.settings_taildrop_folder_set_format, folderLabel ?: "…"),
                 Icons.Default.Folder
-            ) {
-                // TV: without a system picker this row can only say so. Choosing the folder
-                // in the app's own browser (PickFolderScreen) comes with Taildrop's storage
-                // work, which stores a plain path where this stores a tree URI.
-                if (!(systemPicker && folderPicker.tryLaunch(null))) {
-                    Toast.makeText(context, context.getString(R.string.tv_settings_no_folder_picker), Toast.LENGTH_LONG).show()
-                }
-            }
+            ) { taildropFolderChooser.choose() }
         }
 
         SettingsCardGap()

@@ -18,7 +18,6 @@
     <string name="tv_settings_backup_save_title">Where to save the backup</string>
     <string name="tv_settings_backup_save_here">Save here</string>
     <string name="tv_settings_backup_pick_title">Choose the backup file</string>
-    <string name="tv_settings_no_folder_picker">This device has no system picker to choose a folder with</string>
 
     <!-- Tailnet Lock on a device that cannot confirm a signature. -->
     <string name="tka_waiting_other_device">A signature is confirmed with the screen lock, and a TV has none. Sign these nodes from a phone or a computer that holds a trusted key.</string>
