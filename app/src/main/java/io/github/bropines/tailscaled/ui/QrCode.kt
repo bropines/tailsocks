@@ -308,16 +308,19 @@ private const val DOT = 0.9f
  *     qr?.let { QrSheet(title = name, text = it, onDismiss = { qr = null }) }
  *
  * The caller passes [title] and [help] already resolved, as every sheet does.
+ * [shareText] is what Share sends when a bare [text] would say too little.
  */
 @Composable
-fun QrSheet(title: String, text: String, onDismiss: () -> Unit, help: String? = null) =
-    QrSheet(title = title, variants = listOf(QrVariant("", text, help)), onDismiss = onDismiss)
+fun QrSheet(title: String, text: String, onDismiss: () -> Unit, help: String? = null, shareText: String? = null) =
+    QrSheet(title = title, variants = listOf(QrVariant("", text, help, shareText)), onDismiss = onDismiss)
 
 /**
  * One way to put the same thing in a code: the tab's [label], the [text] the
- * code carries, and the [help] that goes with it.
+ * code carries, and the [help] that goes with it. [shareText] is what Share
+ * sends in place of [text] — a link with a line on what it is; Copy still
+ * takes the text alone.
  */
-data class QrVariant(val label: String, val text: String, val help: String? = null)
+data class QrVariant(val label: String, val text: String, val help: String? = null, val shareText: String? = null)
 
 /**
  * The same thing in more than one encoding — a link any camera opens and the
@@ -355,7 +358,7 @@ fun QrSheet(title: String, variants: List<QrVariant>, onDismiss: () -> Unit) {
                 clipboard.copyText(scope, variant.text)
                 Toast.makeText(context, copied, Toast.LENGTH_SHORT).show()
             },
-            onShare = { shareText(context, variant.text, labels.share) }
+            onShare = { shareText(context, variant.shareText ?: variant.text, labels.share) }
         )
     }
 }

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Signing in without a browser on the device: the link as a QR code (ui/SignIn.kt) -->
+    <!-- The logged-out card, on a phone: the link for another device to open -->
+    <string name="signin_other_device">Sign in on another device</string>
+    <string name="signin_other_device_help">Open the link on any phone or computer and sign in there: this device continues by itself. Whoever signs in decides which tailnet the device joins, so send the link only to the tailnet\'s owner.</string>
+    <!-- %1$s: the device's name, %2$s: the link -->
+    <string name="signin_share_message">Sign-in link for “%1$s” (TailSocks): %2$s\nOpen it and sign in to let the device into your tailnet.</string>
+
+    <!-- The same on a television: a screen of its own -->
+    <string name="tv_signin_title">Sign in from your phone</string>
+    <string name="tv_signin_step">Point the phone\'s camera at the code and sign in. This screen continues by itself.</string>
+    <string name="tv_signin_or_link">Or open on any device:</string>
+    <string name="tv_signin_preparing">Getting a code…</string>
+    <string name="tv_signin_waiting">Waiting for you to sign in…</string>
+    <string name="tv_signin_slow">The sign-in server is not answering. On a network that blocks it, set up a proxy or the bypass first.</string>
+    <string name="tv_signin_new_code">New code</string>
+    <string name="tv_signin_new_code_hint">New code: for when the phone does not accept this one.</string>
+    <string name="tv_signin_new_code_failed">No new code: %1$s</string>
+    <string name="tv_signin_not_ready">the service is not waiting for a sign-in yet, try again in a moment</string>
+    <string name="tv_signin_later">Not now</string>
+    <string name="tv_signin_open">Sign in</string>
+
+    <!-- Home on a television: the remote's OK instead of a tap (the status card, the exit node row) -->
+    <string name="tv_home_start">Press OK to start</string>
+    <string name="tv_home_active">Service is running • OK to stop</string>
+    <string name="tv_home_active_root">Routed by the system through tailscale0 • OK to stop</string>
+    <string name="tv_home_active_root_yielded">Tailnet only — another VPN holds the device • OK to stop</string>
+    <string name="tv_home_active_root_shared">Carrying the apps another VPN leaves out • OK to stop</string>
+    <string name="tv_home_degraded">%1$s • OK to stop</string>
+    <string name="tv_home_needs_login">Sign in below • OK to stop</string>
+    <string name="tv_home_exit_node_none">Press OK to choose an exit node</string>
+
+    <!-- Stopping asks first: OK on a remote is pressed by accident -->
+    <string name="tv_stop_title">Stop TailSocks?</string>
+    <string name="tv_stop_text">The connection to the tailnet goes down until you start it again.</string>
+
+    <!-- Onboarding on a television: the login step -->
+    <string name="tv_onboarding_login_desc">Signing in takes a phone: once the service starts, this screen shows a code for its camera. An auth key is the other way, and can wait.</string>
+</resources>
