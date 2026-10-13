@@ -31,6 +31,8 @@ data class VisualEnv(
     val focus: PolicyPath? = null,
     /** Tailscale's default relay map, for the Relays page; asked for with [VisualActions.loadDerpMap]. */
     val derpMap: Loadable<ApiDerpMap> = Loadable(),
+    /** What the editor was opened to do and no page has taken up yet; the page that does says so ([VisualActions.launchTaken]). */
+    val launch: VisualLaunch? = null,
 ) {
     val model: PolicyModel? get() = draft.model
     val view: TailnetView get() = TailnetView(devices, users.takeIf { it.isNotEmpty() })
@@ -51,6 +53,12 @@ data class VisualEnv(
             return messages.flatMap { m -> PolicyLocator.locate(t, m).map { it to m } }.groupBy({ it.first }, { it.second })
         }
     }
+}
+
+/** What the editor was opened to do, from outside the console, until the page it is for takes it up. */
+enum class VisualLaunch {
+    /** From a Taildrive screen (TaildrivePolicyFix): the Attributes page opens its Taildrive template's form. */
+    TAILDRIVE,
 }
 
 /**
@@ -89,6 +97,9 @@ interface VisualActions {
 
     /** Read Tailscale's default relay map into [VisualEnv.derpMap], unless this session has it; [force] reads it again. */
     fun loadDerpMap(force: Boolean = false) {}
+
+    /** [VisualEnv.launch] is done with: its page has shown what it asked for, and will not again. */
+    fun launchTaken() {}
 }
 
 /**

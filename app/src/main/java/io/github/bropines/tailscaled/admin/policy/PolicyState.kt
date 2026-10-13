@@ -11,6 +11,7 @@ import io.github.bropines.tailscaled.admin.policy.visual.PolicyDraft
 import io.github.bropines.tailscaled.admin.policy.visual.PolicyLocator
 import io.github.bropines.tailscaled.admin.policy.visual.PolicyPath
 import io.github.bropines.tailscaled.admin.policy.visual.SourceTree
+import io.github.bropines.tailscaled.admin.policy.visual.VisualLaunch
 import io.github.bropines.tailscaled.admin.policy.visual.VisualSection
 import io.github.bropines.tailscaled.admin.secure.KeyValueStore
 import io.github.bropines.tailscaled.admin.secure.PrefsKeyValueStore
@@ -67,6 +68,8 @@ data class PolicyEditorState(
     val jsonBase: String? = null,
     /** What the server said when it last refused the text, kept after the review is left. */
     val refusal: PolicyRefusal? = null,
+    /** What the editor was opened to do, until the visual view's page for it has taken it up. */
+    val launch: VisualLaunch? = null,
 ) {
     val changed: Boolean get() = text != base.text
 

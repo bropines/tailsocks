@@ -142,6 +142,7 @@ fun VisualEditorScreen(state: ConsoleState, editor: PolicyEditorState, vm: Admin
         errors = errors,
         focus = editor.focus,
         derpMap = state.policy.derpMap,
+        launch = editor.launch,
     )
 
     val page = editor.page
@@ -271,6 +272,10 @@ private fun rememberShellActions(vm: AdminConsoleViewModel?, snackbar: SnackbarH
 
             override fun loadDerpMap(force: Boolean) {
                 vm?.policy?.loadDerpMap(force)
+            }
+
+            override fun launchTaken() {
+                vm?.policy?.launchTaken()
             }
 
             override fun notify(message: String, undoable: Boolean) {

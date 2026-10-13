@@ -78,6 +78,10 @@ class AdminApiActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         // From an attention notification: open on the profile it was about.
         if (savedInstanceState == null) AttentionLaunch.selectProfile(this, intent)
+        // From a Taildrive screen: on to that profile's policy editor, the Attributes page.
+        if (savedInstanceState == null && intent?.getBooleanExtra(TaildrivePolicyFix.EXTRA_OPEN, false) == true) {
+            vm.policy.askForTaildrive(intent.getStringExtra(AttentionLaunch.EXTRA_PROFILE_ID))
+        }
         setContent {
             TailSocksTheme {
                 AdminConsoleRoot(vm, onBack = { finish() })
@@ -129,7 +133,11 @@ fun AdminConsoleContent(state: ConsoleState, vm: AdminConsoleViewModel?, onBack:
                 )
             } ?: AdminWaitScreen(onBack) { LoadingIndicatorCompat() }
             ConsolePhase.LOCKED -> AdminLockedScreen(state.viewUnlockUnavailable, onBack) { vm?.onViewUnlock(it) }
-            ConsolePhase.READY -> AdminDashboard(state, vm, onBack, startTab = ConsoleTab.ATTENTION)
+            // On the policy while a Taildrive screen's request for this profile waits for its file.
+            ConsolePhase.READY -> AdminDashboard(
+                state, vm, onBack,
+                startTab = if (state.active != null && vm?.policy?.taildriveFor == state.active.id) ConsoleTab.POLICY else ConsoleTab.ATTENTION,
+            )
         }
 
         SafetyHost(

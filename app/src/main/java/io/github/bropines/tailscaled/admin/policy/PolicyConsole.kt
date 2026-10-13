@@ -15,6 +15,7 @@ import io.github.bropines.tailscaled.admin.console.ConsoleTab
 import io.github.bropines.tailscaled.admin.console.ConsoleText
 import io.github.bropines.tailscaled.admin.console.Loadable
 import io.github.bropines.tailscaled.admin.policy.visual.PolicyPath
+import io.github.bropines.tailscaled.admin.policy.visual.VisualLaunch
 import io.github.bropines.tailscaled.admin.policy.visual.VisualSection
 import io.github.bropines.tailscaled.admin.safety.ChangeOutcome
 import kotlinx.coroutines.CancellationException
@@ -203,6 +204,39 @@ class PolicyConsole internal constructor(private val vm: AdminConsoleViewModel) 
         }
         vm.viewModelScope.launch { onResult(attempt { b.previewPolicy(text, type, previewFor) }) }
     }
+
+    // ------------------------------------------------------------------ from a Taildrive screen
+
+    /**
+     * The profile a Taildrive screen sent the person to, to let their devices share
+     * (TaildrivePolicyFix): the console opens on its policy, and [landOnTaildrive] answers once.
+     */
+    var taildriveFor: String? = null
+        private set
+
+    fun askForTaildrive(profileId: String?) {
+        taildriveFor = profileId
+    }
+
+    /**
+     * The answer, given by the policy tab when the file is here and it is known who manages it:
+     * the visual view on the Attributes page, asked for its Taildrive template
+     * ([VisualLaunch.TAILDRIVE]). Nothing opens when the policy may not be edited ([mayEdit]
+     * false) or another profile is the active one by now. The view the profile's editor opens in
+     * stays the one it picked.
+     */
+    fun landOnTaildrive(mayEdit: Boolean) {
+        val asked = taildriveFor ?: return
+        taildriveFor = null
+        if (!mayEdit || asked != vm.state.value.active?.id || state.editor != null) return
+        val file = state.file.value ?: return
+        loadPickerLists()
+        val editor = newEditor(file, file.text, visual = true).copy(page = VisualSection.ATTRIBUTES, launch = VisualLaunch.TAILDRIVE)
+        set { it.copy(editor = editor, conflict = null) }
+    }
+
+    /** The page the editor was opened for has shown what was asked: once is all. */
+    fun launchTaken() = setEditor { if (it.launch == null) it else it.copy(launch = null) }
 
     // ------------------------------------------------------------------ the pipeline
 

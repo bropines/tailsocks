@@ -116,6 +116,10 @@ fun PolicyTab(state: ConsoleState, vm: AdminConsoleViewModel?) {
         return
     }
 
+    // Sent here by a Taildrive screen: answered once, when the settings have said who manages the file.
+    val settled = !state.settings.loading
+    LaunchedEffect(settled, canEdit) { if (settled) vm?.policy?.landOnTaildrive(canEdit) }
+
     val gutter = gutterWidth(plain.size)
     // Wider than a phone the file keeps the width — code wants it — and the card over it, words
     // and buttons, keeps to a readable one: no revert button a tablet's width from its line.
