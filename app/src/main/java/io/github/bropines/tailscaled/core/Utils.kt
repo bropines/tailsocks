@@ -16,6 +16,8 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
 import java.io.File
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -684,7 +686,8 @@ fun SlidingSegmentedChips(
     onOptionSelected: (Int) -> Unit,
     modifier: Modifier = Modifier,
     positionOffset: Float? = null,
-    height: Dp = 40.dp
+    height: Dp = 40.dp,
+    recreates: Boolean = false
 ) {
     SlidingSegmentedChips(
         items = options.map { SegmentedChipItem(it) },
@@ -692,7 +695,8 @@ fun SlidingSegmentedChips(
         onOptionSelected = onOptionSelected,
         modifier = modifier,
         positionOffset = positionOffset,
-        height = height
+        height = height,
+        recreates = recreates
     )
 }
 
@@ -703,8 +707,14 @@ fun SlidingSegmentedChips(
     onOptionSelected: (Int) -> Unit,
     modifier: Modifier = Modifier,
     positionOffset: Float? = null,
-    height: Dp = 40.dp
+    height: Dp = 40.dp,
+    recreates: Boolean = false
 ) {
+    // A pick that recreates the screen (the language, the scale) would leave a remote on the
+    // first chip when the screen comes back, one OK from undoing the pick. The pick is kept
+    // across the recreation, and the chip that was picked takes the remote back once.
+    var pickedWithRemote by rememberSaveable { mutableStateOf(false) }
+    val tv = isTv
     val animPosition by animateFloatAsState(
         targetValue = positionOffset ?: selectedIndex.toFloat(),
         animationSpec = tween(durationMillis = 60),
@@ -761,6 +771,8 @@ fun SlidingSegmentedChips(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
+                        .then(if (tv && pickedWithRemote && index == selectedIndex) Modifier.tvInitialFocus() else Modifier)
+                        .onFocusChanged { if (it.isFocused) pickedWithRemote = false }
                         .tvChipFocusRing(source)
                         .selectable(
                             selected = isSelected,
@@ -768,6 +780,7 @@ fun SlidingSegmentedChips(
                             indication = null,
                             role = androidx.compose.ui.semantics.Role.Tab
                         ) {
+                            if (recreates && tv) pickedWithRemote = true
                             onOptionSelected(index)
                         },
                     contentAlignment = Alignment.Center

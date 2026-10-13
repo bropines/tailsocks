@@ -419,12 +419,12 @@ fun SettingsScreen(
     // follows would put there again — and a request that waits for an effect and a frame, as
     // `focus` does, leaves room for the first few presses of a held key. So the row that is
     // to have it asks as it is placed, the first moment a request can succeed.
-    val hubStart = remember { booleanArrayOf(landing == null) }
+    val hubStart = remember { booleanArrayOf(openSection == null) }
     val hubPlaced: () -> Unit = {
         if (hubStart[0] && runCatching { hubFocus.requestFocus() }.getOrDefault(false)) hubStart[0] = false
     }
     // The same for a page that was asked for by name, which the remote starts on.
-    val pageStart = remember { booleanArrayOf(landing != null) }
+    val pageStart = remember { booleanArrayOf(openSection != null) }
     val pagePlaced: () -> Unit = {
         if (pageStart[0] && runCatching { pageFocus.requestFocus() }.getOrDefault(false)) pageStart[0] = false
     }
@@ -2490,7 +2490,8 @@ fun SettingsScreen(
                         context.findActivity()?.recreate()
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    height = 38.dp
+                    height = 38.dp,
+                    recreates = true
                 )
             }
 
@@ -2514,7 +2515,8 @@ fun SettingsScreen(
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    height = 38.dp
+                    height = 38.dp,
+                    recreates = true
                 )
             }
             DeviceInterfaceSetting()
@@ -2896,7 +2898,7 @@ fun SettingsScreen(
 
                 Spacer(Modifier.height(8.dp))
                 CopyablePathItem(
-                    label = "Service Script Path",
+                    label = stringResource(R.string.settings_diag_service_script),
                     path = serviceScriptPath,
                     context = context
                 )
