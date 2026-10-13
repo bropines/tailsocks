@@ -138,9 +138,11 @@ internal fun SettingsSearchResults(state: SettingsSearchState, modifier: Modifie
     LaunchedEffect(Unit) { state.stale++ }
     ReadableWidth {
         // A list of its own for every query: a lazy list holds on to the row it had at its top, and
-        // would show the answer to the next letter from wherever that row now stands in it.
+        // would show the answer to the next letter from wherever that row now stands in it. The same
+        // query keeps its place: Back from a page returns to the result it was opened from.
         key(results?.query) {
         LazyColumn(
+            state = state.listFor(results?.query),
             modifier = modifier.fillMaxSize().imePadding(),
             contentPadding = PaddingValues(16.dp)
         ) {

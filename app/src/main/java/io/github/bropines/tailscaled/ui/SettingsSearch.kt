@@ -3,6 +3,7 @@ package io.github.bropines.tailscaled.ui
 import android.content.Context
 import android.content.res.Configuration
 import android.os.Build
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
@@ -210,6 +211,18 @@ class SettingsSearchState internal constructor(
 
     internal var onOpen: (String) -> Unit = {}
     private var engine: SearchEngine? = null
+
+    private var list = LazyListState()
+    private var listQuery: String? = null
+
+    /** Where the list of results for [query] was left; from its top for another query. */
+    internal fun listFor(query: String?): LazyListState {
+        if (query != listQuery) {
+            listQuery = query
+            list = LazyListState()
+        }
+        return list
+    }
 
     private fun text(resource: Int): String = context.getString(resource)
 
