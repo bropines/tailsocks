@@ -405,7 +405,8 @@ object FileBrowse {
         return storageAccessFor(
             sdk,
             storagePermission = held(Manifest.permission.READ_EXTERNAL_STORAGE) && held(Manifest.permission.WRITE_EXTERNAL_STORAGE),
-            allFilesAccess = sdk >= Build.VERSION_CODES.R && Environment.isExternalStorageManager(),
+            // Spelled with SDK_INT itself: the API check of lint does not follow a copy of it.
+            allFilesAccess = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && Environment.isExternalStorageManager(),
         )
     }
 
