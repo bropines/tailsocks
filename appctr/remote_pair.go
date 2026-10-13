@@ -189,7 +189,7 @@ type remotePairRefusal struct {
 // pair handles one pairing request from a caller whois has already resolved,
 // and returns the HTTP status and body.
 func (m *remoteManager) pair(c remoteCaller, self remoteSelf, code string) (int, any) {
-	class := m.policy.classOf(c, self)
+	class := m.classOf(c, self)
 	refuse := func(status int, why string) (int, any) {
 		return status, remotePairRefusal{Error: why}
 	}

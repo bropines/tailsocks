@@ -15,7 +15,7 @@ import (
 func (a *remoteFakeApp) reportCalls() int {
 	n := 0
 	for _, c := range a.called() {
-		if c == "get "+remoteKeyReport {
+		if c == "get "+remoteRequestReport {
 			n++
 		}
 	}
@@ -327,7 +327,7 @@ func TestRemoteAskPermission(t *testing.T) {
 
 	// Not on the list — the VPN consent among them: the app is not asked.
 	writes := len(r.app.writes())
-	for _, id := range []string{"vpn", "camera", "", "STORAGE", "storage ", "storage,install", "all", "*", remoteKeyAsk, "accept_dns"} {
+	for _, id := range []string{"vpn", "camera", "", "STORAGE", "storage ", "storage,install", "all", "*", remoteRequestAsk, "accept_dns"} {
 		r.want(ask(rtPhone, owner, id), 403, "forbidden")
 	}
 	// A guest may look at what is missing and may not ask for it.
@@ -339,8 +339,8 @@ func TestRemoteAskPermission(t *testing.T) {
 		t.Errorf("the refusals left no trace: %q", r.ops())
 	}
 	// Neither is it a setting or an action by another door.
-	r.want(r.call(rtPhone, "POST", "/v1/settings", owner, map[string]string{"key": remoteKeyAsk, "value": "storage"}), 403, "forbidden")
-	r.want(r.call(rtPhone, "POST", "/v1/actions", owner, map[string]string{"action": remoteKeyAsk}), 403, "forbidden")
+	r.want(r.call(rtPhone, "POST", "/v1/settings", owner, map[string]string{"key": remoteRequestAsk, "value": "storage"}), 403, "forbidden")
+	r.want(r.call(rtPhone, "POST", "/v1/actions", owner, map[string]string{"action": remoteRequestAsk}), 403, "forbidden")
 
 	// The app says no, in its own words: held already, or no page for it here.
 	r.app.set(func(a *remoteFakeApp) { a.fail = errors.New("already granted") })
@@ -440,15 +440,17 @@ func TestRemoteOneWay(t *testing.T) {
 		s := raw.(map[string]any)
 		only[s["key"].(string)], _ = s["only"].(string)
 	}
-	if only["auto_reconnect"] != "true" || only["taildrive_enabled"] != "false" || only["taildrive_proxy_enabled"] != "false" || only["accept_dns"] != "" {
+	if only["auto_reconnect"] != "true" || only["keep_awake"] != "true" || only["full_control"] != "false" ||
+		only["taildrive_enabled"] != "false" || only["taildrive_proxy_enabled"] != "false" || only["advertise_exit_node"] != "false" || only["accept_dns"] != "" {
 		t.Errorf("only: %v", only)
 	}
 
-	// Sharing folders and the port other apps read shares through are closed
-	// from afar and never opened; the device's own recovery is switched on
-	// and never off.
+	// The device's own recovery is switched on from afar and never off, and
+	// the level is given up and never taken; what shows more of the device to
+	// a network is closed from afar, and opened only with full control
+	// (TestRemoteLevels).
 	writes := len(r.app.writes())
-	for key, refused := range map[string]string{"taildrive_enabled": "true", "taildrive_proxy_enabled": "true", "auto_reconnect": "false"} {
+	for key, refused := range map[string]string{"auto_reconnect": "false", "keep_awake": "false", "full_control": "true"} {
 		a := set(rtPhone, owner, key, refused)
 		r.want(a, 403, "forbidden")
 		if !strings.Contains(a.str("message"), "only at the device") {
@@ -458,6 +460,11 @@ func TestRemoteOneWay(t *testing.T) {
 		r.want(set(rtFriend, guest, key, refused), 403, "forbidden")
 		r.want(set(rtFriend, guest, key, map[string]string{"true": "false", "false": "true"}[refused]), 403, "forbidden")
 	}
+	for _, key := range []string{"taildrive_enabled", "taildrive_proxy_enabled", "advertise_exit_node"} {
+		r.want(set(rtPhone, owner, key, "true"), 403, "needs_full")
+		r.want(set(rtFriend, guest, key, "true"), 403, "forbidden")
+		r.want(set(rtFriend, guest, key, "false"), 403, "forbidden")
+	}
 	if len(r.app.writes()) != writes {
 		t.Fatalf("a refused change reached the app: %q", r.app.writes()[writes:])
 	}
@@ -466,7 +473,7 @@ func TestRemoteOneWay(t *testing.T) {
 	}
 	found := false
 	for _, ev := range r.m.actions() {
-		found = found || (ev.Op == "denied" && strings.HasPrefix(ev.Detail, "only at the device: "))
+		found = found || (ev.Op == "denied" && (strings.HasPrefix(ev.Detail, "only at the device: ") || strings.HasPrefix(ev.Detail, "full control is off: ")))
 	}
 	if !found {
 		t.Errorf("the refusal is not in the log: %+v", r.m.actions())

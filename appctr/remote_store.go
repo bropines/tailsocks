@@ -120,6 +120,9 @@ type remoteStoreData struct {
 	Self     string          `json:"self,omitempty"`
 	Pairings []remotePairing `json:"pairings"`
 	Audit    []remoteEvent   `json:"audit,omitempty"`
+	// Guard is the change that waits for its confirmation (remote_guard.go):
+	// kept here so that an app that is restarted meanwhile still puts it back.
+	Guard *remoteStoredGuard `json:"guard,omitempty"`
 }
 
 type remoteStore struct {

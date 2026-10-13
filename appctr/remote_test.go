@@ -94,8 +94,13 @@ type remoteFakeDaemon struct {
 	// question itself fail, as before the first relay measurement.
 	suggest   string
 	noSuggest bool
-	whois     int
-	status    int
+	// advertised is what the daemon's prefs offer to route, approved what the
+	// tailnet let this node answer for; keyExpiry when its key runs out.
+	advertised []netip.Prefix
+	approved   []netip.Prefix
+	keyExpiry  time.Time
+	whois      int
+	status     int
 }
 
 func newRemoteFakeDaemon() *remoteFakeDaemon {
@@ -188,6 +193,14 @@ func (d *remoteFakeDaemon) get(path string) ([]byte, error) {
 		// With nothing to recommend the daemon answers 200 and an empty id.
 		return json.Marshal(apitype.ExitNodeSuggestionResponse{ID: tailcfg.StableNodeID(d.suggest), Name: "suggested"})
 	}
+	if u.Path == "/localapi/v0/prefs" {
+		// ipn.Prefs, as far as it is read: the routes, and a key that is in
+		// the real document and must never be passed on.
+		return json.Marshal(struct {
+			AdvertiseRoutes []netip.Prefix
+			ControlURL      string
+		}{d.advertised, "https://controlplane.example"})
+	}
 	return nil, fmt.Errorf("HTTP 404: no such LocalAPI path %s", u.Path)
 }
 
@@ -245,6 +258,11 @@ func (d *remoteFakeDaemon) statusLocked(peers bool) ([]byte, error) {
 	if !d.noSelf {
 		st.Self = d.peerStatus(d.nodes[d.self.addr()])
 		st.TailscaleIPs = []netip.Addr{d.self.addr()}
+		allowed := views.SliceOf(append([]netip.Prefix{netip.PrefixFrom(d.self.addr(), 32)}, d.approved...))
+		st.Self.AllowedIPs = &allowed
+		if !d.keyExpiry.IsZero() {
+			st.Self.KeyExpiry = &d.keyExpiry
+		}
 	}
 	for _, n := range d.nodes {
 		if n.addr() == d.self.addr() {
@@ -296,11 +314,20 @@ type remoteFakeApp struct {
 	fail     error
 	block    chan struct{}
 	// report is what the app says of itself, as JSON; askResult is what it
-	// answers after a request for a permission's page, and asked the request
-	// as it arrived.
-	report    string
-	askResult string
-	asked     string
+	// answers to a request for a permission's page, and asked the request as
+	// it arrived; identified the same for "say whose hands you are in".
+	report     string
+	askResult  string
+	asked      string
+	identified string
+	// answers are what it gives to the other requests, by name; refusals what
+	// it refuses with — a request by its name, or one call as it is noted
+	// ("set exit_node=nEXITA"). notices are the changes it was told to show.
+	answers  map[string]string
+	refusals map[string]string
+	notices  []string
+	// blockOnly narrows a hang to the calls that start with it.
+	blockOnly string
 }
 
 // rtReport is a television's report: no access to storage, so its own folder
@@ -316,10 +343,11 @@ const rtReport = `{
   {"id":"autostart","state":"unknown","ask":false},
   {"id":"camera","state":"granted","ask":true},
   {"id":"storage","state":"granted","ask":false}],
- "receive":{"state":"needs_access","folder":"Movies/From phone","reset":true},
+ "receive":{"state":"needs_access","folder":"Movies/From phone","reset":true,"free":51234567890,"waiting":2},
  "saved":[{"name":"holiday.mp4","size":812647424,"time":1791727380,"folder":"Download/Taildrop"}],
  "folders":[{"name":"Downloads","path":"/storage/emulated/0/Download"}],
  "folderCount":7,
+ "device":{"model":"Xiaomi MiTV-MOOQ1","android":"11","sdk":30,"build":"0e629420","mode":"tun","engine":"hev","keyExpiry":5,"serial":"R58M"},
  "logTail":"up --auth-key=tskey-auth-abc"}`
 
 func newRemoteFakeApp() *remoteFakeApp {
@@ -328,15 +356,23 @@ func newRemoteFakeApp() *remoteFakeApp {
 			"accept_dns":              "true",
 			"accept_routes":           "false",
 			"exit_node_lan_access":    "false",
+			"tun_mode":                "false",
 			"auto_reconnect":          "false",
+			"keep_awake":              "false",
 			"taildrive_enabled":       "true",
 			"taildrive_proxy_enabled": "true",
+			"advertise_exit_node":     "false",
+			"advertise_routes":        "",
+			"full_control":            "false",
 			"device_class":            "tv",
 			"app_version":             "4.11.0",
 			RemoteKeyExitNode:         "",
 		},
-		report:    rtReport,
-		askResult: "shown",
+		report:     rtReport,
+		askResult:  "shown",
+		identified: "shown",
+		answers:    map[string]string{},
+		refusals:   map[string]string{},
 	}
 }
 
@@ -344,12 +380,18 @@ func (a *remoteFakeApp) note(call string) error {
 	a.mu.Lock()
 	a.calls = append(a.calls, call)
 	block := a.block
+	if a.blockOnly != "" && !strings.HasPrefix(call, a.blockOnly) {
+		block = nil
+	}
 	a.mu.Unlock()
 	if block != nil {
 		<-block
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if why, ok := a.refusals[call]; ok {
+		return errors.New(why)
+	}
 	return a.fail
 }
 
@@ -359,12 +401,6 @@ func (a *remoteFakeApp) GetSetting(k string) (string, error) {
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	switch k {
-	case remoteKeyReport:
-		return a.report, nil
-	case remoteKeyAsk:
-		return a.askResult, nil
-	}
 	v, ok := a.settings[k]
 	if !ok {
 		return "", errors.New("unknown setting " + k)
@@ -378,10 +414,6 @@ func (a *remoteFakeApp) SetSetting(k, v string) error {
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if k == remoteKeyAsk {
-		a.asked = v
-		return nil
-	}
 	if _, ok := a.settings[k]; !ok {
 		return errors.New("unknown setting " + k)
 	}
@@ -393,10 +425,72 @@ func (a *remoteFakeApp) PerformAction(name string) error {
 	if err := a.note("action " + name); err != nil {
 		return err
 	}
-	if name != "reconnect" && name != "receive_folder_default" {
+	if name != "reconnect" && name != "receive_folder_default" && name != "save_received" {
 		return errors.New("unknown action " + name)
 	}
 	return nil
+}
+
+// rtReads are the requests that change nothing: noted as "get", so that
+// writes() stays what was changed.
+var rtReads = map[string]bool{
+	remoteRequestReport: true, remoteRequestStorageList: true, remoteRequestStorageFile: true, remoteRequestDiagReport: true,
+}
+
+func (a *remoteFakeApp) Request(name, args string) (string, error) {
+	if name == remoteRequestNotice {
+		// Comes on a thread of its own, whenever; kept apart from the calls a
+		// test counts, and never held up.
+		a.mu.Lock()
+		a.notices = append(a.notices, args)
+		a.mu.Unlock()
+		return "", nil
+	}
+	call := "request " + name
+	if rtReads[name] {
+		call = "get " + name
+	}
+	if args != "" && name != remoteRequestAsk && name != remoteRequestIdentify {
+		call += " " + args
+	}
+	if err := a.note(call); err != nil {
+		return "", err
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if why, ok := a.refusals[name]; ok {
+		return "", errors.New(why)
+	}
+	switch name {
+	case remoteRequestReport:
+		return a.report, nil
+	case remoteRequestAsk:
+		a.asked = args
+		return a.askResult, nil
+	case remoteRequestIdentify:
+		a.asked = args
+		return a.identified, nil
+	}
+	v, ok := a.answers[name]
+	if !ok {
+		return "", errors.New("unknown request " + name)
+	}
+	return v, nil
+}
+
+// noticed waits for the app to have been told of n changes and returns them.
+func (a *remoteFakeApp) noticed(t *testing.T, n int) []string {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		a.mu.Lock()
+		got := append([]string(nil), a.notices...)
+		a.mu.Unlock()
+		if len(got) >= n || time.Now().After(deadline) {
+			return got
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
 }
 
 // set changes what the fake app would answer.
@@ -455,6 +549,10 @@ func newRemoteRig(t *testing.T, tune ...func(*remotePolicy)) *remoteRig {
 	r.m.pairs = newRemoteLimiter(1e6, 1e6)
 	r.m.asks = newRemoteLimiter(1e6, 1e6)
 	r.m.taildropDir = func() string { return "" }
+	// Nothing of a test reaches the real daemon, its log or a real transfer.
+	r.m.sendFile = func(string, string) string { return "Error: no transfer in this test" }
+	r.m.logText = func() string { return "" }
+	r.m.relays = func() string { return "" }
 	// As SetRemoteDelegate does, but here and now rather than on a thread of
 	// its own, so that a test knows which calls the app has seen.
 	r.m.setDelegate(r.app)
@@ -491,6 +589,12 @@ func (r *remoteRig) restart() {
 	m.taildropDir = r.m.taildropDir
 	m.delegateWait, m.delegateAnswer = r.m.delegateWait, r.m.delegateAnswer
 	m.reportWait, m.reportAnswer = r.m.reportWait, r.m.reportAnswer
+	m.sendFile, m.logText, m.relays = r.m.sendFile, r.m.logText, r.m.relays
+	// The two switches are files of the app's: they are there after a restart.
+	r.m.mu.Lock()
+	full, noGuests := r.m.full, r.m.noGuests
+	r.m.mu.Unlock()
+	m.setAccess(full, noGuests)
 	m.setDelegate(r.app)
 	m.loadFacts()
 	r.m = m
@@ -567,6 +671,14 @@ func (r *remoteRig) call(n *rtNode, method, path, token string, body any) rtRepl
 func (r *remoteRig) send(n *rtNode, method, path, token string, body any, tune func(*http.Request)) rtReply {
 	r.t.Helper()
 	out, err := r.try(n, method, path, token, body, tune)
+	// Every request here is a connection of its own, and a node has a few at
+	// a time: on a busy machine the one before may not be given back yet when
+	// the next arrives, and that one is closed unanswered. It is asked again;
+	// a test that expects to be shut out uses shut, which does not.
+	for again := 0; err != nil && again < 5; again++ {
+		time.Sleep(20 * time.Millisecond)
+		out, err = r.try(n, method, path, token, body, tune)
+	}
 	if err != nil {
 		r.t.Fatalf("%s %s: %v", method, path, err)
 	}

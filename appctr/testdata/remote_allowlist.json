@@ -1,19 +1,87 @@
 {
   "settings": [
-    "accept_dns",
-    "accept_routes",
-    "exit_node_lan_access",
-    "auto_reconnect=true",
-    "taildrive_enabled=false",
-    "taildrive_proxy_enabled=false"
-  ],
-  "readOnly": [
-    "device_class",
-    "app_version"
+    {
+      "key": "accept_dns",
+      "kind": "bool",
+      "writable": true,
+      "guard": "optional"
+    },
+    {
+      "key": "accept_routes",
+      "kind": "bool",
+      "writable": true,
+      "guard": "optional"
+    },
+    {
+      "key": "exit_node_lan_access",
+      "kind": "bool",
+      "writable": true,
+      "guard": "optional"
+    },
+    {
+      "key": "tun_mode",
+      "kind": "bool",
+      "writable": true,
+      "guard": "always"
+    },
+    {
+      "key": "auto_reconnect",
+      "kind": "bool",
+      "writable": true,
+      "only": "true"
+    },
+    {
+      "key": "keep_awake",
+      "kind": "bool",
+      "writable": true,
+      "only": "true"
+    },
+    {
+      "key": "taildrive_enabled",
+      "kind": "bool",
+      "writable": true,
+      "full": "true"
+    },
+    {
+      "key": "taildrive_proxy_enabled",
+      "kind": "bool",
+      "writable": true,
+      "full": "true"
+    },
+    {
+      "key": "advertise_exit_node",
+      "kind": "bool",
+      "writable": true,
+      "full": "true"
+    },
+    {
+      "key": "advertise_routes",
+      "kind": "cidrs",
+      "writable": true,
+      "full": "*"
+    },
+    {
+      "key": "full_control",
+      "kind": "bool",
+      "writable": true,
+      "only": "false"
+    },
+    {
+      "key": "device_class",
+      "kind": "text",
+      "writable": false
+    },
+    {
+      "key": "app_version",
+      "kind": "text",
+      "writable": false
+    }
   ],
   "actions": [
     "reconnect",
-    "receive_folder_default"
+    "reconnect_relays",
+    "receive_folder_default",
+    "save_received"
   ],
   "permissions": [
     "storage",
@@ -37,6 +105,22 @@
     "shown",
     "waiting"
   ],
+  "identifyResults": [
+    "notified",
+    "shown",
+    "unseen"
+  ],
+  "requests": [
+    "report",
+    "ask_permission",
+    "identify",
+    "notice",
+    "storage_list",
+    "storage_file",
+    "share_add",
+    "share_remove",
+    "diag_report"
+  ],
   "routes": [
     "GET /v1/hello",
     "POST /v1/pair",
@@ -49,21 +133,126 @@
     "POST /v1/actions",
     "GET /v1/files",
     "POST /v1/files/delete",
-    "POST /v1/permissions/request"
+    "POST /v1/permissions/request",
+    "POST /v1/confirm",
+    "POST /v1/identify",
+    "POST /v1/shares/remove",
+    "POST /v1/shares/add",
+    "POST /v1/storage/list",
+    "POST /v1/storage/send",
+    "GET /v1/diag/report",
+    "GET /v1/diag/log"
   ],
-  "rights": {
-    "action": "owner",
-    "exit_node.set": "guest",
-    "exit_nodes": "guest",
-    "files": "guest",
-    "files.delete": "owner",
-    "folders": "owner",
-    "permission.request": "owner",
-    "settings": "guest",
-    "settings.set": "owner",
-    "status": "guest",
-    "unpair": "guest"
-  },
-  "report": "report",
-  "ask": "permission_request"
+  "ops": [
+    {
+      "op": "status",
+      "class": "guest"
+    },
+    {
+      "op": "exit_nodes",
+      "class": "guest"
+    },
+    {
+      "op": "exit_node.set",
+      "class": "guest"
+    },
+    {
+      "op": "settings",
+      "class": "guest"
+    },
+    {
+      "op": "settings.set",
+      "class": "owner"
+    },
+    {
+      "op": "action",
+      "class": "owner"
+    },
+    {
+      "op": "files",
+      "class": "guest"
+    },
+    {
+      "op": "files.delete",
+      "class": "owner"
+    },
+    {
+      "op": "unpair",
+      "class": "guest"
+    },
+    {
+      "op": "permission.request",
+      "class": "owner"
+    },
+    {
+      "op": "folders",
+      "class": "owner"
+    },
+    {
+      "op": "confirm",
+      "class": "guest"
+    },
+    {
+      "op": "identify",
+      "class": "guest"
+    },
+    {
+      "op": "shares.remove",
+      "class": "owner"
+    },
+    {
+      "op": "shares.add",
+      "class": "owner",
+      "full": true
+    },
+    {
+      "op": "storage.list",
+      "class": "owner",
+      "full": true
+    },
+    {
+      "op": "storage.send",
+      "class": "owner",
+      "full": true
+    },
+    {
+      "op": "diag.report",
+      "class": "owner",
+      "full": true
+    },
+    {
+      "op": "diag.log",
+      "class": "owner",
+      "full": true
+    }
+  ],
+  "caps": [
+    "report",
+    "permissions",
+    "oneway",
+    "suggest",
+    "can",
+    "device",
+    "guard",
+    "mode",
+    "identify",
+    "relays",
+    "save",
+    "storage",
+    "shares",
+    "advertise",
+    "diag"
+  ],
+  "never": [
+    "stop",
+    "sign_out",
+    "account",
+    "credentials",
+    "control_proxy",
+    "root_mode",
+    "grant_permission",
+    "full_control_on"
+  ],
+  "guardSeconds": 60,
+  "guardSettle": 5
 }

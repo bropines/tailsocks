@@ -21,21 +21,24 @@ var rtNever = []string{
 	// accounts, the login server, credentials
 	"authkey", "auth_key", "AuthKey", "login_server", "LoginServer", "ControlURL", "login", "login_interactive",
 	"switch_account", "add_account", "delete_account", "profile", "automation_secret", "automation_enabled",
-	"socks5_user", "socks5_pass", "cp_user", "cp_pass", "taildrive_proxy_pass", "admin_api_keys", "tailcat_key",
+	"socks5_user", "socks5_pass", "cp_user", "cp_pass", "taildrive_proxy_pass", "taildrive_proxy_password",
+	"admin_api_keys", "tailcat_key",
 	// listeners and what they are bound to
 	"socks5", "httpproxy", "dns_proxy", "lan_access_enabled", "enable_webui", "webui_addr", "taildrive_proxy_ip",
+	"taildrive_proxy_port", "taildrive_proxy_auth_enabled", "taildrive_proxy_username",
 	// the daemon's own arguments and network position
-	"extra_args_raw", "ExtraUpArgs", "hostname", "advertise_routes", "advertise_exit_node", "AdvertiseRoutes", "RunSSH",
+	"extra_args_raw", "ExtraUpArgs", "hostname", "AdvertiseRoutes", "advertise_tags", "RunSSH",
 	"ShieldsUp", "cp_enabled", "cp_host", "cp_byedpi_enabled", "cp_byedpi_flags", "honest_hostinfo",
 	// root mode, and what needs a dialog or a gesture on the device
 	"root_mode_enabled", "root_tun_enabled", "root_dns_redirect", "root_vpn_bypass", "tun_mode_enabled", "tun_engine",
 	"tun_excluded_apps", "taildrop_root_uri", "taildrop_folder_path", "taildrive_shares", "storage_permission",
 	"storage", "vpn", "grant", "grant_permission", "permission",
 	// serving this device to others
-	"serve", "funnel", "serve_config", "taildrive_proxy_ip", "taildrive_proxy_port", "taildrive_proxy_auth_enabled",
-	"taildrive_proxy_username",
-	// this feature itself, and the two keys the bridge keeps for its own calls into the app
-	"remote_management", "remote_pair", "remote_revoke", "pairing_code", remoteKeyReport, remoteKeyAsk,
+	"serve", "funnel", "serve_config",
+	// this feature itself, and what the bridge asks of the app for its own purposes
+	"remote_management", "remote_pair", "remote_revoke", "pairing_code", "remote_full_control", "remote_no_guests",
+	"allow_guests", "level", "report", "ask_permission", "identify", "notice", "storage_list", "storage_file",
+	"share_add", "share_remove", "diag_report",
 	// backups, updates, lifecycle switches, what the device looks like to the person in front of it
 	"backup_export", "backup_import", "update", "install_update", "auto_start", "force_bg", "service_watchdog",
 	"auto_reconnect_attempts", "app_locale", "ui_device_override", "show_message", "message",
@@ -48,47 +51,75 @@ var rtNever = []string{
 // tests read them (app/src/test/.../RemoteAllowListTest.kt): neither side can
 // grow one without the other noticing.
 type rtAllowList struct {
-	// Settings are "key", or "key=value" for a switch that goes one way.
-	Settings    []string          `json:"settings"`
-	ReadOnly    []string          `json:"readOnly"`
-	Actions     []string          `json:"actions"`
-	Permissions []string          `json:"permissions"`
-	Askable     []string          `json:"askable"`
-	AskResults  []string          `json:"askResults"`
-	Routes      []string          `json:"routes"`
-	Rights      map[string]string `json:"rights"`
-	Report      string            `json:"report"`
-	Ask         string            `json:"ask"`
+	Settings    []rtAllowedSetting `json:"settings"`
+	Actions     []string           `json:"actions"`
+	Permissions []string           `json:"permissions"`
+	Askable     []string           `json:"askable"`
+	AskResults  []string           `json:"askResults"`
+	// Identify is what "say whose hands you are in" may answer.
+	Identify []string `json:"identifyResults"`
+	Requests []string `json:"requests"`
+	Routes   []string `json:"routes"`
+	// Ops is every operation with its lowest class, and "full" where it takes
+	// full control.
+	Ops   []rtAllowedOp `json:"ops"`
+	Caps  []string      `json:"caps"`
+	Never []string      `json:"never"`
+	// The guard's two knobs, in seconds.
+	GuardSeconds int64 `json:"guardSeconds"`
+	GuardSettle  int64 `json:"guardSettle"`
+}
+
+type rtAllowedSetting struct {
+	Key      string `json:"key"`
+	Kind     string `json:"kind"`
+	Writable bool   `json:"writable"`
+	Only     string `json:"only,omitempty"`
+	Full     string `json:"full,omitempty"`
+	Guard    string `json:"guard,omitempty"`
+}
+
+type rtAllowedOp struct {
+	Op    string `json:"op"`
+	Class string `json:"class"`
+	Full  bool   `json:"full,omitempty"`
+}
+
+func rtSortedKeys(m map[string]bool) []string {
+	var out []string
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func rtCurrentAllowList() rtAllowList {
-	l := rtAllowList{Rights: map[string]string{}, Report: remoteKeyReport, Ask: remoteKeyAsk}
-	for _, s := range remoteSettings {
-		switch {
-		case !s.writable:
-			l.ReadOnly = append(l.ReadOnly, s.key)
-		case s.only != "":
-			l.Settings = append(l.Settings, s.key+"="+s.only)
-		default:
-			l.Settings = append(l.Settings, s.key)
-		}
+	p := remoteDefaultPolicy()
+	l := rtAllowList{
+		Actions:      append([]string(nil), remoteActions...),
+		Permissions:  append([]string(nil), remotePermissions...),
+		AskResults:   rtSortedKeys(remoteAskResults),
+		Identify:     rtSortedKeys(remoteIdentifyResults),
+		Requests:     append([]string(nil), remoteRequests...),
+		Caps:         append([]string(nil), remoteCaps...),
+		Never:        append([]string(nil), remoteNever...),
+		GuardSeconds: int64(p.GuardTTL / time.Second),
+		GuardSettle:  int64(p.GuardSettle / time.Second),
 	}
-	l.Actions = append(l.Actions, remoteActions...)
-	l.Permissions = append(l.Permissions, remotePermissions...)
+	for _, s := range remoteSettings {
+		l.Settings = append(l.Settings, rtAllowedSetting{Key: s.key, Kind: s.kind, Writable: s.writable, Only: s.only, Full: s.full, Guard: s.guard})
+	}
 	for _, id := range remotePermissions {
 		if remoteAskable[id] {
 			l.Askable = append(l.Askable, id)
 		}
 	}
-	for v := range remoteAskResults {
-		l.AskResults = append(l.AskResults, v)
-	}
-	sort.Strings(l.AskResults)
 	for _, rt := range remoteRoutes {
 		l.Routes = append(l.Routes, rt.method+" "+rt.path)
 	}
-	for op, class := range remoteDefaultPolicy().Rights {
-		l.Rights[op] = class.String()
+	for _, op := range remoteOps {
+		l.Ops = append(l.Ops, rtAllowedOp{Op: op, Class: p.Rights[op].String(), Full: p.Full[op]})
 	}
 	return l
 }
@@ -122,6 +153,22 @@ func TestRemoteAllowListFile(t *testing.T) {
 	if remoteAskable["vpn"] {
 		t.Error("the VPN consent can be asked for from afar")
 	}
+	// The rights table and the list of operations are one set.
+	p := remoteDefaultPolicy()
+	if len(p.Rights) != len(remoteOps) {
+		t.Errorf("%d operations have a class, %d are listed", len(p.Rights), len(remoteOps))
+	}
+	for _, op := range remoteOps {
+		if _, ok := p.Rights[op]; !ok {
+			t.Errorf("operation %q has no class", op)
+		}
+	}
+	// Full control is the owner's only: nothing a guest may do takes it.
+	for op := range p.Full {
+		if p.Rights[op] != remoteOwner {
+			t.Errorf("%q takes full control and is not the owner's", op)
+		}
+	}
 }
 
 // The allow-lists are exactly what the review agreed to; growing one means
@@ -131,30 +178,46 @@ func TestRemoteAllowListContents(t *testing.T) {
 	for _, s := range remoteSettings {
 		if s.writable {
 			writable = append(writable, s.key)
-			if s.kind != "bool" {
+			// A kind that can be written is one remoteValueFits checks.
+			if s.kind != "bool" && s.kind != "cidrs" {
 				t.Errorf("%s: a writable setting of kind %q has no validation", s.key, s.kind)
+			}
+			if remoteValueFits(s, "tskey-auth-abc") || remoteValueFits(s, "yes") {
+				t.Errorf("%s takes anything", s.key)
 			}
 		} else {
 			readonly = append(readonly, s.key)
 		}
 	}
-	if got := strings.Join(writable, ","); got != "accept_dns,accept_routes,exit_node_lan_access,auto_reconnect,taildrive_enabled,taildrive_proxy_enabled" {
+	if got := strings.Join(writable, ","); got != "accept_dns,accept_routes,exit_node_lan_access,tun_mode,auto_reconnect,keep_awake,"+
+		"taildrive_enabled,taildrive_proxy_enabled,advertise_exit_node,advertise_routes,full_control" {
 		t.Errorf("writable settings: %s", got)
 	}
 	if got := strings.Join(readonly, ","); got != "device_class,app_version" {
 		t.Errorf("read-only settings: %s", got)
 	}
-	if got := strings.Join(remoteActions, ","); got != "reconnect,receive_folder_default" {
+	if got := strings.Join(remoteActions, ","); got != "reconnect,reconnect_relays,receive_folder_default,save_received" {
 		t.Errorf("actions: %s", got)
 	}
-	// What widens the device's exposure goes off only; what keeps the device
-	// reachable goes on only.
-	for key, only := range map[string]string{
-		"accept_dns": "", "accept_routes": "", "exit_node_lan_access": "",
-		"auto_reconnect": "true", "taildrive_enabled": "false", "taildrive_proxy_enabled": "false",
+	// What keeps the device reachable goes on only; the level goes off only;
+	// what shows more of the device to a network takes full control to turn
+	// on; what can cut the channel can be held for a confirmation, and the
+	// mode always is.
+	for key, want := range map[string]remoteSetting{
+		"accept_dns":              {guard: "optional"},
+		"accept_routes":           {guard: "optional"},
+		"exit_node_lan_access":    {guard: "optional"},
+		"tun_mode":                {guard: "always"},
+		"auto_reconnect":          {only: "true"},
+		"keep_awake":              {only: "true"},
+		"taildrive_enabled":       {full: "true"},
+		"taildrive_proxy_enabled": {full: "true"},
+		"advertise_exit_node":     {full: "true"},
+		"advertise_routes":        {full: "*"},
+		"full_control":            {only: "false"},
 	} {
-		if s, _ := remoteSettingFor(key); s.only != only {
-			t.Errorf("%s may be written as %q from afar, want %q", key, s.only, only)
+		if s, _ := remoteSettingFor(key); s.only != want.only || s.full != want.full || s.guard != want.guard {
+			t.Errorf("%s: only %q, full %q, guard %q", key, s.only, s.full, s.guard)
 		}
 	}
 	for _, never := range rtNever {
@@ -165,12 +228,13 @@ func TestRemoteAllowListContents(t *testing.T) {
 			t.Errorf("%q is a remote action", never)
 		}
 	}
-	// No route's path speaks of what must stay on the device.
+	// No route's path speaks of what must stay on the device. The scrubbed
+	// log is the one exception, behind full control (remote_diag.go).
 	var paths []string
 	for _, rt := range remoteRoutes {
 		paths = append(paths, rt.method+" "+rt.path)
 		for _, word := range []string{"stop", "logout", "login", "key", "account", "profile", "root", "serve", "funnel", "drive", "download", "content", "exec", "localapi", "prefs", "log"} {
-			if strings.Contains(rt.path, word) {
+			if strings.Contains(rt.path, word) && rt.path != "/v1/diag/log" {
 				t.Errorf("route %s", rt.path)
 			}
 		}
@@ -179,7 +243,9 @@ func TestRemoteAllowListContents(t *testing.T) {
 		}
 	}
 	want := "GET /v1/hello,POST /v1/pair,POST /v1/unpair,GET /v1/status,GET /v1/exit-nodes,POST /v1/exit-node," +
-		"GET /v1/settings,POST /v1/settings,POST /v1/actions,GET /v1/files,POST /v1/files/delete,POST /v1/permissions/request"
+		"GET /v1/settings,POST /v1/settings,POST /v1/actions,GET /v1/files,POST /v1/files/delete,POST /v1/permissions/request," +
+		"POST /v1/confirm,POST /v1/identify,POST /v1/shares/remove,POST /v1/shares/add,POST /v1/storage/list,POST /v1/storage/send," +
+		"GET /v1/diag/report,GET /v1/diag/log"
 	if got := strings.Join(paths, ","); got != want {
 		t.Errorf("routes:\n got %s\nwant %s", got, want)
 	}
@@ -199,6 +265,24 @@ func TestRemoteAllowListContents(t *testing.T) {
 	if p.allows("something new", remoteGuest) || !p.allows("something new", remoteOwner) || p.allows(remoteOpStatus, remoteNobody) {
 		t.Error("the default for an unnamed operation")
 	}
+	// What takes full control: exactly these.
+	if got := strings.Join(rtSortedKeys(p.Full), ","); got != "diag.log,diag.report,shares.add,storage.list,storage.send" {
+		t.Errorf("full control: %s", got)
+	}
+}
+
+// rtSettingValue is a value of the setting's kind that an owner may write at
+// the basic level, and "" with false when there is none but the present one.
+func rtSettingValue(s remoteSetting) string {
+	switch {
+	case s.only != "":
+		return s.only
+	case s.full == "true":
+		return "false"
+	case s.kind == "cidrs":
+		return ""
+	}
+	return "true"
 }
 
 // Nothing that is not on a list reaches the app, whoever asks.
@@ -228,34 +312,36 @@ func TestRemoteAllowListEnforced(t *testing.T) {
 		t.Errorf("the attempts left no trace: %q", r.ops())
 	}
 
-	// What is on the lists goes through, checked.
+	// What is on the lists goes through, checked. tun_mode is held for a
+	// confirmation whatever is sent; the guard has tests of its own.
+	var wantWrites []string
 	for _, s := range remoteSettings {
-		if !s.writable {
+		if !s.writable || s.guard == "always" {
 			continue
 		}
-		for _, bad := range []string{"", "yes", "1", "TRUE", "true ", "null", "tskey-auth-abc"} {
+		bad := []string{"yes", "1", "TRUE", "true ", "null", "tskey-auth-abc"}
+		if s.kind == "bool" {
+			bad = append(bad, "")
+		}
+		for _, bad := range bad {
 			r.want(r.call(rtPhone, "POST", "/v1/settings", owner, map[string]string{"key": s.key, "value": bad}), 400, "bad_request")
 		}
-		value := "true"
-		if s.only != "" {
-			// A switch that goes one way from afar: the other way is refused
-			// before the app hears of it.
-			value = s.only
-			other := map[string]string{"true": "false", "false": "true"}[s.only]
-			r.want(r.call(rtPhone, "POST", "/v1/settings", owner, map[string]string{"key": s.key, "value": other}), 403, "forbidden")
+		value := rtSettingValue(s)
+		if a := r.call(rtPhone, "POST", "/v1/settings", owner, map[string]string{"key": s.key, "value": value}); a.status != 200 || a.raw != "{}\n" {
+			t.Errorf("setting %s=%q: %d %s", s.key, value, a.status, a.raw)
 		}
-		if a := r.call(rtPhone, "POST", "/v1/settings", owner, map[string]string{"key": s.key, "value": value}); a.status != 200 {
-			t.Errorf("setting %s: %d %s", s.key, a.status, a.raw)
-		}
+		wantWrites = append(wantWrites, "set "+s.key+"="+value)
 	}
 	for _, action := range remoteActions {
 		if a := r.call(rtPhone, "POST", "/v1/actions", owner, map[string]string{"action": action}); a.status != 200 {
 			t.Errorf("%s: %d %s", action, a.status, a.raw)
 		}
+		// The relays are the bridge's own: the app is not asked.
+		if action != remoteActionRelays {
+			wantWrites = append(wantWrites, "action "+action)
+		}
 	}
-	want := "set accept_dns=true,set accept_routes=true,set exit_node_lan_access=true,set auto_reconnect=true," +
-		"set taildrive_enabled=false,set taildrive_proxy_enabled=false,action reconnect,action receive_folder_default"
-	if got := strings.Join(r.app.writes(), ","); got != want {
+	if got, want := strings.Join(r.app.writes(), ","), strings.Join(wantWrites, ","); got != want {
 		t.Errorf("what reached the app:\n got %s\nwant %s", got, want)
 	}
 
@@ -270,23 +356,24 @@ func TestRemoteAllowListEnforced(t *testing.T) {
 		key := s["key"].(string)
 		got[key] = s["value"].(string)
 		def, ok := remoteSettingFor(key)
-		only, _ := s["only"].(string)
-		if !ok || s["writable"] != def.writable || s["kind"] != def.kind || only != def.only {
+		guard, _ := s["guard"].(string)
+		if !ok || s["writable"] != def.writable || s["kind"] != def.kind || guard != def.guard {
 			t.Errorf("setting %v", s)
 		}
 	}
 	if len(got) != len(remoteSettings) || got["accept_dns"] != "true" || got["accept_routes"] != "true" || got["device_class"] != "tv" || got["app_version"] != "4.11.0" ||
-		got["auto_reconnect"] != "true" || got["taildrive_enabled"] != "false" || got["taildrive_proxy_enabled"] != "false" {
+		got["auto_reconnect"] != "true" || got["keep_awake"] != "true" || got["taildrive_enabled"] != "false" || got["taildrive_proxy_enabled"] != "false" ||
+		got["tun_mode"] != "false" || got["advertise_routes"] != "" {
 		t.Errorf("settings read back: %v", got)
 	}
 	ops := strings.Join(r.ops(), ",")
-	if !strings.HasPrefix(ops, "action,action,setting,setting,setting,setting,setting,setting,") {
+	if !strings.HasPrefix(ops, "action,action,action,action,setting,setting,setting,") {
 		t.Errorf("action log: %s", ops)
 	}
-	if ev := r.m.actions()[2]; ev.Detail != "taildrive_proxy_enabled=false" || !ev.OK || ev.Name != rtPhone.name || ev.Class != "owner" {
+	if ev := r.m.actions()[4]; ev.Detail != "full_control=false" || !ev.OK || ev.Name != rtPhone.name || ev.Class != "owner" {
 		t.Errorf("logged: %+v", ev)
 	}
-	if ev := r.m.actions()[0]; ev.Op != "action" || ev.Detail != "receive_folder_default" || !ev.OK {
+	if ev := r.m.actions()[0]; ev.Op != "action" || ev.Detail != "save_received" || !ev.OK {
 		t.Errorf("logged: %+v", ev)
 	}
 }
@@ -342,17 +429,36 @@ func TestRemoteGuestRights(t *testing.T) {
 	}
 }
 
-// The log stays on the device: no route returns it, whoever asks and however.
+// The log stays on the device at the basic level, whoever asks and however;
+// and what the one route gives at the full level has no secret in it
+// (TestRemoteDiag has the scrubbing itself).
 func TestRemoteNoLogRoute(t *testing.T) {
 	r := newRemoteRig(t)
-	owner := r.pair(rtPhone)
-	LogAndroid("INFO", "TEST", "Running Tailscale CLI args=[up --auth-key=0123456789abcdef0123456789abcdef]")
-	for _, path := range []string{"/v1/log", "/v1/log?lines=100", "/v1/logs", "/v1/status/log", "/v1/files/log"} {
+	// The real log, with a key in it as the daemon's own command line prints one.
+	r.m.logText = GetLogs
+	owner, guest := r.pair(rtPhone), r.pair(rtFriend)
+	const secret = "0123456789abcdef0123456789abcdef"
+	LogAndroid("INFO", "TEST", "Running Tailscale CLI args=[up --auth-key="+secret+"]")
+	if !strings.Contains(GetLogs(), secret) {
+		t.Fatal("the log under test does not hold the key")
+	}
+	for _, path := range []string{"/v1/log", "/v1/log?lines=100", "/v1/logs", "/v1/status/log", "/v1/files/log", "/v1/diag", "/v1/diag/logs", "/v1/diag/log/raw"} {
 		for _, method := range []string{"GET", "POST"} {
 			a := r.call(rtPhone, method, path, owner, nil)
 			if a.status != 404 || strings.Contains(a.raw, "auth-key") {
 				t.Errorf("%s %s: %d %s", method, path, a.status, a.raw)
 			}
+		}
+	}
+	// The route that does exist says "not at this level" to an owner and
+	// "not for you" to a guest, and neither with a line of the log.
+	for _, path := range []string{"/v1/diag/log", "/v1/diag/report"} {
+		a := r.call(rtPhone, "GET", path, owner, nil)
+		r.want(a, 403, "needs_full")
+		g := r.call(rtFriend, "GET", path, guest, nil)
+		r.want(g, 403, "forbidden")
+		if strings.Contains(a.raw+g.raw, secret) || strings.Contains(a.raw+g.raw, "auth-key") {
+			t.Errorf("GET %s leaks: %s %s", path, a.raw, g.raw)
 		}
 	}
 	// Nor does anything else the owner can read carry a line of it.
@@ -361,6 +467,17 @@ func TestRemoteNoLogRoute(t *testing.T) {
 			t.Errorf("GET %s: %d %s", path, a.status, a.raw)
 		}
 	}
+	// Full control, switched on at the device: the owner gets the tail, and
+	// the key is not in it. A guest still gets nothing.
+	r.m.setAccess(true, false)
+	a := r.call(rtPhone, "GET", "/v1/diag/log", owner, nil)
+	if a.status != 200 || strings.Contains(a.raw, secret) || !strings.Contains(a.raw, "Running Tailscale CLI") {
+		t.Errorf("the scrubbed log: %d %s", a.status, a.raw)
+	}
+	if a.num("scrubbed") < 1 {
+		t.Errorf("nothing was scrubbed: %s", a.raw)
+	}
+	r.want(r.call(rtFriend, "GET", "/v1/diag/log", guest, nil), 403, "forbidden")
 }
 
 func TestRemoteStatus(t *testing.T) {
@@ -391,9 +508,15 @@ func TestRemoteStatus(t *testing.T) {
 	if you := a.obj["you"].(map[string]any); you["class"] != "owner" || you["left"] != float64(-1) {
 		t.Errorf("you: %v", you)
 	}
-	// Nothing in a status answer that could be a secret or a path.
-	for _, word := range []string{"token", "sha", "/data/", "socks", "key"} {
-		if strings.Contains(strings.ToLower(a.raw), word) {
+	// Nothing in a status answer that could be a secret or a private path.
+	// Two words of the answer's own vocabulary contain what is looked for:
+	// "keyExpiry", a date, and the operations and capability named "shares".
+	said := strings.ToLower(a.raw)
+	for _, own := range []string{`"keyexpiry"`, `"shares.add"`, `"shares.remove"`, `"shares"`} {
+		said = strings.ReplaceAll(said, own, "")
+	}
+	for _, word := range []string{"token", "sha", "/data/", "socks", "key", "controlplane", "controlurl"} {
+		if strings.Contains(said, word) {
 			t.Errorf("status mentions %q: %s", word, a.raw)
 		}
 	}

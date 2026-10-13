@@ -358,21 +358,30 @@ func (e *remoteClientEnv) pair(peerID, code string) remotePairAnswer {
 
 // RemoteGet sends an authenticated GET to a paired peer, by StableNodeID.
 // path is one of the API's: "/v1/status", "/v1/exit-nodes", "/v1/settings",
-// "/v1/files". The answer is {"status","body","error","message"}: status is
-// the peer's HTTP status and body its JSON, or status 0 and an error when
+// "/v1/files", and with full control on at the peer "/v1/diag/report" and
+// "/v1/diag/log". The answer is {"status","body","error","message"}: status
+// is the peer's HTTP status and body its JSON, or status 0 and an error when
 // nothing came back. 401 means the pairing is gone — revoked, expired or
-// replaced: forget the token.
+// replaced: forget the token. What a peer can do at all is in its status
+// ("caps"); a peer that lists none is the first build.
 func RemoteGet(peerID, token, path string) string {
 	return remoteReply(remoteClient.do(peerID, http.MethodGet, path, token, "", remoteRequestTimeout))
 }
 
 // RemotePost sends an authenticated POST with a JSON body to a paired peer:
 // "/v1/exit-node" {"id"}, "/v1/settings" {"key","value"}, "/v1/actions"
-// {"action"}, "/v1/files/delete" {"name"}, "/v1/unpair" with "". The answer
-// is as for RemoteGet. 409 "refused" carries the peer app's reason in the
-// body's "message"; 503 "unavailable" means nothing was changed; 504
-// "pending" means the peer's app has not answered and the change may still
-// be applied — read the setting back before saying either.
+// {"action"}, "/v1/files/delete" {"name"}, "/v1/unpair" with ""; and, where
+// the peer's status lists the capability, "/v1/permissions/request"
+// {"permission"}, "/v1/confirm" {"id"}, "/v1/identify" with "",
+// "/v1/shares/remove" {"name"}, "/v1/shares/add" {"name","path"},
+// "/v1/storage/list" {"path"} and "/v1/storage/send" {"path"} — and "guard":
+// true beside an exit node or a setting. A body field the peer does not know
+// is a 400: send only what its "caps" promise. The answer is as for
+// RemoteGet. 409 "refused" carries the peer app's reason in the body's
+// "message"; 403 "needs_full" means full control is off there; 503
+// "unavailable" means nothing was changed; 504 "pending" means the peer's app
+// has not answered and the change may still be applied — read the setting
+// back before saying either.
 func RemotePost(peerID, token, path, body string) string {
 	return remoteReply(remoteClient.do(peerID, http.MethodPost, path, token, body, remoteRequestTimeout))
 }

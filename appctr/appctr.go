@@ -224,6 +224,15 @@ type StartOptions struct {
 	// RemoteManagement lets paired devices manage this one over the tailnet
 	// (remote.go). The zero value keeps the endpoint closed.
 	RemoteManagement bool
+	// RemoteFullControl is the second switch of remote management: what shows
+	// more of this device to a network or shows what is on it — its storage
+	// by name, shares, routes, the scrubbed log — is done only while it is on,
+	// and only for an owner (remote_level.go). The zero value is the basic
+	// level.
+	RemoteFullControl bool
+	// RemoteNoGuests keeps devices that cannot be owners from pairing and
+	// from using a pairing they have. The zero value lets them in as guests.
+	RemoteNoGuests bool
 }
 
 func SetLogLevel(level int32) {

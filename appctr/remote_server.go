@@ -60,7 +60,11 @@ type remoteRoute struct {
 // signs out, touches an account, a key or a credential, or returns a file —
 // and none that returns the log: it quotes auth keys, sign-in links, proxy
 // credentials and paths in more forms than a filter can be trusted to know.
-// None grants a permission either: the last one asks the app to show a page.
+// None grants a permission either: /v1/permissions/request asks the app to
+// show a page. What comes after it in the list is newer: a confirmation of a
+// guarded change, "say whose hands you are in", and what takes full control —
+// the storage by name, shares, the diagnostics and the scrubbed log
+// (remote_level.go).
 var remoteRoutes = []remoteRoute{
 	{"GET", "/v1/hello", "", (*remoteManager).handleHello},
 	{"POST", "/v1/pair", "", (*remoteManager).handlePair},
@@ -74,6 +78,14 @@ var remoteRoutes = []remoteRoute{
 	{"GET", "/v1/files", remoteOpFiles, (*remoteManager).handleFiles},
 	{"POST", "/v1/files/delete", remoteOpDeleteFile, (*remoteManager).handleDeleteFile},
 	{"POST", "/v1/permissions/request", remoteOpAskPermission, (*remoteManager).handleAskPermission},
+	{"POST", "/v1/confirm", remoteOpConfirm, (*remoteManager).handleConfirm},
+	{"POST", "/v1/identify", remoteOpIdentify, (*remoteManager).handleIdentify},
+	{"POST", "/v1/shares/remove", remoteOpSharesRemove, (*remoteManager).handleShareRemove},
+	{"POST", "/v1/shares/add", remoteOpSharesAdd, (*remoteManager).handleShareAdd},
+	{"POST", "/v1/storage/list", remoteOpStorageList, (*remoteManager).handleStorageList},
+	{"POST", "/v1/storage/send", remoteOpStorageSend, (*remoteManager).handleStorageSend},
+	{"GET", "/v1/diag/report", remoteOpDiagReport, (*remoteManager).handleDiagReport},
+	{"GET", "/v1/diag/log", remoteOpDiagLog, (*remoteManager).handleDiagLog},
 }
 
 // remoteError is the body of every refusal: a fixed word a client can switch
@@ -166,7 +178,13 @@ func (m *remoteManager) serveHTTP(w http.ResponseWriter, r *http.Request) {
 			remoteWrite(w, http.StatusUnauthorized, remoteError{Error: "unauthorized"})
 			return
 		}
-		if !m.policy.allows(route.op, class) {
+		if ok, needsFull := m.may(route.op, class); !ok {
+			if needsFull {
+				// The caller's, at a level the device is not at.
+				m.noteDenied(caller, class, route.op+": full control is off")
+				remoteWrite(w, http.StatusForbidden, remoteNeedsFull)
+				return
+			}
 			m.noteDenied(caller, class, route.op+": not for a "+class.String())
 			remoteWrite(w, http.StatusForbidden, remoteError{Error: "forbidden"})
 			return
@@ -232,7 +250,7 @@ var remoteDummyHash = remoteHashToken("no such pairing")
 // authorize checks the caller's token against its pairing and returns the
 // class it may act as and the seconds the pairing has left (-1: until revoked).
 func (m *remoteManager) authorize(c remoteCaller, self remoteSelf, token string) (remoteClass, int64, bool) {
-	now := m.policy.classOf(c, self)
+	now := m.classOf(c, self)
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -311,6 +329,10 @@ func (m *remoteManager) record(rq *remoteRequest, op, detail string, ok bool) {
 	m.auditLocked(remoteEvent{NodeID: rq.caller.NodeID, Name: rq.caller.Name, Class: rq.class.String(), Op: op, Detail: detail, OK: ok})
 	m.saveLocked()
 	slog.Info("Remote management: "+op, "device", rq.caller.Name, "node", rq.caller.NodeID, "detail", remoteClean(detail, 160), "ok", ok)
+	if ok {
+		// And on the device's screen, while the app is up: never silent.
+		m.notice(rq.caller.Name, op, detail)
+	}
 }
 
 // ─── The app's side ─────────────────────────────────────────────────────────
@@ -397,6 +419,14 @@ func remoteDelegateRefusal(err error) (int, any) {
 		return http.StatusGatewayTimeout, remoteError{Error: "pending", Message: err.Error()}
 	case errors.Is(err, errRemoteBadAnswer):
 		return http.StatusBadGateway, remoteError{Error: "failed", Message: err.Error()}
+	}
+	// Two of the app's refusals are the API's own words, not sentences: what
+	// was named is not there, or is not for anyone to name.
+	switch err.Error() {
+	case "not_found":
+		return http.StatusNotFound, remoteError{Error: "not_found"}
+	case "forbidden":
+		return http.StatusForbidden, remoteError{Error: "forbidden"}
 	}
 	return http.StatusConflict, remoteError{Error: "refused", Message: remoteClean(err.Error(), 200)}
 }
@@ -573,6 +603,9 @@ type remoteYou struct {
 	// Left is the seconds the caller's pairing has left, -1 for "until
 	// revoked".
 	Left int64 `json:"left"`
+	// Can lists the operations (remoteOps) the caller may use right now: its
+	// class at the device's level.
+	Can []string `json:"can"`
 }
 
 type remoteStatus struct {
@@ -594,6 +627,19 @@ type remoteStatus struct {
 	// Since is when the daemon started, Unix seconds, 0 when not known.
 	Since int64     `json:"since"`
 	You   remoteYou `json:"you"`
+	// Caps names what this build can do (remoteCaps), whoever asks; Level is
+	// "basic" or "full" (remote_level.go).
+	Caps  []string `json:"caps"`
+	Level string   `json:"level"`
+	// Guard is the caller's change that waits for a confirmation, if one
+	// does (remote_guard.go); Fetch its last "send me this file"
+	// (remote_storage.go).
+	Guard *remoteGuardView `json:"guard,omitempty"`
+	Fetch *remoteFetch     `json:"fetch,omitempty"`
+	// Device is what the device is; Advertise what it offers to route
+	// (remote_device.go).
+	Device    *remoteDeviceFacts `json:"device,omitempty"`
+	Advertise *remoteAdvertise   `json:"advertise,omitempty"`
 	// App is what the app says of itself — permissions, where received files
 	// go, the folders it shares — as far as this caller may know; absent when
 	// the app did not say in time. See remote_app.go.
@@ -613,7 +659,12 @@ func (m *remoteManager) handleStatus(rq *remoteRequest) (int, any) {
 		NodeID:       s.NodeID,
 		Health:       []string{},
 		Since:        GetDaemonStartTime(),
-		You:          remoteYou{Class: rq.class.String(), Left: rq.left},
+		You:          remoteYou{Class: rq.class.String(), Left: rq.left, Can: m.can(rq.class)},
+		Caps:         remoteCaps,
+		Level:        m.level(),
+		Guard:        m.guardFor(rq.caller.NodeID),
+		Fetch:        m.fetchFor(rq.caller.NodeID),
+		Advertise:    m.advertise(s),
 	}
 	if st.Since < 0 {
 		st.Since = 0
@@ -630,7 +681,14 @@ func (m *remoteManager) handleStatus(rq *remoteRequest) (int, any) {
 			st.ExitNode.Name, st.ExitNode.Country, st.ExitNode.City = n.Name, n.Country, n.City
 		}
 	}
-	st.App = m.appReport(rq.class)
+	st.App, st.Device = m.appReport(rq.class)
+	if st.Device == nil {
+		st.Device = &remoteDeviceFacts{}
+	} else {
+		facts := *st.Device
+		st.Device = &facts
+	}
+	st.Device.KeyExpiry = s.KeyExpiry
 	return http.StatusOK, st
 }
 
@@ -756,6 +814,9 @@ func (m *remoteManager) suggestedExitNode() string {
 func (m *remoteManager) handleSetExitNode(rq *remoteRequest) (int, any) {
 	var in struct {
 		ID string `json:"id"`
+		// Guard: keep the change only if this caller confirms it afterwards
+		// (remote_guard.go).
+		Guard bool `json:"guard"`
 	}
 	if !remoteDecode(rq.body, &in) || (in.ID != "" && !remoteIsNodeID(in.ID)) {
 		return http.StatusBadRequest, remoteError{Error: "bad_request"}
@@ -779,9 +840,15 @@ func (m *remoteManager) handleSetExitNode(rq *remoteRequest) (int, any) {
 			return http.StatusNotFound, remoteError{Error: "not_found", Message: "not one of this device's exit nodes"}
 		}
 	}
-	status, v := m.change(rq, "exit_node", name, func(d RemoteDelegate) error {
-		return d.SetSetting(RemoteKeyExitNode, in.ID)
-	})
+	var status int
+	var v any
+	if in.Guard {
+		status, v = m.changeGuarded(rq, "exit_node", RemoteKeyExitNode, in.ID, name)
+	} else {
+		status, v = m.change(rq, "exit_node", name, func(d RemoteDelegate) error {
+			return d.SetSetting(RemoteKeyExitNode, in.ID)
+		})
+	}
 	// This node's exit node is part of the identity cached for a few seconds.
 	m.mu.Lock()
 	m.selfAt = time.Time{}
@@ -790,23 +857,32 @@ func (m *remoteManager) handleSetExitNode(rq *remoteRequest) (int, any) {
 }
 
 type remoteSettingView struct {
-	Key  string `json:"key"`
-	Kind string `json:"kind"` // "bool": "true" or "false"; "text"
+	Key string `json:"key"`
+	// Kind is "bool": "true" or "false"; "cidrs": prefixes separated by
+	// commas; "text".
+	Kind string `json:"kind"`
 	// Writable: the setting can be changed, and by this caller.
 	Writable bool   `json:"writable"`
 	Value    string `json:"value"`
-	// Only, on a switch, is the one value that may be written to it from
-	// afar — "true" or "false"; the other way round is done at the device.
-	Only string `json:"only,omitempty"`
+	// Only, on a switch, is the one value this caller may write to it now —
+	// "true" or "false". Needs is "full" when the other way round (for a
+	// list: anything but clearing it) takes full control; without it, the
+	// other way round is done at the device and nowhere else.
+	Only  string `json:"only,omitempty"`
+	Needs string `json:"needs,omitempty"`
+	// Guard is "optional" when a change may be sent to be confirmed, "always"
+	// when it is held for a confirmation whatever is sent (remote_guard.go).
+	Guard string `json:"guard,omitempty"`
 	// Error is set, and Value empty, when the app could not say.
 	Error string `json:"error,omitempty"`
 }
 
 func (m *remoteManager) handleSettings(rq *remoteRequest) (int, any) {
 	mayWrite := m.policy.allows(remoteOpSetSetting, rq.class)
+	full := m.fullControl()
 	out := []remoteSettingView{}
 	for _, s := range remoteSettings {
-		v := remoteSettingView{Key: s.key, Kind: s.kind, Writable: s.writable && mayWrite, Only: s.only}
+		v := remoteSettingViewOf(s, mayWrite, full)
 		if !s.writable {
 			v.Value = m.fact(s.key)
 		} else {
@@ -836,6 +912,9 @@ func remoteValueFits(s remoteSetting, value string) bool {
 	switch s.kind {
 	case "bool":
 		return value == "true" || value == "false"
+	case "cidrs":
+		_, ok := remoteRoutesValue(value)
+		return ok
 	}
 	return false
 }
@@ -844,6 +923,9 @@ func (m *remoteManager) handleSetSetting(rq *remoteRequest) (int, any) {
 	var in struct {
 		Key   string `json:"key"`
 		Value string `json:"value"`
+		// Guard: keep the change only if this caller confirms it afterwards
+		// (remote_guard.go). Taken for a setting that can be guarded.
+		Guard bool `json:"guard"`
 	}
 	if !remoteDecode(rq.body, &in) {
 		return http.StatusBadRequest, remoteError{Error: "bad_request"}
@@ -857,14 +939,36 @@ func (m *remoteManager) handleSetSetting(rq *remoteRequest) (int, any) {
 	if !remoteValueFits(s, in.Value) {
 		return http.StatusBadRequest, remoteError{Error: "bad_request", Message: "not a value for this setting"}
 	}
-	if s.only != "" && in.Value != s.only {
-		// The app is not asked: from afar this switch goes one way.
-		m.noteDenied(rq.caller, rq.class, "only at the device: "+s.key+"="+in.Value)
-		return http.StatusForbidden, remoteError{Error: "forbidden", Message: "that way round, only at the device"}
+	value := in.Value
+	if s.kind == "cidrs" {
+		// The app is handed the list as the bridge read it, not as it came.
+		value, _ = remoteRoutesValue(in.Value)
 	}
-	return m.change(rq, "setting", s.key+"="+in.Value, func(d RemoteDelegate) error {
-		return d.SetSetting(s.key, in.Value)
+	switch remoteSettingRefusal(s, value, m.fullControl()) {
+	case "only":
+		// The app is not asked: from afar this switch goes one way.
+		m.noteDenied(rq.caller, rq.class, "only at the device: "+s.key+"="+value)
+		return http.StatusForbidden, remoteError{Error: "forbidden", Message: "that way round, only at the device"}
+	case "full":
+		m.noteDenied(rq.caller, rq.class, "full control is off: "+s.key+"="+value)
+		return http.StatusForbidden, remoteNeedsFull
+	}
+	detail := s.key + "=" + value
+	if s.guard == "always" || (s.guard == "optional" && in.Guard) {
+		return m.changeGuarded(rq, "setting", s.key, value, detail)
+	}
+	status, v := m.change(rq, "setting", detail, func(d RemoteDelegate) error {
+		return d.SetSetting(s.key, value)
 	})
+	if s.key == remoteKeyFullControl && status == http.StatusOK {
+		// Given up, and at once: the app tells the bridge again with the next
+		// settings it applies, this does not wait for that.
+		m.mu.Lock()
+		m.full = false
+		m.rev++
+		m.mu.Unlock()
+	}
+	return status, v
 }
 
 func (m *remoteManager) handleAction(rq *remoteRequest) (int, any) {
@@ -877,6 +981,16 @@ func (m *remoteManager) handleAction(rq *remoteRequest) (int, any) {
 	if !remoteActionKnown(in.Action) {
 		m.noteDenied(rq.caller, rq.class, "action not on the list: "+remoteClean(in.Action, 40))
 		return http.StatusForbidden, remoteError{Error: "forbidden", Message: "not a remote action"}
+	}
+	if in.Action == remoteActionRelays {
+		// The bridge's own: the relay connections are dialed again, nothing
+		// restarts, the app is not asked. Its answer is "" or why not.
+		why := m.relays()
+		m.record(rq, "action", in.Action, why == "")
+		if why != "" {
+			return http.StatusConflict, remoteError{Error: "refused", Message: remoteClean(why, 200)}
+		}
+		return http.StatusOK, struct{}{}
 	}
 	return m.change(rq, "action", in.Action, func(d RemoteDelegate) error {
 		return d.PerformAction(in.Action)

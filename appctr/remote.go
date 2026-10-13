@@ -28,19 +28,65 @@ package appctr
 //     this node's own user), GuestTTL for anyone else.
 //   - Pairing hands the caller a random 256-bit token; this device keeps only
 //     its SHA-256. Every later request needs the node identity AND the token.
-//   - What a paired device may do is exactly remoteRoutes, remoteSettings and
-//     remoteActions. Settings live in the Kotlin app and are reached through
-//     RemoteDelegate; the bridge never hands it a key or an action that is not
-//     in those lists, so the app cannot widen them by accident.
+//   - What a paired device may do is exactly remoteRoutes, remoteSettings,
+//     remoteActions, remotePermissions and remoteRequests. Settings live in
+//     the Kotlin app and are reached through RemoteDelegate; the bridge never
+//     hands it a key, an action or a request that is not in those lists, so
+//     the app cannot widen them by accident. What the app answers is held to
+//     the lists as well: it is decoded into the bridge's own types and encoded
+//     again, never passed on (remote_app.go).
+//   - Two levels, chosen on the device and nowhere else (remote_level.go).
+//     The feature's switch gives the basic one: looking, the connection, the
+//     received files, permissions seen and asked for. A second switch gives
+//     full control — the storage by name, shares, routes, the diagnostics and
+//     the scrubbed log — and only to an owner. A paired device can give that
+//     level up; it cannot take it.
 //
-// Never remote, whatever the class: stopping the daemon or the app (nothing
-// could start it again), signing out, the login server, accounts and profiles,
-// auth keys and every other credential, Root Mode, bind addresses and proxy
-// passwords, extra daemon arguments, Serve/Funnel/Taildrive shares, anything
-// that needs a permission dialog or a gesture on the device, the contents of
-// files, the log — it quotes keys, sign-in links, proxy credentials and paths
-// in more forms than a filter can be trusted to know — and this feature's own
-// switch, codes and pairings.
+// What each addition is worth to whoever holds a pairing, since this file
+// started out saying "never" to most of it:
+//
+//   - A permission (remote_app.go). A request grants nothing and cannot:
+//     Android gives a permission to a person pressing a button in its own
+//     page. The app brings that page up, or says so in a notification and on
+//     its screen and opens it when TailSocks is next opened; it says who
+//     asks. Three requests in a row, then one in twenty seconds. The worst a
+//     request buys is a person at the device granting TailSocks access it
+//     asked for under its own name — access to all files is what lets the
+//     shares the device already has be read by the tailnet, and the page the
+//     app shows first says that.
+//   - One-way switches (remote_policy.go). What keeps the device reachable
+//     can be switched on from afar and not off; what shows more of it to a
+//     network can be switched off, and on only at the full level.
+//   - Guarded changes (remote_guard.go). The exit node, three switches and
+//     the mode can cut the channel they are changed over. Such a change is
+//     put back by the device itself unless the node that made it confirms it
+//     over the channel afterwards; proxy or TUN is never changed otherwise.
+//     The guard protects against a mistake, not against intent: a paired
+//     device that wants the exit node changed confirms.
+//   - The storage by name and "send me this file" (remote_storage.go), at
+//     the full level. No file's bytes cross this endpoint. The file goes by
+//     Taildrop to the node that asked, so the tailnet's own rule on who may
+//     send what to whom applies; the app resolves the path against the
+//     volumes it can read, and the bridge then refuses anything not under
+//     /storage or /mnt or reached through a link — the keys, the state and
+//     the pairings are under /data and cannot be named.
+//   - The log (remote_diag.go), at the full level. It quotes keys, sign-in
+//     links, proxy credentials and paths in more forms than a filter can be
+//     trusted to know; it is scrubbed hard all the same, and stays behind the
+//     switch a person turns on at the device after reading that.
+//   - "Managed from <name>" and a line for each change (remote_app.go): the
+//     device says, on its own screen, whose hands it is in. The name is the
+//     tailnet's for the caller; a caller sends no text that is shown.
+//
+// Never remote, whatever the class and the level: stopping the daemon or the
+// app for good (nothing could start it again), signing out, the login server,
+// accounts and profiles, auth keys and every other credential — proxy and
+// Taildrive-proxy passwords are neither read nor written — the control proxy
+// and bypass settings, Root Mode, bind addresses, extra daemon arguments,
+// Serve and Funnel, granting a permission, the VPN consent (asked for or
+// given), the contents of a file over this endpoint, the log unscrubbed, and
+// this feature's own switches, codes and pairings — except that full control
+// can be given up.
 //
 // Threat model
 //
@@ -82,8 +128,26 @@ package appctr
 //	  that is unlocked with TailSocks usable IS the paired device: it gets its
 //	  class's allow-list until the pairing is revoked here, or the phone's
 //	  node is removed or expired in the admin console (no tailnet path, and
-//	  whois reports Expired, which is refused). The allow-list is the bound:
-//	  no sign-out, no stop, no account or credential, no file contents.
+//	  whois reports Expired, which is refused). The allow-list is the bound.
+//	  At the basic level: no sign-out, no stop, no account or credential, no
+//	  file's name outside the received ones and no file's contents; it can
+//	  change the connection (and has to confirm what it changes, which it
+//	  can), put a permission's page in front of whoever is at the device a
+//	  few times a minute, and switch sharing off. At the full level, which
+//	  the device's user switched on knowing this: every file's name on the
+//	  shared storage, any of those files sent to that phone, a new share, the
+//	  device offered as an exit node or a router (the tailnet's admin still
+//	  has to approve those), and the scrubbed log. Still no credential and no
+//	  stop. The device's page lists exactly this, from the same table
+//	  (RemoteAccessJSON), next to the switch.
+//
+//	A paired guest
+//	  looks, picks the exit node — guarded if it asks, like anyone — and can
+//	  make the device show the guest's own tailnet name. It is offered
+//	  nothing of the full level whatever the switch says, sees no path of a
+//	  shared folder, cannot ask for a permission, and with the device's "no
+//	  guests" switch on is nobody: not to pair, and not with the pairing it
+//	  has.
 //
 //	A compromised node elsewhere in the tailnet
 //	  is a tailnet member who was never paired, and cannot arrive as a paired
@@ -115,8 +179,17 @@ package appctr
 //     by a process on the device that opens connections faster than the
 //     daemon can be asked whose they are. Rates, sizes, connections per node
 //     and waiting lookups are capped; nothing more.
-//   - A paired device doing everything its class allows. There are two
-//     classes and no per-device rights.
+//   - A paired device doing everything its class allows at the device's
+//     level. There are two classes, two levels and no per-device rights.
+//   - The scrubber missing a secret in a form it was not taught. It takes out
+//     what it recognises and much that merely looks alike; it cannot know
+//     what it does not recognise. Hence the level, and the owner only.
+//   - A file that is sent arriving in the wrong hands: it goes to the paired
+//     node, which is whoever holds that phone.
+//   - A manager that confirms a change without looking. The confirmation
+//     proves the channel survived, not that the change was wise.
+//   - A change going unseen by the person at the device: it is shown while
+//     TailSocks is on screen there, and otherwise only written to the log.
 //   - Replay inside WireGuard is not addressed separately.
 //   - Someone at the device. Whoever can read the screen and press its
 //     buttons can pair a device; that presence is the consent.
@@ -207,19 +280,31 @@ const (
 // until the call returns. The message of a thrown exception is shown to the
 // paired device: keep it short and free of secrets.
 type RemoteDelegate interface {
-	// GetSetting returns the current value of a setting. Today's keys:
-	// "accept_dns", "accept_routes", "exit_node_lan_access" — "true" or
-	// "false"; "device_class" — "tv", "phone" or "tablet"; "app_version" —
-	// the app's version name. The last two are asked once and remembered.
+	// GetSetting returns the current value of a setting: every key of
+	// remoteSettings (remote_policy.go) — the switches as "true" or "false",
+	// "advertise_routes" as prefixes separated by commas, "device_class" as
+	// "tv", "phone" or "tablet", "app_version" as the app's version name; the
+	// last two are asked once and remembered — and RemoteKeyExitNode, the
+	// StableNodeID of the exit node the app has stored, "" for none, which
+	// the bridge reads before a guarded change to know what to put back.
 	GetSetting(key string) (string, error)
-	// SetSetting stores the value where the app keeps it and applies it: one
-	// of the three switches above with "true" or "false", or RemoteKeyExitNode
-	// with a peer's StableNodeID, "" for none — an id the bridge has already
-	// found among the daemon's exit nodes.
+	// SetSetting stores the value where the app keeps it and applies it: a
+	// writable key of remoteSettings with a value the bridge has checked —
+	// its kind, the way it may go, the level — or RemoteKeyExitNode with a
+	// peer's StableNodeID, "" for none: an id the bridge has already found
+	// among the daemon's exit nodes, or the one that was there before a
+	// guarded change that nobody confirmed.
 	SetSetting(key, value string) error
-	// PerformAction carries out one named action. Today: "reconnect" —
-	// restart the connection, as the service's own restart does.
+	// PerformAction carries out one named action: "reconnect" — restart the
+	// connection, as the service's own restart does; "receive_folder_default"
+	// and "save_received" (remote_policy.go).
 	PerformAction(name string) error
+	// Request answers one named question or carries out one named request,
+	// with a JSON object for the arguments ("" when there are none) and a JSON
+	// document or a single word for the answer. The names are remoteRequests
+	// (remote_app.go), each with what it takes and gives; like the keys above,
+	// a name the app does not know is refused by throwing.
+	Request(name, args string) (string, error)
 }
 
 // RemoteKeyExitNode is the key under which SetSetting receives an exit node
@@ -277,6 +362,24 @@ type remoteManager struct {
 	// remoteReportTTL: a status answer is what a phone polls.
 	report   *remoteAppReport
 	reportAt time.Time
+	// full and noGuests are the two switches of the device's own page beyond
+	// the main one (remote_level.go).
+	full     bool
+	noGuests bool
+	// guard is the change that waits for its confirmation, if one does;
+	// guarding serialises the making of such changes (remote_guard.go).
+	guard    *remoteGuard
+	guarding sync.Mutex
+	// fetches are the files being sent to the devices that asked for them, by
+	// the asking node (remote_storage.go); browsed are the nodes whose looking
+	// at the storage has been logged.
+	fetches map[string]*remoteFetch
+	browsed map[string]bool
+	// What the storage and diagnostics routes take from the rest of the
+	// bridge; replaceable in tests.
+	sendFile func(peerID, path string) string
+	logText  func() string
+	relays   func() string
 }
 
 func newRemoteManager(policy remotePolicy, clock remoteClock, api remoteLocalAPI) *remoteManager {
@@ -295,6 +398,9 @@ func newRemoteManager(policy remotePolicy, clock remoteClock, api remoteLocalAPI
 		delegateAnswer: remoteDelegateAnswer,
 		reportWait:     remoteReportWait,
 		reportAnswer:   remoteReportAnswer,
+		sendFile:       SendFileFromAPI,
+		logText:        GetLogs,
+		relays:         ReconnectRelays,
 	}
 }
 
@@ -369,7 +475,11 @@ func remoteApply(opt *StartOptions) {
 	if opt == nil {
 		return
 	}
+	remote.setAccess(opt.RemoteFullControl, opt.RemoteNoGuests)
 	remote.apply(opt.RemoteManagement, remoteStorePath(opt), remoteListenAddr())
+	// A guarded change left over from an earlier run of the app was never
+	// confirmed (remote_guard.go).
+	go remote.guardTick()
 }
 
 // remoteSwitch follows the switch alone, for settings applied to a daemon that
@@ -380,6 +490,7 @@ func remoteSwitch(opt *StartOptions) {
 	if opt == nil {
 		return
 	}
+	remote.setAccess(opt.RemoteFullControl, opt.RemoteNoGuests)
 	remote.apply(opt.RemoteManagement, "", remoteListenAddr())
 }
 
@@ -739,7 +850,7 @@ func (m *remoteManager) state() remoteStateView {
 		Delegate:  m.delegate != nil,
 		Pairing:   m.windowViewLocked(),
 		Policy: remotePolicyView{
-			AllowGuests:  m.policy.AllowGuests,
+			AllowGuests:  m.guestsAllowedLocked(),
 			CodeSeconds:  int64(m.policy.CodeTTL / time.Second),
 			CodeAttempts: m.policy.CodeAttempts,
 			GuestSeconds: int64(m.policy.GuestTTL / time.Second),
@@ -904,7 +1015,11 @@ func (m *remoteManager) revokeAll() remoteRevoked {
 // newest first, at most a hundred entries:
 // [{"time","nodeId","name","class","op","detail","ok"}] — op is one of paired,
 // pair_failed, pair_locked, unpaired, revoked, revoked_all, expired, reset,
-// exit_node, setting, action, file_deleted, denied. Looking is not recorded.
+// exit_node, setting, action, file_deleted, denied, permission (a page was
+// asked for; the detail ends in what the app did), confirmed and reverted (a
+// guarded change kept, or put back for want of a confirmation), identify,
+// share_added, share_removed, file_sent, browse and diag. Looking is not
+// recorded, except at the storage and the diagnostics — once in a while each.
 // A change the app had not answered when its request gave up is logged as not
 // ok with "(no answer from the app yet)", and again when the app does answer,
 // as "(applied late)" or "(failed late)".

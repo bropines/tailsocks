@@ -84,6 +84,11 @@ type remoteSelf struct {
 	ExitNodeID   string
 	ExitOnline   bool
 	Health       []string
+	// KeyExpiry is when the node key runs out, Unix seconds, 0 for never;
+	// AllowedIPs what the tailnet lets this node answer for — its own
+	// addresses and the routes it advertises that were approved.
+	KeyExpiry  int64
+	AllowedIPs []netip.Prefix
 }
 
 var (
@@ -200,11 +205,13 @@ func remoteSelfFromStatus(raw []byte) (remoteSelf, error) {
 		BackendState string
 		Health       []string
 		Self         *struct {
-			ID       string
-			UserID   int64
-			HostName string
-			DNSName  string
-			Tags     []string
+			ID         string
+			UserID     int64
+			HostName   string
+			DNSName    string
+			Tags       []string
+			KeyExpiry  *time.Time
+			AllowedIPs []netip.Prefix
 		}
 		ExitNodeStatus *struct {
 			ID     string
@@ -227,6 +234,10 @@ func remoteSelfFromStatus(raw []byte) (remoteSelf, error) {
 		BackendState: st.BackendState,
 		Version:      remoteClean(st.Version, 64),
 		Health:       st.Health,
+		AllowedIPs:   st.Self.AllowedIPs,
+	}
+	if t := st.Self.KeyExpiry; t != nil && !t.IsZero() {
+		s.KeyExpiry = t.Unix()
 	}
 	if st.ExitNodeStatus != nil {
 		s.ExitNodeID = st.ExitNodeStatus.ID
