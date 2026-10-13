@@ -1799,8 +1799,12 @@ fun SettingsScreen(
                     modifier = Modifier.padding(start = 16.dp, top = 4.dp)
                 )
             }
-            Spacer(Modifier.height(12.dp))
-            if (!lanAccessEnabled) {
+            // The link is made to be pasted elsewhere: offered where there is a clipboard to speak of.
+            val copies = place(Feature.CLIPBOARD_ACTIONS) == Availability.OFFERED
+            if (copies) Spacer(Modifier.height(12.dp))
+            if (!copies) {
+                // Nothing to copy with.
+            } else if (!lanAccessEnabled) {
                 OutlinedButton(onClick = { copySagerNetLink() }, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium) {
                     Icon(Icons.Default.Share, null)
                     Spacer(Modifier.width(8.dp))
